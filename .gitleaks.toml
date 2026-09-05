@@ -1,0 +1,55 @@
+# gitleaks configuration for Milsurp Monitor.
+#
+# The default ruleset plus a few project-specific allowances, so `make security`
+# does not cry wolf about documented placeholders while still catching a real
+# credential that slipped into a tracked file.
+
+title = "Milsurp Monitor"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "milsurp-smtp-password"
+description = "SMTP password committed in a YAML file"
+# Catches a real Gmail app password (16 chars, often written in 4-char groups)
+# assigned to a password key.
+regex = '''(?i)^\s*(?:smtp_)?password:\s*["']?(?!CHANGE-ME|set-a-|abcd efgh)([A-Za-z0-9@#$%^&*!_\-]{8,}|(?:[a-z]{4}\s){3}[a-z]{4})["']?\s*$'''
+path = '''\.ya?ml$'''
+tags = ["smtp", "credential"]
+
+[[rules]]
+id = "milsurp-signing-secret"
+description = "JWT secret or password pepper committed"
+regex = '''(?i)^\s*(?:jwt_secret|password_pepper|secret_key):\s*["']?(?!CHANGE-ME)([A-Za-z0-9+/=_\-]{24,})["']?\s*$'''
+path = '''\.ya?ml$'''
+tags = ["secret"]
+
+[allowlist]
+description = "Documented placeholders, test fixtures and generated assets"
+
+paths = [
+  # The sample config exists to be read; its values are placeholders.
+  '''config\.yaml\.sample''',
+  # Test fixtures use obvious throwaway values.
+  '''backend/tests/.*''',
+  # Documentation quotes the sample values.
+  '''README\.md''',
+  '''TODO\.md''',
+  '''ROADMAP\.md''',
+  # Lockfiles are full of base64 integrity hashes.
+  '''package-lock\.json''',
+  '''node_modules/.*''',
+  '''\.venv/.*''',
+  '''dist/.*''',
+]
+
+regexes = [
+  # The placeholders the sample config and the installers deliberately ship.
+  '''CHANGE-ME-run-make-secrets''',
+  '''set-a-long-passphrase-here''',
+  '''abcd efgh ijkl mnop''',
+  # Test-only credentials, named so they are obviously not real.
+  '''test-(?:pepper|jwt-secret|admin-passphrase)''',
+  '''correct-horse-battery-staple''',
+]

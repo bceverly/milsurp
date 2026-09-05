@@ -1,0 +1,15 @@
+-r requirements.txt
+
+# Testing
+pytest>=8.3
+pytest-cov>=6.0
+httpx>=0.28              # FastAPI TestClient transport
+responses>=0.25          # stub HTTP for scraper tests
+
+# Linting and formatting
+ruff>=0.9
+black>=24.10
+mypy>=1.14
+bandit[toml]>=1.8        # security-focused static analysis
+types-PyYAML>=6.0
+types-requests>=2.32

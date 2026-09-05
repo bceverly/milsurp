@@ -1,0 +1,157 @@
+# Tool configuration for the Python side. Packaging metadata lives here too so
+# `pip install -e .` works, but the application is deployed from a checkout
+# rather than as a wheel.
+
+[project]
+name = "milsurp-monitor"
+version = "1.0.0"
+description = "Track military surplus firearm listings and price history across vendor sites."
+requires-python = ">=3.11"
+license = { text = "BSD-3-Clause" }
+
+[tool.black]
+line-length = 100
+target-version = ["py311", "py312", "py313"]
+# Generated migration scripts are rewritten by Alembic's post-write hook, which
+# already runs black with the same settings.
+extend-exclude = '''
+/(
+    \.venv
+  | node_modules
+  | frontend
+)/
+'''
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = [".venv", "node_modules", "frontend"]
+
+[tool.ruff.lint]
+# The multiplication sign is intentional in the caliber patterns: vendors write
+# "7.62×54R" as often as "7.62x54R", so both spellings must match.
+allowed-confusables = ["×"]
+# Deliberately broad. The point of `make lint` is to be aggressive, so the
+# selection is opt-out rather than opt-in.
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # import sorting
+    "N",      # pep8-naming
+    "UP",     # pyupgrade — modern syntax
+    "B",      # flake8-bugbear — likely bugs
+    "A",      # flake8-builtins — shadowing builtins
+    "C4",     # flake8-comprehensions
+    "DTZ",    # flake8-datetimez — naive datetimes (this project is UTC-only)
+    "T10",    # flake8-debugger — leftover breakpoints
+    "EM",     # flake8-errmsg — exception messages
+    "ISC",    # implicit string concatenation
+    "ICN",    # import conventions
+    "G",      # flake8-logging-format
+    "PIE",    # flake8-pie
+    "T20",    # flake8-print — no stray print() in the app
+    "PT",     # flake8-pytest-style
+    "Q",      # flake8-quotes
+    "RSE",    # flake8-raise
+    "RET",    # flake8-return
+    "SLF",    # private member access
+    "SIM",    # flake8-simplify
+    "TID",    # flake8-tidy-imports
+    "ARG",    # unused arguments
+    "PTH",    # prefer pathlib
+    "ERA",    # commented-out code
+    "PL",     # pylint subset
+    "TRY",    # tryceratops — exception antipatterns
+    "FLY",    # static join -> f-string
+    "PERF",   # perflint
+    "RUF",    # ruff's own rules
+    "S",      # flake8-bandit — security
+]
+# Rules switched off, each because it fights a deliberate decision rather than
+# catching a defect. Everything else in `select` is enforced.
+ignore = [
+    "E501",    # line length is black's job
+    "S101",    # assert: used for invariants, and everywhere in tests
+    "PLR0913", # many arguments — FastAPI routes legitimately have them
+    "PLR0917", # ...same, for positional count
+    "PLR2004", # magic values — readable inline in this codebase
+    "TRY003",  # long messages inside raise: they are user-facing text
+    "EM101",   # ...same
+    "EM102",   # ...same
+    "ISC001",  # conflicts with the formatter
+    "RET504",  # named return values aid readability
+    "SIM108",  # ternaries are not always clearer
+    "B008",    # FastAPI's Depends()/Query() in defaults is the framework idiom
+
+    # Intra-package imports are relative by design (`from ..models import`),
+    # which keeps the package relocatable. Scripts and tests, which are outside
+    # the package, use absolute imports. Enforcing one style across both would
+    # break one of them.
+    "TID252",
+
+    # Lazy imports are deliberate: selenium is imported inside the browser
+    # helper so the app runs without Chrome installed, and a few service
+    # imports are function-local to break an import cycle. Each one is
+    # commented where it appears.
+    "PLC0415",
+
+    # Module-level singletons (the engine, the config cache, the scheduler) are
+    # initialized once behind an accessor. `global` is how that is spelled.
+    "PLW0603",
+
+    # SQLAlchemy 2.0's documented style is the quoted forward reference in
+    # `Mapped["Site"]`; the registry resolves them by name.
+    "UP037",
+
+    # `class Foo(str, Enum)` is kept over StrEnum: the values are persisted by
+    # SQLAlchemy and the explicit str base documents that.
+    "UP042",
+
+    # Exception names read better without the suffix here (ScrapeCanceled,
+    # ScanBusy) — they name a condition, not an error type.
+    "N818",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests may reach into internals, print freely, and use compound assertions.
+"backend/tests/*" = ["S", "SLF", "PLR", "ARG", "T20", "PT011", "PT018", "ERA", "RUF012", "C408"]
+# The CLI and run.py exist to print; that is their entire interface.
+"backend/cli.py" = ["T20"]
+"backend/run.py" = ["T20", "S104"]
+"scripts/*" = ["T20", "S603", "S607", "ERA"]
+# Alembic generates these; their shape is not ours to choose.
+"backend/alembic/*" = ["ERA", "N999", "T20", "INP001", "I001"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+check_untyped_defs = true
+# Not strict-mode: SQLAlchemy's declarative style and FastAPI's dependency
+# injection both need plugin support to type cleanly, and the value of chasing
+# that here is low.
+disallow_untyped_defs = false
+ignore_missing_imports = true
+exclude = ["\\.venv", "node_modules", "frontend", "backend/alembic"]
+
+# The test suite is not type-checked: fixtures and monkeypatching make strict
+# typing more noise than signal there.
+[[tool.mypy.overrides]]
+module = ["tests.*", "conftest"]
+ignore_errors = true
+
+[tool.bandit]
+exclude_dirs = [".venv", "node_modules", "frontend", "backend/tests", "backend/alembic"]
+# B101 assert_used: asserts are used for invariants, not for validation.
+# B104 hardcoded_bind_all_interfaces: the bind address comes from config, and
+#      the default is loopback.
+skips = ["B101"]

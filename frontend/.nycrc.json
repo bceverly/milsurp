@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/nycrc",
+  "//": "Coverage is collected by Playwright from an istanbul-instrumented build (COVERAGE=1), written to .nyc_output, and reported here.",
+  "all": false,
+  "include": ["src/**/*.{js,jsx}"],
+  "exclude": ["src/main.jsx", "tests/**", "**/*.config.js"],
+  "reporter": ["text-summary", "html", "lcov", "json-summary"],
+  "report-dir": "coverage",
+  "temp-dir": ".nyc_output",
+  "check-coverage": true,
+  "lines": 65,
+  "statements": 65,
+  "functions": 55,
+  "branches": 50
+}

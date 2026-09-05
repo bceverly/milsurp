@@ -1,0 +1,483 @@
+/**
+ * Inventory browser: keyword search, faceted filters, and a responsive grid.
+ *
+ * Filter state lives in the URL query string rather than component state, so a
+ * filtered view can be bookmarked, shared, and survives the back button.
+ */
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { api } from "../api.js";
+import { useDebounced, useTitle } from "../hooks.js";
+import { formatMoney, formatRelative, timeTitle } from "../format.js";
+import AuthImage from "../components/AuthImage.jsx";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Filter as FilterIcon,
+  Search as SearchIcon,
+  Sparkle,
+  TrendDown,
+  X,
+} from "../components/Icons.jsx";
+
+const SORTS = [
+  { value: "newest", label: "Newest first" },
+  { value: "oldest", label: "Oldest first" },
+  { value: "price_asc", label: "Price: low to high" },
+  { value: "price_desc", label: "Price: high to low" },
+  { value: "price_drop", label: "Recently reduced" },
+  { value: "title", label: "Title A–Z" },
+];
+
+const AVAILABILITY = [
+  { value: "available", label: "Available" },
+  { value: "sold", label: "Sold" },
+  { value: "delisted", label: "De-listed" },
+  { value: "all", label: "Everything" },
+];
+
+const KINDS = [
+  { value: "rifle", label: "Rifles" },
+  { value: "pistol", label: "Handguns" },
+  { value: "other", label: "Parts & accessories" },
+];
+
+/** Multi-select facets, keyed by the query parameter the API expects. */
+const FACETS = [
+  { param: "site_id", facet: "sites", title: "Site" },
+  { param: "category", facet: "categories", title: "Category" },
+  { param: "caliber", facet: "calibers", title: "Caliber" },
+  { param: "country", facet: "countries", title: "Country" },
+  { param: "manufacturer", facet: "manufacturers", title: "Manufacturer" },
+];
+
+const PER_PAGE = 48;
+
+function FacetGroup({ title, options, selected, onToggle }) {
+  const [expanded, setExpanded] = useState(false);
+  if (!options?.length) return null;
+  // Show the top eight; the long tail is behind "Show all" so the rail stays
+  // scannable when a facet has fifty values.
+  const visible = expanded ? options : options.slice(0, 8);
+
+  return (
+    <details className="facet" open={selected.length > 0}>
+      <summary className="facet__summary">
+        {title}
+        {selected.length > 0 && <span className="facet__count">{selected.length}</span>}
+      </summary>
+      <div className="facet__options">
+        {visible.map((option) => (
+          <label className="facet__option" key={option.value}>
+            <input
+              type="checkbox"
+              checked={selected.includes(option.value)}
+              onChange={() => onToggle(option.value)}
+            />
+            <span className="facet__option-label" title={option.label || option.value}>
+              {option.label || option.value}
+            </span>
+            <span className="facet__option-count">{option.count}</span>
+          </label>
+        ))}
+        {options.length > 8 && (
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm"
+            onClick={() => setExpanded((value) => !value)}
+          >
+            {expanded ? "Show fewer" : `Show all ${options.length}`}
+          </button>
+        )}
+      </div>
+    </details>
+  );
+}
+
+function ItemCard({ item }) {
+  const dropped = item.price_drop > 0;
+  // "New" is scoped to the last 72 hours, which is roughly a scan cycle or two
+  // across sites and keeps the badge meaningful rather than permanent.
+  const isNew =
+    item.first_seen_at &&
+    Date.now() - new Date(item.first_seen_at).getTime() < 72 * 3600 * 1000;
+
+  return (
+    <Link to={`/items/${item.id}`} className="item-card">
+      <div className="item-card__media">
+        <AuthImage src={item.thumbnail_url} alt={item.title} loading="lazy" />
+        <div className="item-card__badges">
+          {isNew && (
+            <span className="chip chip--info">
+              <Sparkle size={12} />
+              New
+            </span>
+          )}
+          {dropped && (
+            <span className="chip chip--success">
+              <TrendDown size={12} />
+              Reduced
+            </span>
+          )}
+          {item.is_sold && <span className="chip chip--danger">Sold</span>}
+          {!item.is_active && <span className="chip chip--neutral">De-listed</span>}
+        </div>
+      </div>
+
+      <div className="item-card__body">
+        <div className="item-card__title">{item.title}</div>
+        <div className="item-card__meta">
+          {item.caliber && <span>{item.caliber}</span>}
+          {item.country && <span>· {item.country}</span>}
+        </div>
+        <div className="item-card__foot">
+          <span className={`item-card__price ${dropped ? "item-card__price--drop" : ""}`}>
+            {formatMoney(item.current_price, item.currency)}
+          </span>
+          {dropped && (
+            <span className="item-card__was">
+              {formatMoney(item.previous_price, item.currency)}
+            </span>
+          )}
+        </div>
+        <div className="item-card__meta">
+          <span title={timeTitle(item.first_seen_at)}>
+            {item.site_name} · {formatRelative(item.first_seen_at)}
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+export default function Browse() {
+  useTitle("Inventory");
+  const [params, setParams] = useSearchParams();
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [showFilters, setShowFilters] = useState(false);
+
+  // The search box is local state so typing feels instant; the debounced value
+  // is what actually reaches the URL and the API.
+  const [searchText, setSearchText] = useState(params.get("search") || "");
+  const debouncedSearch = useDebounced(searchText, 350);
+
+  const page = Number(params.get("page") || 1);
+  const sort = params.get("sort") || "newest";
+  const availability = params.get("availability") || "available";
+
+  useEffect(() => {
+    const current = params.get("search") || "";
+    if (debouncedSearch === current) return;
+    const next = new URLSearchParams(params);
+    if (debouncedSearch) next.set("search", debouncedSearch);
+    else next.delete("search");
+    next.delete("page");
+    setParams(next, { replace: true });
+  }, [debouncedSearch, params, setParams]);
+
+  const query = useMemo(() => {
+    const built = {
+      page,
+      per_page: PER_PAGE,
+      sort,
+      availability,
+      search: params.get("search") || undefined,
+      price_drops_only: params.get("price_drops_only") === "true",
+      kind: params.getAll("kind"),
+    };
+    for (const { param } of FACETS) {
+      const values = params.getAll(param);
+      if (values.length) built[param] = values;
+    }
+    return built;
+  }, [params, page, sort, availability]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    api
+      .items(query)
+      .then((result) => {
+        if (!cancelled) setData(result);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [query]);
+
+  const update = useCallback(
+    (mutate) => {
+      const next = new URLSearchParams(params);
+      mutate(next);
+      // Any filter change invalidates the current page number.
+      next.delete("page");
+      setParams(next);
+    },
+    [params, setParams],
+  );
+
+  const toggleMulti = useCallback(
+    (param, value) => {
+      update((next) => {
+        const existing = next.getAll(param);
+        next.delete(param);
+        const kept = existing.includes(value)
+          ? existing.filter((entry) => entry !== value)
+          : [...existing, value];
+        kept.forEach((entry) => next.append(param, entry));
+      });
+    },
+    [update],
+  );
+
+  const activeChips = useMemo(() => {
+    const chips = [];
+    for (const { param, facet, title } of FACETS) {
+      for (const value of params.getAll(param)) {
+        const match = data?.facets?.[facet]?.find((o) => o.value === value);
+        chips.push({
+          key: `${param}:${value}`,
+          label: `${title}: ${match?.label || value}`,
+          clear: () => toggleMulti(param, value),
+        });
+      }
+    }
+    for (const value of params.getAll("kind")) {
+      chips.push({
+        key: `kind:${value}`,
+        label: KINDS.find((k) => k.value === value)?.label || value,
+        clear: () => toggleMulti("kind", value),
+      });
+    }
+    if (params.get("price_drops_only") === "true") {
+      chips.push({
+        key: "drops",
+        label: "Price reduced",
+        clear: () => update((next) => next.delete("price_drops_only")),
+      });
+    }
+    return chips;
+  }, [params, data, toggleMulti, update]);
+
+  const clearAll = () => {
+    setSearchText("");
+    setParams(new URLSearchParams());
+  };
+
+  const totalPages = data?.pages || 1;
+
+  return (
+    <div className="browse">
+      <div className="page-head">
+        <div>
+          <h1>Inventory</h1>
+          <p>
+            {loading && !data
+              ? "Loading listings…"
+              : `${(data?.total ?? 0).toLocaleString()} listing${
+                  data?.total === 1 ? "" : "s"
+                } match your filters`}
+          </p>
+        </div>
+      </div>
+
+      <div className="browse__toolbar">
+        <div className="search">
+          <SearchIcon size={17} className="search__icon" />
+          <input
+            className="input"
+            type="search"
+            placeholder="Search titles and descriptions…"
+            value={searchText}
+            onChange={(event) => setSearchText(event.target.value)}
+            aria-label="Search listings"
+          />
+          {searchText && (
+            <button
+              className="search__clear"
+              onClick={() => setSearchText("")}
+              aria-label="Clear search"
+            >
+              <X size={15} />
+            </button>
+          )}
+        </div>
+
+        <select
+          className="select"
+          style={{ width: "auto", flex: "0 0 auto" }}
+          value={sort}
+          onChange={(event) => update((next) => next.set("sort", event.target.value))}
+          aria-label="Sort listings"
+        >
+          {SORTS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+
+        <button
+          className="btn btn--secondary filters__toggle"
+          onClick={() => setShowFilters((value) => !value)}
+          aria-expanded={showFilters}
+        >
+          <FilterIcon size={17} />
+          Filters
+          {activeChips.length > 0 && (
+            <span className="chip chip--info">{activeChips.length}</span>
+          )}
+        </button>
+      </div>
+
+      {activeChips.length > 0 && (
+        <div className="active-filters">
+          {activeChips.map((chip) => (
+            <span className="active-filters__chip" key={chip.key}>
+              {chip.label}
+              <button onClick={chip.clear} aria-label={`Remove ${chip.label}`}>
+                <X size={13} />
+              </button>
+            </span>
+          ))}
+          <button className="btn btn--ghost btn--sm" onClick={clearAll}>
+            Clear all
+          </button>
+        </div>
+      )}
+
+      <div className="browse__layout">
+        <aside className="filters" hidden={!showFilters}>
+          <details className="facet" open>
+            <summary className="facet__summary">Availability</summary>
+            <div className="facet__options">
+              {AVAILABILITY.map((option) => (
+                <label className="facet__option" key={option.value}>
+                  <input
+                    type="radio"
+                    name="availability"
+                    checked={availability === option.value}
+                    onChange={() =>
+                      update((next) => next.set("availability", option.value))
+                    }
+                  />
+                  <span className="facet__option-label">{option.label}</span>
+                </label>
+              ))}
+            </div>
+          </details>
+
+          <details className="facet" open>
+            <summary className="facet__summary">Type</summary>
+            <div className="facet__options">
+              {KINDS.map((option) => (
+                <label className="facet__option" key={option.value}>
+                  <input
+                    type="checkbox"
+                    checked={params.getAll("kind").includes(option.value)}
+                    onChange={() => toggleMulti("kind", option.value)}
+                  />
+                  <span className="facet__option-label">{option.label}</span>
+                </label>
+              ))}
+              <label className="facet__option">
+                <input
+                  type="checkbox"
+                  checked={params.get("price_drops_only") === "true"}
+                  onChange={(event) =>
+                    update((next) => {
+                      if (event.target.checked) next.set("price_drops_only", "true");
+                      else next.delete("price_drops_only");
+                    })
+                  }
+                />
+                <span className="facet__option-label">Price reduced only</span>
+              </label>
+            </div>
+          </details>
+
+          {FACETS.map(({ param, facet, title }) => (
+            <FacetGroup
+              key={param}
+              title={title}
+              options={data?.facets?.[facet]}
+              selected={params.getAll(param)}
+              onToggle={(value) => toggleMulti(param, value)}
+            />
+          ))}
+        </aside>
+
+        <div>
+          {error && (
+            <div className="alert alert--error" role="alert">
+              {error}
+            </div>
+          )}
+
+          {loading && (
+            <div className="loading-row">
+              <div className="spinner" />
+              Loading listings…
+            </div>
+          )}
+
+          {!loading && data?.items?.length === 0 && (
+            <div className="empty">
+              <h3>No listings match</h3>
+              <p>
+                Try a broader search, or clear some filters. If the database is empty, an
+                administrator needs to run a scan first.
+              </p>
+              {activeChips.length > 0 && (
+                <button className="btn btn--secondary" onClick={clearAll}>
+                  Clear all filters
+                </button>
+              )}
+            </div>
+          )}
+
+          {data?.items?.length > 0 && (
+            <div className="grid">
+              {data.items.map((item) => (
+                <ItemCard item={item} key={item.id} />
+              ))}
+            </div>
+          )}
+
+          {totalPages > 1 && (
+            <div className="pagination">
+              <button
+                className="btn btn--secondary btn--sm"
+                disabled={page <= 1}
+                onClick={() => update((next) => next.set("page", String(page - 1)))}
+              >
+                <ChevronLeft size={16} />
+                Previous
+              </button>
+              <span className="pagination__status">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                className="btn btn--secondary btn--sm"
+                disabled={page >= totalPages}
+                onClick={() => update((next) => next.set("page", String(page + 1)))}
+              >
+                Next
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

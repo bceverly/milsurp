@@ -1,0 +1,15 @@
+Alembic migrations for Milsurp Monitor.
+
+Apply everything outstanding:      make migrate
+Generate a new revision:           make migration m="add widget table"
+Show the current revision:         .venv/bin/alembic -c backend/alembic.ini current
+Show the history:                  .venv/bin/alembic -c backend/alembic.ini history
+
+Every migration in this directory is written to be idempotent: it inspects the
+database before creating or dropping anything, so re-running it against a
+database that already has the change is a no-op rather than an error. That
+matters because the application also calls create_all() at startup for fresh
+checkouts, so a table can legitimately exist before its migration runs.
+
+The database URL is not configured here -- env.py reads it from the application
+config file, so migrations always follow database.path for the current mode.

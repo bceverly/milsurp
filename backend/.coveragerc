@@ -1,0 +1,23 @@
+[run]
+source = app
+branch = True
+omit =
+    */alembic/*
+    */tests/*
+    */__pycache__/*
+
+[report]
+precision = 1
+show_missing = True
+exclude_lines =
+    pragma: no cover
+    # Guard clauses whose bodies exist only for a debugger or a type checker.
+    if TYPE_CHECKING:
+    if __name__ == .__main__.:
+    raise NotImplementedError
+    @abc.abstractmethod
+    @abstractmethod
+    # Defensive except-branches for host conditions the suite cannot create
+    # (no Chrome installed, a filesystem that refuses chmod).
+    except ImportError:
+    pass  # pragma: no cover

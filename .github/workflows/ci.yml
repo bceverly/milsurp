@@ -1,0 +1,199 @@
+# Lint and test on every push and pull request.
+#
+# Mirrors what `make lint` and `make test` run locally, so a green local run
+# means a green CI run. Both coverage gates (65%) are enforced here too.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# A new push to the same branch makes the previous run irrelevant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# The workflow only reads the repository; nothing here needs write access.
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "22"
+  MILSURP_ENV: dev
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --quiet --upgrade pip
+          .venv/bin/pip install --quiet -r backend/requirements-dev.txt
+          cd frontend && npm ci --no-audit --no-fund
+
+      - name: Install shellcheck
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+
+      # scripts/lint.sh runs black --check first and fails on any finding from
+      # black, ruff, mypy, bandit, prettier, eslint, shellcheck or the YAML
+      # parse check.
+      - name: Lint
+        run: make lint
+
+  test-backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --quiet --upgrade pip
+          .venv/bin/pip install --quiet -r backend/requirements-dev.txt
+
+      # Fails below 65% line coverage; warnings are errors.
+      - name: pytest
+        run: make test-backend
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-backend
+          path: |
+            coverage-backend.xml
+            coverage-backend.json
+          retention-days: 14
+
+  test-frontend:
+    name: Frontend tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --quiet --upgrade pip
+          .venv/bin/pip install --quiet -r backend/requirements.txt
+          cd frontend && npm ci --no-audit --no-fund
+
+      - name: Install Playwright browser
+        run: cd frontend && npx playwright install --with-deps chromium
+
+      # Builds instrumented, seeds a disposable database, runs Playwright, then
+      # gates on 65% via nyc.
+      - name: Playwright
+        run: make test-frontend
+
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            frontend/test-results/
+            frontend/coverage/
+          retention-days: 7
+
+  migrations:
+    name: Migrations are idempotent
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --quiet --upgrade pip
+          .venv/bin/pip install --quiet -r backend/requirements.txt
+
+      # The schema is built by Alembic even on a fresh database, so this also
+      # proves a brand new install works.
+      - name: Build the database from scratch
+        run: .venv/bin/python scripts/dbupdate.py
+
+      # Every migration is written to be re-runnable; prove it rather than
+      # trusting the comment.
+      - name: Re-run migrations (must be a no-op)
+        run: .venv/bin/python scripts/dbupdate.py
+
+      - name: Confirm no migrations are outstanding
+        run: .venv/bin/python scripts/dbupdate.py --check
+
+      - name: Confirm the models match the migrations
+        run: |
+          .venv/bin/python - <<'PY'
+          import sys
+          sys.path.insert(0, "backend")
+          import sqlalchemy as sa
+          from app.database import Base, get_engine
+          from app import models  # noqa: F401  (registers every model)
+
+          inspector = sa.inspect(get_engine())
+          in_db = set(inspector.get_table_names()) - {"alembic_version"}
+          in_models = set(Base.metadata.tables)
+
+          problems = []
+          if in_db != in_models:
+              problems.append(f"tables differ: only-db={sorted(in_db - in_models)} "
+                              f"only-models={sorted(in_models - in_db)}")
+          for table in sorted(in_db & in_models):
+              db_cols = {c["name"] for c in inspector.get_columns(table)}
+              model_cols = set(Base.metadata.tables[table].columns.keys())
+              if db_cols != model_cols:
+                  problems.append(f"{table}: only-db={sorted(db_cols - model_cols)} "
+                                  f"only-models={sorted(model_cols - db_cols)}")
+          if problems:
+              print("Schema drift between the models and the migrations:")
+              for line in problems:
+                  print(f"  {line}")
+              sys.exit(1)
+          print("Models and migrations agree.")
+          PY

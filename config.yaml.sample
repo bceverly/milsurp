@@ -1,0 +1,147 @@
+# ---------------------------------------------------------------------------
+# Milsurp Monitor configuration
+#
+# This file is searched for in the following order; the first hit wins:
+#
+#   1. $MILSURP_CONFIG                (explicit override, any path)
+#   2. <repo root>/config.yaml        (development)
+#   3. /etc/milsurp/config.yaml       (production)
+#
+# Copy this file to one of those locations and edit it:
+#
+#   cp config.yaml.sample config.yaml                   # development
+#   sudo install -D -m 600 config.yaml.sample /etc/milsurp/config.yaml
+#
+# It holds SMTP credentials and signing secrets, so keep it mode 600 and owned
+# by the account that runs the service. The repo-root copy is gitignored.
+#
+# Every setting below is optional: anything you omit falls back to the default
+# shown in the comment. Times are always stored in UTC.
+# ---------------------------------------------------------------------------
+
+# --- Where state lives -----------------------------------------------------
+# Omit these and the location follows the run mode: in dev the database and
+# images sit in the repository root, in production they sit in /etc/milsurp.
+# A relative path is resolved against the repository root.
+database:
+  # Development default: <repo root>/milsurp.db
+  # Production default:  /etc/milsurp/milsurp.db
+  path: /etc/milsurp/milsurp.db
+
+images:
+  # Downloaded listing photos. Created mode 0700 and never served as static
+  # files -- every photo goes through an authenticated API endpoint.
+  # Development default: <repo root>/images
+  # Production default:  /etc/milsurp/images
+  path: /etc/milsurp/images
+
+# --- Security --------------------------------------------------------------
+# Generate real values with:  make secrets
+security:
+  # Server-side secret mixed into every password before hashing. Argon2 already
+  # adds a unique random salt per password; this pepper is the extra secret that
+  # is NOT in the database, so a stolen database alone cannot be cracked offline.
+  # CHANGING THIS INVALIDATES EVERY EXISTING PASSWORD.
+  password_pepper: "CHANGE-ME-run-make-secrets"
+
+  # Signs session tokens. Changing it signs everyone out.
+  jwt_secret: "CHANGE-ME-run-make-secrets"
+
+  jwt_algorithm: HS256          # default: HS256
+  access_token_minutes: 720     # default: 720 (12 hours)
+
+  # Minimum accepted password length, applied whenever a password is set or
+  # changed. Length matters far more than character-class rules, so this is the
+  # policy's main lever. Re-read on every start, so raising it takes effect at
+  # the next restart. Existing passwords are not re-checked.
+  min_password_length: 12       # default: 12
+
+  # Character-class requirements. The complexity rules in force are derived
+  # from whichever of these are true, so the rules and the message shown to the
+  # user can never disagree. Each defaults to false when omitted.
+  require_uppercase: true
+  require_lowercase: true
+  require_numeric: true
+  require_special: true
+
+  # Argon2id cost. The defaults are the OWASP recommendation (19 MiB, 2 passes).
+  # Raise memory_cost on a beefy server; every increase slows offline attacks.
+  argon2_time_cost: 2           # default: 2
+  argon2_memory_cost: 19456     # default: 19456 (KiB, = 19 MiB)
+  argon2_parallelism: 1         # default: 1
+
+# --- Initial administrator -------------------------------------------------
+# Used ONCE, on first start, when no administrator exists yet. After you sign
+# in and change the password, clear the password line below.
+admin:
+  username: admin
+  email: you@example.com
+  password: "set-a-long-passphrase-here"   # 12+ characters
+
+# --- Outbound email --------------------------------------------------------
+# For Gmail this must be a 16-character App Password, not the account password.
+# Create one at https://myaccount.google.com/apppasswords (requires 2-Step
+# Verification). It can be revoked on its own without touching the account.
+email:
+  enabled: false                     # default: false
+  smtp_host: smtp.gmail.com          # default: smtp.gmail.com
+  smtp_port: 587                     # 587 for starttls, 465 for ssl
+  smtp_security: starttls            # starttls | ssl | none
+  username: you@gmail.com
+  password: "abcd efgh ijkl mnop"    # the app password
+  from_address: you@gmail.com
+  from_name: "Milsurp Monitor"
+  timeout_seconds: 30                # default: 30
+
+# --- Server ----------------------------------------------------------------
+server:
+  dev:
+    host: 127.0.0.1                  # default: 127.0.0.1
+    # `make start` uses this port if free, otherwise the first free port in
+    # port_range, so a busy port never blocks a start.
+    preferred_port: 8730             # default: 8730
+    port_range: [8730, 8799]         # default: [8730, 8799]
+
+  production:
+    # The address the Python app binds. Keep it on loopback: nginx is the only
+    # thing that should reach it directly.
+    host: 127.0.0.1                  # default: 127.0.0.1
+    app_port: 8730                   # default: 8730
+
+    # The public HTTPS port nginx terminates TLS on.
+    port: 443                        # default: 443
+    # Plain HTTP here is 301-redirected to the HTTPS port above.
+    http_redirect_port: 80           # default: 80
+
+    # Used to build links inside digest emails.
+    public_url: https://milsurpmonitor.com
+
+# --- Scheduler -------------------------------------------------------------
+# NOTE: scanning is OFF by default. A fresh install would otherwise start
+# crawling vendor sites the moment it boots, before you have looked at the site
+# list or set a polite cadence. Turn this on once you are ready, and use the
+# admin UI (or `make scan`) to control what runs.
+scheduler:
+  enabled: false                     # default when this file is absent: true
+  tick_seconds: 60                   # how often to look for due sites
+  digest_tick_seconds: 300           # how often to look for due digests
+  # A browser-driven scan is heavy; two at once is plenty on a small VPS.
+  max_concurrent_scans: 2            # default: 2
+  scan_timeout_minutes: 120          # a longer run is treated as crashed
+
+# --- Scraping --------------------------------------------------------------
+scraping:
+  user_agent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+  request_timeout: 30                # seconds, default: 30
+  request_delay: 1.0                 # politeness delay between requests
+  max_retries: 4                     # default: 4
+  download_images: true              # default: true
+  # Ceiling on pages / scroll iterations / Load More clicks per section, so a
+  # misbehaving site cannot make a scan run forever.
+  max_pages: 60                      # default: 60
+
+  selenium:
+    headless: true                   # default: true
+    # Leave null to let Selenium find them on PATH.
+    chrome_binary: null              # e.g. /usr/bin/google-chrome
+    chromedriver_path: null          # e.g. /usr/local/bin/chromedriver

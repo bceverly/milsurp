@@ -1,0 +1,165 @@
+# ---------------------------------------------------------------------------
+# milsurp — Python (FastAPI/SQLAlchemy/Alembic) + React (Vite) + SQLite
+# ---------------------------------------------------------------------------
+
+# --- Local configuration (NEVER commit: holds SMTP app passwords, secrets) ---
+config.yaml
+config.local.yaml
+*.local.yaml
+.env
+.env.*
+!.env.example
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+sdist/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# Tooling caches
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+.pyre/
+.ruff_cache/
+.pytest_cache/
+.tox/
+.nox/
+.cache
+cython_debug/
+.python-version
+
+# --- Test and coverage output (both stacks) ---
+# Python
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+nosetests.xml
+.hypothesis/
+
+# pytest-cov writes these to the repo root; scripts/coverage_badges.py reads
+# them to regenerate the badges. The badges themselves ARE committed.
+coverage-backend.json
+coverage-backend.xml
+coverage-frontend.json
+
+# Playwright: failure artifacts (traces, screenshots, screencasts) and the
+# HTML report. Regenerated on every run.
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+frontend/.playwright-artifacts-*/
+test-results/
+playwright-report/
+.playwright-artifacts-*/
+.last-run.json
+
+# Istanbul/nyc: raw per-run coverage JSON and the rendered report.
+frontend/.nyc_output/
+frontend/coverage/
+.nyc_output/
+coverage/
+
+# Security scanner reports (scripts/security.sh)
+.security-reports/
+
+# --- Node / React / Vite ---
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/.vite/
+.vite/
+*.tsbuildinfo
+.eslintcache
+.npm
+.yarn/
+.pnp.*
+
+# --- Application data (runtime state, never in version control) ---
+data/
+!data/.gitkeep
+
+# The dev-mode SQLite database lives in the repo root (production keeps it in
+# /etc/milsurp, or wherever database.path in config.yaml points).
+/milsurp.db
+/milsurp.db-journal
+/milsurp.db-wal
+/milsurp.db-shm
+
+# ...and any other SQLite file anywhere in the tree.
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# Downloaded firearm photos (the secure image store). In dev this lives under
+# data/, which is ignored above; production keeps it in /etc/milsurp.
+#
+# ANCHORED to the repository root on purpose: a bare "images/" would also match
+# marketing/images/, which holds the committed logo, favicon, coverage badges
+# and README screenshots.
+/images/
+media/
+# Belt and braces, in case the pattern above is ever loosened again.
+!marketing/images/
+!marketing/images/**
+
+# --- Runtime / process management ---
+*.log
+logs/
+.server.pid
+*.pid
+.milsurp-dev-port
+
+# --- Scraper artifacts ---
+.wdm/
+chromedriver
+chromedriver.exe
+geckodriver
+geckodriver.log
+selenium-debug.log
+
+# --- TLS material (production certs live outside the repo) ---
+*.pem
+*.key
+*.crt
+*.csr
+certs/
+
+# --- Editors / OS ---
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
