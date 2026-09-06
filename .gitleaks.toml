@@ -33,7 +33,7 @@ tags = ["secret"]
 [allowlist]
 description = "Documented placeholders, test fixtures and generated assets"
 # Match the whole matched line, not just the captured secret, so a placeholder
-# is recognised however it is quoted.
+# is recognized however it is quoted.
 regexTarget = "line"
 
 paths = [

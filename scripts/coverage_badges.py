@@ -35,13 +35,13 @@ COLORS = {
     "red": "#c9302c",
     "amber": "#c08a00",
     "green": "#1e7a46",
-    "grey": "#7c8697",
+    "gray": "#7c8697",
 }
 
 
 def color_for(percent: float | None) -> str:
     if percent is None:
-        return COLORS["grey"]
+        return COLORS["gray"]
     if percent < MINIMUM:
         return COLORS["red"]
     if percent < GOOD:

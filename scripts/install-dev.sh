@@ -136,7 +136,7 @@ else
   fi
 fi
 
-# Snyk needs an account. Installing it is automatic; authorising it is not.
+# Snyk needs an account. Installing it is automatic; authorizing it is not.
 if command -v snyk >/dev/null 2>&1; then
   ok "snyk already installed."
 else

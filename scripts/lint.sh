@@ -148,7 +148,7 @@ fi
 # ---------------------------------------------------------------------------
 section "shellcheck (shell scripts)"
 if command -v shellcheck >/dev/null 2>&1; then
-  if shellcheck -S warning scripts/*.sh .githooks/* 2>/dev/null; then
+  if shellcheck -S warning scripts/*.sh .githooks/*; then
     ok "shellcheck"
   else
     bad "shellcheck"

@@ -38,6 +38,18 @@ mkdir -p "$TARGET_DIR"
 
 printf '\n\033[1mInstalling git hooks\033[0m\n'
 
+# Lint used to run at pre-commit as well. It runs only at pre-push now, so an
+# earlier install has to be cleaned up — otherwise the old hook keeps firing
+# from .git/hooks/ forever, and nothing in the repository explains why.
+RETIRED_HOOKS=(pre-commit)
+for name in "${RETIRED_HOOKS[@]}"; do
+  target="$TARGET_DIR/$name"
+  if [ -f "$target" ] && grep -qF "$MARKER" "$target" 2>/dev/null; then
+    rm -f "$target"
+    info "removed the retired $name hook (lint now runs at pre-push)"
+  fi
+done
+
 installed=0
 for source in "$SOURCE_DIR"/*; do
   [ -f "$source" ] || continue
@@ -69,14 +81,17 @@ if [ "$installed" -eq 0 ]; then
 fi
 
 cat <<'SUMMARY'
-  pre-commit  blocks the commit on ANY lint finding, including black
+  pre-push    blocks the push on ANY lint finding, including black
               reporting that it would reformat a file
-  pre-push    the same lint gate, so a push cannot land code that a
-              local commit --no-verify slipped past. It deliberately does
-              NOT run the test suites: they take minutes, they would run
-              again for every tag push, and CI runs them on every push.
 
-  Bypass in an emergency:  git commit --no-verify  /  git push --no-verify
-  Uninstall:               rm .git/hooks/pre-commit .git/hooks/pre-push
+  Committing is deliberately unguarded. A work-in-progress commit is
+  nobody else's problem; a push is. The gate sits at the boundary where
+  the code stops being yours alone.
+
+  It does NOT run the test suites: they take minutes, they would run
+  again for every tag push, and CI runs them on every push anyway.
+
+  Bypass in an emergency:  git push --no-verify
+  Uninstall:               rm .git/hooks/pre-push
 
 SUMMARY

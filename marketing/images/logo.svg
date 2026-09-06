@@ -31,7 +31,7 @@
   </g>
   <!-- The hub, over the stripes: they stop at its circumference. -->
   <circle cx="50.0" cy="43.0" r="15.0" fill="#12294A"/>
-  <!-- Blue on blue: the field colour, outlined in a lighter metallic blue. -->
+  <!-- Blue on blue: the field color, outlined in a lighter metallic blue. -->
   <polygon points="50.00,33.40 52.35,39.76 59.13,40.03 53.80,44.24 55.64,50.77 50.00,47.00 44.36,50.77 46.20,44.24 40.87,40.03 47.65,39.76"
            fill="none" stroke="#4E7FB8" stroke-width="1.8"
            stroke-linejoin="round"/>

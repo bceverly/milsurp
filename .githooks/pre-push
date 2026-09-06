@@ -2,7 +2,9 @@
 #
 # Milsurp Monitor — pre-push hook.
 #
-# The last gate before code leaves the machine: lint must be clean.
+# The only local gate, and the right place for one: a work-in-progress commit
+# is nobody else's problem, a push is. Lint must be clean before code leaves
+# the machine.
 #
 # Deliberately does NOT run the test suites. They take minutes, they would run
 # again for every tag push, and CI runs them on every push anyway — a hook slow
@@ -12,41 +14,53 @@
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." 2>/dev/null && pwd)"
+# When installed into .git/hooks the path above resolves to the repo root
+# already; when run from .githooks/ it does not. Resolve by looking for the
+# Makefile rather than assuming a depth.
 while [ -n "$REPO_ROOT" ] && [ ! -f "$REPO_ROOT/Makefile" ] && [ "$REPO_ROOT" != "/" ]; do
   REPO_ROOT="$(dirname "$REPO_ROOT")"
 done
 cd "$REPO_ROOT" || exit 1
 
-FAILED=()
+printf '\n\033[1;94m▸ pre-push: linting\033[0m\n'
 
-printf '\n\033[1;94m▸ pre-push: lint\033[0m\n'
-if [ -x scripts/lint.sh ]; then
-  if scripts/lint.sh >/dev/null 2>&1; then
-    printf '\033[92m  ✓ clean\033[0m\n'
-  else
-    printf '\033[91m  ✗ findings\033[0m\n'
-    FAILED+=("lint")
-  fi
-else
-  printf '\033[93m  - scripts/lint.sh missing, skipped\033[0m\n'
+if [ ! -x scripts/lint.sh ]; then
+  printf '\033[93m  scripts/lint.sh is missing — skipping (run: make install-hooks)\033[0m\n'
+  exit 0
 fi
 
-printf '\n'
-if [ ${#FAILED[@]} -eq 0 ]; then
+# Output is captured rather than streamed so a clean run stays quiet, but it is
+# printed in full on failure: this is the only gate, so "something failed, go
+# find out what" would just mean everyone reaches for --no-verify.
+#
+# scripts/lint.sh runs black --check first and exits non-zero if anything is
+# unformatted, so "black would reformat files" and "a linter complained" are
+# both covered by this single exit code.
+LINT_OUTPUT="$(scripts/lint.sh 2>&1)"
+LINT_STATUS=$?
+
+if [ "$LINT_STATUS" -eq 0 ]; then
   printf '\033[1;92m✓ pre-push passed.\033[0m\n\n'
   exit 0
 fi
 
-cat <<BLOCKED
+printf '%s\n' "$LINT_OUTPUT"
+
+cat <<'BLOCKED'
+
   ────────────────────────────────────────────────────────────────
-   PUSH BLOCKED — failed: ${FAILED[*]}
+   PUSH BLOCKED — lint reported findings.
 
-   Reproduce with:
+   Fix them, or let the formatters do it:
 
-       make lint          (make lint-fix reformats)
+       make lint-fix        reformat and auto-fix
+       git add -u           stage what changed
+       git commit --amend   (or a new commit)
 
-   The test suites are not run here: they are slow, and CI runs them
-   on every push. Run them locally with \`make test\` when you want them.
+   Then re-run `make lint` to confirm it is clean.
+
+   The test suites are not run here: they are slow, and CI runs them on
+   every push. Run them locally with `make test` when you want them.
 
    To bypass in an emergency:  git push --no-verify
   ────────────────────────────────────────────────────────────────

@@ -4,6 +4,10 @@
 # so they run in parallel. The one exception is the test job, which runs the
 # backend and frontend suites as two steps of a single job — that mirrors
 # `make test` and keeps their coverage gates reported together.
+#
+# The test job fans out across every supported Python, one job per version, so
+# "Unit tests (Python 3.13)" names the broken interpreter in the checks list
+# without anyone opening a log.
 
 name: CI
 
@@ -24,7 +28,11 @@ permissions:
   contents: read
 
 env:
-  PYTHON_VERSION: "3.12"
+  # The version the jobs that are not version-specific run on. It tracks what
+  # developers and the production server actually execute (Ubuntu 26.04 ships
+  # 3.14), rather than the oldest one still supported — a bug that only appears
+  # on the version everyone runs should not need a matrix leg to be noticed.
+  PYTHON_VERSION: "3.14"
   NODE_VERSION: "22"
   MILSURP_ENV: dev
 
@@ -67,14 +75,22 @@ jobs:
 
   # ==========================================================================
   test:
-    name: Unit tests
+    name: Unit tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    strategy:
+      # One version failing must not cancel the others: knowing it breaks on
+      # 3.12 *and* passes on 3.14 is the whole point of running all three.
+      fail-fast: false
+      matrix:
+        # Every version pyproject's requires-python claims. A floor nobody
+        # tests is not a floor.
+        python-version: ["3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: backend/requirements-dev.txt
 
@@ -108,7 +124,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-artifacts
+          name: test-artifacts-py${{ matrix.python-version }}
           path: |
             coverage-backend.xml
             coverage-backend.json

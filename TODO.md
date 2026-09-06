@@ -128,11 +128,11 @@ Last updated: 2026-09-05 — lint clean, 313 backend + 69 e2e green, CI/README d
 - [x] Logo + favicon: US Air Force **Senior Airman** insignia. Took several
       wrong turns before getting the construction right; the correct one is:
       a **dark circular hub sitting on top of the z-order**, two
-      **constant-width striped wings** whose centre lines pass through the hub
-      centre (so the three stripes are centred on the hub and the band is
+      **constant-width striped wings** whose center lines pass through the hub
+      center (so the three stripes are centered on the hub and the band is
       slightly narrower than its diameter), wing tips cut **vertically,
       parallel to the frame** — which makes the three stripes different
-      lengths — and a **star at the hub centre, blue on blue with a metallic
+      lengths — and a **star at the hub center, blue on blue with a metallic
       blue outline**, never white. Signed off by the user.
 - [x] Site color scheme from the dress insignia: Air Force blue, silver-white,
       black.
@@ -180,9 +180,9 @@ Last updated: 2026-09-05 — lint clean, 313 backend + 69 e2e green, CI/README d
       and Vite together, exporting `MILSURP_API_PORT` so Vite's proxy follows
       the dynamically chosen backend port. Ctrl-C stops both.
 - [x] **`make install-hooks`** — `scripts/install-hooks.sh` + `.githooks/`
-      written and installed. Verified: the pre-commit hook exits 1 and prints
-      COMMIT BLOCKED when lint reports anything. Existing non-ours hooks are
-      backed up rather than overwritten. Installs by file copy — no git command.
+      written and installed. Verified: the hook exits 1 and prints PUSH BLOCKED
+      when lint reports anything. Existing non-ours hooks are backed up rather
+      than overwritten. Installs by file copy — no git command.
 - [x] `shellcheck` added to `install-dev.sh`'s package list. Once installed it
       found 4 real issues, all fixed: three `cd "$REPO_ROOT"` calls without
       `|| exit` in scripts that do not use `set -e`, and one dead variable.
@@ -266,13 +266,15 @@ Last updated: 2026-09-05 — lint clean, 313 backend + 69 e2e green, CI/README d
       weekly so a new CVE in unchanged dependencies is still caught.
 - [x] `.github/dependabot.yml` — pip, npm and github-actions, grouped weekly,
       majors split out for review.
-- [x] Pre-commit hook that **blocks** on any lint finding, including black
-      reporting it would reformat. Installed by `make install-hooks`; verified
-      blocking.
-- [x] **Hooks are lint-only.** Per the user: `pre-push` runs `make lint` and
-      *not* `make test`. The suites take minutes, would run again for every tag
-      push, and CI runs them on every push anyway. Both hooks now complete in
-      ~2 seconds.
+- [x] **One hook, at pre-push, running `make lint` and nothing else.** Per the
+      user, twice over: not `make test` (the suites take minutes, would run
+      again for every tag push, and CI runs them on every push anyway), and not
+      at pre-commit (a work-in-progress commit is nobody else's problem; a push
+      is). `.githooks/pre-commit` was deleted, and `install-hooks.sh` now
+      *removes* a previously-installed one — otherwise the old copy would keep
+      firing from `.git/hooks/` forever with nothing in the repository to
+      explain it. Runs in ~2 s, and prints the full lint output when it blocks.
+      Both paths verified: clean exit 0, unformatted file exit 1 with the diff.
 - [x] **CI restructured into one job per concern**, per the user: `ci.yml` has
       `lint`, `test` (a backend step followed by a frontend step, the frontend
       one `if: always()` so a single push reports both), `migrations` and
@@ -455,8 +457,50 @@ below was found by that run and is now fixed and verified locally.
       alternative to the binary.
 
 **Verified after all of the above:** `make lint` clean across 8 tools,
-`make test` 323 backend tests at 70.1% and 69 Playwright tests at 79.1%, and
+`make test` 330 backend tests at 70.1% and 69 Playwright tests at 77.6%, and
 `make security` clean with every scanner actually present.
+
+### Python version coverage
+
+CI was pinned to 3.12 while both the developer machine and the production
+server (Ubuntu 26.04) run 3.14 — so CI was testing a version nobody executes,
+in either direction. The `test` job now fans out over **3.12, 3.13 and 3.14**
+as three separate jobs with `fail-fast: false`, and the jobs that are not
+version-specific (lint, migrations, build, security) moved to 3.14.
+
+`requires-python` came down from `>=3.11` to `>=3.12` to match: 3.11 was never
+tested by anything, and ruff, black and mypy targets moved with it. Verified
+before pushing rather than after — throwaway venvs built from pyenv's 3.12.7
+and 3.13.0: **330 passed on each, identical 70.07% coverage**, same as 3.14.
+
+### A flaky security test, and the two it was missing
+
+`test_tampered_token_rejected` failed once for the user and passed everywhere
+else. It was not flaky by accident — it was wrong by construction:
+
+    decode_access_token(f"{header}.{payload}.{signature[:-2]}xx", config)
+
+An HS256 signature is 32 bytes carried in 43 base64url characters — 258 bits of
+alphabet for 256 bits of signature — so the **last character's low two bits are
+ignored on decode**. A canonical encoder always emits them as zero, which means
+the final character is always one of the 16 values divisible by four, and `w`
+decodes to the same bytes as `x`. Rewriting the tail is therefore a no-op
+whenever the signature happened to end in `xw`: the "tampered" token is the
+original, and it verifies. Measured over 50,000 tokens: **51 survived, 0.102%**
+— almost exactly the predicted 1/1024.
+
+It can only ever produce a false *failure*, never a false pass, so nothing was
+unguarded. But a security test that cries wolf once a week is one people learn
+to re-run instead of read.
+
+Fixed by flipping a character in the **middle** of the signature, where all six
+bits are significant, to a value guaranteed to differ. Verified: 0 survivors in
+50,000, and 0 in 250,000 across the five parametrised positions.
+
+Writing it also exposed that the suite only ever tampered with the *signature*.
+Added the attacks that matter and confirmed the implementation already stops
+them: rewriting the `role` claim to `admin` and keeping the signature, and the
+classic `alg=none` forgery with an empty signature. Backend suite is now 330.
 
 
 ---
@@ -475,7 +519,7 @@ installed.
 1. **Commit and push.** The user commits; I never run git. The changes since
    `v1.0.0.0` are the section 16 fixes plus the dependency upgrades.
 2. **Watch the next CI run.** Expected green. The one thing that cannot be
-   verified locally is whether GitHub's code-scanning UI honours the in-source
+   verified locally is whether GitHub's code-scanning UI honors the in-source
    `# codeql[...]` suppressions in `cli.py`. If alerts #1 and #2 come back,
    dismiss them in the Security tab as "won't fix" — only the user can, since I
    must not run `gh`.
@@ -615,7 +659,7 @@ marketing/images/{logo,favicon,insignia,coverage-backend,coverage-frontend}.svg
 ### Recently added
 
 ```
-backend/app/logsafe.py                   log-injection sanitiser
+backend/app/logsafe.py                   log-injection sanitizer
 backend/tests/test_logsafe.py            its tests
 backend/requirements-security.txt        semgrep, pip-audit
 scripts/tool-versions.env                pinned gitleaks, shared with CI

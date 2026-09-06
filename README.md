@@ -10,7 +10,7 @@ site, from one place.**
 [![Backend coverage](marketing/images/coverage-backend.svg)](#testing)
 [![Frontend coverage](marketing/images/coverage-frontend.svg)](#testing)
 [![License: BSD 3-Clause](https://img.shields.io/badge/license-BSD--3--Clause-1B4B8F.svg)](LICENSE)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-0A2240.svg)](https://www.python.org/)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-0A2240.svg)](https://www.python.org/)
 [![React 18](https://img.shields.io/badge/react-18-0A2240.svg)](https://react.dev/)
 
 </div>
@@ -139,7 +139,7 @@ changed — filtered to the sites you care about and capped so it stays readable
 
 ## Quick start (development)
 
-**Requirements:** Ubuntu/Debian (or macOS), Python 3.11+, Node 20+, and Google
+**Requirements:** Ubuntu/Debian (or macOS), Python 3.12+, Node 20+, and Google
 Chrome or Chromium if you want the browser-driven scrapers.
 
 ```bash
@@ -421,7 +421,7 @@ make test-frontend   # Playwright
 
 | Suite | Tool | Tests | Coverage | Gate |
 |---|---|---|---|---|
-| Backend | pytest | 323 | 70.1% | 65% |
+| Backend | pytest | 330 | 70.1% | 65% |
 | Frontend | Playwright | 69 | 79.1% lines | 65% |
 
 - **Warnings are errors.** A warning is a library telling you something is
@@ -435,19 +435,31 @@ make test-frontend   # Playwright
   first-class target, not a spot check.
 - `make coverage` regenerates the README badges: red below 65%, amber below 80%,
   green above.
+- The backend suite runs on **every supported Python** in CI — 3.12, 3.13 and
+  3.14 — as three separate jobs. `requires-python` says 3.12 because 3.12 is
+  the oldest version anything actually proves; a floor nobody tests is not a
+  floor. Production (Ubuntu 26.04) and local development both run 3.14, which
+  is what the single-version jobs use.
 
 ### Git hooks
 
-`make install-dev` installs both, or run `make install-hooks` on its own.
+`make install-dev` installs the hook, or run `make install-hooks` on its own.
 
 | Hook | Runs | Blocks on |
 |---|---|---|
-| `pre-commit` | `make lint` | any finding, including black reporting it would reformat a file |
-| `pre-push` | `make lint` | the same, so a `commit --no-verify` cannot be pushed |
+| `pre-push` | `make lint` | any finding, including black reporting it would reformat a file |
 
-Neither hook runs the test suites. They take minutes, they would run again for
-every tag push, and CI runs them on every push anyway. Bypass in an emergency
-with `--no-verify`; CI will still catch it.
+There is deliberately no `pre-commit` hook. A work-in-progress commit is nobody
+else's problem; a push is. Putting the single gate at the boundary where the
+code stops being yours alone means you can commit freely mid-thought and still
+cannot ship something unformatted.
+
+It does not run the test suites either. They take minutes, they would run again
+for every tag push, and CI runs them on every push anyway — a hook slow enough
+to be routinely bypassed protects nothing. It takes about two seconds, and
+prints the full lint output when it blocks so you do not have to re-run
+anything to find out why. Bypass in an emergency with `git push --no-verify`;
+CI will still catch it.
 
 ### Continuous integration
 
@@ -456,7 +468,7 @@ Two workflows, one job per concern, so a red tick names the thing that broke.
 | Workflow | Job | What it does |
 |---|---|---|
 | `ci.yml` | `lint` | `make lint` — black, ruff, mypy, bandit, prettier, eslint, shellcheck |
-| | `test` | `make test-backend`, then `make test-frontend`; the frontend step runs even when the backend step fails, so one push reports both |
+| | `test` | three jobs, one per supported Python (3.12, 3.13, 3.14): `make test-backend`, then `make test-frontend`; the frontend step runs even when the backend step fails, so one push reports both, and `fail-fast` is off so one bad interpreter does not hide the others |
 | | `migrations` | applies the Alembic chain to an empty database and checks the models match |
 | | `build` | production bundle, and asserts no coverage instrumentation shipped in it |
 | `security.yml` | `security` | installs every scanner, then runs `make security` — the same script you run locally |
@@ -475,7 +487,7 @@ The application is built against the [OWASP Top 10](https://owasp.org/Top10/).
 | **A05 Security Misconfiguration** | Security headers from both the app and nginx, including a strict CSP. API docs disabled in production. Hardened systemd unit (`ProtectSystem=strict`, `NoNewPrivileges`, syscall filter). Config 0600, photo store 0700, database 0640. Startup warns about short or placeholder secrets. |
 | **A06 Vulnerable Components** | Dependabot on pip, npm and Actions. `pip-audit`, `npm audit` and Snyk in CI and in `make security`. |
 | **A07 Authentication Failures** | Per-(username, IP) throttling with lockout; uniform failure messages and timing equalization so usernames cannot be enumerated; 12-character minimum with a common-password check; password change ends all sessions. |
-| **A08 Integrity Failures** | Pinned dependency floors with lockfiles; CodeQL, semgrep and bandit in CI; git hooks that block a commit on any lint finding. |
+| **A08 Integrity Failures** | Pinned dependency floors with lockfiles; CodeQL, semgrep and bandit in CI; a pre-push hook that blocks on any lint finding. |
 | **A09 Logging Failures** | Failed sign-ins, access requests, scan outcomes and every digest attempt are logged; scan history and email delivery history are queryable in the UI. Every attacker-supplied value is passed through `app/logsafe.scrub` first, so a newline in a username cannot forge a log record. |
 | **A10 SSRF** | Image URLs come from third-party markup, so every download validates the URL first: http/https only, and DNS resolution must not land on a private, loopback, link-local or reserved address. Cloud metadata endpoints are unreachable. |
 

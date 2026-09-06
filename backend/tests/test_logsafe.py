@@ -16,7 +16,7 @@ class TestScrub:
 
     def test_non_ascii_prose_survives(self):
         # Accented names and non-Latin scripts are printable and must not be
-        # mangled: this is a sanitiser, not an ASCII filter.
+        # mangled: this is a sanitizer, not an ASCII filter.
         assert scrub("José Müller") == "José Müller"
         assert scrub("Ольга") == "Ольга"
 
@@ -50,7 +50,7 @@ class TestScrub:
 
 
 class TestEndpointsUseIt:
-    """The sanitiser is only worth anything if it is actually on the path."""
+    """The sanitizer is only worth anything if it is actually on the path."""
 
     def test_a_failed_sign_in_logs_one_line(self, client, caplog):
         with caplog.at_level(logging.WARNING, logger="milsurp.auth"):

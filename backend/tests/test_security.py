@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import base64
+import json
+
 import pytest
 
 from app.security import (
@@ -96,7 +99,7 @@ class TestConfigurablePasswordLength:
             validate_password("a" * 19, strict)
         validate_password("a" * 20, strict)
 
-    def test_a_lower_minimum_is_honoured(self, app_config):
+    def test_a_lower_minimum_is_honored(self, app_config):
         """A configured 8 must not be silently overridden by a hard-coded 12."""
         import dataclasses
 
@@ -205,6 +208,15 @@ class TestComplexityRules:
         assert "a lowercase letter" not in rules
 
 
+def _b64url_decode(segment: str) -> bytes:
+    """Decode a JWT segment, restoring the padding JWT strips."""
+    return base64.urlsafe_b64decode(segment + "=" * (-len(segment) % 4))
+
+
+def _b64url_encode(raw: bytes) -> str:
+    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+
+
 class TestTokens:
     def test_round_trip(self, app_config):
         token, expires = create_access_token(42, "admin", 3, app_config)
@@ -236,8 +248,63 @@ class TestTokens:
         with pytest.raises(TokenError):
             decode_access_token(token, app_config)
 
-    def test_tampered_token_rejected(self, app_config):
+    def test_tampered_signature_rejected(self, app_config):
+        """Flip one character of the signature; it must no longer verify.
+
+        The character is taken from the middle on purpose. An HS256 signature
+        is 32 bytes encoded as 43 base64url characters — 258 bits of alphabet
+        for 256 bits of signature — so the *last* character carries only four
+        significant bits and its low two bits are ignored on decode. Rewriting
+        the tail can therefore be a no-op that leaves a perfectly valid token,
+        which is exactly how the earlier version of this test (`signature[:-2]
+        + "xx"`) failed roughly once in a thousand runs. Every other position
+        is fully significant, so changing one always changes the bytes.
+        """
         token, _ = create_access_token(1, "normal", 0, app_config)
         header, payload, signature = token.split(".")
+        middle = len(signature) // 2
+        # Pick a replacement that cannot equal what is already there.
+        swapped = "A" if signature[middle] != "A" else "B"
+        tampered = f"{signature[:middle]}{swapped}{signature[middle + 1:]}"
+        assert tampered != signature
+
         with pytest.raises(TokenError):
-            decode_access_token(f"{header}.{payload}.{signature[:-2]}xx", app_config)
+            decode_access_token(f"{header}.{payload}.{tampered}", app_config)
+
+    @pytest.mark.parametrize("position", [0, 1, 7, 21, 41])
+    def test_a_flip_anywhere_in_the_signature_is_rejected(self, app_config, position):
+        """No position in the signature may be quietly ignored."""
+        token, _ = create_access_token(1, "normal", 0, app_config)
+        header, payload, signature = token.split(".")
+        swapped = "A" if signature[position] != "A" else "B"
+        tampered = f"{signature[:position]}{swapped}{signature[position + 1:]}"
+
+        with pytest.raises(TokenError):
+            decode_access_token(f"{header}.{payload}.{tampered}", app_config)
+
+    def test_privilege_escalation_by_editing_the_payload_is_rejected(self, app_config):
+        """The attack this signature actually exists to stop.
+
+        A normal user holds a valid token that says ``"role": "normal"``. They
+        rewrite that one claim to ``"admin"`` and re-encode the payload,
+        keeping the original signature. It must not be accepted.
+        """
+        token, _ = create_access_token(1, "normal", 0, app_config)
+        header, payload, signature = token.split(".")
+
+        claims = json.loads(_b64url_decode(payload))
+        assert claims["role"] == "normal"
+        claims["role"] = "admin"
+        forged = _b64url_encode(json.dumps(claims).encode())
+
+        with pytest.raises(TokenError):
+            decode_access_token(f"{header}.{forged}.{signature}", app_config)
+
+    def test_downgrading_the_algorithm_to_none_is_rejected(self, app_config):
+        """The classic JWT forgery: claim alg=none and send no signature."""
+        token, _ = create_access_token(1, "normal", 0, app_config)
+        _, payload, _ = token.split(".")
+        header = _b64url_encode(json.dumps({"alg": "none", "typ": "JWT"}).encode())
+
+        with pytest.raises(TokenError):
+            decode_access_token(f"{header}.{payload}.", app_config)

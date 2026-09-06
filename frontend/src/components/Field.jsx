@@ -1,5 +1,5 @@
 /**
- * A labelled form field.
+ * A labeled form field.
  *
  * Exists because of an accessibility trap: putting the hint text *inside* the
  * `<label>` element makes it part of the control's accessible name, so a screen

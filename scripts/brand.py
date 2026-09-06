@@ -13,12 +13,12 @@ The mark is the US Air Force **Senior Airman (E-4)** insignia.
 
 Its actual construction, which is not a stack of chevrons and not a shield:
 
-  * A **circular hub** in the centre. Its lower edge *is* the rounded bottom of
+  * A **circular hub** in the center. Its lower edge *is* the rounded bottom of
     the patch.
   * Two **constant-width striped wings** coming off that hub, angling up and
     out to blunt tips. Each wing carries **three stripes** running parallel to
     the wing.
-  * A **five-pointed star** inside the hub, in the field colour with a
+  * A **five-pointed star** inside the hub, in the field color with a
     **darker blue outline** — it is blue on blue, not a white device.
 
     python scripts/brand.py
@@ -27,6 +27,7 @@ Its actual construction, which is not a stack of chevrons and not a shield:
 from __future__ import annotations
 
 import math
+import subprocess  # nosec B404
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -48,17 +49,17 @@ STAR_OUTLINE_HI = "#6E9BCE"
 # --- Geometry, in a 100 x 60 space -----------------------------------------
 # Construction, which is what makes this read as the real insignia:
 #
-#   * A dark circular HUB in the centre, sitting at the TOP of the z-order.
+#   * A dark circular HUB in the center, sitting at the TOP of the z-order.
 #   * Two wings, each a constant-width band whose CENTRE LINE runs through the
-#     hub centre. The three stripes are centred on that line, so the band of
+#     hub center. The three stripes are centered on that line, so the band of
 #     stripes is slightly narrower than the hub's diameter and the stripes
 #     appear to run behind the hub and out the other side.
-#   * A five-pointed star at the exact centre of the hub, in the field colour
+#   * A five-pointed star at the exact center of the hub, in the field color
 #     with a lighter metallic blue outline.
 HUB_CENTER = (50.0, 43.0)
 HUB_RADIUS = 15.0
 
-#: A point on each wing's centre line, out toward the tip. Only its direction
+#: A point on each wing's center line, out toward the tip. Only its direction
 #: from the hub matters — the tip itself is cut at TIP_X below. Chosen to give
 #: a 30-degree rake, and positioned so the band's upper edge clears the top of
 #: the viewBox once it is offset outward.
@@ -67,10 +68,10 @@ WING_OUTER = (2.0, 15.3)
 #: frame, rather than square to the wing. That flat outer end is what the real
 #: patch has; a perpendicular cut leaves the tips looking sheared.
 TIP_X = 2.0
-#: Half the band width, measured perpendicular to the centre line.
+#: Half the band width, measured perpendicular to the center line.
 BAND_HALF = 12.0
 
-#: Stripe offsets from the wing's centre line: one on it, one either side. The
+#: Stripe offsets from the wing's center line: one on it, one either side. The
 #: band they span (21.5) is deliberately a little less than the hub diameter
 #: (30), so the stripes meet the circle rather than the circle floating on top
 #: of a wider field.
@@ -85,7 +86,7 @@ STAR_INNER = 4.0
 
 
 def _mirror(point: tuple[float, float]) -> tuple[float, float]:
-    """Reflect a point across the vertical centre line."""
+    """Reflect a point across the vertical center line."""
     return (100.0 - point[0], point[1])
 
 
@@ -95,15 +96,15 @@ def _unit(a: tuple[float, float], b: tuple[float, float]) -> tuple[float, float]
     return dx / length, dy / length
 
 
-def _centre_line(right: bool = False) -> tuple[tuple[float, float], tuple[float, float]]:
-    """A wing's centre line, from the outer tip to the hub centre."""
+def _center_line(right: bool = False) -> tuple[tuple[float, float], tuple[float, float]]:
+    """A wing's center line, from the outer tip to the hub center."""
     outer = _mirror(WING_OUTER) if right else WING_OUTER
     return outer, HUB_CENTER
 
 
 def _normal(right: bool = False) -> tuple[float, float]:
-    """Unit normal to a wing's centre line, pointing downward."""
-    outer, inner = _centre_line(right)
+    """Unit normal to a wing's center line, pointing downward."""
+    outer, inner = _center_line(right)
     ux, uy = _unit(outer, inner)
     nx, ny = -uy, ux
     return (nx, ny) if ny > 0 else (-nx, -ny)
@@ -123,11 +124,11 @@ def _extend_to_x(
 def wing_points(right: bool = False) -> list[tuple[float, float]]:
     """The wing as a quadrilateral with a vertical outer edge.
 
-    The two long edges are offset either side of the centre line; the outer end
+    The two long edges are offset either side of the center line; the outer end
     is where each of them crosses the vertical line at TIP_X, so the tip is cut
     parallel to the frame rather than square to the wing.
     """
-    outer, inner = _centre_line(right)
+    outer, inner = _center_line(right)
     ux, uy = _unit(outer, inner)
     nx, ny = _normal(right)
     tip_x = 100.0 - TIP_X if right else TIP_X
@@ -154,11 +155,11 @@ def right_wing() -> str:
 
 
 def stripe_lines() -> list[tuple[float, float, float, float]]:
-    """Six stripes: three per wing, centred on that wing's centre line."""
+    """Six stripes: three per wing, centered on that wing's center line."""
     lines: list[tuple[float, float, float, float]] = []
 
     for right in (False, True):
-        outer, inner = _centre_line(right)
+        outer, inner = _center_line(right)
         ux, uy = _unit(outer, inner)
         nx, ny = _normal(right)
 
@@ -243,7 +244,7 @@ def _devices(
   </g>
   <!-- The hub, over the stripes: they stop at its circumference. -->
   <circle cx="{HUB_CENTER[0]}" cy="{HUB_CENTER[1]}" r="{HUB_RADIUS}" fill="{hub_fill}"/>
-  <!-- Blue on blue: the field colour, outlined in a lighter metallic blue. -->
+  <!-- Blue on blue: the field color, outlined in a lighter metallic blue. -->
   <polygon points="{star_points(*HUB_CENTER, STAR_OUTER, STAR_INNER)}"
            fill="none" stroke="{star_color}" stroke-width="{star_stroke}"
            stroke-linejoin="round"/>"""
@@ -364,6 +365,44 @@ export default function Insignia({{ size = 30, className }}) {{
 """
 
 
+def _format_jsx(path: Path) -> None:
+    """Run prettier over the generated component.
+
+    Insignia.jsx is committed, imported by the app and read by people, so it is
+    held to the same formatting as any other source file — and `make lint`
+    checks it. Emitting prettier-clean JSX by hand would mean hand-wrapping
+    every attribute list and re-guessing the rules whenever prettier changes,
+    so the generator formats its own output instead. Without this, running this
+    script is enough on its own to make the lint gate fail.
+
+    This is the only ``subprocess`` use in the project (hence the ``# nosec
+    B404`` on the import): one fixed argv, an absolute executable, no shell,
+    and the only variable part is a path this module computed itself.
+    """
+    frontend = REPO_ROOT / "frontend"
+    # The binary is invoked by absolute path rather than through npx: nothing
+    # is resolved from PATH, so the command cannot be hijacked by a stray
+    # executable earlier in it.
+    prettier = frontend / "node_modules" / ".bin" / "prettier"
+    if not prettier.exists():
+        print("  ! prettier not installed — Insignia.jsx left unformatted")
+        print("    run 'cd frontend && npm install', then 'make lint-fix'")
+        return
+    # Fixed argv, absolute executable, no shell, and the only variable part is
+    # a path this module computed itself. Nothing here comes from outside.
+    result = subprocess.run(  # nosec B603
+        [str(prettier), "--write", str(path.relative_to(frontend))],
+        cwd=frontend,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode == 0:
+        print(f"  formatted {path.relative_to(REPO_ROOT)}")
+    else:
+        print(f"  ! prettier failed on {path.relative_to(REPO_ROOT)}: {result.stderr.strip()}")
+
+
 def main() -> int:
     for directory in (MARKETING, FRONTEND_PUBLIC, FRONTEND_SRC):
         directory.mkdir(parents=True, exist_ok=True)
@@ -378,6 +417,7 @@ def main() -> int:
         path.write_text(content, encoding="utf-8")
         print(f"  wrote {path.relative_to(REPO_ROOT)}")
 
+    _format_jsx(FRONTEND_SRC / "Insignia.jsx")
     return 0
 
 
