@@ -222,6 +222,16 @@ export const Trash = (p) => (
   </Svg>
 );
 
+// A browser window: marks a site whose catalog only renders under headless
+// Chrome. Informational, not a warning — see the chip in Sites.jsx.
+export const Browser = (p) => (
+  <Svg {...p}>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <path d="M3 9h18" />
+    <path d="M6.5 6.5h.01M9 6.5h.01M11.5 6.5h.01" />
+  </Svg>
+);
+
 export const Image = (p) => (
   <Svg {...p}>
     <rect x="3" y="4.5" width="18" height="15" rx="2" />

@@ -36,6 +36,10 @@ APT_PACKAGES=(
   curl git make
   # Linters that are not pip-installable; `make lint` skips them when absent.
   shellcheck
+  # OCR. Hunter's Lodge publishes a scanned advertisement rather than a
+  # catalog, and its listings are read out of that image. Without this the site
+  # reports a clear error and everything else works normally.
+  tesseract-ocr
 )
 
 if command -v apt-get >/dev/null 2>&1; then

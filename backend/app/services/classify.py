@@ -215,6 +215,14 @@ NON_FIREARM_PATTERNS = (
     r"\bammo\b",
     r"\bpistol\s+grip\b",
     r"\bstock\s+set\b",
+    r"\bbutt\s?stocks?\b",
+    # A parts kit is parts, whatever it is a kit for. The dealer files every
+    # one of them under parts and accessories, including the ones priced like
+    # a rifle: an Ethiopian Gafat AK kit at $449 is still a box of parts.
+    # A kit named for a *handgun* -- "Revolver Kits", "Pistol Kits" -- is the
+    # dealer's own way of selling a handgun, and is deliberately not caught
+    # here; only the literal phrase "parts kit" is.
+    r"\bparts\s*kits?\b",
     r"\bcleaning\s+kit\b",
     r"\bwinter\s+trigger\b",
     r"\bscope\s+mount\b",
@@ -223,12 +231,31 @@ NON_FIREARM_PATTERNS = (
     r"\bmonte\s+carlo\s+stock\b",
     r"\bhandguard\s+for\b",
     r"\brifle\s+bolts?\b",
+    # Dealers who sell firearms sell other things beside them. These have
+    # nothing to do with a rifle or a pistol however the surrounding prose
+    # reads — a Hunter's Lodge listing for hand-woven Vaquero blankets was
+    # filed as a rifle because the neighbouring panel's text bled into its
+    # description.
+    r"\bblankets?\b",
+    r"\bshirts?\b",
+    r"\bhats?\b",
+    r"\bcaps?\b",
+    r"\bposters?\b",
+    r"\bbooks?\b",
+    r"\bmanuals?\b",
+    r"\bpatch(?:es)?\b",
+    r"\bmedals?\b",
     r"\bgrips\b",
 )
 
+# The common nouns take an optional plural. A word boundary after
+# "rifle" does not match "rifles", so the singular-only patterns missed
+# every title that named more than one — which on a dealer's catalog is
+# most of them ("1893 SPANISH MAUSER LONG RIFLES", "10 PISTOLS").
+# Model names are left singular: nobody writes "SKSs" or "C96s".
 RIFLE_PATTERNS = (
-    r"\brifle\b",
-    r"\bcarbine\b",
+    r"\brifles?\b",
+    r"\bcarbines?\b",
     r"\bgarand\b",
     r"\bsks\b",
     r"\bak-?\d{2}\b",
@@ -240,6 +267,17 @@ RIFLE_PATTERNS = (
     r"\bmosin\b",
     r"\bcarcano\b",
     r"\bgewehr\b",
+    r"\barisaka\b",
+    r"\barisika\b",  # as OCR and dealers both spell it
+    r"\bvetterli\b",
+    r"\bschmidt.?rubin\b",
+    r"\bvz\.?\s?24\b",
+    r"\bgahendra\b",
+    r"\bmartini\b",
+    # Mauser made the C96 pistol as well, but on a surplus catalog the name
+    # means a rifle unless something else in the title says otherwise — and
+    # when it does, the leading-word tie-break below settles it.
+    r"\bmauser\b",
     r"\bgew\s*\d+\b",
     r"\bmas\s*49\b",
     r"\bberthier\b",
@@ -263,9 +301,9 @@ RIFLE_PATTERNS = (
 )
 
 PISTOL_PATTERNS = (
-    r"\bpistol\b",
-    r"\brevolver\b",
-    r"\bhandgun\b",
+    r"\bpistols?\b",
+    r"\brevolvers?\b",
+    r"\bhandguns?\b",
     r"\bluger\b",
     r"\bmakarov\b",
     r"\bwalther\s+p\w*\b",
@@ -274,6 +312,10 @@ PISTOL_PATTERNS = (
     r"\btokarev\b",
     r"\btt-?33\b",
     r"\bcolt\s+1911\b",
+    # Colt's Police Positive, written "Colt PP" on a dealer's flyer. Without
+    # this the frames read as neither rifle nor pistol.
+    r"\bcolt\s+p\.?\s?p\.?\b",
+    r"\bpolice\s+positive\b",
     r"\bbroomhandle\b",
     r"\bc96\b",
     r"\bmauser\s+pistol\b",
@@ -302,68 +344,332 @@ PISTOL_CALIBERS = (
     r"\btokarev\b",
 )
 
-#: Below this price a listing is a part or accessory, whatever it is called.
+#: Below this price a listing is a part or an accessory, whatever it is called.
+#: A $25 "Mosin Nagant rifle" is a book, a toy or a mislabelled part.
 MIN_FIREARM_PRICE = 70.0
 
+#: ...with one exception. A frame or a receiver *is* the firearm — it is the
+#: serialised part, and it is what the law regulates — so a cheap one is a
+#: handgun or a rifle in a way that a cheap sling is not. Without this a
+#: dealer's "COLT PP .38 FRAMES" at $29 came back as neither.
+#: A barrelled receiver is the same thing again: the serialised part with a
+#: barrel on it. Dealers write it "BBL REC", "bbl action" or in full.
+_FRAME_PATTERN = re.compile(
+    r"\b(?:frames?|receivers?|bbl\.?\s*rec\.?|bbl\.?\s*action|barrell?ed\s+(?:receiver|action))\b",
+    re.I,
+)
 
-def classify_firearm(  # noqa: PLR0911 - a flat list of exclusion rules
-    title: str,
-    description: str | None = None,
-    caliber: str | None = None,
-    price: float | None = None,
-) -> tuple[bool, bool]:
-    """Return ``(is_rifle, is_pistol)``. Both false means "not a firearm"."""
-    title_lower = (title or "").lower()
-    haystack = f"{title or ''} {description or ''}".lower()
+#: A title that says outright what it is selling also outranks the floor. The
+#: floor exists to keep slings and pouches out of the firearm filters, and it
+#: should not be deciding against a listing headed "WW2 RUSSIAN 91/30 RIFLES" —
+#: on a flyer read by OCR the *price* is the least reliable field on the page,
+#: and using it to overrule the plainest statement of what something is had
+#: excluded five genuine firearms from one page.
+#: The words a listing uses to say outright what it is, as opposed to the
+#: maker and model names that only imply it.
+_RIFLE_NOUN = re.compile(r"\b(?:rifles?|carbines?|muskets?|shotguns?)\b", re.I)
 
-    if price is not None and price < MIN_FIREARM_PRICE:
-        return (False, False)
+#: Makers who built both, so their name alone settles nothing. A C96 is a
+#: Mauser and a handgun; without this the maker outvoted the model and the
+#: broomhandle came back a rifle.
+_AMBIGUOUS_MAKERS = (r"\bmauser\b",)
 
-    for pattern in NON_FIREARM_PATTERNS:
-        if re.search(pattern, haystack):
-            return (False, False)
+_NAMES_A_FIREARM = re.compile(
+    r"\b(?:rifles?|carbines?|muskets?|pistols?|revolvers?|handguns?|shotguns?)\b", re.I
+)
+
+#: ...unless the listing says it has none. "Parts kit, no frame" is precisely
+#: the thing that is *not* a firearm.
+_NO_FRAME_PATTERN = re.compile(
+    r"\b(?:no|without|less|minus|w/?o)\s+(?:the\s+)?(?:frames?|receivers?)\b", re.I
+)
+
+
+#: Category names that state the firearm type outright.
+_CATEGORY_RIFLE = re.compile(r"\b(?:rifles?|carbines?|muskets?|long\s*guns?)\b", re.I)
+_CATEGORY_PISTOL = re.compile(r"\b(?:handguns?|pistols?|revolvers?|sidearms?)\b", re.I)
+
+
+def kind_from_category(category: str | None) -> tuple[bool, bool] | None:
+    """Read the firearm type off the vendor's own category, when it says one.
+
+    A dealer who files a listing under "Handguns" has told us something no
+    heuristic can reliably infer from a title like "BELGIAN Model 1910/22
+    Browning" — which reads as neither a rifle nor a pistol to a pattern
+    matcher, and is a pistol.
+
+    Returns ``None`` when the category is missing, says nothing about type
+    ("Antique", "Deal of the Day", "Shop All"), or contradicts itself, leaving
+    the decision to the heuristics.
+    """
+    if not category:
+        return None
+    rifle = bool(_CATEGORY_RIFLE.search(category))
+    pistol = bool(_CATEGORY_PISTOL.search(category))
+    if rifle == pistol:
+        return None
+    return (rifle, pistol)
+
+
+#: Things sold both on their own and bundled with a firearm. Whether the
+#: listing is one or the other is decided by which is named first.
+_BUNDLED_ACCESSORY = re.compile(
+    # "barrel" is here rather than among the outright vetoes because whether it
+    # decides anything depends on what came before it: a bare "AK47 16in
+    # Chrome Lined Barrel" is a part, while a "Berthier barreled action,
+    # shortened barrel" is a firearm that happens to mention its own barrel.
+    # The order rule below tells the two apart. Note \bbarrels?\b does not
+    # match "barreled", so a barreled action is never read as a loose barrel.
+    r"\b(?:slings?|pouch(?:es)?|scabbards?|holsters?|bandoliers?|cleaning\s+kits?|"
+    r"stripper\s+clips?|barrels?|handguards?)\b",
+    re.I,
+)
+
+
+def _accessory_leads(title_lower: str) -> bool:
+    """Whether the title offers an accessory rather than a firearm with one.
+
+    "Leather sling for a Mauser rifle" and "Mosin Nagant rifle with sling" both
+    name an accessory and a firearm; the difference is the order. A listing is
+    titled for the thing being sold, so whichever comes first is the thing.
+    """
+    accessory = _BUNDLED_ACCESSORY.search(title_lower)
+    if not accessory:
+        return False
+
+    # "Pistol holster" and "rifle sling" name one thing, not two. English puts
+    # the head noun last, so when the accessory word follows the firearm word
+    # immediately the accessory is the product and the firearm merely says
+    # what it fits. Reading those two as "a firearm, mentioned first" made a
+    # Mauser C96 holster a handgun.
+    before = title_lower[: accessory.start()].rstrip()
+    named = list(_NAMES_A_FIREARM.finditer(before))
+    if named and named[-1].end() == len(before):
+        return True
+    # A frame or a receiver counts as the thing being sold here for the same
+    # reason it survives the price floor: it is the serialized part, so a
+    # listing that leads with one is selling a firearm even though it has not
+    # used the word.
+    firearm_at = [
+        match.start()
+        for match in (
+            _NAMES_A_FIREARM.search(title_lower),
+            _FRAME_PATTERN.search(title_lower),
+        )
+        if match is not None
+    ]
+    return not firearm_at or accessory.start() < min(firearm_at)
+
+
+def _is_not_a_firearm(title_lower: str) -> bool:
+    r"""True when the *title* says this listing is a part or an accessory.
+
+    Reads the title only, never the description.
+
+    A title is where a vendor says what they are selling; a description is
+    where they talk about it. The description of a genuine Vetterli rifle says
+    "the rifle bolt is matching", which tripped the ``\brifle\s+bolts?\b``
+    accessory veto and filed the rifle under "other". Measured against the live
+    catalogs, reading the description here wrongly rejected 17 of 58 Empire
+    Arms listings and 61 of 210 Royal Tiger listings — every one of them a
+    firearm whose own prose happened to mention a part.
+    """
+    if any(re.search(pattern, title_lower) for pattern in NON_FIREARM_PATTERNS):
+        return True
 
     # Bayonets, magazines and bolts are sold both standalone and as part of a
     # firearm listing; only the standalone case should be filtered out.
     if "bayonet" in title_lower and not re.search(r"\b(?:rifle|pistol|carbine)\b", title_lower):
-        return (False, False)
+        return True
     if (
         re.search(r"\bmagazine\b", title_lower)
         and not re.search(r"\bwith\s+magazine\b", title_lower)
         and not any(word in title_lower for word in FIREARM_WORDS)
     ):
-        return (False, False)
+        return True
     if (
         re.search(r"\bbolts?\b", title_lower)
         and not re.search(r"w(?:ithout|/o)\s+bolt", title_lower)
         and not any(word in title_lower for word in FIREARM_WORDS)
     ):
+        return True
+
+    if _accessory_leads(title_lower):
+        return True
+
+    return _looks_like_accessory(title_lower)
+
+
+#: Designations whose type cannot be read from the words themselves, each one
+#: here because somebody who knows the trade said so. This is the place for
+#: facts about the market rather than facts about English, and it is expected
+#: to grow.
+KNOWN_DESIGNATIONS: tuple[tuple[str, bool, bool], ...] = (
+    # On a surplus flyer "Enfield No1 Mk2" is the revolver, not the SMLE rifle
+    # that shares most of that designation. Reported by the site's owner.
+    (r"\benfield\s*n[o0]\.?\s*1\s*mk\.?\s*2\b", False, True),
+)
+
+
+def _known_designation(title_lower: str) -> tuple[bool, bool] | None:
+    for pattern, is_rifle, is_pistol in KNOWN_DESIGNATIONS:
+        if re.search(pattern, title_lower):
+            return (is_rifle, is_pistol)
+    return None
+
+
+def _is_a_bare_frame(title_lower: str) -> bool:
+    """Whether the title offers a frame or receiver, which is the firearm itself."""
+    if not _FRAME_PATTERN.search(title_lower) or _NO_FRAME_PATTERN.search(title_lower):
+        return False
+    return any(re.search(pattern, title_lower) for pattern in RIFLE_PATTERNS + PISTOL_PATTERNS)
+
+
+#: The licenses the ATF issues, and the ways a dealer writes them: an 03 Curio
+#: and Relic license, and a Federal Firearms License. Every surplus listing says
+#: which one a buyer needs, so these words are on the page constantly — but they
+#: name a *permission*, not a thing, and nobody sells one.
+#:
+#: This matters because they behave like a product name otherwise. They are set
+#: in capitals like one, they sit next to a price like one ("Add frame for
+#: $38.88. C&R/FFL required."), and on a flyer read by OCR that was enough to
+#: produce a $38.88 listing called "C&R/FFL".
+LICENSE_PATTERN = re.compile(
+    r"\b(?:C\s*&\s*R|F\.?\s?F\.?\s?L\.?|curios?\s*(?:&|and)\s*relics?)\b",
+    re.I,
+)
+
+#: The same words plus the grammar a dealer wraps them in, anchored: a title
+#: that is *only* this is not a title.
+_LICENSE_ONLY = re.compile(
+    r"^[\s.,:;/&()-]*"
+    r"(?:(?:C\s*&\s*R|F\.?\s?F\.?\s?L\.?|curios?|relics?|license[sd]?|licence[sd]?|"
+    r"permits?|required?|req\.?|needed|no|or|and|not|only)"
+    r"(?![A-Za-z0-9])[\s.,:;/&()-]*)+$",
+    re.I,
+)
+
+
+def names_only_a_license(title: str) -> bool:
+    """Whether a title says nothing but which ATF license a buyer needs.
+
+    A listing cannot be a C&R. It can *require* one, and almost all of them do.
+    """
+    text = (title or "").strip()
+    return bool(text) and bool(LICENSE_PATTERN.search(text)) and bool(_LICENSE_ONLY.match(text))
+
+
+def is_ruled_out(title: str) -> bool:
+    """True when the title itself says this is not a firearm.
+
+    The difference between "we decided this is a scabbard" and "we could not
+    tell what this is" matters to anything that wants to fill the gap from
+    elsewhere: the first is an answer, and borrowing over it would turn a
+    sling into the rifle it is a sling for.
+    """
+    title_lower = (title or "").lower()
+    return (
+        names_only_a_license(title)
+        or _is_not_a_firearm(title_lower)
+        or _accessory_leads(title_lower)
+    )
+
+
+def _break_the_tie(title_lower: str) -> tuple[bool, bool]:
+    """Decide between rifle and handgun when the text names both.
+
+    The title is the claim; the description is context. When only one of the
+    two is named in the title, that is the answer — a listing headed "COLT PP
+    .38 FRAMES" is a handgun even if the paragraph beneath it wanders onto
+    rifles, which on a flyer read by OCR it routinely does, because the
+    neighboring panel's prose bleeds into it.
+    """
+    rifle_hits = [pattern for pattern in RIFLE_PATTERNS if re.search(pattern, title_lower)]
+    rifle_in_title = bool(rifle_hits)
+    pistol_in_title = any(re.search(pattern, title_lower) for pattern in PISTOL_PATTERNS)
+
+    if rifle_in_title != pistol_in_title:
+        return (rifle_in_title, pistol_in_title)
+
+    # The rifle signal is only a maker's name and the pistol signal is a model.
+    # "Mauser C96 Broomhandle" is a Mauser and a C96, and the C96 is the more
+    # specific of the two — without this the maker outvoted the model and the
+    # broomhandle came back a rifle.
+    if pistol_in_title and rifle_hits and all(hit in _AMBIGUOUS_MAKERS for hit in rifle_hits):
+        return (False, True)
+
+    # Named in both, or in neither: go with whichever the title leads with, and
+    # with rifle when the title settles nothing.
+    rifle_at = min(
+        (title_lower.find(word) for word in ("rifle", "carbine") if title_lower.find(word) >= 0),
+        default=10_000,
+    )
+    pistol_at = min(
+        (title_lower.find(word) for word in ("pistol", "revolver") if title_lower.find(word) >= 0),
+        default=10_000,
+    )
+    return (True, False) if rifle_at <= pistol_at else (False, True)
+
+
+def classify_firearm(
+    title: str,
+    description: str | None = None,
+    caliber: str | None = None,
+    price: float | None = None,
+    category: str | None = None,
+) -> tuple[bool, bool]:
+    """Return ``(is_rifle, is_pistol)``. Both false means "not a firearm"."""
+    title_lower = (title or "").lower()
+
+    # A designation somebody has told us about outranks everything, including
+    # the vendor's own category: it is the most specific knowledge available.
+    known = _known_designation(title_lower)
+    if known is not None:
+        return known
+
+    # Before anything else, including the vendor's category: a listing whose
+    # name is only a license is not a listing at all, and a category cannot
+    # make it one.
+    if names_only_a_license(title):
         return (False, False)
 
-    if _looks_like_accessory(title_lower):
+    stated = kind_from_category(category)
+    if stated is not None:
+        return stated
+
+    haystack = f"{title or ''} {description or ''}".lower()
+
+    if _is_not_a_firearm(title_lower):
+        return (False, False)
+
+    if (
+        price is not None
+        and price < MIN_FIREARM_PRICE
+        and not _is_a_bare_frame(title_lower)
+        and not _NAMES_A_FIREARM.search(title_lower)
+    ):
         return (False, False)
 
     is_rifle = any(re.search(p, haystack) for p in RIFLE_PATTERNS)
     is_pistol = any(re.search(p, haystack) for p in PISTOL_PATTERNS)
 
-    # A description that mentions both wins for whichever the *title* leads with.
     if is_rifle and is_pistol:
-        rifle_at = min(
-            (title_lower.find(w) for w in ("rifle", "carbine") if title_lower.find(w) >= 0),
-            default=10_000,
-        )
-        pistol_at = min(
-            (title_lower.find(w) for w in ("pistol", "revolver") if title_lower.find(w) >= 0),
-            default=10_000,
-        )
-        if rifle_at <= pistol_at:
-            is_pistol = False
-        else:
-            is_rifle = False
+        is_rifle, is_pistol = _break_the_tie(title_lower)
 
-    # A rifle caliber overrules a pistol keyword: "holster, Mauser pistol
+    # A rifle caliber overrules a pistol *keyword*: "holster, Mauser pistol
     # cartridge" style prose otherwise mislabels rifles.
-    if is_pistol and caliber:
+    #
+    # Only a keyword, though — never a title that names a pistol and nothing
+    # else. The caliber is often extracted from the description, and on an
+    # OCR'd flyer the description carries whatever the neighbouring panel said:
+    # "MAUSER C96 PISTOL KITS" picked up "8mm Mauser" from the column beside it
+    # and stopped being a handgun on the strength of it. A title naming *both*
+    # ("Mauser pistol carbine") is genuinely ambiguous, and there the caliber
+    # is still the best evidence available.
+    pistol_alone_in_title = any(
+        re.search(p, title_lower) for p in PISTOL_PATTERNS
+    ) and not _RIFLE_NOUN.search(title_lower)
+    if is_pistol and caliber and not pistol_alone_in_title:
         caliber_lower = caliber.lower()
         if not any(re.search(p, caliber_lower) for p in PISTOL_CALIBERS):
             is_pistol = False
@@ -531,14 +837,16 @@ def enrich(
     caliber: str | None = None,
     country: str | None = None,
     manufacturer: str | None = None,
+    category: str | None = None,
 ) -> EnrichedFields:
     """Derive every structured field at once.
 
     Values a scraper already parsed off the page are trusted and passed through;
-    only the gaps are filled by the heuristics.
+    only the gaps are filled by the heuristics. ``category`` is the vendor's own
+    section name, which outranks the heuristics when it names a firearm type.
     """
     caliber = caliber or extract_caliber(title, description)
-    is_rifle, is_pistol = classify_firearm(title, description, caliber, price)
+    is_rifle, is_pistol = classify_firearm(title, description, caliber, price, category)
     return {
         "caliber": caliber,
         "country": country or extract_country(title, description),

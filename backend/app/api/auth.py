@@ -9,7 +9,7 @@ import time
 from fastapi import APIRouter, HTTPException, Request, status
 
 from ..deps import AppConfig, CurrentUser, DbSession
-from ..logsafe import scrub
+from ..logsafe import safe_identifier
 from ..models import User, utcnow
 from ..schemas import LoginRequest, PasswordChangeRequest, TokenResponse, UserOut
 from ..security import (
@@ -35,9 +35,17 @@ _attempts: dict[str, list[float]] = {}
 _attempts_lock = threading.Lock()
 
 
+def _client_address(request: Request) -> str:
+    """The peer address, or a fixed marker when there is none.
+
+    Read straight from the connection, so nothing here comes from the request
+    body. A test client has no peer at all.
+    """
+    return request.client.host if request.client else "unknown"
+
+
 def _throttle_key(username: str, request: Request) -> str:
-    client = request.client.host if request.client else "unknown"
-    return f"{username.lower()}|{client}"
+    return f"{username.lower()}|{_client_address(request)}"
 
 
 def _check_throttle(key: str) -> None:
@@ -81,7 +89,19 @@ def login(
             # difference between "no such user" and "wrong password".
             hash_password("timing-equalizer", config)
         _record_failure(key)
-        log.warning("Failed sign-in for %r from %s", scrub(payload.username), key.split("|")[-1])
+        # The username goes through an allowlist rather than an escape: it is
+        # either one of this application's account names or it is nothing.
+        #
+        # The client address is read from the request, not sliced back out of
+        # the throttle key. The key is built as "<username>|<address>", so
+        # key.split("|")[-1] carried the submitted username along with it — an
+        # obscure way to obtain something the request already has, and one that
+        # put attacker-controlled text into a log line that looked sanitised.
+        log.warning(
+            "Failed sign-in for %s from %s",
+            safe_identifier(payload.username),
+            _client_address(request),
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password.",

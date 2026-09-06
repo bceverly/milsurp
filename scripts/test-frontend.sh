@@ -16,7 +16,10 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT" || exit 1
 
 VENV_PY=".venv/bin/python"
-WORK_DIR="$(mktemp -d -t milsurp-e2e-XXXXXX)"
+# MILSURP_E2E_WORK_DIR keeps the disposable database and config after the run,
+# for diagnosing a failure that only reproduces inside the harness.
+WORK_DIR="${MILSURP_E2E_WORK_DIR:-$(mktemp -d -t milsurp-e2e-XXXXXX)}"
+mkdir -p "$WORK_DIR"
 TEST_PASSWORD="playwright-test-passphrase"
 APP_PID=""
 STATUS=1
@@ -33,7 +36,7 @@ cleanup() {
     kill -- "-$APP_PID" 2>/dev/null || true
     wait "$APP_PID" 2>/dev/null || true
   fi
-  rm -rf "$WORK_DIR"
+  [ -n "${MILSURP_E2E_WORK_DIR:-}" ] || rm -rf "$WORK_DIR"
 }
 trap cleanup EXIT
 
@@ -87,7 +90,13 @@ info "Loading sample listings…"
 
 # --- Instrumented build -----------------------------------------------------
 info "Building the instrumented bundle…"
-(cd frontend && COVERAGE=1 npm run build --silent) || die "Frontend build failed."
+# Built to its own directory, never over frontend/dist: that is the bundle
+# `make start` serves, and overwriting it with an instrumented build left the
+# running app serving coverage-instrumented code with no sign that it had.
+COVERAGE_DIST="dist-coverage"
+export MILSURP_FRONTEND_DIST="$REPO_ROOT/frontend/$COVERAGE_DIST"
+(cd frontend && COVERAGE=1 npm run build --silent -- --outDir "$COVERAGE_DIST" --emptyOutDir) \
+  || die "Frontend build failed."
 rm -rf frontend/.nyc_output frontend/coverage
 ok "Bundle instrumented."
 

@@ -49,6 +49,12 @@ changed — filtered to the sites you care about and capped so it stays readable
 - **Handles hostile pagination.** The Royal Tiger scraper copes with infinite
   scroll, "Load More" buttons that are absent from the DOM until scrolled near,
   and classic `page/2/` URLs — sometimes three of them on the same site.
+- **Reads vendors that publish no catalog at all.** Hunter's Lodge advertises
+  in a magazine and posts a scan of the page; every product it sells that month
+  is inside one picture. That site is read by OCR — the page is cut into panels
+  along its own printed rules, each panel is read separately, and every listing
+  carries a crop of the flyer it came from. It checks whether the flyer has
+  changed before doing any of that, so an unchanged month costs one request.
 - **A background scheduler** runs each site on its own cadence. An admin can
   disable a site, change its frequency, start a scan immediately, or cancel one
   mid-flight.
@@ -139,7 +145,9 @@ changed — filtered to the sites you care about and capped so it stays readable
 
 ## Quick start (development)
 
-**Requirements:** Ubuntu/Debian (or macOS), Python 3.12+, Node 20+, and Google
+**Requirements:** Ubuntu/Debian (or macOS), Python 3.12+, Node 20+, Tesseract
+(for the one vendor whose catalog is a scanned image; the rest work without
+it), and Google
 Chrome or Chromium if you want the browser-driven scrapers.
 
 ```bash
@@ -299,6 +307,14 @@ Generate real secrets with:
 make secrets
 ```
 
+It writes them straight into `config.yaml` and sets the file to mode 600. It
+does not print them: a credential echoed to a terminal is a credential in a
+scrollback buffer, a shell log, and any screenshot of either. It refuses to
+overwrite secrets that are already set, because rotating them is destructive
+and silently so — changing `password_pepper` stops every existing password
+verifying, and changing `jwt_secret` signs everyone out. `make secrets
+FORCE=1` overrides that, and says what it has just cost you.
+
 ### Password policy
 
 The rules are configuration, not code. Each character-class requirement applies
@@ -342,6 +358,37 @@ email:
 Verify it without sending anything from **Admin → test connection**, or send
 yourself a digest immediately from **Email digest → Send one now**.
 
+### Backups
+
+In production the scheduler snapshots the database once a day and keeps the ten
+most recent, in `backups/` beside the database (`/var/lib/milsurp/backups` by
+default). Nothing is written in development, where the database is a scratch
+copy. `backend/cli.py backup` takes one on demand — worth doing before anything
+that rewrites listings in bulk.
+
+```yaml
+backups:
+  enabled: true          # production only; dev never writes one
+  directory: backups     # relative to the state directory
+  keep: 10
+  interval_hours: 24
+```
+
+Snapshots are taken through SQLite's online backup API rather than by copying
+the file: a copy taken while the application is writing can catch a transaction
+halfway through, and under write-ahead logging the file on disk is not the whole
+database. Each one is a complete `.db` that opens on its own, so restoring is
+stopping the service and moving the file into place.
+
+### Makers
+
+The names the scanner looks for when it works out who made a listing live in a
+table, editable from **Makers** in the admin navigation. Rules are tried in
+order and the first match wins, so a name that contains another — "Mosin-Nagant"
+and "Nagant" — has to come first. Alternative spellings are matched as literal
+text on whole words, never as patterns. Saving re-files every listing the change
+reaches and tells you how many moved.
+
 ## Make targets
 
 Run `make` on its own for the full list with descriptions.
@@ -351,7 +398,7 @@ Run `make` on its own for the full list with descriptions.
 | **Setup** | `install-dev` · `install` · `secrets` · `config` |
 | **Database** | `migrate` · `migrate-status` · `migration` · `init` · `passwd` |
 | **Run** | `start` · `stop` · `restart` · `status` · `logs` · `dev` · `build-frontend` |
-| **Scraping** | `scan` · `sites` · `digest` |
+| **Scraping** | `scan` · `sites` · `digest` · `reclassify` · `photos` |
 | **Quality** | `lint` · `lint-fix` · `test` · `test-backend` · `test-frontend` · `coverage` · `security` · `install-hooks` |
 | **Docs** | `screenshots` |
 | **Release** | `release` |
@@ -435,6 +482,34 @@ make test-frontend   # Playwright
   first-class target, not a spot check.
 - `make coverage` regenerates the README badges: red below 65%, amber below 80%,
   green above.
+
+### How a scan survives being interrupted
+
+A Royal Tiger scan is about sixteen minutes of browser work. The scan service
+consumes a scraper **lazily** and commits in batches, so a restart part way
+through keeps everything already reconciled instead of discarding the run.
+
+Three facts make the next scan resume rather than repeat:
+
+| Fact | Where it is set | Effect |
+|---|---|---|
+| `Item.detail_fetched_at` | only when a scraper hands over a *complete* record | a listing that never got its detail page is fetched next time; one that did is skipped |
+| `ItemPhoto.filename IS NULL` | the photo download query | a photo is downloaded exactly once, however many scans see it; `scraping.max_photo_downloads_per_scan` (default 400) caps each run and the rest carries over |
+
+A scan caps its own image downloads so a first pass over a large catalog cannot
+run for hours. The **scheduler works through what is left between scans**, one
+batch at a time on its own single thread (`scheduler.photo_tick_seconds`,
+default 180) — never on a scan worker, so draining a backlog cannot delay a due
+scan. Without it a thousand-photo backlog would drain one batch per scan, which
+on a daily cadence is days of listings with no pictures. `make photos` does the
+same thing on demand.
+| `ScrapedItem.images_are_complete` | by the scraper | a catalog-grid preview may seed photos but may never prune a gallery it cannot see |
+
+De-listing only happens when the scraper's iterable is exhausted normally, so a
+partial scan can never mark the listings it did not reach as gone. An unchanged
+gallery — same URLs in the same order — is skipped entirely, so re-scanning a
+static catalog costs no image traffic. `make stop` warns before interrupting a
+scan in flight; `FORCE=1` skips the prompt.
 - The backend suite runs on **every supported Python** in CI — 3.12, 3.13 and
   3.14 — as three separate jobs. `requires-python` says 3.12 because 3.12 is
   the oldest version anything actually proves; a floor nobody tests is not a
@@ -512,12 +587,22 @@ it is skipped and `pip-audit` / `npm audit` carry the dependency check.
 CI additionally runs CodeQL and TruffleHog, and re-runs everything weekly so a
 newly-disclosed CVE in an unchanged dependency is still caught.
 
-Two findings are suppressed in-source rather than fixed, each with the reasoning
-next to the code: `make secrets` prints freshly generated secrets to the
-terminal, which is the whole point of the command
-(`py/clear-text-logging-sensitive-data`), and two startup warnings are matched by
-semgrep's credential-in-log rule for containing the words "secrets" and
-"admin.password" in their message text.
+Two of semgrep's findings are suppressed in-source with the reasoning next to
+the code: two startup warnings are matched by its credential-in-log rule purely
+for containing the words "secrets" and "admin.password" in their *message
+text*, while the only values they interpolate are a setting's name and a file
+path.
+
+Nothing is suppressed for CodeQL. In-source `# codeql[...]` comments turned out
+not to be honoured by GitHub code scanning, which was the right outcome: each
+alert was a real weakness once looked at properly rather than argued with.
+`make secrets` no longer prints secrets at all. Failed sign-ins put the
+submitted username through an **allowlist** rather than an escape, and read the
+client address from the connection instead of slicing it back out of the
+throttle key, which had been carrying the username along with it. And the
+startup secret check no longer keeps a setting's name in the same tuple as its
+value — a taint tracker follows the container, not the slot, so logging the
+name read as logging the secret.
 
 **Reporting a vulnerability** — please open a private security advisory on the
 repository rather than a public issue.
@@ -559,6 +644,12 @@ backend/cli.py adduser NAME EMAIL [--admin]
 backend/cli.py passwd NAME
 backend/cli.py digest [--user NAME]
 backend/cli.py prune-images     # delete image files nothing references
+backend/cli.py rebuild-thumbnails  # regenerate thumbnails from stored originals
+backend/cli.py reclassify       # re-derive rifle/handgun/maker from stored text
+backend/cli.py fetch-photos     # drain the photo queue without re-scraping
+backend/cli.py running-scans    # list in-flight scans; exit 1 if any
+backend/cli.py infer            # fill blank caliber/country/maker from other vendors
+backend/cli.py backup           # snapshot the database now, and prune old ones
 ```
 
 ## Roadmap

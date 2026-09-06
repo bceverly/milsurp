@@ -30,6 +30,7 @@ from ..models import (
     Item,
     Site,
     User,
+    as_utc,
     utcnow,
 )
 from . import mailer
@@ -55,11 +56,9 @@ def _tz(name: str):
         return UTC
 
 
-def _as_utc(value: datetime | None) -> datetime | None:
-    """Attach UTC to a naive column value so arithmetic is unambiguous."""
-    if value is None:
-        return None
-    return value if value.tzinfo else value.replace(tzinfo=UTC)
+# The shared helper lives in models.py next to utcnow(); this alias keeps the
+# call sites in this module short.
+_as_utc = as_utc
 
 
 def _fmt_time(value: datetime | None, zone) -> str:
@@ -228,7 +227,10 @@ def render_digest(
     config: Config,
 ) -> tuple[str, str]:
     """Return ``(subject, html_body)``."""
-    zone = _tz(user.email_preference.display_timezone if user.email_preference else "UTC")
+    # None means the user never chose one; the email has no browser to ask,
+    # so UTC is the only honest fallback.
+    preference = user.email_preference
+    zone = _tz((preference.display_timezone if preference else None) or "UTC")
     base_url = config.server.public_url
     new_count = sum(len(v) for v in new_items.values())
     drop_count = sum(len(v) for v in price_drops.values())

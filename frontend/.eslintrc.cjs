@@ -22,7 +22,17 @@ module.exports = {
     ecmaFeatures: { jsx: true },
   },
   settings: { react: { version: "18.3" } },
-  ignorePatterns: ["dist", "node_modules", "coverage", ".nyc_output", "*.config.js"],
+  // dist-coverage is the instrumented bundle the Playwright harness builds;
+  // it is generated output like dist, just under its own name so a test run
+  // cannot overwrite the bundle `make start` serves.
+  ignorePatterns: [
+    "dist",
+    "dist-coverage",
+    "node_modules",
+    "coverage",
+    ".nyc_output",
+    "*.config.js",
+  ],
   rules: {
     // --- Correctness ---
     "no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],

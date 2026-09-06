@@ -925,7 +925,10 @@
 
 .site-card__stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* Four now: active, total seen, last scan, and scan time. auto-fit
+     rather than a fixed count so the cells wrap to two rows on a narrow card
+     instead of squeezing "14m 36s" onto two lines. */
+  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
   border-top: 1px solid var(--silver-200);
   background: var(--silver-100);
 }

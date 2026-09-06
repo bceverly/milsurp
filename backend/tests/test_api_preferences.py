@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from app.models import EmailLog, EmailStatus, Site
+from app.scrapers import available_slugs
 
 
 class TestReading:
@@ -224,7 +225,10 @@ class TestSystemStatus:
     def test_reports_counts_and_paths(self, client, admin_headers):
         body = client.get("/api/admin/status", headers=admin_headers).json()
         assert body["mode"] == "dev"
-        assert body["counts"]["sites"] == 2
+        # Derived from the registry, not a literal: every vendor added to
+        # SCRAPER_CLASSES seeds a site row, and hard-coding the number here
+        # made adding one break two unrelated API tests.
+        assert body["counts"]["sites"] == len(available_slugs())
         assert body["counts"]["users"] >= 1
         assert body["database_path"].endswith(".db")
         assert body["email_enabled"] is False

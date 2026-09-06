@@ -43,6 +43,7 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq \
   python3 python3-venv python3-dev \
+  tesseract-ocr \
   build-essential pkg-config libffi-dev libjpeg-dev zlib1g-dev \
   nginx \
   sqlite3 \

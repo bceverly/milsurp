@@ -9,8 +9,11 @@ test.describe("sites", () => {
     const cards = signedIn.locator(".site-card");
     expect(await cards.count()).toBeGreaterThan(0);
     await expect(cards.first().locator(".site-card__name")).not.toBeEmpty();
-    // The at-a-glance roll-up: active, total seen, last scan.
-    await expect(cards.first().locator(".site-card__stat")).toHaveCount(3);
+    // The at-a-glance roll-up: active, total seen, last scan, scan time.
+    await expect(cards.first().locator(".site-card__stat")).toHaveCount(4);
+    await expect(cards.first().locator(".site-card__stat-label").nth(3)).toHaveText(
+      "Scan time",
+    );
   });
 
   test("a site can be disabled and re-enabled", async ({ signedIn }) => {
@@ -74,13 +77,18 @@ test.describe("sites", () => {
     test.setTimeout(90_000);
     await signedIn.goto("/sites");
     const card = signedIn.locator(".site-card", { hasText: "Demo Vendor" });
-    const lastScan = card.locator(".site-card__stat").last();
+    // Selected by its label rather than by position: a fourth stat was added
+    // later and .last() silently started pointing at the wrong cell.
+    const lastScan = card.locator(".site-card__stat", { hasText: "Last scan" });
+    const scanTime = card.locator(".site-card__stat", { hasText: "Scan time" });
 
     await card.getByRole("button", { name: "Scan now" }).click();
     await expect(card.locator(".site-card__result")).toBeVisible({ timeout: 60000 });
 
     // An out-of-band scan resets the schedule, so "last scan" becomes recent.
     await expect(lastScan).toContainText(/second|minute|just now|ago/i);
+    // ...and how long it took end to end, as seconds or m/s.
+    await expect(scanTime).toContainText(/^\d+(\.\d+)?s|^\d+m \d+s/m);
   });
 
   test("scan history is reachable from a site", async ({ signedIn }) => {
@@ -206,6 +214,7 @@ test.describe("navigation", () => {
   test("every top-level page is reachable", async ({ signedIn }) => {
     for (const [name, heading] of [
       ["Sites", "Sites"],
+      ["Makers", "Makers"],
       ["Users", "Users"],
       ["Email digest", "Email digest"],
       ["Inventory", "Inventory"],

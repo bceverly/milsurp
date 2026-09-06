@@ -16,12 +16,14 @@ from __future__ import annotations
 
 import argparse
 import getpass
+import re
 import sys
+from datetime import UTC
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.config import find_config_file, generate_secret, get_config
 from app.database import session_scope
@@ -29,16 +31,20 @@ from app.models import (
     EmailPreference,
     Item,
     ItemPhoto,
+    ScanRun,
+    ScanStatus,
     Site,
     User,
     UserRole,
+    utcnow,
 )
 from app.security import (
     PasswordPolicyError,
     hash_password,
     validate_password,
 )
-from app.services import bootstrap, scan_service
+from app.services import backup as backup_service
+from app.services import bootstrap, classify, crosscatalog, manufacturers, scan_service
 from app.services import digest as digest_service
 from app.services.image_store import ImageStore
 
@@ -85,26 +91,93 @@ def cmd_init(_args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_secrets(_args: argparse.Namespace) -> int:
-    """Print fresh secrets to paste into the config file.
+#: The settings this command manages, and what changing one costs.
+_SECRET_SETTINGS = (
+    ("password_pepper", "every existing password stops verifying"),
+    ("jwt_secret", "everyone signed in is signed out"),
+)
 
-    CodeQL flags the two prints below as clear-text logging of sensitive
-    information, and it is not wrong about what they do — printing a freshly
-    generated secret to the operator's terminal is the entire purpose of the
-    command, and there is no way to hand someone a secret without showing it
-    to them. The values are new and unused at this point: they protect nothing
-    until they are pasted into the config file. Suppressed rather than
-    dismissed in the web UI so the reasoning lives next to the code.
+
+#: A YAML scalar on its own line: `  jwt_secret: "value"`.
+#:
+#: Horizontal whitespace only, deliberately: `\s` matches a newline too, so a
+#: greedy `\s*` after the colon ran past the end of an empty setting and read
+#: the *next* line as its value — which made `jwt_secret:` with nothing after
+#: it look like a secret that was already set.
+_SETTING_LINE = r"^([^\S\n]*{name}:[^\S\n]*)(.*)$"
+
+
+def _is_set(text: str, name: str) -> bool:
+    """Whether a setting already holds a real value rather than a placeholder.
+
+    The value is pulled out and examined rather than tested with a lookahead
+    inside the line pattern: an optional quote plus a negative lookahead lets
+    the regex engine backtrack past the quote and declare "CHANGE-ME" a real
+    secret, which is exactly what it did.
     """
-    print("# Paste into the 'security' section of your config.yaml:")
-    print("security:")
-    # codeql[py/clear-text-logging-sensitive-data]  # noqa: ERA001
-    print(f"  password_pepper: {generate_secret()!r}")
-    # codeql[py/clear-text-logging-sensitive-data]  # noqa: ERA001
-    print(f"  jwt_secret: {generate_secret()!r}")
-    print()
-    print("# Changing password_pepper invalidates every existing password.")
-    print("# Changing jwt_secret signs everyone out.")
+    match = re.search(_SETTING_LINE.format(name=name), text, re.MULTILINE)
+    if not match:
+        return False
+    value = match.group(2).strip().strip("\"'").strip()
+    return bool(value) and not value.startswith("CHANGE-ME")
+
+
+def cmd_secrets(args: argparse.Namespace) -> int:
+    """Generate fresh secrets and write them into the config file.
+
+    Written, not printed. Printing them was the obvious design — the operator
+    pastes them where they belong — but it puts two live credentials into a
+    terminal, a scrollback buffer, and whatever records that terminal: a shell
+    log, a screen recording, a support ticket with a screenshot in it. Writing
+    them straight to the file they are for is fewer steps *and* the value never
+    exists anywhere the operator did not choose.
+
+    Refuses to overwrite secrets that are already set, because both of these
+    are destructive to change and the destruction is silent until the next
+    person tries to sign in.
+    """
+    path = find_config_file()
+    if path is None:
+        print(
+            "No configuration file found. Copy config.yaml.sample to config.yaml "
+            "(or run 'make config') and try again.",
+            file=sys.stderr,
+        )
+        return 1
+
+    text = path.read_text(encoding="utf-8")
+    already_set = [name for name, _cost in _SECRET_SETTINGS if _is_set(text, name)]
+    if already_set and not args.force:
+        print(f"{path} already has: {', '.join(already_set)}.", file=sys.stderr)
+        print("Rotating them is destructive:", file=sys.stderr)
+        for name, cost in _SECRET_SETTINGS:
+            print(f"  {name}: {cost}", file=sys.stderr)
+        print("Re-run with --force if that is what you want.", file=sys.stderr)
+        return 1
+
+    written = []
+    for name, _cost in _SECRET_SETTINGS:
+        replacement, count = re.subn(
+            _SETTING_LINE.format(name=name),
+            lambda match: f'{match.group(1)}"{generate_secret()}"',
+            text,
+            count=1,
+            flags=re.MULTILINE,
+        )
+        if count:
+            text, _ = replacement, written.append(name)
+        else:
+            print(f"Could not find a '{name}:' line in {path}.", file=sys.stderr)
+            return 1
+
+    path.write_text(text, encoding="utf-8")
+    path.chmod(0o600)
+
+    print(f"Wrote {', '.join(written)} to {path} (mode 600).")
+    print("The values are in the file; they are deliberately not printed here.")
+    if args.force and already_set:
+        for name, cost in _SECRET_SETTINGS:
+            print(f"  {name} changed: {cost}.")
     return 0
 
 
@@ -289,19 +362,216 @@ def cmd_digest(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_fetch_photos(args: argparse.Namespace) -> int:
+    """Drain the photo download queue without re-scraping anything."""
+    downloaded = scan_service.download_pending_photos(
+        site_slug=args.site, limit=args.limit, progress=lambda message: print(f"  {message}")
+    )
+    if not downloaded:
+        print("No photos are waiting to be downloaded.")
+    else:
+        print(f"Downloaded {downloaded} photo(s).")
+    return 0
+
+
+def cmd_reclassify(_args: argparse.Namespace) -> int:
+    """Re-derive rifle/pistol and the other inferred fields from stored text.
+
+    Classification runs on every upsert, so a re-scan fixes it — but a re-scan
+    of a large catalog is a quarter of an hour of somebody else's bandwidth for
+    a change that needs no network at all. This re-runs the heuristics over
+    what is already in the database.
+    """
+    changed = 0
+    with session_scope() as session:
+        items = session.execute(select(Item)).scalars().all()
+        for item in items:
+            derived = classify.enrich(
+                item.title,
+                item.description,
+                item.current_price,
+                caliber=item.caliber,
+                category=item.category,
+            )
+            maker = item.manufacturer or manufacturers.extract(
+                session, item.title, item.description
+            )
+            if (
+                item.is_rifle != derived["is_rifle"]
+                or item.is_pistol != derived["is_pistol"]
+                or item.manufacturer != maker
+            ):
+                item.is_rifle = derived["is_rifle"]
+                item.is_pistol = derived["is_pistol"]
+                item.manufacturer = maker
+                changed += 1
+        session.commit()
+
+        rifles = session.execute(
+            select(func.count(Item.id)).where(Item.is_rifle.is_(True))
+        ).scalar_one()
+        pistols = session.execute(
+            select(func.count(Item.id)).where(Item.is_pistol.is_(True))
+        ).scalar_one()
+
+    print(f"Reclassified {changed} of {len(items)} listing(s).")
+    print(f"  rifles: {rifles}   handguns: {pistols}   other: {len(items) - rifles - pistols}")
+    return 0
+
+
+def cmd_backup(args: argparse.Namespace) -> int:
+    """Take a database snapshot now, and prune the old ones.
+
+    The scheduler does this daily in production. This is for taking one before
+    something risky by hand.
+    """
+    config = get_config()
+    directory = config.backups.directory
+    if config.is_dev and not args.force:
+        print("Backups are off in development: the database here is a scratch copy.")
+        print("Re-run with --force to take one anyway.")
+        return 0
+
+    destination = backup_service.take(config)
+    removed = backup_service.prune(directory, config.backups.keep)
+    size = destination.stat().st_size / 1_048_576
+    print(f"Wrote {destination} ({size:.1f} MB).")
+    if removed:
+        print(f"Pruned {len(removed)} snapshot(s) beyond the newest {config.backups.keep}.")
+    kept = backup_service.existing(directory)
+    print(f"{len(kept)} snapshot(s) in {directory}.")
+    return 0
+
+
+def cmd_infer(args: argparse.Namespace) -> int:
+    """Fill blank caliber/country/maker from better-described listings.
+
+    A vendor who publishes a scanned flyer gives us a line of OCR and nothing
+    else. Another vendor selling the same rifle gives us a paragraph with every
+    field parsed. This carries the second one's facts onto the first where the
+    distinctive words agree; see :mod:`app.services.crosscatalog` for what
+    stops that being reckless.
+
+    Nothing is overwritten, so this is safe to run repeatedly and finds less
+    each time. On a two-vendor catalog it will often find nothing at all.
+    """
+    with session_scope() as session:
+        filled = crosscatalog.fill_gaps(session, same_site=bool(args.same_site))
+        for entry in sorted(filled, key=lambda f: -f.score):
+            print(f"  {entry.title[:40]:<40} {entry.field}={entry.value}")
+            print(f"  {'':<40} from {entry.source_title[:44]} ({entry.score})")
+        session.commit()
+
+    if not filled:
+        print("Nothing to fill: no listing matched another well enough.")
+        return 0
+    fields = ", ".join(
+        f"{name}: {sum(1 for entry in filled if entry.field == name)}"
+        for name in crosscatalog.BORROWABLE
+        if any(entry.field == name for entry in filled)
+    )
+    print(f"\nFilled {len(filled)} field(s) across the catalog ({fields}).")
+    return 0
+
+
+def cmd_running_scans(args: argparse.Namespace) -> int:
+    """Report scans that are in flight. Exit 1 when there are any.
+
+    Exists so `make stop` can say what it is about to interrupt. A Royal Tiger
+    scan is a quarter of an hour of somebody else's bandwidth; stopping the app
+    through it should be a decision, not a surprise.
+    """
+    with session_scope() as session:
+        runs = (
+            session.execute(
+                select(ScanRun, Site)
+                .join(Site, Site.id == ScanRun.site_id)
+                .where(ScanRun.status == ScanStatus.RUNNING)
+                .order_by(ScanRun.started_at)
+            )
+            .tuples()
+            .all()
+        )
+        if not runs:
+            if not args.quiet:
+                print("No scans are running.")
+            return 0
+
+        now = utcnow()
+        for run, site in runs:
+            minutes = max(0, int((now - run.started_at.replace(tzinfo=UTC)).total_seconds() // 60))
+            last = (run.log or "").strip().splitlines()
+            detail = f" — {last[-1].strip()}" if last else ""
+            print(f"  {site.name}: running for {minutes} minute(s){detail}")
+        return 1
+
+
 def cmd_prune_images(_args: argparse.Namespace) -> int:
+    """Delete image files no listing points at.
+
+    Both columns, not just one. A photo row names two files — the original and
+    its thumbnail — and collecting only `filename` made every thumbnail in the
+    store look orphaned. A prune then deleted all 1,526 of them, leaving the
+    originals they were derived from in place and the browse grid with nothing
+    to show. `rebuild-thumbnails` puts them back.
+    """
     config = get_config()
     store = ImageStore(config)
     with session_scope() as session:
-        known = set(
-            session.execute(select(ItemPhoto.filename).where(ItemPhoto.filename.is_not(None)))
-            .scalars()
-            .all()
-        )
+        known: set[str] = set()
+        for column in (ItemPhoto.filename, ItemPhoto.thumb_filename):
+            known.update(
+                name
+                for name in session.execute(select(column).where(column.is_not(None)))
+                .scalars()
+                .all()
+                if name
+            )
     before = store.usage_bytes()
     removed = store.prune_orphans(known)
     after = store.usage_bytes()
     print(f"Removed {removed} orphaned file(s); reclaimed {(before - after) / 1e6:.1f} MB.")
+    return 0
+
+
+def cmd_rebuild_thumbnails(args: argparse.Namespace) -> int:
+    """Regenerate thumbnails from the originals already on disk.
+
+    No network: a thumbnail is derived from a file we already hold, so losing
+    one is not a reason to ask a vendor for the picture again.
+    """
+    config = get_config()
+    store = ImageStore(config)
+    rebuilt = failed = 0
+
+    with session_scope() as session:
+        photos = (
+            session.execute(select(ItemPhoto).where(ItemPhoto.filename.is_not(None)))
+            .scalars()
+            .all()
+        )
+        for photo in photos:
+            if not photo.filename:
+                continue
+            if not args.all and store.exists(photo.thumb_filename):
+                continue
+            if not store.exists(photo.filename):
+                failed += 1
+                continue
+            target = photo.thumb_filename or f"{photo.filename.rsplit('.', 1)[0]}_t.jpg"
+            made = store.write_thumbnail(photo.filename, target)
+            if made is None:
+                failed += 1
+                continue
+            photo.thumb_filename = made.relative
+            photo.thumb_bytes = photo.bytes if made.relative == photo.filename else made.size
+            photo.width, photo.height = made.width, made.height
+            rebuilt += 1
+        session.commit()
+
+    print(f"Rebuilt {rebuilt} thumbnail(s) from {len(photos)} stored photo(s).")
+    if failed:
+        print(f"  {failed} could not be rebuilt: the original is missing or unreadable.")
     return 0
 
 
@@ -318,7 +588,15 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("init", help="Create the schema and seed sites/admin.").set_defaults(
         func=cmd_init
     )
-    sub.add_parser("secrets", help="Generate config secrets.").set_defaults(func=cmd_secrets)
+    secrets_cmd = sub.add_parser(
+        "secrets", help="Generate security secrets and write them into the config file."
+    )
+    secrets_cmd.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite secrets that are already set. Destructive: see the warning it prints.",
+    )
+    secrets_cmd.set_defaults(func=cmd_secrets)
     sub.add_parser("sites", help="List sites.").set_defaults(func=cmd_sites)
 
     scan = sub.add_parser("scan", help="Scan one site or every enabled site.")
@@ -343,6 +621,48 @@ def build_parser() -> argparse.ArgumentParser:
     digest_cmd = sub.add_parser("digest", help="Send due digests.")
     digest_cmd.add_argument("--user", help="Send to one user now, even if not due.")
     digest_cmd.set_defaults(func=cmd_digest)
+
+    sub.add_parser(
+        "reclassify", help="Re-derive rifle/handgun from stored text (no network)."
+    ).set_defaults(func=cmd_reclassify)
+
+    backup_cmd = sub.add_parser("backup", help="Snapshot the database now and prune old ones.")
+    backup_cmd.add_argument(
+        "--force", action="store_true", help="Take one even in development mode."
+    )
+    backup_cmd.set_defaults(func=cmd_backup)
+
+    infer = sub.add_parser(
+        "infer", help="Fill blank caliber/country/maker from other vendors' listings."
+    )
+    infer.add_argument(
+        "--same-site",
+        action="store_true",
+        help="Also borrow from the same vendor (off by default: a vendor who "
+        "leaves a field blank on one listing tends to leave it blank on the next).",
+    )
+    infer.set_defaults(func=cmd_infer)
+
+    photos = sub.add_parser("fetch-photos", help="Download queued photos without re-scraping.")
+    photos.add_argument("--site", help="Limit to one site slug.")
+    photos.add_argument(
+        "--limit", type=int, help="Stop after this many (default: the per-scan budget)."
+    )
+    photos.set_defaults(func=cmd_fetch_photos)
+
+    running = sub.add_parser("running-scans", help="List in-flight scans; exit 1 if there are any.")
+    running.add_argument(
+        "--quiet", action="store_true", help="Print nothing when no scan is running."
+    )
+    running.set_defaults(func=cmd_running_scans)
+
+    thumbs = sub.add_parser(
+        "rebuild-thumbnails", help="Regenerate missing thumbnails from stored originals."
+    )
+    thumbs.add_argument(
+        "--all", action="store_true", help="Rebuild every thumbnail, not only the missing ones."
+    )
+    thumbs.set_defaults(func=cmd_rebuild_thumbnails)
 
     sub.add_parser("prune-images", help="Delete image files no listing references.").set_defaults(
         func=cmd_prune_images

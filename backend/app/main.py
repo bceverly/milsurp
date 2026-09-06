@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,14 +18,23 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__
-from .api import access, auth, items, preferences, scans, sites, system
+from .api import access, auth, items, manufacturers, preferences, scans, sites, system
 from .config import ROOT_DIR, get_config
 from .scheduler import get_scheduler
 from .services import bootstrap
 
 log = logging.getLogger("milsurp")
 
-FRONTEND_DIST = ROOT_DIR / "frontend" / "dist"
+#: The built UI this process serves.
+#:
+#: Overridable because the Playwright harness builds an *instrumented* bundle
+#: (COVERAGE=1), and it used to write it straight over frontend/dist — the same
+#: directory `make start` serves. Running the test suite therefore replaced the
+#: running app's bundle with an instrumented one, silently, and left it there.
+#: Worse, the fresh timestamp made `make start` consider dist up to date, so it
+#: would not rebuild and the swap survived a restart. The harness now builds to
+#: its own directory and points this at it.
+FRONTEND_DIST = Path(os.environ.get("MILSURP_FRONTEND_DIST") or (ROOT_DIR / "frontend" / "dist"))
 
 
 def configure_logging(level: str = "INFO") -> None:
@@ -63,34 +73,43 @@ async def lifespan(_app: FastAPI):
 MIN_SECRET_BYTES = 32
 
 
+def _warn_about_one_secret(name: str, value: str | None, source: object) -> None:
+    """Complain about one secret that is missing, short, or still the sample.
+
+    ``name`` and ``value`` are separate parameters rather than a pair pulled
+    out of a list, and deliberately so. The obvious way to write this is a loop
+    over ``(("security.jwt_secret", config.security.jwt_secret), ...)``, but
+    putting a setting's name in the same tuple as its value taints the *name*
+    as well: a static analyser tracks the container, not the slot, so unpacking
+    hands back two values it believes are both secret, and logging the name
+    then reads as logging the secret. Passing them separately keeps the literal
+    a literal.
+
+    Nothing derived from ``value`` is ever logged — not its length, which is
+    not the secret but is a hint about it, and worth no risk at all when the
+    operator can already see what they configured.
+    """
+    if not value:
+        log.warning(  # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
+            "%s is not set. Run 'make secrets' and put the values in %s.",
+            name,
+            source or "your config.yaml",
+        )
+    elif "CHANGE-ME" in value:
+        log.warning("%s still holds the sample value from config.yaml.sample.", name)
+    elif len(value.encode("utf-8")) < MIN_SECRET_BYTES:
+        log.warning(
+            "%s is shorter than %s bytes; run 'make secrets' for a strong one.",
+            name,
+            MIN_SECRET_BYTES,
+        )
+
+
 def _warn_about_weak_secrets(config) -> None:
     """Complain about secrets that are missing, short, or still the sample."""
-    checks = (
-        ("security.jwt_secret", config.security.jwt_secret),
-        ("security.password_pepper", config.security.password_pepper),
-    )
-    for name, value in checks:
-        if not value:
-            # The rule matches on the word "secrets" in the message. The only
-            # interpolated values are a setting's name and a file path; the
-            # branch is reached precisely because there is no secret to leak.
-            log.warning(  # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
-                "%s is not set. Run 'make secrets' and put the values in %s.",
-                name,
-                config.source_path or "your config.yaml",
-            )
-        elif "CHANGE-ME" in value:
-            log.warning("%s still holds the sample value from config.yaml.sample.", name)
-        elif len(value.encode("utf-8")) < MIN_SECRET_BYTES:
-            # Deliberately says nothing measured from the value itself. The
-            # length of a secret is not the secret, but it is a hint, and a
-            # warning is worth no risk at all when the operator can already
-            # see what they configured.
-            log.warning(
-                "%s is shorter than %s bytes; run 'make secrets' for a strong one.",
-                name,
-                MIN_SECRET_BYTES,
-            )
+    source = config.source_path
+    _warn_about_one_secret("security.jwt_secret", config.security.jwt_secret, source)
+    _warn_about_one_secret("security.password_pepper", config.security.password_pepper, source)
 
 
 def create_app() -> FastAPI:
@@ -143,6 +162,7 @@ def create_app() -> FastAPI:
     api.include_router(access.router)
     api.include_router(users_router())
     api.include_router(sites.router)
+    api.include_router(manufacturers.router)
     api.include_router(scans.router)
     api.include_router(items.router)
     api.include_router(preferences.router)

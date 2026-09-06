@@ -214,13 +214,35 @@ export default function Browse() {
     };
   }, [query]);
 
+  // For FILTER changes only. Narrowing the result set renumbers the pages, so
+  // whatever page you were on no longer means anything and is dropped.
   const update = useCallback(
     (mutate) => {
       const next = new URLSearchParams(params);
       mutate(next);
-      // Any filter change invalidates the current page number.
       next.delete("page");
       setParams(next);
+    },
+    [params, setParams],
+  );
+
+  // Paging is the one change that must NOT clear the page, so it cannot go
+  // through update(). Routing the pager through it set page=2 and then deleted
+  // it on the very next line, which is why Next never advanced.
+  const goToPage = useCallback(
+    (target) => {
+      const next = new URLSearchParams(params);
+      // Page 1 is the default; keeping it out of the URL keeps links tidy and
+      // makes "no page param" and "page=1" the same place.
+      if (target <= 1) next.delete("page");
+      else next.set("page", String(target));
+      setParams(next);
+
+      // You click Next from the bottom of the grid, so without this the new
+      // page arrives already scrolled past its own first rows. Instant rather
+      // than smooth: the content underneath is being replaced as it animates,
+      // and a long page makes the scroll itself a wait.
+      window.scrollTo({ top: 0 });
     },
     [params, setParams],
   );
@@ -458,7 +480,7 @@ export default function Browse() {
               <button
                 className="btn btn--secondary btn--sm"
                 disabled={page <= 1}
-                onClick={() => update((next) => next.set("page", String(page - 1)))}
+                onClick={() => goToPage(page - 1)}
               >
                 <ChevronLeft size={16} />
                 Previous
@@ -469,7 +491,7 @@ export default function Browse() {
               <button
                 className="btn btn--secondary btn--sm"
                 disabled={page >= totalPages}
-                onClick={() => update((next) => next.set("page", String(page + 1)))}
+                onClick={() => goToPage(page + 1)}
               >
                 Next
                 <ChevronRight size={16} />

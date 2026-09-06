@@ -14,6 +14,8 @@ Use :func:`scrub` on every untrusted value passed to the logging module.
 
 from __future__ import annotations
 
+import re
+
 #: Long enough to identify what was attempted, short enough that a megabyte of
 #: junk in a username cannot flood the log file.
 MAX_LOGGED_LENGTH = 128
@@ -40,3 +42,33 @@ def scrub(value: object, *, limit: int = MAX_LOGGED_LENGTH) -> str:
     if len(text) > limit:
         text = text[:limit] + "…(truncated)"
     return text
+
+
+#: What an account name may contain, matching what the create-user endpoint
+#: accepts. Anything else is, by definition, not one of this application's
+#: usernames.
+USERNAME_PATTERN = re.compile(r"[A-Za-z0-9._\-]{1,64}")
+
+#: Stands in for a value that failed the allowlist. Fixed text, so it can never
+#: itself carry anything from the request.
+REJECTED = "<rejected>"
+
+
+def safe_identifier(value: object, pattern: re.Pattern[str] = USERNAME_PATTERN) -> str:
+    """Return ``value`` only if it matches ``pattern`` in full, else a marker.
+
+    An allowlist, not an escape — and the difference matters twice over.
+
+    For the reader: "this is one of our usernames, or it is nothing" is a
+    stronger claim than "this has had its newlines removed", and it cannot be
+    weakened by a character nobody thought of.
+
+    For static analysis: :func:`scrub` escapes, and an escaping function is
+    just string manipulation as far as a taint tracker is concerned, so the
+    value stays tainted all the way to the log call — CodeQL kept reporting log
+    injection on a sign-in failure that was already being escaped. A guard that
+    only lets a matching value through is a shape it recognises, because after
+    it the set of possible values is finite and known.
+    """
+    text = value if isinstance(value, str) else str(value)
+    return text if pattern.fullmatch(text) else REJECTED

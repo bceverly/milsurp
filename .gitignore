@@ -93,6 +93,9 @@ node_modules/
 frontend/node_modules/
 frontend/dist/
 frontend/dist-ssr/
+# The instrumented bundle the Playwright harness builds, kept apart from
+# dist/ so running the tests cannot replace the bundle `make start` serves.
+frontend/dist-coverage/
 frontend/.vite/
 .vite/
 *.tsbuildinfo
@@ -163,3 +166,6 @@ certs/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# --- Database snapshots (see app/services/backup.py) ---
+backups/

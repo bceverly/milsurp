@@ -8,6 +8,13 @@ hours, a broker would be more moving parts than the problem needs.
 Scans are the slow part (a browser-driven site takes minutes), so they run on
 worker threads bounded by ``scheduler.max_concurrent_scans``. Digests are quick
 and run inline on the tick thread.
+
+Photo downloads get a thread of their own. A scan caps how many images it
+fetches so a first pass over a large catalog cannot run for hours, and carries
+the remainder forward -- but that left a backlog draining one scan at a time,
+which on a daily cadence is days of listings with no pictures. The photo worker
+keeps working through the queue between scans, on its own single thread so it
+can never occupy a scan slot.
 """
 
 from __future__ import annotations
@@ -19,7 +26,7 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from .config import Config, get_config
 from .database import session_scope
 from .models import User
-from .services import digest, scan_service
+from .services import backup, digest, scan_service
 
 log = logging.getLogger("milsurp.scheduler")
 
@@ -34,6 +41,11 @@ class Scheduler:
         self._lock = threading.Lock()
         self._ticks = 0
         self._seconds_since_digest_check = 0.0
+        #: A single worker, kept apart from the scan pool: photo downloading is
+        #: long and low priority, and must never hold a slot a due scan needs.
+        self._photo_pool: ThreadPoolExecutor | None = None
+        self._photo_future: Future | None = None
+        self._seconds_since_photo_check = 0.0
 
     # -- lifecycle ----------------------------------------------------------
     @property
@@ -51,6 +63,7 @@ class Scheduler:
             max_workers=max(1, self.config.scheduler.max_concurrent_scans),
             thread_name_prefix="milsurp-scan",
         )
+        self._photo_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="milsurp-photos")
         self._thread = threading.Thread(target=self._loop, name="milsurp-scheduler", daemon=True)
         self._thread.start()
         log.info(
@@ -69,6 +82,12 @@ class Scheduler:
             # reaped and marked failed on the next start.
             self._pool.shutdown(wait=False, cancel_futures=True)
             self._pool = None
+        if self._photo_pool is not None:
+            # Interrupting a photo batch costs nothing: every image already
+            # downloaded keeps its file, and the rest stay queued.
+            self._photo_pool.shutdown(wait=False, cancel_futures=True)
+            self._photo_pool = None
+            self._photo_future = None
         log.info("Scheduler stopped.")
 
     # -- the loop -----------------------------------------------------------
@@ -92,14 +111,38 @@ class Scheduler:
                 # tick is isolated.
                 log.exception("Scheduler tick failed")
             self._seconds_since_digest_check += tick
+            self._seconds_since_photo_check += tick
             self._stop.wait(tick)
 
     def tick(self) -> None:
         self._ticks += 1
         self._dispatch_scans()
+        if self._seconds_since_photo_check >= self.config.scheduler.photo_tick_seconds:
+            self._seconds_since_photo_check = 0.0
+            self._dispatch_photos()
         if self._seconds_since_digest_check >= self.config.scheduler.digest_tick_seconds:
             self._seconds_since_digest_check = 0.0
             self._dispatch_digests()
+        self._dispatch_backup()
+
+    # -- backups ------------------------------------------------------------
+    def _dispatch_backup(self) -> None:
+        """Take a snapshot if one is due.
+
+        Checked on every tick rather than on a timer of its own, because what
+        makes a backup due is the age of the last one on disk. A process that
+        restarts twice a day should still produce one backup a day, and a
+        process that was down when a timer would have fired should take one as
+        soon as it comes back.
+        """
+        if not backup.is_due(self.config):
+            return
+        try:
+            backup.run(self.config)
+        except Exception:
+            # Never let a failed backup stop the scans. It is logged, and the
+            # next tick tries again.
+            log.exception("Database backup failed")
 
     # -- scans --------------------------------------------------------------
     def _dispatch_scans(self) -> None:
@@ -128,6 +171,29 @@ class Scheduler:
             log.debug("Site %s already scanning; skipping.", site_id)
         except Exception:
             log.exception("Scan for site %s raised", site_id)
+
+    # -- photos -------------------------------------------------------------
+    def _dispatch_photos(self) -> None:
+        """Keep working through the photo queue between scans.
+
+        One batch at a time, and never a second one while the first is still
+        going: the point is to drain the backlog steadily in the background,
+        not to open a hundred connections to a vendor at once.
+        """
+        with self._lock:
+            if self._photo_future is not None and not self._photo_future.done():
+                return
+            if self._photo_pool is None:
+                return
+            self._photo_future = self._photo_pool.submit(self._drain_photos)
+
+    def _drain_photos(self) -> None:
+        try:
+            downloaded = scan_service.download_pending_photos()
+            if downloaded:
+                log.info("Downloaded %s queued photo(s).", downloaded)
+        except Exception:
+            log.exception("Photo download batch raised")
 
     # -- digests ------------------------------------------------------------
     def _dispatch_digests(self) -> None:
@@ -166,6 +232,8 @@ class Scheduler:
             "enabled": self.config.scheduler.enabled,
             "ticks": self._ticks,
             "tick_seconds": self.config.scheduler.tick_seconds,
+            "photo_tick_seconds": self.config.scheduler.photo_tick_seconds,
+            "downloading_photos": self._photo_future is not None and not self._photo_future.done(),
             "digest_tick_seconds": self.config.scheduler.digest_tick_seconds,
             "max_concurrent_scans": self.config.scheduler.max_concurrent_scans,
             "scanning_site_ids": active,

@@ -69,6 +69,59 @@ LISTINGS: tuple[tuple[str, float | None, str, int, bool, float | None], ...] = (
     ("FRENCH MAS 36 rifle, 7.5x54", 795.0, "Rifle", 45, False, None),
 )
 
+#: The curated listings above are 28, and the browse grid shows 48 to a page —
+#: so the pagination controls never rendered, the Playwright suite could not
+#: click "Next", and a pager that set the page number and then deleted it
+#: shipped unnoticed. These push the catalog past the page boundary.
+#:
+#: Generated rather than hand-written because their only job is to exist, and
+#: deliberately the oldest listings so they sort onto page two and leave the
+#: interesting fixtures on page one, where the screenshots want them.
+_FILLER_PATTERNS: tuple[tuple[str, str, float], ...] = (
+    ("SPANISH Mauser M93 rifle, {n}", "Rifle", 395.0),
+    ("TURKISH Mauser M38 rifle, {n}", "Rifle", 445.0),
+    ("YUGOSLAV M48 Mauser rifle, {n}", "Rifle", 525.0),
+    ("SWEDISH Carl Gustaf M96 rifle, {n}", "Rifle", 875.0),
+    ("ARGENTINE Mauser M1891 rifle, {n}", "Rifle", 465.0),
+    ("SPANISH Star Model B pistol, {n}", "Handgun", 395.0),
+    ("HUNGARIAN FEG PA-63 pistol, {n}", "Handgun", 315.0),
+)
+
+
+#: Old enough to sort behind every curated listing under "newest first" (the
+#: oldest active fixture is 28 days), young enough to stay *active*: the seeder
+#: de-lists anything at 40 days or more, and the browse page defaults to
+#: available listings only. Getting this wrong is silent — the rows exist, they
+#: are simply invisible to the page under test.
+_FILLER_AGE_DAYS = 35
+
+
+def _filler_listings(count: int = 40) -> list[tuple[str, float | None, str, int, bool, None]]:
+    """Bulk listings whose only purpose is to make page two exist."""
+    rows = []
+    for index in range(count):
+        title, category, base_price = _FILLER_PATTERNS[index % len(_FILLER_PATTERNS)]
+        rows.append(
+            (
+                title.format(n=f"lot {index + 1:02d}"),
+                round(base_price + index * 7.5, 2),
+                category,
+                # Ties are broken by the hours=index offset the caller applies,
+                # so a single age still gives a stable, deterministic order.
+                _FILLER_AGE_DAYS,
+                False,
+                None,
+            )
+        )
+    return rows
+
+
+#: The network-free fixture vendor. A scan of it de-lists anything its
+#: scraper does not return, so nothing that must stay visible is seeded here.
+DEMO_SITE_SLUG = "demo-vendor"
+
+ALL_LISTINGS = list(LISTINGS) + _filler_listings()
+
 
 # Brand palette, so the generated placeholders sit in the same design language
 # as the rest of the UI.
@@ -155,9 +208,21 @@ def seed(  # noqa: PLR0912 - a linear fixture builder; branches are per-field
                 print("  Cleared existing listings.")
 
         created = 0
-        for index, (title, price, category, age_days, sold, previous) in enumerate(LISTINGS):
-            # Spread the catalog across every registered site.
-            site = sites[index % len(sites)]
+        for index, (title, price, category, age_days, sold, previous) in enumerate(ALL_LISTINGS):
+            # Spread the catalog across every registered site — except that the
+            # bulk filler stays off the demo vendor.
+            #
+            # The demo vendor exists so a scan can be exercised end to end, and
+            # a scan correctly de-lists everything its scraper does not return,
+            # hand-seeded listings included. With the filler spread evenly, the
+            # Playwright suite's "scan now" test silently shrank the catalog
+            # below one page, and the pagination tests — which ran later, being
+            # in inventory.spec.js rather than admin.spec.js — found no pager
+            # to click. Keeping the filler on the vendors nothing scans makes
+            # the catalog size independent of test ordering.
+            is_filler = index >= len(LISTINGS)
+            eligible = [s for s in sites if s.slug != DEMO_SITE_SLUG] if is_filler else sites
+            site = (eligible or sites)[index % len(eligible or sites)]
             key = f"demo-{index:03d}"
 
             existing = session.execute(
@@ -202,8 +267,10 @@ def seed(  # noqa: PLR0912 - a linear fixture builder; branches are per-field
             session.flush()
 
             # One to four photos, varying so the gallery and its thumbnail strip
-            # both appear in screenshots.
-            photo_count = 1 + (index % 4)
+            # both appear in screenshots. The page-two filler gets one each:
+            # drawing four apiece for thirty listings would slow every e2e run
+            # for no extra coverage.
+            photo_count = 1 if index >= len(LISTINGS) else 1 + (index % 4)
             for position, (relative, size) in enumerate(
                 _make_placeholder_photos(store, item, photo_count)
             ):
@@ -261,7 +328,7 @@ def seed(  # noqa: PLR0912 - a linear fixture builder; branches are per-field
                         started_at=started,
                         finished_at=started + timedelta(minutes=2, seconds=14),
                         duration_seconds=134.2,
-                        items_found=len(LISTINGS) // len(sites),
+                        items_found=len(ALL_LISTINGS) // len(sites),
                         items_new=2 if run_index == 0 else 0,
                         items_updated=10,
                         price_changes=1,

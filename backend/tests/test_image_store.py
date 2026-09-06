@@ -233,3 +233,71 @@ class TestHousekeeping:
         store.delete(None)
         store.delete("site/does/not/exist.jpg")
         store.delete("../../etc/passwd")  # must not raise
+
+
+class TestThumbnailsAreNotOrphans:
+    """A photo row names two files, and a prune has to know about both.
+
+    ``prune-images`` collected only ``filename``, so every thumbnail in the
+    store looked unreferenced. One run deleted 1,526 of them and left the
+    originals they were derived from untouched, which is the worst shape for
+    this failure to take: nothing is obviously broken until somebody opens the
+    browse grid and every card is blank.
+    """
+
+    def stored_pair(self, store, monkeypatch, url="https://e.test/a.png"):
+        monkeypatch.setattr("app.services.image_store._is_public_url", lambda _url: True)
+        return store.download(FakeSession(FakeResponse(make_png(1600, 1200))), "s", url)
+
+    def test_a_prune_that_is_told_about_both_keeps_both(self, store, monkeypatch):
+        kept = self.stored_pair(store, monkeypatch)
+        known = {kept.filename, kept.thumb_filename}
+
+        store.prune_orphans(known)
+
+        assert store.exists(kept.filename)
+        assert store.exists(kept.thumb_filename)
+
+    def test_a_prune_told_only_about_originals_takes_the_thumbnails(self, store, monkeypatch):
+        """The bug itself, pinned down so the fix is not quietly undone."""
+        kept = self.stored_pair(store, monkeypatch)
+
+        store.prune_orphans({kept.filename})
+
+        assert store.exists(kept.filename)
+        assert not store.exists(kept.thumb_filename)
+
+
+class TestRebuildingAThumbnail:
+    """Derived from a file already held, so losing one costs no bandwidth."""
+
+    def test_it_is_written_from_the_stored_original(self, store, monkeypatch):
+        monkeypatch.setattr("app.services.image_store._is_public_url", lambda _url: True)
+        stored = store.download(
+            FakeSession(FakeResponse(make_png(1600, 1200))), "s", "https://e.test/a.png"
+        )
+        store.absolute_path(stored.thumb_filename).unlink()
+
+        made = store.write_thumbnail(stored.filename, stored.thumb_filename)
+
+        assert made is not None
+        assert made.relative == stored.thumb_filename
+        assert made.width == 1600
+        assert made.height == 1200
+        assert store.exists(made.relative)
+        with Image.open(store.absolute_path(made.relative)) as thumb:
+            assert max(thumb.size) <= THUMBNAIL_MAX_EDGE
+
+    def test_an_image_already_small_points_back_at_itself(self, store, monkeypatch):
+        monkeypatch.setattr("app.services.image_store._is_public_url", lambda _url: True)
+        stored = store.download(
+            FakeSession(FakeResponse(make_png(200, 150))), "s", "https://e.test/small.png"
+        )
+
+        made = store.write_thumbnail(stored.filename, "s/whatever_t.jpg")
+
+        assert made.relative == stored.filename
+        assert made.size is None
+
+    def test_a_missing_original_cannot_be_rebuilt_from(self, store):
+        assert store.write_thumbnail("s/nothing/here.png", "s/nothing/here_t.jpg") is None

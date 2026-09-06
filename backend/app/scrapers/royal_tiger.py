@@ -24,7 +24,7 @@ puts the real price inside ``<ins>`` and the struck-through original inside
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
@@ -358,6 +358,20 @@ class RoyalTigerScraper(SiteScraper):
     max_detail_fetches: int = 250
 
     def scrape(self, ctx: ScrapeContext) -> Iterable[ScrapedItem]:
+        """Yield every listing, twice over: once from the grid, once detailed.
+
+        A generator rather than a list. This scan takes about sixteen minutes,
+        and the scan service commits what it is handed in batches, so yielding
+        as we go is what stops a restart at minute fifteen from discarding all
+        of it.
+
+        Each listing is yielded as soon as the grid gives us its title, price
+        and URL — so a scan interrupted during the detail phase still leaves
+        every listing visible in the UI with a price — and yielded a second
+        time once its detail page has supplied the description and the full
+        gallery. The service treats a repeated key as an update, which is
+        exactly what the second yield is.
+        """
         found: dict[str, ScrapedItem] = {}
 
         with chrome(ctx.scraping) as driver:
@@ -377,9 +391,16 @@ class RoyalTigerScraper(SiteScraper):
             raise ScrapeError("no products found on any Royal Tiger section")
         ctx.log(f"Collected {len(items)} unique listings across {len(SECTIONS)} sections.")
 
+        # The grid pass first, so the catalog is on disk before the slow part.
+        # Flagged as a preview: each of these carries the one low-resolution
+        # thumbnail the grid showed, and must not be allowed to replace a
+        # gallery an earlier detail fetch already collected.
+        for item in items:
+            item.images_are_complete = False
+            yield item
+
         if self.deep_scrape:
-            self._fetch_details(ctx, items)
-        return items
+            yield from self._fetch_details(ctx, items)
 
     # -- per-section strategies ---------------------------------------------
     def _scrape_section(
@@ -446,13 +467,18 @@ class RoyalTigerScraper(SiteScraper):
         return f"{base.rstrip('/')}/page/{page}/"
 
     # -- detail pass ---------------------------------------------------------
-    def _fetch_details(self, ctx: ScrapeContext, items: list[ScrapedItem]) -> None:
-        """Fetch each new listing's description and full photo gallery.
+    def _fetch_details(self, ctx: ScrapeContext, items: list[ScrapedItem]) -> Iterator[ScrapedItem]:
+        """Fetch each new listing's description and gallery, yielding as it goes.
 
         The listing grid shows only one photo per product; a firearm normally
         has several, and they are only on the product page. Listings already
         stored with a description and gallery are skipped, so the cost is paid
         once per listing rather than on every scan.
+
+        Yields each listing the moment its detail page has been folded in, so
+        the caller can persist it. Whatever has been yielded survives an
+        interruption; whatever has not is picked up by the next scan, because
+        ``ctx.needs_detail()`` will still be true for it.
         """
         pending = [item for item in items if ctx.needs_detail(item.external_key)]
         if not pending:
@@ -487,6 +513,13 @@ class RoyalTigerScraper(SiteScraper):
                 item.country = derived["country"] or item.country
                 item.manufacturer = derived["manufacturer"] or item.manufacturer
                 item.condition = derived["condition"]
+
+            # The complete record now: description plus the full gallery. The
+            # flag is what lets the scan service prune photos the vendor has
+            # dropped, and it marks the listing as no longer needing a detail
+            # fetch.
+            item.images_are_complete = True
+            yield item
 
             if (index + 1) % 10 == 0:
                 ctx.log(f"  …{index + 1}/{budget} detail pages ({photos_found} photos).")

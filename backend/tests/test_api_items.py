@@ -276,3 +276,65 @@ class TestPhotos:
             f"/api/items/{inventory[1].id}/photos/{photo.id}", headers=admin_headers
         )
         assert response.status_code == 404
+
+
+class TestPhotoCaching:
+    """Photo URLs are not stable identifiers for their content.
+
+    /items/<id>/photos/<id> is built from two database ids, and SQLite reuses a
+    rowid after a delete. Clear a site and re-scan it and the same URL now
+    holds a different picture — which is exactly what happened, and every
+    browser that had seen the old one went on showing it for a day, so listings
+    appeared under each other's photographs.
+    """
+
+    def stored_photo(self, seeded, inventory, tmp_path, config):
+        from app.services.image_store import ImageStore
+
+        store = ImageStore(config)
+        stored = store.store_bytes("demo", "cache-test-key", _one_pixel_png())
+        assert stored is not None
+        photo = ItemPhoto(
+            item_id=inventory[0].id,
+            source_url="cache-test-key",
+            filename=stored.filename,
+            content_type=stored.content_type,
+        )
+        seeded.add(photo)
+        seeded.commit()
+        return photo
+
+    def test_the_browser_must_revalidate_before_reusing_a_photo(
+        self, client, admin_headers, seeded, inventory, tmp_path, app_config
+    ):
+        photo = self.stored_photo(seeded, inventory, tmp_path, app_config)
+        response = client.get(
+            f"/api/items/{inventory[0].id}/photos/{photo.id}", headers=admin_headers
+        )
+        assert response.status_code == 200
+        cache_control = response.headers["cache-control"]
+        assert "no-cache" in cache_control
+        # ...and it stays private: these are behind a session.
+        assert "private" in cache_control
+        assert "max-age=86400" not in cache_control
+
+    def test_a_validator_is_sent_so_revalidation_is_cheap(
+        self, client, admin_headers, seeded, inventory, tmp_path, app_config
+    ):
+        """Revalidating should cost a 304, not the image again."""
+        photo = self.stored_photo(seeded, inventory, tmp_path, app_config)
+        response = client.get(
+            f"/api/items/{inventory[0].id}/photos/{photo.id}", headers=admin_headers
+        )
+        assert response.headers.get("etag")
+        assert response.headers.get("last-modified")
+
+
+def _one_pixel_png() -> bytes:
+    import io
+
+    from PIL import Image
+
+    buffer = io.BytesIO()
+    Image.new("L", (2, 2), 255).save(buffer, format="PNG")
+    return buffer.getvalue()

@@ -46,6 +46,25 @@ class ScrapedItem:
     is_sold: bool = False
     posted_at: datetime | None = None
     image_urls: list[str] = field(default_factory=list)
+    #: True when ``image_urls`` is this listing's *entire* gallery, so anything
+    #: already stored and not listed here has genuinely been removed by the
+    #: vendor. False when it is only what the catalog grid showed — a single
+    #: low-resolution preview, which must never be allowed to displace a
+    #: gallery a detail fetch has already collected.
+    #:
+    #: Defaults to True because most scrapers only ever emit complete records.
+    #: A scraper that emits a listing twice — cheap preview first, full record
+    #: after its detail page — sets it False on the first pass.
+    images_are_complete: bool = True
+    #: Images the scraper produced itself, as ``(stable_key, png_bytes)``.
+    #:
+    #: Most vendors publish photographs at a URL, which ``image_urls`` covers.
+    #: Hunter's Lodge publishes one scanned flyer and nothing else, so each
+    #: listing's picture is a crop cut out of that scan — bytes that exist only
+    #: in memory. The key stands in for a URL when naming the stored file, so
+    #: it has to be stable: the same crop of the same flyer must produce the
+    #: same key on every scan, or each run would orphan the last one's files.
+    generated_images: list[tuple[str, bytes]] = field(default_factory=list, repr=False)
     # Anything site-specific worth keeping; merged into the description view.
     extra: dict[str, Any] = field(default_factory=dict)
 
@@ -81,6 +100,7 @@ class ScrapeContext:
         progress: Callable[[str], None] | None = None,
         should_stop: Callable[[], bool] | None = None,
         needs_detail: Callable[[str], bool] | None = None,
+        already_seen: Callable[[str], bool] | None = None,
     ) -> None:
         self.config = config
         self.scraping: ScrapingConfig = config.scraping
@@ -91,7 +111,13 @@ class ScrapeContext:
         # already fetched. Defaults to True so a scraper used standalone (in a
         # test, say) still does the full job.
         self._needs_detail = needs_detail or (lambda _key: True)
+        # Answers "do we hold any listing whose key starts with this?", for a
+        # scraper whose keys are not predictable one at a time. Defaults to
+        # False, so a scraper used standalone does the full job.
+        self._already_seen = already_seen or (lambda _prefix: False)
         self.warnings: list[str] = []
+        #: Set by report_unchanged(); read by the scan service.
+        self.unchanged = False
         self._last_request_at = 0.0
         self.session = requests.Session()
         self.session.headers.update(
@@ -112,6 +138,23 @@ class ScrapeContext:
         self.warnings.append(message)
         self._progress(f"WARNING: {message}")
 
+    def report_unchanged(self, reason: str) -> None:
+        """Declare that the vendor has published nothing new since last time.
+
+        A scraper normally has to return the *complete* current inventory,
+        because anything it omits is treated as de-listed. That is the wrong
+        contract for a vendor whose catalog is a single scanned flyer replaced
+        every month or two: re-deriving forty listings from an unchanged image
+        would be minutes of OCR to arrive back exactly where we started, and
+        returning nothing instead would de-list the whole catalog.
+
+        Calling this says "I have checked, and there is nothing new" — the run
+        finishes successfully having changed nothing, and de-listing is skipped
+        for that run.
+        """
+        self.unchanged = True
+        self.log(reason)
+
     def needs_detail(self, external_key: str) -> bool:
         """True when this listing still needs its detail page fetched.
 
@@ -120,6 +163,18 @@ class ScrapeContext:
         one that takes hours.
         """
         return self._needs_detail(external_key)
+
+    def already_seen(self, key_prefix: str) -> bool:
+        """True when some listing already stored has a key starting with this.
+
+        For a source whose listings cannot be enumerated without doing the
+        expensive work first. Hunter's Lodge derives its whole catalog from one
+        scanned page, so the question worth asking before reading it is not
+        "have we got listing 37" but "have we read this flyer at all" — and
+        since a listing's key is derived from its own text, there is no
+        particular key to ask about.
+        """
+        return self._already_seen(key_prefix)
 
     @property
     def stopped(self) -> bool:
@@ -201,6 +256,22 @@ class SiteScraper(abc.ABC):
         must return the *complete* current inventory, not a delta. Raise
         :class:`ScrapeError` to fail the run; call ``ctx.warn()`` for problems
         that should downgrade it to PARTIAL instead.
+
+        **Prefer a generator for anything slow.** The scan service consumes
+        this lazily and commits in batches, so a scraper that yields keeps
+        whatever it has already produced when a scan is interrupted, while one
+        that builds a list and returns it at the end loses the lot. On a
+        sixteen-minute catalog that is the whole difference between resuming
+        and starting over.
+
+        A key may be yielded **more than once**; the last version wins, exactly
+        as a re-scrape would. That is what lets a scraper emit a cheap listing
+        from the catalog grid straight away and then emit it again once an
+        expensive detail fetch has filled in the description and gallery.
+
+        De-listing only happens when this iterable is exhausted normally, so an
+        interrupted scrape can never mark the listings it never reached as
+        gone.
         """
 
     def __repr__(self) -> str:  # pragma: no cover - debugging aid

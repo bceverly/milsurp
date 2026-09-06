@@ -132,6 +132,22 @@ start: install migrate frontend/dist/index.html ## Rebuild the UI and (re)start 
 
 .PHONY: stop
 stop: ## Stop the app
+	@# Say what is about to be interrupted. A Royal Tiger scan is a quarter of
+	@# an hour of a vendor's bandwidth, and `make start` stops first, so
+	@# restarting the app used to kill one silently. Only asks on a terminal;
+	@# set FORCE=1 to skip the prompt in a script.
+	@if [ -f $(PID_FILE) ] && kill -0 "$$(cat $(PID_FILE))" 2>/dev/null; then \
+		if ! $(VENV_PY) backend/cli.py running-scans --quiet 2>/dev/null; then \
+			printf '\n  \033[1;93m! A scan is in flight:\033[0m\n'; \
+			$(VENV_PY) backend/cli.py running-scans --quiet 2>/dev/null || true; \
+			printf '    \033[2mWhatever it has already reconciled is saved; the rest is re-scraped\n'; \
+			printf '    next run. Wait for it to finish to avoid re-fetching the remainder.\033[0m\n\n'; \
+			if [ -t 0 ] && [ -z "$(FORCE)" ]; then \
+				printf '  Stop anyway? [y/N] '; read -r reply; \
+				case "$$reply" in [yY]*) ;; *) echo "  Left running."; exit 1;; esac; \
+			fi; \
+		fi; \
+	fi
 	@if [ -f $(PID_FILE) ] && kill -0 "$$(cat $(PID_FILE))" 2>/dev/null; then \
 		PID=$$(cat $(PID_FILE)); \
 		kill "$$PID" 2>/dev/null || true; \
@@ -174,6 +190,18 @@ build-frontend: frontend/node_modules ## Build the production UI bundle
 	@cd frontend && npm run build
 
 ##@ Scraping
+
+.PHONY: photos
+photos: $(VENV_PY) ## Download queued photos without re-scraping (make photos limit=2000)
+	@if [ -n "$(limit)" ]; then \
+		$(VENV_PY) backend/cli.py fetch-photos --limit "$(limit)"; \
+	else \
+		$(VENV_PY) backend/cli.py fetch-photos; \
+	fi
+
+.PHONY: reclassify
+reclassify: $(VENV_PY) ## Re-derive rifle/handgun for stored listings (no network)
+	@$(VENV_PY) backend/cli.py reclassify
 
 .PHONY: scan
 scan: $(VENV_PY) ## Scan every enabled site now (or one: make scan site=empire-arms)

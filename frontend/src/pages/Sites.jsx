@@ -9,9 +9,18 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api.js";
 import { useInterval, useTitle } from "../hooks.js";
-import { formatInterval, formatRelative, timeTitle } from "../format.js";
+import { formatDuration, formatInterval, formatRelative, timeTitle } from "../format.js";
 import { ScanStatusChip } from "../components/StatusChip.jsx";
-import { Check, History, Play, Refresh, Stop, Warning, X } from "../components/Icons.jsx";
+import {
+  Browser,
+  Check,
+  History,
+  Play,
+  Refresh,
+  Stop,
+  Warning,
+  X,
+} from "../components/Icons.jsx";
 
 /** Offered cadences. The API floor is 5 minutes; nothing below an hour is
  *  polite to a vendor, so the shortest option here is hourly. */
@@ -73,6 +82,29 @@ function ScanResult({ result, onDismiss }) {
       </button>
     </div>
   );
+}
+
+/**
+ * Explain a scan time, because the number alone invites the wrong conclusion.
+ *
+ * A re-scan of Empire Arms is two static pages with every photo already on
+ * disk, so it finishes in about two seconds — which reads as "it cannot have
+ * done anything" until you see that it checked 58 listings and had no photos
+ * left to fetch. Royal Tiger's quarter of an hour is mostly image downloads.
+ * The counts are what make the difference legible.
+ */
+function scanTimeDetail(run) {
+  if (!run || run.duration_seconds == null) return undefined;
+  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const parts = [`${run.duration_seconds.toFixed(1)} seconds end to end`];
+  parts.push(`${plural(run.items_found, "listing")} checked`);
+  if (run.items_new) parts.push(`${run.items_new} new`);
+  parts.push(
+    run.images_downloaded
+      ? `${plural(run.images_downloaded, "photo")} downloaded`
+      : "no photos needed downloading",
+  );
+  return parts.join(" · ");
 }
 
 function SiteCard({ site, result, onChange, onError, onDismissResult }) {
@@ -142,9 +174,19 @@ function SiteCard({ site, result, onChange, onError, onDismissResult }) {
             ) : (
               <span className="chip chip--neutral">Never scanned</span>
             )}
+            {/*
+              Neutral, not a warning. This states how the site is scraped — it
+              is a permanent property of the vendor, not a problem and not a
+              diagnosis. Styled as a warning next to a red "Failed" chip, it
+              read as the cause of the failure and sent someone off to install
+              a browser that was already working.
+            */}
             {site.requires_browser && (
-              <span className="chip chip--warning" title="Needs headless Chrome">
-                <Warning size={12} />
+              <span
+                className="chip chip--neutral"
+                title="Scraped with headless Chrome, because this site renders its catalog in JavaScript"
+              >
+                <Browser size={12} />
                 Browser
               </span>
             )}
@@ -186,6 +228,16 @@ function SiteCard({ site, result, onChange, onError, onDismissResult }) {
             {site.last_scan_at ? formatRelative(site.last_scan_at) : "never"}
           </div>
           <div className="site-card__stat-label">Last scan</div>
+        </div>
+        <div className="site-card__stat">
+          <div
+            className="site-card__stat-value"
+            style={{ fontSize: 13, fontWeight: 600 }}
+            title={scanTimeDetail(site.last_run)}
+          >
+            {formatDuration(site.last_run?.duration_seconds)}
+          </div>
+          <div className="site-card__stat-label">Scan time</div>
         </div>
       </div>
 

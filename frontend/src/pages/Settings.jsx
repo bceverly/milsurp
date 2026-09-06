@@ -4,7 +4,7 @@
  * The per-site item limits are deliberately required rather than optional —
  * without a cap, one big scan turns a digest into a hundred-item wall of text.
  */
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
 import { usePasswordPolicy, useTitle } from "../hooks.js";
 import { useAuth } from "../auth.jsx";
@@ -33,6 +33,23 @@ export default function SettingsPage() {
   const [notice, setNotice] = useState(null);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+
+  // Built as a de-duplicated list rather than three hand-written <option>s.
+  // The old version emitted a fixed <option value="UTC"> *and* an option for
+  // the stored zone, so anyone whose stored zone was UTC — which was everyone,
+  // because that was the column default — saw "UTC" listed twice.
+  const timeZoneOptions = useMemo(() => {
+    const zones = [];
+    const add = (value, label) => {
+      if (value && !zones.some((zone) => zone.value === value)) {
+        zones.push({ value, label });
+      }
+    };
+    add(browserTimeZone, `${browserTimeZone} (this device)`);
+    add(prefs?.display_timezone, prefs?.display_timezone);
+    add("UTC", "UTC");
+    return zones;
+  }, [prefs?.display_timezone]);
 
   const load = useCallback(() => {
     Promise.all([api.preferences(), api.sites(), api.emailHistory({ limit: 10 })])
@@ -187,18 +204,16 @@ export default function SettingsPage() {
                       id={id}
                       aria-describedby={describedBy}
                       className="select"
-                      value={prefs.display_timezone}
+                      // Null means the user has never chosen: offer their own
+                      // zone rather than silently mailing everyone UTC times.
+                      value={prefs.display_timezone || browserTimeZone}
                       onChange={(event) => set("display_timezone", event.target.value)}
                     >
-                      <option value={browserTimeZone}>
-                        {browserTimeZone} (this device)
-                      </option>
-                      {prefs.display_timezone !== browserTimeZone && (
-                        <option value={prefs.display_timezone}>
-                          {prefs.display_timezone}
+                      {timeZoneOptions.map((zone) => (
+                        <option key={zone.value} value={zone.value}>
+                          {zone.label}
                         </option>
-                      )}
-                      <option value="UTC">UTC</option>
+                      ))}
                     </select>
                   )}
                 </Field>

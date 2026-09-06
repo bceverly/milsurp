@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 from datetime import timedelta
 from typing import Any
@@ -57,6 +58,32 @@ def _search_terms(search: str) -> list[str]:
     return terms[:MAX_SEARCH_TERMS]
 
 
+def _photo_version(photo: ItemPhoto) -> str:
+    """A short token that changes whenever a photo's bytes change.
+
+    Photo URLs are built from two database ids, and neither is a stable name
+    for its content: SQLite reuses a rowid after a delete, so clearing a site
+    and re-scanning it hands the very same URL to a different picture. Every
+    browser that had seen the old one then kept showing it — listings appearing
+    under each other's photographs, and no amount of reloading fixed it,
+    because the URL genuinely had not changed.
+
+    The stored filename is not enough on its own: it hashes the image's
+    *source*, and a scraper that generates its own images keeps the source key
+    deliberately stable while the bytes change. The size and the time it was
+    stored move whenever the file is rewritten, so they are included.
+    """
+    material = f"{photo.filename}|{photo.bytes}|{photo.downloaded_at}"
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()[:12]
+
+
+def _photo_urls(item_id: int, photo: ItemPhoto) -> tuple[str, str]:
+    """The full and thumbnail URLs for one photo, both content-versioned."""
+    base = f"/api/items/{item_id}/photos/{photo.id}"
+    version = _photo_version(photo)
+    return f"{base}?v={version}", f"{base}?size=thumb&v={version}"
+
+
 def _thumbnail_url(item: Item) -> str | None:
     """Point at the authenticated photo endpoint, never at a vendor URL.
 
@@ -65,7 +92,7 @@ def _thumbnail_url(item: Item) -> str | None:
     """
     for photo in item.photos:
         if photo.filename:
-            return f"/api/items/{item.id}/photos/{photo.id}?size=thumb"
+            return _photo_urls(item.id, photo)[1]
     return None
 
 
@@ -296,8 +323,8 @@ def get_item(item_id: int, _user: CurrentUser, session: DbSession) -> ItemDetail
         PhotoOut(
             id=photo.id,
             position=photo.position,
-            url=f"/api/items/{item.id}/photos/{photo.id}",
-            thumbnail_url=f"/api/items/{item.id}/photos/{photo.id}?size=thumb",
+            url=_photo_urls(item.id, photo)[0],
+            thumbnail_url=_photo_urls(item.id, photo)[1],
             width=photo.width,
             height=photo.height,
         )
@@ -369,8 +396,23 @@ def get_photo(
         path,
         media_type=photo.content_type or "image/jpeg",
         headers={
-            # Content is immutable (the filename is a hash of the source URL),
-            # but it is per-user authorized, so caching must stay private.
-            "Cache-Control": "private, max-age=86400",
+            # Revalidated every time, and belt-and-braces at that: the URL now
+            # carries a token derived from the file, so a changed image is a
+            # changed URL and a stale copy can never be matched to it. The
+            # revalidation stays because a cache that already holds one of the
+            # old, unversioned URLs has no other way to find out.
+            #
+            # This used to be `max-age=86400` on the reasoning that the content
+            # was immutable because the stored filename is a hash. The filename
+            # is a hash of the image's *source*, not of its bytes, and this URL
+            # is neither: it is /items/<id>/photos/<id>, and both of those ids
+            # are reused by SQLite after a delete. So a site that is cleared and
+            # re-scanned hands the same URL to different content, and every
+            # browser that had looked at the old one showed it for another
+            # day — listings appearing under each other's photographs.
+            #
+            # FileResponse already sends an ETag and Last-Modified derived from
+            # the file, so revalidating costs a 304 and no image bytes.
+            "Cache-Control": "private, no-cache",
         },
     )

@@ -14,6 +14,7 @@ import {
   Menu,
   Rifle,
   Sites as SitesIcon,
+  Tag as TagIcon,
   Users as UsersIcon,
   X,
 } from "./Icons.jsx";
@@ -22,6 +23,7 @@ import Insignia from "./Insignia.jsx";
 const NAV = [
   { to: "/", label: "Inventory", icon: Rifle, end: true },
   { to: "/sites", label: "Sites", icon: SitesIcon, adminOnly: true },
+  { to: "/manufacturers", label: "Makers", icon: TagIcon, adminOnly: true },
   { to: "/users", label: "Users", icon: UsersIcon, adminOnly: true },
   { to: "/settings", label: "Email digest", icon: Mail },
 ];

@@ -135,3 +135,83 @@ test.describe("item detail", () => {
     await expect(signedIn.getByRole("alert")).toBeVisible();
   });
 });
+
+test.describe("pagination", () => {
+  // The demo catalog is deliberately seeded past the 48-per-page boundary so
+  // these controls exist to be clicked. When it held only 28 listings the
+  // pager never rendered, and a Next button that set the page number and then
+  // deleted it went unnoticed.
+
+  test("next advances to the following page", async ({ signedIn }) => {
+    const status = signedIn.locator(".pagination__status");
+    await expect(status).toContainText("Page 1 of");
+
+    const firstTitle = await signedIn.locator(".item-card__title").first().textContent();
+
+    await signedIn.getByRole("button", { name: "Next" }).click();
+
+    await expect(status).toContainText("Page 2 of");
+    await expect(signedIn).toHaveURL(/page=2/);
+    // Different page, different listings.
+    await expect(signedIn.locator(".item-card__title").first()).not.toHaveText(
+      firstTitle ?? "",
+    );
+  });
+
+  test("previous returns to page one and drops the parameter", async ({ signedIn }) => {
+    await signedIn.getByRole("button", { name: "Next" }).click();
+    await expect(signedIn).toHaveURL(/page=2/);
+
+    await signedIn.getByRole("button", { name: "Previous" }).click();
+    await expect(signedIn.locator(".pagination__status")).toContainText("Page 1 of");
+    // Page 1 is the default, so it stays out of the URL.
+    await expect(signedIn).not.toHaveURL(/page=/);
+  });
+
+  test("paging returns you to the top of the grid", async ({ signedIn }) => {
+    // The pager sits below 48 cards, so a page change always starts from the
+    // bottom of the page. Landing on the new page already scrolled past its
+    // first rows makes it look like nothing happened.
+    // The page has to be tall enough to scroll before any of this proves
+    // anything, and a grid still fetching its cards is not. The scroll is
+    // retried inside the poll rather than gated on a card count: page two
+    // holds the remainder, not a full 48, and how much of the catalog is
+    // active depends on whether an unrelated test has run a scan.
+    const scrollToBottom = () =>
+      expect
+        .poll(async () => {
+          await signedIn.evaluate(() =>
+            window.scrollTo(0, document.documentElement.scrollHeight),
+          );
+          return signedIn.evaluate(() => window.scrollY);
+        })
+        .toBeGreaterThan(0);
+
+    await scrollToBottom();
+    await signedIn.getByRole("button", { name: "Next" }).click();
+    await expect(signedIn).toHaveURL(/page=2/);
+    await expect.poll(() => signedIn.evaluate(() => window.scrollY)).toBe(0);
+
+    await scrollToBottom();
+    await signedIn.getByRole("button", { name: "Previous" }).click();
+    await expect(signedIn.locator(".pagination__status")).toContainText("Page 1 of");
+    await expect.poll(() => signedIn.evaluate(() => window.scrollY)).toBe(0);
+  });
+
+  test("the buttons disable at each end", async ({ signedIn }) => {
+    await expect(signedIn.getByRole("button", { name: "Previous" })).toBeDisabled();
+    await signedIn.getByRole("button", { name: "Next" }).click();
+    await expect(signedIn.getByRole("button", { name: "Previous" })).toBeEnabled();
+  });
+
+  test("changing a filter resets to page one", async ({ signedIn }) => {
+    await signedIn.getByRole("button", { name: "Next" }).click();
+    await expect(signedIn).toHaveURL(/page=2/);
+
+    // A narrower result set renumbers the pages, so page 2 no longer means
+    // anything and must be dropped.
+    await signedIn.getByRole("checkbox", { name: "Rifles" }).check();
+    await expect(signedIn).toHaveURL(/kind=rifle/);
+    await expect(signedIn).not.toHaveURL(/page=2/);
+  });
+});

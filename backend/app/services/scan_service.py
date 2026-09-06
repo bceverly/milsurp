@@ -20,7 +20,7 @@ from __future__ import annotations
 import threading
 import time
 import traceback
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select
@@ -28,12 +28,27 @@ from sqlalchemy.orm import Session
 
 from ..config import Config, get_config
 from ..database import session_scope
-from ..models import Item, ItemPhoto, PriceHistory, ScanRun, ScanStatus, Site, utcnow
+from ..models import (
+    Item,
+    ItemPhoto,
+    PriceHistory,
+    ScanRun,
+    ScanStatus,
+    Site,
+    as_utc,
+    utcnow,
+)
 from ..scrapers import ScrapeCanceled, ScrapeContext, ScrapedItem, ScrapeError, get_scraper
+from . import classify, manufacturers
 from .image_store import ImageStore
 
 #: Progress lines kept per run. Enough to debug a scrape without unbounded growth.
 MAX_LOG_LINES = 500
+
+#: Listings reconciled between commits. Small enough that an interrupted scan
+#: loses seconds of work rather than minutes; large enough that a thousand-item
+#: catalog is not a thousand transactions.
+COMMIT_EVERY = 25
 
 #: Guards ``_running`` and ``_cancel_flags``.
 _lock = threading.Lock()
@@ -140,7 +155,9 @@ def _upsert_item(
     item.category = scraped.category
     item.caliber = scraped.caliber
     item.country = scraped.country
-    item.manufacturer = scraped.manufacturer
+    item.manufacturer = scraped.manufacturer or manufacturers.extract(
+        session, scraped.title, scraped.description
+    )
     item.condition = scraped.condition
     item.is_sold = scraped.is_sold
     item.currency = scraped.currency
@@ -177,26 +194,88 @@ def _upsert_item(
         )
         price_dropped = item.previous_price is not None and scraped.price < item.previous_price
 
+    # Firearm classification happens here, not in the scrapers.
+    #
+    # It is the same judgement for every vendor, and putting it in the scrapers
+    # meant each one had to remember — none did. classify.enrich() returned
+    # is_rifle/is_pistol from the very first commit and nothing ever read them
+    # onto the row, so every listing on every site sat at the column default of
+    # False and the "Rifles" filter matched nothing at all.
+    #
+    # Doing it here also means it runs against the *merged* record: Royal Tiger
+    # yields a listing from the grid with no description and again once the
+    # detail page has supplied one, and the second pass reclassifies with the
+    # better text.
+    derived = classify.enrich(
+        item.title,
+        item.description,
+        item.current_price,
+        caliber=item.caliber,
+        category=item.category,
+    )
+    item.is_rifle = derived["is_rifle"]
+    item.is_pistol = derived["is_pistol"]
+
     session.flush()
 
     # Record photo URLs now; the bytes are fetched in a later pass so a slow
     # image host cannot stall the reconcile.
-    if scraped.image_urls:
-        by_url = {photo.source_url: photo for photo in item.photos}
-        for position, url in enumerate(scraped.image_urls):
-            existing_photo = by_url.pop(url, None)
-            if existing_photo is None:
-                session.add(ItemPhoto(item_id=item.id, source_url=url, position=position))
-            else:
-                # Keep display order in sync with the gallery.
-                existing_photo.position = position
-        # Anything left over is a photo the vendor has removed, or the
-        # low-resolution grid thumbnail that the detail pass has now replaced
-        # with the real gallery. Drop the row; the file is reclaimed by
-        # 'milsurp prune-images'.
+    _reconcile_photos(session, item, scraped)
+
+    if scraped.images_are_complete:
+        # The record is complete: description and full gallery. This is the
+        # fact ScrapeContext.needs_detail() reads, so it must be set only here.
+        item.detail_fetched_at = seen_at
+
+    return item, created, price_dropped
+
+
+def _reconcile_photos(session: Session, item: Item, scraped: ScrapedItem) -> None:
+    """Bring an item's photo rows in line with what the scraper just saw.
+
+    Bytes are not fetched here: a row without a filename is a job for
+    :func:`_download_photos`, so a slow image host cannot stall the reconcile.
+    """
+    if scraped.generated_images:
+        _store_generated_images(session, item, scraped)
+        return
+
+    if not scraped.image_urls:
+        return
+
+    preview_only = not scraped.images_are_complete
+    stored = sorted(item.photos, key=lambda photo: photo.position)
+
+    # Same URLs in the same order means nothing about this gallery has changed:
+    # no row to insert, none to prune, and every file already downloaded is
+    # still the right one. Returning early keeps a re-scan of an unchanged
+    # catalog from generating any image work at all.
+    if scraped.image_urls == [photo.source_url for photo in stored]:
+        return
+
+    # A catalog-grid preview knows one photo and nothing about the rest, so it
+    # has nothing to say about a gallery that has already been collected.
+    if preview_only and stored:
+        return
+
+    by_url = {photo.source_url: photo for photo in stored}
+    for position, url in enumerate(scraped.image_urls):
+        existing_photo = by_url.pop(url, None)
+        if existing_photo is None:
+            session.add(ItemPhoto(item_id=item.id, source_url=url, position=position))
+        else:
+            # Keep display order in sync with the gallery.
+            existing_photo.position = position
+
+    # Anything left over is a photo the vendor has removed. Drop the row; the
+    # file is reclaimed by 'milsurp prune-images'.
+    #
+    # Only ever from a *complete* record. Letting a preview prune would delete
+    # a seven-photo gallery down to the grid thumbnail — which is precisely
+    # what happened to 207 Royal Tiger listings.
+    if not preview_only:
         for stale_photo in by_url.values():
             session.delete(stale_photo)
-    return item, created, price_dropped
 
 
 def _mark_delisted(session: Session, site: Site, seen_keys: set[str], seen_at: datetime) -> int:
@@ -215,17 +294,86 @@ def _mark_delisted(session: Session, site: Site, seen_keys: set[str], seen_at: d
     return count
 
 
+def _store_generated_images(session: Session, item: Item, scraped: ScrapedItem) -> None:
+    """Persist images a scraper made itself, rather than queueing a download.
+
+    There is no URL to fetch later, so the bytes go to disk now and the row is
+    written already complete — which also means _download_photos never sees it.
+    The key doubles as the photo's source_url so a re-scan of the same flyer
+    recognises the same crop instead of storing it again — but "the same crop"
+    has to mean the same *pixels*, not merely the same key. These images are
+    derived by our own code from a page that has not changed, so the thing that
+    changes them is a change to the reader: when it learned to include the
+    heading above the picture, every crop moved, and skipping on the key alone
+    left every listing showing the picture it had been cut before. So the bytes
+    are compared, and only an unchanged crop is left alone.
+    """
+    config = get_config()
+    if not config.scraping.download_images:
+        return
+    store = ImageStore(config)
+    existing = {photo.source_url: photo for photo in item.photos}
+    for position, (key, data) in enumerate(scraped.generated_images):
+        photo = existing.get(key)
+        if photo is not None and _same_bytes_on_disk(store, photo, data):
+            photo.position = position
+            continue
+        stored = store.store_bytes(item.site.slug, key, data)
+        if stored is None:
+            continue
+        if photo is None:
+            photo = ItemPhoto(item_id=item.id, source_url=key)
+            session.add(photo)
+        photo.position = position
+        photo.filename = stored.filename
+        photo.thumb_filename = stored.thumb_filename
+        photo.content_type = stored.content_type
+        photo.bytes = stored.bytes
+        photo.thumb_bytes = stored.thumb_bytes
+        photo.width = stored.width
+        photo.height = stored.height
+        photo.downloaded_at = utcnow()
+
+
+def _same_bytes_on_disk(store: ImageStore, photo: ItemPhoto, data: bytes) -> bool:
+    """Whether the stored file is already exactly these bytes.
+
+    Compared rather than hashed: the file name is derived from the crop's key,
+    not from its content, so it says nothing about what is inside. There are a
+    few dozen of these per flyer and the scraper runs weekly.
+    """
+    if not photo.filename or photo.bytes != len(data):
+        return False
+    try:
+        return store.absolute_path(photo.filename).read_bytes() == data
+    except OSError:
+        return False
+
+
 def _download_photos(
     session: Session,
     site: Site,
     ctx: ScrapeContext,
     config: Config,
-    limit: int = 400,
+    limit: int | None = None,
 ) -> int:
-    """Fetch bytes for photo rows that have no file yet."""
+    """Fetch bytes for photo rows that have no file yet.
+
+    Only rows with no file, so a photo is downloaded exactly once however many
+    times its listing is re-scanned. What is left over after the per-scan
+    budget is picked up by the next run.
+    """
     if not config.scraping.download_images:
         return 0
+    limit = limit if limit is not None else config.scraping.max_photo_downloads_per_scan
     store = ImageStore(config)
+    outstanding = session.execute(
+        select(func.count(ItemPhoto.id))
+        .join(Item, Item.id == ItemPhoto.item_id)
+        .where(Item.site_id == site.id, ItemPhoto.filename.is_(None))
+    ).scalar_one()
+    if not outstanding:
+        return 0
     pending = (
         session.execute(
             select(ItemPhoto)
@@ -239,7 +387,16 @@ def _download_photos(
     if not pending:
         return 0
 
-    ctx.log(f"Downloading {len(pending)} new photo(s)…")
+    backlog = outstanding - len(pending)
+    ctx.log(
+        f"Downloading {len(pending)} new photo(s)…"
+        + (
+            f" ({backlog} more queued; raise scraping.max_photo_downloads_per_scan,"
+            f" or run 'make photos' to drain the rest without re-scraping)"
+            if backlog
+            else ""
+        )
+    )
     downloaded = 0
     for index, photo in enumerate(pending):
         if ctx.stopped:
@@ -264,6 +421,45 @@ def _download_photos(
     return downloaded
 
 
+def download_pending_photos(
+    site_slug: str | None = None,
+    limit: int | None = None,
+    progress: Callable[[str], None] | None = None,
+) -> int:
+    """Fetch the bytes for photo rows that are still waiting for a file.
+
+    A scan caps how many photos it downloads so a first pass over a large
+    catalog cannot run for hours, and carries the rest to the next run. That is
+    the right default, but it means a backlog drains a scan at a time — and a
+    Royal Tiger scan is fifteen minutes of scraping to reach a download step
+    whose URLs are already known.
+
+    This is that download step on its own: no browser, no detail pages, no
+    re-scrape. Nothing is inserted or de-listed, so it is safe to run at any
+    time and safe to interrupt.
+    """
+    config = get_config()
+    log = progress or (lambda _message: None)
+    total = 0
+    with session_scope() as session:
+        sites = session.execute(select(Site).order_by(Site.name)).scalars().all()
+        if site_slug:
+            sites = [site for site in sites if site.slug == site_slug]
+            if not sites:
+                raise ScanBusy(f"no site with slug {site_slug!r}")
+
+        ctx = ScrapeContext(config, progress=log)
+        try:
+            for site in sites:
+                downloaded = _download_photos(session, site, ctx, config, limit=limit)
+                if downloaded:
+                    log(f"{site.name}: stored {downloaded} photo(s).")
+                total += downloaded
+        finally:
+            ctx.close()
+    return total
+
+
 def reap_stale_runs(session: Session, config: Config | None = None) -> int:
     """Fail runs left RUNNING by a crash or restart.
 
@@ -276,16 +472,33 @@ def reap_stale_runs(session: Session, config: Config | None = None) -> int:
         session.execute(select(ScanRun).where(ScanRun.status == ScanStatus.RUNNING)).scalars().all()
     )
     live = running_site_ids()
+    timeout = config.scheduler.scan_timeout_minutes
     count = 0
     for run in orphans:
-        if run.site_id in live and run.started_at.replace(tzinfo=UTC) > cutoff:
+        # started_at is NOT NULL, so as_utc never returns None here; the
+        # fallback keeps the type checker honest without inventing a time.
+        started = as_utc(run.started_at) or cutoff
+        if run.site_id in live and started > cutoff:
             continue
+        now = utcnow()
         run.status = ScanStatus.FAILED
-        run.finished_at = utcnow()
-        run.error_message = (
-            "Scan did not finish — the application restarted or the run exceeded "
-            f"the {config.scheduler.scan_timeout_minutes} minute timeout."
-        )
+        run.finished_at = now
+        # Say which of the two it was. The old message named both causes and
+        # left the reader to guess, which made a 16-minute scan killed by a
+        # restart look like a scraper that had hung for two hours.
+        minutes = max(0, int((now - started).total_seconds() // 60))
+        if started > cutoff:
+            run.error_message = (
+                f"Scan did not finish: the application stopped or restarted "
+                f"{minutes} minute(s) into the run. Anything already reconciled "
+                f"was saved; the next scan resumes from there."
+            )
+        else:
+            run.error_message = (
+                f"Scan did not finish: it ran for {minutes} minute(s), past the "
+                f"{timeout} minute limit (scheduler.scan_timeout_minutes), and "
+                f"was abandoned."
+            )
         count += 1
     if count:
         session.commit()
@@ -344,69 +557,111 @@ def run_scan(  # noqa: PLR0912,PLR0915 - one linear scan lifecycle; see ROADMAP
                 return run.id
 
             def needs_detail(external_key: str) -> bool:
-                """Has this listing already been fully fetched?
+                """Has this listing already had its detail page fetched?
 
-                A listing counts as complete once it has a description and at
-                least one photo, which is what a detail-page fetch produces.
+                Answered from Item.detail_fetched_at, which a scraper sets by
+                handing over a complete record. It used to be inferred from
+                "has a description and at least one photo row", which is a
+                different question and got Royal Tiger badly wrong — see the
+                note on the column.
                 """
-                row = session.execute(
-                    select(Item.id, Item.description).where(
+                fetched = session.execute(
+                    select(Item.detail_fetched_at).where(
                         Item.site_id == site.id, Item.external_key == external_key
                     )
-                ).first()
-                if row is None:
-                    return True
-                item_id, description = row
-                if not description:
-                    return True
-                photo_count = session.execute(
-                    select(func.count(ItemPhoto.id)).where(ItemPhoto.item_id == item_id)
-                ).scalar_one()
-                return photo_count == 0
+                ).scalar_one_or_none()
+                return fetched is None
+
+            def holds_key_prefix(key_prefix: str) -> bool:
+                """Whether anything from this source is stored under this prefix."""
+                pattern = key_prefix.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%"
+                return (
+                    session.execute(
+                        select(Item.id)
+                        .where(Item.site_id == site.id, Item.external_key.like(pattern, escape="!"))
+                        .limit(1)
+                    ).scalar_one_or_none()
+                    is not None
+                )
 
             ctx = ScrapeContext(
                 config,
                 progress=log,
                 should_stop=cancel.is_set,
                 needs_detail=needs_detail,
+                already_seen=holds_key_prefix,
             )
             seen_at = utcnow()
 
             try:
                 log(f"Starting {site.name} scan ({trigger}).")
+
+                # Consumed as a stream, not collected into a list first.
+                #
+                # A Royal Tiger scan spends roughly sixteen minutes in the
+                # scraper — nine walking seven sections in a browser, seven
+                # fetching detail pages. Materialising the whole result before
+                # the first INSERT meant that a restart at minute fifteen threw
+                # all of it away and the next run started from nothing.
+                #
+                # Committing in batches as listings arrive means an interrupted
+                # scan keeps everything it had reached. The next run then skips
+                # what it already has: ScrapeContext.needs_detail() suppresses
+                # the detail fetch for any listing that already has a
+                # description and a photo, and _download_photos() picks up any
+                # photo row still missing its file. Interrupted work is resumed
+                # rather than repeated.
                 scraped: Iterable[ScrapedItem] = scraper.scrape(ctx)
-                scraped_list = list(scraped)
-                log(f"Scraper returned {len(scraped_list)} listing(s).")
 
-                # Two listings sharing a key would violate the unique index and
-                # abort the whole transaction; last one wins, as with a re-scrape.
-                unique: dict[str, ScrapedItem] = {}
-                for entry in scraped_list:
-                    if entry.external_key:
-                        unique[entry.external_key] = entry
-                if len(unique) != len(scraped_list):
-                    log(f"Collapsed {len(scraped_list) - len(unique)} duplicate key(s).")
+                # A scraper may yield the same key more than once — Royal Tiger
+                # yields each listing from the grid, then again once its detail
+                # page has filled in the description and gallery. Later wins,
+                # which is what _upsert_item does anyway; the set is only here
+                # so the counters and the de-list set stay honest.
+                seen_keys: set[str] = set()
+                dropped_keys: set[str] = set()
+                created = updated = changes = 0
+                duplicates = 0
+                processed = 0
 
-                created = updated = drops = changes = 0
-                for index, entry in enumerate(unique.values()):
+                for entry in scraped:
                     ctx.check_stop()
+                    if not entry.external_key:
+                        continue
+                    already_seen = entry.external_key in seen_keys
                     _item, was_created, dropped = _upsert_item(session, site, entry, run, seen_at)
-                    if was_created:
+                    if already_seen:
+                        duplicates += 1
+                    elif was_created:
                         created += 1
                     else:
                         updated += 1
                     if dropped:
-                        drops += 1
-                    if (index + 1) % 100 == 0:
+                        dropped_keys.add(entry.external_key)
+                    seen_keys.add(entry.external_key)
+                    processed += 1
+
+                    if processed % COMMIT_EVERY == 0:
                         session.commit()
-                        log(f"  …{index + 1}/{len(unique)} listings reconciled.")
+                        log(f"  …{len(seen_keys)} listing(s) saved.")
 
                 session.commit()
+                log(f"Scraper returned {len(seen_keys)} listing(s).")
+                if duplicates:
+                    log(f"Collapsed {duplicates} repeated key(s).")
+
                 changes = (
                     session.query(PriceHistory).filter(PriceHistory.scan_run_id == run.id).count()
                 )
 
-                delisted = _mark_delisted(session, site, set(unique), seen_at)
+                # Only reached when the scraper ran to completion. An
+                # interrupted stream raises out of the loop above, so a partial
+                # result can never de-list the listings it did not get to.
+                #
+                # A scraper that reported "nothing has changed" deliberately
+                # returned no listings, which is not the same as saying the
+                # catalog is empty. De-listing on that would wipe the site.
+                delisted = 0 if ctx.unchanged else _mark_delisted(session, site, seen_keys, seen_at)
                 session.commit()
                 log(
                     f"Reconciled: {created} new, {updated} updated, "
@@ -415,12 +670,12 @@ def run_scan(  # noqa: PLR0912,PLR0915 - one linear scan lifecycle; see ROADMAP
 
                 images = _download_photos(session, site, ctx, config)
 
-                run.items_found = len(unique)
+                run.items_found = len(seen_keys)
                 run.items_new = created
                 run.items_updated = updated
                 run.items_delisted = delisted
                 run.price_changes = changes
-                run.price_drops = drops
+                run.price_drops = len(dropped_keys)
                 run.images_downloaded = images
                 run.status = ScanStatus.PARTIAL if ctx.warnings else ScanStatus.SUCCESS
                 if ctx.warnings:
@@ -461,4 +716,9 @@ def due_site_ids(session: Session) -> list[int]:
         .scalars()
         .all()
     )
-    return [site.id for site in sites if site.next_scan_at is None or site.next_scan_at <= now]
+    # as_utc, because next_scan_at comes back from SQLite naive while now is
+    # aware. Comparing them directly raises TypeError, and the scheduler
+    # isolates each tick, so the whole schedule stopped with nothing in the log
+    # and a healthy-looking scheduler thread. A NULL means "never scanned",
+    # which is why the first scan of each site worked and no later one did.
+    return [site.id for site in sites if (due := as_utc(site.next_scan_at)) is None or due <= now]

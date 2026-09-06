@@ -35,6 +35,22 @@ images:
   # Production default:  /etc/milsurp/images
   path: /etc/milsurp/images
 
+# --- Backups ---------------------------------------------------------------
+# Daily snapshots of the database, taken through SQLite's online backup API so
+# each one is a complete .db that opens on its own. Production only: nothing is
+# written in development, where the database is a scratch copy.
+#
+# The database is the one part of this application that cannot be rebuilt. The
+# code is in version control and the photos can be fetched again, but the price
+# history is a record of what a vendor was asking on a day that has passed.
+backups:
+  enabled: true                      # default: true (and always off in dev)
+  # Development default: <repo root>/backups
+  # Production default:  /etc/milsurp/backups
+  directory: /etc/milsurp/backups
+  keep: 10                           # snapshots to keep, default: 10
+  interval_hours: 24                 # default: 24
+
 # --- Security --------------------------------------------------------------
 # Generate real values with:  make secrets
 security:
@@ -125,6 +141,9 @@ scheduler:
   enabled: false                     # default when this file is absent: true
   tick_seconds: 60                   # how often to look for due sites
   digest_tick_seconds: 300           # how often to look for due digests
+  # How often to work through the photo download queue between scans, so a
+  # backlog drains in the background instead of one batch per scan.
+  photo_tick_seconds: 180            # default: 180
   # A browser-driven scan is heavy; two at once is plenty on a small VPS.
   max_concurrent_scans: 2            # default: 2
   scan_timeout_minutes: 120          # a longer run is treated as crashed
@@ -139,6 +158,10 @@ scraping:
   # Ceiling on pages / scroll iterations / Load More clicks per section, so a
   # misbehaving site cannot make a scan run forever.
   max_pages: 60                      # default: 60
+  # Photos downloaded per scan. A first scan of a large catalog queues
+  # thousands; the remainder carries to the next run rather than
+  # stretching one scan into hours. Raise it to drain a backlog faster.
+  max_photo_downloads_per_scan: 400  # default: 400
 
   selenium:
     headless: true                   # default: true

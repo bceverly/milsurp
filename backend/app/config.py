@@ -195,10 +195,28 @@ class SchedulerConfig:
     tick_seconds: int = 60
     # How often it looks for users whose email digest is due.
     digest_tick_seconds: int = 300
+    # How often it works through the photo download queue between scans. A scan
+    # caps its own image downloads so a first pass over a large catalog cannot
+    # run for hours; without this the remainder would drain one scan at a time,
+    # which on a daily cadence is days of listings with no pictures.
+    photo_tick_seconds: int = 180
     max_concurrent_scans: int = 2
     # Refuse to start a scan if one for the same site has been running longer
     # than this; the previous run is marked failed and reaped.
     scan_timeout_minutes: int = 120
+
+
+@dataclass(frozen=True)
+class BackupConfig:
+    """Rolling snapshots of the database. See :mod:`app.services.backup`."""
+
+    enabled: bool = True
+    directory: Path = Path("backups")
+    #: How many to keep. Ten daily snapshots is a bit over a week, which is
+    #: long enough to notice that something went wrong and still have the
+    #: state from before it.
+    keep: int = 10
+    interval_hours: int = 24
 
 
 @dataclass(frozen=True)
@@ -218,6 +236,11 @@ class ScrapingConfig:
     # Hard ceiling on pages/scroll iterations, so a misbehaving site cannot
     # make a scan run forever.
     max_pages: int = 60
+    # Photos fetched per scan. A first scan of a large catalog can queue
+    # thousands; downloading them all in one run would stretch it for hours, so
+    # the remainder is carried to the next scan. Raise it to drain a backlog
+    # faster, at the cost of a longer run and more traffic in one burst.
+    max_photo_downloads_per_scan: int = 400
 
 
 @dataclass(frozen=True)
@@ -232,6 +255,7 @@ class Config:
     server: ServerConfig
     scheduler: SchedulerConfig
     scraping: ScrapingConfig
+    backups: BackupConfig
     recaptcha: RecaptchaConfig
     access_requests: AccessRequestConfig
     raw: dict[str, Any] = field(default_factory=dict, repr=False)
@@ -375,6 +399,23 @@ def load_config(path: Path | None = None, mode: str | None = None) -> Config:
         max_pages=int(scr.get("max_pages", 60)),
     )
 
+    bak = _section(data, "backups")
+    backup_defaults = BackupConfig()
+    backup_path = bak.get("directory")
+    backups = BackupConfig(
+        # Off in development whatever the file says: the flag exists so a
+        # production deployment can turn it off deliberately, and is.enabled()
+        # is what actually decides.
+        enabled=bool(bak.get("enabled", True)),
+        directory=(
+            _resolve_path(backup_path, ROOT_DIR)
+            if backup_path
+            else (ROOT_DIR / "backups" if mode == "dev" else state_dir / "backups")
+        ),
+        keep=int(bak.get("keep", backup_defaults.keep)),
+        interval_hours=int(bak.get("interval_hours", backup_defaults.interval_hours)),
+    )
+
     cap = _section(data, "recaptcha")
     recaptcha = RecaptchaConfig(
         enabled=bool(cap.get("enabled", False)),
@@ -401,6 +442,7 @@ def load_config(path: Path | None = None, mode: str | None = None) -> Config:
         server=server,
         scheduler=scheduler,
         scraping=scraping,
+        backups=backups,
         recaptcha=recaptcha,
         access_requests=access_requests,
         raw=data,

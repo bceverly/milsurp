@@ -12,6 +12,7 @@ from ..config import Config, get_config
 from ..models import EmailPreference, Site, User, UserRole
 from ..scrapers import available_slugs, iter_scrapers
 from ..security import hash_password
+from . import manufacturers
 
 log = logging.getLogger("milsurp.bootstrap")
 
@@ -152,4 +153,5 @@ def initialize(config: Config | None = None) -> None:
     create_schema(config)
     with session_scope() as session:
         seed_sites(session)
+        manufacturers.seed(session)
         ensure_admin(session, config)

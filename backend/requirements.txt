@@ -23,3 +23,9 @@ requests>=2.32
 beautifulsoup4>=4.12
 lxml>=5.3
 selenium>=4.27
+
+# OCR, for vendors that publish a scanned flyer instead of a catalog
+# (Hunter's Lodge). This is only the Python binding: it needs the `tesseract`
+# binary, which `make install-dev` installs and which a site's scraper checks
+# for before using. A machine without it runs everything else normally.
+pytesseract>=0.3.13

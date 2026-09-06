@@ -100,6 +100,20 @@ def session(_database):
         db.close()
 
 
+@pytest.fixture(autouse=True)
+def _forget_compiled_manufacturers():
+    """Drop the process-wide maker registry between tests.
+
+    It is a cache over a table, and a test that changes the table would
+    otherwise be read by the next one through the previous one's rules.
+    """
+    from app.services import manufacturers
+
+    manufacturers.invalidate()
+    yield
+    manufacturers.invalidate()
+
+
 @pytest.fixture
 def clean_db(_database):
     """Truncate every table so a test starts from a known-empty database."""
@@ -119,6 +133,7 @@ def clean_db(_database):
             "items",
             "scan_runs",
             "sites",
+            "manufacturers",
             "users",
         ):
             db.execute(text(f"DELETE FROM {table}"))

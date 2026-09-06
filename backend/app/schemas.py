@@ -133,6 +133,48 @@ class SiteUpdate(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Manufacturers
+# ---------------------------------------------------------------------------
+class ManufacturerOut(UTCModel):
+    id: int
+    name: str
+    aliases: str | None = None
+    position: int
+    enabled: bool
+    notes: str | None = None
+    #: How many listings currently carry this name, so the admin page can show
+    #: what an edit is about to affect.
+    item_count: int = 0
+
+
+class ManufacturerCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=128)
+    #: Other spellings, one per line. Matched as literal text, never as a
+    #: pattern -- see app/services/manufacturers.py.
+    aliases: str | None = Field(default=None, max_length=4000)
+    position: int = Field(default=1000, ge=0, le=100_000)
+    enabled: bool = True
+    notes: str | None = Field(default=None, max_length=4000)
+
+
+class ManufacturerUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=128)
+    aliases: str | None = Field(default=None, max_length=4000)
+    position: int | None = Field(default=None, ge=0, le=100_000)
+    enabled: bool | None = None
+    notes: str | None = Field(default=None, max_length=4000)
+
+
+class ManufacturerWrite(UTCModel):
+    """What an edit did, including what it cost the catalog."""
+
+    manufacturer: ManufacturerOut | None = None
+    #: Listings whose maker changed as a result. Reported because an edit to
+    #: one row can silently rewrite hundreds of listings.
+    listings_changed: int = 0
+
+
+# ---------------------------------------------------------------------------
 # Scans
 # ---------------------------------------------------------------------------
 class ScanRunOut(UTCModel):
@@ -257,7 +299,9 @@ class EmailPreferenceOut(UTCModel):
     price_drops_per_site_limit: int
     minimum_price_drop: float
     skip_when_empty: bool
-    display_timezone: str
+    #: None means the user has never chosen one, so the UI is free to offer
+    #: the browser's own zone. Digest rendering falls back to UTC.
+    display_timezone: str | None
     site_ids: list[int] = Field(default_factory=list)
     last_sent_at: datetime | None = None
     next_send_at: datetime | None = None

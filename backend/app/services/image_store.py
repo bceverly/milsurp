@@ -23,10 +23,12 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import ipaddress
+import logging
 import mimetypes
 import socket
 from dataclasses import dataclass
 from pathlib import Path
+from typing import NamedTuple
 from urllib.parse import urlparse
 
 import requests
@@ -34,6 +36,8 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from PIL.Image import Image as PILImage
 
 from ..config import Config
+
+log = logging.getLogger("milsurp.images")
 
 #: Only these types are written to disk; anything else is discarded.
 ALLOWED_CONTENT_TYPES = {
@@ -50,8 +54,22 @@ MAX_IMAGE_BYTES = 20 * 1024 * 1024
 #: Pillow's decompression-bomb guard, in pixels.
 MAX_IMAGE_PIXELS = 64_000_000
 
+
 #: Longest edge of a generated thumbnail, in pixels. 640 covers a 2x-density
 #: phone grid cell and a desktop card without looking soft.
+class Thumbnail(NamedTuple):
+    """What :meth:`ImageStore.write_thumbnail` produced."""
+
+    #: Where the thumbnail is, which for an image already small enough is the
+    #: original itself rather than a second copy of the same picture.
+    relative: str
+    #: Its size in bytes, or None when it *is* the original.
+    size: int | None
+    #: The source image's dimensions, read while it was open anyway.
+    width: int
+    height: int
+
+
 THUMBNAIL_MAX_EDGE = 640
 THUMBNAIL_QUALITY = 82
 
@@ -224,14 +242,70 @@ class ImageStore:
         self._make_thumbnail(stored, site_slug, source_url)
         return stored
 
+    def store_bytes(
+        self, site_slug: str, key: str, data: bytes, extension: str = ".png"
+    ) -> StoredImage | None:
+        """Store an image a scraper produced itself, rather than downloaded.
+
+        Most vendors publish photographs at a URL. Hunter's Lodge publishes a
+        single scanned flyer and nothing else, so each listing's picture is a
+        crop this application cuts out of that scan — bytes that exist only in
+        memory and have no URL to fetch. Everything downstream (thumbnails,
+        serving, pruning) is identical once the file is on disk, so this shares
+        the same layout and the same naming as :meth:`download`.
+
+        ``key`` stands in for the source URL when naming the file, so it must be
+        stable for a given crop: the same flyer and the same region must give
+        the same path on every scan, or every run would orphan the last one's
+        files.
+        """
+        if len(data) > MAX_IMAGE_BYTES:
+            log.warning("Generated image for %s is too large to store.", key)
+            return None
+        relative = self._relative_path(site_slug, key, extension)
+        target = self.absolute_path(relative)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temp = target.with_suffix(target.suffix + ".part")
+        try:
+            temp.write_bytes(data)
+            temp.chmod(FILE_MODE)
+            temp.replace(target)
+        except OSError:
+            temp.unlink(missing_ok=True)
+            log.exception("Could not write the generated image for %s", key)
+            return None
+
+        content_type = "image/png" if extension == ".png" else "image/jpeg"
+        stored = StoredImage(filename=relative, content_type=content_type, bytes=len(data))
+        self._make_thumbnail(stored, site_slug, key)
+        return stored
+
     def _make_thumbnail(self, stored: StoredImage, site_slug: str, source_url: str) -> None:
         """Down-size the stored image, filling in the thumbnail fields in place.
 
         A failure here is not fatal: the full image is already on disk, and the
         UI falls back to it when there is no thumbnail.
         """
-        source = self.absolute_path(stored.filename)
         thumb_relative = self._relative_path(site_slug, source_url, ".jpg", variant="_t")
+        made = self.write_thumbnail(stored.filename, thumb_relative)
+        if made is None:
+            return
+        stored.width, stored.height = made.width, made.height
+        stored.thumb_filename = made.relative
+        stored.thumb_bytes = stored.bytes if made.relative == stored.filename else made.size
+
+    def write_thumbnail(self, source_relative: str, thumb_relative: str) -> Thumbnail | None:
+        """Write a down-sized copy of a stored image, and describe the result.
+
+        Separate from :meth:`_make_thumbnail` so a thumbnail can be rebuilt
+        from the original already on disk. That is not hypothetical: thumbnails
+        were absent from the set of files ``prune-images`` considered
+        referenced, so a prune deleted every one of them while leaving the
+        originals it derived them from untouched.
+
+        Returns None when the source cannot be read at all.
+        """
+        source = self.absolute_path(source_relative)
         thumb_path = self.absolute_path(thumb_relative)
 
         try:
@@ -239,14 +313,12 @@ class ImageStore:
                 # Honor the EXIF orientation tag, otherwise phone photos from
                 # vendor listings come out rotated in the grid.
                 image: PILImage = ImageOps.exif_transpose(opened) or opened
-                stored.width, stored.height = image.size
+                width, height = image.size
 
                 if max(image.size) <= THUMBNAIL_MAX_EDGE:
                     # Already small: point the thumbnail at the original rather
                     # than writing a second, larger copy of the same picture.
-                    stored.thumb_filename = stored.filename
-                    stored.thumb_bytes = stored.bytes
-                    return
+                    return Thumbnail(source_relative, None, width, height)
 
                 image.thumbnail((THUMBNAIL_MAX_EDGE, THUMBNAIL_MAX_EDGE), Image.Resampling.LANCZOS)
                 # Flatten to RGB: JPEG has no alpha channel, and PNGs/WebPs with
@@ -272,13 +344,13 @@ class ImageStore:
             # Corrupt, truncated or hostile image data. Keep the original file;
             # the UI simply has no thumbnail for it.
             thumb_path.with_suffix(".part").unlink(missing_ok=True)
-            return
+            return None
 
-        stored.thumb_filename = thumb_relative
         try:
-            stored.thumb_bytes = thumb_path.stat().st_size
+            size = thumb_path.stat().st_size
         except OSError:
-            stored.thumb_bytes = None
+            size = None
+        return Thumbnail(thumb_relative, size, width, height)
 
     def delete(self, relative: str | None) -> None:
         if not relative:

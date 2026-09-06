@@ -7,6 +7,7 @@ from datetime import timedelta
 import pytest
 
 from app.models import Item, ScanRun, ScanStatus, Site, utcnow
+from app.scrapers import available_slugs
 
 
 @pytest.fixture
@@ -18,7 +19,9 @@ class TestListing:
     def test_any_signed_in_user_can_read(self, client, normal_user):
         response = client.get("/api/sites", headers=normal_user["headers"])
         assert response.status_code == 200
-        assert len(response.json()) == 2
+        # One row per registered scraper; see the note in
+        # test_api_preferences.py about not hard-coding this.
+        assert len(response.json()) == len(available_slugs())
 
     def test_includes_rollups(self, client, admin_headers, seeded, site):
         seeded.add(

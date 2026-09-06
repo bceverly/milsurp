@@ -32,6 +32,25 @@ def utcnow() -> datetime:
     return datetime.now(UTC)
 
 
+def as_utc(value: datetime | None) -> datetime | None:
+    """Attach UTC to a naive column value so it can be compared with utcnow().
+
+    Every datetime in this schema is UTC, but SQLite has no timezone type, so
+    values read back from a column are naive while :func:`utcnow` is aware.
+    Comparing the two raises ``TypeError`` — and if that happens inside a
+    background loop that catches exceptions per iteration, the loop simply
+    stops doing its job with nothing obviously broken. That is exactly how the
+    scheduler quietly stopped running scheduled scans: the first scan of a site
+    worked because ``next_scan_at`` was NULL, and every one after it compared a
+    naive column against an aware now and threw.
+
+    Use this on any column value before comparing or doing arithmetic with it.
+    """
+    if value is None:
+        return None
+    return value if value.tzinfo else value.replace(tzinfo=UTC)
+
+
 class UserRole(str, enum.Enum):
     ADMIN = "admin"
     NORMAL = "normal"
@@ -129,6 +148,49 @@ class Site(Base, TimestampMixin):
     )
 
 
+class Manufacturer(Base, TimestampMixin):
+    """A maker's name, and the spellings that mean it.
+
+    The list started life as a tuple of regular expressions in
+    :mod:`app.services.classify`, which meant that recognizing one more maker
+    was a code change, a review and a deploy — for a fact about the world that
+    the person running the site knows and the programmer does not. It lives
+    here instead so it can be edited from the admin pages.
+
+    ``aliases`` holds the other spellings, one per line. They are matched as
+    literal text on word boundaries, never as patterns: they come from a form,
+    and a regular expression from a form is both a way to hang the process and
+    a way to get a match nobody intended.
+
+    ``position`` decides which rule is tried first, and it matters. "Mosin-
+    Nagant" has to be tried before "Nagant" or every Mosin-Nagant in the
+    catalog is filed under Nagant.
+    """
+
+    __tablename__ = "manufacturers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    #: The canonical spelling, and what gets written onto a listing.
+    name: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
+    #: Other spellings, one per line. "S&W" for Smith & Wesson, "P-08" for Luger.
+    aliases: Mapped[str | None] = mapped_column(Text)
+    #: Where this rule sits in the order rules are tried. Lower goes first.
+    position: Mapped[int] = mapped_column(Integer, default=1000, nullable=False, index=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
+    #: A note for whoever edits this next.
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    @property
+    def spellings(self) -> list[str]:
+        """Every string that means this maker, canonical name first."""
+        found = [self.name.strip()]
+        for line in (self.aliases or "").splitlines():
+            alias = line.strip()
+            if alias and alias.lower() not in {item.lower() for item in found}:
+                found.append(alias)
+        return found
+
+
 class ScanRun(Base):
     """One execution of one site's scraper."""
 
@@ -209,6 +271,17 @@ class Item(Base, TimestampMixin):
 
     first_seen_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
+    #: When a scraper last supplied this listing's *complete* record — the
+    #: detail page, with its description and full gallery.
+    #:
+    #: This is what tells a scraper whether it still owes a detail fetch, and it
+    #: has to be an explicit fact rather than an inference. Guessing it from
+    #: "does the row have any photos yet" got Royal Tiger badly wrong: an
+    #: interrupted scan left 210 listings holding photo *rows* with no files, a
+    #: later scan read that as "already complete", skipped every detail page,
+    #: and the catalog-grid thumbnail then replaced galleries of six and seven
+    #: photos with one.
+    detail_fetched_at: Mapped[datetime | None] = mapped_column(DateTime)
     delisted_at: Mapped[datetime | None] = mapped_column(DateTime)
     # When the vendor says the listing was posted, when the site tells us.
     posted_at: Mapped[datetime | None] = mapped_column(DateTime)
@@ -330,7 +403,10 @@ class EmailPreference(Base, TimestampMixin):
     skip_when_empty: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     # IANA name used only to render times inside the email body, where there is
     # no browser to do the conversion. Storage stays UTC.
-    display_timezone: Mapped[str] = mapped_column(String(64), default="UTC", nullable=False)
+    #: NULL means "never chosen", so the UI can offer the browser's own zone
+    #: rather than silently defaulting everyone to UTC. Readers fall back to
+    #: UTC; only an explicit choice is stored.
+    display_timezone: Mapped[str | None] = mapped_column(String(64))
 
     last_sent_at: Mapped[datetime | None] = mapped_column(DateTime)
     next_send_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)

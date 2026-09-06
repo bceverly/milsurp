@@ -4,7 +4,7 @@ Working checklist of everything requested, with what is done and what is left.
 **This file is the resume point.** If the session is interrupted, read this
 first, then the "Context for whoever picks this up" section at the bottom.
 
-Last updated: 2026-09-05 — lint clean, 313 backend + 69 e2e green, CI/README done
+Last updated: 2026-09-06 — lint clean, 577 backend tests green (75.4% coverage)
 
 ---
 
@@ -502,6 +502,620 @@ Added the attacks that matter and confirmed the implementation already stops
 them: rewriting the `role` claim to `admin` and keeping the signature, and the
 classic `alg=none` forgery with an empty signature. Backend suite is now 330.
 
+
+## 17. Running it for real — five bugs the first live catalog exposed
+
+All found by the user running the app against Royal Tiger and Empire Arms, and
+all fixed with regression tests. Migration **0003** carries the two schema
+changes.
+
+- [x] **"Failed / Browser" was a misdiagnosis, not a browser problem.** The
+      Browser chip was `chip--warning` with a ⚠ icon on every browser-driven
+      site, permanently, whatever Chrome's state. Sitting beside a red "Failed"
+      it read as the cause and sent the user off to install a browser that was
+      already working — verified by driving royaltigerimports.com headless:
+      Chrome 152, chromedriver auto-resolved, 5.9s round trip. Now a neutral
+      chip with its own icon. The actual failure was an app restart, and the
+      reap message named two possible causes without saying which; it now says
+      which, with the elapsed minutes.
+- [x] **A sixteen-minute scan discarded everything on restart.** `run_scan` did
+      `list(scraper.scrape(ctx))` — the whole catalog materialised before the
+      first INSERT. It now consumes the scraper **lazily** and commits every
+      `COMMIT_EVERY` listings, and `royal_tiger.scrape()` is a generator that
+      yields each listing from the grid immediately and again once its detail
+      page is folded in. De-listing still only runs when the iterable is
+      exhausted, so a partial scan can never de-list what it never reached.
+- [x] **A re-scan destroyed 207 galleries.** `_upsert_item` treated
+      `image_urls` as authoritative and deleted anything absent — right after a
+      detail fetch, catastrophic from a catalog grid that knows one thumbnail.
+      Compounded by `needs_detail()` inferring completeness from "has photo
+      rows", which was true of 210 listings whose photos had never been
+      downloaded: the detail pass was skipped and the thumbnail pruned
+      galleries of six and seven photos down to one. Royal Tiger went from
+      1380 photo rows to 287 in a single scan. Fixed with
+      `ScrapedItem.images_are_complete` (a preview may seed, never prune) and
+      `Item.detail_fetched_at` (an explicit fact, not an inference). Every
+      existing row starts NULL, so the next scan repairs the damage.
+- [x] **Nothing was ever classified.** `classify.enrich()` returned
+      `is_rifle`/`is_pistol` from the first commit and *nothing ever read them
+      onto the row* — every listing on every site sat at the column default of
+      False, so the "Rifles" filter matched nothing at all. Classification now
+      happens in `_upsert_item`, where it is site-agnostic and no scraper can
+      forget it. Two accuracy fixes came with it: the accessory vetoes read the
+      **title only** (a real rifle's description says "the rifle bolt is
+      matching", which vetoed 17 of 58 Empire and 61 of 210 Royal Tiger
+      listings), and the **vendor's own category wins** when it names a type.
+      Empire Arms now reads 37 rifles / 21 handguns / 0 other — exactly its own
+      sections. Royal Tiger went 120/18/72 to 138/70/14. `make reclassify`
+      repairs stored rows without a re-scrape; it fixed 266 of 280.
+- [x] **"Times shown in" listed UTC twice** and defaulted everyone to it. The
+      select hard-coded a UTC option *and* rendered one for the stored zone,
+      which was UTC for everybody because that was the column default. The list
+      is now built de-duplicated, and `display_timezone` is nullable so "never
+      chosen" is representable and the browser's own zone can be offered.
+- [x] **Traffic**: an unchanged gallery (same URLs, same order) is skipped
+      outright; photo bytes are fetched once ever; detail pages once ever;
+      `scraping.max_photo_downloads_per_scan` caps each run and logs the
+      backlog it is carrying.
+- [x] **`make stop` warns before interrupting a scan** (`make start` stops
+      first, so restarting used to kill one silently). `milsurp running-scans`
+      backs it; `FORCE=1` skips the prompt.
+
+### Pagination, and why the suite never noticed
+
+- [x] **"Next" never advanced.** `update()` exists to *clear* the page number —
+      narrowing a filter renumbers the pages, so the old one means nothing —
+      and the pager was routed through it, setting `page=2` and deleting it on
+      the next line. Paging now has its own `goToPage()`, which is the one
+      change that must not reset the page. Page 1 stays out of the URL, so
+      "no page param" and "page=1" are the same place.
+- [x] **The suite could not have caught it.** The demo catalog held 28
+      listings against a page size of 48, so the pagination controls never
+      rendered and there was nothing to click — the spec file's header comment
+      claimed pagination was covered when no test existed. Seeded 40 bulk
+      listings, and added four tests: next advances, previous returns and drops
+      the parameter, the buttons disable at each end, and a filter change
+      resets to page one.
+- [x] **A test-ordering dependency, found while fixing that.** The new tests
+      passed alone and failed in the full suite. `admin.spec.js` runs a real
+      "scan now" against the demo vendor, and a scan correctly de-lists
+      everything its scraper does not return — including hand-seeded listings.
+      That silently dropped the catalog below one page before
+      `inventory.spec.js` ran. Fixed at the source: the bulk filler is seeded
+      only onto vendors nothing scans, so catalog size no longer depends on
+      which test ran first. Out-tuning it by seeding more would have left the
+      same trap for the next person.
+- [x] **Paging returns you to the top.** The pager sits below 48 cards, so a
+      page change always starts from the bottom; without it the new page
+      arrives already scrolled past its own first rows and reads as though
+      nothing happened. Instant rather than smooth — the content underneath is
+      being replaced as it would animate, and on a long page the scroll is
+      itself a wait. Its test scrolls to the bottom first and asserts
+      `scrollY > 0` before the click, so it cannot pass by accident; verified
+      by commenting the reset out and watching it fail.
+- [x] `MILSURP_E2E_WORK_DIR` keeps the harness's disposable database after a
+      run. Added because this failure only reproduced inside the harness, and
+      guessing at it from the outside was going nowhere.
+
+### The scheduler had silently stopped
+
+- [x] **Scheduled scans stopped after each site's first run**, and had since
+      the beginning. `due_site_ids()` compared `site.next_scan_at` — naive,
+      because SQLite has no timezone type — against the aware `utcnow()`, which
+      raises `TypeError`. The first scan of a site worked because
+      `next_scan_at` was still NULL and never reached the comparison; every one
+      after it threw.
+- [x] **It was invisible.** `Scheduler._loop` isolates each tick so one bad
+      tick cannot kill the thread — which meant a tick that raised every time
+      looked exactly like a tick with nothing to do: a scheduler thread alive,
+      ticking, and never scanning. Reported by the user noticing Empire Arms
+      was 20 hours past a 12-hour interval; confirmed by calling
+      `due_site_ids()` directly and getting the TypeError.
+- [x] `as_utc()` is now a shared helper in models.py next to `utcnow()`, with
+      the reasoning attached. digest.py had grown its own private copy, which
+      is a fair sign the convention needed a home; it now uses the shared one,
+      as does `reap_stale_runs`.
+- [x] Regression tests in `TestDueSiteIds`. The important part is
+      `session.expire_all()`: held in memory the value keeps whatever timezone
+      Python assigned, and only a genuine read-back from SQLite is naive —
+      without the expire the tests pass against the bug. Verified by reverting
+      the fix and watching them fail with the exact TypeError.
+- [x] Verified live: the first restart after the fix dispatched Empire Arms
+      within seconds, `trigger=scheduled`.
+
+### Serving, and the bundle the tests were overwriting
+
+- [x] **Running the test suite replaced the app's bundle.** The Playwright
+      harness built with `COVERAGE=1` straight over `frontend/dist` — the
+      directory `make start` serves — so after `make test` the running app was
+      serving coverage-instrumented code with nothing to say so. Worse, the
+      fresh timestamp made `make start` consider dist up to date, so it would
+      not rebuild and the swap survived a restart. The harness now builds to
+      `frontend/dist-coverage` and points `MILSURP_FRONTEND_DIST` at it.
+- [x] **The scheduler drains the photo queue itself.** A scan caps its own
+      downloads so a first pass over a large catalog cannot run for hours,
+      which is right — but it meant a backlog drained one batch per scan, and
+      on a daily cadence that is days of listings with no pictures. The
+      scheduler now works through the queue between scans
+      (`scheduler.photo_tick_seconds`, default 180), one batch at a time, on
+      its own single-worker pool so it can never occupy a slot a due scan
+      needs. `make photos` / `milsurp fetch-photos` remains for doing it on
+      demand, and is still worth having: a Royal Tiger scan is fifteen minutes
+      of scraping to reach a download step whose URLs are already known.
+- [x] **Site cards explain their scan time.** "2.2s" for Empire Arms next to
+      "14m 36s" for Royal Tiger reads as a scan that did nothing. Verified it
+      was real — a full Empire scrape times at 1.94s for all 58 listings, and
+      the original 256s run was 244s of downloading 117 photos on airplane
+      wifi. The tooltip now carries the counts, so a fast scan explains itself.
+- [x] Site cards show **Scan time**: how long the last run took end to end.
+
+### Roadmap additions
+
+- [x] Only non-firearm category worth ingesting is **parts kits** — individual
+      components are explicitly out of scope, with the reasoning recorded.
+- [x] Axis Arms has two sections: `/product-category/rifles/` and
+      `/product-category/handguns/`.
+
+
+## 18. Hunter's Lodge — the OCR vendor, built end to end
+
+A vendor whose entire catalog is one scanned magazine advertisement. Built as
+`scrapers/hunters_lodge.py` (the vendor) plus `scrapers/flyer.py` (reusable
+flyer machinery), and verified against the live site.
+
+- [x] **Change detection first.** A scan reads the flyer's Wix media id and the
+      month/year above it and stops if neither has moved: **0.19s, one request,
+      0 de-listed, 22 listings left standing.** Cadence defaults to weekly.
+- [x] **`ScrapeContext.report_unchanged()`** — needed because "I checked and
+      there is nothing new" is not "the catalog is empty". Without the
+      distinction, an unchanged flyer would have de-listed the whole site.
+- [x] **Full resolution matters.** Wix serves a 600x844 resize; stripping the
+      `/v1/fill/...` transform gives the 4813x6774 original, which is the
+      difference between OCR that works and OCR that returns nothing.
+- [x] **Generated images.** `ScrapedItem.generated_images` plus
+      `ImageStore.store_bytes()`: a scraper can now hand over image *bytes*
+      with a stable key instead of a URL, stored with the same layout, naming
+      and thumbnailing as a download. 22 crops written and thumbnailed.
+- [x] Tesseract in both installers, `pytesseract` in requirements, imported
+      lazily so a machine without OCR runs everything else normally.
+- [x] 48 tests: the layout, price, heading, grouping and cropping logic against
+      synthetic pages; the scraper against stubbed markup. No network, and no
+      checked-in copy of someone's copyrighted advertisement.
+
+### Three things the flyer taught me, each of which cost an attempt
+
+- **Whitespace cutting finds nothing on a ruled page.** The textbook approach
+  is a recursive XY-cut on blank gutters. Of the flyer's 4813 pixel columns,
+  *not one* is free of ink, because the panel borders run the full height. The
+  rules that defeat the cut are themselves the layout, so the reader cuts on
+  them instead.
+- **Whole-page OCR merges columns.** Tesseract returned the line "1940'S U.S.
+  MILITARY GAHENDRA MARTINI "OLE ZEKE'S" TREASURES" — three headings from three
+  columns in one string. Reading a column at a time removes the ambiguity
+  rather than trying to undo it. Reading *finer* regions than a column is
+  worse: those cuts fall on rules that run through words, and the OCR comes
+  back as "wil", "th more", "al \\".
+- **Size does not identify a heading; capitals do.** An all-caps heading's
+  bounding box is no taller than lowercase prose with ascenders and descenders,
+  so a height rule found 5 headings where there were 30. Every product name on
+  the flyer is set in capitals and no sentence of description is.
+
+### Honest accuracy
+
+22 listings recovered from the real July 2026 flyer with names and prices —
+most of the page, not all of it, and a few take a neighbouring panel's price.
+Every listing carries the crop it was read from and keeps the raw OCR as its
+description. Two follow-ups are recorded unticked in ROADMAP.md: recursive
+in-column splitting for the boundary errors, and using Tesseract's per-word
+confidence to mark a doubtful price PARTIAL rather than writing it silently
+into the price history.
+
+## 18b. Tightening the flyer reader, from real feedback
+
+Every one of these was reported by looking at the listings the first version
+produced, and each has a test.
+
+- [x] **Whole product names.** "S&W" / "K-FRAME," / "SNUB-NOSE" / "REVOLVER
+      KITS" is one name in four lines and only the last survived. A *run* of
+      heading lines is now one name, so "S&W K-FRAME SNUB-NOSE REVOLVER KITS",
+      "S&W MODEL 10 PISTOLS", "CZ 50/70 PISTOL KITS" and "GAHENDRA MARTINI
+      BEAUTIFUL HANDSOME WOOD STOCK SET" all come out whole.
+- [x] **Panels bound a listing.** "PISTOL KITS" was one panel's name attached
+      to the next panel's price: the CZ 50/70 kit read as $322.88, which is the
+      Turkish Mauser below it. The page is cut recursively on its own rules and
+      a panel boundary now ends a listing — except for a heading, which is
+      allowed to cross exactly one, because the flyer draws a rule between a
+      product's name and its description.
+- [x] **Page furniture is not a product name.** The masthead and the payment
+      terms box are set in capitals too, so they read as headings and drifted
+      to the front of a title: "OR MONEY MAUSER C96 PISTOL KITS".
+
+Result on the real July 2026 flyer: 26 listings, up from 22, and the four
+products that were reported wrong are now right.
+
+## 18c. Heading attachment, measured
+
+The third pass at the flyer, and the first done with a number rather than an
+opinion. The metric is "does this listing's title begin with a product name" —
+crude, but consistent enough to compare two versions of the code against the
+same page, which is what stopped a change that felt better from being kept when
+it was not: an early variant scored 85% against 77% while getting *fewer* of
+the named products right.
+
+**60% → 88%** (23 of 26 listings), from four fixes:
+
+- [x] A product's name is set **on** the rule beneath the panel above it, so
+      assigning a line to a panel by its midpoint dropped it in the gap between
+      two panels, where it belonged to neither. That read as a panel change and
+      cut the name off from its own description. Panels are now assigned by
+      area of overlap, falling back to the nearest panel below.
+- [x] A group that ended without a price was **discarded**, and it is almost
+      always a name looking for one. Its heading lines are now carried into the
+      next listing. This is what fixed the listings titled "needs TLC" and
+      "frame for" — the tail of a bulleted line whose beginning had gone with
+      the heading.
+- [x] A bulleted line is a product; anything above it is the section header the
+      list sits under. "OLE ZEKE'S TREASURES" was taking the title of the first
+      item beneath it.
+- [x] Everything on this page is named in capitals, so lower-case words ahead
+      of the first capitalised one leaked in from a neighbouring panel:
+      "Swedish steel. GAHENDRA MARTINI RIFLE".
+
+Also removed `_attach_headings`, which had become dead code when panels stopped
+being the unit of grouping and was still described in a docstring as if it ran.
+
+**Still wrong: three of twenty-six.** "1903 TURKISH CONTRACT MAUSERS", "WW2
+ENFIELD NO1 MK2 PARTS KITS" and "CZ 52 SEMI AUTO ASSAULT RIFLES" take their
+title from their own prose, because in each case the heading is across a
+*column* boundary from its body — the one boundary nothing may cross, since
+crossing it is exactly what made a product quote its neighbour's price.
+
+## 18d. Listings shown under each other's photographs
+
+Reported from the UI: on the Handguns filter the S&W Model 10 showed the VZ24
+bayonet; on Rifles, every listing showed the *next* one's crop.
+
+The consistent one-place shift was the clue. The data was never wrong — the
+crops on disk, the thumbnails, and the item-to-photo rows all check out, and
+the endpoint has no ordering logic to get wrong. The URL was the problem:
+
+```
+/api/items/<item_id>/photos/<photo_id>     Cache-Control: private, max-age=86400
+```
+
+- [x] Neither id is stable. SQLite reuses a rowid after a delete, so clearing a
+      site and re-scanning it hands the same URL to a different picture — and I
+      did exactly that, twice, while improving the flyer reader.
+- [x] The comment justifying the 24-hour cache said the content was immutable
+      "because the filename is a hash". The filename is a hash of the image's
+      *source*, not of its bytes, and the URL is neither. For a generated crop
+      the source key is deliberately stable while the bytes change with every
+      improvement to the reader, so that reasoning was wrong twice over.
+- [x] Now `private, no-cache`: stored, but revalidated before every use.
+      FileResponse already sends an ETag and Last-Modified from the file, so a
+      repeat view costs a 304 and no image bytes. Tested.
+
+Anyone who looked at the old URLs still has them cached until they expire, so
+one hard refresh is needed to clear what is already there.
+
+## 18e. Bulleted lists, and where the price actually is
+
+Reported: British No4 Mk1 rifles at $88, Spanish M43 rifles, the Jap Arisaka
+barrelled receiver — all missing, and other listings holding their prices.
+
+- [x] **OCR drops the bullet glyph, and the lines are not caps-heavy enough to
+      read as headings.** A list sets each name in capitals and continues in
+      sentence case: "BRITISH NO4 MK1 RIFLES as is $88.00." So those items were
+      swallowed by the one above and their prices went with them — the bayonet
+      grab bag was priced at the British No4's $88. A line that *opens* with a
+      product name and carries its own price now starts a new item, whatever
+      OCR did to the bullet. Guarded by "only once the item being assembled has
+      a price", or a wrapped name splits from its own description: ".38 SNUB" /
+      "NOSE HOLSTER ... $14.50." would become two listings.
+- [x] **The first price, not the largest.** The page states a price once, where
+      the description ends, and anything after it is terms. Taking the largest
+      was defensible — a firearm costs more than its options — right up until a
+      listing's text bleeds into its neighbour's, and then it reaches over and
+      takes the bigger number: blankets at $99.00 instead of $36.88, a
+      barrelled receiver at $47.88 instead of $45.00. Both variants were
+      measured against the same page before choosing.
+
+**26 → 30 listings, 88% → 90% with a real product name**, and the prices that
+were wrong are right.
+
+## 18g. Titles read word by word, not line by line
+
+Two observations from reading the page, both right and both acted on:
+
+- [x] **Names wrap mid-word.** "SWEDISH LEATHER AMMO BELT/BANDO-" on one line
+      and "LIER can fit a variety of rifle" on the next. Reading line by line
+      stopped at the hyphen and produced "BELT/BANDO", which is not a word.
+      Titles are now built word by word with the hyphenated halves spliced back
+      together, so it reads "SWEDISH LEATHER AMMO BELT/BANDOLIER".
+- [x] **The name and the description meet mid-line**, so the boundary is
+      between two words rather than two lines. The name is the leading run of
+      capitalised words; digits and punctuation carry through, because a name
+      is full of them — "6.5MM", ".303", "1940'S", "S&W", "K-FRAME,". This is
+      what turned "COLT PP .38 FRAMES. Most have bbl& maybe few parts" into
+      "COLT PP .38 FRAMES", and "BRITISH NO4 MK1 RIFLES as is" into the name
+      alone.
+- [x] Page furniture is now stripped from each line *before* the name is read
+      off it, not from the finished title. Doing it afterwards emptied the CZ
+      50/70 title completely: a scrap of the masthead had been carried in as
+      its heading, the name was read from that, and then all of it was removed.
+
+**The bold idea was tested and not used.** Measuring ink density per word does
+separate the bold names from the body — SWEDISH 57%, BRITISH 56% against
+variety 24%, cartridge 26% — but short words score high whatever their weight
+("a" 54%, "can" 46%), because the measure is confounded with word shape.
+Capitalisation is a cleaner separator on this page and needs no calibration.
+
+## 18f. Listings shown under each other's photographs
+
+Reported twice, and the second time was the useful one: on Rifles, every
+listing showed the *next* one's crop — a consistent one-place shift.
+
+The data was never wrong. The crops on disk, the thumbnails, the item-to-photo
+rows and the API response all check out; I rendered the served thumbnails and
+each was its own product. The URL was the problem:
+
+```
+/api/items/<item_id>/photos/<photo_id>     Cache-Control: private, max-age=86400
+```
+
+- [x] Neither id names its content. SQLite reuses a rowid after a delete, so
+      clearing a site and re-scanning it — which I did repeatedly while
+      improving the flyer reader — hands the very same URL to a different
+      picture. Every browser that had seen the old one kept showing it for a
+      day, and reloading could not help, because the URL genuinely had not
+      changed.
+- [x] The comment justifying the 24-hour cache said the content was immutable
+      "because the filename is a hash". The filename hashes the image's
+      *source*, not its bytes, and the URL is neither — and a scraper that
+      generates its own images keeps the source key deliberately stable while
+      the bytes change with every improvement to the reader.
+- [x] Photo URLs now carry `?v=<token>` derived from the file's name, size and
+      store time, so changed content is a changed URL that no cache can match.
+      `Cache-Control: private, no-cache` stays as well, because a cache holding
+      one of the old unversioned URLs has no other way to find out.
+
+The first attempt at this was to tell the user to hard-refresh. That was a
+guess dressed up as a diagnosis; the evidence for it came afterwards, and did
+not support it.
+
+## 19. A classification bug the flyer exposed
+
+- [x] **A blanket is not a rifle, and Colt frames are pistols.** Three separate
+      faults, all reported from looking at real listings:
+      1. Neighbouring prose bleeds into a listing's description on an OCR'd
+         page, and hand-woven Vaquero blankets were filed as a rifle. Goods
+         sold beside firearms — blankets, helmets, patches, books — are now
+         vetoed outright.
+      2. "COLT PP" was not a pattern at all, so Police Positive frames were
+         neither rifle nor pistol.
+      3. Where title and description disagree, **the title wins**. The C96
+         pistol kits picked up "8mm Mauser" from the column beside them and
+         stopped being a handgun on the strength of it; a rifle caliber no
+         longer overrules a title that names a pistol and nothing else.
+- [x] **A cheap frame is still a firearm.** The $70 price floor keeps slings
+      and pouches out of the firearm filters, and it should: a $25 "Mosin
+      Nagant rifle" is a book or a toy. But a frame or a receiver *is* the
+      firearm — it is the serialised part — so "COLT PP .38 FRAMES" at $29 is a
+      handgun. "Parts kit, no frame" is still nothing, which is the whole point
+      of a dealer saying so. The existing test for the floor caught the first
+      attempt at this, which had simply overruled it.
+- [x] **`\brifle\b` never matched "RIFLES".** The patterns were singular-only,
+      so every title naming more than one firearm went unclassified — which on
+      a dealer's catalog is most of them. Six of the eight plural titles in the
+      stored catalog were filed as neither rifle nor pistol. Now `\brifles?\b`
+      and the same for carbines, pistols, revolvers and handguns; model names
+      left alone, because nobody writes "SKSs". `make reclassify` repaired the
+      stored rows.
+
+## 20. Roadmap reorganised by backend and audience
+
+- [x] The 26 remaining vendors are grouped by **platform** — WooCommerce (10),
+      BigCommerce (3), Shopify (4), Shift4Shop (2), one-offs (6) — because one
+      base class unlocks a whole group, with the most popular site first inside
+      each so the base class is proved against the catalog most worth having.
+- [x] Traffic estimates are quoted **with their source and date** where one
+      exists (Classic Firearms 1.6M/3mo, Atlantic Firearms ~837K/mo, AIM
+      Surplus ~357K/mo, Collectors Firearms ~284K/mo). The rest are ordered on
+      softer evidence, and the section says so rather than implying a precision
+      that is not there.
+- [x] Checkboxes throughout, maintained as items are finished.
+
+
+---
+
+## 21. Domain knowledge the rules could not derive
+
+Reported from the live catalog by the site's owner, who knows the trade.
+
+- [x] **"BBL REC" is a barreled receiver**, and a barreled receiver is a rifle.
+      Added to the frame/receiver pattern, which already exempted the serialized
+      part from the $70 price floor.
+- [x] **"WW2 Enfield No1 Mk2 Parts Kits" is an Enfield revolver**, not the SMLE
+      rifle that shares most of that designation. This is not derivable from the
+      words, so it lives in `KNOWN_DESIGNATIONS`, a small table consulted before
+      everything else — including the vendor's own category. The pattern is
+      deliberately narrow: `No.1 Mk III` is the rifle.
+      This overturned a tested rule (a kit saying "no frame" is not a firearm).
+      The owner counts these kits among the handguns, so a *named* designation
+      now outranks the no-frame veto; an unnamed "parts kit, no frame" still is
+      not a firearm.
+- [x] **A Mauser C96 is a handgun.** Mauser is a maker who built both, so the
+      maker's name alone no longer outvotes a model name (`_AMBIGUOUS_MAKERS`).
+- [x] **Any "parts kit" is parts and accessories**, whatever it is a kit for and
+      whatever it costs — an Ethiopian Gafat AK kit at $449 is a box of parts.
+      A kit named for a handgun ("Revolver Kits", "Pistol Kits") is the dealer's
+      own way of selling a handgun and is deliberately not caught.
+- [x] **A buttstock is not a rifle**, and neither is a **loose barrel** — but a
+      *barreled action* still is. Barrels are ordered against the firearm nouns
+      rather than vetoed outright, so "Berthier barreled action, shortened
+      barrel" survives.
+- [x] **A "pistol holster" is a holster.** English puts the head noun last, so
+      an accessory word directly following a firearm noun is the product. A
+      Mauser C96 holster was a handgun before this.
+
+## 22. Cross-catalog field filling — built, and honest about being dry
+
+The idea: a flyer read by OCR gives a title and nothing else, so borrow the
+caliber from a vendor who describes the same rifle properly.
+
+- [x] `app/services/crosscatalog.py`, `milsurp infer`, 15 tests.
+- [x] **Titles only.** Matching on descriptions was tried against the live
+      catalog and was not useless but *confidently wrong* — a Russian 91/30 came
+      back as a 6.5x52mm Carcano made by Remington, on words two paragraphs
+      happened to share. A description is prose, and on an OCR'd flyer it is
+      prose about whatever was printed nearby.
+- [x] Four guards: fills only blanks; scores words by rarity, normalized so a
+      threshold means the same thing at any catalog size; needs two nearly
+      unique words and a third of the smaller vocabulary; and donor and
+      recipient must agree on rifle/handgun/neither.
+- [x] Result on the current catalog: **nothing**, which is the right answer for
+      two-and-a-bit vendors and what the owner expected.
+
+**This cost real damage before the guards were in.** The first version was run
+and committed against the live database, filling 238 fields with nonsense. There
+was no backup. Recovery was a full re-scrape of Royal Tiger and Empire Arms with
+`detail_fetched_at` cleared, because `_upsert_item` assigns those three columns
+unconditionally from the scraper. Hunter's Lodge supplies none of them, so its
+rows were simply nulled. Which led directly to:
+
+## 23. Daily database backups
+
+- [x] `app/services/backup.py` — SQLite's online backup API, not a file copy: a
+      copy taken mid-write catches a torn transaction, and under WAL the file on
+      disk is not the whole database.
+- [x] Daily in production, ten kept, `backups/` gitignored, **off in dev**.
+- [x] Dispatched from the scheduler by the age of the newest snapshot rather
+      than by a timer, so restarts do not skip a day.
+- [x] `milsurp backup` for taking one by hand before something risky.
+- [x] 11 tests, including that the snapshot opens and that it is mode 600.
+
+## 24. The maker list as data
+
+- [x] `manufacturers` table (migration 0004), seeded from the built-in tuple the
+      first time it is empty, and left alone thereafter — a maker deleted on
+      purpose stays deleted across restarts.
+- [x] Aliases are **literal text, escaped**, never patterns: they come from a
+      form. Whitespace inside a name is allowed to stretch, so "Smith & Wesson"
+      matches "SMITH  &  WESSON".
+- [x] `position` is part of the data, because order decides ties —
+      "Mosin-Nagant" has to be tried before "Nagant". Both directions are tested.
+- [x] Admin-only CRUD at `/api/manufacturers`, and an admin page at
+      `/manufacturers`.
+- [x] **An edit re-files the catalog** and reports how many listings moved. The
+      query is narrowed to rows whose text contains one of the strings involved
+      — the ones being added *and* the ones being taken away, or a narrowed rule
+      leaves its old answer behind.
+- [x] 32 tests across the service and the API.
+
+## 25. The Ottoman Mauser, and the rest of the titles
+
+Reported: "the ottoman mauser got its title cut off in the image and the data."
+
+- [x] **The heading was never read.** "1903 TURKISH CONTRACT MAUSERS" is
+      underlined, set directly over the rifle's photograph with the panel rule
+      beneath it, and tesseract's layout analysis called the whole thing a
+      picture — the words were absent from the word table, not merely low
+      confidence. The layout-free second pass (added for prices) now also
+      contributes **headings standing in a band of the page where the first
+      pass read nothing at all**. A band with nothing in it cannot be corrupted,
+      which is what makes taking a whole line safe there when it is not safe
+      anywhere else.
+- [x] **The picture was cut off too**, and stayed cut off across a re-scan:
+      generated crops were recognized by their key, and the key does not change
+      when the *reader* changes. Now the bytes are compared, so a crop follows
+      the code that cuts it. This is the general case of the reported bug — every
+      listing was showing the picture it had been cut before, under its new
+      title.
+- [x] **A name ends where its heading ends.** Once a heading line has
+      contributed, a line that is not itself a heading is description, and the
+      capital it opens with is the start of a sentence: "1903 TURKISH CONTRACT
+      MAUSERS" had acquired the "MFG" of "MFG by germany". A hyphenated break
+      still crosses into the prose.
+- [x] **Terms are not names.** Every listing says who may buy it, in the same
+      capitals as its name. A line that is only terms is dropped whole rather
+      than trimmed — trimming the front of "C&R or FFL" leaves "FFL", which then
+      reads as the next word of the name above it.
+- [x] **A section header is not a name.** "OLE ZEKE'S TREASURES" sits above an
+      unbulleted list and was taking the first product's title. Dropped only in
+      front of a line that names itself in capitals and then keeps talking,
+      which is the shape of a section above a list and is not the shape of a
+      name broken across lines.
+
+Titles now read correctly for **29 of the 30** listings on the flyer. What is
+left: the axe/stock-set panel (#7), which is genuinely two products in one box,
+and a $38.88 second-price option split off the Enfield (#12).
+
+## 26. C&R and FFL are licenses, not products
+
+Reported: "C&R and FFL are types of licenses from the ATF not product things
+that have a price."
+
+They are on every surplus listing, because every listing has to say which one a
+buyer needs — and that makes them behave like a product name. They are set in
+capitals like one and they sit next to a price like one: "Add frame for $38.88.
+C&R/FFL required."
+
+- [x] `classify.names_only_a_license()` and `LICENSE_PATTERN` — the domain fact,
+      in the module where the domain facts live. A title that is *only* a
+      license names nothing, and this is checked ahead of the vendor's own
+      category, because no category can make a license into a rifle. A listing
+      that merely *requires* one is untouched.
+- [x] `is_ruled_out()` includes it, so the cross-catalog filler knows the
+      silence is a decision rather than ignorance.
+- [x] The flyer reader absorbs a priced group with no name of its own into the
+      listing above it instead of publishing it. The $38.88 "C&R/FFL" was the
+      second half of the Enfield kits, split off by a rule falling between two
+      lines. Put back rather than dropped: the option belongs in the
+      description and the box belongs in the crop.
+- [x] `classify_firearm()` grew past the branch limit, so the rifle-versus-
+      handgun tie-break came out into `_break_the_tie()`.
+
+## 27. Listing keys follow the product, not its place on the page
+
+Not reported — caused by the work above, and found by reading the scan summary.
+
+The key was the ordinal, `{flyer}-{index:03d}`, which is stable only for as long
+as the reader is. Removing the phantom C&R/FFL listing shifted every key after
+it onto a different product, and the scan service read that as the lower half of
+the flyer changing price at once: **17 price changes and 10 drops, none of which
+had happened**. A price-drop email is worth nothing if it can do that.
+
+- [x] The key is now derived from the listing's own title, so a listing keeps
+      its identity and its history while it keeps its name, and one we now read
+      differently is honestly a different listing. Duplicates within a flyer are
+      numbered.
+- [x] `ScrapeContext.already_seen(prefix)` replaces the `-001` probe, since
+      there is no longer a predictable first key. Backed by an indexed LIKE on
+      the site's keys.
+- [x] Hunter's Lodge price history was deleted and the site re-scanned from
+      scratch: every point in it had been fabricated by the key shuffle, so
+      there was nothing real to keep.
+
+## 28. `prune-images` was deleting every thumbnail
+
+Not reported — found by checking the output of a prune I ran, which said it had
+removed 1,942 files and reclaimed 81 MB when about 60 files should have gone.
+
+A photo row names two files, the original and its thumbnail, and
+`cmd_prune_images` collected only `filename` into the set of referenced files.
+Every thumbnail in the store was therefore an orphan. This is the worst shape
+for such a bug: the originals survive, so nothing looks broken until somebody
+opens the browse grid and every card is blank.
+
+- [x] The prune now collects both columns.
+- [x] `ImageStore.write_thumbnail()` extracted from `_make_thumbnail()`, so a
+      thumbnail can be rebuilt from the original already on disk. No network:
+      losing a derived file is not a reason to ask a vendor for the picture
+      again.
+- [x] `milsurp rebuild-thumbnails` (`--all` to redo them all). Ran it: 1,482
+      rebuilt, and the store is whole again — 1,586 photos, 0 missing files.
+- [x] Both halves tested, including the bug itself, so the fix cannot be
+      quietly undone.
 
 ---
 

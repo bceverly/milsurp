@@ -156,6 +156,14 @@ export const api = {
     request(`/api/users/${id}`, { method: "PATCH", body: patch }),
   deleteUser: (id) => request(`/api/users/${id}`, { method: "DELETE" }),
 
+  // --- manufacturers ---
+  manufacturers: () => request("/api/manufacturers"),
+  createManufacturer: (payload) =>
+    request("/api/manufacturers", { method: "POST", body: payload }),
+  updateManufacturer: (id, patch) =>
+    request(`/api/manufacturers/${id}`, { method: "PATCH", body: patch }),
+  deleteManufacturer: (id) => request(`/api/manufacturers/${id}`, { method: "DELETE" }),
+
   // --- email preferences ---
   preferences: () => request("/api/preferences/email"),
   savePreferences: (payload) =>
