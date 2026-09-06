@@ -42,7 +42,7 @@ help:
 ##@ Setup
 
 .PHONY: install-dev
-install-dev: ## Create .venv, install every dev dependency and system package
+install-dev: ## Create .venv, install every dev dependency, scanner and system package
 	@scripts/install-dev.sh
 
 $(VENV_PY):

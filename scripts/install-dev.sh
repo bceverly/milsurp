@@ -97,9 +97,64 @@ info "Installing application + development dependencies…"
 "$VENV/bin/pip" install --quiet -r backend/requirements-dev.txt
 ok "Python dependencies installed ($("$VENV/bin/pip" list 2>/dev/null | wc -l) packages)."
 
+# --- Security scanners -----------------------------------------------------
+# `make security` skips any tool it cannot find, so without these a local scan
+# reports "clean" while checking almost nothing. Installing them here is what
+# makes a green local run mean the same thing as a green CI run.
+bold ""
+bold "4. Security scanners"
+
+info "Installing semgrep and pip-audit…"
+"$VENV/bin/pip" install --quiet -r backend/requirements-security.txt
+ok "semgrep $("$VENV/bin/semgrep" --version 2>/dev/null || echo '?'), pip-audit installed."
+
+# gitleaks ships as a single Go binary; there is no apt package for it.
+# shellcheck source=scripts/tool-versions.env
+. "$REPO_ROOT/scripts/tool-versions.env"
+if command -v gitleaks >/dev/null 2>&1; then
+  ok "gitleaks $(gitleaks version 2>/dev/null || echo '') already installed."
+else
+  case "$(uname -m)" in
+    x86_64|amd64) GITLEAKS_ARCH=x64 ;;
+    aarch64|arm64) GITLEAKS_ARCH=arm64 ;;
+    *) GITLEAKS_ARCH="" ;;
+  esac
+  if [ -z "$GITLEAKS_ARCH" ]; then
+    warn "No gitleaks build for $(uname -m); install it by hand."
+  else
+    info "Installing gitleaks $GITLEAKS_VERSION…"
+    GITLEAKS_URL="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_$(uname -s | tr '[:upper:]' '[:lower:]')_${GITLEAKS_ARCH}.tar.gz"
+    GITLEAKS_TMP="$(mktemp -d)"
+    if curl -sSfL "$GITLEAKS_URL" -o "$GITLEAKS_TMP/gitleaks.tar.gz" \
+       && tar -xzf "$GITLEAKS_TMP/gitleaks.tar.gz" -C "$GITLEAKS_TMP" gitleaks; then
+      sudo install -m 0755 "$GITLEAKS_TMP/gitleaks" /usr/local/bin/gitleaks
+      ok "gitleaks $GITLEAKS_VERSION installed to /usr/local/bin."
+    else
+      warn "Could not download gitleaks. See $GITLEAKS_URL"
+    fi
+    rm -rf "$GITLEAKS_TMP"
+  fi
+fi
+
+# Snyk needs an account. Installing it is automatic; authorising it is not.
+if command -v snyk >/dev/null 2>&1; then
+  ok "snyk already installed."
+else
+  info "Installing snyk…"
+  if npm install -g snyk >/dev/null 2>&1 || sudo npm install -g snyk >/dev/null 2>&1; then
+    ok "snyk installed."
+  else
+    warn "Could not install snyk globally. Run: sudo npm install -g snyk"
+  fi
+fi
+if command -v snyk >/dev/null 2>&1 && ! snyk config get api >/dev/null 2>&1; then
+  warn "snyk is installed but not authenticated. Run 'snyk auth' once;"
+  warn "until then 'make security' will skip it."
+fi
+
 # --- Frontend --------------------------------------------------------------
 bold ""
-bold "4. Frontend"
+bold "5. Frontend"
 info "Installing npm packages…"
 (cd frontend && npm install --no-audit --no-fund --silent)
 ok "npm packages installed."
@@ -118,7 +173,7 @@ fi
 
 # --- Local configuration ---------------------------------------------------
 bold ""
-bold "5. Local configuration"
+bold "6. Local configuration"
 if [ -f config.yaml ]; then
   ok "config.yaml already exists."
 else
@@ -149,7 +204,7 @@ fi
 
 # --- Git hooks -------------------------------------------------------------
 bold ""
-bold "6. Git hooks"
+bold "7. Git hooks"
 if [ -d .git ]; then
   scripts/install-hooks.sh
 else

@@ -41,14 +41,21 @@ trap cleanup EXIT
 
 printf '\n\033[1mCapturing screenshots\033[0m\n\n'
 
+# Fresh throwaway secrets per run. Generated rather than hard-coded so that no
+# tracked file in this repository ever contains a secret-shaped literal for a
+# scanner to flag — and so two concurrent runs cannot share a signing key.
+rand_hex() { head -c 32 /dev/urandom | od -An -vtx1 | tr -d ' \n'; }
+E2E_PEPPER="$(rand_hex)"
+E2E_JWT_SECRET="$(rand_hex)"
+
 cat > "$WORK_DIR/config.yaml" <<CONFIG
 database:
   path: $WORK_DIR/demo.db
 images:
   path: $WORK_DIR/images
 security:
-  password_pepper: "screenshot-pepper-0123456789abcdef0123456789abcd"
-  jwt_secret: "screenshot-jwt-secret-0123456789abcdef0123456789ab"
+  password_pepper: "$E2E_PEPPER"
+  jwt_secret: "$E2E_JWT_SECRET"
   argon2_time_cost: 1
   argon2_memory_cost: 8
   argon2_parallelism: 1

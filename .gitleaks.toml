@@ -14,23 +14,39 @@ id = "milsurp-smtp-password"
 description = "SMTP password committed in a YAML file"
 # Catches a real Gmail app password (16 chars, often written in 4-char groups)
 # assigned to a password key.
-regex = '''(?i)^\s*(?:smtp_)?password:\s*["']?(?!CHANGE-ME|set-a-|abcd efgh)([A-Za-z0-9@#$%^&*!_\-]{8,}|(?:[a-z]{4}\s){3}[a-z]{4})["']?\s*$'''
+#
+# gitleaks compiles with Go's RE2, which has no lookaround: the documented
+# placeholders are excluded by [allowlist].regexes below rather than by a
+# (?!...) group. (?m) is required because gitleaks matches against whole file
+# contents, so a bare ^ would only ever anchor to the first line.
+regex = '''(?im)^\s*(?:smtp_)?password:\s*["']?([A-Za-z0-9@#$%^&*!_\-]{8,}|(?:[a-z]{4}\s){3}[a-z]{4})["']?\s*$'''
 path = '''\.ya?ml$'''
 tags = ["smtp", "credential"]
 
 [[rules]]
 id = "milsurp-signing-secret"
 description = "JWT secret or password pepper committed"
-regex = '''(?i)^\s*(?:jwt_secret|password_pepper|secret_key):\s*["']?(?!CHANGE-ME)([A-Za-z0-9+/=_\-]{24,})["']?\s*$'''
+regex = '''(?im)^\s*(?:jwt_secret|password_pepper|secret_key):\s*["']?([A-Za-z0-9+/=_\-]{24,})["']?\s*$'''
 path = '''\.ya?ml$'''
 tags = ["secret"]
 
 [allowlist]
 description = "Documented placeholders, test fixtures and generated assets"
+# Match the whole matched line, not just the captured secret, so a placeholder
+# is recognised however it is quoted.
+regexTarget = "line"
 
 paths = [
   # The sample config exists to be read; its values are placeholders.
   '''config\.yaml\.sample''',
+  # The *local* config file holds real secrets on purpose, and `make security`
+  # scans the working tree, so without this every developer's scan reports a
+  # leak that cannot possibly be committed — which is how a scanner gets muted.
+  # It is gitignored, and scripts/security.sh separately asserts that it still
+  # is (the "Local checks" section), so nothing is actually unwatched here.
+  '''^config\.yaml$''',
+  '''^config\.local\.yaml$''',
+  '''\.local\.yaml$''',
   # Test fixtures use obvious throwaway values.
   '''backend/tests/.*''',
   # Documentation quotes the sample values.

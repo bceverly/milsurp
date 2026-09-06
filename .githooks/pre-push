@@ -2,9 +2,11 @@
 #
 # Milsurp Monitor — pre-push hook.
 #
-# The last gate before code leaves the machine: lint must be clean AND the test
-# suites must pass their coverage gates. Slower than pre-commit by design —
-# this runs once per push, not once per commit.
+# The last gate before code leaves the machine: lint must be clean.
+#
+# Deliberately does NOT run the test suites. They take minutes, they would run
+# again for every tag push, and CI runs them on every push anyway — a hook slow
+# enough to be routinely bypassed protects nothing.
 #
 # Bypass:  git push --no-verify
 set -uo pipefail
@@ -19,37 +21,14 @@ FAILED=()
 
 printf '\n\033[1;94m▸ pre-push: lint\033[0m\n'
 if [ -x scripts/lint.sh ]; then
-  scripts/lint.sh >/dev/null 2>&1 || FAILED+=("lint")
-  [ ${#FAILED[@]} -eq 0 ] && printf '\033[92m  ✓ clean\033[0m\n' || printf '\033[91m  ✗ findings\033[0m\n'
+  if scripts/lint.sh >/dev/null 2>&1; then
+    printf '\033[92m  ✓ clean\033[0m\n'
+  else
+    printf '\033[91m  ✗ findings\033[0m\n'
+    FAILED+=("lint")
+  fi
 else
   printf '\033[93m  - scripts/lint.sh missing, skipped\033[0m\n'
-fi
-
-printf '\n\033[1;94m▸ pre-push: backend tests\033[0m\n'
-if [ -x scripts/test-backend.sh ]; then
-  if scripts/test-backend.sh -q >/dev/null 2>&1; then
-    printf '\033[92m  ✓ passed\033[0m\n'
-  else
-    printf '\033[91m  ✗ failed (or below the coverage floor)\033[0m\n'
-    FAILED+=("backend tests")
-  fi
-else
-  printf '\033[93m  - scripts/test-backend.sh missing, skipped\033[0m\n'
-fi
-
-# The Playwright suite needs a browser and a built frontend, so it is skipped
-# when the environment cannot support it rather than blocking a push on a
-# machine that was never set up for it. CI always runs it.
-printf '\n\033[1;94m▸ pre-push: frontend tests\033[0m\n'
-if [ -x scripts/test-frontend.sh ] && [ -d frontend/node_modules ]; then
-  if scripts/test-frontend.sh >/dev/null 2>&1; then
-    printf '\033[92m  ✓ passed\033[0m\n'
-  else
-    printf '\033[91m  ✗ failed (or below the coverage floor)\033[0m\n'
-    FAILED+=("frontend tests")
-  fi
-else
-  printf '\033[93m  - not set up, skipped\033[0m\n'
 fi
 
 printf '\n'
@@ -64,8 +43,10 @@ cat <<BLOCKED
 
    Reproduce with:
 
-       make lint
-       make test
+       make lint          (make lint-fix reformats)
+
+   The test suites are not run here: they are slow, and CI runs them
+   on every push. Run them locally with \`make test\` when you want them.
 
    To bypass in an emergency:  git push --no-verify
   ────────────────────────────────────────────────────────────────

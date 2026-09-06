@@ -29,6 +29,11 @@ cd "$REPO_ROOT" || exit 1
 FIRST_VERSION="1.0.0.0"
 VERSION_PATTERN='^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'
 
+# Colours as variables: a heredoc does not interpret backslash escapes, but it
+# does expand variables, and $'...' yields the real escape byte.
+GREEN=$'\033[1;92m'
+RESET=$'\033[0m'
+
 bold() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 info() { printf '  \033[96m→\033[0m %s\n' "$*"; }
 ok()   { printf '  \033[92m✓\033[0m %s\n' "$*"; }
@@ -210,7 +215,7 @@ ok "Pushed tag $TAG."
 cat <<NEXT_STEPS
 
   ────────────────────────────────────────────────────────────────
-   \033[1;92mReleased ${TAG}\033[0m
+   ${GREEN}Released ${TAG}${RESET}
 
    Pushing the tag triggers the release build. Watch it with:
 

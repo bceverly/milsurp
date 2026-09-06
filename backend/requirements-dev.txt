@@ -3,7 +3,13 @@
 # Testing
 pytest>=8.3
 pytest-cov>=6.0
-httpx>=0.28              # FastAPI TestClient transport
+# Starlette's TestClient transport. Starlette >= 1.0 imports httpx2 and
+# emits a deprecation warning if it has to fall back to httpx — and this
+# project runs pytest with `filterwarnings = error`, so the fallback is a
+# hard failure. Both are listed because requirements.txt allows the whole
+# fastapi>=0.115,<1.0 range, which spans the change.
+httpx2>=2.10
+httpx>=0.28              # fallback for pre-1.0 Starlette
 responses>=0.25          # stub HTTP for scraper tests
 
 # Linting and formatting

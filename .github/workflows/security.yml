@@ -1,8 +1,12 @@
 # Security scanning.
 #
-# The same tools `make security` runs locally, plus CodeQL, which is too heavy
-# to run on a laptop. Runs on every push and PR, and on a weekly schedule so a
-# newly-disclosed CVE in an unchanged dependency is still caught.
+# The `security` job runs exactly what `make security` runs locally — same
+# script, same tools, same thresholds — so a clean local run means a clean CI
+# run. The tools are installed first, because scripts/security.sh *skips* any
+# tool it cannot find; without installing them the job would pass by doing
+# nothing.
+#
+# Everything that is not part of `make security` gets its own job.
 
 name: Security
 
@@ -12,7 +16,8 @@ on:
   pull_request:
     branches: [main]
   schedule:
-    # Mondays 06:00 UTC. Dependencies rot without any commit of ours.
+    # Mondays 06:00 UTC. Dependencies rot without any commit of ours, so this
+    # catches a newly-disclosed CVE in code that has not changed.
     - cron: "0 6 * * 1"
   workflow_dispatch:
 
@@ -28,136 +33,75 @@ env:
   NODE_VERSION: "22"
 
 jobs:
-  # --------------------------------------------------------------------------
-  bandit:
-    name: bandit (Python security lint)
+  # ==========================================================================
+  # bandit · semgrep · Snyk · pip-audit · npm audit · gitleaks · config checks
+  # ==========================================================================
+  security:
+    name: Security scan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # gitleaks scans history, which the default single-commit checkout
+          # does not provide.
+          fetch-depth: 0
+
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - run: pip install --quiet "bandit[toml]"
-      - name: Run bandit
-        run: bandit -c pyproject.toml -r backend/app scripts -f screen
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
 
-  # --------------------------------------------------------------------------
-  semgrep:
-    name: semgrep (SAST)
-    runs-on: ubuntu-latest
-    container:
-      image: semgrep/semgrep
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run semgrep
-        # --error makes any finding fail the job. The rulesets match the ones
-        # scripts/security.sh uses locally.
-        run: |
-          semgrep scan \
-            --config=p/security-audit \
-            --config=p/secrets \
-            --config=p/python \
-            --config=p/javascript \
-            --error \
-            --metrics=off \
-            --exclude=node_modules --exclude=.venv --exclude=dist
-
-  # --------------------------------------------------------------------------
-  snyk:
-    name: Snyk (dependency CVEs)
-    runs-on: ubuntu-latest
-    # A fork PR has no access to the token; skip rather than fail confusingly.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Check for the Snyk token
-        id: token
-        run: |
-          if [ -n "${{ secrets.SNYK_TOKEN }}" ]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::SNYK_TOKEN is not set; skipping Snyk. Add it in repository settings."
-          fi
-
-      - name: Install dependencies
-        if: steps.token.outputs.present == 'true'
-        run: |
-          pip install --quiet -r backend/requirements.txt
-          cd frontend && npm ci --no-audit --no-fund
-
-      - name: Snyk (Python)
-        if: steps.token.outputs.present == 'true'
-        uses: snyk/actions/python@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --file=backend/requirements.txt --package-manager=pip --severity-threshold=high
-
-      - name: Snyk (Node)
-        if: steps.token.outputs.present == 'true'
-        uses: snyk/actions/node@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --file=frontend/package-lock.json --severity-threshold=high
-
-  # --------------------------------------------------------------------------
-  dependency-audit:
-    name: pip-audit / npm audit
-    runs-on: ubuntu-latest
-    # No account needed, so this is the safety net when Snyk is unavailable.
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: pip-audit
+      - name: Install application dependencies
         run: |
-          pip install --quiet pip-audit
-          pip-audit -r backend/requirements.txt --desc off
+          python -m venv .venv
+          .venv/bin/pip install --quiet --upgrade pip
+          .venv/bin/pip install --quiet -r backend/requirements-dev.txt
+          cd frontend && npm ci --no-audit --no-fund
 
-      - name: npm audit
-        run: cd frontend && npm ci --no-audit --no-fund && npm audit --audit-level=high
+      # scripts/security.sh looks for each of these and reports "skipped" when
+      # absent, so they must all be present for the job to mean anything.
+      # Same requirements file and same pinned gitleaks as `make install-dev`,
+      # so a clean local scan and a clean CI scan mean the same thing.
+      - name: Install the scanners
+        run: |
+          .venv/bin/pip install --quiet -r backend/requirements-security.txt
+          . scripts/tool-versions.env
+          curl -sSfL \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            -o /tmp/gitleaks.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          sudo install -m 0755 /tmp/gitleaks /usr/local/bin/gitleaks
+          npm install -g snyk >/dev/null 2>&1 || echo "::warning::snyk install failed; it will be skipped"
 
-  # --------------------------------------------------------------------------
-  secrets:
-    name: Secret detection
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          # gitleaks scans history, which needs the full clone rather than the
-          # default single-commit checkout.
-          fetch-depth: 0
-
-      - name: gitleaks
-        uses: gitleaks/gitleaks-action@v2
+      # semgrep and pip-audit live in the venv; put it on PATH so the script
+      # finds them the same way it does locally.
+      - name: make security
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_CONFIG: .gitleaks.toml
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          export PATH="$PWD/.venv/bin:$PATH"
+          make security
 
-      # A second, independent scanner: the two use different rule sets and
-      # catch different things.
-      - name: TruffleHog
-        uses: trufflesecurity/trufflehog@main
+      - name: Upload scanner reports
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          extra_args: --results=verified,unknown
+          name: security-reports
+          path: .security-reports/
+          retention-days: 30
+          if-no-files-found: ignore
 
-  # --------------------------------------------------------------------------
+  # ==========================================================================
+  # Not part of `make security`: too heavy to run on a laptop, and it reports
+  # into GitHub's own code-scanning UI rather than to stdout.
+  # ==========================================================================
   codeql:
     name: CodeQL
     runs-on: ubuntu-latest
@@ -177,27 +121,3 @@ jobs:
       - uses: github/codeql-action/analyze@v3
         with:
           category: "/language:${{ matrix.language }}"
-
-  # --------------------------------------------------------------------------
-  permissions-check:
-    name: Deployment file permissions
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: The sample config must not carry real secrets
-        run: |
-          set -euo pipefail
-          # The sample is committed, so it must only ever hold placeholders.
-          if grep -nE '^\s*(password|jwt_secret|password_pepper|secret_key):' config.yaml.sample \
-             | grep -vE 'CHANGE-ME|set-a-long-passphrase-here|abcd efgh ijkl mnop'; then
-            echo "::error::config.yaml.sample contains what looks like a real secret."
-            exit 1
-          fi
-          echo "config.yaml.sample holds only placeholders."
-
-      - name: config.yaml must be gitignored
-        run: |
-          set -euo pipefail
-          grep -qx 'config.yaml' .gitignore \
-            || { echo "::error::config.yaml is not gitignored."; exit 1; }
-          echo "config.yaml is gitignored."

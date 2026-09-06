@@ -1,0 +1,12 @@
+# Security scanners that run under `make security` and in the CI security job.
+#
+# Kept apart from requirements-dev.txt because they are a large dependency tree
+# of their own and nothing in `make test` or `make lint` needs them — but
+# scripts/security.sh *skips* any tool it cannot find, so a developer without
+# these installed gets a scan that passes by doing almost nothing. `make
+# install-dev` installs this file for exactly that reason.
+#
+# Pinned to a floor rather than a version: these are detection rules, and a
+# newer scanner finding more is the point.
+semgrep>=1.100
+pip-audit>=2.7

@@ -86,10 +86,21 @@ def cmd_init(_args: argparse.Namespace) -> int:
 
 
 def cmd_secrets(_args: argparse.Namespace) -> int:
-    """Print fresh secrets to paste into the config file."""
+    """Print fresh secrets to paste into the config file.
+
+    CodeQL flags the two prints below as clear-text logging of sensitive
+    information, and it is not wrong about what they do — printing a freshly
+    generated secret to the operator's terminal is the entire purpose of the
+    command, and there is no way to hand someone a secret without showing it
+    to them. The values are new and unused at this point: they protect nothing
+    until they are pasted into the config file. Suppressed rather than
+    dismissed in the web UI so the reasoning lives next to the code.
+    """
     print("# Paste into the 'security' section of your config.yaml:")
     print("security:")
+    # codeql[py/clear-text-logging-sensitive-data]  # noqa: ERA001
     print(f"  password_pepper: {generate_secret()!r}")
+    # codeql[py/clear-text-logging-sensitive-data]  # noqa: ERA001
     print(f"  jwt_secret: {generate_secret()!r}")
     print()
     print("# Changing password_pepper invalidates every existing password.")

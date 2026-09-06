@@ -18,21 +18,18 @@
   "dependencies": {
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.28.0"
+    "react-router-dom": "^7.18.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@vitejs/plugin-react": "^6.1.1",
     "eslint": "^8.57.1",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react": "^7.37.2",
     "eslint-plugin-react-hooks": "^4.6.2",
-    "nyc": "^17.1.0",
+    "nyc": "^18.0.0",
     "prettier": "^3.4.2",
-    "vite": "^5.4.11",
-    "vite-plugin-istanbul": "^6.0.2"
-  },
-  "allowScripts": {
-    "esbuild@0.21.5": true
+    "vite": "^8.2.2",
+    "vite-plugin-istanbul": "^9.0.1"
   }
 }

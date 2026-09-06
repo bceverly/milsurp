@@ -9,6 +9,7 @@ import time
 from fastapi import APIRouter, HTTPException, Request, status
 
 from ..deps import AppConfig, CurrentUser, DbSession
+from ..logsafe import scrub
 from ..models import User, utcnow
 from ..schemas import LoginRequest, PasswordChangeRequest, TokenResponse, UserOut
 from ..security import (
@@ -80,7 +81,7 @@ def login(
             # difference between "no such user" and "wrong password".
             hash_password("timing-equalizer", config)
         _record_failure(key)
-        log.warning("Failed sign-in for %r from %s", payload.username, key.split("|")[-1])
+        log.warning("Failed sign-in for %r from %s", scrub(payload.username), key.split("|")[-1])
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password.",

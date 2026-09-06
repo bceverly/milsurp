@@ -189,7 +189,11 @@ class TestVerifyConnection:
     def test_success(self, app_config, monkeypatch):
         monkeypatch.setattr(smtplib, "SMTP", FakeSMTP)
         message = mailer.verify_connection(email_config(app_config))
-        assert "smtp.example.com:587" in message
+        # Asserted whole rather than as a substring: "host:port in message" is
+        # satisfied by an evil-host.com/smtp.example.com:587 too, and a
+        # substring check on something host-shaped is exactly the pattern that
+        # lets a real URL allowlist be bypassed elsewhere.
+        assert message == "Connected to smtp.example.com:587 as sender@example.com."
         # Verification must not send anything.
         assert FakeSMTP.instances[0].messages == []
 

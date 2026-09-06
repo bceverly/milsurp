@@ -43,8 +43,15 @@ export default defineConfig({
       output: {
         // Keep React in its own chunk so an app-code change does not force
         // every visitor to re-download the framework.
-        manualChunks: {
-          vendor: ["react", "react-dom", "react-router-dom"],
+        //
+        // Written as a function rather than the `{ vendor: [...] }` object
+        // form: Vite 8 bundles with Rolldown, which only accepts a function.
+        manualChunks(id) {
+          return /node_modules[/\\](react|react-dom|react-router|react-router-dom|scheduler)[/\\]/.test(
+            id,
+          )
+            ? "vendor"
+            : undefined;
         },
       },
     },

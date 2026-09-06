@@ -71,7 +71,10 @@ fi
 cat <<'SUMMARY'
   pre-commit  blocks the commit on ANY lint finding, including black
               reporting that it would reformat a file
-  pre-push    additionally runs the test suites and their coverage gates
+  pre-push    the same lint gate, so a push cannot land code that a
+              local commit --no-verify slipped past. It deliberately does
+              NOT run the test suites: they take minutes, they would run
+              again for every tag push, and CI runs them on every push.
 
   Bypass in an emergency:  git commit --no-verify  /  git push --no-verify
   Uninstall:               rm .git/hooks/pre-commit .git/hooks/pre-push

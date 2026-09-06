@@ -23,6 +23,12 @@ export MILSURP_ENV=dev
 VENV_PY=".venv/bin/python"
 PORT_FILE=".milsurp-dev-port"
 
+# Colours as variables: a heredoc does not interpret backslash escapes, but it
+# does expand variables, and $'...' yields the real escape byte.
+GREEN=$'\033[1;92m'
+CYAN=$'\033[1;96m'
+RESET=$'\033[0m'
+
 info() { printf '  \033[96m→\033[0m %s\n' "$*"; }
 ok()   { printf '  \033[92m✓\033[0m %s\n' "$*"; }
 die()  { printf '  \033[91m✗\033[0m %s\n' "$*" >&2; exit 1; }
@@ -85,9 +91,9 @@ sleep 2
 cat <<BANNER
 
   ────────────────────────────────────────────────────────────
-   \033[1;92m▲ Development mode\033[0m
+   ${GREEN}▲ Development mode${RESET}
 
-     UI  (hot reload)   \033[1;96mhttp://localhost:5173\033[0m   ← open this
+     UI  (hot reload)   ${CYAN}http://localhost:5173${RESET}   ← open this
      API                http://127.0.0.1:$API_PORT
      API docs           http://127.0.0.1:$API_PORT/api/docs
 

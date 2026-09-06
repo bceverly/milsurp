@@ -1,7 +1,9 @@
-# Lint and test on every push and pull request.
+# Lint, tests and schema checks on every push and pull request.
 #
-# Mirrors what `make lint` and `make test` run locally, so a green local run
-# means a green CI run. Both coverage gates (65%) are enforced here too.
+# Each concern is its own job so a failure names itself in the checks list, and
+# so they run in parallel. The one exception is the test job, which runs the
+# backend and frontend suites as two steps of a single job — that mirrors
+# `make test` and keeps their coverage gates reported together.
 
 name: CI
 
@@ -12,12 +14,12 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# A new push to the same branch makes the previous run irrelevant.
+# A newer push to the same branch makes the previous run irrelevant.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-# The workflow only reads the repository; nothing here needs write access.
+# Read-only: nothing here needs write access to the repository.
 permissions:
   contents: read
 
@@ -27,6 +29,7 @@ env:
   MILSURP_ENV: dev
 
 jobs:
+  # ==========================================================================
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -52,17 +55,19 @@ jobs:
           .venv/bin/pip install --quiet -r backend/requirements-dev.txt
           cd frontend && npm ci --no-audit --no-fund
 
+      # scripts/lint.sh skips any tool that is not installed, so shellcheck is
+      # installed here to make sure it actually runs rather than being skipped.
       - name: Install shellcheck
         run: sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
 
-      # scripts/lint.sh runs black --check first and fails on any finding from
-      # black, ruff, mypy, bandit, prettier, eslint, shellcheck or the YAML
-      # parse check.
-      - name: Lint
+      # black --check first, then ruff, mypy, bandit, prettier, eslint,
+      # shellcheck and a YAML parse. Any finding fails.
+      - name: make lint
         run: make lint
 
-  test-backend:
-    name: Backend tests
+  # ==========================================================================
+  test:
+    name: Unit tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -72,38 +77,6 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
           cache-dependency-path: backend/requirements-dev.txt
-
-      - name: Install dependencies
-        run: |
-          python -m venv .venv
-          .venv/bin/pip install --quiet --upgrade pip
-          .venv/bin/pip install --quiet -r backend/requirements-dev.txt
-
-      # Fails below 65% line coverage; warnings are errors.
-      - name: pytest
-        run: make test-backend
-
-      - name: Upload coverage
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-backend
-          path: |
-            coverage-backend.xml
-            coverage-backend.json
-          retention-days: 14
-
-  test-frontend:
-    name: Frontend tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-          cache-dependency-path: backend/requirements.txt
 
       - uses: actions/setup-node@v4
         with:
@@ -115,29 +88,38 @@ jobs:
         run: |
           python -m venv .venv
           .venv/bin/pip install --quiet --upgrade pip
-          .venv/bin/pip install --quiet -r backend/requirements.txt
+          .venv/bin/pip install --quiet -r backend/requirements-dev.txt
           cd frontend && npm ci --no-audit --no-fund
 
       - name: Install Playwright browser
         run: cd frontend && npx playwright install --with-deps chromium
 
-      # Builds instrumented, seeds a disposable database, runs Playwright, then
-      # gates on 65% via nyc.
-      - name: Playwright
+      # Together these are `make test`. Split into two steps so the checks list
+      # says which suite failed without anyone opening the log.
+      - name: Backend tests (pytest, 65% gate)
+        run: make test-backend
+
+      # Runs even if the backend failed, so one push reports both suites.
+      - name: Frontend tests (Playwright, 65% gate)
+        if: always()
         run: make test-frontend
 
-      - name: Upload failure artifacts
-        if: failure()
+      - name: Upload coverage and failure artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: test-artifacts
           path: |
-            frontend/test-results/
+            coverage-backend.xml
+            coverage-backend.json
             frontend/coverage/
-          retention-days: 7
+            frontend/test-results/
+          retention-days: 14
+          if-no-files-found: ignore
 
+  # ==========================================================================
   migrations:
-    name: Migrations are idempotent
+    name: Migrations
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -154,8 +136,8 @@ jobs:
           .venv/bin/pip install --quiet --upgrade pip
           .venv/bin/pip install --quiet -r backend/requirements.txt
 
-      # The schema is built by Alembic even on a fresh database, so this also
-      # proves a brand new install works.
+      # Alembic builds the schema even on a brand new database, so this also
+      # proves a fresh install works.
       - name: Build the database from scratch
         run: .venv/bin/python scripts/dbupdate.py
 
@@ -164,7 +146,7 @@ jobs:
       - name: Re-run migrations (must be a no-op)
         run: .venv/bin/python scripts/dbupdate.py
 
-      - name: Confirm no migrations are outstanding
+      - name: Confirm nothing is outstanding
         run: .venv/bin/python scripts/dbupdate.py --check
 
       - name: Confirm the models match the migrations
@@ -182,14 +164,18 @@ jobs:
 
           problems = []
           if in_db != in_models:
-              problems.append(f"tables differ: only-db={sorted(in_db - in_models)} "
-                              f"only-models={sorted(in_models - in_db)}")
+              problems.append(
+                  f"tables differ: only-db={sorted(in_db - in_models)} "
+                  f"only-models={sorted(in_models - in_db)}"
+              )
           for table in sorted(in_db & in_models):
               db_cols = {c["name"] for c in inspector.get_columns(table)}
               model_cols = set(Base.metadata.tables[table].columns.keys())
               if db_cols != model_cols:
-                  problems.append(f"{table}: only-db={sorted(db_cols - model_cols)} "
-                                  f"only-models={sorted(model_cols - db_cols)}")
+                  problems.append(
+                      f"{table}: only-db={sorted(db_cols - model_cols)} "
+                      f"only-models={sorted(model_cols - db_cols)}"
+                  )
           if problems:
               print("Schema drift between the models and the migrations:")
               for line in problems:
@@ -197,3 +183,29 @@ jobs:
               sys.exit(1)
           print("Models and migrations agree.")
           PY
+
+  # ==========================================================================
+  build:
+    name: Production build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build the frontend bundle
+        run: cd frontend && npm ci --no-audit --no-fund && npm run build
+
+      # The test job builds with COVERAGE=1, which is instrumented. This checks
+      # the bundle that would actually ship.
+      - name: Confirm the bundle is not instrumented
+        run: |
+          if grep -rqs "__coverage__" frontend/dist/assets/; then
+            echo "::error::The production bundle contains istanbul instrumentation."
+            exit 1
+          fi
+          echo "Production bundle is clean."

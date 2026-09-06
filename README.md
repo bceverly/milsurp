@@ -147,8 +147,9 @@ git clone https://github.com/bceverly/milsurp.git
 cd milsurp
 
 # Installs system packages (prompts for sudo), creates .venv, installs Python
-# and npm dependencies, downloads the Playwright browser, generates config.yaml
-# with fresh secrets, and installs the git hooks.
+# and npm dependencies, installs the security scanners (semgrep, pip-audit,
+# gitleaks, snyk), downloads the Playwright browser, generates config.yaml with
+# fresh secrets, and installs the git hooks.
 make install-dev
 ```
 
@@ -420,8 +421,8 @@ make test-frontend   # Playwright
 
 | Suite | Tool | Tests | Coverage | Gate |
 |---|---|---|---|---|
-| Backend | pytest | 313 | 69.7% | 65% |
-| Frontend | Playwright | 69 | 81.6% lines | 65% |
+| Backend | pytest | 323 | 70.1% | 65% |
+| Frontend | Playwright | 69 | 79.1% lines | 65% |
 
 - **Warnings are errors.** A warning is a library telling you something is
   wrong; letting them scroll past defeats the point.
@@ -434,6 +435,32 @@ make test-frontend   # Playwright
   first-class target, not a spot check.
 - `make coverage` regenerates the README badges: red below 65%, amber below 80%,
   green above.
+
+### Git hooks
+
+`make install-dev` installs both, or run `make install-hooks` on its own.
+
+| Hook | Runs | Blocks on |
+|---|---|---|
+| `pre-commit` | `make lint` | any finding, including black reporting it would reformat a file |
+| `pre-push` | `make lint` | the same, so a `commit --no-verify` cannot be pushed |
+
+Neither hook runs the test suites. They take minutes, they would run again for
+every tag push, and CI runs them on every push anyway. Bypass in an emergency
+with `--no-verify`; CI will still catch it.
+
+### Continuous integration
+
+Two workflows, one job per concern, so a red tick names the thing that broke.
+
+| Workflow | Job | What it does |
+|---|---|---|
+| `ci.yml` | `lint` | `make lint` — black, ruff, mypy, bandit, prettier, eslint, shellcheck |
+| | `test` | `make test-backend`, then `make test-frontend`; the frontend step runs even when the backend step fails, so one push reports both |
+| | `migrations` | applies the Alembic chain to an empty database and checks the models match |
+| | `build` | production bundle, and asserts no coverage instrumentation shipped in it |
+| `security.yml` | `security` | installs every scanner, then runs `make security` — the same script you run locally |
+| | `codeql` | Python and JavaScript, `security-extended`; reports into the Security tab |
 
 ## Security
 
@@ -449,7 +476,7 @@ The application is built against the [OWASP Top 10](https://owasp.org/Top10/).
 | **A06 Vulnerable Components** | Dependabot on pip, npm and Actions. `pip-audit`, `npm audit` and Snyk in CI and in `make security`. |
 | **A07 Authentication Failures** | Per-(username, IP) throttling with lockout; uniform failure messages and timing equalization so usernames cannot be enumerated; 12-character minimum with a common-password check; password change ends all sessions. |
 | **A08 Integrity Failures** | Pinned dependency floors with lockfiles; CodeQL, semgrep and bandit in CI; git hooks that block a commit on any lint finding. |
-| **A09 Logging Failures** | Failed sign-ins, access requests, scan outcomes and every digest attempt are logged; scan history and email delivery history are queryable in the UI. |
+| **A09 Logging Failures** | Failed sign-ins, access requests, scan outcomes and every digest attempt are logged; scan history and email delivery history are queryable in the UI. Every attacker-supplied value is passed through `app/logsafe.scrub` first, so a newline in a username cannot forge a log record. |
 | **A10 SSRF** | Image URLs come from third-party markup, so every download validates the URL first: http/https only, and DNS resolution must not land on a private, loopback, link-local or reserved address. Cloud metadata endpoints are unreachable. |
 
 Run the same scanners CI runs, locally:
@@ -458,8 +485,27 @@ Run the same scanners CI runs, locally:
 make security     # bandit · semgrep · Snyk · pip-audit · npm audit · gitleaks
 ```
 
+`make install-dev` installs all of them, because a scanner that is missing is
+reported as *skipped* rather than failing — so without them a local scan passes
+by checking almost nothing. semgrep and pip-audit come from
+`backend/requirements-security.txt`; gitleaks is pinned in
+`scripts/tool-versions.env`, which the CI workflow sources too, so both run the
+same binary. gitleaks is also accepted as a container image
+(`docker pull ghcr.io/gitleaks/gitleaks:latest`) if you would rather not put a
+binary in `/usr/local/bin`.
+
+Snyk needs an account: run `snyk auth` once, or export `SNYK_TOKEN`. Until then
+it is skipped and `pip-audit` / `npm audit` carry the dependency check.
+
 CI additionally runs CodeQL and TruffleHog, and re-runs everything weekly so a
 newly-disclosed CVE in an unchanged dependency is still caught.
+
+Two findings are suppressed in-source rather than fixed, each with the reasoning
+next to the code: `make secrets` prints freshly generated secrets to the
+terminal, which is the whole point of the command
+(`py/clear-text-logging-sensitive-data`), and two startup warnings are matched by
+semgrep's credential-in-log rule for containing the words "secrets" and
+"admin.password" in their message text.
 
 **Reporting a vulnerability** — please open a private security advisory on the
 repository rather than a public issue.

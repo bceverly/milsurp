@@ -9,12 +9,11 @@ revoked on its own without touching the account.
 from __future__ import annotations
 
 import contextlib
-import re
 import smtplib
 import ssl
 from email.message import EmailMessage
 from email.utils import formataddr, formatdate, make_msgid
-from html import unescape
+from html.parser import HTMLParser
 
 from ..config import Config, EmailConfig, get_config
 
@@ -120,11 +119,80 @@ def verify_connection(config: Config | None = None) -> str:
             server.quit()
 
 
+class _TextExtractor(HTMLParser):
+    r"""Collects the readable prose out of an HTML document.
+
+    A real parser rather than a chain of regular expressions. The regex version
+    was quadratic on hostile input — patterns like ``<[^>]+>`` and
+    ``<(script|style).*?</\1>`` rescan from every ``<`` — and a digest body
+    embeds vendor-supplied titles and descriptions, so its input is not ours to
+    trust. :class:`~html.parser.HTMLParser` is linear in the length of the
+    document and handles character references for free.
+    """
+
+    #: Elements whose contents are markup or metadata, not prose.
+    _SKIP = frozenset({"script", "style", "head", "title"})
+
+    #: Elements that start or end a line of prose.
+    _BREAK = frozenset({"br", "p", "div", "tr", "li", "table", "h1", "h2", "h3", "h4", "h5", "h6"})
+
+    #: Elements that separate words on the same line. Without this a row of
+    #: table cells would run together as "AB".
+    _SPACE = frozenset({"td", "th", "span", "a", "strong", "em", "b", "i"})
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self._parts: list[str] = []
+        self._skipping = 0
+
+    def handle_starttag(self, tag: str, _attrs: object) -> None:
+        if tag in self._SKIP:
+            self._skipping += 1
+        elif tag in self._BREAK:
+            self._parts.append("\n")
+        elif tag in self._SPACE:
+            self._parts.append(" ")
+
+    def handle_startendtag(self, tag: str, attrs: object) -> None:
+        # The default implementation fires start *and* end, which would turn a
+        # single <br/> into two line breaks.
+        self.handle_starttag(tag, attrs)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in self._SKIP:
+            self._skipping = max(0, self._skipping - 1)
+        elif tag in self._BREAK:
+            self._parts.append("\n")
+        elif tag in self._SPACE:
+            self._parts.append(" ")
+
+    def handle_data(self, data: str) -> None:
+        if not self._skipping:
+            self._parts.append(data)
+
+    @property
+    def text(self) -> str:
+        return "".join(self._parts)
+
+
+def _collapse(text: str) -> str:
+    r"""Squeeze runs of whitespace down, without a backtracking regex.
+
+    ``str.split`` does the work a pattern like ``\n\s*\n\s*\n+`` used to,
+    in one linear pass and with no way to blow up.
+    """
+    lines = [" ".join(line.split()) for line in text.split("\n")]
+    out: list[str] = []
+    for line in lines:
+        # Keep at most one blank line between paragraphs.
+        if line or (out and out[-1]):
+            out.append(line)
+    return "\n".join(out).strip()
+
+
 def _html_to_text(html_body: str) -> str:
-    """Crude HTML-to-text for the plain alternative."""
-    text = re.sub(r"(?is)<(script|style).*?</\1>", " ", html_body)
-    text = re.sub(r"(?i)<br\s*/?>|</p>|</tr>|</div>", "\n", text)
-    text = re.sub(r"<[^>]+>", " ", text)
-    text = unescape(text)
-    text = re.sub(r"[ \t]+", " ", text)
-    return re.sub(r"\n\s*\n\s*\n+", "\n\n", text).strip()
+    """The plain-text alternative part for a multipart message."""
+    parser = _TextExtractor()
+    parser.feed(html_body)
+    parser.close()
+    return _collapse(parser.text)

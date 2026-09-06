@@ -131,20 +131,45 @@ fi
 
 # ---------------------------------------------------------------------------
 section "gitleaks — committed secrets"
-if command -v gitleaks >/dev/null 2>&1; then
+GITLEAKS_IMAGE="ghcr.io/gitleaks/gitleaks:latest"
+
+# gitleaks is distributed as a native binary and as a container image, and
+# either is a perfectly good way to have it. Both are accepted so that `make
+# security` does not silently skip the secret scan just because the tool was
+# installed the other way. Paths stay repository-relative because the container
+# sees the repo mounted at a different place.
+gitleaks_run() {
+  if command -v gitleaks >/dev/null 2>&1; then
+    gitleaks "$@"
+  else
+    # --user keeps the report file owned by the invoking user rather than root.
+    docker run --rm --user "$(id -u):$(id -g)" \
+      -v "$REPO_ROOT:/repo" -w /repo "$GITLEAKS_IMAGE" "$@"
+  fi
+}
+
+gitleaks_available() {
+  command -v gitleaks >/dev/null 2>&1 && return 0
+  command -v docker >/dev/null 2>&1 || return 1
+  docker image inspect "$GITLEAKS_IMAGE" >/dev/null 2>&1
+}
+
+if gitleaks_available; then
   # --no-git scans the working tree, which is what matters before a commit and
-  # avoids this script needing to invoke git.
-  if gitleaks detect --no-git --source . --config .gitleaks.toml \
-       --report-path "$REPORTS/gitleaks.json" --redact --exit-code 1 >/dev/null 2>&1; then
+  # avoids this script needing to invoke git. The local config.yaml is
+  # allowlisted in .gitleaks.toml because it is gitignored by design; the
+  # "Local checks" section below is what guards that.
+  if gitleaks_run detect --no-git --source . --config .gitleaks.toml \
+       --report-path ".security-reports/gitleaks.json" --redact --exit-code 1 >/dev/null 2>&1; then
     ok "no secrets detected"
   else
     bad "possible secrets found — see $REPORTS/gitleaks.json"
-    note "config.yaml is gitignored; check whether the finding is a real leak"
+    note "every match is in a tracked file — treat it as real until proven otherwise"
     FAILURES+=("gitleaks")
   fi
 else
   skip "gitleaks not installed"
-  note "https://github.com/gitleaks/gitleaks/releases"
+  note "run 'make install-dev', or: docker pull $GITLEAKS_IMAGE"
 fi
 
 # ---------------------------------------------------------------------------

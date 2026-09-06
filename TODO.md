@@ -148,7 +148,7 @@ Last updated: 2026-09-05 — lint clean, 313 backend + 69 e2e green, CI/README d
 - [x] Domain `milsurpmonitor.com` wired through nginx, sample config, email
       branding and docs.
 
-## 10. Tooling — **MOSTLY DONE**
+## 10. Tooling — **DONE**
 
 - [x] `Makefile` with a self-documenting default `help` target listing every
       target with a description.
@@ -201,7 +201,7 @@ Last updated: 2026-09-05 — lint clean, 313 backend + 69 e2e green, CI/README d
       digest price arithmetic, and BeautifulSoup multi-valued-attribute
       narrowing in the RTI scraper.
 
-## 11. Testing — **IN PROGRESS**
+## 11. Testing — **DONE**
 
 - [x] `make test` target wired (backend + frontend).
 - [x] pytest suite: **288 tests passing at 69.5% coverage — the 65% gate is
@@ -252,7 +252,7 @@ Last updated: 2026-09-05 — lint clean, 313 backend + 69 e2e green, CI/README d
 - [x] Badges generated and referenced from the README
       (backend 69.5%, frontend 79.3%).
 
-## 12. CI / security — **NOT STARTED**
+## 12. CI / security — **DONE**
 
 - [x] `.github/workflows/ci.yml` — lint, backend tests, frontend tests, and a
       **migrations job** that builds the database from scratch, re-runs the
@@ -267,8 +267,17 @@ Last updated: 2026-09-05 — lint clean, 313 backend + 69 e2e green, CI/README d
 - [x] `.github/dependabot.yml` — pip, npm and github-actions, grouped weekly,
       majors split out for review.
 - [x] Pre-commit hook that **blocks** on any lint finding, including black
-      reporting it would reformat. Plus a pre-push hook that also runs the
-      suites. Installed by `make install-hooks`; verified blocking.
+      reporting it would reformat. Installed by `make install-hooks`; verified
+      blocking.
+- [x] **Hooks are lint-only.** Per the user: `pre-push` runs `make lint` and
+      *not* `make test`. The suites take minutes, would run again for every tag
+      push, and CI runs them on every push anyway. Both hooks now complete in
+      ~2 seconds.
+- [x] **CI restructured into one job per concern**, per the user: `ci.yml` has
+      `lint`, `test` (a backend step followed by a frontend step, the frontend
+      one `if: always()` so a single push reports both), `migrations` and
+      `build`; `security.yml` has `security` (installs every scanner, then runs
+      `make security`) and `codeql`.
 
 ## 13. Production login extras — **BACKEND DONE, UI DONE, UNTESTED**
 
@@ -284,7 +293,7 @@ Last updated: 2026-09-05 — lint clean, 313 backend + 69 e2e green, CI/README d
       the endpoint deliberately 404s in dev. A Playwright test already asserts
       the button is correctly **hidden** in dev.
 
-## 14. OWASP Top 10 — **LARGELY DONE, NEEDS A WRITE-UP**
+## 14. OWASP Top 10 — **DONE**
 
 Implemented so far:
 - A01 Broken Access Control — server-side RBAC on every route; photo endpoint
@@ -299,7 +308,10 @@ Implemented so far:
   docs disabled in production; systemd hardening; 0600/0700 file modes.
 - A07 Auth Failures — throttle + lockout; uniform failure messages; timing
   equalization; 12-char minimum; password change revokes all sessions.
-- A08 Data Integrity — pinned dependency floors; Dependabot planned.
+- A08 Data Integrity — pinned dependency floors; Dependabot on pip, npm and
+  Actions; CodeQL, semgrep and bandit in CI.
+- A09 Logging Failures — every attacker-supplied value passes through
+  `app/logsafe.scrub()` before it reaches a log record.
 - A10 SSRF — image-download URL validation against private/loopback ranges.
 
 - [x] OWASP Top 10 written up in the README as a table, one row per risk with
@@ -362,41 +374,116 @@ Implemented so far:
       synthetic placeholder photos so the grid and gallery lay out properly.
 - [x] Screenshots captured into `marketing/images/`.
 
+## 16. First CI run — every failure fixed
+
+The `v1.0.0.0` push was the first time the workflows ran for real. Everything
+below was found by that run and is now fixed and verified locally.
+
+- [x] **gitleaks crashed on our own config.** `.gitleaks.toml` used `(?!...)`
+      negative lookaheads to exempt the documented placeholders. gitleaks
+      compiles with Go's RE2, which has no lookaround, so it *panicked* — no
+      report, and the artifact upload then failed too. The exemptions now live
+      in `[allowlist].regexes`, where they always belonged. Two related fixes
+      found while verifying: the rules were missing `(?m)`, so a bare `^` only
+      ever anchored to the first line of a file (they matched almost nothing),
+      and the local `config.yaml` is allowlisted because it is gitignored by
+      design and was a guaranteed false positive on every developer's machine.
+      **This never surfaced locally because gitleaks was not installed and
+      `security.sh` silently skipped it** — which is why `make install-dev` now
+      installs the scanners.
+- [x] **Hard-coded test secrets removed.** `scripts/test-frontend.sh` and
+      `scripts/screenshots.sh` embedded fixed pepper/JWT literals in their
+      disposable configs. They are now generated per run from `/dev/urandom`:
+      no tracked file in the repository contains a secret-shaped literal, and
+      two concurrent runs cannot share a signing key.
+- [x] **Backend tests failed in CI but passed locally.** Starlette 1.x imports
+      `httpx2` and emits a deprecation warning when it falls back to `httpx` —
+      and `pytest.ini` sets `filterwarnings = error`, so every API test errored
+      and coverage fell to 45%. `httpx2` was installed on the dev machine by
+      chance and absent in CI. Now pinned in `requirements-dev.txt`.
+- [x] **semgrep, two findings.** Both false positives on
+      `logger-credential-disclosure`, matched for the words "secrets" and
+      "admin.password" appearing in a *message template*; the only interpolated
+      values are a setting name and a file path. Suppressed with `# nosemgrep`
+      and the reasoning in the comment. Verified: semgrep now reports 0 findings
+      across 1491 rules.
+- [x] **CodeQL, ten alerts.** Eight fixed properly, two suppressed in-source:
+      - *Log injection* (`api/auth.py`, `api/access.py`) — a newline in a
+        submitted username or name could forge whole log records. Added
+        `app/logsafe.scrub()`, which escapes CR/LF and every non-printable
+        character and caps the length, plus `tests/test_logsafe.py`.
+      - *Polynomial regex on uncontrolled data* (`services/mailer.py`) — the
+        HTML-to-text converter used `<[^>]+>` and `<(script|style).*?</\1>`,
+        both quadratic, on digest bodies that embed vendor-supplied text.
+        Replaced with an `html.parser.HTMLParser` subclass: linear, handles
+        entities for free, and better output (table cells no longer run
+        together). Measured: 300 KB of `<` now parses in 0.08 s.
+      - *Clear-text logging* (`app/main.py`) — the weak-secret warning logged
+        `len(value)`, which is derived from the secret. It now names only the
+        minimum, which is what the operator needs anyway.
+      - *Incomplete URL substring sanitization* (`tests/test_mailer.py`) — an
+        `"smtp.example.com:587" in message` assertion. Now an equality check.
+      - *Clear-text logging* (`cli.py`) — `make secrets` prints freshly
+        generated secrets, which is the entire purpose of the command.
+        Suppressed with `# codeql[...]` and the reasoning in the docstring.
+- [x] **npm audit: 7 vulnerabilities → 0.** Upgraded rather than exempted:
+      - `react-router-dom` 6 → 7.18.3. This one **ships to users** — an open
+        redirect via backslash in `<Link>`/`useNavigate`, and constructor
+        injection via `deserializeErrors()`. All the APIs this app uses are
+        unchanged in v7.
+      - `vite` 5 → 8, `@vitejs/plugin-react` 4 → 6, `vite-plugin-istanbul`
+        6 → 9 (the esbuild dev-server advisory). Vite 8 bundles with Rolldown,
+        which needed `manualChunks` written as a function rather than an
+        object.
+      - `nyc` 17 → 18 (the `uuid` bounds-check advisory).
+- [x] **A real UI defect surfaced by the router upgrade.** React Router 7 wraps
+      every navigation in `React.startTransition`, so a filter checkbox bound to
+      `useSearchParams` ticked, un-ticked, then re-ticked: the click sets the
+      box natively, React resets it to match the stale props, and only then does
+      the transition commit. Confirmed by driving the real app (URL updated
+      immediately, `checked` was still `false`). Fixed with
+      `useOptimisticSearchParams` in `hooks.js`, which holds the value just
+      written until the router catches up — the controls respond instantly while
+      the expensive part, re-rendering the grid, stays in the transition.
+- [x] **`make install-dev` now installs the scanners**, because a missing tool
+      is reported as *skipped*, so a local scan without them passes by checking
+      almost nothing. semgrep and pip-audit come from the new
+      `backend/requirements-security.txt`; gitleaks is pinned in the new
+      `scripts/tool-versions.env`, which `security.yml` sources too so local and
+      CI run the same binary; snyk via npm, with a note that `snyk auth` is
+      manual. `security.sh` also accepts the **gitleaks container image** as an
+      alternative to the binary.
+
+**Verified after all of the above:** `make lint` clean across 8 tools,
+`make test` 323 backend tests at 70.1% and 69 Playwright tests at 79.1%, and
+`make security` clean with every scanner actually present.
+
+
 ---
 
 ## Context for whoever picks this up
 
 ### Where work stopped
 
-Paused partway through **section 10/12 tooling**. The very next action was
-writing `scripts/install-hooks.sh` plus `.githooks/pre-commit` and
-`.githooks/pre-push`. Nothing is half-written — every file that exists is
-complete and syntax-checked. Two Makefile targets point at scripts that do not
-exist yet (`make dev` → `scripts/dev.sh`, `make install-hooks` →
-`scripts/install-hooks.sh`); both fail cleanly with "No such file".
+Everything the user has asked for is built, and the first real CI run has been
+triaged end to end (section 16). The working tree is lint-clean, both suites
+pass over their gates, and `make security` is clean with every scanner
+installed.
 
 ### Immediate next steps, in order
 
-1. **`scripts/install-hooks.sh` + `.githooks/pre-commit` + `.githooks/pre-push`.**
-   Requirements from the user: the hook must **block** if there are *any* lint
-   findings, and must **fail if black reports it changed files**. `scripts/lint.sh`
-   already exits 1 in both cases and prints a distinct hint when black was the
-   cause, so the hook is mostly `scripts/lint.sh || exit 1`. Install by copying
-   into `.git/hooks/` (a plain file copy — **do not run `git config`**).
-2. **`scripts/dev.sh`** — run `backend/run.py --reload` and `npm run dev`
-   together, exporting `MILSURP_API_PORT` so Vite's proxy follows the
-   dynamically chosen backend port (`vite.config.js` already reads that env var).
-3. **Backend tests to clear 65%** — see the table in section 11. The ★ rows are
-   the cheap wins; `netutil`, `mailer`, `recaptcha`, `image_store` and the
-   `sites`/`scans`/`preferences` API routers alone would clear it.
-4. **Playwright suite + `scripts/test-frontend.sh`** — see section 11.
-5. **`.github/workflows/ci.yml`, `.github/workflows/security.yml`,
-   `.github/dependabot.yml`.** User explicitly asked for bandit, semgrep, Snyk
-   and secrets detection in GitHub. `scripts/security.sh` already runs exactly
-   that set locally, so mirror its tool list.
-6. **`README.md`** — the largest remaining item. Section 15 lists what it needs.
-7. **`make screenshots`** once the README exists, to populate
-   `marketing/images/screenshot-*.png`.
+1. **Commit and push.** The user commits; I never run git. The changes since
+   `v1.0.0.0` are the section 16 fixes plus the dependency upgrades.
+2. **Watch the next CI run.** Expected green. The one thing that cannot be
+   verified locally is whether GitHub's code-scanning UI honours the in-source
+   `# codeql[...]` suppressions in `cli.py`. If alerts #1 and #2 come back,
+   dismiss them in the Security tab as "won't fix" — only the user can, since I
+   must not run `gh`.
+3. **Section 13's open item** — a test for the production-only access-request
+   endpoint. Needs a fixture that builds a `MILSURP_ENV=production` config with
+   `email.enabled`, since the endpoint deliberately 404s in dev.
+4. **ROADMAP.md** is the backlog from here: the vendor sites, deb/PPA to
+   Launchpad on version tags, and the Electron snap.
 
 ### Environment
 
@@ -525,14 +612,17 @@ scripts/{dbupdate.py,brand.py,coverage_badges.py,install-dev.sh,
 marketing/images/{logo,favicon,insignia,coverage-backend,coverage-frontend}.svg
 ```
 
-### Still to create
+### Recently added
 
 ```
-scripts/{dev.sh,install-hooks.sh,test-frontend.sh}
-.githooks/{pre-commit,pre-push}
-frontend/playwright.config.js
-frontend/tests/*.spec.js
-.github/workflows/{ci.yml,security.yml}
-.github/dependabot.yml
-README.md
+backend/app/logsafe.py                   log-injection sanitiser
+backend/tests/test_logsafe.py            its tests
+backend/requirements-security.txt        semgrep, pip-audit
+scripts/tool-versions.env                pinned gitleaks, shared with CI
 ```
+
+Everything listed under "Still to create" in earlier revisions of this file now
+exists: `scripts/dev.sh`, `scripts/install-hooks.sh`, `scripts/test-frontend.sh`,
+`.githooks/pre-commit`, `.githooks/pre-push`, `frontend/playwright.config.js`,
+`frontend/tests/*.spec.js`, `.github/workflows/{ci,security}.yml`,
+`.github/dependabot.yml` and `README.md`.

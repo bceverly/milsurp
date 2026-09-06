@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "./api.js";
 
 //: Mirrors the backend defaults; used only until /api/policy answers.
@@ -78,4 +79,39 @@ export function useTitle(title) {
       document.title = previous;
     };
   }, [title]);
+}
+
+/**
+ * `useSearchParams`, but the value you just wrote is visible immediately.
+ *
+ * React Router 7 wraps every navigation in `React.startTransition`, so the
+ * render that follows a click still sees the *old* search params. For a
+ * controlled input that is a visible defect: clicking a filter checkbox ticks
+ * the box natively, React resets it to match the stale props, and only then
+ * does the transition commit and tick it again. The filter rail flickers, and
+ * on a slow render it stays wrong long enough to look broken.
+ *
+ * Holding the pending value until the router catches up fixes the controls
+ * while leaving the transition to do its real job — keeping the expensive part,
+ * re-rendering the item grid, off the interaction's critical path.
+ */
+export function useOptimisticSearchParams() {
+  const [params, setParams] = useSearchParams();
+  const [pending, setPending] = useState(null);
+
+  // The router has caught up (or the user navigated some other way), so the
+  // optimistic copy has nothing left to say.
+  useEffect(() => {
+    setPending(null);
+  }, [params]);
+
+  const set = useCallback(
+    (next, options) => {
+      setPending(new URLSearchParams(next));
+      setParams(next, options);
+    },
+    [setParams],
+  );
+
+  return [pending ?? params, set];
 }

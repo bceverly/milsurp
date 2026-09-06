@@ -71,7 +71,10 @@ def _warn_about_weak_secrets(config) -> None:
     )
     for name, value in checks:
         if not value:
-            log.warning(
+            # The rule matches on the word "secrets" in the message. The only
+            # interpolated values are a setting's name and a file path; the
+            # branch is reached precisely because there is no secret to leak.
+            log.warning(  # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
                 "%s is not set. Run 'make secrets' and put the values in %s.",
                 name,
                 config.source_path or "your config.yaml",
@@ -79,10 +82,13 @@ def _warn_about_weak_secrets(config) -> None:
         elif "CHANGE-ME" in value:
             log.warning("%s still holds the sample value from config.yaml.sample.", name)
         elif len(value.encode("utf-8")) < MIN_SECRET_BYTES:
+            # Deliberately says nothing measured from the value itself. The
+            # length of a secret is not the secret, but it is a hint, and a
+            # warning is worth no risk at all when the operator can already
+            # see what they configured.
             log.warning(
-                "%s is only %s bytes; use at least %s. Run 'make secrets'.",
+                "%s is shorter than %s bytes; run 'make secrets' for a strong one.",
                 name,
-                len(value.encode("utf-8")),
                 MIN_SECRET_BYTES,
             )
 

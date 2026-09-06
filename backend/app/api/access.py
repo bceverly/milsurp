@@ -21,6 +21,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr, Field
 
 from ..deps import AppConfig
+from ..logsafe import scrub
 from ..services import mailer
 from ..services.recaptcha import RecaptchaError, verify
 
@@ -177,7 +178,12 @@ def submit_access_request(
         ) from exc
 
     _record(ip)
-    log.info("Access request from %s <%s> delivered to %s", f"{first} {last}", email, support)
+    log.info(
+        "Access request from %s <%s> delivered to %s",
+        scrub(f"{first} {last}"),
+        scrub(email),
+        support,
+    )
     return {
         "message": (
             "Thanks — your request has been sent. " "An administrator will be in touch by email."

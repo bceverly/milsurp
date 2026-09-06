@@ -5,9 +5,9 @@
  * filtered view can be bookmarked, shared, and survives the back button.
  */
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { api } from "../api.js";
-import { useDebounced, useTitle } from "../hooks.js";
+import { useDebounced, useOptimisticSearchParams, useTitle } from "../hooks.js";
 import { formatMoney, formatRelative, timeTitle } from "../format.js";
 import AuthImage from "../components/AuthImage.jsx";
 import {
@@ -152,7 +152,7 @@ function ItemCard({ item }) {
 
 export default function Browse() {
   useTitle("Inventory");
-  const [params, setParams] = useSearchParams();
+  const [params, setParams] = useOptimisticSearchParams();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

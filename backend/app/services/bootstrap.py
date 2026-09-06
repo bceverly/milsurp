@@ -104,7 +104,10 @@ def ensure_admin(session: Session, config: Config | None = None) -> User | None:
 
     seed = config.admin
     if not seed.password:
-        log.error(
+        # Matched for the phrase "admin.password" in the message. The single
+        # interpolated value is the config file's path, and this branch runs
+        # only when no password was configured at all.
+        log.error(  # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
             "No admin account exists and admin.password is not set in %s — "
             "the application cannot be signed into. Set it and restart.",
             config.source_path or "the configuration file",
