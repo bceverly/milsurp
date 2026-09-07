@@ -47,7 +47,7 @@ from ..models import (
     Manufacturer,
     firearm_model_manufacturers,
 )
-from . import manufacturers
+from . import classify, manufacturers
 
 #: How many listing titles to keep on a pending row. Enough to judge it by,
 #: and not so many that the column becomes a log.
@@ -131,13 +131,36 @@ class ModelRegistry:
         :meth:`manufacturers.Registry.extract_from`, and the same order.
         """
         for pattern, found in self.rules:
-            if pattern.search(title or ""):
+            if pattern.search(title or "") and not _contradicted(title, found):
                 return found
         if description:
             for pattern, found in self.rules:
-                if pattern.search(f"{title or ''} {description}"):
+                text = f"{title or ''} {description}"
+                if pattern.search(text) and not _contradicted(title, found):
                     return found
         return Match()
+
+
+def _contradicted(title: str, found: Match) -> bool:
+    """Whether the listing plainly says something else than this model does.
+
+    A designation is not unique. "Model 1911" is a Colt automatic and a
+    Schmidt-Rubin rifle; "Model 1917" is a Colt revolver and an Enfield rifle;
+    "Model 1873" is a Winchester and a Colt. So a title reading "COLT MODEL
+    1917 REVOLVER" matched the Enfield and would have filed a revolver under
+    rifles, in .30-06, made by Winchester.
+
+    The whole match is discarded rather than just its kind, because a model
+    that is wrong about what kind of gun this is was not this gun: its caliber
+    and its maker are wrong too. Matching continues down the list, so a
+    genuinely better row further along still gets its turn.
+    """
+    if found.kind is None:
+        return False
+    stated = classify.stated_kind(title)
+    if stated is None:
+        return False
+    return stated == ("handgun" if found.kind.is_long_gun else "rifle")
 
 
 def _facts_known(row: FirearmModel) -> int:
@@ -406,8 +429,14 @@ def send_back(session: Session, table: str, ids: Iterable[int]) -> int:
 # ---------------------------------------------------------------------------
 # Seeding
 # ---------------------------------------------------------------------------
-#: The starting armory, versioned in the repository beside the code.
-SEED_FILE = Path(__file__).resolve().parents[1] / "data" / "armory.yaml"
+#: The shipped armory, versioned in the repository beside the code.
+#:
+#: Under ``seed/`` and deliberately not ``data/``: this repository's .gitignore
+#: carries an unanchored ``data/``, which matches a directory of that name at
+#: any depth. The file sat there for a while and was never committed, and the
+#: first anyone knew of it was twelve tests failing in CI on a machine that
+#: had only ever seen the repository.
+SEED_FILE = Path(__file__).resolve().parents[1] / "seed" / "armory.yaml"
 
 
 @dataclass
@@ -557,7 +586,12 @@ _EXPORT_HEADER = """\
 
 
 def export_armory(session: Session) -> dict[str, Any]:
-    """The catalog as plain data, ordered so that diffs mean something."""
+    """The armory as plain data, ordered so that diffs mean something."""
+    makers = (
+        session.execute(select(Manufacturer).order_by(func.lower(Manufacturer.name)))
+        .scalars()
+        .all()
+    )
     calibers = session.execute(select(Caliber).order_by(func.lower(Caliber.name))).scalars().all()
     models = (
         session.execute(
@@ -569,6 +603,24 @@ def export_armory(session: Session) -> dict[str, Any]:
         .all()
     )
     return {
+        # The makers go out too. They were missed at first, which meant a
+        # curated armory could be committed with its models and calibers and
+        # silently without the firms that built them -- so a model naming a
+        # maker the file never mentioned arrived somewhere else as a pending
+        # row conjured from a bare name, with no aliases and no order.
+        "manufacturers": [
+            _without_blanks(
+                {
+                    "name": row.name,
+                    "aliases": row.spellings[1:],
+                    "status": row.status.value,
+                    "position": row.position if row.position != 1000 else None,
+                    "enabled": None if row.enabled else False,
+                    "notes": row.notes,
+                }
+            )
+            for row in makers
+        ],
         "calibers": [
             _without_blanks(
                 {
@@ -626,14 +678,15 @@ class Change:
 
 @dataclass
 class SyncPlan:
+    manufacturers: list[Change] = field(default_factory=list)
     calibers: list[Change] = field(default_factory=list)
     models: list[Change] = field(default_factory=list)
 
     def __bool__(self) -> bool:
-        return bool(self.calibers or self.models)
+        return bool(self.manufacturers or self.calibers or self.models)
 
     def counted(self) -> dict[str, int]:
-        every = [*self.calibers, *self.models]
+        every = [*self.manufacturers, *self.calibers, *self.models]
         return {
             action: sum(1 for change in every if change.action == action)
             for action in ("add", "update", "delete")
@@ -644,6 +697,15 @@ def plan_sync(session: Session, path: Path) -> SyncPlan:
     """What :func:`apply_sync` would do, without doing any of it."""
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     plan = SyncPlan()
+
+    firms = {str(e["name"]).strip().lower(): e for e in data.get("manufacturers") or []}
+    for firm in session.execute(select(Manufacturer)).scalars():
+        entry = firms.pop(firm.name.strip().lower(), None)
+        if entry is None:
+            plan.manufacturers.append(Change(firm.name, "delete"))
+        elif differing := _maker_differences(firm, entry):
+            plan.manufacturers.append(Change(firm.name, "update", differing))
+    plan.manufacturers.extend(Change(str(e["name"]), "add") for e in firms.values())
 
     cartridges = {str(e["name"]).strip().lower(): e for e in data.get("calibers") or []}
     for cartridge in session.execute(select(Caliber)).scalars():
@@ -667,9 +729,29 @@ def plan_sync(session: Session, path: Path) -> SyncPlan:
             plan.models.append(Change(gun.name, "update", differing))
     plan.models.extend(Change(str(e["name"]), "add") for e in guns.values())
 
+    plan.manufacturers.sort(key=lambda c: (c.action, c.name.lower()))
     plan.calibers.sort(key=lambda c: (c.action, c.name.lower()))
     plan.models.sort(key=lambda c: (c.action, c.name.lower()))
     return plan
+
+
+def _maker_differences(row: Manufacturer, entry: dict[str, Any]) -> list[str]:
+    return _differences(
+        {
+            "aliases": row.spellings[1:],
+            "status": row.status.value,
+            "position": row.position,
+            "enabled": row.enabled,
+            "notes": row.notes,
+        },
+        {
+            "aliases": [str(a) for a in entry.get("aliases") or []],
+            "status": str(entry.get("status") or ArmoryStatus.PENDING.value),
+            "position": int(entry.get("position") or 1000),
+            "enabled": bool(entry.get("enabled", True)),
+            "notes": entry.get("notes"),
+        },
+    )
 
 
 def _caliber_differences(row: Caliber, entry: dict[str, Any]) -> list[str]:
@@ -729,7 +811,20 @@ def _caliber_list(entry: dict[str, Any]) -> list[str]:
 
 
 def _differences(have: dict[str, Any], want: dict[str, Any]) -> list[str]:
-    return sorted(key for key, value in want.items() if have.get(key) != value)
+    """Which fields differ, treating "empty" as one value however it is spelled.
+
+    An empty textarea stores "", the export drops blanks, and reading the file
+    back gives None -- so "" != None made a fresh export report two rows to
+    update, forever, and the update never converged. Nothing distinguishes an
+    empty note from an absent one, so nothing here should either.
+    """
+    return sorted(
+        key for key, value in want.items() if _blankless(have.get(key)) != _blankless(value)
+    )
+
+
+def _blankless(value: Any) -> Any:
+    return None if value in ("", [], {}) else value
 
 
 def apply_sync(session: Session, path: Path, prune: bool = False) -> dict[str, int]:
@@ -742,11 +837,45 @@ def apply_sync(session: Session, path: Path, prune: bool = False) -> dict[str, i
     """
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     done = {"added": 0, "updated": 0, "deleted": 0}
+    _sync_makers(session, data.get("manufacturers") or [], done, prune)
     calibers = _sync_calibers(session, data.get("calibers") or [], done, prune)
     _sync_models(session, data.get("models") or [], calibers, done, prune)
     if any(done.values()):
         invalidate()
     return done
+
+
+def _sync_makers(
+    session: Session, entries: list[dict[str, Any]], done: dict[str, int], prune: bool
+) -> None:
+    known = {
+        row.name.strip().lower(): row for row in session.execute(select(Manufacturer)).scalars()
+    }
+    listed: set[str] = set()
+    for entry in entries:
+        name = str(entry["name"]).strip()
+        listed.add(name.lower())
+        row = known.get(name.lower())
+        if row is None:
+            row = Manufacturer(name=name)
+            session.add(row)
+            known[name.lower()] = row
+            done["added"] += 1
+        elif _maker_differences(row, entry):
+            done["updated"] += 1
+        else:
+            continue
+        row.aliases = _lines(entry.get("aliases"))
+        row.status = ArmoryStatus(str(entry.get("status") or ArmoryStatus.PENDING.value))
+        row.position = int(entry.get("position") or 1000)
+        row.enabled = bool(entry.get("enabled", True))
+        row.notes = entry.get("notes")
+
+    if prune:
+        for key, row in list(known.items()):
+            if key not in listed:
+                session.delete(row)
+                done["deleted"] += 1
 
 
 def _sync_calibers(

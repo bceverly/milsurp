@@ -773,6 +773,28 @@ separately would let the two disagree on screen. They are also the fastest way
 to see a classification change land: a shift of forty in one column after
 `reclassify` is either the fix or the regression.
 
+### The write-ahead log
+
+SQLite runs in WAL mode here, so writes append to a `milsurp.db-wal` sidecar and
+are folded back on a checkpoint. The automatic checkpoints are PASSIVE: they
+copy the pages across but leave the file at its high-water mark to be reused —
+the right trade while the application is running, and the wrong one for a 36MB
+log sitting against a 17MB database because one large scan grew it once.
+
+A large WAL is not corruption and nothing in it is at risk. `make checkpoint`
+folds it in and empties the file, `make start` does it automatically while the
+app is stopped (when it can do the most), and `scripts/checkpoint-wal.sh` is
+written to be run from cron in production:
+
+```
+17 4 * * *  cd /opt/milsurp && scripts/checkpoint-wal.sh
+```
+
+One hazard is worth knowing: **while a WAL exists, copying `milsurp.db` on its
+own is not a backup.** The copy silently lacks everything not yet folded in,
+which is exactly how a copy of this database turned up missing its newest
+tables. Take `-wal` and `-shm` with it, or use `make backup`.
+
 ### The armory
 
 Everything above reads a listing and *guesses*. The catalog is the opposite: a
@@ -857,15 +879,16 @@ guns, and the vendor has the thing in their hand.
 
 #### Getting it in and out
 
-The knowledge is versioned in the repository, in `backend/app/data/armory.yaml`,
+The knowledge is versioned in the repository, in `backend/app/seed/armory.yaml`,
 rather than inside a migration. A migration runs exactly once per database and
 can never be corrected afterwards, which is the wrong shape for a list meant to
 grow for as long as the site does.
 
 ```
 make armory-seed      # add what the shipped file has and this database does not
-make armory-export    # write this database's armory to armory.yaml, fit to commit
-make armory-sync      # show what armory.yaml would change here
+make armory-export    # write this database's armory OVER the shipped file
+make armory-sync      # preview what the shipped file would change here
+make armory-apply     # carry that out (prune=1 to also delete)
 ```
 
 `seed` is additive and matches on the name: a row already present is left
@@ -875,6 +898,18 @@ corollary is worth knowing before it surprises you — a row *deleted* from the
 database comes back, as pending, on the next seed, because "missing" and
 "deleted" look the same from there. Deleting is not how a row gets rejected;
 leaving it pending or turning it off is, and both survive a re-seed.
+
+`export` writes straight over the versioned file, because the point of keeping
+it under version control is that the change arrives as a reviewable diff.
+Nothing is at risk if the result is wrong: discard it.
+
+The file lives in `backend/app/seed/`, and deliberately **not** in a directory
+called `data/`. This repository's .gitignore carries an unanchored `data/`,
+which matches a directory of that name at any depth — the seed file sat in
+`backend/app/data/` for a while, was never committed, passed every test locally
+and then failed twelve of them in CI with a `FileNotFoundError` that said
+nothing about the cause. A test now asserts it is where the code expects it and
+not under any ignored directory.
 
 `export` writes what the database holds in a stable order, so a diff shows what
 actually changed. Statuses go with it, so a row promoted on one instance

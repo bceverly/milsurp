@@ -463,6 +463,51 @@ def _is_a_muzzleloader_kit(title: str) -> bool:
     )
 
 
+#: The nouns that name a kind of gun outright, split the way the browse filter
+#: splits them. Deliberately not the model designations: those live in
+#: RIFLE_PATTERNS and PISTOL_PATTERNS and are the thing being checked.
+_LONG_GUN_NOUN = re.compile(
+    r"\b(?:rifles?|carbines?|muskets?|shotguns?|machine\s?guns?|combination\s+guns?)\b", re.I
+)
+_HANDGUN_NOUN = re.compile(r"\b(?:pistols?|revolvers?|handguns?)\b", re.I)
+
+
+def stated_kind(title: str) -> str | None:
+    """What the title's own words say it is: "rifle", "handgun", or nothing.
+
+    Only when they settle it. A title naming both -- "Percussion Pistol
+    Carbine" -- and a title naming neither both return None, because in
+    either case the words are not an answer.
+
+    This exists for the armory to check itself against. A model designation is
+    not unique: "Model 1911" is a Colt and a Schmidt-Rubin, "Model 1917" is a
+    Colt revolver and an Enfield rifle, "Model 1873" is a Winchester and a
+    Colt. When a matched model disagrees with what the listing plainly says,
+    the match is wrong -- not merely its kind, but its caliber and its maker
+    too -- and it has to be discarded rather than trusted.
+    """
+    title_lower = (title or "").lower()
+    # The nouns first, and they are authoritative. RIFLE_PATTERNS and
+    # PISTOL_PATTERNS carry model designations as well as nouns, and a
+    # designation is exactly what is in dispute here: "COLT MODEL 1917
+    # REVOLVER" matches the rifle list on "model 1917" and the pistol list on
+    # "revolver", which read as ambiguous and settled nothing -- when the
+    # listing could hardly be plainer.
+    if _HANDGUN_NOUN.search(title_lower) and not _LONG_GUN_NOUN.search(title_lower):
+        return "handgun"
+    if _LONG_GUN_NOUN.search(title_lower) and not _HANDGUN_NOUN.search(title_lower):
+        return "rifle"
+
+    # No noun, or both. Fall back to the full vocabulary, which still answers
+    # for a title that names only a model: "Schmidt Rubin Model 1911 with
+    # Matching Bayonet" says rifle by way of Schmidt-Rubin and nothing else.
+    rifle = any(re.search(pattern, title_lower) for pattern in RIFLE_PATTERNS)
+    pistol = any(re.search(pattern, title_lower) for pattern in PISTOL_PATTERNS)
+    if rifle == pistol:
+        return None
+    return "rifle" if rifle else "handgun"
+
+
 def _names_a_handgun(title_lower: str) -> bool:
     """Whether the title says outright, or by designation, that this is one."""
     known = _known_designation(title_lower)

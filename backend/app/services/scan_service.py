@@ -339,7 +339,16 @@ def _apply_catalog(session: Session, item: Item, trusted: bool) -> None:
     if found.caliber:
         item.caliber = found.caliber
     item.manufacturer = item.manufacturer or found.manufacturer
-    if found.kind is not None:
+    # The kind *refines*, it never promotes. The armory knows what a model is;
+    # it does not know whether this listing is selling one. "Early style band
+    # bolt handle Berthier 1907/15 and M16 bolt assembly" names a rifle and is
+    # a bag of bolt parts, and "W+F Bern K31 Pioneer Sawback Bayonet" names a
+    # carbine and is a bayonet. The accessory rules in classify.py decide that
+    # question and are heavily tested on it; all this does is say which of the
+    # two buckets a thing already known to be a firearm belongs in, which it
+    # does better than the words can -- a flintlock pistol and a percussion
+    # revolver are both handguns and neither has to spell that out.
+    if found.kind is not None and (item.is_rifle or item.is_pistol):
         item.is_rifle = found.kind.is_long_gun
         item.is_pistol = found.kind.is_handgun
 

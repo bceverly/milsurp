@@ -22,6 +22,8 @@ should have something to look at rather than an archaeology exercise.
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
@@ -218,7 +220,7 @@ def list_models(
 @router.post("/calibers", response_model=CaliberOut, status_code=status.HTTP_201_CREATED)
 def create_caliber(payload: CaliberCreate, _admin: AdminUser, session: DbSession) -> CaliberOut:
     _reject_duplicate(session, Caliber, payload.name)
-    row = Caliber(**payload.model_dump())
+    row = Caliber(**_emptied(payload.model_dump()))
     session.add(row)
     session.commit()
     service.invalidate()
@@ -230,7 +232,7 @@ def update_caliber(
     caliber_id: int, payload: CaliberUpdate, _admin: AdminUser, session: DbSession
 ) -> CaliberOut:
     row = _row(session, Caliber, caliber_id)
-    changes = payload.model_dump(exclude_unset=True)
+    changes = _emptied(payload.model_dump(exclude_unset=True))
     if "name" in changes and changes["name"] != row.name:
         _reject_duplicate(session, Caliber, changes["name"])
     for field, value in changes.items():
@@ -252,7 +254,7 @@ def create_model(
     payload: FirearmModelCreate, _admin: AdminUser, session: DbSession
 ) -> FirearmModelOut:
     _reject_duplicate(session, FirearmModel, payload.name)
-    data = payload.model_dump()
+    data = _emptied(payload.model_dump())
     makers = _makers(session, data.pop("manufacturer_ids"))
     cartridges = _calibers(session, data.pop("caliber_ids"))
     row = FirearmModel(**data)
@@ -269,7 +271,7 @@ def update_model(
     model_id: int, payload: FirearmModelUpdate, _admin: AdminUser, session: DbSession
 ) -> FirearmModelOut:
     row = _row(session, FirearmModel, model_id)
-    changes = payload.model_dump(exclude_unset=True)
+    changes = _emptied(payload.model_dump(exclude_unset=True))
     if "name" in changes and changes["name"] != row.name:
         _reject_duplicate(session, FirearmModel, changes["name"])
     if "manufacturer_ids" in changes:
@@ -375,6 +377,24 @@ def seed(_admin: AdminUser, session: DbSession) -> ArmoryAction:
 # ---------------------------------------------------------------------------
 # Shared checks
 # ---------------------------------------------------------------------------
+#: The optional text fields, where an empty box means "nothing" rather than
+#: "the empty string". Storing "" makes a row that differs from an untouched
+#: one in the database and not on the screen, which is how an export and a
+#: sync ended up disagreeing forever about two Walthers.
+_OPTIONAL_TEXT = ("aliases", "notes", "wikipedia_url", "first_seen_in")
+
+
+def _emptied(changes: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: (
+            None
+            if key in _OPTIONAL_TEXT and isinstance(value, str) and not value.strip()
+            else value
+        )
+        for key, value in changes.items()
+    }
+
+
 def _known_table(table: str) -> None:
     if table not in service.CURATED:
         raise HTTPException(

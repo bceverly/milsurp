@@ -105,6 +105,12 @@ frontend/.vite/
 .pnp.*
 
 # --- Application data (runtime state, never in version control) ---
+#
+# Unanchored on purpose -- runtime state turns up in more than one place -- but
+# note that it therefore matches a `data/` directory at ANY depth. Shipped data
+# that belongs in the repository goes somewhere else for that reason: the
+# armory's seed file lives in backend/app/seed/, having spent a while in
+# backend/app/data/ being silently ignored.
 data/
 !data/.gitkeep
 

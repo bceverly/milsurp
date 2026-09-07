@@ -447,19 +447,22 @@ def cmd_reclassify(_args: argparse.Namespace) -> int:
             # The caliber first: it is one of the things that names a maker,
             # since a great many surplus cartridges are called after the firm
             # that designed them.
-            caliber = item.caliber or derived["caliber"]
+            #
+            # "First" has to include the armory's normalization of it, and did
+            # not at the outset: the maker lookup saw the raw spelling, the
+            # armory tidied it afterwards, and the *next* run found a maker
+            # the first had missed. That made the command need two passes to
+            # settle, which is a bad property for something whose whole job is
+            # to say what changed.
+            found = armory.fill_in(session, item.title, evidence, item.caliber)
+            caliber = found.caliber or item.caliber or derived["caliber"]
             maker = item.manufacturer or manufacturers.extract(
                 session, item.title, evidence, caliber
             )
-            # And then the armory, exactly as a scan does it. This
-            # ran without it at first, which meant the two paths disagreed:
-            # promoting a model taught every future scan something that
-            # `reclassify` then quietly undid on the listings already stored.
-            found = armory.fill_in(session, item.title, evidence, caliber)
             # Only the blanks: a value the vendor stated is theirs, and this
             # command must be safe to run against a catalog that has some.
             filled = {
-                "caliber": found.caliber or caliber,
+                "caliber": caliber,
                 "country": item.country or derived["country"],
                 "condition": item.condition or derived["condition"],
                 "manufacturer": maker or found.manufacturer,
@@ -470,9 +473,11 @@ def cmd_reclassify(_args: argparse.Namespace) -> int:
                 "is_bayonet": derived["is_bayonet"],
                 "is_parts_kit": derived["is_parts_kit"],
             }
-            if found.kind is not None:
-                # A model an admin has vouched for outranks the heuristics,
-                # and says which of the two buckets better than they can.
+            # Refines, never promotes -- see _apply_catalog in scan_service
+            # for why. A model an admin has vouched for says which of the two
+            # buckets a firearm belongs in better than the words can; it does
+            # not say whether this listing is selling a firearm at all.
+            if found.kind is not None and (flags["is_rifle"] or flags["is_pistol"]):
                 flags["is_rifle"] = found.kind.is_long_gun
                 flags["is_pistol"] = found.kind.is_handgun
             if any(getattr(item, name) != value for name, value in (flags | filled).items()):
@@ -575,7 +580,11 @@ def _print_plan(plan, prune: bool) -> None:
     that hides what it is not going to do is how somebody discovers the flag
     by losing rows to it later.
     """
-    for title, changes in (("Calibers", plan.calibers), ("Models", plan.models)):
+    for title, changes in (
+        ("Manufacturers", plan.manufacturers),
+        ("Calibers", plan.calibers),
+        ("Models", plan.models),
+    ):
         if not changes:
             continue
         print(f"\n{title}:")
@@ -771,14 +780,17 @@ def _add_armory_commands(sub) -> None:
     )
     armory_export.add_argument(
         "--file",
-        default="armory.yaml",
-        help="Where to write it (default: ./armory.yaml).",
+        default=str(armory.SEED_FILE),
+        help="Where to write it. Defaults to the shipped armory file in this "
+        "repository, so the change is a reviewable diff.",
     )
     armory_sync = armory_sub.add_parser(
         "sync", help="Reconcile this database with an armory file. Prints a plan first."
     )
     armory_sync.add_argument(
-        "--file", default="armory.yaml", help="The file to read (default: ./armory.yaml)."
+        "--file",
+        default=str(armory.SEED_FILE),
+        help="The file to read (default: the shipped armory file in this repository).",
     )
     armory_sync.add_argument(
         "--apply", action="store_true", help="Carry the plan out instead of just printing it."

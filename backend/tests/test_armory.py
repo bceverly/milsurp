@@ -15,7 +15,7 @@ from __future__ import annotations
 import pytest
 
 from app.models import ArmoryStatus, Caliber, FirearmKind, FirearmModel, Manufacturer
-from app.services import armory
+from app.services import armory, classify
 
 
 @pytest.fixture
@@ -552,3 +552,188 @@ class TestSeedingTheManufacturers:
         armory.seed(seeded)
         seeded.commit()
         assert manufacturers.extract(seeded, "Rock-Ola M1 Carbine") is None
+
+
+class TestTheRoundTripIsStable:
+    """Export, sync, and find nothing to do. Every time.
+
+    An unstable round trip is worse than no round trip: a sync that always
+    reports work makes the plan meaningless, and there is no way to tell a
+    real difference from the noise.
+    """
+
+    def test_an_empty_note_does_not_look_like_a_change(self, seeded, tmp_path):
+        """A blank textarea stored "", the export dropped it as blank, and
+        reading it back gave None -- so a fresh export reported two rows to
+        update, forever, and applying it changed nothing."""
+        armory.seed(seeded)
+        seeded.commit()
+        row = seeded.query(FirearmModel).filter_by(name="Walther PP").one()
+        row.notes = ""
+        row.aliases = row.aliases or ""
+        seeded.commit()
+
+        path = tmp_path / "armory.yaml"
+        armory.write_export(seeded, path)
+        assert not armory.plan_sync(seeded, path)
+
+    def test_the_manufacturers_go_out_with_it(self, seeded, tmp_path):
+        """They were missed at first, so a curated armory could be committed
+        with its models and calibers and silently without the firms."""
+        armory.seed(seeded)
+        seeded.commit()
+        path = tmp_path / "armory.yaml"
+        armory.write_export(seeded, path)
+
+        import yaml
+
+        written = yaml.safe_load(path.read_text())
+        names = {row["name"] for row in written["manufacturers"]}
+        assert "Rock-Ola" in names
+        assert "International Harvester" in names
+
+    def test_and_come_back_with_their_spellings(self, seeded, tmp_path):
+        armory.seed(seeded)
+        seeded.commit()
+        path = tmp_path / "armory.yaml"
+        armory.write_export(seeded, path)
+
+        for row in seeded.query(Manufacturer).all():
+            seeded.delete(row)
+        seeded.commit()
+
+        done = armory.apply_sync(seeded, path)
+        seeded.commit()
+        assert done["added"] > 0
+        restored = seeded.query(Manufacturer).filter_by(name="Rock-Ola").one()
+        assert "Rock Ola" in restored.spellings
+
+
+class TestAModelDesignationIsNotUnique:
+    """ "Model 1911" is a Colt automatic and a Schmidt-Rubin rifle.
+
+    So is "Model 1917" (a Colt revolver, an Enfield rifle), "Model 1903" (a
+    Springfield rifle, a Smith & Wesson revolver) and "Model 1873" (a
+    Winchester, a Colt, a Springfield Trapdoor). Left alone, the armory filed
+    a $2,000 revolver under rifles, in .30-06, made by Winchester.
+    """
+
+    @pytest.fixture
+    def enfield(self, seeded):
+        row = FirearmModel(
+            name="M1917 Enfield",
+            aliases="Model 1917\nUS M1917",
+            kind=FirearmKind.RIFLE,
+            status=ArmoryStatus.APPROVED,
+        )
+        cartridge = Caliber(name=".30-06 Springfield", status=ArmoryStatus.APPROVED)
+        seeded.add_all([row, cartridge])
+        row.calibers = [cartridge]
+        seeded.commit()
+        armory.invalidate()
+        return row
+
+    def test_a_title_that_plainly_says_otherwise_discards_the_match(self, seeded, enfield):
+        """The whole match, not just its kind: a model wrong about what kind
+        of gun this is was not this gun, so its caliber is wrong too."""
+        found = armory.match(seeded, "COLT MODEL 1917 REVOLVER Gunsmith special, .45 ACP")
+        assert found.model is None
+        assert found.caliber is None
+
+    def test_and_the_stated_caliber_is_left_alone(self, seeded, enfield):
+        found = armory.fill_in(seeded, "COLT MODEL 1917 REVOLVER, .45 ACP", caliber=".45 ACP")
+        assert found.caliber == ".45 ACP"
+
+    def test_a_title_that_agrees_still_matches(self, seeded, enfield):
+        found = armory.match(seeded, "US M1917 Enfield rifle .30-06")
+        assert found.model == "M1917 Enfield"
+
+    def test_a_title_that_says_nothing_either_way_still_matches(self, seeded, enfield):
+        """Silence is not disagreement."""
+        assert armory.match(seeded, "US M1917, 1918 production").model == "M1917 Enfield"
+
+
+class TestTheNounsOutrankTheDesignations:
+    """RIFLE_PATTERNS and PISTOL_PATTERNS carry model designations as well as
+    nouns, and the designation is the thing in dispute. Reading both lists
+    equally made "COLT MODEL 1917 REVOLVER" ambiguous -- rifle by "model
+    1917", handgun by "revolver" -- when it could hardly be plainer."""
+
+    @pytest.mark.parametrize(
+        ("title", "expected"),
+        [
+            ("COLT MODEL 1917 REVOLVER Gunsmith special", "handgun"),
+            ("Factory-Nickeled S&W Model 1903 2nd Change Revolver", "handgun"),
+            ("Awesome Armi San Marco Model 1873 Revolver", "handgun"),
+            ("CZ 52 SEMI AUTO ASSAULT RIFLES", "rifle"),
+            ("Awesome Iver Johnson 1911A1 Carbine 16in Barrel", "rifle"),
+            # No noun at all, so the fuller vocabulary answers instead.
+            ("Schmidt Rubin Model 1911 with Matching Bayonet", "rifle"),
+            # Neither, and nothing else settles it.
+            ("Original U.S. WWII Leather Sling", None),
+        ],
+    )
+    def test_what_the_title_plainly_says(self, title, expected):
+        from app.services import classify
+
+        assert classify.stated_kind(title) == expected
+
+
+class TestTheKindRefinesRatherThanPromotes:
+    """The armory knows what a model is. It does not know whether a listing is
+    selling one -- "W+F Bern K31 Pioneer Sawback Bayonet" names a carbine and
+    is a bayonet, and "Berthier 1907/15 and M16 bolt assembly" names a rifle
+    and is a bag of parts. The accessory rules decide that question."""
+
+    def test_an_accessory_naming_a_model_is_still_an_accessory(self, seeded):
+        row = FirearmModel(
+            name="Schmidt-Rubin K31",
+            aliases="K31",
+            kind=FirearmKind.CARBINE,
+            status=ArmoryStatus.APPROVED,
+        )
+        seeded.add(row)
+        seeded.commit()
+        armory.invalidate()
+
+        # The armory does match it -- that much is true, it is a K31 bayonet.
+        assert armory.match(seeded, "W+F Bern K31 Pioneer Sawback Bayonet").model
+        # And classify still says the listing is a bayonet, which is what the
+        # scan and the reclassify path both defer to.
+        derived = classify.enrich("W+F Bern K31 Pioneer Sawback Bayonet", None, 250.0)
+        assert derived["is_bayonet"]
+        assert not derived["is_rifle"]
+
+
+class TestTheShippedFileIsActuallyShipped:
+    """It has to be in the repository, not merely on the machine that wrote it.
+
+    This is here because it was not, for a while. The file sat in
+    backend/app/data/, and this repository's .gitignore carries an unanchored
+    ``data/`` that matches a directory of that name at any depth -- so it was
+    never committed, everything passed locally, and CI failed twelve tests
+    with a FileNotFoundError that said nothing about the cause.
+
+    One assertion that names the problem beats twelve that describe symptoms.
+    """
+
+    def test_the_seed_file_exists_where_the_code_expects_it(self):
+        assert armory.SEED_FILE.is_file(), (
+            f"{armory.SEED_FILE} is missing. If it exists on your machine but not in "
+            "CI, check .gitignore: an unanchored 'data/' matches a directory of that "
+            "name at any depth."
+        )
+
+    def test_it_is_not_inside_a_directory_the_repository_ignores(self):
+        ignored = {"data", "dist", "node_modules", "__pycache__"}
+        offending = ignored.intersection(part.lower() for part in armory.SEED_FILE.parts)
+        assert not offending, (
+            f"The shipped armory sits under {offending}, which .gitignore excludes. "
+            "It would not reach a fresh checkout."
+        )
+
+    def test_and_it_parses(self):
+        import yaml
+
+        data = yaml.safe_load(armory.SEED_FILE.read_text(encoding="utf-8"))
+        assert data["manufacturers"] and data["calibers"] and data["models"]

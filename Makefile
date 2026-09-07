@@ -84,6 +84,10 @@ migrate: $(VENV_PY) ## Create or upgrade the database to the newest schema
 migrate-status: $(VENV_PY) ## Show the current and pending schema revisions
 	@$(VENV_PY) scripts/dbupdate.py --status
 
+.PHONY: checkpoint
+checkpoint: ## Fold the write-ahead log back in and give its disk back (safe any time)
+	@scripts/checkpoint-wal.sh --verbose
+
 .PHONY: migration
 migration: $(VENV_PY) ## Create a new migration: make migration m="add widget"
 	@if [ -z "$(m)" ]; then echo 'Usage: make migration m="what changed"' >&2; exit 1; fi
@@ -107,6 +111,11 @@ start: install migrate frontend/dist/index.html ## Rebuild the UI and (re)start 
 	@# The URL is only printed once /api/health answers: run.py writes the port
 	@# file before uvicorn binds, so the file alone is not a readiness signal.
 	@$(MAKE) --no-print-directory stop
+	@# With the app stopped the write-ahead log can be folded back in and its
+	@# file emptied. Automatic checkpoints are PASSIVE and leave the file at its
+	@# high-water mark, which is the right trade while running and the wrong one
+	@# for a 36MB log against a 17MB database. Silent when there is nothing to do.
+	@scripts/checkpoint-wal.sh
 	@rm -f $(PORT_FILE)
 	@nohup $(VENV_PY) backend/run.py > $(LOG_FILE) 2>&1 & \
 		echo $$! > $(PID_FILE)
@@ -203,18 +212,6 @@ photos: $(VENV_PY) ## Download queued photos without re-scraping (make photos li
 photos-retry: $(VENV_PY) ## Try photos that were given up on after repeated failures
 	@$(VENV_PY) backend/cli.py fetch-photos --retry-failed $(if $(limit),--limit "$(limit)",)
 
-.PHONY: armory-seed
-armory-seed: $(VENV_PY) ## Add shipped models/calibers, all awaiting approval
-	@$(VENV_PY) backend/cli.py armory seed
-
-.PHONY: armory-export
-armory-export: $(VENV_PY) ## Write the catalog to catalog.yaml, fit to commit
-	@$(VENV_PY) backend/cli.py armory export --file armory.yaml
-
-.PHONY: armory-sync
-armory-sync: $(VENV_PY) ## Show what catalog.yaml would change here (add --apply yourself)
-	@$(VENV_PY) backend/cli.py armory sync --file armory.yaml
-
 .PHONY: reclassify
 reclassify: $(VENV_PY) ## Re-derive rifle/handgun for stored listings (no network)
 	@$(VENV_PY) backend/cli.py reclassify
@@ -234,6 +231,30 @@ sites: $(VENV_PY) ## List sites, their schedules and last scan
 .PHONY: digest
 digest: $(VENV_PY) ## Send any email digests that are due
 	@$(VENV_PY) backend/cli.py digest
+
+##@ Armory (the canonical manufacturers, models and calibers)
+
+#: The shipped armory, versioned in this repository. `armory-export` writes
+#: straight over it, because the point of keeping it under version control is
+#: that the diff is reviewable before it is committed. Nothing is at risk if
+#: the result is wrong: discard the change.
+ARMORY_FILE := backend/app/seed/armory.yaml
+
+.PHONY: armory-seed
+armory-seed: $(VENV_PY) ## Add shipped manufacturers/models/calibers, all awaiting approval
+	@$(VENV_PY) backend/cli.py armory seed
+
+.PHONY: armory-export
+armory-export: $(VENV_PY) ## Write this database's armory over the shipped file, to review and commit
+	@$(VENV_PY) backend/cli.py armory export --file $(ARMORY_FILE)
+
+.PHONY: armory-sync
+armory-sync: $(VENV_PY) ## Preview what the shipped armory file would change here; changes nothing
+	@$(VENV_PY) backend/cli.py armory sync --file $(ARMORY_FILE)
+
+.PHONY: armory-apply
+armory-apply: $(VENV_PY) ## Carry out what armory-sync previewed (add prune=1 to also delete)
+	@$(VENV_PY) backend/cli.py armory sync --file $(ARMORY_FILE) --apply $(if $(prune),--prune,)
 
 ##@ Quality
 
