@@ -662,10 +662,229 @@ is a Mosin. Both entries are kept and the dialog says which ones cancel out.
 Everything is matched as literal text on whole words, never as a pattern.
 Saving re-files every listing the change reaches and reports how many moved.
 
+**What a listing is selling is the last noun, not the first.** A dealer names
+the firearm an accessory fits, first and prominently: "U.S. M1 Garand Rifle
+WWII 1907 Pattern Leather Sling" is a sling. Reading whichever was mentioned
+first made forty-two of IMA-USA's slings, bayonets, scabbards, handguards and
+dummy cartridges into rifles — and their own sections are called "M1 Garand &
+U.S. Rifles", so the vendor's category agreed.
+
+Several rules keep that honest, and each exists because the simple version of
+it broke something. Every one of them was measured against the whole stored
+catalog before it was kept, which is how each of the wrong turns below was
+found — a change that reads well and fixes the case in front of you will
+quietly cost you thirteen listings somewhere else.
+
+- **A part the listing comes with, or without, is removed before anything reads
+  the title.** "Schmidt Rubin K31 with Matching Bayonet, Scabbard & Frog" is a
+  rifle, and so is "Marlin 444S w/ Ammo". The whole chain goes, not just the
+  first item: stripping only the first left ", Holster & Box" behind, and a
+  holster at the end of a title looks exactly like a holster for sale.
+  A *count* introduces the parts it counts and nothing further off, so "Pistol
+  2 Magazines & Service Holster" is a pistol while "Mark 1 Plastic Training
+  Bayonet" is a bayonet; a length is not a count, or `16" BARRELS` would read
+  as a gun that comes with sixteen of them. An introducer at the very start of
+  a title attaches the part to nothing — IMA-USA open every listing with
+  "Original", which read the head off "Original U.S. WWII Rear Sight for the
+  M1903A1" and sold a sight as a rifle.
+- **Only some accessory words may be read as the head noun**, and every
+  accessory word in the title is tested, not just the first. "PSYOP Chieu Hoi
+  Magazine Bag" leads with "magazine", which is a specification here; testing
+  only that one missed the "bag" that is the product.
+- **A part word is a specification when it is describing a gun already named.**
+  This is what lets barrels, stocks, grips and sights be read at all. Four
+  signals say so, and a part sold on its own has none of them: a measurement
+  immediately before it ("Straight Pull Rifle 30.75in Barrel"), a profile or a
+  finish ("Threaded Barrel", "Fixed Stock", "Octagonal Barrel"), a dash setting
+  it off from a gun already named ("Kimber Micro 9 - Laser Grips"), or simple
+  distance from the firearm noun. Singular, too: a gun has one barrel, so
+  `8" Barrel` is a specification and `16" Chrome Lined Barrels` is a box of
+  barrels. Grips and sights accept a *model* name as the thing being described,
+  because they are hardly ever sold loose here; barrels and stocks are, in
+  quantity, so those need the firearm noun itself.
+- **An entry in a list of features is not the head noun.** "Bolt Action,
+  Bayonet, Exc Cond, Ser # M40829" is a rifle that has one — and neither is the
+  *last* entry in one, which has no comma after it to give it away: "JRA
+  Gallant Rifle, 5.56 NATO, 18in BBL, ..., 30 Rd Mag, Rifle Case" is a rifle
+  sold with a case. Three commas are required before a title counts as a spec
+  list, because "Boyle, Gamble, & McFee Bayonet Adapter" is a maker's name.
+  Some vendors write the same list with dashes — "Smith & Wesson Model 30-1 –
+  .32 Long – Pachmayr Grips – 4 Inch Barrel – 1969 C&R" is an $850 revolver
+  whose third entry happens to be its grips — so three *spaced* dashes count
+  too. Spaced, because the hyphen in "30-1" is not a separator.
+- **What follows the part stops being evidence at "for", a colon or a dash.**
+  Each of those introduces the gun a part *belongs to*: "Rear Sight **for** the
+  M1903A1 Springfield Rifle", "Handbook**:** U.S. .30 M1 Garand", "Allin
+  Conversion Sling Made from Civil War Slings **-** M1868 Trapdoor Springfield".
+- **Order does not decide.** It used to: whichever of the firearm and the
+  accessory came first was taken to be the product. That reads "Over & Under
+  Double **Barrel** .44 Caliber Swivel Breech Percussion **Rifle**" as a barrel
+  and "Matched Pair of Flintlock **Holster** **Pistols**" as a holster, because
+  those dealers put the part word early as a description. The head-noun test
+  reaches the same answer on the cases order was protecting — "Leather sling
+  **for** a Mauser rifle" stops being evidence at "for" — and the right one on
+  these.
+
+**The vendor's category outranks all but the confident half of that.** A
+category names the *section*, not the item, so a phrase that can only be a part
+("parts kit", "dummy cartridges", "non-firing") and an accessory sitting in the
+head-noun position both beat it. Nothing weaker does. Promoting the whole veto
+above the category turned forty firearms into accessories, and the category had
+been quietly rescuing them all along.
+
+**A gun that has been made safe is still that gun.** An inert M2HB display at
+$9,995, a non-firing 1903 training rifle and a 47%-scale replica revolver were
+all filed under parts, by the same words — inert, dummy, non-firing, prop —
+that correctly catch a box of dummy cartridges and a bare movie prop. Those
+words now veto only when the title does not *name* the thing as a gun, so
+"Non-Firing Training **Rifle**" and "Inert Display Machine **Gun**" come
+through and "Non-Firing **Prop Gun**" does not. The same conditional treatment
+covers the words that describe a gun as readily as they name a product — book,
+cap, medal, patch, tripod — with one extra requirement: the gun must be named
+*before* the word. That is the whole difference between "Single Action Revolver
+Grouping - As Featured In … Firearms **Book**" and "Reference **book**, Mauser
+rifles", which name the same two things in the opposite order.
+
+**A dealer who deals in collectors' guns names the model and stops.** "ANIB FN
+SCAR 16S - Desert Camo", "Like-New DSA SA 58 FALO", "Walther Model 4 -
+Copenhagen Police", "Winchester Model 1873, .44-40 - 1882 mfg". Not one of
+those contains the word rifle or pistol, so there was nothing in the title for
+the rules above to read and every one of them was filed under parts and
+accessories at four figures. `RIFLE_PATTERNS` and `PISTOL_PATTERNS` carry the
+designations for that reason, and they are *models*, never bare makers: Colt,
+Winchester, Remington, Springfield, Beretta and CZ all build both, so a maker's
+name on its own decides nothing. The same list is what tells a specification
+from a product in the rule above, which is why adding a maker there has a cost
+— `hammerli` matched "Target Rifle – **Hammerli** Barrel" and turned a rifle
+into a barrel, and now only the model does.
+
 A listing whose maker, caliber or country could not be worked out is filed under
 **Unknown** in the filters — the column stays empty, and "Unknown" is only what
 the filter calls it, so the fill-in-the-blanks rules keep working. It is there so
 the ones the heuristics fail on are the easiest to find rather than invisible.
+
+**Each Type carries the count it would show.** The numbers next to Rifles,
+Handguns, Bayonets, Parts kits and Other are counted over every other filter
+but deliberately *not* over the Type itself — with the Type applied, choosing
+Rifles would report zero handguns and the numbers would only ever restate the
+choice already made. "Anything" is the sum of the five rather than a sixth
+count, because the five partition the set by construction and computing it
+separately would let the two disagree on screen. They are also the fastest way
+to see a classification change land: a shift of forty in one column after
+`reclassify` is either the fix or the regression.
+
+### The armory
+
+Everything above reads a listing and *guesses*. The catalog is the opposite: a
+table of things somebody who knows the trade has stated, which the guesses
+defer to. Three tabs at `/armory` in the admin pages — Manufacturers, Models and Calibers.
+One page, because they are three views of one body of knowledge: the makers used
+to be a page of their own where each firm carried a flat textbox of model names
+that nothing else could see, and that split is what the join tables removed.
+
+**Calibers, and every way the trade writes one.** ".32 ACP" and "7.65mm
+Browning" are the same round; so are ".30-06" and "7.62x63mm", "7.62x54R" and
+"7,62x54R", "7.5x55mm Swiss" and "GP11". Until they are one row a filter on
+either shows half the listings, and a missing caliber cannot be filled in from
+anything. The longest spelling is tried first, which is what stops "7.62x54R"
+being read as a bare "7.62".
+
+**Models, with their makers, their calibers and what kind of gun they are.**
+Both of those are lists, and for different reasons.
+
+A model has *several makers*: the M1 Carbine was built by Inland, Winchester,
+Rock-Ola, IBM, Underwood, Quality Hardware, National Postal Meter, Standard
+Products and Saginaw, and a listing may name any of them or none. That is a
+join table rather than a column because the relationship runs both ways —
+Winchester also made the Model 1873 and the Model 94. It is one row per model,
+never one per maker, so the kind is stated once and there is nothing to keep in
+sync.
+
+A model also has *several calibers*, because one built across decades is often
+chambered in more than one round. A Steyr M95 is 8x50mmR or 8x56mmR depending
+on when it was rebarreled, and both are correct for a rifle sold today as "an
+M95".
+
+Both lists follow the same rule when the catalog is asked to fill in a blank:
+**with exactly one it is a fact, with several it says nothing.** A title naming
+none of the nine makers does not tell us which built it, and "Steyr M95" does
+not say which cartridge this particular rifle takes. A guess dressed as a fact
+is worse than a blank.
+
+The kind is finer than the browse filter's rifle/handgun split, because the
+ignition system is half of what a muzzleloader is: rifle, carbine, shotgun,
+pistol and revolver, each also in flintlock and percussion. A **carbine is not
+a short rifle** — a Trapdoor Carbine and a Trapdoor Rifle are different guns,
+priced and collected separately. Variants within a model, the years and the
+arsenals and the marks, are aliases rather than kinds.
+
+**A manufacturer is a tab here, not a page of its own.** Opening one expands to
+the models the armory says that firm built, with **+ Add model** offering a new
+one with the maker already ticked. A model built by nine firms appears under all
+nine, and it is the *same row* — opening it from any of them edits one record,
+whose caliber and kind are stated once. That is the whole reason the makers were
+folded in: a flat list of model names per firm could only say "this firm made
+something called M44", so a designation two firms both made had to be dropped
+from maker-matching entirely. Now the same fact is expressible directly, and a
+model with exactly one maker names it while a model with nine names none.
+
+**Approving is a checkbox in the header away.** Each tab selects everything it
+is currently listing — which, on the default "Awaiting approval" view, is the
+whole queue for that tab — and promotes it in one go. The request is sent in
+batches, because a single call is bounded and select-all on a grown armory is
+exactly what outruns it.
+
+**Nothing decides anything until a person says so.** Every row is either
+*awaiting approval* or *production*, and only production rows fill in a
+caliber or settle what kind of gun a listing is. That is what makes it safe
+for a scan to write down every designation it does not recognize: a proposal
+is inert, it is recorded once rather than re-asked on every scan, and it waits
+somewhere an admin can rule on it. Promoting is one-way and sending a row back
+is a separate button, because "I have checked this" and "I no longer trust
+this" are different statements.
+
+**Merging is how the same thing said twice becomes one thing.** "Mosin" folds
+into "Mosin-Nagant", "7.65mm Browning" into ".32 ACP". The source's spellings
+move to the target, so nothing it used to recognize stops being recognized,
+and every listing carrying the old name is restamped. The merged row stays,
+marked and pointing at its target, so a wrong merge is an undo rather than an
+archaeology exercise.
+
+**What the catalog will not do is argue with a dealer.** It normalizes a
+stated caliber — the two spellings are one answer — and fills in a blank one,
+and stops there. Sixty years of surplus is full of rebarreled and rechambered
+guns, and the vendor has the thing in their hand.
+
+#### Getting it in and out
+
+The knowledge is versioned in the repository, in `backend/app/data/armory.yaml`,
+rather than inside a migration. A migration runs exactly once per database and
+can never be corrected afterwards, which is the wrong shape for a list meant to
+grow for as long as the site does.
+
+```
+make armory-seed      # add what the shipped file has and this database does not
+make armory-export    # write this database's armory to armory.yaml, fit to commit
+make armory-sync      # show what armory.yaml would change here
+```
+
+`seed` is additive and matches on the name: a row already present is left
+exactly as it is, edits and approvals and all, so it is safe on every deploy
+and is how a later release's additions reach a running installation. The
+corollary is worth knowing before it surprises you — a row *deleted* from the
+database comes back, as pending, on the next seed, because "missing" and
+"deleted" look the same from there. Deleting is not how a row gets rejected;
+leaving it pending or turning it off is, and both survive a re-seed.
+
+`export` writes what the database holds in a stable order, so a diff shows what
+actually changed. Statuses go with it, so a row promoted on one instance
+arrives as production on the next.
+
+`sync` is the destructive counterpart, and therefore plans first: it prints
+every add, every update with the fields that differ, and every deletion it
+*would* make, and does none of it without `--apply`. Deletions need `--prune`
+on top, because a catalog is curated in two places and a row missing from the
+file is more often unexported than unwanted.
 
 ### robots.txt
 

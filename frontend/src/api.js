@@ -164,6 +164,28 @@ export const api = {
     request(`/api/manufacturers/${id}`, { method: "PATCH", body: patch }),
   deleteManufacturer: (id) => request(`/api/manufacturers/${id}`, { method: "DELETE" }),
 
+  // --- the armory: manufacturers, models, calibers, and the approval gate ---
+  armorySummary: () => request("/api/armory/summary"),
+  armoryKinds: () => request("/api/armory/kinds"),
+  armoryModels: (params) => request(`/api/armory/models${qs(params)}`),
+  armoryCalibers: (params) => request(`/api/armory/calibers${qs(params)}`),
+  createArmoryRow: (table, payload) =>
+    request(`/api/armory/${table}`, { method: "POST", body: payload }),
+  updateArmoryRow: (table, id, patch) =>
+    request(`/api/armory/${table}/${id}`, { method: "PATCH", body: patch }),
+  deleteArmoryRow: (table, id) =>
+    request(`/api/armory/${table}/${id}`, { method: "DELETE" }),
+  promoteArmoryRows: (table, ids) =>
+    request(`/api/armory/${table}/promote`, { method: "POST", body: { ids } }),
+  sendArmoryRowsBack: (table, ids) =>
+    request(`/api/armory/${table}/send-back`, { method: "POST", body: { ids } }),
+  mergeArmoryRows: (table, source_id, target_id) =>
+    request(`/api/armory/${table}/merge`, {
+      method: "POST",
+      body: { source_id, target_id },
+    }),
+  seedArmory: () => request("/api/armory/seed", { method: "POST" }),
+
   // --- email preferences ---
   preferences: () => request("/api/preferences/email"),
   savePreferences: (payload) =>

@@ -156,6 +156,21 @@ def _forget_compiled_manufacturers():
     manufacturers.invalidate()
 
 
+@pytest.fixture(autouse=True)
+def _forget_compiled_armory():
+    """And the model and caliber registries, for exactly the same reason.
+
+    These bite harder than the maker one, because approving a row is itself a
+    table change: a test that promotes a caliber and then asks what ".30-06"
+    normalizes to gets the answer from before the promotion without this.
+    """
+    from app.services import armory
+
+    armory.invalidate()
+    yield
+    armory.invalidate()
+
+
 @pytest.fixture
 def ctx_factory(app_config):
     """Build a ScrapeContext with particular hooks, and close it afterwards."""
@@ -192,6 +207,9 @@ def clean_db(_database):
             "items",
             "scan_runs",
             "sites",
+            "firearm_model_manufacturers",
+            "firearm_models",
+            "calibers",
             "manufacturer_models",
             "manufacturers",
             "users",

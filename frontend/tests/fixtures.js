@@ -16,7 +16,11 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 
-const NYC_OUTPUT = resolve(process.cwd(), ".nyc_output");
+// Per-run when the harness says so, for the same reason as the Playwright
+// output directory: two runs merging into one .nyc_output report a coverage
+// figure that belongs to neither of them.
+const NYC_OUTPUT =
+  process.env.MILSURP_E2E_NYC_DIR || resolve(process.cwd(), ".nyc_output");
 const USERNAME = process.env.MILSURP_USER || "admin";
 const PASSWORD = process.env.MILSURP_PASSWORD || "";
 

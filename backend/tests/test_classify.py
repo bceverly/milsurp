@@ -908,7 +908,6 @@ class TestAStandalonePistolMagazine:
             "Erma Luger Magazine",
             "FXO WWII GERMAN LUGER MAGAZINE",
             "GERMAN LUGER MAGAZINE, SERIAL NUMBER 0388",
-            "CZ82 9x18 Makarov - 12RD Magazine + Free Accessories",
         ],
     )
     def test_the_magazine_is_the_product(self, title):
@@ -921,6 +920,13 @@ class TestAStandalonePistolMagazine:
             "AR-15 9MM Rifle / Carbine with Glock Magazine",
             "CZ BRNO Model 2 Trainer Rifle, .22 Long Rifle, 5 round magazine included",
             "Czech VZ 82 / CZ82 - 9x18mm Makarov Pistol with Holster & 2 Magazines",
+            # This one was listed here as a magazine until the site's owner
+            # said otherwise, and the vendor's own pages agree: the sibling
+            # listing is "CZ82 *Pistol* 9x18 Makarov - 10 Round Magazine +
+            # FREE Accessories" at $209.99, and this one's URL slug is
+            # /shop/cz82-pistol-9x18-makarov-12-round-magazine-free-accessories/.
+            # It is a pistol whose title dropped the word.
+            "CZ82 9x18 Makarov - 12RD Magazine + Free Accessories",
         ],
     )
     def test_a_firearm_sold_with_one_is_still_a_firearm(self, title):
@@ -1075,3 +1081,418 @@ class TestBayonetsAndPartsKits:
 
     def test_an_ordinary_accessory_is_neither(self):
         assert self.flags("Canvas ammo pouch") == (False, False, False, False)
+
+
+class TestWhatTheListingIsActuallySelling:
+    """A dealer names the firearm an accessory fits, first and prominently.
+
+    IMA-USA's slings, bayonets, scabbards and dummy cartridges all arrived as
+    rifles, because the rule read whichever was mentioned *first* and they file
+    them under "M1 Garand & U.S. Rifles" besides. English puts the head noun
+    last: "M1 Garand Rifle 1907 Pattern Leather Sling" is a sling.
+    """
+
+    def kind(self, title, price=90.0, category=None):
+        d = classify.enrich(title, None, price, category=category)
+        return (
+            "bayonet"
+            if d["is_bayonet"]
+            else "rifle" if d["is_rifle"] else "pistol" if d["is_pistol"] else "other"
+        )
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "U.S. M1 Garand Rifle WWII 1907 Pattern Leather Sling with Steel Fittings",
+            "U.S. WWII M1 Carbine Web Sling - Marked U.S.",
+            "U.S. M1887 Springfield Trapdoor and Krag Rifle Leather Sling",
+            "Original U.S. WWI Era Unissued M1903 Springfield Rifle Handguard",
+            "U.S. WWII M1 Carbine Leather Scabbard Holster",
+        ],
+    )
+    def test_the_accessory_at_the_end_is_the_product(self, title):
+        assert self.kind(title) == "other"
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "U.S. WWI M1917 Enfield Bayonet with Scabbard",
+            "U.S. WWII M1 Garand Rifle Bayonet & M3 Scabbard",
+            "U.S. M-1905 Springfield Bayonet Scabbard Number 2",
+            "U.S. WWII M3 Scabbard for Long M1 Garand Bayonet",
+        ],
+    )
+    def test_a_bayonet_is_a_bayonet_even_when_the_title_says_rifle(self, title):
+        assert self.kind(title) == "bayonet"
+
+    def test_dummy_cartridges_are_not_a_rifle(self):
+        title = (
+            "Original U.S. WWII-Style Set of 8 Dummy .30-06 Cartridges in M1 Garand En-Bloc Clip"
+        )
+        assert self.kind(title) == "other"
+
+    def test_the_vendors_category_does_not_make_a_sling_a_rifle(self):
+        """A category names the *section*, not the item, and a section called
+        "M1 Garand & U.S. Rifles" is full of things for M1 Garands."""
+        title = "U.S. M1 Garand Rifle WWII 1907 Pattern Leather Sling with Steel Fittings"
+        assert self.kind(title, category="M1 Garand & U.S. Rifles") == "other"
+
+    # -- and the things that must not move ---------------------------------
+    @pytest.mark.parametrize(
+        ("title", "expected"),
+        [
+            # A trailing specification, not a product.
+            ("Swiss K1911 Carbine Straight Pull Rifle 7.5x55 23.3in Barrel", "rifle"),
+            ("CZ82 Pistol 9x18 Makarov - 10 Round Magazine + FREE Accessories", "pistol"),
+            ("Colt Single Action Army .41 Colt Revolver with 4 3/4 barrel", "pistol"),
+            # A lug is a fitting on the barrel.
+            (
+                "JRA Gallant Rifle, 5.56 NATO, 18in Bbl W/ Comp & Bayonet Lug, Side Fold Stock",
+                "rifle",
+            ),
+            # One entry in a list of the rifle's features.
+            (
+                "Russian M44 Mosin Nagant Rifle, 7.62x54r, Bolt Action, Bayonet, Exc Cond, Ser # M4",
+                "rifle",
+            ),
+            (
+                "Chinese Norinco SKS Rifle, 7.62x39, All Matching, Rare Handguard, As New, Ser # 23",
+                "rifle",
+            ),
+            # A chain of things it comes with.
+            ("Schmidt Rubin K31 with Matching Bayonet, Scabbard & Frog - 7.5 Swiss", "rifle"),
+            (
+                "Bulgarian Makarov PM Pistol, 9x18mm - Unissued with Two Magazines, Holster & Box",
+                "pistol",
+            ),
+            ("Southern Tactical VZ61 32 ACP Skorpion Pistol w/3 Mags & Leather Pouch", "pistol"),
+            # The serialized part is the firearm however the title ends.
+            ("Berthier barreled action, shortened barrel", "rifle"),
+        ],
+    )
+    def test_a_firearm_that_merely_mentions_a_part_is_still_a_firearm(self, title, expected):
+        assert self.kind(title, price=700.0) == expected
+
+    @pytest.mark.parametrize(
+        ("title", "category", "expected"),
+        [
+            (
+                "Colt Model 1849 Pocket Revolver - Inscribed & Real Ivory Grips",
+                "Antique Handguns",
+                "pistol",
+            ),
+            ("ANIB Kimber Micro 9 - Laser Grips", "Modern Handguns", "pistol"),
+            ("Excellent, 1971 Marlin 444S w/ Ammo - JM Marked", "Modern Long Guns", "rifle"),
+        ],
+    )
+    def test_the_category_still_rescues_the_weak_signals(self, title, category, expected):
+        """And this is why only the confident half of the accessory test is
+        allowed to outrank it.
+
+        `grips` is in the accessory vocabulary, and "Real Ivory Grips" is a
+        description of a revolver. "Marlin 444S" names no word this code knows
+        to be a firearm at all. Both are decided by the section the dealer put
+        them in, which is the right answer and the reason promoting the whole
+        veto above the category turned forty firearms into accessories.
+        """
+        assert self.kind(title, price=700.0, category=category) == expected
+
+    def test_a_holster_pistol_is_a_pistol(self):
+        """The name of a type, not a holster."""
+        title = "Original U.S. Volcanic Repeating Arms Co. No. 2 Navy Holster Pistol in .41 Caliber"
+        assert self.kind(title, price=4000.0) == "pistol"
+
+
+class TestWhatTheSiteOwnerReported:
+    """The two lists of misclassifications reported against the live catalog.
+
+    Kept as one class because they were one piece of work and they pull
+    against each other: the accessories below are titled with the firearm they
+    fit, and the firearms are titled with the parts they are made of. Every
+    rule that fixes one half is a chance to break the other, which is what
+    happened repeatedly while these were being written.
+    """
+
+    def kind(self, title, price=None, category=None):
+        d = classify.enrich(title, None, price, category=category)
+        if d["is_bayonet"]:
+            return "bayonet"
+        return "rifle" if d["is_rifle"] else "pistol" if d["is_pistol"] else "accessory"
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            # Reported as showing up under rifles. IMA-USA file all of these
+            # under "M1 Garand & U.S. Rifles", because that is what they fit.
+            "Original U.S. Military Vietnam War PSYOP Chieu Hoi Magazine Bag - Set of Five Bags",
+            "U.S. WWII Rifle Muzzle Cover- SOCOM",
+            "Handbook: U.S. .30 M1 Garand",
+            "Original U.S. WWII NOS M1910 Wire Hanger - Parkerized",
+            "U.S. WWII M1 Carbine Butt Magazine Pouch",
+            "U.S. M1 Carbine Carry Case Bag - Marked U.S.",
+            "U.S. Garand Leather Sniper Rifle Cheek Pad- Medium Brown",
+            "U.S. M1 Garand Rifle Carry Case Bag - Marked U.S.M.C.",
+            "U.S. WWI BAR Magazine Bandoleer",
+            "Original U.S. WWII Cal .30 M1 Carbine Oiler - Unissued",
+            "Original U.S. Vietnam Era M1956 Ammunition Case",
+            "U.S. WWII Garand and Springfield Scabbard Replacement Body",
+            "U.S. WWII Fleece Lined M1 Carbine Rifle Case - Marked U.S.",
+            "U.S. WWII Fleece Lined M1 Garand Rifle Case - Marked U.S.",
+            "U.S. WWII BAR Magazine Belt - Browning Automatic Rifle",
+            "Original Rubber Film Prop M1 Garand En Bloc Clip As Used in Saving Private Ryan",
+            "U.S. WWII M1 Garand Rifle Ammunition Cartridge Belt",
+            "Original U.S. WWII Rear Sight for the M1903A1 Springfield Rifle - Unissued",
+            "Original U.S. Indian War Era Springfield M1870 Rifle & Carbine Combination Tool",
+        ],
+    )
+    def test_an_accessory_named_for_its_rifle_is_still_an_accessory(self, title):
+        assert self.kind(title, category="M1 Garand & U.S. Rifles") == "accessory"
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            # And the other list: firearms showing up under parts and
+            # accessories. A collector's dealer names the model and stops, or
+            # names the gun and then everything it is made of.
+            "ANIB FN SCAR 16S - Desert Camo",
+            "Like-New Marcolmar CETME-LV",
+            "ANIB Galil Ace Gen 1 - 7.62x39",
+            "ANIB Springfield Armory M1A Super Match - Pre-1994 Ban",
+            "Early Colt SP1 w/ Colt Letter - 1964 mfg",
+            "Excellent Boxed Colt Sporter Competition HBAR",
+            "Romangian Cugir SAR-1 AKM - 7.62x39",
+            "Like-New DSA SA 58 FALO",
+            "Springfield Model 1903 - 1918 mfg",
+            "Winchester Model 1873, .44-40 - 1882 mfg",
+            "Winchester Model 94 .30-30 Win 1971 Production",
+            "Nice Remington Model 7400 - .30-06",
+            "Excellent Remington Model 1903A3, Faux Sniper - Rock Ridge Conversion",
+            "GMG / Inglis Bren MKI Semi Automatic .303 British",
+            "Rare, Gorgeous Sauer M30 Luftwaffe Drilling w/ Case",
+            "Gorgeous Gebruder Merkel 96K Drilling Combination Gun - 20 Gauge / 7x57R",
+            "Harrington & Richardson M48 H&R Topper 16 Gauge",
+            "Manufacture D'armes De Saint-etienne Lebel 1886 MLE M93 8x50R",
+            "W+F Bern K31 Barreled Action Kar31 Receiver 7.5x55 Swiss",
+            "Excellent French MAS Mle 1949-56 w/ APX Scope",
+            "Original 18th Century Spanish Snaphaunce Lock 20 Bore Fowling Piece by Diego Esquivel",
+            (
+                "Original U.S. Springfield Trapdoor Model 1873 Converted to Blunderbuss "
+                'Blank Fire Prop Gun for 1960 "Swiss Family Robinson" Movie'
+            ),
+            "Original U.S. Rare Remington-Keene Bolt-Action Magazine Sporting Rifle in .45/70",
+            (
+                "Original U.S. Pennsylvania Over & Under Double Barrel .44 Caliber Swivel "
+                "Breech Percussion Rifle by W. Filman"
+            ),
+            "Swiss Martini Stutzer - 7.5x55 Swiss - GP11 - Target Rifle - Hammerli Barrel",
+            "Awesome Japanese Type 99 Arisaka Rare Toyo Juki Kogyo 27th Series Rejected Stock",
+            "Southern Tactical VZ58 Rifle Fixed Stock",
+            (
+                "Gunsmith Special Yugo SKS MODEL 59/66 CAL. 7.62x39 with New Production "
+                "Stock and New Old Stock Barrel"
+            ),
+        ],
+    )
+    def test_a_firearm_named_for_its_parts_is_still_a_firearm(self, title):
+        assert self.kind(title, price=1200.0) == "rifle"
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "Excellent Glock 19 Gen 2",
+            "ANIB Kimber Micro 9 - Laser Grips",
+            "Excellent HK 45 w/ Jarvis Ported Match Barrel & Extended Magazines",
+            "ANIB Springfield Armory XDM Elite - Threaded Barrel & Optics Ready",
+            "Scarce Walther Model 1 - 2nd Variation",
+            "Walther Model 8 - .25 ACP (6.35 Browning) - First Variant 1920s - C&R - Germany",
+            "French Manurhin PP Sport",
+            "ANIB Intratec AB-10 - 9mm",
+            "EIG Titan .25 ACP - 1964 Pre Ban - FIE Tanfoglio GT27 TA27 GT Targa Italy - C&R",
+            "SIG Switzerland P210-1 9x19mm",
+            "Nazi CZ Model 27 Rig",
+            "Rare CZ 46, Czech P.38 Rig - FNH Barrel",
+            "Scarce Nazi FN Browning M1922 Rig - Waffen 103",
+            "Excellent Atlas Gunworks Apollo",
+            "Hammerli of Switzerland Model 208 .22lr Jubilee 125 Year Anniversary Commemorative",
+            "Zastava M83 .357 Magnum Revolver 4 Inch Blued - Fair Condition - Factory Wood Grips",
+            'Glock G23 Gen 4 .40cal Semi-Auto 4" Barrel Fixed Sights Factory Handgun',
+            'CZ vz.50 .32 ACP 3.8" Barrel Czech Police Surplus Blued Pistol , C&R Eligible',
+            'COLT-C&R-POLICE POSITIVE SPECIAL 3RD ISSUE .38SPL 4" BARREL ROUND BUTT BLUED',
+            "Original Imperial German M1883 Regimentally Marked Reichsrevolver by Erfurt Arsenal",
+            (
+                "Original 19th Century U.S. Blunt & Syms Medium Frame Underhammer "
+                "Percussion Pepperbox Revolver with Ivory Grips"
+            ),
+            (
+                "Original Early 18th Century Matched Pair of Franco-Flemish Flintlock "
+                "Holster Pistols by Gilles Massin of Liege"
+            ),
+            "Southern Tactical VZ61 32 ACP Skorpion Pistol w/3 Mags & Leather Pouch Black Grip",
+            "1900 DWM American Eagle Luger - Rare Ideal Stock & Grips",
+            "Rare 1902 American Eagle Fat Barrel Luger",
+        ],
+    )
+    def test_a_handgun_named_for_its_parts_is_still_a_handgun(self, title):
+        assert self.kind(title, price=1200.0) == "pistol"
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            # The parts these sit next to, which must not follow them across.
+            'AK47 / AKM 16" Chrome Lined Barrels, New Production Parkerized, 7.62x39',
+            '1928A1 Thompson .45 ACP 10.5" Finned SMG Barrel in the White',
+            "1919A6 barrel shroud with muzzle bearing",
+            "East German Luger Magazine, Serial Number 137",
+            "Erma Luger Magazine",
+        ],
+    )
+    def test_and_the_parts_beside_them_are_still_parts(self, title):
+        assert self.kind(title, price=200.0) == "accessory"
+
+
+class TestDeactivatedAndDisplayPieces:
+    """A gun that has been made safe is still filed as that gun.
+
+    Reported against the live catalog: a $9,995 inert M2HB, a non-firing 1903
+    training rifle and a scale replica revolver were all in "parts &
+    accessories", where a collector watching for one would never look. The
+    words that put them there -- inert, dummy, non-firing, prop -- also cover
+    boxes of dummy cartridges and a bare movie prop, so they veto only when
+    the title does not *name* the thing as a gun.
+    """
+
+    def kind(self, title, price=1000.0, category=None):
+        d = classify.enrich(title, None, price, category=category)
+        if d["is_bayonet"]:
+            return "bayonet"
+        return "rifle" if d["is_rifle"] else "pistol" if d["is_pistol"] else "accessory"
+
+    def test_an_inert_display_gun_is_a_gun(self):
+        title = (
+            "Original U.S. Browning M2HB .50-Caliber Ma Deuce Inert Display Machine Gun "
+            "Built with Original USGI Parts, Pintle and M3 Tripod"
+        )
+        assert self.kind(title, price=9995.0) == "rifle"
+
+    def test_a_non_firing_training_rifle_is_a_rifle(self):
+        title = (
+            "Original U.S. WWI Model 1903 Springfield Pattern Non-Firing Training Rifle "
+            "by U.S. Training Rifle Co. with Web Sling"
+        )
+        assert self.kind(title, price=995.0) == "rifle"
+
+    def test_a_scale_replica_revolver_is_a_handgun(self):
+        title = (
+            "Colt Single Action Army 47% Scale Non-Firing Miniature Replica Revolver by "
+            'Uberti with 4 3/4" Barrel, Serial No. 1895, Plugged Barrel'
+        )
+        assert self.kind(title, price=695.0) == "pistol"
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            # Named as something else entirely, so the veto still holds.
+            "Original U.S. WWII-Style Set of 8 Dummy .30-06 Cartridges in M1 Garand En-Bloc Clip",
+            "Original U.S. WWII-Style .30 Carbine 7.62x33mm Dummy Cartridge for the M1 Carbine",
+            "U.S. Ruger Mini-14 Muzzelite MZ14 Bullpup Non-Firing Prop Gun - From Ellis Props",
+            "Original Rubber Film Prop M1 Garand En Bloc Clip As Used in Saving Private Ryan",
+        ],
+    )
+    def test_but_a_thing_that_is_not_named_as_a_gun_is_not_one(self, title):
+        assert self.kind(title, price=200.0) == "accessory"
+
+
+class TestGoodsMentionedBesideTheGun:
+    """A book, a cap or a medal named *after* the gun is describing it.
+
+    "Single Action Revolver Grouping - As Featured In The Story of Merwin,
+    Hulbert & Co. Firearms Book" is a $8,295 revolver grouping. The gun has to
+    be named first, which is the whole difference from "Reference book, Mauser
+    rifles" -- both name a book and a gun, and only one is selling the gun.
+    """
+
+    def kind(self, title, price=1000.0):
+        d = classify.enrich(title, None, price)
+        return "rifle" if d["is_rifle"] else "pistol" if d["is_pistol"] else "accessory"
+
+    def test_a_revolver_featured_in_a_book(self):
+        title = (
+            "Original Union Pacific Railroad Merwin, Hulbert & Co. First Model Frontier "
+            "Army Single Action Revolver Grouping - As Featured In The Story of Merwin, "
+            "Hulbert & Co. Firearms Book"
+        )
+        assert self.kind(title, price=8295.0) == "pistol"
+
+    def test_a_pistol_with_a_butt_cap(self):
+        title = (
+            "Original 18th Century Italian-Made Ottoman Silver-Mounted Flintlock Pistol "
+            "with Carved Flamed Stock, Grotesque Mask Butt Cap, and Perforated Side Plate"
+        )
+        assert self.kind(title, price=4995.0) == "pistol"
+
+    def test_but_a_book_about_rifles_is_a_book(self):
+        assert self.kind("Reference book, Mauser rifles", price=99.0) == "accessory"
+
+    def test_and_a_blanket_is_a_blanket(self):
+        assert self.kind("HAND WOVEN EXTRA LARGE VAQUERO BLANKETS", price=99.0) == "accessory"
+
+
+class TestMoreThanOneKindOfGunInTheTitle:
+    def test_a_pistol_carbine_in_a_rifle_caliber_is_a_carbine(self):
+        """The caliber decides which of the two, and used to decide neither.
+
+        "Percussion Pistol Carbine" reads as both; the tie went to pistol, the
+        .58 then said that is no handgun round, and two $3,000 carbines came
+        out as parts.
+        """
+        title = (
+            "Original U.S. Civil War Springfield Model 1855 Percussion Pistol Carbine "
+            "with Functional Tape Primer System and Original Cap Roll - Dated 1855"
+        )
+        assert classify.classify_firearm(title, caliber=".58", price=3195.0) == (True, False)
+
+    def test_a_combination_gun_keeps_both_its_barrels(self):
+        title = (
+            "Original U.S. Circa 1850 Engraved Double Barrel Percussion Cape Combination "
+            "Gun with Rifle & Shotgun Barrels - Lansingburgh, New York"
+        )
+        assert classify.classify_firearm(title, price=1595.0) == (True, False)
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "WW2 Italian Beretta Model 1934 Rig - Blank Slide Variation",
+            "Beretta M1934 .380 ACP - New Barrel + Free Holster & Threaded Barrel",
+        ],
+    )
+    def test_a_beretta_names_its_model_either_way(self, title):
+        """With "Model" in the middle or without, and a "+" bundles the extras
+        exactly as "with" does."""
+        assert classify.classify_firearm(title, price=750.0) == (False, True)
+
+
+class TestADashSeparatedSpecList:
+    """Some vendors write a gun's specifications with dashes, not commas.
+
+    "Smith & Wesson Model 30-1 - .32 Long - Pachmayr Grips - 4 Inch Barrel -
+    1969 C&R" is an $850 revolver whose third entry happens to be its grips.
+    The list rule only understood commas, so the grips read as the product.
+    """
+
+    def kind(self, title, price=850.0):
+        d = classify.enrich(title, None, price)
+        return "rifle" if d["is_rifle"] else "pistol" if d["is_pistol"] else "accessory"
+
+    def test_a_part_inside_one_is_an_entry_not_the_head(self):
+        title = "Smith & Wesson Model 30-1 - .32 Long - Pachmayr Grips - 4 Inch Barrel - 1969 C&R"
+        assert self.kind(title) == "pistol"
+
+    def test_the_hyphen_inside_a_model_number_is_not_a_separator(self):
+        """ "30-1" and "M1903A3" must not count toward the three."""
+        assert self.kind("Colt SAA Revolver Grips", price=120.0) == "accessory"
+
+    def test_two_dashes_are_not_a_list(self):
+        """A dash sets off a description all the time -- "Kimber Micro 9 -
+        Laser Grips" -- so the threshold has to be high enough that ordinary
+        punctuation does not trip it."""
+        assert self.kind("Original U.S. M1907 Leather Sling - Boyt - 1943") == "accessory"

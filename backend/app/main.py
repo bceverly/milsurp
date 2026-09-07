@@ -21,7 +21,17 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import OperationalError
 
 from . import __version__
-from .api import access, auth, items, manufacturers, preferences, scans, sites, system
+from .api import (
+    access,
+    armory,
+    auth,
+    items,
+    manufacturers,
+    preferences,
+    scans,
+    sites,
+    system,
+)
 from .config import ROOT_DIR, get_config
 from .scheduler import get_scheduler
 from .services import bootstrap
@@ -276,6 +286,7 @@ def create_app() -> FastAPI:
     api.include_router(users_router())
     api.include_router(sites.router)
     api.include_router(manufacturers.router)
+    api.include_router(armory.router)
     api.include_router(scans.router)
     api.include_router(items.router)
     api.include_router(preferences.router)

@@ -203,6 +203,18 @@ photos: $(VENV_PY) ## Download queued photos without re-scraping (make photos li
 photos-retry: $(VENV_PY) ## Try photos that were given up on after repeated failures
 	@$(VENV_PY) backend/cli.py fetch-photos --retry-failed $(if $(limit),--limit "$(limit)",)
 
+.PHONY: armory-seed
+armory-seed: $(VENV_PY) ## Add shipped models/calibers, all awaiting approval
+	@$(VENV_PY) backend/cli.py armory seed
+
+.PHONY: armory-export
+armory-export: $(VENV_PY) ## Write the catalog to catalog.yaml, fit to commit
+	@$(VENV_PY) backend/cli.py armory export --file armory.yaml
+
+.PHONY: armory-sync
+armory-sync: $(VENV_PY) ## Show what catalog.yaml would change here (add --apply yourself)
+	@$(VENV_PY) backend/cli.py armory sync --file armory.yaml
+
 .PHONY: reclassify
 reclassify: $(VENV_PY) ## Re-derive rifle/handgun for stored listings (no network)
 	@$(VENV_PY) backend/cli.py reclassify

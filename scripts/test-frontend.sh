@@ -97,7 +97,21 @@ COVERAGE_DIST="dist-coverage"
 export MILSURP_FRONTEND_DIST="$REPO_ROOT/frontend/$COVERAGE_DIST"
 (cd frontend && COVERAGE=1 npm run build --silent -- --outDir "$COVERAGE_DIST" --emptyOutDir) \
   || die "Frontend build failed."
-rm -rf frontend/.nyc_output frontend/coverage
+# Artifacts go under this run's own work directory, not into shared paths in
+# the repository. Playwright deletes and recreates its output directory as it
+# starts, and nyc reads whatever it finds in .nyc_output — so two runs at once
+# (a developer and an agent, or two terminals) used to delete each other's
+# trace files mid-test and merge each other's coverage. That surfaced as
+# "ENOENT ... .playwright-artifacts-0/traces/..." on a passing test and a
+# coverage figure of about a third of the real one, neither of which says
+# anything about the code under test.
+#
+# The database and the signing secrets were already per-run for the same
+# reason; this finishes the job.
+export MILSURP_E2E_OUTPUT_DIR="$WORK_DIR/test-results"
+export MILSURP_E2E_NYC_DIR="$WORK_DIR/.nyc_output"
+mkdir -p "$MILSURP_E2E_OUTPUT_DIR" "$MILSURP_E2E_NYC_DIR"
+rm -rf frontend/coverage
 ok "Bundle instrumented."
 
 # --- Start the app ----------------------------------------------------------
@@ -136,9 +150,9 @@ STATUS=$?
 
 # --- Coverage ---------------------------------------------------------------
 printf '\n'
-if [ -d frontend/.nyc_output ] && [ -n "$(ls -A frontend/.nyc_output 2>/dev/null)" ]; then
+if [ -n "$(ls -A "$MILSURP_E2E_NYC_DIR" 2>/dev/null)" ]; then
   info "Reporting coverage…"
-  (cd frontend && npx --no-install nyc report) || STATUS=1
+  (cd frontend && npx --no-install nyc --temp-dir "$MILSURP_E2E_NYC_DIR" report) || STATUS=1
   "$VENV_PY" scripts/coverage_badges.py --frontend-only --quiet || true
 else
   printf '  \033[91m✗\033[0m No coverage collected. Was the bundle built with COVERAGE=1?\n'

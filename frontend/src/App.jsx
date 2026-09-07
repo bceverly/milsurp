@@ -9,7 +9,7 @@ import Sites from "./pages/Sites.jsx";
 import SiteDetail from "./pages/SiteDetail.jsx";
 import ScanDetail from "./pages/ScanDetail.jsx";
 import UsersPage from "./pages/Users.jsx";
-import ManufacturersPage from "./pages/Manufacturers.jsx";
+import ArmoryPage from "./pages/Armory.jsx";
 import SettingsPage from "./pages/Settings.jsx";
 
 function FullPageSpinner() {
@@ -67,11 +67,14 @@ export default function App() {
         />
         <Route path="sites/:siteId" element={<SiteDetail />} />
         <Route path="scans/:runId" element={<ScanDetail />} />
+        {/* The old standalone Makers page. Kept as a redirect rather than a
+            404, because it is bookmarked and linked from the release notes. */}
+        <Route path="manufacturers" element={<Navigate to="/armory" replace />} />
         <Route
-          path="manufacturers"
+          path="armory"
           element={
             <AdminOnly>
-              <ManufacturersPage />
+              <ArmoryPage />
             </AdminOnly>
           }
         />

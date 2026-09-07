@@ -26,13 +26,11 @@ from __future__ import annotations
 import logging
 import re
 import threading
-from collections import Counter
-from collections.abc import Iterable
 
 from sqlalchemy import func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
-from ..models import Item, Manufacturer
+from ..models import ArmoryStatus, FirearmModel, Item, Manufacturer
 from . import classify
 
 log = logging.getLogger("milsurp.manufacturers")
@@ -103,40 +101,62 @@ class Registry:
 
 
 def _rules_from(session: Session) -> list[Rule]:
+    """The maker rules: each firm's own spellings, plus the models only it made.
+
+    The models come from the armory now, not from the flat list of names that
+    used to hang off a maker. That list could only ever say "this firm made
+    something called M44", which meant a designation two firms both made had to
+    be dropped from matching entirely -- picking whichever row came first would
+    have been an accident of ordering rather than a decision.
+
+    In the armory a model is one row with all of its makers on it, so the same
+    fact is expressible directly: a model with exactly one maker names that
+    maker, and a model with several names none of them. Nine firms built the M1
+    Carbine, so "M1 Carbine" in a title says nothing about who built this one.
+
+    Only models an admin has promoted take part, for the reason everything else
+    in the armory works that way: a pending row is a question, not a fact.
+    """
     rows = (
         session.execute(
             select(Manufacturer)
-            .where(Manufacturer.enabled.is_(True))
+            .where(
+                Manufacturer.enabled.is_(True),
+                # A maker a scan proposed, or one that arrived in the shipped
+                # armory file, decides nothing until somebody promotes it --
+                # the same rule the models and calibers follow.
+                Manufacturer.status == ArmoryStatus.APPROVED,
+            )
             .order_by(Manufacturer.position, Manufacturer.id)
         )
         .scalars()
         .all()
     )
-    shared = ambiguous_models(rows)
+    designations = _models_by_maker(session)
     return [
-        (
-            row.name,
-            pattern_for([*row.spellings, *(m for m in row.model_names if m.lower() not in shared)]),
-        )
-        for row in rows
+        (row.name, pattern_for([*row.spellings, *designations.get(row.id, [])])) for row in rows
     ]
 
 
-def ambiguous_models(rows: Iterable[Manufacturer]) -> set[str]:
-    """Model names more than one maker claims, which therefore name neither.
-
-    "M38" is a Carcano as often as it is a Mosin-Nagant. Letting whichever rule
-    comes first win would not be a decision, it would be an accident of
-    ordering — so a model two makers claim identifies nobody and is dropped
-    from matching. It stays in the table: both entries are true, and the admin
-    page says which ones cancel out, which is more use than silently picking
-    one.
-    """
-    seen: Counter[str] = Counter()
+def _models_by_maker(session: Session) -> dict[int, list[str]]:
+    """Every spelling of every model that exactly one firm is known to have made."""
+    found: dict[int, list[str]] = {}
+    rows = (
+        session.execute(
+            select(FirearmModel)
+            .options(selectinload(FirearmModel.manufacturers))
+            .where(
+                FirearmModel.enabled.is_(True),
+                FirearmModel.status == ArmoryStatus.APPROVED,
+            )
+        )
+        .scalars()
+        .all()
+    )
     for row in rows:
-        for name in {model.lower() for model in row.model_names}:
-            seen[name] += 1
-    return {name for name, count in seen.items() if count > 1}
+        if len(row.manufacturers) == 1:
+            found.setdefault(row.manufacturers[0].id, []).extend(row.spellings)
+    return found
 
 
 # Compiling forty patterns on every listing of a two-hundred-listing scan is

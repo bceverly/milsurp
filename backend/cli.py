@@ -44,8 +44,8 @@ from app.security import (
     hash_password,
     validate_password,
 )
+from app.services import armory, bootstrap, classify, crosscatalog, manufacturers, scan_service
 from app.services import backup as backup_service
-from app.services import bootstrap, classify, crosscatalog, manufacturers, scan_service
 from app.services import digest as digest_service
 from app.services.image_store import ImageStore
 
@@ -451,13 +451,18 @@ def cmd_reclassify(_args: argparse.Namespace) -> int:
             maker = item.manufacturer or manufacturers.extract(
                 session, item.title, evidence, caliber
             )
+            # And then the armory, exactly as a scan does it. This
+            # ran without it at first, which meant the two paths disagreed:
+            # promoting a model taught every future scan something that
+            # `reclassify` then quietly undid on the listings already stored.
+            found = armory.fill_in(session, item.title, evidence, caliber)
             # Only the blanks: a value the vendor stated is theirs, and this
             # command must be safe to run against a catalog that has some.
             filled = {
-                "caliber": caliber,
+                "caliber": found.caliber or caliber,
                 "country": item.country or derived["country"],
                 "condition": item.condition or derived["condition"],
-                "manufacturer": maker,
+                "manufacturer": maker or found.manufacturer,
             }
             flags = {
                 "is_rifle": derived["is_rifle"],
@@ -465,6 +470,11 @@ def cmd_reclassify(_args: argparse.Namespace) -> int:
                 "is_bayonet": derived["is_bayonet"],
                 "is_parts_kit": derived["is_parts_kit"],
             }
+            if found.kind is not None:
+                # A model an admin has vouched for outranks the heuristics,
+                # and says which of the two buckets better than they can.
+                flags["is_rifle"] = found.kind.is_long_gun
+                flags["is_pistol"] = found.kind.is_handgun
             if any(getattr(item, name) != value for name, value in (flags | filled).items()):
                 for name, value in flags.items():
                     setattr(item, name, value)
@@ -485,11 +495,103 @@ def cmd_reclassify(_args: argparse.Namespace) -> int:
         kits = session.execute(
             select(func.count(Item.id)).where(Item.is_parts_kit.is_(True))
         ).scalar_one()
+        # "Other" as the browse page defines it: what none of the four claim.
+        #
+        # Not "everything that is not a rifle or a handgun", which is what this
+        # counted before and which quietly included the bayonets and parts kits
+        # printed on the next line. It read 131 against a filter showing 88,
+        # and the number here is what somebody checks their work against.
+        other = session.execute(
+            select(func.count(Item.id)).where(
+                Item.is_rifle.is_(False),
+                Item.is_pistol.is_(False),
+                Item.is_bayonet.is_(False),
+                Item.is_parts_kit.is_(False),
+            )
+        ).scalar_one()
 
     print(f"Reclassified {changed} of {len(items)} listing(s).")
-    print(f"  rifles: {rifles}   handguns: {pistols}   other: {len(items) - rifles - pistols}")
+    print(f"  rifles: {rifles}   handguns: {pistols}   other: {other}")
     print(f"  bayonets: {bayonets}   parts kits: {kits}")
     return 0
+
+
+def cmd_armory(args: argparse.Namespace) -> int:
+    """Seed, export and sync the armory of models and calibers.
+
+    The armory is knowledge rather than state: which cartridges are the same
+    round written differently, which firms built which model, what kind of gun
+    a designation names. It is worth version control, and these three commands
+    are how it gets there and back.
+
+      seed    add anything the shipped file has and this database does not.
+              Additive only, everything arrives awaiting approval.
+      export  write this database's armory to a file fit to commit.
+      sync    reconcile this database with such a file. Prints a plan and does
+              nothing unless --apply is given.
+    """
+    action = args.armory_command
+    if action == "seed":
+        with session_scope() as session:
+            report = armory.seed(session)
+        print(
+            f"Added {report.manufacturers} manufacturer(s), {report.calibers} caliber(s) "
+            f"and {report.models} model(s), all awaiting approval."
+        )
+        return 0
+
+    if action == "export":
+        path = Path(args.file)
+        with session_scope() as session:
+            written = armory.write_export(session, path)
+        print(f"Wrote {written} row(s) to {path}.")
+        return 0
+
+    path = Path(args.file)
+    if not path.is_file():
+        print(f"No such file: {path}", file=sys.stderr)
+        return 1
+    with session_scope() as session:
+        plan = armory.plan_sync(session, path)
+        if not plan:
+            print(f"Nothing to do; {path} matches this database.")
+            return 0
+        _print_plan(plan, prune=args.prune)
+        if not args.apply:
+            print("\nNothing changed. Re-run with --apply to carry it out.")
+            return 0
+        done = armory.apply_sync(session, path, prune=args.prune)
+    print(
+        f"\nApplied: {done['added']} added, {done['updated']} updated, "
+        f"{done['deleted']} deleted."
+    )
+    return 0
+
+
+def _print_plan(plan, prune: bool) -> None:
+    """Show every change before any of it happens.
+
+    Deletions are listed even when --prune is off, marked as skipped. A plan
+    that hides what it is not going to do is how somebody discovers the flag
+    by losing rows to it later.
+    """
+    for title, changes in (("Calibers", plan.calibers), ("Models", plan.models)):
+        if not changes:
+            continue
+        print(f"\n{title}:")
+        for change in changes:
+            if change.action == "delete" and not prune:
+                print(f"  skip    {change.name}  (in the database, not in the file; --prune)")
+            elif change.action == "update":
+                print(f"  update  {change.name}  ({', '.join(change.fields)})")
+            else:
+                print(f"  {change.action:7} {change.name}")
+    counted = plan.counted()
+    skipped = " (skipped without --prune)" if counted["delete"] and not prune else ""
+    print(
+        f"\n{counted['add']} to add, {counted['update']} to update, "
+        f"{counted['delete']} to delete{skipped}."
+    )
 
 
 def cmd_backup(args: argparse.Namespace) -> int:
@@ -655,6 +757,42 @@ def cmd_rebuild_thumbnails(args: argparse.Namespace) -> int:
     return 0
 
 
+def _add_armory_commands(sub) -> None:
+    """The armory subcommands, kept out of build_parser() for its own sake."""
+    armory_cmd = sub.add_parser(
+        "armory", help="Seed, export or sync the model and caliber reference tables."
+    )
+    armory_sub = armory_cmd.add_subparsers(dest="armory_command", required=True)
+    armory_sub.add_parser(
+        "seed", help="Add what the shipped armory file has and this database does not."
+    )
+    armory_export = armory_sub.add_parser(
+        "export", help="Write this database's armory to a file fit to commit."
+    )
+    armory_export.add_argument(
+        "--file",
+        default="armory.yaml",
+        help="Where to write it (default: ./armory.yaml).",
+    )
+    armory_sync = armory_sub.add_parser(
+        "sync", help="Reconcile this database with an armory file. Prints a plan first."
+    )
+    armory_sync.add_argument(
+        "--file", default="armory.yaml", help="The file to read (default: ./armory.yaml)."
+    )
+    armory_sync.add_argument(
+        "--apply", action="store_true", help="Carry the plan out instead of just printing it."
+    )
+    armory_sync.add_argument(
+        "--prune",
+        action="store_true",
+        help="Also delete rows the file does not list. Off by default: the "
+        "armory is curated in two places and a row missing from the file is "
+        "more often unexported than unwanted.",
+    )
+    armory_cmd.set_defaults(func=cmd_armory)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="milsurp",
@@ -705,6 +843,8 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser(
         "reclassify", help="Re-derive rifle/handgun from stored text (no network)."
     ).set_defaults(func=cmd_reclassify)
+
+    _add_armory_commands(sub)
 
     backup_cmd = sub.add_parser("backup", help="Snapshot the database now and prune old ones.")
     backup_cmd.add_argument(

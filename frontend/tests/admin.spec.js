@@ -214,7 +214,7 @@ test.describe("navigation", () => {
   test("every top-level page is reachable", async ({ signedIn }) => {
     for (const [name, heading] of [
       ["Sites", "Sites"],
-      ["Makers", "Makers"],
+      ["Armory", "Armory"],
       ["Users", "Users"],
       ["Email digest", "Email digest"],
       ["Inventory", "Inventory"],
@@ -222,6 +222,13 @@ test.describe("navigation", () => {
       await signedIn.getByRole("link", { name, exact: true }).click();
       await expect(signedIn.getByRole("heading", { name: heading })).toBeVisible();
     }
+  });
+
+  test("the old Makers URL still lands somewhere sensible", async ({ signedIn }) => {
+    // Bookmarked and linked from the release notes, so a redirect rather than
+    // the inventory fallback that every other unknown route gets.
+    await signedIn.goto("/manufacturers");
+    await expect(signedIn.getByRole("heading", { name: "Armory" })).toBeVisible();
   });
 
   test("an unknown route falls back to the inventory", async ({ signedIn }) => {

@@ -12,6 +12,8 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_serializer, field_validator
 
+from .models import ArmoryStatus, FirearmKind
+
 
 def utc(value: datetime | None) -> datetime | None:
     if value is None:
@@ -142,17 +144,147 @@ class SiteUpdate(BaseModel):
 # ---------------------------------------------------------------------------
 # Manufacturers
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# The armory: models, calibers, and what an admin does to them
+# ---------------------------------------------------------------------------
+class CaliberOut(UTCModel):
+    id: int
+    name: str
+    #: Every other way the trade writes the same cartridge, one per line.
+    #: ".32 ACP" and "7.65mm Browning" are one round, and this is where that
+    #: is said.
+    aliases: str | None = None
+    status: ArmoryStatus
+    notes: str | None = None
+    #: The listing titles a pending row was proposed from, so whoever is
+    #: judging it can see what it came from.
+    first_seen_in: str | None = None
+    #: What it was folded into, when it was.
+    merged_into: str | None = None
+    #: How many listings currently carry this spelling, and how many models
+    #: name it -- both are what a merge is about to move.
+    item_count: int = 0
+    model_count: int = 0
+
+
+class CaliberCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=128)
+    aliases: str | None = Field(default=None, max_length=4000)
+    status: ArmoryStatus = ArmoryStatus.PENDING
+    notes: str | None = Field(default=None, max_length=4000)
+
+
+class CaliberUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=128)
+    aliases: str | None = Field(default=None, max_length=4000)
+    status: ArmoryStatus | None = None
+    notes: str | None = Field(default=None, max_length=4000)
+
+
+class FirearmModelOut(UTCModel):
+    id: int
+    name: str
+    aliases: str | None = None
+    kind: FirearmKind | None = None
+    #: What it chambers. A list because a model built across decades is often
+    #: chambered in more than one round: a Steyr M95 may be 8x50mmR or 8x56mmR.
+    caliber_ids: list[int] = Field(default_factory=list)
+    calibers: list[str] = Field(default_factory=list)
+    #: Every firm that built one. A list because several is normal: the M1
+    #: Carbine had nine, and a listing may name any of them or none.
+    manufacturer_ids: list[int] = Field(default_factory=list)
+    manufacturers: list[str] = Field(default_factory=list)
+    wikipedia_url: str | None = None
+    status: ArmoryStatus
+    position: int
+    enabled: bool
+    notes: str | None = None
+    first_seen_in: str | None = None
+    merged_into: str | None = None
+    #: How many stored listings this model currently matches.
+    item_count: int = 0
+
+
+class FirearmModelCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=128)
+    aliases: str | None = Field(default=None, max_length=4000)
+    kind: FirearmKind | None = None
+    caliber_ids: list[int] = Field(default_factory=list)
+    manufacturer_ids: list[int] = Field(default_factory=list)
+    wikipedia_url: str | None = Field(default=None, max_length=500)
+    status: ArmoryStatus = ArmoryStatus.PENDING
+    position: int = Field(default=1000, ge=0, le=100_000)
+    enabled: bool = True
+    notes: str | None = Field(default=None, max_length=4000)
+
+
+class FirearmModelUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=128)
+    aliases: str | None = Field(default=None, max_length=4000)
+    kind: FirearmKind | None = None
+    caliber_ids: list[int] | None = None
+    manufacturer_ids: list[int] | None = None
+    wikipedia_url: str | None = Field(default=None, max_length=500)
+    status: ArmoryStatus | None = None
+    position: int | None = Field(default=None, ge=0, le=100_000)
+    enabled: bool | None = None
+    notes: str | None = Field(default=None, max_length=4000)
+
+
+class ArmoryIds(BaseModel):
+    """The rows an action applies to."""
+
+    ids: list[int] = Field(min_length=1, max_length=500)
+
+
+class ArmoryMerge(BaseModel):
+    """Fold one row into another: "Mosin" into "Mosin-Nagant"."""
+
+    source_id: int
+    target_id: int
+
+
+class ArmoryAction(UTCModel):
+    """What an action did, in the terms the admin page reports it."""
+
+    changed: int = 0
+    #: Listings restamped as a side effect. A merge rewrites every listing
+    #: carrying the old name, which is worth saying out loud.
+    items_restamped: int = 0
+    message: str = ""
+
+
+class ArmorySummary(UTCModel):
+    """How much is waiting on somebody, for the badge in the navigation."""
+
+    models: int = 0
+    calibers: int = 0
+    manufacturers: int = 0
+
+    @property
+    def total(self) -> int:
+        return self.models + self.calibers + self.manufacturers
+
+
+class ArmoryKind(UTCModel):
+    """One choice for the Kind selector, with the label to show for it."""
+
+    value: str
+    label: str
+    #: Whether the browse page counts this as a handgun. Shown in the admin
+    #: page so the effect of the choice is visible where it is made.
+    is_handgun: bool
+
+
 class ManufacturerOut(UTCModel):
     id: int
     name: str
     aliases: str | None = None
-    #: The models this maker made, one per line. Edited as text for the same
-    #: reason the aliases are — a list of short strings is a textarea, not a
-    #: form — and stored as rows, so a model has somewhere to grow.
-    models: str | None = None
-    #: Models another maker also claims, and which therefore identify neither.
-    #: "M38" is a Carcano as often as it is a Mosin-Nagant.
-    ambiguous_models: list[str] = Field(default_factory=list)
+    #: How many models the armory says this firm built. The models themselves
+    #: are rows there, each carrying all of its makers, rather than a block of
+    #: text on the maker — which is what let "M1 Carbine" belong to nine firms
+    #: without becoming nine M1 Carbines.
+    model_count: int = 0
     position: int
     enabled: bool
     notes: str | None = None
@@ -163,8 +295,6 @@ class ManufacturerOut(UTCModel):
 
 class ManufacturerCreate(BaseModel):
     name: str = Field(min_length=1, max_length=128)
-    #: One model per line.
-    models: str | None = Field(default=None, max_length=8000)
     #: Other spellings, one per line. Matched as literal text, never as a
     #: pattern -- see app/services/manufacturers.py.
     aliases: str | None = Field(default=None, max_length=4000)
@@ -175,7 +305,6 @@ class ManufacturerCreate(BaseModel):
 
 class ManufacturerUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=128)
-    models: str | None = Field(default=None, max_length=8000)
     aliases: str | None = Field(default=None, max_length=4000)
     position: int | None = Field(default=None, ge=0, le=100_000)
     enabled: bool | None = None
@@ -300,6 +429,10 @@ class ItemFacets(BaseModel):
     calibers: list[FacetValue] = Field(default_factory=list)
     countries: list[FacetValue] = Field(default_factory=list)
     manufacturers: list[FacetValue] = Field(default_factory=list)
+    #: One entry per Type, plus an empty-string entry for "Anything". Counted
+    #: over every other filter but not over the Type itself, so each says what
+    #: choosing it would show rather than what the current choice already did.
+    kinds: list[FacetValue] = Field(default_factory=list)
     total: int = 0
 
 

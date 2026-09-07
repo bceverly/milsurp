@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.models import Item, Manufacturer, ManufacturerModel, Site, utcnow
+from app.models import ArmoryStatus, FirearmModel, Item, Manufacturer, Site, utcnow
 
 
 @pytest.fixture
@@ -214,96 +214,62 @@ class TestDeleting:
         assert seeded.query(Item).count() == 1
 
 
-class TestModelsOverHttp:
-    """Edited as text on the maker's own dialog, stored as rows."""
+class TestModelsAreNoLongerEditedHere:
+    """They moved to the armory, and the maker dialog is simpler for it.
 
-    def test_they_come_back_one_per_line(self, client, admin_headers, seeded):
-        response = client.post(
-            "/api/manufacturers",
-            json={"name": "Mosin-Nagant", "models": "M44\n91/30\n", "position": 5},
-            headers=admin_headers,
-        )
-        assert response.status_code == 201
-        assert response.json()["manufacturer"]["models"] == "M44\n91/30"
+    A maker used to carry its models as a block of text, which could only say
+    "this firm made something called M44" — so a designation two firms both
+    made had to be dropped from matching, because a flat list per firm cannot
+    express one thing built by two. The armory keeps one row per model with
+    all of its makers on it, and this page reports the tally.
+    """
 
-    def test_adding_one_files_the_listings_that_name_it(self, client, admin_headers, seeded, site):
-        add_listing(seeded, site, "a", "RUSSIAN M44 CARBINES")
-
-        response = client.post(
-            "/api/manufacturers",
-            json={"name": "Mosin-Nagant", "models": "M44", "position": 5},
-            headers=admin_headers,
-        )
-
-        assert response.json()["listings_changed"] == 1
-        seeded.expire_all()
-        assert seeded.query(Item).one().manufacturer == "Mosin-Nagant"
-
-    def test_removing_one_lets_its_listings_go(self, client, admin_headers, seeded, site):
+    def test_a_maker_reports_how_many_models_the_armory_gives_it(
+        self, client, admin_headers, seeded
+    ):
         created = client.post(
             "/api/manufacturers",
-            json={"name": "Mosin-Nagant", "models": "M44", "position": 5},
+            json={"name": "Mosin-Nagant", "position": 5},
             headers=admin_headers,
         ).json()["manufacturer"]
-        add_listing(seeded, site, "a", "RUSSIAN M44 CARBINES", manufacturer="Mosin-Nagant")
+        assert created["model_count"] == 0
 
-        response = client.patch(
-            f"/api/manufacturers/{created['id']}", json={"models": ""}, headers=admin_headers
-        )
-
-        assert response.json()["listings_changed"] == 1
-        seeded.expire_all()
-        assert seeded.query(Item).one().manufacturer is None
-
-    def test_a_repeated_line_is_stored_once(self, client, admin_headers, seeded):
-        response = client.post(
-            "/api/manufacturers",
-            json={"name": "CZ", "models": "ZB37\n zb37 \nZB26", "position": 5},
-            headers=admin_headers,
-        )
-        assert response.json()["manufacturer"]["models"] == "ZB37\nZB26"
-
-    def test_a_model_two_makers_claim_is_reported(self, client, admin_headers, seeded):
-        client.post(
-            "/api/manufacturers",
-            json={"name": "Mosin-Nagant", "models": "M38", "position": 5},
-            headers=admin_headers,
-        )
-        client.post(
-            "/api/manufacturers",
-            json={"name": "Carcano", "models": "M38", "position": 6},
-            headers=admin_headers,
-        )
+        maker = seeded.query(Manufacturer).filter_by(name="Mosin-Nagant").one()
+        for name in ("M44", "M91/30"):
+            row = FirearmModel(name=name, status=ArmoryStatus.APPROVED)
+            row.manufacturers.append(maker)
+            seeded.add(row)
+        seeded.commit()
 
         listed = client.get("/api/manufacturers", headers=admin_headers).json()
-        assert all(row["ambiguous_models"] == ["M38"] for row in listed)
+        entry = next(row for row in listed if row["name"] == "Mosin-Nagant")
+        assert entry["model_count"] == 2
 
-    def test_and_it_files_nothing(self, client, admin_headers, seeded, site):
-        add_listing(seeded, site, "a", "An M38 carbine")
-        client.post(
-            "/api/manufacturers",
-            json={"name": "Mosin-Nagant", "models": "M38", "position": 5},
-            headers=admin_headers,
-        )
-        client.post(
-            "/api/manufacturers",
-            json={"name": "Carcano", "models": "M38", "position": 6},
-            headers=admin_headers,
-        )
-
-        seeded.expire_all()
-        assert seeded.query(Item).one().manufacturer is None
-
-    def test_deleting_the_maker_takes_its_models_with_it(self, client, admin_headers, seeded, site):
+    def test_the_flat_models_field_is_gone(self, client, admin_headers, seeded):
+        """Sending it is simply ignored rather than quietly writing a second,
+        divergent list of models beside the armory's."""
         created = client.post(
             "/api/manufacturers",
-            json={"name": "Mosin-Nagant", "models": "M44", "position": 5},
+            json={"name": "CZ", "models": "ZB37\nZB26", "position": 5},
             headers=admin_headers,
-        ).json()["manufacturer"]
-        add_listing(seeded, site, "a", "RUSSIAN M44 CARBINES", manufacturer="Mosin-Nagant")
+        )
+        assert created.status_code == 201
+        assert "models" not in created.json()["manufacturer"]
 
-        client.delete(f"/api/manufacturers/{created['id']}", headers=admin_headers)
+    def test_a_model_the_armory_gives_one_maker_files_its_listings(
+        self, client, admin_headers, seeded, site
+    ):
+        add_listing(seeded, site, "a", "RUSSIAN M44 CARBINES")
+        maker = Manufacturer(name="Mosin-Nagant", position=5)
+        row = FirearmModel(name="M44", status=ArmoryStatus.APPROVED)
+        seeded.add_all([maker, row])
+        row.manufacturers.append(maker)
+        seeded.commit()
 
+        # An edit to the maker re-derives what it can reach.
+        response = client.patch(
+            f"/api/manufacturers/{maker.id}", json={"notes": "checked"}, headers=admin_headers
+        )
+        assert response.status_code == 200
         seeded.expire_all()
-        assert seeded.query(Item).one().manufacturer is None
-        assert seeded.query(ManufacturerModel).count() == 0
+        assert seeded.query(Item).one().manufacturer == "Mosin-Nagant"

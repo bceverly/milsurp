@@ -22,7 +22,10 @@ export default defineConfig({
   timeout: 30_000,
   expect: { timeout: 10_000 },
   reporter: process.env.CI ? [["list"], ["github"]] : [["list"]],
-  outputDir: "test-results",
+  // Per-run when the harness says so. Two concurrent runs sharing one output
+  // directory delete each other's traces as they start, which fails a test
+  // that never ran badly. See scripts/test-frontend.sh.
+  outputDir: process.env.MILSURP_E2E_OUTPUT_DIR || "test-results",
 
   use: {
     baseURL: BASE_URL,

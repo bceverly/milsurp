@@ -23,7 +23,11 @@ import Insignia from "./Insignia.jsx";
 const NAV = [
   { to: "/", label: "Inventory", icon: Rifle, end: true },
   { to: "/sites", label: "Sites", icon: SitesIcon, adminOnly: true },
-  { to: "/manufacturers", label: "Makers", icon: TagIcon, adminOnly: true },
+  // One entry, not two. Makers, models and calibers are three views of one
+  // body of knowledge, and having "Makers" beside "Armory" invited exactly
+  // the split it took a rewrite to remove: a maker carrying its own flat list
+  // of models that nothing else could see.
+  { to: "/armory", label: "Armory", icon: TagIcon, adminOnly: true },
   { to: "/users", label: "Users", icon: UsersIcon, adminOnly: true },
   { to: "/settings", label: "Email digest", icon: Mail },
 ];

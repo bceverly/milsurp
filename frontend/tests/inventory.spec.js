@@ -103,6 +103,36 @@ test.describe("inventory", () => {
     await expect(signedIn).not.toHaveURL(/kind=rifle/);
   });
 
+  test("each type carries the count it would show", async ({ signedIn }) => {
+    // The point of the numbers is to be steady: they are counted over every
+    // other filter but not over Type, so they answer "what would I get if I
+    // picked this" rather than restating the choice already made.
+    const countFor = async (name) => {
+      const label = signedIn.locator("label.facet__option", { hasText: name });
+      const text = await label.locator(".facet__option-count").innerText();
+      return Number(text.replace(/[^0-9]/g, ""));
+    };
+
+    const anything = await countFor("Anything");
+    const rifles = await countFor("Rifles");
+    expect(anything).toBeGreaterThan(0);
+    expect(rifles).toBeGreaterThan(0);
+
+    // Anything is the whole set, so it is the sum of the five below it.
+    const named = [];
+    for (const kind of ["Rifles", "Handguns", "Bayonets", "Parts kits"]) {
+      named.push(await countFor(kind));
+    }
+    named.push(await countFor("Other parts & accessories"));
+    expect(named.reduce((a, b) => a + b, 0)).toBe(anything);
+
+    // And choosing one does not move them.
+    await signedIn.getByRole("radio", { name: "Rifles" }).check();
+    await expect(signedIn).toHaveURL(/kind=rifle/);
+    expect(await countFor("Handguns")).toBe(named[1]);
+    expect(await countFor("Anything")).toBe(anything);
+  });
+
   test("anything clears the type again", async ({ signedIn }) => {
     await signedIn.getByRole("radio", { name: "Bayonets" }).check();
     await expect(signedIn).toHaveURL(/kind=bayonet/);

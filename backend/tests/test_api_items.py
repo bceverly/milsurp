@@ -250,6 +250,43 @@ class TestFacets:
         assert body["facets"] is None
 
 
+class TestTheTypeCounts:
+    """What each Type would show, next to the radio that chooses it."""
+
+    def counts(self, client, headers, query=""):
+        body = client.get(f"/api/items{query}", headers=headers).json()
+        return {k["value"]: k["count"] for k in body["facets"]["kinds"]}
+
+    def test_one_per_type_plus_anything(self, client, admin_headers, inventory):
+        counts = self.counts(client, admin_headers)
+        assert set(counts) == {"", "rifle", "pistol", "bayonet", "parts_kit", "other"}
+        assert counts["rifle"] == 3
+        assert counts["pistol"] == 1
+
+    def test_anything_is_the_whole_set(self, client, admin_headers, inventory):
+        """The five partition it, so the sum is the total and not a sixth count
+        that could drift away from the rows on the page."""
+        counts = self.counts(client, admin_headers)
+        named = sum(counts[k] for k in ("rifle", "pistol", "bayonet", "parts_kit", "other"))
+        assert counts[""] == named
+        assert counts[""] == client.get("/api/items", headers=admin_headers).json()["total"]
+
+    def test_choosing_a_type_does_not_change_them(self, client, admin_headers, inventory):
+        """Otherwise picking Rifles would report zero handguns, and the numbers
+        would only ever describe the choice already made."""
+        assert self.counts(client, admin_headers, "?kind=rifle") == self.counts(
+            client, admin_headers
+        )
+
+    def test_but_every_other_filter_does(self, client, admin_headers, inventory):
+        """They say what picking a Type would give *here*, so the rest of the
+        sidebar still applies."""
+        counts = self.counts(client, admin_headers, "?country=Germany")
+        assert counts["rifle"] == 1
+        assert counts["pistol"] == 1
+        assert counts[""] == 2
+
+
 class TestDetail:
     def test_includes_price_history(self, client, admin_headers, inventory):
         drop = inventory[1]

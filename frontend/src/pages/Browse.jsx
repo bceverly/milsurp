@@ -247,6 +247,13 @@ export default function Browse() {
   const sort = params.get("sort") || "newest";
   const availability = params.get("availability") || "available";
   const kind = params.get("kind") || "";
+  // How many each Type would show. Counted by the API over every other filter
+  // but not over the Type itself, so switching between them does not change
+  // the numbers -- and so "Anything" is the sum of the five below it.
+  const kindCounts = useMemo(
+    () => new Map((data?.facets?.kinds || []).map((k) => [k.value, k.count])),
+    [data],
+  );
   const priceState = params.get("price_drops_only") === "true" ? "true" : "";
   const perPage = PER_PAGE_CHOICES.includes(Number(params.get("per_page")))
     ? Number(params.get("per_page"))
@@ -560,6 +567,11 @@ export default function Browse() {
                     }
                   />
                   <span className="facet__option-label">{option.label}</span>
+                  {kindCounts.has(option.value) && (
+                    <span className="facet__option-count">
+                      {kindCounts.get(option.value).toLocaleString()}
+                    </span>
+                  )}
                 </label>
               ))}
             </div>

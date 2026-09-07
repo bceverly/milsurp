@@ -48,7 +48,7 @@ from ..scrapers import (
     get_scraper,
     get_scraper_class,
 )
-from . import classify, manufacturers
+from . import armory, classify, manufacturers
 from .image_store import ImageStore
 
 #: Progress lines kept per run. Enough to debug a scrape without unbounded growth.
@@ -298,6 +298,8 @@ def _upsert_item(
         item.caliber,
     )
 
+    _apply_catalog(session, item, trusted)
+
     session.flush()
 
     # Record photo URLs now; the bytes are fetched in a later pass so a slow
@@ -310,6 +312,36 @@ def _upsert_item(
         item.detail_fetched_at = seen_at
 
     return item, created, price_dropped
+
+
+def _apply_catalog(session: Session, item: Item, trusted: bool) -> None:
+    """Let the armory correct and complete what the guesses said.
+
+    It outranks them because it is not a guess: somebody who knows the trade
+    stated it. Three things happen and a fourth deliberately does not.
+
+    The caliber is *normalized*, so ".32 ACP" and "7.65mm Browning" stop being
+    two answers to one question. A caliber and a maker the listing never stated
+    are *filled in* from the model it names -- "RUSSIAN M44 CARBINES" says
+    neither and is a Mosin-Nagant in 7.62x54R. And the model's kind settles
+    rifle-or-handgun, which it does better than the words in the title: a
+    flintlock pistol and a percussion revolver are both handguns and neither
+    has to spell that out.
+
+    What it will not do is argue with a caliber a dealer stated. Sixty years of
+    surplus is full of rebarreled and rechambered guns, and the vendor has the
+    thing in their hand.
+
+    Only rows an admin has promoted take part. A pending row is a question
+    nobody has answered yet, and a question must not rewrite the armory.
+    """
+    found = armory.fill_in(session, item.title, item.description if trusted else None, item.caliber)
+    if found.caliber:
+        item.caliber = found.caliber
+    item.manufacturer = item.manufacturer or found.manufacturer
+    if found.kind is not None:
+        item.is_rifle = found.kind.is_long_gun
+        item.is_pistol = found.kind.is_handgun
 
 
 def _reconcile_photos(session: Session, item: Item, scraped: ScrapedItem) -> None:

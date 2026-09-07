@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import select
 
-from app.models import Item, Manufacturer, ManufacturerModel, Site
+from app.models import ArmoryStatus, FirearmModel, Item, Manufacturer, Site
 from app.services import classify
 from app.services import manufacturers as service
 
@@ -277,16 +277,23 @@ class TestSeedingKeepsDesignationsWithSlashes:
 class TestModelsBelongToAMaker:
     """A dealer names the model far more often than the maker.
 
-    Kept as rows rather than as more lines in the alias box, because "M44" and
-    "Mosin Nagant" are different kinds of fact — what a firm made, and how its
-    name is spelled — and a model has somewhere to grow: its caliber, its type,
-    the years it ran.
+    The models live in the armory now, one row each with all of its makers on
+    it, rather than a block of text hanging off a firm. That is what lets a
+    designation two firms both made say so, instead of the old arrangement
+    where the same name on two makers meant it had to be dropped from matching
+    altogether.
     """
 
     def maker(self, session, name, models=(), position=10):
         row = Manufacturer(name=name, position=position)
-        row.models = [ManufacturerModel(name=model) for model in models]
         session.add(row)
+        session.flush()
+        for model in models:
+            existing = session.query(FirearmModel).filter(FirearmModel.name == model).one_or_none()
+            if existing is None:
+                existing = FirearmModel(name=model, status=ArmoryStatus.APPROVED)
+                session.add(existing)
+            existing.manufacturers.append(row)
         session.flush()
         service.invalidate()
         return row
@@ -303,22 +310,16 @@ class TestModelsBelongToAMaker:
         assert not service.pattern_for(["M44"]).search("Koishikawa Type 44 Carbine")
         assert not service.pattern_for(["M44"]).search("M448 widget")
 
-    def test_a_model_two_makers_claim_identifies_neither(self, clean_db):
-        """M38 is a Carcano as often as it is a Mosin. Picking the first rule
-        in the list would be an accident of ordering, not a decision."""
+    def test_a_model_two_makers_built_identifies_neither(self, clean_db):
+        """M38 is a Carcano as often as it is a Mosin. Picking whichever rule
+        came first would be an accident of ordering, not a decision — and now
+        it is one row saying both firms made it, rather than two rows that
+        happen to share a name."""
         self.maker(clean_db, "Mosin-Nagant", ["M38"], position=10)
         self.maker(clean_db, "Carcano", ["M38"], position=20)
 
+        assert clean_db.query(FirearmModel).filter(FirearmModel.name == "M38").count() == 1
         assert service.registry(clean_db).extract("An M38 carbine") is None
-
-    def test_but_both_entries_are_kept(self, clean_db):
-        """They are both true; the admin page says which ones cancel out."""
-        first = self.maker(clean_db, "Mosin-Nagant", ["M38"], position=10)
-        second = self.maker(clean_db, "Carcano", ["M38"], position=20)
-
-        assert first.model_names == ["M38"]
-        assert second.model_names == ["M38"]
-        assert service.ambiguous_models([first, second]) == {"m38"}
 
     def test_an_unshared_model_still_works_alongside_a_shared_one(self, clean_db):
         self.maker(clean_db, "Mosin-Nagant", ["M38", "M44"], position=10)
@@ -326,13 +327,28 @@ class TestModelsBelongToAMaker:
 
         registry = service.registry(clean_db)
         assert registry.extract("An M38 carbine") is None
-        assert registry.extract("An M44 carbine") == "Mosin-Nagant"
+        assert registry.extract("RUSSIAN M44 CARBINES") == "Mosin-Nagant"
 
-    def test_a_disabled_maker_does_not_make_a_model_ambiguous(self, clean_db):
-        keep = self.maker(clean_db, "Mosin-Nagant", ["M38"], position=10)
-        gone = self.maker(clean_db, "Carcano", ["M38"], position=20)
-        gone.enabled = False
+    def test_a_models_other_spellings_identify_it_too(self, clean_db):
+        """The armory carries aliases on a model, which the flat list could
+        not: "Kar98k" and "98k" are the same rifle as "Karabiner 98k"."""
+        row = FirearmModel(name="Karabiner 98k", aliases="K98k\n98k", status=ArmoryStatus.APPROVED)
+        maker = Manufacturer(name="Mauser", position=10)
+        clean_db.add_all([row, maker])
+        row.manufacturers.append(maker)
         clean_db.flush()
         service.invalidate()
 
-        assert service.registry(clean_db).extract("An M38 carbine") == keep.name
+        assert service.registry(clean_db).extract("WWII German 98k rifle") == "Mauser"
+
+    def test_a_pending_model_identifies_nobody(self, clean_db):
+        """Everything in the armory works this way: a row nobody has vouched
+        for is a question, not a fact."""
+        row = FirearmModel(name="M44", status=ArmoryStatus.PENDING)
+        maker = Manufacturer(name="Mosin-Nagant", position=10)
+        clean_db.add_all([row, maker])
+        row.manufacturers.append(maker)
+        clean_db.flush()
+        service.invalidate()
+
+        assert service.registry(clean_db).extract("RUSSIAN M44 CARBINES") is None

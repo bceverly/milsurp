@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy import (
     Boolean,
+    Column,
     DateTime,
     Enum,
     Float,
@@ -19,6 +20,7 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
+    Table,
     Text,
     UniqueConstraint,
 )
@@ -148,6 +150,128 @@ class Site(Base, TimestampMixin):
     )
 
 
+class FirearmKind(str, enum.Enum):
+    """What a model *is*, as a collector would name it.
+
+    Finer than the rifle/handgun split the browse filter uses, because the
+    ignition system is half of what a muzzleloader is: a flintlock pistol and
+    a percussion revolver are different things to somebody who collects them,
+    and both are "handgun" to the filter. :meth:`is_handgun` is where the two
+    views meet, so the browse page keeps its five buttons.
+
+    A carbine is its own form and not a short rifle. A Trapdoor Carbine and a
+    Trapdoor Rifle are different guns, priced differently and collected
+    separately, and the same is true either side of the cartridge era -- which
+    is why the list is really *ignition* by *form* and carbine has a slot in
+    each row. Without percussion_carbine a Sharps or a Burnside, of which the
+    Civil War produced a great many, has nowhere to go but "rifle".
+
+    Variants within a model -- the years, the arsenals, the marks -- are
+    aliases on the model rather than kinds. "Model 1873 Trapdoor Carbine" and
+    "1873 Carbine" are two ways of writing one thing; a carbine and a rifle
+    are two things.
+    """
+
+    RIFLE = "rifle"
+    CARBINE = "carbine"
+    SHOTGUN = "shotgun"
+    PISTOL = "pistol"
+    REVOLVER = "revolver"
+    FLINTLOCK_RIFLE = "flintlock_rifle"
+    FLINTLOCK_CARBINE = "flintlock_carbine"
+    FLINTLOCK_PISTOL = "flintlock_pistol"
+    PERCUSSION_RIFLE = "percussion_rifle"
+    PERCUSSION_CARBINE = "percussion_carbine"
+    PERCUSSION_PISTOL = "percussion_pistol"
+    PERCUSSION_REVOLVER = "percussion_revolver"
+
+    @property
+    def is_handgun(self) -> bool:
+        return self in {
+            FirearmKind.PISTOL,
+            FirearmKind.REVOLVER,
+            FirearmKind.FLINTLOCK_PISTOL,
+            FirearmKind.PERCUSSION_PISTOL,
+            FirearmKind.PERCUSSION_REVOLVER,
+        }
+
+    @property
+    def is_long_gun(self) -> bool:
+        return not self.is_handgun
+
+
+class ArmoryStatus(str, enum.Enum):
+    """Whether a reference row has been looked at by a person.
+
+    Rows arrive two ways. An admin adds one deliberately, and it is approved
+    from the start. A scan meets a name nothing in the table explains and
+    proposes one, and that is *pending* until somebody says otherwise.
+
+    A pending row is inert: it never fills in a listing's caliber and never
+    decides what kind of thing a listing is. It is a question, not a fact, and
+    the point of keeping it is that the question is asked once and then sits
+    somewhere an admin can answer it -- rather than being asked again on every
+    scan and answered by nobody.
+    """
+
+    PENDING = "pending"
+    APPROVED = "approved"
+    #: Kept, but folded into another row. See :attr:`Caliber.merged_into_id`.
+    MERGED = "merged"
+
+
+#: What a model chambers. A list for the same reason the makers are: a model
+#: made across decades is often chambered in more than one round. The Steyr
+#: M95 was built in 8x50mmR and rebarreled wholesale to 8x56mmR between the
+#: wars, and both are correct for a rifle sold today as "an M95".
+firearm_model_calibers = Table(
+    "firearm_model_calibers",
+    Base.metadata,
+    Column(
+        "firearm_model_id",
+        ForeignKey("firearm_models.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column("caliber_id", ForeignKey("calibers.id", ondelete="CASCADE"), primary_key=True),
+)
+
+
+#: Which model made which. A model has several makers far more often than the
+#: one-maker-per-model table this replaces could say: the M1 Carbine was built
+#: by Inland, Winchester, Rock-Ola, IBM, Underwood, Quality Hardware, National
+#: Postal Meter, Standard Products and Saginaw, and a listing may name any of
+#: them, or none.
+firearm_model_manufacturers = Table(
+    "firearm_model_manufacturers",
+    Base.metadata,
+    Column(
+        "firearm_model_id",
+        ForeignKey("firearm_models.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "manufacturer_id",
+        ForeignKey("manufacturers.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+)
+
+
+def _spellings(name: str, aliases: str | None) -> list[str]:
+    """The canonical name first, then each alias line, without repeats.
+
+    Case-insensitive on the repeat check only: what is stored is what the
+    admin typed, and a spelling that differs only in case is the same string
+    to every matcher in the application.
+    """
+    found = [name.strip()]
+    for line in (aliases or "").splitlines():
+        alias = line.strip()
+        if alias and alias.lower() not in {item.lower() for item in found}:
+            found.append(alias)
+    return found
+
+
 class Manufacturer(Base, TimestampMixin):
     """A maker's name, and the spellings that mean it.
 
@@ -180,10 +304,32 @@ class Manufacturer(Base, TimestampMixin):
     #: A note for whoever edits this next.
     notes: Mapped[str | None] = mapped_column(Text)
 
+    #: A maker a scan proposed, which nobody has confirmed yet, is pending and
+    #: takes no part in matching. See :class:`ArmoryStatus`.
+    status: Mapped[ArmoryStatus] = mapped_column(
+        Enum(ArmoryStatus, native_enum=False, length=16),
+        default=ArmoryStatus.APPROVED,
+        nullable=False,
+        index=True,
+    )
+    #: Set when this maker was folded into another -- "Mosin" into
+    #: "Mosin-Nagant". The row stays so listings already carrying the old name
+    #: can be followed to the new one.
+    merged_into_id: Mapped[int | None] = mapped_column(
+        ForeignKey("manufacturers.id", ondelete="SET NULL"), index=True
+    )
+    first_seen_in: Mapped[str | None] = mapped_column(Text)
+
+    merged_into: Mapped["Manufacturer | None"] = relationship(remote_side="Manufacturer.id")
     models: Mapped[list["ManufacturerModel"]] = relationship(
         back_populates="manufacturer",
         cascade="all, delete-orphan",
         order_by="ManufacturerModel.name",
+    )
+    firearm_models: Mapped[list["FirearmModel"]] = relationship(
+        secondary=firearm_model_manufacturers,
+        back_populates="manufacturers",
+        order_by="FirearmModel.name",
     )
 
     @property
@@ -193,12 +339,7 @@ class Manufacturer(Base, TimestampMixin):
     @property
     def spellings(self) -> list[str]:
         """Every string that means this maker, canonical name first."""
-        found = [self.name.strip()]
-        for line in (self.aliases or "").splitlines():
-            alias = line.strip()
-            if alias and alias.lower() not in {item.lower() for item in found}:
-                found.append(alias)
-        return found
+        return _spellings(self.name, self.aliases)
 
 
 class ManufacturerModel(Base, TimestampMixin):
@@ -229,6 +370,149 @@ class ManufacturerModel(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
 
     manufacturer: Mapped["Manufacturer"] = relationship(back_populates="models")
+
+
+class Caliber(Base, TimestampMixin):
+    """A cartridge, and every way the trade writes it.
+
+    The aliases are the whole point. A dealer writes ".32 ACP" and another
+    writes "7.65mm Browning" and they are the same round; ".30-06" and
+    "7.62x63mm" are the same round; "7.62x54R" and "7.62 R" and "7,62x54R" are
+    the same round. Until they are one row, a filter on either shows half the
+    listings and a missing caliber cannot be filled in from a model at all.
+
+    Matched as literal text on word boundaries, like a maker's aliases, and for
+    the same reason: these come from a form.
+    """
+
+    __tablename__ = "calibers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    #: The canonical spelling, and what gets written onto a listing.
+    name: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
+    #: The other spellings, one per line.
+    aliases: Mapped[str | None] = mapped_column(Text)
+    #: Pending by default. A row nobody has looked at is not production,
+    #: whether it arrived from a scan, from the shipped armory file, or from
+    #: an admin who has not finished filling it in. The column default in
+    #: migration 0011 is the opposite, and deliberately: that one only ever
+    #: applies to rows that existed before this table did, which were already
+    #: curated.
+    status: Mapped[ArmoryStatus] = mapped_column(
+        Enum(ArmoryStatus, native_enum=False, length=16),
+        default=ArmoryStatus.PENDING,
+        nullable=False,
+        index=True,
+    )
+    #: Set when this row was merged into another: ".30-06 Sprg" into ".30-06".
+    #: The row stays so that a listing already carrying the old spelling can be
+    #: followed to the new one, and so an admin can see what became of it.
+    merged_into_id: Mapped[int | None] = mapped_column(
+        ForeignKey("calibers.id", ondelete="SET NULL"), index=True
+    )
+    #: Where the name was first seen, for a pending row an admin has to judge.
+    first_seen_in: Mapped[str | None] = mapped_column(Text)
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    merged_into: Mapped["Caliber | None"] = relationship(remote_side="Caliber.id")
+
+    @property
+    def spellings(self) -> list[str]:
+        """Every string that means this cartridge, canonical name first."""
+        return _spellings(self.name, self.aliases)
+
+
+class FirearmModel(Base, TimestampMixin):
+    """A model of gun: what it is called, who made it, and what it chambers.
+
+    This is the canonical list the rest of the application asks. A listing that
+    matches a model here takes that model's kind and, when its own caliber
+    could not be read, that model's caliber -- which is the whole reason for
+    the table. "RUSSIAN M44 CARBINES" says neither Mosin-Nagant nor 7.62x54R
+    and is both.
+
+    It replaces ``manufacturer_models``, which could only give a model one
+    maker. That was wrong for most of the interesting ones and it forced a
+    second rule on top: a model two makers claimed was dropped from matching
+    entirely, because picking whichever row came first would have been an
+    accident of ordering. Here both makers are simply on the model, and the
+    model still identifies the gun.
+    """
+
+    __tablename__ = "firearm_models"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    #: As the trade names it: "M1 Carbine", "Model 1873 Trapdoor", "K98k".
+    name: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
+    #: Other spellings, one per line. "M1 Carbine" is also "US M1 Carbine",
+    #: ".30 M1 Carbine" and "Carbine, Cal .30, M1".
+    aliases: Mapped[str | None] = mapped_column(Text)
+    kind: Mapped[FirearmKind | None] = mapped_column(
+        Enum(FirearmKind, native_enum=False, length=32), index=True
+    )
+
+    #: Pending by default, for the reason given on :class:`Caliber`.
+    status: Mapped[ArmoryStatus] = mapped_column(
+        Enum(ArmoryStatus, native_enum=False, length=16),
+        default=ArmoryStatus.PENDING,
+        nullable=False,
+        index=True,
+    )
+    merged_into_id: Mapped[int | None] = mapped_column(
+        ForeignKey("firearm_models.id", ondelete="SET NULL"), index=True
+    )
+    #: Lower is tried first, for the same reason it is on Manufacturer:
+    #: "Mosin-Nagant M44" has to be tried before "M44".
+    position: Mapped[int] = mapped_column(Integer, default=1000, nullable=False, index=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
+    #: Where to read about it. Optional, and expected to stay that way for a
+    #: long tail of models nobody has written an article about -- but for the
+    #: ones that have it, it is the fastest way for whoever is approving a
+    #: pending row to check what they are approving.
+    #:
+    #: Stored as the whole URL rather than an article title. Wikipedia is the
+    #: obvious source and not the only one: a milsurp reference site or a
+    #: collector's association page is often better on a variant, and a column
+    #: called wikipedia_url that holds one of those would be a lie.
+    wikipedia_url: Mapped[str | None] = mapped_column(String(500))
+    #: The listing title a pending row was proposed from, so an admin judging
+    #: it can see what it came from without going hunting.
+    first_seen_in: Mapped[str | None] = mapped_column(Text)
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    calibers: Mapped[list["Caliber"]] = relationship(
+        secondary=firearm_model_calibers,
+        order_by="Caliber.name",
+    )
+    merged_into: Mapped["FirearmModel | None"] = relationship(remote_side="FirearmModel.id")
+    manufacturers: Mapped[list["Manufacturer"]] = relationship(
+        secondary=firearm_model_manufacturers,
+        back_populates="firearm_models",
+        order_by="Manufacturer.name",
+    )
+
+    @property
+    def spellings(self) -> list[str]:
+        return _spellings(self.name, self.aliases)
+
+    @property
+    def manufacturer_names(self) -> list[str]:
+        return [maker.name for maker in self.manufacturers]
+
+    @property
+    def caliber_names(self) -> list[str]:
+        return [cartridge.name for cartridge in self.calibers]
+
+    @property
+    def only_caliber(self) -> str | None:
+        """The cartridge, when there is exactly one and so no choice to make.
+
+        With several, the model genuinely does not say which one a particular
+        rifle is -- an M95 may be 8x50mmR or 8x56mmR -- so it says nothing
+        rather than picking. Same rule as :attr:`manufacturers`, and for the
+        same reason: a guess dressed as a fact is worse than a blank.
+        """
+        return self.calibers[0].name if len(self.calibers) == 1 else None
 
 
 class ScanRun(Base):

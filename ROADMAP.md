@@ -153,7 +153,7 @@ its theme is customized — a couple of selectors in front of the defaults.
 | — | **Axis Arms** | `/product-category/rifles/` + `/handguns/` | **Shipped** | Elementor loop: the `h1` is the name and the `h2` is the price. Cards match twice (article and inner div); de-duplicated by post id |
 | — | **CO Gun Sales** | `/product-category/curio-relics-cr/` | **Shipped** | Stock WooCommerce for titles and prices, and nothing like it for pictures: the page carries no `<img>` at all. The card's photo is a CSS `background-image` and the product gallery is JSON in a `data-wcsvi` attribute, so all 144 listings arrived with no photograph until both fallbacks existed. The old entry URL here said `/page/6/`, which was somebody's browsing position; pagination follows the shop's own "next" link |
 | — | **Checkpoint Charlie's** | `/product-tag/cr/` | **Shipped, but barely** | A product *tag*, which renders the same loop and paginates the same way. Their `/product/` pages answer 429 to any pace and any headers, and after an hour of that they stop answering the category pages too: a full run took 56 minutes to walk 24 listings and save 5. The scan now survives it — catalog-only entries, and a section that stops at the page it got to — but this site is a candidate for the browser path, or for dropping. See "When a shop refuses a page" in the README |
-| 1 | J&G Sales | `/product-category/firearms/collectors-corner/military-surplus-collectible-category/` | **Needs a browser** | The `li.product` elements come back as 65-byte empty placeholders: the catalog is rendered client-side. Same treatment as Royal Tiger |
+| 1 | J&G Sales | `/product-category/firearms/collectors-corner/military-surplus-collectible-category/` | **Needs a browser** | Re-measured: 13 `li.product` elements arrive, all empty, and there is not one `$` in 394 KB. The catalog is rendered client-side. See "Browser-backed fetching" below |
 | 2 | DK Firearms | `/product-category/surplus/surplus-firearms/` | **Needs a browser** | Cloudflare returns a 403 challenge to plain HTTP |
 | 3 | MCT Defense | `/product-category/firearms/` | **Needs an entry URL** | That page is thirty *category* tiles, not products — no price element anywhere on it. Their actual product pages have to be found before this is worth writing |
 
@@ -217,7 +217,7 @@ walk asks before each page rather than assuming.
 | # | Site | Entry URL | Status |
 | --- | --- | --- | --- |
 | — | **Legacy Collectibles** | `/new-firearms/`, `/antique-handguns/`, `/antique-long-guns/` | **Shipped.** `data-entity-id` on every card, so a listing keeps its identity through a rename. Their two "Modern" sections were dropped after the first run: Glocks, Sigs, Kimber 2011s and FN SCARs, 43 listings and not one of them surplus — the Arms Unlimited call again. `/new-firearms/` is a new-arrivals feed rather than a category and carries some of the same, but it is also the only place a Portuguese-contract Mauser Luger appears |
-| 1 | SARCO Inc. | https://www.sarcoinc.com/live-firearms/rifles/ | **Needs a browser.** No cards, titles or prices in the HTML: rendered client-side, like J&G Sales |
+| 1 | SARCO Inc. | https://www.sarcoinc.com/live-firearms/rifles/ | **Needs a browser.** Re-measured: zero cards and zero prices in 236 KB. See "Browser-backed fetching" below |
 | 2 | Edelweiss Arms | https://edelweissarms.com/antiques/long-guns/ | **Prices are not published.** Cards and titles parse; the price element is empty site-wide. Worth having for new-stock alerts, worth nothing for price tracking — decide before building |
 | — | ~~Arms Unlimited~~ | — | **Dropped: not a surplus dealer.** Written, run against the live site, and backed out. Their `/surplus/` section is police trade-in gear — Tasers, holsters, a water bottle — and `/rifles/` is modern Colt M4s. 97 listings landed correctly and none of them belonged in this catalog. The scraper was a two-line subclass; restoring it is easy if modern stock is ever wanted |
 
@@ -365,16 +365,52 @@ survived contact:
    skipped the detail fetch. Removing the cents by *text* is the trap after
    that: "$1599 99" minus the first "99" is "$15 9", which parses to $15.99.
 
-#### Group E — Wix (3 sites) · expect the browser
+#### Group E — Wix · **not a group**
 
-Wix renders its catalog client-side, so these are likely to need the browser
-path rather than plain HTTP, the way J&G Sales does.
+Filed as three sites on one platform needing the browser. Measured, it is one
+site worth having, and no browser is needed for it.
 
-| # | Site | Entry URL | Notes |
-| --- | --- | --- | --- |
-| 1 | Surplus Defense | https://www.surplusdefense.com/all-products | Also `/surplus-rifles` — one scraper, two sources, the same shape as Empire Arms |
-| 2 | The Mosin Crate | https://www.themosincrate.com/ | Narrow, single-family inventory |
-| 3 | Pasadena Pawn and Gun | https://www.pasadenapawnandgun.com/antique-guns | Pawn shop; inventory may turn over fast and unpredictably |
+**The browser part was wrong.** Wix renders client-side, which is true of the
+*rendering* and not of the data: a Wix Stores page embeds its whole catalog as
+JSON in the HTML for search engines. Surplus Defense's `/all-products` carries
+a `productsWithMetaData` blob with the product id, name, price, SKU,
+`isInStock`, a "SOLD" ribbon, the URL slug and the media URLs — 20 products of
+a stated `totalCount` of 58, so it pages, but plain HTTP reaches all of it.
+
+**The group part was wrong too.** Being on Wix says nothing about having a
+shop:
+
+| Site | What it actually is |
+| --- | --- |
+| **Surplus Defense** | A real Wix Store. Embedded catalog JSON, 58 products, genuine surplus — a Krag-Jorgensen and a Type 14 Nambu holster on the first page. **Worth building** |
+| The Mosin Crate | `/shop-1` is a Wix Pro Gallery, not a store: 71 dollar amounts on the page and the first is the shipping table. No catalog blob |
+| Pasadena Pawn and Gun | Also a Pro Gallery, and the prices are **in the image filenames** — `Savage Model 1899 Takedown Rifle – .300 Savage - Frank 30__$975__.jpg`. No product ids, no stock, no product pages. Their navigation is Glock, Taurus, Canik and Sig, so it is a modern shop besides |
+
+#### Browser-backed fetching — the best leverage left
+
+No platform group remains, but three sites are blocked on the *same missing
+piece*, and each already has its platform base class written:
+
+| Site | Base class | What blocks it |
+| --- | --- | --- |
+| J&G Sales | `WooCommerceScraper` | Catalog rendered client-side |
+| DK Firearms | `WooCommerceScraper` | Cloudflare answers plain HTTP with 403 |
+| SARCO Inc. | `BigCommerceScraper` | Catalog rendered client-side |
+
+So the work is not three scrapers; it is **one mechanism** — letting a
+storefront base class fetch its pages through Chrome instead of `requests` —
+after which each site is the usual slug, name and list of URLs.
+
+Most of it exists already. `app/scrapers/browser.py` has the Chrome context
+manager, the infinite-scroll loop and the "Load More" handling, all written for
+Royal Tiger and all reusable; Chrome is installed. What is missing is a way for
+`ScrapeContext.get_text()` to be browser-backed so the existing walks work
+unchanged.
+
+**One risk worth stating before starting.** DK Firearms is a Cloudflare
+challenge rather than a rendering problem, and a headless browser does not
+always pass one. That site may still be blocked afterwards, which would make
+this two sites rather than three.
 
 #### Group Z — refused a plain request
 
@@ -588,6 +624,77 @@ application and publish it as a snap.
   finds nothing. That is the intended behavior at this catalog size; it gets
   better with every vendor added. See `app/services/crosscatalog.py` for what a
   looser version got wrong.
+- **Shipped** — Accessory-versus-firearm classification, twice reworked against
+  the site owner's own reports. First pass: forty-two IMA-USA slings, bayonets,
+  cases, cheek pads, oilers, wire hangers, cartridge belts and one film-prop
+  en-bloc clip were arriving as rifles, because those dealers name the gun a
+  part fits before naming the part and file the whole lot under "M1 Garand &
+  U.S. Rifles". Second pass, the mirror image: eighty-six genuine firearms were
+  sitting in "Other parts & accessories" — a $39,995 pair of flintlock holster
+  pistols, a $29,995 drilling, Walther, Glock, SCAR, Galil, CETME, M1A and
+  Winchester listings — because a collector's dealer names the model and stops,
+  or names the gun and then everything it is made of. Both halves pull against
+  each other, so every rule is measured over all 1,930 stored listings before it
+  is kept and 77 of the reported titles are now test cases. See the head-noun
+  and specification rules in the README.
+  A third pass cleared the last ten: deactivated and display pieces (an inert
+  M2HB, a non-firing training rifle, a scale replica revolver), goods named
+  beside a gun rather than instead of one (a revolver "As Featured In … Firearms
+  Book", a pistol with a "Butt Cap", a machine gun on its tripod), a
+  "Percussion Pistol Carbine" in .58 that the caliber rule turned into neither,
+  and a Beretta whose model the vocabulary only recognized without the word
+  "Model" in the middle.
+  A fourth pass, from the same source, cleared two more: a Beretta whose extras
+  were bundled with a "+" rather than a "with", and a Smith & Wesson written as
+  a dash-separated spec list whose third entry was its grips. `make reclassify`
+  now also applies the reference catalog, which it did not — so promoting a
+  model taught every future scan something that reclassify then quietly undid
+  on the listings already stored. Its summary line also counted "other" as
+  everything that is not a rifle or a handgun, which silently included the
+  bayonets and parts kits printed beneath it: it read 131 against a filter
+  showing 88.
+- **Shipped** — A count beside each Type in the filter rail, and the total
+  beside "Anything". Counted over every other filter but not over Type, so the
+  numbers say what choosing one would give rather than restating the choice
+  already made.
+- **Shipped** — An armory of manufacturers, models and calibers (`/armory`), which
+  is the first thing in the application that states facts rather than guessing
+  at them. Calibers carry every spelling the trade uses, so ".32 ACP" and
+  "7.65mm Browning" are one row and one filter. Models carry their aliases,
+  their kind, and *all* of their makers and *all* of their calibers — the M1
+  Carbine had nine makers, and a Steyr M95 is 8x50mmR or 8x56mmR depending on
+  when it was rebarreled. Both are join tables, which is why there is one M1
+  Carbine rather than nine. With exactly one maker or caliber the catalog fills
+  a listing's blank from it; with several it says nothing, because it does not
+  know which this one is. Kind is finer than the browse filter: rifle, carbine,
+  shotgun, pistol, revolver, each also in flintlock and percussion, because a
+  Trapdoor Carbine and a Trapdoor Rifle are different guns. Every row is
+  awaiting-approval or production and only production rows decide anything, so
+  a scan can safely write down every designation it meets. Merging folds
+  "Mosin" into "Mosin-Nagant", carrying the spellings across and restamping the
+  listings. The catalog seeds from a versioned file, exports back to one, and
+  syncs with a plan-then-apply flow.
+- **Shipped** — The maker list folded into it as a third tab. It was a page of
+  its own where each firm carried a flat textbox of model names, which could
+  only say "this firm made something called M44" — so a designation two firms
+  both made had to be dropped from maker-matching, because a list per firm
+  cannot express one thing built by two. Maker rules now read the armory's
+  models: one with exactly one maker names that maker, one with nine names
+  none. Expanding a firm shows what it built, with "+ Add model" pre-checking
+  it, and a cartridge can be added without leaving the model dialog. The two
+  registries are one cache now — the maker rules depend on the armory, so
+  promoting a model has to clear both, and not doing so meant promoting
+  "Inland" left "Inland M1 Carbine" with no maker and nothing to explain it.
+  Not called "Registry", deliberately: in the US firearms world that word means
+  a government list of owners.
+- **Planned** — Let a listing name the model it matched on the item detail page,
+  and filter the browse page by model and by the finer kinds. The data is there;
+  only the reading of it is missing.
+- **Planned** — Propose pending rows automatically from scans. The mechanism is
+  built and tested (`catalog.propose_model`, `catalog.propose_caliber`) and
+  deliberately not yet wired into the scan loop: it wants a rule for what counts
+  as a designation worth proposing, or the queue fills with noise on the first
+  large scan.
 - **Planned** — Cross-site duplicate detection proper. The same rifle listed by
   two vendors should be recognizable — the token index built for field filling
   is the start of this, but a duplicate needs more than a shared model name.

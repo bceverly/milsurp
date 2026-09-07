@@ -9,7 +9,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
 from fastapi.responses import FileResponse
-from sqlalchemy import Select, func, or_, select, true
+from sqlalchemy import Select, case, func, or_, select, true
 from sqlalchemy.orm import selectinload
 
 from ..deps import AppConfig, CurrentUser, DbSession
@@ -124,6 +124,31 @@ def _to_out(item: Item, site_names: dict[int, str]) -> ItemOut:
     return data
 
 
+#: What each value of the "kind" filter selects.
+#:
+#: "rifle" and "pistol" are independent booleans rather than one column,
+#: because a listing can be neither -- an accessory -- and occasionally reads
+#: as both. "other" is defined as the absence of all four, so "Other parts &
+#: accessories" stops meaning "including the bayonets and kits listed above
+#: it", and so that the five counts add up to the whole.
+KINDS: dict[str, Any] = {
+    "rifle": Item.is_rifle.is_(True),
+    "pistol": Item.is_pistol.is_(True),
+    "bayonet": Item.is_bayonet.is_(True),
+    "parts_kit": Item.is_parts_kit.is_(True),
+    "other": (
+        Item.is_rifle.is_(False)
+        & Item.is_pistol.is_(False)
+        & Item.is_bayonet.is_(False)
+        & Item.is_parts_kit.is_(False)
+    ),
+}
+
+
+def _kind_clause(kind: str) -> Any:
+    return KINDS[kind]
+
+
 def _apply_filters(  # noqa: PLR0912 - one branch per filter; splitting it
     #                                      would only scatter the same logic
     stmt: Select,
@@ -153,26 +178,7 @@ def _apply_filters(  # noqa: PLR0912 - one branch per filter; splitting it
         stmt = stmt.where(_matching(Item.manufacturer, manufacturers))
 
     if kinds:
-        # "rifle"/"pistol" are independent booleans, not one column, because a
-        # listing can be neither (an accessory) and occasionally reads as both.
-        clauses: list[Any] = []
-        if "rifle" in kinds:
-            clauses.append(Item.is_rifle.is_(True))
-        if "pistol" in kinds:
-            clauses.append(Item.is_pistol.is_(True))
-        if "bayonet" in kinds:
-            clauses.append(Item.is_bayonet.is_(True))
-        if "parts_kit" in kinds:
-            clauses.append(Item.is_parts_kit.is_(True))
-        if "other" in kinds:
-            # Everything the named kinds do not claim, so "Parts & accessories"
-            # stops meaning "including the bayonets and kits listed above it".
-            clauses.append(
-                (Item.is_rifle.is_(False))
-                & (Item.is_pistol.is_(False))
-                & (Item.is_bayonet.is_(False))
-                & (Item.is_parts_kit.is_(False))
-            )
+        clauses = [_kind_clause(k) for k in kinds if k in KINDS]
         if clauses:
             stmt = stmt.where(or_(*clauses))
 
@@ -239,6 +245,24 @@ def _matching(column, wanted: list[str]):
     return or_(*clauses) if clauses else true()
 
 
+def _kind_counts(session: DbSession, base: Select) -> list[FacetValue]:
+    """How many listings each Type would show, over everything else chosen.
+
+    Deliberately not over the current result set like the other facets: with
+    the kind filter applied, picking "Rifles" would report zero handguns and
+    the numbers would only ever describe the choice already made. Every other
+    filter still applies, so the counts say what picking each one would give.
+
+    Read in one pass rather than five, and "Anything" is the sum of the five
+    rather than a sixth count -- they partition the set by construction, and
+    computing it separately would let the two disagree on screen.
+    """
+    columns = [func.count(case((clause, 1))) for clause in KINDS.values()]
+    row = session.execute(base.with_only_columns(*columns)).one()
+    counts = [FacetValue(value=name, count=int(n)) for name, n in zip(KINDS, row, strict=True)]
+    return [FacetValue(value="", count=sum(c.count for c in counts)), *counts]
+
+
 def _facets(session: DbSession, base: Select) -> ItemFacets:
     """Counts for the filter sidebar, computed over the current result set."""
 
@@ -292,6 +316,12 @@ def _facets(session: DbSession, base: Select) -> ItemFacets:
     )
 
 
+def _with_kinds(session: DbSession, base: Select, without_kind: Select) -> ItemFacets:
+    facets = _facets(session, base)
+    facets.kinds = _kind_counts(session, without_kind)
+    return facets
+
+
 @router.get("", response_model=ItemPage)
 def list_items(
     _user: CurrentUser,
@@ -321,6 +351,21 @@ def list_items(
             detail=f"Unknown sort {sort!r}. Valid: {', '.join(SORTS)}.",
         )
 
+    without_kind = _apply_filters(
+        select(Item),
+        site_ids=site_id,
+        categories=category,
+        calibers=caliber,
+        countries=country,
+        manufacturers=manufacturer,
+        kinds=None,
+        availability=availability,
+        search=search,
+        min_price=min_price,
+        max_price=max_price,
+        new_since_hours=new_since_hours,
+        price_drops_only=price_drops_only,
+    )
     base = _apply_filters(
         select(Item),
         site_ids=site_id,
@@ -357,7 +402,7 @@ def list_items(
         page=page,
         per_page=per_page,
         pages=pages,
-        facets=_facets(session, base) if include_facets else None,
+        facets=_with_kinds(session, base, without_kind) if include_facets else None,
     )
 
 
