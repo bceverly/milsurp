@@ -9,7 +9,7 @@ pytest-cov>=6.0
 # hard failure. Both are listed because requirements.txt allows the whole
 # fastapi>=0.115,<1.0 range, which spans the change.
 httpx2>=2.10
-httpx>=0.28              # fallback for pre-1.0 Starlette
+httpx>=0.28.1              # fallback for pre-1.0 Starlette
 responses>=0.25          # stub HTTP for scraper tests
 
 # Linting and formatting
