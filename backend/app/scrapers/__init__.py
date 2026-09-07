@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import os
 
+from .ancestry_guns import AncestryGunsScraper
+from .axis_arms import AxisArmsScraper
 from .base import (
     Disallowed,
     ScrapeCanceled,
@@ -18,6 +20,8 @@ from .base import (
     ScrapeError,
     SiteScraper,
 )
+from .checkpoint_charlies import CheckpointCharliesScraper
+from .co_gun_sales import CoGunSalesScraper
 from .collectors_firearms import CollectorsFirearmsScraper
 from .demo import DemoScraper
 from .empire_arms import EmpireArmsScraper
@@ -47,6 +51,10 @@ SCRAPER_CLASSES: tuple[type[SiteScraper], ...] = (
     EmpireArmsScraper,
     HuntersLodgeScraper,
     CollectorsFirearmsScraper,
+    AncestryGunsScraper,
+    AxisArmsScraper,
+    CoGunSalesScraper,
+    CheckpointCharliesScraper,
     *((DemoScraper,) if _demo_site_enabled() else ()),
 )
 

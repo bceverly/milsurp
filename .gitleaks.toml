@@ -58,6 +58,18 @@ paths = [
   '''node_modules/.*''',
   '''\.venv/.*''',
   '''dist/.*''',
+  # Playwright's traces and videos. They are gitignored, but `make security`
+  # runs gitleaks with --no-git, which scans the working tree and does not read
+  # .gitignore — so a single test run put 2,477 "leaks" in a report nobody
+  # would then read. The matches are the redaction markers Playwright itself
+  # writes, in files that are deleted by `make clean`.
+  '''test-results/.*''',
+  '''playwright-report/.*''',
+  '''\.playwright-artifacts-.*''',
+  # Coverage output, which quotes the source it measured.
+  '''coverage-backend\.(?:json|xml)''',
+  '''\.nyc_output/.*''',
+  '''htmlcov/.*''',
 ]
 
 regexes = [

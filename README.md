@@ -462,7 +462,7 @@ A few things worth knowing:
 
 ### If the vendor runs WooCommerce
 
-Ten of the queued sites do, and they all render their catalog the same way. Use
+Five vendors are read this way, and they render their catalogs the same way. Use
 `WooCommerceScraper` instead and the whole scraper is usually a slug, a name and
 a list of category URLs:
 
@@ -495,6 +495,18 @@ replacing them, so the defaults still answer if the theme changes back:
 `category` is the vendor's own section name and outranks the classification
 heuristics, so it should say what the section actually holds. Take the firearm
 categories and any parts-*kit* category; leave the rest of a parts tree alone.
+
+Three things worth checking on a new WooCommerce shop, because each has already
+caught one out:
+
+- **Is it actually WordPress?** Two of the sites queued as WooCommerce were
+  BigCommerce; their `li.product` markup looks similar and parses to nothing.
+  If the cards have no `post-NNNN` class, it is not WooCommerce.
+- **Does the catalog arrive in the HTML?** J&G Sales returns `li.product`
+  elements that are empty placeholders filled in by JavaScript, so it needs
+  `requires_browser = True` rather than this base class.
+- **Is that page products or categories?** MCT Defense's firearms page is
+  thirty category tiles with no price element anywhere on it.
 
 ### Makers and models
 
@@ -543,7 +555,7 @@ limits rather than open, so a blip cannot quietly switch off a vendor's rules.
 Set `scraping.obey_robots: false` only for a vendor who has given explicit
 permission.
 
-Twenty-five sites are queued in [ROADMAP.md](ROADMAP.md).
+Twenty-one sites are queued in [ROADMAP.md](ROADMAP.md).
 
 ## Testing
 

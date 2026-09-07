@@ -432,3 +432,97 @@ class TestUnknownIsAFilterValue:
 
         makers = self.facet(client, admin_headers, "manufacturers")
         assert all(m["value"] != "Unknown" for m in makers)
+
+
+class TestStaticAssetsCannotEscapeTheBuild:
+    """The frontend catch-all serves files by path from the request.
+
+    CodeQL flagged it, and the shape it objected to was real: the path was
+    joined first and checked afterwards. Both orders reject a traversal, but
+    only validating first never constructs the path at all.
+    """
+
+    @pytest.mark.parametrize(
+        "requested",
+        [
+            "../../../etc/passwd",
+            "..%2F..%2Fetc%2Fpasswd",
+            "assets/../../etc/passwd",
+            "/etc/passwd",
+            "assets/../../../secrets.yaml",
+            ".",
+            "..",
+            "a//b",
+        ],
+    )
+    def test_a_traversal_names_nothing(self, requested):
+        from app.main import _asset_path
+
+        assert _asset_path(requested) is None
+
+    def test_and_neither_does_an_empty_request(self):
+        from app.main import _asset_path
+
+        assert _asset_path("") is None
+
+    def test_a_real_asset_resolves(self, tmp_path, monkeypatch):
+        import app.main as main
+
+        (tmp_path / "assets").mkdir()
+        built = tmp_path / "assets" / "index-abc123.js"
+        built.write_text("console.log(1)")
+        monkeypatch.setattr(main, "FRONTEND_DIST", tmp_path)
+
+        assert main._asset_path("assets/index-abc123.js") == built.resolve()
+
+    def test_a_directory_is_not_an_asset(self, tmp_path, monkeypatch):
+        import app.main as main
+
+        (tmp_path / "assets").mkdir()
+        monkeypatch.setattr(main, "FRONTEND_DIST", tmp_path)
+
+        assert main._asset_path("assets") is None
+
+    def test_a_symlink_out_of_the_build_is_refused(self, tmp_path, monkeypatch):
+        """The segment rules cannot see this one; the resolve check can."""
+        import app.main as main
+
+        outside = tmp_path / "outside.txt"
+        outside.write_text("secret")
+        dist = tmp_path / "dist"
+        dist.mkdir()
+        (dist / "escape.txt").symlink_to(outside)
+        monkeypatch.setattr(main, "FRONTEND_DIST", dist)
+
+        assert main._asset_path("escape.txt") is None
+
+
+class TestSecretsAreJudgedNotPassedAround:
+    """The function that logs about a secret is never given one."""
+
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            ("", "missing"),
+            (None, "missing"),
+            ("CHANGE-ME-please", "sample"),
+            ("short", "short"),
+            ("x" * 64, "ok"),
+        ],
+    )
+    def test_the_verdict(self, value, expected):
+        from app.main import inspect_secret
+
+        assert inspect_secret(value).value == expected
+
+    def test_the_verdict_carries_nothing_of_the_secret(self):
+        """Not even its length, which is a hint about it."""
+        from app.main import SecretHealth, inspect_secret
+
+        assert set(SecretHealth) == {
+            SecretHealth.OK,
+            SecretHealth.MISSING,
+            SecretHealth.SAMPLE,
+            SecretHealth.SHORT,
+        }
+        assert inspect_secret("hunter2hunter2hunter2") in set(SecretHealth)

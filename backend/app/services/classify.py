@@ -93,6 +93,7 @@ MODEL_CALIBERS: tuple[tuple[str, str], ...] = (
     (r"zb\s*(?:26|37)", "8mm Mauser"),
     (r"lee\s*-?\s*enfield|lee\s*-?\s*speed", ".303 British"),
     (r"\bberthier\b", "8mm Lebel"),
+    (r"8\s*mm\s*lebel", "8mm Lebel"),
     (r"st\.?\s*etienne\s*19(?:07|15)", "8mm Lebel"),
     (r"\bmakarov\b", "9x18 Makarov"),
     (r"\bskorpion\b", ".32 ACP"),
@@ -155,6 +156,9 @@ CALIBER_NORMALIZATIONS: tuple[tuple[str, str], ...] = (
     (r"9\s*[x×]\s*18", "9x18 Makarov"),
     (r"\.38\s*special", ".38 Special"),
     (r"8\s*[x×]\s*57", "8mm Mauser"),
+    # The same cartridge under its metric name, which is how a Yugoslav or
+    # Czech rifle is usually described.
+    (r"7\.92\s*[x×]\s*57", "8mm Mauser"),
     # Its actual name, and it matters: this table names the maker wherever the
     # cartridge does, and that is where a listing like "SPANISH 1916 SHORT
     # RIFLES 7x57" gets its maker from. Left as a bare "7x57" by the generic
@@ -168,9 +172,19 @@ CALIBER_NORMALIZATIONS: tuple[tuple[str, str], ...] = (
     (r"6\.5\s*[x×]\s*55", "6.5x55 Swedish"),
     (r"10\.4\s*[x×]\s*47\s*r", "10.4x47mmR"),
     (r"7\.7\s*[x×]\s*58", "7.7x58mm Arisaka"),
+    (r"6\.5\s*[x×]\s*50", "6.5x50mm Arisaka"),
     (r"cal\.?\s*\.?303\s+british|\.303\s+british|\.303(?!\s*\d)", ".303 British"),
     (r"\.45\s*acp", ".45 ACP"),
+    # .25 ACP is 6.35x16mm Browning; a dealer writes it either way, and often
+    # both at once — "BAYARD MODEL 1908 .25ACP/6.35". No space is required
+    # after the dot: that is how it is actually typed.
+    # The "mm" is spelled out rather than left to a word boundary, for the same
+    # reason the generic metric rule now does: there is no boundary between the
+    # 35 and the mm of "6.35mm".
+    (r"\.25\s*acp|\b6\.35\s*mm\b|\b6\.35\b|\.25\b", ".25 ACP"),
     (r"\.380\s*acp|\.380\b", ".380 ACP"),
+    # After .380, so the longer number is read first.
+    (r"\.38\s*(?:special|spl)\b|\.38\b", ".38 Special"),
     (r"\.32\s*acp|\.\s*32\s*acp|\.32\b", ".32 ACP"),
     (r"7\.65\s*mm\b", ".32 ACP"),
     (r"\.22\s*lr|\.22(?!\s*\d)", ".22 LR"),
@@ -222,9 +236,18 @@ def extract_caliber(  # noqa: PLR0911 - each return is one distinct rule class
             return caliber
 
     # An unrecognized but well-formed metric caliber.
-    match = re.search(r"\b\d{1,2}(?:\.\d+)?\s*[x×]\s*\d{2,3}\s*r?\b", haystack)
+    #
+    # The trailing "mm" is optional and *inside* the match, because it was the
+    # word boundary that broke this: "10.35x22mm" has no boundary between the
+    # 22 and the mm, so a pattern ending in \b matched nothing at all. Three
+    # calibers in the catalog were being missed for that reason alone.
+    match = re.search(r"\b\d{1,2}(?:\.\d+)?\s*[x×]\s*\d{2,3}\s*(?:r\b|mm\b|\b)", haystack)
     if match:
-        return re.sub(r"\s+", "", match.group(0)).replace("×", "x").upper().replace("X", "x")
+        # Upper-cased for the "R" of a rimmed cartridge (7.62x54R), then the
+        # two letters that are conventionally lower put back: "10.35x22MM" is
+        # not how anybody writes it.
+        normalized = re.sub(r"\s+", "", match.group(0)).replace("×", "x").upper()
+        return normalized.replace("X", "x").replace("MM", "mm")
 
     # Last of all, the maker's name — and never for a handgun, whose maker's
     # famous cartridge is not its own.
@@ -563,28 +586,63 @@ def _is_a_bare_frame(title_lower: str) -> bool:
 
 
 #: The licenses the ATF issues, and the ways a dealer writes them: an 03 Curio
-#: and Relic license, and a Federal Firearms License. Every surplus listing says
-#: which one a buyer needs, so these words are on the page constantly — but they
-#: name a *permission*, not a thing, and nobody sells one.
+#: and Relic license, and a Federal Firearms License. Every surplus listing
+#: says which one a buyer needs, so these words are on the page constantly —
+#: but they name a *permission*, not a thing, and nobody sells one.
 #:
 #: This matters because they behave like a product name otherwise. They are set
 #: in capitals like one, they sit next to a price like one ("Add frame for
 #: $38.88. C&R/FFL required."), and on a flyer read by OCR that was enough to
 #: produce a $38.88 listing called "C&R/FFL".
-LICENSE_PATTERN = re.compile(
-    r"\b(?:C\s*&\s*R|F\.?\s?F\.?\s?L\.?|curios?\s*(?:&|and)\s*relics?)\b",
-    re.I,
+#: The grammar a dealer wraps those words in. Checked by splitting the title
+#: into words rather than with one big pattern.
+#:
+#: The pattern this replaces was `^[punct]*(?:(?:alt|alt|…)[punct]*)+$`, which
+#: CodeQL flagged as an inefficient regular expression and was right to: the
+#: alternatives overlap ("req" against "required", "license" against
+#: "licence"), the separator can match nothing, and the whole thing is inside a
+#: `+` anchored at the end. A title that *nearly* matches makes the engine try
+#: every way of splitting it before giving up.
+#:
+#: Splitting on words first is linear, and easier to read besides.
+_LICENSE_GRAMMAR = frozenset(
+    ["no", "or", "and", "not", "only", "required", "require", "req", "needed"]
 )
 
-#: The same words plus the grammar a dealer wraps them in, anchored: a title
-#: that is *only* this is not a title.
-_LICENSE_ONLY = re.compile(
-    r"^[\s.,:;/&()-]*"
-    r"(?:(?:C\s*&\s*R|F\.?\s?F\.?\s?L\.?|curios?|relics?|license[sd]?|licence[sd]?|"
-    r"permits?|required?|req\.?|needed|no|or|and|not|only)"
-    r"(?![A-Za-z0-9])[\s.,:;/&()-]*)+$",
-    re.I,
+#: The words that actually name a license. One of these has to be present:
+#: "required" on its own names nothing.
+_LICENSE_NAMES = frozenset(
+    [
+        "c&r",
+        "ffl",
+        "curio",
+        "curios",
+        "relic",
+        "relics",
+        "license",
+        "licenses",
+        "licensed",
+        "licence",
+        "licences",
+        "licenced",
+        "permit",
+        "permits",
+    ]
 )
+
+#: A word, keeping "&" so "C&R" survives as one. Dots are dropped afterwards,
+#: which turns "F.F.L." into "ffl" and "req." into "req".
+_LICENSE_TOKEN = re.compile(r"[a-z0-9&.]+")
+
+
+def license_words(text: str) -> list[str]:
+    """A licence line split into comparable words.
+
+    Public because the flyer reader asks the same question of a line of OCR,
+    and one definition of "what counts as a word here" is better than two.
+    """
+    spaced = re.sub(r"\s*&\s*", "&", text.lower())
+    return [word for word in (t.replace(".", "") for t in _LICENSE_TOKEN.findall(spaced)) if word]
 
 
 def names_only_a_license(title: str) -> bool:
@@ -592,8 +650,12 @@ def names_only_a_license(title: str) -> bool:
 
     A listing cannot be a C&R. It can *require* one, and almost all of them do.
     """
-    text = (title or "").strip()
-    return bool(text) and bool(LICENSE_PATTERN.search(text)) and bool(_LICENSE_ONLY.match(text))
+    words = license_words(title or "")
+    if not words:
+        return False
+    if not all(word in _LICENSE_GRAMMAR or word in _LICENSE_NAMES for word in words):
+        return False
+    return any(word in _LICENSE_NAMES for word in words)
 
 
 def is_ruled_out(title: str) -> bool:

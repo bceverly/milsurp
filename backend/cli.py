@@ -146,34 +146,39 @@ def cmd_secrets(args: argparse.Namespace) -> int:
         return 1
 
     text = path.read_text(encoding="utf-8")
-    already_set = [name for name, _cost in _SECRET_SETTINGS if _is_set(text, name)]
+    # Everything printed below is taken from _SECRET_SETTINGS, which is a
+    # literal in this file. The config text is read to decide *whether* to
+    # print, never to decide *what*: it holds the secrets, and a name recovered
+    # from it is a name that came out of a file full of them.
+    already_set = {name for name, _cost in _SECRET_SETTINGS if _is_set(text, name)}
     if already_set and not args.force:
-        print(f"{path} already has: {', '.join(already_set)}.", file=sys.stderr)
+        names = [name for name, _cost in _SECRET_SETTINGS if name in already_set]
+        print(f"{path} already has: {', '.join(names)}.", file=sys.stderr)
         print("Rotating them is destructive:", file=sys.stderr)
         for name, cost in _SECRET_SETTINGS:
             print(f"  {name}: {cost}", file=sys.stderr)
         print("Re-run with --force if that is what you want.", file=sys.stderr)
         return 1
 
-    written = []
+    written: set[str] = set()
     for name, _cost in _SECRET_SETTINGS:
-        replacement, count = re.subn(
+        text, count = re.subn(
             _SETTING_LINE.format(name=name),
             lambda match: f'{match.group(1)}"{generate_secret()}"',
             text,
             count=1,
             flags=re.MULTILINE,
         )
-        if count:
-            text, _ = replacement, written.append(name)
-        else:
+        if not count:
             print(f"Could not find a '{name}:' line in {path}.", file=sys.stderr)
             return 1
+        written.add(name)
 
     path.write_text(text, encoding="utf-8")
     path.chmod(0o600)
 
-    print(f"Wrote {', '.join(written)} to {path} (mode 600).")
+    wrote = [name for name, _cost in _SECRET_SETTINGS if name in written]
+    print(f"Wrote {', '.join(wrote)} to {path} (mode 600).")
     print("The values are in the file; they are deliberately not printed here.")
     if args.force and already_set:
         for name, cost in _SECRET_SETTINGS:

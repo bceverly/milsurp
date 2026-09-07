@@ -125,20 +125,55 @@ _TERM_WORD = (
     # "NOSE HOLSTER".
     r"(?![A-Za-z0-9])"
 )
-TERMS_PATTERN = re.compile(rf"^[\s.,:;/&-]*(?:{_TERM_WORD}[\s.,:;/&-]*)+$", re.I)
+#: The same words as classify's, plus the ones only a flyer uses. Split into
+#: words rather than matched with one pattern, for the reason given there: an
+#: alternation of overlapping words inside an anchored `+` is a regular
+#: expression that can be made to backtrack for a very long time.
+_TERMS_WORDS = frozenset(
+    [
+        "c&r",
+        "cr",
+        "ffl",
+        "license",
+        "licenses",
+        "licensed",
+        "licence",
+        "licences",
+        "licenced",
+        "permit",
+        "permits",
+        "required",
+        "require",
+        "req",
+        "needed",
+        "no",
+        "or",
+        "and",
+        "not",
+        "only",
+    ]
+)
 
 #: The same words in front of a name rather than instead of one. The flyer sets
 #: "FFL or / C&R required" in its own little block beside the heading, and OCR
 #: reads the two as one line: "FFL or WW2 RUSSIAN 91/30 RIFLES".
+#: The same words in front of a name rather than instead of one. The flyer
+#: sets "FFL or / C&R required" in its own little block beside the heading, and
+#: OCR reads the two as one line: "FFL or WW2 RUSSIAN 91/30 RIFLES".
+#:
+#: Bounded rather than `+`: a repetition with no ceiling, over alternatives
+#: that overlap, is the shape that makes a regular expression hang. No real
+#: line has eight of these words in front of the name.
 LEADING_TERMS = re.compile(
-    rf"^[\s.,:;/&-]*(?:{_TERM_WORD}[\s.,:;/&-]*)+(?=[A-Z0-9])",
+    rf"^[\s.,:;/&-]*(?:{_TERM_WORD}[\s.,:;/&-]*){{1,8}}(?=[A-Z0-9])",
     re.I,
 )
 
 
 def is_only_terms(text: str) -> bool:
     """Whether a line says nothing but who may buy the thing."""
-    return bool(text.strip()) and bool(TERMS_PATTERN.match(text.strip()))
+    words = classify.license_words(text or "")
+    return bool(words) and all(word in _TERMS_WORDS for word in words)
 
 
 #: Stray glyphs left at the head of a line once the bullet itself is removed.

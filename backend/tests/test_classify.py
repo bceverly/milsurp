@@ -747,3 +747,54 @@ class TestACartridgeNamedAfterItsDesigner:
         """Only what the name actually says. 7.62x54R is a Mosin cartridge and
         does not say so, which is what the catalog scan is for."""
         assert classify.extract_manufacturer(caliber) == expected
+
+
+class TestCalibersFoundByAuditingTheCatalog:
+    """Found by asking the catalog which listings have caliber-shaped text in
+    the title and no caliber recorded — which is what the "Unknown" bucket in
+    the filters is for.
+    """
+
+    def test_a_trailing_mm_no_longer_hides_a_caliber(self):
+        """The class bug behind three of these.
+
+        The generic metric rule ended in a word boundary, and "10.35x22mm" has
+        none between the 22 and the mm — so it matched nothing at all.
+        """
+        assert classify.extract_caliber("Bodeo M1889 Revolver, 10.35x22mm") == "10.35x22mm"
+        assert classify.extract_caliber("Beaumont Rifle Cal. 11x52mm") == "11x52mm"
+
+    def test_and_the_label_is_not_shouted(self):
+        """Upper-cased for the R of a rimmed cartridge, then mm put back."""
+        assert classify.extract_caliber("Rifle 7.62x54R") == "7.62x54R"
+        assert "MM" not in (classify.extract_caliber("Revolver 10.35x22mm") or "")
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "BAYARD MODEL 1908 .25ACP/6.35 SEMI-AUTO PISTOL",
+            "Colt Vest Pocket .25 ACP",
+            "Browning 6.35mm pocket pistol",
+        ],
+    )
+    def test_25_acp_however_it_is_written(self, title):
+        """A dealer writes it with no space, or under its metric name, or both
+        at once."""
+        assert classify.extract_caliber(title) == ".25 ACP"
+
+    def test_the_metric_name_for_8mm_mauser(self):
+        assert classify.extract_caliber("Yugoslavian 24/47 rifle 7.92x57mm") == "8mm Mauser"
+
+    def test_8mm_lebel_spelled_out(self):
+        assert classify.extract_caliber("M16 Carbine 8mm Lebel") == "8mm Lebel"
+
+    def test_the_japanese_6_5(self):
+        assert classify.extract_caliber("Japanese Training Rifle 6.5x50mm") == "6.5x50mm Arisaka"
+
+    def test_38_after_380_so_the_longer_number_wins(self):
+        assert classify.extract_caliber("Beretta 1934 .380 ACP") == ".380 ACP"
+        assert classify.extract_caliber("COLT PP .38 FRAMES") == ".38 Special"
+
+    def test_a_periscope_is_not_a_caliber(self):
+        """ "10×60" on an optic looks exactly like a metric cartridge."""
+        assert classify.extract_caliber("Carl Zeiss Jena 10×60 Marina Romana Periscope") is None

@@ -93,17 +93,24 @@ def price_now(card: Tag) -> float | None:
     asking, and — worse for this application — would hide the drop that is the
     whole point of watching.
     """
-    block = card.select_one(".price") or card
-    sale = block.select_one("ins .woocommerce-Price-amount, ins")
+    block = card.select_one(".price")
+    if block is None and not card.select_one(".woocommerce-Price-amount"):
+        # No price element at all. Reading a number out of the card's text
+        # here invents one: a category tile reading "AK Style Shotguns In 12
+        # Gauge" became a twelve-dollar listing.
+        return None
+
+    scope = block or card
+    sale = scope.select_one("ins .woocommerce-Price-amount, ins")
     if sale is not None:
         found = parse_price(sale.get_text(" ", strip=True))
         if found is not None:
             return found
-    for amount in block.select(".woocommerce-Price-amount"):
+    for amount in scope.select(".woocommerce-Price-amount"):
         found = parse_price(amount.get_text(" ", strip=True))
         if found is not None:
             return found
-    return parse_price(block.get_text(" ", strip=True))
+    return parse_price(scope.get_text(" ", strip=True))
 
 
 def image_sources(tag: Tag) -> list[str]:
@@ -175,9 +182,20 @@ class WooCommerceScraper(SiteScraper):
     detail_sku_selectors: tuple[str, ...] = (".sku", ".product-sku", ".product_meta .sku")
 
     #: A pace this shop has been *measured* to need, whatever its robots.txt
-    #: says. Zero means "take robots.txt at its word". Only ever slower: this
-    #: cannot speed a scan up past a site's own Crawl-delay.
-    min_request_delay: float = 0.0
+    #: says. Only ever slower: this cannot speed a scan up past a site's own
+    #: Crawl-delay.
+    #:
+    #: Five seconds by default, rather than the application-wide one second.
+    #: These are small dealers on shared hosting behind a WAF, and one request
+    #: a second is enough to be refused: Checkpoint Charlie's returned 429 part
+    #: way through a twelve-listing catalog. Collectors Firearms went further
+    #: and refused the ten seconds its own robots.txt asks for, which is why it
+    #: overrides this again.
+    #:
+    #: The cost is wall clock and nothing else. A scan is a few hundred
+    #: requests of a few kilobytes, it runs once a day, and the detail pages
+    #: are fetched once per listing ever — so a slower first pass is paid once.
+    min_request_delay: float = 5.0
 
     #: Pages to walk per source before giving up. A guard against a shop whose
     #: "next" link points at itself, not a real limit -- see max_pages in the

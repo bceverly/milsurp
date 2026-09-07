@@ -1296,6 +1296,71 @@ written, ruder to everybody using the application.
       ("a scan is running") and the frontend already shows `detail` verbatim, so
       it reaches the person looking at the screen.
 
+## 35. The rest of the WooCommerce group, surveyed before written
+
+- [x] **Ancestry Guns**, **Axis Arms**, **CO Gun Sales**, **Checkpoint
+      Charlie's** shipped. Each needed at most one selector in front of the
+      stock ones: Ancestry's `h2` is a "Share on:" widget, and Axis Arms is an
+      Elementor loop whose `h1` is the name and whose `h2` is the price.
+- [x] **Legacy Collectibles and Arms Unlimited are not WooCommerce.** Their
+      robots.txt names `cart.php` and `productimage.php` and nothing parses:
+      BigCommerce. They were in Group A on the URL-shape inference the roadmap
+      warned about, and have moved to Group B.
+- [x] **J&G Sales needs a browser**: its `li.product` elements arrive as
+      65-byte empty placeholders filled in by JavaScript.
+- [x] **MCT Defense needs an entry URL**: `/product-category/firearms/` is
+      thirty *category* tiles with no price element anywhere on it.
+- [x] That last one exposed a bug: `price_now()` fell back to any number in the
+      card's text, so "AK Style Shotguns In 12 Gauge" would have become a
+      twelve-dollar listing. A card with no price element now has no price.
+- [x] **The default pace is five seconds, not one.** These are small dealers on
+      shared hosting behind a WAF, and one request a second is enough to be
+      refused — Checkpoint Charlie's returned 429 part way through a
+      twelve-listing catalog. The cost is wall clock and nothing else.
+
+## 36. CodeQL, twelve alerts
+
+All fixed by changing the code rather than suppressing the alert, which is the
+only option anyway: in-source `# codeql[...]` suppressions were tried in an
+earlier round and GitHub does not honor them.
+
+- [x] **Inefficient regular expression** ×2. `^[punct]*(?:(?:alt|alt|…)[punct]*)+$`
+      with overlapping alternatives ("req" against "required") inside a `+`
+      anchored at the end: a near-miss makes the engine try every way of
+      splitting the string. Replaced with splitting into words and comparing
+      against a set — linear, and easier to read. The flyer reader had the same
+      construct twice; one is gone the same way and the other is bounded.
+- [x] **Clear-text logging of sensitive information** ×6. The function that
+      logs about a secret was being handed the secret. It only ever logged the
+      setting's *name*, but "a function given a secret logs something" is
+      indistinguishable — to a reader as much as to an analyser — from one that
+      logs the secret. It now receives a verdict (`missing`/`sample`/`short`/
+      `ok`) and never the value. In `cli.py`, everything printed now comes from
+      the literal settings tuple; the config text decides *whether* to print,
+      never *what*.
+- [x] **Uncontrolled data in a path expression** ×3. The path was joined and
+      then checked. Both orders reject a traversal, but only validating first
+      never constructs it — the request is now checked segment by segment
+      against a pattern before anything is joined, with the resolve check kept
+      behind it for symlinks.
+- [x] **Log injection** ×1. The client address goes through `scrub()` like the
+      username already did. It is the peer address off the connection rather
+      than a header, so it should hold nothing but an address — but "should"
+      was doing the work, and now the code says it.
+- [x] 18 tests, including every traversal shape.
+
+### And a security scan that was lying
+
+`make security` reported "vulnerabilities found" while the report beside it said
+`ok: true` with none. Snyk exits 1 for vulnerabilities and 2 when the scan could
+not run, and the script collapsed both into failure. The Python scan had been
+exiting 2 — `SNYK-OS-PYTHON-0013`, "missing required packages", because the pip
+scanner cannot resolve unpinned ranges without an interpreter to look at.
+
+- [x] `--command="$VENV/bin/python"` so the scan actually runs.
+- [x] The three exit codes are reported as three different things. A scan that
+      did not run is worse than no scan when it is reported as a clean one.
+
 ---
 
 ## Context for whoever picks this up

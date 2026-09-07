@@ -9,7 +9,7 @@ import time
 from fastapi import APIRouter, HTTPException, Request, status
 
 from ..deps import AppConfig, CurrentUser, DbSession
-from ..logsafe import safe_identifier
+from ..logsafe import safe_identifier, scrub
 from ..models import User, utcnow
 from ..schemas import LoginRequest, PasswordChangeRequest, TokenResponse, UserOut
 from ..security import (
@@ -100,7 +100,11 @@ def login(
         log.warning(
             "Failed sign-in for %s from %s",
             safe_identifier(payload.username),
-            _client_address(request),
+            # Scrubbed as well. This is the peer address off the connection
+            # rather than a header, so it should hold nothing but an address —
+            # but "should" is doing work there, and it costs nothing to say so
+            # in the code instead of in a comment.
+            scrub(_client_address(request)),
         )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

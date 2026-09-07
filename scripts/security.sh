@@ -51,10 +51,22 @@ fi
 
 # ---------------------------------------------------------------------------
 section "semgrep — rule-based static analysis"
-if command -v semgrep >/dev/null 2>&1; then
+# Looked up in the virtualenv first, like the other Python tools: semgrep is
+# installed by `make install-dev` into .venv/bin, which is not on PATH, so
+# `command -v semgrep` said "not installed" about a scanner that was sitting
+# right there. It had been skipping silently for that reason, which is the
+# thing this file's own header promises it does not do.
+SEMGREP=""
+if have_venv semgrep; then
+  SEMGREP="$VENV/bin/semgrep"
+elif command -v semgrep >/dev/null 2>&1; then
+  SEMGREP="semgrep"
+fi
+
+if [ -n "$SEMGREP" ]; then
   # p/security-audit and p/secrets are the registry rulesets CI uses; the
   # language packs catch framework-specific issues.
-  if semgrep --config=p/security-audit --config=p/secrets \
+  if "$SEMGREP" --config=p/security-audit --config=p/secrets \
              --config=p/python --config=p/javascript \
              --error --quiet --metrics=off \
              --exclude=node_modules --exclude=.venv --exclude=dist \
@@ -80,20 +92,45 @@ if command -v snyk >/dev/null 2>&1; then
     skip "snyk installed but not authenticated"
     note "run 'snyk auth', or export SNYK_TOKEN"
   else
-    SNYK_FAILED=0
+    # Snyk's exit codes carry three different meanings and they must not be
+    # collapsed: 0 is clean, 1 is "vulnerabilities found", anything else is
+    # "the scan did not run". Treating them all as failure reported
+    # "vulnerabilities found" while the report beside it said ok:true with
+    # none — which is worse than no scan, because it teaches you to ignore it.
+    SNYK_VULNS=0
+    SNYK_BROKEN=0
+
+    # --command points Snyk at this project's interpreter. Without it the pip
+    # scanner cannot resolve our unpinned ranges and exits 2 with
+    # SNYK-OS-PYTHON-0013, "Missing required packages".
     printf '  Python:\n'
     snyk test --file=backend/requirements.txt --package-manager=pip \
+      --command="$VENV/bin/python" \
       --severity-threshold=high --json-file-output="$REPORTS/snyk-python.json" \
-      >/dev/null 2>&1 || SNYK_FAILED=1
+      >/dev/null 2>&1
+    case $? in
+      0) ;;
+      1) SNYK_VULNS=1 ;;
+      *) SNYK_BROKEN=1 ;;
+    esac
+
     printf '  Node:\n'
     (cd frontend && snyk test --severity-threshold=high \
-      --json-file-output="$REPORTS/snyk-node.json" >/dev/null 2>&1) || SNYK_FAILED=1
+      --json-file-output="$REPORTS/snyk-node.json" >/dev/null 2>&1)
+    case $? in
+      0) ;;
+      1) SNYK_VULNS=1 ;;
+      *) SNYK_BROKEN=1 ;;
+    esac
 
-    if [ "$SNYK_FAILED" = "0" ]; then
-      ok "no high-severity vulnerabilities"
-    else
+    if [ "$SNYK_VULNS" = "1" ]; then
       bad "vulnerabilities found — see $REPORTS/snyk-*.json"
       FAILURES+=("snyk")
+    elif [ "$SNYK_BROKEN" = "1" ]; then
+      skip "snyk could not complete — see $REPORTS/snyk-*.json"
+      note "this is a scan that did not run, not a clean result"
+    else
+      ok "no high-severity vulnerabilities"
     fi
   fi
 else
@@ -164,7 +201,7 @@ if gitleaks_available; then
     ok "no secrets detected"
   else
     bad "possible secrets found — see $REPORTS/gitleaks.json"
-    note "every match is in a tracked file — treat it as real until proven otherwise"
+    note "gitleaks reads the working tree, not git — check the path before the match"
     FAILURES+=("gitleaks")
   fi
 else

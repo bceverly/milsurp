@@ -76,6 +76,17 @@ class Shop(WooCommerceScraper):
     sources = ({"category": "Rifles", "url": f"{SHOP}/product-category/rifles/"},)
 
 
+@pytest.fixture(autouse=True)
+def _no_real_waiting(monkeypatch):
+    """These scrapers hold themselves to one request every five seconds.
+
+    That is the right pace against a real shop and the wrong one in a test
+    suite: without this the file takes forty seconds to assert things that
+    have nothing to do with waiting.
+    """
+    monkeypatch.setattr("app.scrapers.base.time.sleep", lambda _seconds: None)
+
+
 @pytest.fixture
 def ctx(app_config):
     context = ScrapeContext(app_config)
@@ -272,11 +283,6 @@ class TestAMeasuredPace:
     class Slow(Shop):
         min_request_delay = 20.0
 
-    @pytest.fixture(autouse=True)
-    def _no_real_waiting(self, monkeypatch):
-        """The pace is the thing under test, not this suite's patience."""
-        monkeypatch.setattr("app.scrapers.base.time.sleep", lambda _seconds: None)
-
     @responses.activate
     def test_the_floor_is_applied_before_the_first_request(self, ctx):
         responses.add(
@@ -289,7 +295,9 @@ class TestAMeasuredPace:
         assert ctx._delay_for(f"{SHOP}/anything") >= 20
 
     @responses.activate
-    def test_a_shop_without_one_is_left_at_its_stated_pace(self, ctx):
+    def test_the_default_is_gentler_than_the_application_wide_one(self, ctx):
+        """These are small dealers on shared hosting. One request a second is
+        enough to be refused, and two of them did refuse it."""
         responses.add(
             responses.GET, f"{SHOP}/product-category/rifles/", body=catalog(card(1, "Rifle"))
         )
@@ -297,8 +305,114 @@ class TestAMeasuredPace:
 
         list(Shop().scrape(ctx))
 
-        assert ctx._delay_for(f"{SHOP}/anything") == ctx.scraping.request_delay
+        assert ctx._delay_for(f"{SHOP}/anything") > ctx.scraping.request_delay
+        assert WooCommerceScraper.min_request_delay >= 5
 
     def test_collectors_firearms_carries_the_measurement(self):
         """Their robots asks for ten; ten was measured to be refused."""
         assert CollectorsFirearmsScraper.min_request_delay > 10
+
+
+class TestAPriceIsNotInventedFromCardText:
+    """A card with no price element has no price.
+
+    MCT Defense's firearms page is a page of *category* tiles, not products,
+    and reading a number out of the card's text made "AK Style Shotguns In 12
+    Gauge" into a twelve-dollar listing.
+    """
+
+    def price_of(self, html: str):
+        return price_now(BeautifulSoup(html, "html.parser"))
+
+    def test_a_category_tile_has_none(self):
+        assert (
+            self.price_of("<li class='product'><h3>AK Style Shotguns In 12 Gauge</h3></li>") is None
+        )
+
+    def test_a_title_full_of_numbers_has_none(self):
+        assert self.price_of("<li class='product'><h3>Model 1903 Mark 1, 30-06</h3></li>") is None
+
+    def test_but_a_real_price_block_still_reads(self):
+        html = '<li class="product"><h3>Rifle 7.62x54R</h3><span class="price">$600.00</span></li>'
+        assert self.price_of(html) == 600.00
+
+    def test_and_so_does_a_bare_amount_element(self):
+        html = (
+            '<li class="product"><h3>Rifle</h3>'
+            '<span class="woocommerce-Price-amount">$450.00</span></li>'
+        )
+        assert self.price_of(html) == 450.00
+
+
+class TestTheOtherWooCommerceShops:
+    """What each shop's theme needed, so a change to it is visible as a change.
+
+    Every one of these was found by reading the shop's real markup, and each is
+    a single selector in front of the stock ones — the defaults stay behind
+    them, so a theme reverting does not break the scraper.
+    """
+
+    def test_ancestry_guns_reads_the_h3(self):
+        """Their h2 is a "Share on:" widget, so every listing was titled that."""
+        from app.scrapers.ancestry_guns import AncestryGunsScraper
+
+        assert AncestryGunsScraper.title_selectors[0] == "h3.upper"
+        assert set(WooCommerceScraper.title_selectors) <= set(AncestryGunsScraper.title_selectors)
+
+    def test_axis_arms_reads_the_h1(self):
+        """An Elementor loop: the h1 is the name and the h2 is the price, so
+        reading headings in the usual order titled every rifle "$ 2,449.99"."""
+        from app.scrapers.axis_arms import AxisArmsScraper
+
+        assert AxisArmsScraper.title_selectors[0] == "h1.elementor-heading-title"
+
+    def test_axis_arms_reads_both_of_its_sections(self):
+        from app.scrapers.axis_arms import AxisArmsScraper
+
+        assert {source["category"] for source in AxisArmsScraper.sources} == {
+            "Rifles",
+            "Handguns",
+        }
+
+    def test_co_gun_sales_starts_at_page_one(self):
+        """The roadmap recorded page 6, which is where somebody happened to be
+        browsing. Pagination follows the shop's own "next" link."""
+        from app.scrapers.co_gun_sales import CoGunSalesScraper
+
+        assert all("/page/" not in source["url"] for source in CoGunSalesScraper.sources)
+
+    def test_checkpoint_charlies_reads_a_tag_not_a_category(self):
+        """A tag archive renders the same loop; the URL just looks wrong."""
+        from app.scrapers.checkpoint_charlies import CheckpointCharliesScraper
+
+        assert "/product-tag/" in CheckpointCharliesScraper.sources[0]["url"]
+
+    def test_none_of_them_need_a_browser(self):
+        from app.scrapers.ancestry_guns import AncestryGunsScraper
+        from app.scrapers.axis_arms import AxisArmsScraper
+        from app.scrapers.checkpoint_charlies import CheckpointCharliesScraper
+        from app.scrapers.co_gun_sales import CoGunSalesScraper
+
+        for scraper in (
+            AncestryGunsScraper,
+            AxisArmsScraper,
+            CoGunSalesScraper,
+            CheckpointCharliesScraper,
+        ):
+            assert scraper.requires_browser is False
+
+    @responses.activate
+    def test_a_card_repeated_by_a_theme_is_yielded_once(self, ctx):
+        """Axis Arms' Elementor markup carries the product classes on both the
+        outer article and an inner div, so every card matches twice."""
+        doubled = (
+            f'<li class="product post-1"><a href="{SHOP}/product/x/">'
+            f'<div class="product type-product post-1">'
+            f'<h2 class="woocommerce-loop-product__title">Rifle</h2>'
+            f'<span class="price"><span class="woocommerce-Price-amount">$9.00</span></span>'
+            f"</div></a></li>"
+        )
+        responses.add(responses.GET, f"{SHOP}/product-category/rifles/", body=catalog(doubled))
+        responses.add(responses.GET, f"{SHOP}/product/x/", body=product_page("Rifle", "d", []))
+
+        assert len(list(Shop().scrape(ctx))) == 1

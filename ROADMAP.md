@@ -22,6 +22,10 @@ scheduling, admin controls, price history, images and digests all come for free.
 | [Empire Arms](https://www.empirearms.com/) | `empire-arms` | Static HTML, thumbnail-delimited block parsing |
 | [Hunter's Lodge](https://www.hunterslodge.com/) | `hunters-lodge` | OCR of a scanned magazine flyer |
 | [Collectors Firearms](https://collectorsfirearms.com/) | `collectors-firearms` | WooCommerce base class — category pages, path pagination |
+| [Ancestry Guns](https://www.ancestryguns.com/) | `ancestry-guns` | WooCommerce — one selector (their `h2` is a share widget) |
+| [Axis Arms](https://axisarmsonline.com/) | `axis-arms` | WooCommerce behind an Elementor loop; two sections |
+| [CO Gun Sales](https://cogunsales.com/) | `co-gun-sales` | WooCommerce, stock selectors throughout |
+| [Checkpoint Charlie's](https://checkpointcharlies.com/) | `checkpoint-charlies` | WooCommerce, a product *tag* rather than a category |
 
 ### Planned
 
@@ -101,26 +105,32 @@ its theme is customized — a couple of selectors in front of the defaults.
    Budget the *first* scan of a large shop in hours, not minutes; later scans
    only pay for listings that are new.
 
-| # | Site | Entry URL | Audience signal | Notes |
+| # | Site | Entry URL | Status | Notes |
 | --- | --- | --- | --- | --- |
-| — | **Collectors Firearms** | https://collectorsfirearms.com/product-category/rifles/foreign-military-rifles/ | ~284K visits/mo (Similarweb, Oct 2024) | **Shipped.** Foreign and U.S. military rifle sections. Their military handguns are not separately categorized, so handguns are out of scope for this vendor until they are |
-| 2 | J&G Sales | https://www.jgsales.com/product-category/firearms/collectors-corner/military-surplus-collectible-category/ | Top-10 competitor of Classic Firearms (Similarweb) | Long-established, high volume |
-| 3 | DK Firearms | https://dkfirearms.com/product-category/surplus/surplus-firearms/ | Competitor set includes Atlantic Firearms | **Behind Cloudflare** — plain HTTP gets a 403 challenge page, so this one needs the browser |
-| 4 | Legacy Collectibles | https://legacy-collectibles.com/new-firearms/ | Tracked by Similarweb as a peer of IMA-USA | High-end WWI/WWII collector pieces |
-| 5 | Ancestry Guns | https://www.ancestryguns.com/product-category/curio-relic/ | — | Strong photography; the gallery test case |
-| 6 | Axis Arms | https://axisarmsonline.com/product-category/rifles/ | — | **Two sections**: `/product-category/rifles/` and `/product-category/handguns/`. One scraper, two sources — same shape as Empire Arms |
-| 7 | Arms Unlimited | https://armsunlimited.com/surplus/ | — | Standard WooCommerce category |
-| 8 | MCT Defense | https://mctdefense.com/product-category/firearms/ | — | ” |
-| 9 | CO Gun Sales | https://cogunsales.com/product-category/curio-relics-cr/page/6/ | — | URL given is page 6 — start from page 1 |
-| 10 | Checkpoint Charlie's | https://checkpointcharlies.com/product-tag/cr/ | — | A product *tag*, not a category; pagination differs slightly |
+| — | **Collectors Firearms** | `/product-category/rifles/foreign-military-rifles/` | **Shipped** | ~284K visits/mo. Foreign and U.S. military rifles. `Crawl-delay: 10`, and their limiter wants more — see `min_request_delay` |
+| — | **Ancestry Guns** | `/product-category/curio-relic/` | **Shipped** | Curio & Relic only. Their `h2` is a "Share on:" widget, so the title comes from the `h3` |
+| — | **Axis Arms** | `/product-category/rifles/` + `/handguns/` | **Shipped** | Elementor loop: the `h1` is the name and the `h2` is the price. Cards match twice (article and inner div); de-duplicated by post id |
+| — | **CO Gun Sales** | `/product-category/curio-relics-cr/` | **Shipped** | Stock WooCommerce. The old entry URL here said `/page/6/`, which was somebody's browsing position; pagination follows the shop's own "next" link |
+| — | **Checkpoint Charlie's** | `/product-tag/cr/` | **Shipped** | A product *tag*, which renders the same loop and paginates the same way |
+| 1 | J&G Sales | `/product-category/firearms/collectors-corner/military-surplus-collectible-category/` | **Needs a browser** | The `li.product` elements come back as 65-byte empty placeholders: the catalog is rendered client-side. Same treatment as Royal Tiger |
+| 2 | DK Firearms | `/product-category/surplus/surplus-firearms/` | **Needs a browser** | Cloudflare returns a 403 challenge to plain HTTP |
+| 3 | MCT Defense | `/product-category/firearms/` | **Needs an entry URL** | That page is thirty *category* tiles, not products — no price element anywhere on it. Their actual product pages have to be found before this is worth writing |
 
-#### Group B — BigCommerce (3 sites) · the largest audiences
+**Moved out of this group.** Legacy Collectibles and Arms Unlimited were listed
+here on the URL-shape inference this section warned about, and they are not
+WordPress: their robots.txt names `cart.php`, `checkout.php` and
+`productimage.php`, and nothing in their markup parses as WooCommerce. They are
+BigCommerce, and belong in Group B.
+
+#### Group B — BigCommerce (5 sites) · the largest audiences
 
 Small group, but it holds the most-visited surplus catalog on the list.
 
 | # | Site | Entry URL | Audience signal | Notes |
 | --- | --- | --- | --- | --- |
 | 1 | Classic Firearms | https://www.classicfirearms.com/firearms/rifles/military-surplus/ | 1.6M visits/3mo, US e-commerce category rank #50 (Similarweb, Jul 2026) | The biggest name here; large catalog, clean pagination |
+| — | Legacy Collectibles | https://legacy-collectibles.com/new-firearms/ | Tracked by Similarweb as a peer of IMA-USA | **Moved from Group A**: BigCommerce, not WooCommerce. High-end WWI/WWII collector pieces |
+| — | Arms Unlimited | https://armsunlimited.com/surplus/ | — | **Moved from Group A**: BigCommerce, not WooCommerce |
 | 2 | AIM Surplus | https://aimsurplus.com/categories/firearm/curio-and-relic | ~357K visits/mo (Semrush, Apr 2026) | High-volume surplus dealer |
 | 3 | Century Arms | https://store.centuryarms.com/surplus-corner/firearms | Importer, widely stocked by the others | Surplus Corner section only |
 
@@ -425,6 +435,57 @@ application and publish it as a snap.
   instructions, FFL notices) that currently reaches the detail view.
 - **Parked** — Optical character recognition of proof marks from photos. Fun,
   but a long way from paying for itself.
+
+### Market pricing — "is this a good deal?"
+
+**Planned.** The application can already say what a vendor is asking and how
+that has moved. It cannot say whether the price is *good*, which is the question
+somebody watching surplus actually has. The pieces:
+
+1. **A reference source for realised prices.** Asking prices are what this
+   application already collects, and they are not evidence: a rifle listed at
+   $900 for eight months is not a $900 rifle. What is wanted is what things
+   *sold* for — completed auction results. Candidates, in rough order of how
+   usable they look:
+   - **GunBroker** — the largest volume of completed sales in this market, and
+     it has a real API. Terms and pricing need reading before anything is
+     built; scraping the site instead is likely against its terms and would be
+     the wrong way round when an API exists.
+   - **Rock Island Auction, Morphy's, Amoskeag** — published results archives,
+     smaller volume but skewed towards exactly the collector-grade surplus this
+     application follows, and each result carries a condition description.
+   - **Blue Book of Gun Values** — the reference dealers actually quote, but
+     licensed and priced accordingly.
+   Whatever is chosen gets a scraper like any other vendor, obeying robots.txt
+   and its own crawl delay, into its own table rather than into `items`.
+
+2. **Something to key the reference against.** This is the hard part and it is
+   already underway: `manufacturers` and `manufacturer_models` exist, and the
+   caliber work has shown how much of this is domain knowledge rather than
+   parsing. A price for "Mosin-Nagant M44" means something; a price for
+   "RUSSIAN M44 CARBINES good condition, cracked stock (toe)" does not until it
+   has been reduced to a maker and a model.
+
+3. **A distribution, not a number.** Condition dominates surplus prices — a
+   matching-numbers rifle and a refurbished one are different objects at the
+   same model number — so a single "book price" would be confidently wrong in
+   the way this project keeps having to learn. Store the sold prices and quote
+   a percentile: "asking less than 80% of recent sales of this model". With the
+   condition grade as a second axis where the source supplies one.
+
+4. **The UI.** A small distribution strip on the item detail page with the
+   asking price marked on it — the reader can see both the spread and where
+   this one sits, which a single "23% below book" cannot show. Then a **Good
+   Deal** filter on the browse page, which is the whole point of the feature.
+
+**What would make it dishonest, and must not be skipped.** A minimum sample
+before any claim is made, the sample size shown next to the claim, and no
+verdict at all for a model the reference has three sales of. The
+caliber-to-maker inference in `crosscatalog.py` is the precedent: measured
+against the real catalog, the obvious version of that filed thirty-two M1
+Carbines under Marlin on the strength of three rows. The same trap is waiting
+here, and it is worse, because a number with a currency symbol on it reads as a
+fact.
 
 ### Reporting
 
