@@ -489,6 +489,74 @@ ammunition and modern rifles included.
 
 Cookies identify the platform: `_shopify_y` or `_shopify_essential`.
 
+### If the vendor runs Magento
+
+`MagentoScraper` covers `li.product-item` grids and `?p=N` pagination — but
+Magento is themed harder than the other platforms, and the two shops using it
+here share almost no CSS class, so treat the selectors as defaults to override:
+
+```python
+class MyVendorScraper(MagentoScraper):
+    slug = "my-vendor"
+    name = "My Vendor"
+    base_url = "https://myvendor.com/"
+    card_selector = ".products-grid .item"      # theirs, not the default
+    sources = ({"category": "Surplus", "url": "https://myvendor.com/surplus/"},)
+```
+
+**Read the product page's structured data before its markup.** Magento emits
+schema.org `Product` JSON-LD, and where a shop has left it on it carries the
+name, SKU, description, price, availability and original-resolution images —
+everything the markup has, from a shape a theme cannot rearrange. The base class
+prefers it and falls back to selectors, which is the opposite of the other three
+and is the right way round wherever a shop publishes it.
+
+**When a shop bars its own pagination, look at its facets.** Magento's layered
+navigation is a set of facet groups — caliber, manufacturer, action — and each
+group partitions the category. Where the values are rendered as *paths* rather
+than query strings, they are reachable even when `?p=2` is not, so
+`follow_facets = True` reads a section one facet at a time.
+
+The group is chosen by measuring, not by name: it qualifies only when every one
+of its values holds no more listings than a single page shows — otherwise
+walking it hits the same wall — and among those, fewest values wins, because
+each value costs a request. On the shop this was written for that picks
+Caliber/Gauge (19 values, largest 19, covering all 122) over Manufacturer (38
+values, same coverage), and rejects Action (largest 60) and Price (largest 48).
+It is paid for only when there is a next page being refused.
+
+Three things to check, each of which cost something here:
+
+- **Take the category URLs from the site's own navigation.** Guessing produced
+  two 404s on a shop whose real sections were one click away.
+- **Not every id on a card is the product's.** One shop's only `data-product-id`
+  sits on a financing widget shown for in-stock products and not for sold-out
+  ones — keying on it would make a rifle selling out look like a de-listing plus
+  a new arrival. Only `product-item-info_<n>` is Magento's own.
+- **Cents may live in their own element.** `$1599<span
+  class="decimal">99</span>` reads as "$1599 99" and parses to $1599.00, which
+  then disagrees with the product page forever. Remove that element from the
+  tree, not its text from the string — `"$1599 99"` minus the first `"99"` is
+  `"$15 9"`.
+
+Cookies do not identify Magento; look for `X-Magento-Vary`, `mage.` in the
+markup, or a `/media/catalog/product/` image path.
+
+**A shop can be on a supported platform and still not be worth reading.**
+Century Arms is Magento, their Surplus Corner parses cleanly, and the scraper
+was written, run against the live site and then removed. Their prices are
+dealer-only: seventeen of the first twenty listings say "DEALER LOGIN REQUIRED
+TO PURCHASE" where a price would be, and the element that would hold one is
+rendered `display: none`. A price watcher gets nothing from that. The catalog
+is also mostly modern commercial stock — Antonio Zoli over-unders, an Armalite
+M15, a row of Arminius .38 revolvers — so the three genuinely old listings came
+at the cost of importing a gun shop's shelf.
+
+That is the third time this has come up (Arms Unlimited, Edelweiss Arms,
+Century Arms), so it is worth stating as a rule: **before writing the subclass,
+read twenty cards and count how many carry a price and how many are surplus.**
+"It is on a platform we already support" is a statement about cost, not value.
+
 ### If the vendor runs BigCommerce
 
 `BigCommerceScraper` is the same idea for Stencil themes: `article.card` per
@@ -622,6 +690,29 @@ limits rather than open, so a blip cannot quietly switch off a vendor's rules.
 Set `scraping.obey_robots: false` only for a vendor who has given explicit
 permission.
 
+**Check a real vendor's rules with the real call**, not a scratch script:
+
+```python
+Robots.parse(text).allows(path, user_agent)   # path first
+```
+
+The argument order has bitten once. A probe written the other way round reports
+"allowed" for everything, because it matches the user agent against the rules
+and looks for a group named after the path — which is exactly the answer you
+were hoping for, arriving for the wrong reason. `ctx.allowed(url)` is the
+production path and gets it right; ad-hoc checks should go through that or copy
+its call.
+
+**A site can disallow its own pagination.** Classic Firearms carries
+`Disallow: /*?p=`, which is how Magento pages a category — so their category
+listings stop at page one however many products are behind them. Two things are
+worth trying before writing a site off: a page-size parameter (`?limit=`,
+`?product_list_limit=`) may be permitted where `?p=` is not, though it may also
+be ignored by the server; and the sitemap declared in robots.txt is the
+sanctioned route to a full catalog, since a sitemap exists precisely to tell a
+crawler what to fetch. Both were checked on that site — the first is allowed and
+ignored, the second works.
+
 ### Being told to slow down, and being refused
 
 A 429 is an instruction about the rest of the scan, not about one request.
@@ -712,7 +803,7 @@ having walked 24 listings and saved 5, reporting nothing found. Both rules
 together turn that same hour into a PARTIAL run with the listings it managed to
 read. It is still a bad site to scan, and it may yet need the browser path.
 
-Eleven vendors are read today; seventeen more are queued in
+Twelve vendors are read today; fifteen more are queued in
 [ROADMAP.md](ROADMAP.md), grouped by the platform they run on because one base
 class unlocks a whole group.
 
@@ -912,7 +1003,7 @@ backend/cli.py backup           # snapshot the database now, and prune old ones
 
 ## Roadmap
 
-[ROADMAP.md](ROADMAP.md) tracks planned work, including the seventeen vendor
+[ROADMAP.md](ROADMAP.md) tracks planned work, including the fifteen vendor
 sites queued for support, Debian packages and a Launchpad PPA driven by
 `v1.2.3.4` git tags, and an Electron desktop app published to the Snap Store.
 

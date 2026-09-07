@@ -22,6 +22,7 @@ from .base import (
 )
 from .centerfire_systems import CenterfireSystemsScraper
 from .checkpoint_charlies import CheckpointCharliesScraper
+from .classic_firearms import ClassicFirearmsScraper
 from .co_gun_sales import CoGunSalesScraper
 from .collectors_firearms import CollectorsFirearmsScraper
 from .demo import DemoScraper
@@ -61,6 +62,7 @@ SCRAPER_CLASSES: tuple[type[SiteScraper], ...] = (
     LegacyCollectiblesScraper,
     ImaUsaScraper,
     CenterfireSystemsScraper,
+    ClassicFirearmsScraper,
     *((DemoScraper,) if _demo_site_enabled() else ()),
 )
 

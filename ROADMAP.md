@@ -14,8 +14,8 @@ The whole point of the application is breadth. Each new vendor is one subclass
 of `SiteScraper` in `backend/app/scrapers/` plus one line in `SCRAPER_CLASSES`;
 scheduling, admin controls, price history, images and digests all come for free.
 
-**Where this stands: eleven vendors read, seventeen queued, one dropped.** Of
-the seventeen, five are blocked on something that is not the platform — two need
+**Where this stands: twelve vendors read, fifteen queued, two dropped.** Of
+the fifteen, five are blocked on something that is not the platform — two need
 a browser, one needs an entry URL, one publishes no prices, and two refuse a
 plain request — so they are not simply waiting their turn in the queue.
 
@@ -34,6 +34,7 @@ plain request — so they are not simply waiting their turn in the queue.
 | [Legacy Collectibles](https://www.legacy-collectibles.com/) | `legacy-collectibles` | BigCommerce base class — `article.card`, `data-entity-id`, query-string pagination |
 | [IMA-USA](https://www.ima-usa.com/) | `ima-usa` | Shopify base class — `products.json`, no HTML parsing and no detail fetch |
 | [Centerfire Systems](https://centerfiresystems.com/) | `centerfire-systems` | Shopify; three surplus collections out of a general retailer's catalog |
+| [Classic Firearms](https://www.classicfirearms.com/) | `classic-firearms` | Magento base class — schema.org JSON-LD; facet-walked, because they disallow `?p=` |
 
 ### Planned
 
@@ -180,12 +181,12 @@ OpenCart.
 | **BigCommerce** | Legacy Collectibles, Arms Unlimited, Edelweiss Arms, SARCO | **Base class shipped** (`app/scrapers/bigcommerce.py`). Four sites, one platform, and the markup is close to WooCommerce's: `article.card`, an entity id per card, a "next" link. Two of these were in Group A on the URL guess. Of the four, one shipped, one was dropped as out of scope, and two are blocked — see Group B |
 | **Shopify** | IMA-USA, Centerfire Systems | **Both shipped** (`app/scrapers/shopify.py`). Cheapest per site, and the estimate held: structured JSON, no browser, no detail fetch. Centerfire had been filed as a one-off build on the URL guess |
 | **Wix** | Surplus Defense, The Mosin Crate, Pasadena Pawn | Three, not one-offs. Wix renders client-side, so expect the browser path |
-| **Magento** | Century Arms | One, not the three Group B claimed |
+| **Magento** | Classic Firearms, ~~Century Arms~~ | **Base class shipped** (`app/scrapers/magento.py`), and one site of the two kept. Classic Firearms was listed as Unknown until its markup was read: 59 `mage.` markers and a `/media/catalog/product/cache/` image path. It is the most-visited site on the list. Century Arms is dealer-only and was dropped |
 | **Laravel (custom)** | AIM Surplus | `laravel_session`; a bespoke application, not BigCommerce |
 | **PrestaShop** | Atlantic Firearms | The most-visited site on the list, and its own build |
 | **OpenCart** | Joe Salter | `OCSESSID`; not Shift4Shop |
 | **WooCommerce (blocked)** | J&G Sales, DK Firearms, MCT Defense | See Group A |
-| **Unknown** | Classic Firearms, Simpson Ltd | No marker in headers, cookies or markup. Need a closer look |
+| **Unknown** | Simpson Ltd | No marker in headers or cookies, and the home page answers with 2.8 KB — a splash or a client-side shell rather than a catalog. Needs a real entry URL before anything else can be said |
 | **No platform at all** | eBayonet | Apache, hand-written pages saved from Microsoft Word, no `robots.txt`. Static HTML parsing, like Empire Arms |
 | **Refused a plain request** | Liberty Tree (403), Fernwood Armory (403 + Cloudflare) | Not identified; both need the browser before anything else can be said |
 
@@ -255,11 +256,11 @@ is the most-visited site on the whole list and is worth building despite that.
 | # | Site | Entry URL | Platform | Audience signal | Notes |
 | --- | --- | --- | --- | --- | --- |
 | 1 | Atlantic Firearms | https://atlanticfirearms.com/military-surplus | PrestaShop | ~837K visits/mo (Similarweb, Aug 2024) | The most-visited here. Big surplus section |
-| 2 | Classic Firearms | https://www.classicfirearms.com/firearms/rifles/military-surplus/ | Unknown | 1.6M visits/3mo (Similarweb, Jul 2026) | The biggest name on the list; identify it first |
+| — | ~~Classic Firearms~~ | — | **Magento** | 1.6M visits/3mo (Similarweb, Jul 2026) | **Shipped.** Moved to Group G |
 | 3 | AIM Surplus | https://aimsurplus.com/categories/firearm/curio-and-relic | Laravel | ~357K visits/mo (Semrush, Apr 2026) | Bespoke application. An earlier list guessed BigCommerce from the URL shape; the cookies say otherwise |
-| 4 | Century Arms | https://store.centuryarms.com/surplus-corner/firearms | Magento | Importer, widely stocked by the others | Surplus Corner section only |
+| — | ~~Century Arms~~ | — | Magento | Importer, widely stocked by the others | **Dropped: dealer-only prices.** See Group G |
 | 5 | Joe Salter | https://shop.joesalter.com/CandR-Firearms-curio-and-relic-handguns-rifles | OpenCart | Long-established collector dealer | Not Shift4Shop, which the `-cNNNNNNNNN` URL suffix suggested |
-| 6 | Simpson Ltd. | https://www.simpsonltd.com/ | Unknown | Trading since 1962 | Very large; no surplus-only path, so needs filtering by category |
+| 6 | Simpson Ltd. | https://www.simpsonltd.com/ | Unknown | Trading since 1962 | **Needs an entry URL.** The home page is 2.8 KB with no platform marker; whatever the catalog is, it is not there |
 | 7 | eBayonet | https://www.ebayonet.com/bayonetsa_f.htm | Static HTML (Word export) | Specialist; catalog dated 9 Aug 2026 | Bayonets only. See below — it is the closest thing on this list to Empire Arms |
 
 **eBayonet, measured rather than guessed.** No e-commerce platform at all: an
@@ -280,6 +281,89 @@ no product structure whatsoever. What it does have is a consistent shape:
 This is the Empire Arms treatment — static HTML, block parsing on a delimiter —
 rather than a platform base class, and it is worth doing now that bayonets have
 their own type rather than sitting in the accessories pile.
+
+#### Group G — Magento · base class **shipped**
+
+Two sites, one platform, and one of them is the most-visited on the whole list.
+That was the argument for building it, and the last of those arguments
+available: everything remaining is one site each. In the event only one of the
+two was worth keeping — which is the argument's weakness stated plainly, since
+it counts sites rather than catalogs.
+
+They are the WooCommerce situation exactly — the same platform underneath, different theme classes on top:
+
+| | Classic Firearms | Century Arms |
+| --- | --- | --- |
+| Cards | `.products-grid .item` (custom `product-card` theme) | `li.product-item` (stock Magento) |
+| Per page | 24 | 20 |
+| Pagination | `?p=N` | `?p=N` |
+| Images | `/media/catalog/product/cache/…` | same |
+
+So: a base class with overridable selectors, the fourth time that shape has
+paid.
+
+**The catch, and it is a real one. Classic Firearms disallows its own
+pagination.** Their robots.txt carries `Disallow: /*?p=` with an `Allow:` only
+for `/news`, so page 2 of a category is off limits — 24 listings per section is
+all the category pages can honestly give. Three routes past it were checked:
+
+- `?product_list_limit=96` **is** allowed by robots, and is **not honored** by
+  the site: it returns 24 cards either way. Dead end.
+- Their sitemap index is declared in robots.txt and product pages are allowed,
+  including `sitemap_longguns.xml.gz`, `sitemap_handguns.xml.gz` and
+  `sitemap_firearms.xml.gz`. The sanctioned route to the whole catalog, at one
+  request per product and a mixed bag to filter, since those files carry modern
+  AR-15s alongside the surplus.
+- **Better than either, and the next thing to do for this site: their caliber
+  facets are paths, not query strings.**
+  `/firearms/rifles/military-surplus/30_06/` is 19 rifles and needs no query
+  string at all, so it is allowed as it stands. Walking those would reach most
+  of the catalog well within the rules and at a fraction of the sitemap's cost.
+
+Century Arms allowed `?p=` and needed none of this, which was the argument for
+pairing them. It was dropped for an unrelated reason; see below.
+
+| # | Site | Sections read | Status |
+| --- | --- | --- | --- |
+| — | **Classic Firearms** | `/firearms/rifles/military-surplus/`, `/firearms/handguns/military-surplus/`, `/firearms/c-and-r-eligible/` | **Shipped, facet-walked.** Their robots.txt bars `?p=`, so each section is read one caliber facet at a time. A live run returned **122 listings from the rifle section** rather than the 24 a single page can show — every one with a price, a gallery and a description, all from their JSON-LD |
+| — | ~~Century Arms~~ | `/surplus-corner/firearms` | **Dropped: dealer-only.** Written, run against the live site, and backed out — the same call as Arms Unlimited, for a different reason. Seventeen of the first twenty listings have no public price and about fifteen are modern commercial stock. Its 31 listings were deleted from the database |
+
+**What reading the cards changed.** This group was recommended as "two sites,
+one platform, and one of them is the most-visited on the list". Half of that
+survived contact:
+
+- **Classic Firearms is everything hoped for.** Their product pages carry
+  schema.org `Product` JSON-LD — name, SKU, price, availability, description and
+  original-resolution images — so the base class reads structured data first and
+  the markup only as a fallback. That is the opposite of the other three base
+  classes and is the right way round wherever a shop publishes it.
+- **Century Arms turned out not to be worth having, and was removed.** Of the
+  first twenty listings, seventeen say "DEALER LOGIN REQUIRED TO PURCHASE"
+  where a price would be, and roughly fifteen are modern commercial stock —
+  Antonio Zoli over-unders, an Armalite M15, a row of Arminius .38 revolvers.
+  The three with prices are the three that are genuinely old. It was built,
+  scanned once, and then the scraper and its 31 listings were deleted.
+
+  Being on a platform already supported is a statement about cost, not value.
+  This is the third time — Arms Unlimited, Edelweiss Arms, Century Arms — so
+  the check is now written into the README: read twenty cards and count how
+  many carry a price and how many are surplus, *before* writing the subclass.
+
+**Three things the build cost, worth not repeating.**
+
+1. **Guessing category URLs cost two 404s.** `/firearms/curio-relic/` and
+   `/firearms/handguns/surplus-handguns/` are the obvious names for those
+   sections and neither exists. The real ones are in the site's own navigation.
+2. **The obvious external key was the wrong one.** Classic Firearms' cards carry
+   a `data-product-id` — on a financing widget that appears on in-stock products
+   and not on sold-out ones. Keying on it would have made a rifle selling out
+   look like one listing de-listed and a different one arriving. Only Magento's
+   own `product-item-info_<n>` wrapper counts.
+3. **Their cents live in their own element.** `$1599<span
+   class="decimal">99</span>` reads as "$1599 99" and parses to $1599.00, while
+   the JSON-LD says 1599.99 — a phantom price change on every re-scan that
+   skipped the detail fetch. Removing the cents by *text* is the trap after
+   that: "$1599 99" minus the first "99" is "$15 9", which parses to $15.99.
 
 #### Group E — Wix (3 sites) · expect the browser
 
