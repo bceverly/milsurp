@@ -249,8 +249,8 @@ class TestSending:
         add_items(seeded, site, 1)
         sent = {}
 
-        def capture(to, subject, body, text_body=None, config=None):
-            sent.update(to=to, subject=subject, body=body)
+        def capture(to, subject, body, text_body=None, config=None, inline_images=None):
+            sent.update(to=to, subject=subject, body=body, inline_images=inline_images)
 
         monkeypatch.setattr(digest.mailer, "send_html", capture)
         log = digest.send_digest_for_user(seeded, user_with_prefs, app_config)
@@ -258,6 +258,12 @@ class TestSending:
         assert log.status == EmailStatus.SENT
         assert log.new_item_count == 1
         assert sent["to"] == user_with_prefs.email
+        # The mark travels with the message; a remote <img> would be blocked.
+        assert digest.MARK_CID in sent["inline_images"]
+        assert f"cid:{digest.MARK_CID}" in sent["body"]
+        # And what was sent is kept, so the digest page can show it later.
+        assert log.body_html == sent["body"]
+        assert log.body_text and "Milsurp" in log.body_text
         assert user_with_prefs.email_preference.last_digest_cutoff is not None
 
     def test_force_sends_even_when_empty(self, seeded, user_with_prefs, app_config, monkeypatch):

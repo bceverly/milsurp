@@ -34,6 +34,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 MARKETING = REPO_ROOT / "marketing" / "images"
 FRONTEND_PUBLIC = REPO_ROOT / "frontend" / "public"
 FRONTEND_SRC = REPO_ROOT / "frontend" / "src" / "components"
+#: The bitmap the digest attaches. Lives with the backend because that is
+#: what reads it at send time.
+EMAIL_MARK = REPO_ROOT / "backend" / "app" / "assets" / "insignia-email.png"
 
 # Dress palette.
 FIELD = "#1B3A66"
@@ -403,6 +406,82 @@ def _format_jsx(path: Path) -> None:
         print(f"  ! prettier failed on {path.relative_to(REPO_ROOT)}: {result.stderr.strip()}")
 
 
+#: The mark as a bitmap, for email.
+#:
+#: An email client will not render an inline SVG and blocks remote images by
+#: default, so the digest attaches this and references it by Content-ID. It is
+#: drawn from the same geometry as everything above rather than exported by
+#: hand, which is the whole point of this script: the mark has one definition.
+#:
+#: Twice the display size, for the same reason a thumbnail is: every mail
+#: client on a phone is a high-density display.
+EMAIL_MARK_WIDTH = 132
+EMAIL_SCALE = 2
+#: The navy the digest header is painted in. Kept beside the other colors here
+#: rather than imported from the backend: this script has no dependency on the
+#: application, and the two are checked against each other by a test.
+EMAIL_HEADER_BG = "#0A2240"
+
+
+def build_email_png() -> bytes:
+    """The insignia as a PNG on the navy header, ready to attach to a message."""
+    from io import BytesIO
+
+    from PIL import Image, ImageDraw
+
+    scale = EMAIL_MARK_WIDTH * EMAIL_SCALE / 100.0
+    width = round(100 * scale)
+    height = round(62 * scale)
+
+    def at(point: tuple[float, float]) -> tuple[float, float]:
+        return (point[0] * scale, point[1] * scale)
+
+    # Drawn on the header's own navy rather than on transparency: a client that
+    # ignores the alpha channel would otherwise put the mark on black.
+    image = Image.new("RGB", (width, height), EMAIL_HEADER_BG)
+    draw = ImageDraw.Draw(image)
+
+    wings = [[at(point) for point in wing_points(right)] for right in (False, True)]
+    cx, cy = HUB_CENTER
+    hub = [
+        at((cx - HUB_RADIUS, cy - HUB_RADIUS)),
+        at((cx + HUB_RADIUS, cy + HUB_RADIUS)),
+    ]
+
+    for wing in wings:
+        draw.polygon(wing, fill=FIELD_DARK)
+    draw.ellipse(hub, fill=FIELD_DARK)
+
+    # The stripes are clipped to the wings, the way the SVG clips them.
+    stripes = Image.new("RGB", (width, height), FIELD_DARK)
+    stripe_draw = ImageDraw.Draw(stripes)
+    for x1, y1, x2, y2 in stripe_lines():
+        stripe_draw.line(
+            [at((x1, y1)), at((x2, y2))], fill=SILVER, width=max(1, round(STRIPE_WIDTH * scale))
+        )
+    mask = Image.new("L", (width, height), 0)
+    mask_draw = ImageDraw.Draw(mask)
+    for wing in wings:
+        mask_draw.polygon(wing, fill=255)
+    image.paste(stripes, (0, 0), mask)
+
+    # The hub goes over the stripes so they stop at its edge, then the star.
+    draw = ImageDraw.Draw(image)
+    draw.ellipse(hub, fill=FIELD_DARK)
+    star = [
+        at((float(x), float(y)))
+        for x, y in (
+            tuple(float(n) for n in pair.split(","))
+            for pair in star_points(cx, cy, STAR_OUTER, STAR_INNER).split()
+        )
+    ]
+    draw.line([*star, star[0]], fill=STAR_OUTLINE, width=max(1, round(1.8 * scale)), joint="curve")
+
+    buffer = BytesIO()
+    image.save(buffer, format="PNG", optimize=True)
+    return buffer.getvalue()
+
+
 def main() -> int:
     for directory in (MARKETING, FRONTEND_PUBLIC, FRONTEND_SRC):
         directory.mkdir(parents=True, exist_ok=True)
@@ -418,6 +497,11 @@ def main() -> int:
         print(f"  wrote {path.relative_to(REPO_ROOT)}")
 
     _format_jsx(FRONTEND_SRC / "Insignia.jsx")
+
+    png = build_email_png()
+    EMAIL_MARK.parent.mkdir(parents=True, exist_ok=True)
+    EMAIL_MARK.write_bytes(png)
+    print(f"  wrote {EMAIL_MARK.relative_to(REPO_ROOT)} ({len(png):,} bytes)")
     return 0
 
 

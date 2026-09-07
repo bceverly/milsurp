@@ -121,6 +121,10 @@ class ScrapeContext:
         #: Per host, a pace slower than the one we started with, because the
         #: host asked for it with a 429. See _slow_down().
         self._slowed: dict[str, float] = {}
+        #: Hosts that went on refusing after the pace hit its ceiling. Past
+        #: that point a 429 is not "you are too fast", because there is no
+        #: slower left to go — so retrying it only wastes the run's time.
+        self._refusing: set[str] = set()
         # Answers "do we hold any listing whose key starts with this?", for a
         # scraper whose keys are not predictable one at a time. Defaults to
         # False, so a scraper used standalone does the full job.
@@ -261,6 +265,16 @@ class ScrapeContext:
                 self._last_request_at = time.monotonic()
                 if response.status_code == TOO_MANY_REQUESTS:
                     self._slow_down(url, response)
+                    if _host_of(url) in self._refusing:
+                        # Already as slow as this context goes, and still
+                        # refused. Fail now rather than sleeping through three
+                        # more attempts at a pace that has been shown not to
+                        # help.
+                        raise ScrapeError(
+                            f"GET {url}: {TOO_MANY_REQUESTS} at the slowest pace available "
+                            f"({self._delay_for(url):.0f}s between requests). The site is "
+                            f"refusing this request rather than asking us to slow down."
+                        )
                 response.raise_for_status()
             except requests.RequestException as exc:
                 last_error = exc
@@ -268,6 +282,12 @@ class ScrapeContext:
                 if attempt < self.scraping.max_retries - 1:
                     time.sleep(self._backoff(url, exc, attempt))
             else:
+                # It answered, so whatever it was refusing before, it is not
+                # refusing now. Without this the flag outlives the condition
+                # and a much later 429 — a real rate limit, arriving after an
+                # hour of successful requests — would fail on the first ask
+                # instead of being given the chance to slow down.
+                self._refusing.discard(_host_of(url))
                 return response
         raise ScrapeError(
             f"GET {url} failed after {self.scraping.max_retries} attempts: {last_error}"
@@ -307,6 +327,10 @@ class ScrapeContext:
             self.scraping.request_delay, self._crawl_delay_for(url)
         )
         stated = _retry_after(response)
+        if current >= MAX_REQUEST_DELAY:
+            # It was already at the ceiling before this refusal, so slowing
+            # down is no longer an available response.
+            self._refusing.add(host)
         slower = min(max(current * 2, stated or 0.0, MIN_BACKOFF_AFTER_429), MAX_REQUEST_DELAY)
         self._slowed[host] = slower
         self.warn(

@@ -49,6 +49,17 @@ def scrub(value: object, *, limit: int = MAX_LOGGED_LENGTH) -> str:
 #: usernames.
 USERNAME_PATTERN = re.compile(r"[A-Za-z0-9._\-]{1,64}")
 
+#: What a peer address may contain: an IPv4 or IPv6 address, or the marker used
+#: when there is no peer at all.
+#:
+#: Deliberately a shape rather than a scrub. The address comes off the
+#: connection rather than out of a header, so in practice it holds nothing but
+#: an address — but :func:`scrub` only escapes it, and an escape is string
+#: manipulation as far as a taint tracker is concerned, so CodeQL went on
+#: reporting log injection on a line that was already safe. An allowlist is a
+#: barrier it recognises, and it is the stronger claim to a reader as well.
+ADDRESS_PATTERN = re.compile(r"unknown|[0-9.]{7,15}|[0-9A-Fa-f:.]{2,45}")
+
 #: Stands in for a value that failed the allowlist. Fixed text, so it can never
 #: itself carry anything from the request.
 REJECTED = "<rejected>"

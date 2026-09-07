@@ -460,6 +460,20 @@ A few things worth knowing:
 - `services/classify.enrich()` derives caliber, country, manufacturer, condition
   and the rifle/pistol split from the title and description.
 
+### If the vendor runs BigCommerce
+
+`BigCommerceScraper` is the same idea for Stencil themes: `article.card` per
+product, `.card-title`, `.price--withoutTax`, a `rel="next"` link. Two things
+differ from WooCommerce and are worth knowing:
+
+- **The key.** WordPress puts a post id in every card; Stencil themes are
+  inconsistent, so `data-entity-id` is used where it exists and the product's
+  URL path where it does not. Prefer the id: a rename changes the URL, and a
+  path key reads that as one listing de-listed and another appearing.
+- **Pagination is a query string** (`?page=2`), not a path. A shop may disallow
+  those in robots.txt, so the walk asks before each page and stops that section
+  rather than failing the scan.
+
 ### If the vendor runs WooCommerce
 
 Five vendors are read this way, and they render their catalogs the same way. Use
@@ -496,7 +510,7 @@ replacing them, so the defaults still answer if the theme changes back:
 heuristics, so it should say what the section actually holds. Take the firearm
 categories and any parts-*kit* category; leave the rest of a parts tree alone.
 
-Three things worth checking on a new WooCommerce shop, because each has already
+Four things worth checking on a new WooCommerce shop, because each has already
 caught one out:
 
 - **Is it actually WordPress?** Two of the sites queued as WooCommerce were
@@ -507,6 +521,30 @@ caught one out:
   `requires_browser = True` rather than this base class.
 - **Is that page products or categories?** MCT Defense's firearms page is
   thirty category tiles with no price element anywhere on it.
+- **Did the photographs come with it?** Count them, on a card and on a product
+  page, before calling a shop done. A scraper whose titles and prices are right
+  looks finished, and a missing gallery is invisible until somebody opens the
+  site months later and asks why there are no pictures.
+
+That last one is worth its own paragraph, because "no `<img>` on the page" turns
+out not to mean "rendered by JavaScript". CO Gun Sales landed 116 listings with
+titles, prices and descriptions and not one photograph, and it is entirely
+static — the pictures are simply not in `<img>` tags:
+
+- **The card's picture is a CSS background.** A page builder puts it in a
+  `style="background-image:url(…)"` on the link, not in an image element.
+  `background_images()` in `storefront.py` reads those, and the card path falls
+  back to it only when there is no `<img>` at all, so a theme that has both
+  keeps preferring the real one.
+- **The gallery is JSON in an attribute.** Their gallery plugin puts all nine
+  photographs into `data-wcsvi` on the `woocommerce-product-gallery` div and
+  builds the gallery in the browser. `WooCommerceScraper.gallery()` falls back
+  to `json_gallery_attributes` when the selectors find nothing, and prefers each
+  entry's `large_image` — the original upload — over its `src`, which is the
+  same photograph behind an image CDN with the resize in a query string.
+
+Both are fallbacks, reached only when the ordinary path finds nothing, so
+neither can change what a shop that renders normal markup already produces.
 
 ### Makers and models
 
@@ -555,7 +593,49 @@ limits rather than open, so a blip cannot quietly switch off a vendor's rules.
 Set `scraping.obey_robots: false` only for a vendor who has given explicit
 permission.
 
-Twenty-one sites are queued in [ROADMAP.md](ROADMAP.md).
+### Being told to slow down, and being refused
+
+A 429 is an instruction about the rest of the scan, not about one request.
+Collectors Firearms publishes `Crawl-delay: 10`, was crawled at exactly that
+pace, and still returned 429 after sixteen minutes: their limiter counts over a
+window that ten seconds a request eventually fills. So a 429 sets a *standing*
+slower pace for that host — 30 seconds at least, doubling on each further
+refusal, honoring `Retry-After` when it is given — and every later request in
+the scan pays it, not just the retry.
+
+That escalation is capped at five minutes a request, and the cap is where the
+meaning changes. A refusal that arrives when there is no slower left to go
+cannot be "you are asking too often", so it fails immediately instead of
+sleeping through three more attempts at a pace already shown not to work.
+
+**When a shop refuses a page.** A page that cannot be read costs what was on
+that page, and nothing more. Both storefront base classes apply that twice:
+
+- A failed **product page** costs that listing its description and gallery. The
+  card already carried the title, the price and a thumbnail, which is what price
+  watching actually needs. After three refusals in a row the run stops asking
+  for product pages at all, rather than walking the whole catalog one pointless
+  request at a time.
+- A failed **catalog page** stops that section there. Two pages read and the
+  third refused is two pages of listings worth keeping. The first page is the
+  exception: a section that could not be opened at all yielded nothing, and
+  nothing is not a partial result.
+
+All of it goes through `ctx.warn()`, so the run reports PARTIAL and says why.
+
+Checkpoint Charlie's is what paid for these rules, and is worth reading as a
+warning about diagnosing from a single probe. A `curl` comparison said the
+answer plainly — `/product-tag/cr/` returned 200 and `/product/…` returned 429,
+at any pace and with or without browser headers — so the first fix addressed
+product pages alone. The full run then showed the rest of it: after an hour of
+refusals they stop answering *anything*, and the scan died on page 3 of the tag
+having walked 24 listings and saved 5, reporting nothing found. Both rules
+together turn that same hour into a PARTIAL run with the listings it managed to
+read. It is still a bad site to scan, and it may yet need the browser path.
+
+Nine vendors are read today; nineteen more are queued in
+[ROADMAP.md](ROADMAP.md), grouped by the platform they run on because one base
+class unlocks a whole group.
 
 ## Testing
 
@@ -567,7 +647,7 @@ make test-frontend   # Playwright
 
 | Suite | Tool | Tests | Coverage | Gate |
 |---|---|---|---|---|
-| Backend | pytest | 330 | 70.1% | 65% |
+| Backend | pytest | 861 | 79.6% | 65% |
 | Frontend | Playwright | 69 | 79.1% lines | 65% |
 
 - **Warnings are errors.** A warning is a library telling you something is
@@ -753,9 +833,9 @@ backend/cli.py backup           # snapshot the database now, and prune old ones
 
 ## Roadmap
 
-[ROADMAP.md](ROADMAP.md) tracks planned work, including the sixteen vendor sites
-queued for support, Debian packages and a Launchpad PPA driven by `v1.2.3.4` git
-tags, and an Electron desktop app published to the Snap Store.
+[ROADMAP.md](ROADMAP.md) tracks planned work, including the nineteen vendor
+sites queued for support, Debian packages and a Launchpad PPA driven by
+`v1.2.3.4` git tags, and an Electron desktop app published to the Snap Store.
 
 [TODO.md](TODO.md) is the working checklist for the current build.
 

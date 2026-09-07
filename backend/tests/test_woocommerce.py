@@ -14,6 +14,7 @@ import responses
 from bs4 import BeautifulSoup
 
 from app.scrapers import ScrapeContext
+from app.scrapers.base import ScrapeError
 from app.scrapers.collectors_firearms import CollectorsFirearmsScraper
 from app.scrapers.woocommerce import (
     WooCommerceScraper,
@@ -416,3 +417,192 @@ class TestTheOtherWooCommerceShops:
         responses.add(responses.GET, f"{SHOP}/product/x/", body=product_page("Rifle", "d", []))
 
         assert len(list(Shop().scrape(ctx))) == 1
+
+
+class TestWhenProductPagesAreRefused:
+    """Checkpoint Charlie's, which is why the fallback exists.
+
+    Their category pages answer 200 and their /product/ pages answer 429 to
+    every pace and every set of headers — a rule about the path, not about how
+    fast we are asking. The scan used to spend an hour escalating its backoff
+    and then throw the whole catalog read away.
+    """
+
+    def catalog_of(self, count: int) -> str:
+        return catalog("".join(card(n, f"Rifle {n}") for n in range(count)))
+
+    def refuse_every_product(self, count: int) -> None:
+        responses.add(
+            responses.GET, f"{SHOP}/product-category/rifles/", body=self.catalog_of(count)
+        )
+        for n in range(count):
+            responses.add(responses.GET, f"{SHOP}/product/rifle-{n}/", status=429)
+
+    @responses.activate
+    def test_the_catalog_entry_survives_a_refused_product_page(self, ctx):
+        self.refuse_every_product(1)
+
+        items = list(Shop().scrape(ctx))
+
+        assert [item.title for item in items] == ["Rifle 0"]
+        # The card carried these, so they are still worth having.
+        assert items[0].price == 600.00
+        assert items[0].image_urls == [f"{UPLOADS}/rifle.jpg"]
+        # But the gallery was never read, so nothing claims it was.
+        assert items[0].images_are_complete is False
+
+    @responses.activate
+    def test_and_the_run_says_so(self, ctx):
+        self.refuse_every_product(1)
+
+        list(Shop().scrape(ctx))
+
+        assert any("Keeping the catalog entry only" in w for w in ctx.warnings)
+
+    @responses.activate
+    def test_a_shop_that_refuses_all_of_them_stops_asking(self, ctx):
+        """Otherwise the whole catalog is walked one pointless request at a
+        time, each one paying the full retry-and-backoff bill."""
+        wanted = Shop.MAX_DETAIL_FAILURES
+        self.refuse_every_product(wanted + 4)
+
+        items = list(Shop().scrape(ctx))
+
+        assert len(items) == wanted + 4
+        asked = {call.request.url for call in responses.calls if "/product/" in call.request.url}
+        assert len(asked) == wanted
+        assert any("taking the rest of this scan from the catalog only" in w for w in ctx.warnings)
+
+    @responses.activate
+    def test_one_that_recovers_is_not_given_up_on(self, ctx):
+        """The count is failures *in a row*. A shop having a bad minute in the
+        middle of a long catalog should not lose the rest of its galleries."""
+        responses.add(responses.GET, f"{SHOP}/product-category/rifles/", body=self.catalog_of(4))
+        responses.add(responses.GET, f"{SHOP}/product/rifle-0/", status=429)
+        responses.add(responses.GET, f"{SHOP}/product/rifle-1/", status=429)
+        for n in (2, 3):
+            responses.add(
+                responses.GET,
+                f"{SHOP}/product/rifle-{n}/",
+                body=product_page(f"Rifle {n}", "prose", [f"{UPLOADS}/a.jpg"]),
+            )
+
+        items = list(Shop().scrape(ctx))
+
+        assert [item.images_are_complete for item in items] == [False, False, True, True]
+
+
+class TestWhenACatalogPageIsRefused:
+    """Page 3 failing should not throw away pages 1 and 2.
+
+    Checkpoint Charlie's cost 56 minutes, walked 24 listings, saved 5, and then
+    reported a failed run with nothing found — because the third page of the
+    tag answered 429 and the exception came out through the whole scan.
+    """
+
+    @responses.activate
+    def test_the_pages_already_read_are_kept(self, ctx):
+        responses.add(
+            responses.GET,
+            f"{SHOP}/product-category/rifles/",
+            body=catalog(card(1, "Rifle One"), next_href=f"{SHOP}/product-category/rifles/page/2/"),
+        )
+        responses.add(responses.GET, f"{SHOP}/product-category/rifles/page/2/", status=429)
+        responses.add(responses.GET, f"{SHOP}/product/rifle-one/", body=product_page("A", "d", []))
+
+        items = list(Shop().scrape(ctx))
+
+        assert [item.title for item in items] == ["A"]
+        assert any("Stopping this section at page 1" in w for w in ctx.warnings)
+
+    @responses.activate
+    def test_but_a_first_page_that_cannot_be_opened_is_a_failure(self, ctx):
+        """Nothing is not a partial result."""
+        responses.add(responses.GET, f"{SHOP}/product-category/rifles/", status=429)
+
+        with pytest.raises(ScrapeError):
+            list(Shop().scrape(ctx))
+
+
+class TestAPhotographThatIsNotAnImgTag:
+    """CO Gun Sales, whose 116 listings all arrived with no photograph.
+
+    Their theme is a page builder and their gallery is a plugin, and between
+    them the product markup contains no <img> at all: the card's picture is a
+    CSS background on a link, and the nine photographs on the product page are
+    JSON in an attribute on the gallery div.
+    """
+
+    CDN = "https://i0.wp.com/cogunsales.test/wp-content/uploads/2026/01"
+    ORIGIN = "https://cogunsales.test/wp-content/uploads/2026/01"
+
+    def card_with_a_css_background(self) -> str:
+        return f"""
+        <div class="product type-product post-42 instock">
+          <a class="thumb" href="{SHOP}/product/luger/"
+             style="background-image:url({self.CDN}/IMG_1.png?fit=1024%2C1024&amp;ssl=1);
+                    background-size: contain;"></a>
+          <h2 class="woocommerce-loop-product__title">1918 DWM Luger</h2>
+          <span class="price"><span class="woocommerce-Price-amount">$3,200.00</span></span>
+        </div>
+        """
+
+    def test_the_card_picture_is_read_off_the_style(self):
+        soup = BeautifulSoup(catalog(self.card_with_a_css_background()), "html.parser")
+        item = Shop().item_from_card(soup.select_one(".product"), SHOP, "C&R")
+
+        assert item.title == "1918 DWM Luger"
+        assert item.image_urls == [f"{self.CDN}/IMG_1.png?fit=1024%2C1024&ssl=1"]
+
+    def test_an_img_still_wins_when_there_is_one(self):
+        """The background is a fallback, not a second source. A theme that has
+        both should not have the decorative one preferred."""
+        html = f"""
+        <li class="product post-7 instock" style="background-image:url({self.CDN}/frame.png)">
+          <a href="{SHOP}/product/x/"><img src="{UPLOADS}/real-300x200.jpg"/>
+          <h2 class="woocommerce-loop-product__title">Rifle</h2>
+          <span class="price"><span class="woocommerce-Price-amount">$9.00</span></span></a>
+        </li>
+        """
+        soup = BeautifulSoup(catalog(html), "html.parser")
+        item = Shop().item_from_card(soup.select_one("li.product"), SHOP, "")
+
+        assert item.image_urls == [f"{UPLOADS}/real.jpg"]
+
+    def gallery_as_json(self, count: int) -> str:
+        entries = ", ".join(
+            f'{{"large_image": "{self.ORIGIN}/IMG_{n}.png", '
+            f'"src": "{self.CDN}/IMG_{n}.png?fit=1600%2C1600&amp;amp;ssl=1"}}'
+            for n in range(count)
+        )
+        return (
+            '<html><body><div class="woocommerce-product-gallery images" '
+            f'data-wcsvi=\'{{"slugs":[],"images":[{entries}]}}\'></div>'
+            '<h1 class="product_title">1918 DWM Luger</h1></body></html>'
+        )
+
+    def test_the_gallery_is_read_out_of_the_json(self):
+        soup = BeautifulSoup(self.gallery_as_json(3), "html.parser")
+        photos = Shop().gallery(soup, f"{SHOP}/product/luger/")
+
+        assert photos == [f"{self.ORIGIN}/IMG_{n}.png" for n in range(3)]
+
+    def test_the_original_is_preferred_to_the_cdn_copy(self):
+        """large_image is the upload itself; src is the same photograph behind
+        an image CDN with the resize in a query string."""
+        soup = BeautifulSoup(self.gallery_as_json(1), "html.parser")
+
+        assert "i0.wp.com" not in Shop().gallery(soup, SHOP)[0]
+
+    def test_img_tags_still_win_when_the_theme_renders_them(self):
+        soup = BeautifulSoup(product_page("Rifle", "d", [f"{UPLOADS}/a.jpg"]), "html.parser")
+
+        assert Shop().gallery(soup, SHOP) == [f"{UPLOADS}/a.jpg"]
+
+    def test_an_attribute_that_is_not_json_is_not_a_failure(self):
+        soup = BeautifulSoup(
+            '<div class="woocommerce-product-gallery" data-wcsvi="not json"></div>',
+            "html.parser",
+        )
+
+        assert Shop().gallery(soup, SHOP) == []

@@ -239,3 +239,29 @@ export const Image = (p) => (
     <path d="M3.5 17l5-4.5 4 3.5 3-2.5 5 4" />
   </Svg>
 );
+
+/** Four panes: the card grid. */
+export function Grid(props) {
+  return (
+    <Svg {...props}>
+      <rect x="3" y="3" width="7.5" height="7.5" rx="1.5" />
+      <rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5" />
+      <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5" />
+      <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5" />
+    </Svg>
+  );
+}
+
+/** Rows with a leading marker: the list. */
+export function List(props) {
+  return (
+    <Svg {...props}>
+      <line x1="9" y1="6" x2="20" y2="6" />
+      <line x1="9" y1="12" x2="20" y2="12" />
+      <line x1="9" y1="18" x2="20" y2="18" />
+      <circle cx="4.5" cy="6" r="1.2" />
+      <circle cx="4.5" cy="12" r="1.2" />
+      <circle cx="4.5" cy="18" r="1.2" />
+    </Svg>
+  );
+}

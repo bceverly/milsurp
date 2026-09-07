@@ -250,6 +250,8 @@ def seed(  # noqa: PLR0912 - a linear fixture builder; branches are per-field
                 condition=derived["condition"],
                 is_rifle=derived["is_rifle"],
                 is_pistol=derived["is_pistol"],
+                is_bayonet=derived["is_bayonet"],
+                is_parts_kit=derived["is_parts_kit"],
                 is_sold=sold,
                 # A couple of older entries are de-listed, so that filter has
                 # something to show.

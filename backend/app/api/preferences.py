@@ -9,7 +9,7 @@ from sqlalchemy import select
 
 from ..deps import AdminUser, AppConfig, CurrentUser, DbSession
 from ..models import EmailLog, EmailPreference, EmailPreferenceSite, Site, User
-from ..schemas import EmailLogOut, EmailPreferenceOut, EmailPreferenceUpdate
+from ..schemas import EmailBodyOut, EmailLogOut, EmailPreferenceOut, EmailPreferenceUpdate
 from ..services import digest, mailer
 
 router = APIRouter(tags=["preferences"])
@@ -126,6 +126,13 @@ def send_test_digest(user: CurrentUser, session: DbSession, config: AppConfig) -
     }
 
 
+def _log_out(entry: EmailLog) -> EmailLogOut:
+    """One row for the history table, without the message it carries."""
+    item = EmailLogOut.model_validate(entry)
+    item.has_body = bool(entry.body_html or entry.body_text)
+    return item
+
+
 @router.get("/preferences/email/history", response_model=list[EmailLogOut])
 def my_email_history(
     user: CurrentUser,
@@ -142,7 +149,26 @@ def my_email_history(
         .scalars()
         .all()
     )
-    return [EmailLogOut.model_validate(entry) for entry in logs]
+    return [_log_out(entry) for entry in logs]
+
+
+@router.get("/preferences/email/history/{log_id}", response_model=EmailBodyOut)
+def my_email_body(
+    log_id: int,
+    user: CurrentUser,
+    session: DbSession,
+) -> EmailBodyOut:
+    """The message itself, fetched only when somebody asks to read one.
+
+    Scoped to the signed-in user's own messages. A digest names the sites
+    somebody follows and what they are watching for, so another account's copy
+    is not theirs to read — an admin reads it through the admin route, which
+    says so in its path.
+    """
+    entry = session.get(EmailLog, log_id)
+    if entry is None or entry.user_id != user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such message.")
+    return EmailBodyOut.model_validate(entry)
 
 
 # ---------------------------------------------------------------------------
@@ -162,10 +188,19 @@ def all_email_history(
     ).all()
     out = []
     for entry, username in rows:
-        item = EmailLogOut.model_validate(entry)
+        item = _log_out(entry)
         item.username = username
         out.append(item)
     return out
+
+
+@router.get("/admin/email/history/{log_id}", response_model=EmailBodyOut)
+def any_email_body(log_id: int, _admin: AdminUser, session: DbSession) -> EmailBodyOut:
+    """Any user's message, for an admin working out a delivery problem."""
+    entry = session.get(EmailLog, log_id)
+    if entry is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such message.")
+    return EmailBodyOut.model_validate(entry)
 
 
 @router.post("/admin/email/test-connection")

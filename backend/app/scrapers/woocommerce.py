@@ -24,6 +24,7 @@ is being read, and following the link the shop itself renders is not.
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Iterable, Iterator
 from dataclasses import replace
@@ -39,6 +40,7 @@ from .base import (
     SiteScraper,
     normalize_whitespace,
 )
+from .storefront import background_images, image_sources, parse_price
 
 #: The post id WordPress puts in every card's class list: `post-1398033`. It is
 #: the shop's own primary key for the product, which makes it the right thing
@@ -59,11 +61,6 @@ GENERATED_SIZE = re.compile(r"-\d{2,5}x\d{2,5}(?=\.[A-Za-z]{3,4}(?:$|\?))")
 #: back with twelve, three of them duplicates at a different file size.
 SCALED = re.compile(r"-scaled(?=\.[A-Za-z]{3,4}(?:$|\?))")
 
-#: A lazy-loading placeholder rather than a photograph.
-PLACEHOLDER = re.compile(r"^data:|/(?:placeholder|spacer|blank)[.-]", re.I)
-
-PRICE = re.compile(r"([0-9][0-9,]*(?:\.[0-9]{2})?)")
-
 
 def full_size(url: str) -> str:
     """The original upload behind a generated thumbnail URL."""
@@ -73,16 +70,6 @@ def full_size(url: str) -> str:
 def same_photograph(url: str) -> str:
     """What two URLs share when they are the same picture at two sizes."""
     return SCALED.sub("", full_size(url))
-
-
-def parse_price(text: str) -> float | None:
-    match = PRICE.search(text or "")
-    if not match:
-        return None
-    try:
-        return float(match.group(1).replace(",", ""))
-    except ValueError:  # pragma: no cover - the pattern guarantees digits
-        return None
 
 
 def price_now(card: Tag) -> float | None:
@@ -111,35 +98,6 @@ def price_now(card: Tag) -> float | None:
         if found is not None:
             return found
     return parse_price(scope.get_text(" ", strip=True))
-
-
-def image_sources(tag: Tag) -> list[str]:
-    """Every image URL an ``<img>`` offers, best first.
-
-    Themes lazy-load, so the ``src`` is often a placeholder and the real URL is
-    in ``data-src``, ``data-large_image`` or the largest entry of a ``srcset``.
-    """
-    found: list[str] = []
-    for attribute in ("data-large_image", "data-src", "data-lazy-src", "src"):
-        value = tag.get(attribute)
-        if isinstance(value, str) and value.strip() and not PLACEHOLDER.match(value.strip()):
-            found.append(value.strip())
-    for attribute in ("srcset", "data-srcset"):
-        value = tag.get(attribute)
-        if not isinstance(value, str):
-            continue
-        widths: list[tuple[int, str]] = []
-        for candidate in value.split(","):
-            parts = candidate.split()
-            if not parts:
-                continue
-            width = 0
-            if len(parts) > 1 and parts[1].endswith("w"):
-                with_digits = parts[1][:-1]
-                width = int(with_digits) if with_digits.isdigit() else 0
-            widths.append((width, parts[0]))
-        found.extend(url for _width, url in sorted(widths, reverse=True))
-    return found
 
 
 class WooCommerceScraper(SiteScraper):
@@ -208,9 +166,24 @@ class WooCommerceScraper(SiteScraper):
             raise ScrapeError(f"{type(self).__name__} lists no sources to scan.")
         return self._stream(ctx)
 
+    #: Give up on product pages after this many in a row fail.
+    #:
+    #: Some shops serve their catalog happily and refuse every product page —
+    #: Checkpoint Charlie's answers 200 on a category and 429 on /product/, to
+    #: any pace and any headers. Without a limit the scan works patiently
+    #: through the whole catalog discovering that one listing at a time.
+    MAX_DETAIL_FAILURES = 3
+
+    #: How many product pages have failed since the last one that worked, and
+    #: whether the run has stopped asking. Reset at the top of every scan.
+    _detail_failures = 0
+    _gave_up_on_details = False
+
     def _stream(self, ctx: ScrapeContext) -> Iterator[ScrapedItem]:
         if self.min_request_delay:
             ctx.keep_at_least(self.base_url, self.min_request_delay)
+        self._detail_failures = 0
+        self._gave_up_on_details = False
         seen: set[str] = set()
         for source in self.sources:
             yield from self._walk(ctx, source, seen)
@@ -238,7 +211,23 @@ class WooCommerceScraper(SiteScraper):
                 ctx.warn(f"robots.txt disallows {url}; stopping this section there.")
                 return
 
-            soup = BeautifulSoup(ctx.get_text(url), "html.parser")
+            try:
+                soup = BeautifulSoup(ctx.get_text(url), "html.parser")
+            except ScrapeError as exc:
+                # The same argument as a refused product page, one level up.
+                # Two pages read and the third refused is two pages of listings
+                # worth keeping, not a scan worth throwing away — which is
+                # exactly what Checkpoint Charlie's cost before this existed:
+                # 56 minutes, 24 listings walked, and a run that reported zero
+                # because page 3 answered 429.
+                #
+                # The first page is the exception. A section that could not be
+                # opened at all yielded nothing, and nothing is not a partial
+                # result — it is a failure, and it should be loud.
+                if pages == 0:
+                    raise
+                ctx.warn(f"Could not read {url}: {exc}. Stopping this section at page {pages}.")
+                return
             pages += 1
             cards = soup.select(self.card_selector)
             ctx.log(f"{category or 'catalog'} page {pages}: {len(cards)} listing(s).")
@@ -280,6 +269,15 @@ class WooCommerceScraper(SiteScraper):
             for tag in card.select("img")
             for url in image_sources(tag)[:1]
         ]
+        if not thumbnails:
+            # A page builder can place the picture as a CSS background on a
+            # link or a div, leaving no <img> in the card at all. CO Gun Sales'
+            # grid is built this way throughout.
+            thumbnails = [
+                full_size(urljoin(page_url, url))
+                for tag in card.select("[style*=background]")
+                for url in background_images(tag)[:1]
+            ]
 
         return ScrapedItem(
             external_key=f"post-{post.group(1)}",
@@ -329,14 +327,42 @@ class WooCommerceScraper(SiteScraper):
         is one request per listing — so it is fetched once and then skipped on
         every later scan.
         """
-        if not ctx.needs_detail(item.external_key):
+        if not ctx.needs_detail(item.external_key) or self._gave_up_on_details:
             return item
         try:
             soup = BeautifulSoup(ctx.get_text(item.url), "html.parser")
         except Disallowed:
             ctx.warn(f"robots.txt disallows {item.url}; keeping the catalog entry only.")
             return item
+        except ScrapeError as exc:
+            # A product page that cannot be fetched costs this listing its
+            # description and gallery. It does not cost the scan: the catalog
+            # entry already carries the title, the price and a thumbnail, which
+            # is what price watching actually needs.
+            #
+            # Checkpoint Charlie's is why this exists. Their category pages
+            # answer 200 and their /product/ pages answer 429 to everything —
+            # any pace, any headers — so the old behavior spent an hour backing
+            # off and then threw away a perfectly good catalog read.
+            #
+            # A shop that refuses every product page would otherwise have its
+            # whole catalog walked one pointless request at a time, so after
+            # MAX_DETAIL_FAILURES in a row the run stops asking.
+            #
+            # ctx.warn() downgrades the run to PARTIAL, so none of this is
+            # silent.
+            self._detail_failures += 1
+            if self._detail_failures >= self.MAX_DETAIL_FAILURES:
+                self._gave_up_on_details = True
+                ctx.warn(
+                    f"{self._detail_failures} product pages in a row could not be read; "
+                    f"taking the rest of this scan from the catalog only. Last error: {exc}"
+                )
+            else:
+                ctx.warn(f"Could not read {item.url}: {exc}. Keeping the catalog entry only.")
+            return item
 
+        self._detail_failures = 0
         description = self._first_text(soup, self.detail_description_selectors)
         images = self.gallery(soup, item.url)
         return replace(
@@ -370,6 +396,46 @@ class WooCommerceScraper(SiteScraper):
                     # full size, and the original behind it can be enormous.
                     if identity not in found or SCALED.search(absolute):
                         found.setdefault(identity, absolute)
+            if found:
+                break
+        return list(found.values()) or self._gallery_from_json(soup, base)
+
+    #: Gallery plugins that ship the photographs as JSON on the container
+    #: rather than as ``<img>`` elements, and the key each one puts the
+    #: original upload under.
+    #:
+    #: CO Gun Sales runs one of these. Their product pages carry nine
+    #: photographs apiece and not one ``<img>`` among them — the markup has a
+    #: ``woocommerce-product-gallery`` div whose ``data-wcsvi`` attribute holds
+    #: the lot, and the browser builds the gallery from it. Parsed here because
+    #: the alternative is a headless browser for a shop that is otherwise
+    #: entirely static.
+    json_gallery_attributes: tuple[str, ...] = ("data-wcsvi",)
+
+    def _gallery_from_json(self, soup: BeautifulSoup, base: str) -> list[str]:
+        """Photographs from a gallery that is JSON in an attribute."""
+        found: dict[str, str] = {}
+        for attribute in self.json_gallery_attributes:
+            for tag in soup.select(f"[{attribute}]"):
+                raw = tag.get(attribute)
+                if not isinstance(raw, str):
+                    continue
+                try:
+                    data = json.loads(raw)
+                except ValueError:
+                    # Someone else's attribute that happens to share the name,
+                    # or markup we have not seen. Not worth failing a scan for.
+                    continue
+                for entry in data.get("images", []) if isinstance(data, dict) else []:
+                    if not isinstance(entry, dict):
+                        continue
+                    # large_image is the original upload; src is the same
+                    # photograph behind an image CDN, with the resize in a
+                    # query string.
+                    url = entry.get("large_image") or entry.get("src")
+                    if isinstance(url, str) and url.strip():
+                        absolute = full_size(urljoin(base, url.strip()))
+                        found.setdefault(same_photograph(absolute), absolute)
             if found:
                 break
         return list(found.values())

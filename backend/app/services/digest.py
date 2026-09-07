@@ -16,7 +16,10 @@ an email has no browser to convert them. Storage stays UTC throughout.
 from __future__ import annotations
 
 import html
+import logging
 from datetime import UTC, datetime, timedelta
+from functools import lru_cache
+from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import select
@@ -35,6 +38,8 @@ from ..models import (
 )
 from . import mailer
 
+log = logging.getLogger("milsurp.digest")
+
 BRAND = "Milsurp Monitor"
 
 # The Senior Airman dress-insignia palette, inlined because email clients strip
@@ -46,6 +51,38 @@ SILVER = "#C7CEDB"
 PAPER = "#F4F6FA"
 INK = "#11151C"
 MUTED = "#5A6474"
+
+#: Content-ID for the mark attached to every digest. Fixed rather than
+#: generated: the HTML that references it is built in one place and the two
+#: have to agree.
+MARK_CID = "milsurp-mark"
+
+#: The mark itself, written by `python scripts/brand.py` from the same geometry
+#: as the favicon and the web header.
+MARK_PATH = Path(__file__).resolve().parent.parent / "assets" / "insignia-email.png"
+
+
+@lru_cache(maxsize=1)
+def _mark_bytes() -> bytes | None:
+    """The mark, read once, or None when it has not been generated.
+
+    A missing file is not worth failing a send over — the header still carries
+    the brand name — so this reports absence rather than raising, and the
+    template leaves the image out entirely when it gets None.
+    """
+    try:
+        return MARK_PATH.read_bytes()
+    except OSError:
+        log.warning("The email mark is missing at %s; sending without it.", MARK_PATH)
+        return None
+
+
+def inline_images() -> dict[str, bytes]:
+    """What the digest HTML refers to by Content-ID."""
+    payload = _mark_bytes()
+    return {MARK_CID: payload} if payload is not None else {}
+
+
 GREEN = "#1E7A46"
 
 
@@ -242,13 +279,19 @@ def render_digest(
         parts.append(f"{drop_count} price drop{'s' if drop_count != 1 else ''}")
     subject = f"{BRAND}: {' and '.join(parts)}" if parts else f"{BRAND}: nothing new"
 
-    # The chevron mark is drawn with table cells and borders rather than an
-    # image: remote images are blocked by default in most mail clients, and a
-    # CID attachment would make the message heavier for no real gain.
-    chevron = "".join(
-        f'<div style="width:0;height:0;margin:0 auto 2px;border-left:{w}px solid transparent;'
-        f'border-right:{w}px solid transparent;border-bottom:{w // 2}px solid {SILVER};"></div>'
-        for w in (11, 11, 11)
+    # The mark travels with the message and is referenced by Content-ID.
+    #
+    # It used to be three CSS-border triangles under a text star, on the theory
+    # that a remote image would be blocked and an attachment was not worth the
+    # weight. The first half is true and the second was not: what those
+    # triangles actually render as is three stacked wedges, which is not the
+    # insignia and does not look like anything. Two kilobytes buys the real
+    # mark, drawn from the same geometry as the favicon and the web header.
+    mark = (
+        f'<img src="cid:{MARK_CID}" width="132" height="82" alt="{_e(BRAND)}" '
+        f'style="display:block;margin:0 auto;border:0;outline:none;text-decoration:none;" />'
+        if _mark_bytes() is not None
+        else ""
     )
 
     body = f"""<!doctype html>
@@ -265,8 +308,7 @@ def render_digest(
               box-shadow:0 1px 3px rgba(10,34,64,.12);">
 
   <tr><td style="background:{NAVY};padding:24px;text-align:center;">
-    <div style="color:{SILVER};font-size:11px;letter-spacing:.06em;">★</div>
-    {chevron}
+    {mark}
     <div style="color:#FFFFFF;font-size:20px;font-weight:700;letter-spacing:.02em;
          margin-top:10px;">{BRAND}</div>
     <div style="color:{SILVER};font-size:12px;margin-top:4px;">
@@ -396,7 +438,7 @@ def send_digest_for_user(
         return log
 
     try:
-        mailer.send_html(user.email, subject, body, config=config)
+        mailer.send_html(user.email, subject, body, config=config, inline_images=inline_images())
     except mailer.MailError as exc:
         log = EmailLog(
             user_id=user.id,
@@ -405,6 +447,10 @@ def send_digest_for_user(
             new_item_count=new_count,
             price_drop_count=drop_count,
             error_message=str(exc),
+            # Kept even though it never left: "what would have been sent" is
+            # most of what you want when working out why it was not.
+            body_html=body,
+            body_text=mailer.html_to_text(body),
         )
         session.add(log)
         # Retry on the normal cadence rather than hammering a broken SMTP host.
@@ -421,6 +467,11 @@ def send_digest_for_user(
         subject=subject,
         new_item_count=new_count,
         price_drop_count=drop_count,
+        body_html=body,
+        # The same conversion the mailer used for the plain-text alternative,
+        # so what is stored is what was sent rather than a second rendering
+        # that might drift from it.
+        body_text=mailer.html_to_text(body),
     )
     session.add(log)
     session.commit()

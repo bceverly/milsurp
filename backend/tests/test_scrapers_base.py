@@ -8,6 +8,7 @@ import pytest
 import responses
 
 from app.scrapers import Disallowed, ScrapeContext
+from app.scrapers.base import ScrapeError
 
 SITE = "https://shop.test"
 
@@ -259,18 +260,74 @@ class TestBeingRateLimited:
 
         assert any("429" in warning for warning in context.warnings)
 
+    def refused_until_capped(self, context) -> int:
+        """Ask until the pace stops getting slower. Returns how many it took."""
+        for asked in range(1, 20):
+            context.get(f"{SITE}/a")
+            if context._delay_for(f"{SITE}/a") >= 300:
+                return asked
+        raise AssertionError("the pace never reached its ceiling")
+
     @responses.activate
     def test_however_insistent_the_site_the_pace_is_capped(self, obeying, slept):
-        """Past a point the run should fail and say so, not crawl invisibly."""
-        for _ in range(30):
+        """Doubling without a ceiling reaches an hour a request, which is not
+        politeness any more — it is a scan that will never finish."""
+        for _ in range(40):
             responses.add(responses.GET, f"{SITE}/a", status=429)
             responses.add(responses.GET, f"{SITE}/a", body="ok")
 
         context = self.context(obeying)
         try:
-            for _ in range(15):
+            self.refused_until_capped(context)
+            assert context._delay_for(f"{SITE}/a") == 300
+        finally:
+            context.close()
+
+    @responses.activate
+    def test_a_refusal_at_the_ceiling_is_a_refusal_not_a_speed_limit(self, obeying, slept):
+        """Once there is no slower left to go, "slow down" cannot be what the
+        site means. Checkpoint Charlie's is the real case: their /product/
+        pages answer 429 to any pace at all, and the old code answered by
+        sleeping five minutes and asking again, three more times, per listing.
+
+        Failing here is what lets the scrapers fall back to the catalog."""
+        for _ in range(40):
+            responses.add(responses.GET, f"{SITE}/a", status=429)
+            responses.add(responses.GET, f"{SITE}/a", body="ok")
+
+        context = self.context(obeying)
+        try:
+            self.refused_until_capped(context)
+            before = len(responses.calls)
+            with pytest.raises(ScrapeError, match="refusing this request"):
                 context.get(f"{SITE}/a")
-            assert context._delay_for(f"{SITE}/a") <= 300
+            # And it gave up on the first one, rather than retrying into it.
+            assert len(responses.calls) - before == 1
+        finally:
+            context.close()
+
+    @responses.activate
+    def test_a_site_that_answers_again_is_no_longer_refusing(self, obeying, slept):
+        """The flag has to outlive nothing but the condition. A genuine rate
+        limit arriving after an hour of successful requests deserves the same
+        chance to be slowed down as the first one did."""
+        for _ in range(40):
+            responses.add(responses.GET, f"{SITE}/a", status=429)
+            responses.add(responses.GET, f"{SITE}/a", body="ok")
+
+        context = self.context(obeying)
+        try:
+            self.refused_until_capped(context)
+            # One more refusal at the ceiling, which fails fast and leaves the
+            # host marked as refusing.
+            with pytest.raises(ScrapeError, match="refusing this request"):
+                context.get(f"{SITE}/a")
+            assert context._refusing
+
+            # Then it answers, and the mark comes off.
+            responses.add(responses.GET, f"{SITE}/a", body="ok")
+            assert context.get(f"{SITE}/a").status_code == 200
+            assert not context._refusing
         finally:
             context.close()
 

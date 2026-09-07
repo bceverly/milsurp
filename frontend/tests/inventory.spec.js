@@ -67,8 +67,11 @@ test.describe("inventory", () => {
   });
 
   test("a facet filter applies and can be removed again", async ({ signedIn }) => {
-    // The filter rail is always visible at desktop widths.
-    const rifles = signedIn.getByRole("checkbox", { name: "Rifles" });
+    // The filter rail is always visible at desktop widths. Type is a radio,
+    // not a checkbox: it reads as one question — "what am I looking for?" —
+    // and checkboxes invited the answer "rifles and handguns and parts", which
+    // is the same as asking nothing.
+    const rifles = signedIn.getByRole("radio", { name: "Rifles" });
     await rifles.check();
     await expect(signedIn).toHaveURL(/kind=rifle/);
 
@@ -88,6 +91,55 @@ test.describe("inventory", () => {
   test("availability is a single choice", async ({ signedIn }) => {
     await signedIn.getByRole("radio", { name: "Sold" }).check();
     await expect(signedIn).toHaveURL(/availability=sold/);
+  });
+
+  test("choosing a type replaces the last one rather than adding to it", async ({
+    signedIn,
+  }) => {
+    await signedIn.getByRole("radio", { name: "Rifles" }).check();
+    await expect(signedIn).toHaveURL(/kind=rifle/);
+    await signedIn.getByRole("radio", { name: "Handguns" }).check();
+    await expect(signedIn).toHaveURL(/kind=pistol/);
+    await expect(signedIn).not.toHaveURL(/kind=rifle/);
+  });
+
+  test("anything clears the type again", async ({ signedIn }) => {
+    await signedIn.getByRole("radio", { name: "Bayonets" }).check();
+    await expect(signedIn).toHaveURL(/kind=bayonet/);
+    await signedIn.getByRole("radio", { name: "Anything" }).check();
+    await expect(signedIn).not.toHaveURL(/kind=/);
+  });
+
+  test("price reduced sits with availability and is a single choice", async ({
+    signedIn,
+  }) => {
+    await signedIn.getByRole("radio", { name: "Price reduced" }).check();
+    await expect(signedIn).toHaveURL(/price_drops_only=true/);
+    await signedIn.getByRole("radio", { name: "Any price" }).check();
+    await expect(signedIn).not.toHaveURL(/price_drops_only/);
+  });
+
+  test("listings per page is settable and leaves the default out of the URL", async ({
+    signedIn,
+  }) => {
+    await signedIn.getByLabel("Listings per page").selectOption("96");
+    await expect(signedIn).toHaveURL(/per_page=96/);
+    await signedIn.getByLabel("Listings per page").selectOption("48");
+    await expect(signedIn).not.toHaveURL(/per_page/);
+  });
+
+  test("the list view shows a description and the cards do not", async ({ signedIn }) => {
+    await expect(signedIn.locator(".item-card").first()).toBeVisible();
+
+    await signedIn.getByRole("button", { name: "List" }).click();
+    await expect(signedIn).toHaveURL(/view=list/);
+    await expect(signedIn.locator(".item-row").first()).toBeVisible();
+    await expect(signedIn.locator(".item-card")).toHaveCount(0);
+
+    // Back to cards, and the parameter goes away with it.
+    await signedIn.getByRole("button", { name: "Cards" }).click();
+    await expect(signedIn).not.toHaveURL(/view=/);
+    await expect(signedIn.locator(".item-card").first()).toBeVisible();
   });
 });
 
@@ -210,7 +262,7 @@ test.describe("pagination", () => {
 
     // A narrower result set renumbers the pages, so page 2 no longer means
     // anything and must be dropped.
-    await signedIn.getByRole("checkbox", { name: "Rifles" }).check();
+    await signedIn.getByRole("radio", { name: "Rifles" }).check();
     await expect(signedIn).toHaveURL(/kind=rifle/);
     await expect(signedIn).not.toHaveURL(/page=2/);
   });

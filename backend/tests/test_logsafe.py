@@ -6,7 +6,7 @@ import logging
 
 import pytest
 
-from app.logsafe import MAX_LOGGED_LENGTH, scrub
+from app.logsafe import MAX_LOGGED_LENGTH, REJECTED, scrub
 
 
 class TestScrub:
@@ -64,3 +64,32 @@ class TestEndpointsUseIt:
         assert response.status_code in (401, 422)
         for record in caplog.records:
             assert "\n" not in record.getMessage()
+
+
+class TestAPeerAddressIsAllowlistedToo:
+    """The second half of the sign-in log line.
+
+    The username was guarded and the address was only escaped, and CodeQL went
+    on reporting log injection on the line for exactly that reason: an escape
+    is string manipulation to a taint tracker, a guard is a barrier.
+    """
+
+    def guard(self, value):
+        from app.logsafe import ADDRESS_PATTERN, safe_identifier
+
+        return safe_identifier(value, ADDRESS_PATTERN)
+
+    def test_an_address_passes(self):
+        assert self.guard("192.0.2.10") == "192.0.2.10"
+        assert self.guard("2001:db8::1") == "2001:db8::1"
+        assert self.guard("::1") == "::1"
+
+    def test_and_so_does_having_no_peer(self):
+        assert self.guard("unknown") == "unknown"
+
+    def test_a_forged_record_does_not(self):
+        assert self.guard("1.2.3.4\nWARNING Successful sign-in for admin") == REJECTED
+
+    def test_nor_does_anything_else_shaped_like_prose(self):
+        assert self.guard("localhost; DROP TABLE users") == REJECTED
+        assert self.guard("") == REJECTED

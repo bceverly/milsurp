@@ -190,6 +190,24 @@ class TestFilters:
         assert client.get("/api/items?kind=rifle", headers=admin_headers).json()["total"] == 3
         assert client.get("/api/items?kind=pistol", headers=admin_headers).json()["total"] == 1
 
+    def test_other_excludes_the_kinds_named_above_it(self, client, admin_headers, inventory):
+        """ "Parts & accessories" has to stop meaning "including the bayonets
+        and parts kits listed as their own options", or the filter list reads
+        as overlapping piles."""
+        page = client.get("/api/items?kind=other", headers=admin_headers).json()
+        for item in page["items"]:
+            assert not item["is_rifle"] and not item["is_pistol"]
+            assert not item["is_bayonet"] and not item["is_parts_kit"]
+
+    def test_a_list_row_carries_a_truncated_blurb(self, client, admin_headers, inventory):
+        """The list view needs some description; a page of 192 full ones is
+        not a reasonable way to render two lines each."""
+        page = client.get("/api/items", headers=admin_headers).json()
+        for item in page["items"]:
+            assert "blurb" in item
+            if item["blurb"]:
+                assert len(item["blurb"]) <= 281
+
     def test_multiple_values_are_ored(self, client, admin_headers, inventory):
         body = client.get("/api/items?country=Germany&country=Russia", headers=admin_headers).json()
         assert body["total"] == 3

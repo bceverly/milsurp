@@ -96,11 +96,31 @@ def _thumbnail_url(item: Item) -> str | None:
     return None
 
 
+#: How much description the list view is given. Generous enough to tell two
+#: near-identical Mosin-Nagants apart, which is the whole point of that view.
+BLURB_CHARS = 280
+
+
+def _blurb(description: str | None) -> str | None:
+    """The opening of a description, on a word boundary, or None."""
+    text = " ".join((description or "").split())
+    if not text:
+        return None
+    if len(text) <= BLURB_CHARS:
+        return text
+    cut = text[:BLURB_CHARS]
+    # Back up to the last space so the blurb never ends mid-word; if there is
+    # no space at all, the hard cut is the only option.
+    space = cut.rfind(" ")
+    return f"{cut[:space] if space > 0 else cut}…"
+
+
 def _to_out(item: Item, site_names: dict[int, str]) -> ItemOut:
     data = ItemOut.model_validate(item)
     data.site_name = site_names.get(item.site_id)
     data.thumbnail_url = _thumbnail_url(item)
     data.price_drop = item.price_drop_amount
+    data.blurb = _blurb(item.description)
     return data
 
 
@@ -140,8 +160,19 @@ def _apply_filters(  # noqa: PLR0912 - one branch per filter; splitting it
             clauses.append(Item.is_rifle.is_(True))
         if "pistol" in kinds:
             clauses.append(Item.is_pistol.is_(True))
+        if "bayonet" in kinds:
+            clauses.append(Item.is_bayonet.is_(True))
+        if "parts_kit" in kinds:
+            clauses.append(Item.is_parts_kit.is_(True))
         if "other" in kinds:
-            clauses.append((Item.is_rifle.is_(False)) & (Item.is_pistol.is_(False)))
+            # Everything the named kinds do not claim, so "Parts & accessories"
+            # stops meaning "including the bayonets and kits listed above it".
+            clauses.append(
+                (Item.is_rifle.is_(False))
+                & (Item.is_pistol.is_(False))
+                & (Item.is_bayonet.is_(False))
+                & (Item.is_parts_kit.is_(False))
+            )
         if clauses:
             stmt = stmt.where(or_(*clauses))
 
@@ -270,7 +301,9 @@ def list_items(
     caliber: list[str] | None = Query(default=None),
     country: list[str] | None = Query(default=None),
     manufacturer: list[str] | None = Query(default=None),
-    kind: list[str] | None = Query(default=None, description="rifle | pistol | other"),
+    kind: list[str] | None = Query(
+        default=None, description="rifle | pistol | bayonet | parts_kit | other"
+    ),
     availability: str = Query(default="available"),
     search: str | None = Query(default=None, max_length=200),
     min_price: float | None = Query(default=None, ge=0),

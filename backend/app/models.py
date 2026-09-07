@@ -312,6 +312,11 @@ class Item(Base, TimestampMixin):
     condition: Mapped[str | None] = mapped_column(String(64))
     is_rifle: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_pistol: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    #: Separate flags rather than one "kind", because a listing can be several
+    #: of these at once: a parts kit is a firearm minus its serialized part, so
+    #: "ENFIELD NO1 MK2 PARTS KITS" is a handgun and a parts kit both.
+    is_bayonet: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_parts_kit: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     is_sold: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     # False once the listing stops appearing in a scan (de-listed).
@@ -509,5 +514,14 @@ class EmailLog(Base):
     new_item_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     price_drop_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     error_message: Mapped[str | None] = mapped_column(Text)
+
+    #: What was actually sent. Both parts, because they answer different
+    #: questions: the HTML is the message as it arrived, and the text is the
+    #: one worth reading in a table or searching through.
+    #:
+    #: NULL on a row written before this was recorded, and on a SKIPPED row
+    #: where no message was ever built.
+    body_html: Mapped[str | None] = mapped_column(Text)
+    body_text: Mapped[str | None] = mapped_column(Text)
 
     user: Mapped["User"] = relationship(back_populates="email_logs")

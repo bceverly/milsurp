@@ -263,6 +263,8 @@ def _upsert_item(
     )
     item.is_rifle = derived["is_rifle"]
     item.is_pistol = derived["is_pistol"]
+    item.is_bayonet = derived["is_bayonet"]
+    item.is_parts_kit = derived["is_parts_kit"]
 
     # And the descriptive fields, where the vendor gave none. Some catalogs
     # publish the caliber as its own field and some write it into the title;

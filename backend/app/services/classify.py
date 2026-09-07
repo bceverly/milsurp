@@ -42,6 +42,36 @@ ACCESSORY_KEYWORDS = (
     "bayonet",
     "certificate of authenticity",
 )
+
+#: The same words, matched whole.
+#:
+#: These were substring tests, and one of them was quietly wrong for every
+#: Springfield in the catalog: "spring" is inside "Springfield", so a
+#: Springfield Model 1903 was an accessory and never got a caliber at all —
+#: 23 of the 28 in the database. "cover" inside "recovered" and "rail" inside
+#: "trail" are the same trap waiting to be walked into.
+#:
+#: The exception, and the reason this is a rule rather than a list of words:
+#: an optic is named by what it is on the end of. A telescope, a periscope and
+#: a riflescope are all the same kind of thing and none of them is spelled
+#: "scope", so this one keeps its prefix.
+_ACCESSORY_SUFFIXES = ("scope",)
+
+#: Longest first so a phrase is preferred to a word inside it, and the phrases
+#: keep their spaces: \b works around "en bloc clip" as readily as around
+#: "helmet".
+_ACCESSORY_WORDS = re.compile(
+    r"\b(?:"
+    + "|".join(
+        [rf"\w*{re.escape(k)}" for k in _ACCESSORY_SUFFIXES]
+        + [
+            re.escape(k)
+            for k in sorted(ACCESSORY_KEYWORDS, key=len, reverse=True)
+            if k not in _ACCESSORY_SUFFIXES
+        ]
+    )
+    + r")\b"
+)
 # ...unless the listing is a firearm bundled *with* an accessory.
 PROMOTIONAL_PHRASES = (
     "with free",
@@ -87,13 +117,14 @@ MODEL_CALIBERS: tuple[tuple[str, str], ...] = (
     (r"u\.?s\.?\s+model\s+of\s+1917", ".30-06"),
     (r"k\.?98|kar\.?98", "8mm Mauser"),
     (r"m48\s+mauser", "8mm Mauser"),
-    (r"gew\s*91|kar\s*88|gew\s*71", "8mm Mauser"),
+    (r"gew\.?\s*(?:71|88|91|98)|kar\s*88", "8mm Mauser"),
     (r"gewehr\s+(?:71|88|98)", "8mm Mauser"),
     (r"mg\s*34", "8mm Mauser"),
     (r"zb\s*(?:26|37)", "8mm Mauser"),
     (r"lee\s*-?\s*enfield|lee\s*-?\s*speed", ".303 British"),
     (r"\bberthier\b", "8mm Lebel"),
     (r"8\s*mm\s*lebel", "8mm Lebel"),
+    (r"\bnambu\b|8\s*mm\s*nambu", "8mm Nambu"),
     (r"st\.?\s*etienne\s*19(?:07|15)", "8mm Lebel"),
     (r"\bmakarov\b", "9x18 Makarov"),
     (r"\bskorpion\b", ".32 ACP"),
@@ -152,6 +183,21 @@ CALIBER_NORMALIZATIONS: tuple[tuple[str, str], ...] = (
     (r"20\s*(?:ga|gauge|guage)\b", "20-gauge"),
     (r"28\s*(?:ga|gauge|guage)\b", "28-gauge"),
     (r"\.410", ".410 bore"),
+    # The hyphenated cartridge names, first of all — bore and powder charge in
+    # grains, joined by a hyphen. They go above everything because the rules
+    # below match their first half: ".32-20" read by the ".32" rule becomes a
+    # .32 ACP, and ".44-40" read by the bare-bore rule becomes a .44. Either
+    # way the half of the name that says *which* one is thrown away.
+    (r"\.?44-40\b", ".44-40 Winchester"),
+    (r"\.?38-40\b", ".38-40 Winchester"),
+    (r"\.?38-55\b", ".38-55 Winchester"),
+    (r"\.?32-20\b", ".32-20 Winchester"),
+    (r"\.?45-70\b", ".45-70 Government"),
+    (r"\.?45-90\b", ".45-90 Winchester"),
+    (r"\.?30-40\s*krag\b|\.?30-40\b", ".30-40 Krag"),
+    (r"\.?30-30\b", ".30-30 Winchester"),
+    (r"\.40\s*s\s*&\s*w|\.40\s*sw\b", ".40 S&W"),
+    (r"\b10\s*mm\s*auto\b|\b10\s*mm\b", "10mm Auto"),
     (r"9\s*[x×]\s*19", "9mm"),
     (r"9\s*[x×]\s*18", "9x18 Makarov"),
     (r"\.38\s*special", ".38 Special"),
@@ -196,7 +242,36 @@ CALIBER_NORMALIZATIONS: tuple[tuple[str, str], ...] = (
     (r"5\.56\s*[x×]\s*45|\b5\.56\b", "5.56x45mm NATO"),
     (r"\.50\s*bmg", ".50 BMG"),
     (r"\b9\s*mm\b", "9mm"),
+    # Bare "8mm", and it has to come last of all.
+    #
+    # A dealer writes "Yugoslavian M48 Bolt Action Rifle 8mm" and means 8x57,
+    # every time — but "8mm" on its own is also how 8mm Lebel and 8mm Nambu are
+    # abbreviated, so this rule is only allowed what those two, and 8x57 and
+    # 7.92x57 above them, have already declined.
+    (r"\b8\s*mm\b", "8mm Mauser"),
 )
+
+#: Bore diameters in inches that a dealer writes as a bare number.
+#:
+#: The percussion and early-cartridge end of the catalog is described this way
+#: and no other: "Bacon 1st Model Excelsior Pocket Percussion Revolver - .31",
+#: "Burnside Saddle Ring Carbine - .54 Burnside". The list is closed rather
+#: than a pattern for any two digits because any two digits also matches the
+#: cents of a price and the last two digits of a year.
+#:
+#: Only the ones CALIBER_NORMALIZATIONS does not already name, so this can
+#: never overrule a cartridge that was actually identified.
+#: The trailing (?!-\d) is the whole of what was wrong with the first version:
+#: it read "Winchester Model 1873, .44-40" as a .44 and dropped the half of the
+#: name that says which .44 it is. Anything hyphenated to a second number is a
+#: cartridge with a proper name, and belongs in the table above.
+_BARE_BORE = re.compile(r"(?<![\d.])\.(?:31|36|40|41|44|450|455|46|50|54|577|58)\b(?!-\d)")
+
+#: A metric bore written without a case length: "4.25MM SEMI AUTO PISTOL".
+#: Bounded to what a small arm can be, because "50mm" is artillery and "35mm"
+#: is a photograph of the rifle.
+_BARE_METRIC = re.compile(r"\b(\d{1,2}(?:\.\d+)?)\s*mm\b")
+_METRIC_BORE_RANGE = (4.0, 15.0)
 
 
 def _looks_like_accessory(title_lower: str) -> bool:
@@ -204,7 +279,7 @@ def _looks_like_accessory(title_lower: str) -> bool:
         return False
     if any(word in title_lower for word in FIREARM_WORDS):
         return False
-    return any(keyword in title_lower for keyword in ACCESSORY_KEYWORDS)
+    return bool(_ACCESSORY_WORDS.search(title_lower))
 
 
 def extract_caliber(  # noqa: PLR0911 - each return is one distinct rule class
@@ -219,13 +294,11 @@ def extract_caliber(  # noqa: PLR0911 - each return is one distinct rule class
     if _looks_like_accessory(title_lower):
         return None
 
-    # Carcano is handled ahead of everything else: its detailed descriptions
+    # Carcano is settled ahead of everything else: its detailed descriptions
     # routinely mention other calibers in passing, and the generic rules below
     # would happily label one .30-06.
     if "carcano" in haystack:
-        if re.search(r"7\.35", title_lower) or re.search(r"7\.35", haystack):
-            return "7.35x51mm Carcano"
-        return "6.5x52mm Carcano"
+        return _carcano(haystack)
 
     for pattern, caliber in MODEL_CALIBERS:
         if re.search(pattern, haystack):
@@ -249,6 +322,14 @@ def extract_caliber(  # noqa: PLR0911 - each return is one distinct rule class
         normalized = re.sub(r"\s+", "", match.group(0)).replace("×", "x").upper()
         return normalized.replace("X", "x").replace("MM", "mm")
 
+    # A bore written on its own. Weaker than a named cartridge, so it is tried
+    # only once every cartridge rule has declined — but it is still something
+    # the listing actually says, which is why it comes before guessing from the
+    # maker's name.
+    bore = _bare_bore(haystack)
+    if bore:
+        return bore
+
     # Last of all, the maker's name — and never for a handgun, whose maker's
     # famous cartridge is not its own.
     if not _names_a_handgun(title_lower):
@@ -256,6 +337,90 @@ def extract_caliber(  # noqa: PLR0911 - each return is one distinct rule class
             if re.search(pattern, haystack):
                 return caliber
     return None
+
+
+def _carcano(haystack: str) -> str:
+    """Which of the two Carcano cartridges a listing means."""
+    return "7.35x51mm Carcano" if "7.35" in haystack else "6.5x52mm Carcano"
+
+
+def _bare_bore(haystack: str) -> str | None:
+    """A bore diameter with no cartridge named after it, in inches or mm."""
+    inches = _BARE_BORE.search(haystack)
+    if inches:
+        return inches.group(0)
+
+    metric = _BARE_METRIC.search(haystack)
+    if metric and _METRIC_BORE_RANGE[0] <= float(metric.group(1)) <= _METRIC_BORE_RANGE[1]:
+        return f"{metric.group(1)}mm"
+    return None
+
+
+#: A blade, as the thing being sold.
+#:
+#: Deliberately not "the title contains the word": a third of the listings that
+#: mention one are firearms that come with one. Nor is "the listing is not
+#: already a rifle" enough of a guard, which is what this rule tried first —
+#: "Springfield Model 1884 Trapdoor w/ Ramrod Bayonet" names no word the
+#: classifier knows to be a firearm, so under one vendor's category it reads as
+#: a rifle and under another's it reached this rule and came back a blade.
+#:
+#: What actually separates them is "with". A bayonet introduced by "with" or
+#: "w/" is what comes in the box; a bayonet named without one is what is for
+#: sale. Order matters: "Bayonet with scabbard" is still a bayonet, so only a
+#: "with" that appears *before* the word counts.
+_BAYONET = re.compile(r"\bbayonets?\b", re.I)
+
+#: A listing saying what it does *not* come with.
+#:
+#: "Russian Tula SKS - No Import Marks - Numbers Matching - No Bayonet" is a
+#: rifle described by what is missing, and it came back a bayonet: the word was
+#: there and nothing looked at the "No" in front of it.
+#:
+#: The leading \b is load-bearing and not decoration. Without it this matches
+#: inside "Carca-no Bayonet", and every Carcano bayonet in the catalog becomes
+#: a rifle that has none.
+#: Anchored to the end, so it only matches a negation that runs right up to the
+#: word it negates. Unanchored, "No Import Marks - Numbers Matching - No
+#: Bayonet" found the *first* "No" forty characters earlier and concluded
+#: nothing, which is how the rifle that prompted all this stayed a bayonet.
+_LACKING = re.compile(
+    r"\b(?:no|without|w/o|less|minus|missing|sans|lack(?:s|ing)?)\s+"
+    r"(?:a\s+|an\s+|the\s+|its\s+|original\s+)*$",
+    re.I,
+)
+
+
+def _lacks(title: str, thing: re.Pattern[str]) -> bool:
+    """Whether the title says this listing comes *without* the named thing."""
+    return any(_LACKING.search(title[: found.start()]) for found in thing.finditer(title or ""))
+
+
+#: "w/" gets no trailing \b: there is no word boundary after a slash, so
+#: r"\bw/\b" matches nothing at all — which is exactly how the first version of
+#: this failed, silently, on the listings it was written for.
+#: A bare "w" means "with" only when a space follows it. Without that lookahead
+#: it also matches the W of "W+F Bern" — Waffenfabrik Bern — and their K31
+#: Pioneer Sawback Bayonet stopped being a bayonet.
+_COMES_WITH = re.compile(r"\bw/|\bw(?=\s)|\b(?:with|and|plus|incl(?:udes|uding)?)\b", re.I)
+
+#: A parts kit, which is the one non-firearm category worth carrying: it is a
+#: whole firearm minus the serialized part, and people watch for them the way
+#: they watch for rifles. The vendor's own section name is the better signal
+#: where there is one — Royal Tiger files them under "Parts Kit" — and the
+#: title carries it otherwise.
+_PARTS_KIT = re.compile(r"\bparts?\s+kits?\b", re.I)
+
+
+def _is_a_bayonet(title: str) -> bool:
+    found = _BAYONET.search(title or "")
+    if found is None or _lacks(title, _BAYONET):
+        return False
+    return _COMES_WITH.search(title[: found.start()]) is None
+
+
+def _is_a_parts_kit(title: str, category: str | None) -> bool:
+    return bool(_PARTS_KIT.search(title or "") or _PARTS_KIT.search(category or ""))
 
 
 def _names_a_handgun(title_lower: str) -> bool:
@@ -316,6 +481,11 @@ NON_FIREARM_PATTERNS = (
 RIFLE_PATTERNS = (
     r"\brifles?\b",
     r"\bcarbines?\b",
+    # The action, used as the name of the gun: "Springfield Model 1884
+    # Trapdoor w/ Ramrod Bayonet" says nothing else that names a firearm, so
+    # under one vendor's category it read as a rifle and under another's it
+    # read as neither — and then as a bayonet.
+    r"\btrap\s?door\b",
     r"\bgarand\b",
     r"\bsks\b",
     r"\bak-?\d{2}\b",
@@ -480,9 +650,41 @@ _BUNDLED_ACCESSORY = re.compile(
     # shortened barrel" is a firearm that happens to mention its own barrel.
     # The order rule below tells the two apart. Note \bbarrels?\b does not
     # match "barreled", so a barreled action is never read as a loose barrel.
+    #
+    # "magazine" is spelled out in full and "mag" is deliberately not accepted:
+    # ".44 Mag" is a cartridge and "Mag Fed Shotgun" is a shotgun, and both
+    # would lead this rule straight past the firearm they are describing.
     r"\b(?:slings?|pouch(?:es)?|scabbards?|holsters?|bandoliers?|cleaning\s+kits?|"
-    r"stripper\s+clips?|barrels?|handguards?)\b",
+    r"stripper\s+clips?|barrels?|handguards?|magazines?)\b",
     re.I,
+)
+
+
+#: Every way a title can name the firearm itself — the plain nouns above, and
+#: the models that are used as nouns in their own right.
+#:
+#: Used only for the adjacency test below, never for the "which came first"
+#: test. That distinction is load-bearing: teaching the order rule that "AK47"
+#: names a firearm made "AK47 / AKM 16in Chrome Lined Barrels" a rifle, because
+#: the AK47 is named before the barrels. It is not a rifle — it is a box of
+#: barrels, and the AK47 is only saying what they fit.
+_NAMES_A_FIREARM_OR_MODEL = re.compile(
+    "|".join(
+        [_NAMES_A_FIREARM.pattern]
+        + [f"(?:{pattern})" for pattern in (*PISTOL_PATTERNS, *RIFLE_PATTERNS)]
+    ),
+    re.I,
+)
+
+
+#: Words that mark the accessory as this gun's own rather than as the product.
+#:
+#: A collector writes "matching" to mean the serial numbers agree, which is a
+#: claim about a firearm that has the part, not an offer of the part. Anchored
+#: to sit immediately before the accessory word so it cannot reach across a
+#: whole title.
+_BELONGS_TO_THE_GUN = re.compile(
+    r"\b(?:matching|numbers[- ]matching|all[- ]matching|its|original|correct)\s+$", re.I
 )
 
 
@@ -497,13 +699,23 @@ def _accessory_leads(title_lower: str) -> bool:
     if not accessory:
         return False
 
+    # An accessory described as belonging to this particular firearm is not
+    # the thing being sold — it is a fact about the thing being sold.
+    #
+    # "Rare 1925-Dated Simson Luger - Matching Magazine" is a $3,995 pistol
+    # whose magazine carries its serial number, which is exactly why the
+    # dealer mentioned it. "Erma Luger Magazine" is a $200 magazine. The two
+    # titles are the same shape and only this tells them apart.
+    if _BELONGS_TO_THE_GUN.search(title_lower[: accessory.start()]):
+        return False
+
     # "Pistol holster" and "rifle sling" name one thing, not two. English puts
     # the head noun last, so when the accessory word follows the firearm word
     # immediately the accessory is the product and the firearm merely says
     # what it fits. Reading those two as "a firearm, mentioned first" made a
     # Mauser C96 holster a handgun.
     before = title_lower[: accessory.start()].rstrip()
-    named = list(_NAMES_A_FIREARM.finditer(before))
+    named = list(_NAMES_A_FIREARM_OR_MODEL.finditer(before))
     if named and named[-1].end() == len(before):
         return True
     # A frame or a receiver counts as the thing being sold here for the same
@@ -521,6 +733,30 @@ def _accessory_leads(title_lower: str) -> bool:
     return not firearm_at or accessory.start() < min(firearm_at)
 
 
+#: An accessory the listing says it comes with, or says it comes without.
+#:
+#: Either way the words are about a part that is not the product, so they are
+#: taken out of the title before the accessory vetoes read it. Two real
+#: listings needed this and pull in opposite directions: "Enfield No4 Mk1 .303
+#: British w Bayonet" is a rifle that includes one, and "Russian Tula SKS - No
+#: Bayonet" is a rifle that does not — and both were filed as bayonets, because
+#: every rule involved saw the word and none of them saw "w" or "No".
+#:
+#: Removing the phrase rather than special-casing each rule is what makes this
+#: hold: the vetoes then simply never see a part that was never for sale.
+_ATTACHED_PART = re.compile(
+    r"\b(?:with|w/|w|no|without|w/o|less|minus|missing|sans|plus|and|incl(?:udes|uding)?)\s+"
+    r"(?:the\s+|a\s+|an\s+|its\s+|original\s+|reproduction\s+|ramrod\s+|matching\s+)*"
+    r"(?:bayonets?|scabbards?|slings?|holsters?|magazines?)\b",
+    re.I,
+)
+
+
+def _without_attached_parts(title_lower: str) -> str:
+    """The title with "w/ bayonet" and "no bayonet" taken out of it."""
+    return _ATTACHED_PART.sub(" ", title_lower)
+
+
 def _is_not_a_firearm(title_lower: str) -> bool:
     r"""True when the *title* says this listing is a part or an accessory.
 
@@ -536,6 +772,10 @@ def _is_not_a_firearm(title_lower: str) -> bool:
     """
     if any(re.search(pattern, title_lower) for pattern in NON_FIREARM_PATTERNS):
         return True
+
+    # From here on, a part the listing says it comes with (or without) is not
+    # evidence about what is being sold.
+    title_lower = _without_attached_parts(title_lower)
 
     # Bayonets, magazines and bolts are sold both standalone and as part of a
     # firearm listing; only the standalone case should be filtered out.
@@ -936,6 +1176,8 @@ class EnrichedFields(TypedDict):
     condition: str | None
     is_rifle: bool
     is_pistol: bool
+    is_bayonet: bool
+    is_parts_kit: bool
 
 
 def enrich(
@@ -972,4 +1214,9 @@ def enrich(
         "condition": extract_bore_condition(evidence),
         "is_rifle": is_rifle,
         "is_pistol": is_pistol,
+        # Both are kinds of "neither a rifle nor a handgun", so they are only
+        # ever asked about a listing that is already neither. "Springfield
+        # Trapdoor Rifle w/ Ramrod Bayonet" says bayonet and is a rifle.
+        "is_bayonet": not (is_rifle or is_pistol) and _is_a_bayonet(title),
+        "is_parts_kit": _is_a_parts_kit(title, category),
     }

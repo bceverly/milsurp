@@ -14,6 +14,7 @@ import ssl
 from email.message import EmailMessage
 from email.utils import formataddr, formatdate, make_msgid
 from html.parser import HTMLParser
+from typing import cast
 
 from ..config import Config, EmailConfig, get_config
 
@@ -47,6 +48,7 @@ def send_html(
     html_body: str,
     text_body: str | None = None,
     config: Config | None = None,
+    inline_images: dict[str, bytes] | None = None,
 ) -> None:
     """Send one multipart HTML message. Raises :class:`MailError` on failure."""
     config = config or get_config()
@@ -71,8 +73,21 @@ def send_html(
 
     # A plain-text alternative always comes first; clients that cannot render
     # HTML, and spam filters that penalize HTML-only mail, both want it.
-    message.set_content(text_body or _html_to_text(html_body))
+    message.set_content(text_body or html_to_text(html_body))
     message.add_alternative(html_body, subtype="html")
+
+    # Anything the HTML refers to as cid: has to travel with it, in a
+    # multipart/related part attached to the HTML alternative — not to the
+    # message. A remote <img> would simply not render: mail clients block
+    # those by default, which is why the mark used to be drawn out of CSS
+    # borders and looked like it.
+    if inline_images:
+        # The related part hangs off the HTML alternative, not off the message.
+        # get_body() is typed as the base Message, which has no add_related --
+        # it is an EmailMessage here because that is what was just added.
+        html_part = cast("EmailMessage", message.get_body(preferencelist=("html",)))
+        for content_id, payload in inline_images.items():
+            html_part.add_related(payload, maintype="image", subtype="png", cid=f"<{content_id}>")
 
     try:
         server = _connection(cfg)
@@ -190,7 +205,7 @@ def _collapse(text: str) -> str:
     return "\n".join(out).strip()
 
 
-def _html_to_text(html_body: str) -> str:
+def html_to_text(html_body: str) -> str:
     """The plain-text alternative part for a multipart message."""
     parser = _TextExtractor()
     parser.feed(html_body)

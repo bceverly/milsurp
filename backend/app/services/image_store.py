@@ -26,6 +26,7 @@ import ipaddress
 import logging
 import mimetypes
 import socket
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import NamedTuple
@@ -36,6 +37,7 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from PIL.Image import Image as PILImage
 
 from ..config import Config
+from ..logsafe import scrub
 
 log = logging.getLogger("milsurp.images")
 
@@ -51,6 +53,34 @@ ALLOWED_CONTENT_TYPES = {
 
 #: Refuse anything larger than this; vendor photos are far smaller.
 MAX_IMAGE_BYTES = 20 * 1024 * 1024
+
+#: How many times to re-ask for one photograph after a 429.
+#:
+#: A shop that rate-limits its pages rate-limits its uploads directory too, and
+#: this downloader used to treat that as "photo missing, never mind" — silently,
+#: with no log line. Checkpoint Charlie's is how it was found: 23 photographs
+#: whose URLs each returned 200 to a single curl and 429 to a run of them, and
+#: an item page with no picture on it.
+PHOTO_ATTEMPTS = 3
+
+#: Wait at least this long after a 429 before asking that host again, and never
+#: longer than the cap however insistent the Retry-After.
+MIN_PHOTO_BACKOFF = 5.0
+MAX_PHOTO_BACKOFF = 60.0
+
+#: HTTP 429, named rather than spelled, to match the scrapers.
+TOO_MANY_REQUESTS = 429
+
+
+def _photo_backoff(response: requests.Response, current: float) -> float:
+    """How long to wait after a 429, honoring Retry-After when it is given."""
+    stated = 0.0
+    header = (response.headers.get("Retry-After") or "").strip()
+    if header.isdigit():
+        stated = float(header)
+    return min(max(current * 2, stated, MIN_PHOTO_BACKOFF), MAX_PHOTO_BACKOFF)
+
+
 #: Pillow's decompression-bomb guard, in pixels.
 MAX_IMAGE_PIXELS = 64_000_000
 
@@ -136,6 +166,11 @@ class ImageStore:
     def __init__(self, config: Config) -> None:
         self.root = config.images_path
         self.config = config
+        #: Hosts that have asked us to slow down, and the pace they asked for.
+        #: Kept for the life of the store, so the photographs after the first
+        #: refusal are paced rather than each discovering the limit again.
+        self._slowed: dict[str, float] = {}
+        self._last_request_at: dict[str, float] = {}
 
     # -- path handling ------------------------------------------------------
     def _relative_path(
@@ -167,6 +202,64 @@ class ImageStore:
             return False
 
     # -- writing ------------------------------------------------------------
+    def _get_photo(self, session: requests.Session, source_url: str) -> requests.Response | None:
+        """GET one photograph, waiting out a 429 rather than giving up on it.
+
+        The scraper has a whole apparatus for being told to slow down and this
+        had none of it, which is defensible for a picture — a missing photo is
+        not a missing listing — right up until a shop rate-limits its uploads
+        directory and every photograph in the queue is thrown away in a burst.
+        """
+        host = urlparse(source_url).hostname or ""
+        for attempt in range(PHOTO_ATTEMPTS):
+            self._wait_for(host)
+            try:
+                response = session.get(
+                    source_url,
+                    timeout=self.config.scraping.request_timeout,
+                    stream=True,
+                    allow_redirects=True,
+                )
+            except requests.RequestException as exc:
+                log.warning("Could not fetch %s: %s", scrub(source_url), scrub(exc))
+                return None
+
+            self._last_request_at[host] = time.monotonic()
+            if response.status_code != TOO_MANY_REQUESTS:
+                try:
+                    response.raise_for_status()
+                except requests.RequestException as exc:
+                    response.close()
+                    log.warning("Could not fetch %s: %s", scrub(source_url), scrub(exc))
+                    return None
+                return response
+
+            wait = _photo_backoff(response, self._slowed.get(host, 0.0))
+            self._slowed[host] = wait
+            response.close()
+            if attempt < PHOTO_ATTEMPTS - 1:
+                log.info(
+                    "%s asked us to slow down; waiting %.0fs before the next photo.", host, wait
+                )
+                time.sleep(wait)
+
+        log.warning(
+            "Gave up on %s after %s attempts: the host kept answering %s.",
+            scrub(source_url),
+            PHOTO_ATTEMPTS,
+            TOO_MANY_REQUESTS,
+        )
+        return None
+
+    def _wait_for(self, host: str) -> None:
+        """Honor the pace a host has already asked for."""
+        pace = self._slowed.get(host)
+        if not pace:
+            return
+        since = time.monotonic() - self._last_request_at.get(host, 0.0)
+        if since < pace:
+            time.sleep(pace - since)
+
     def download(
         self, session: requests.Session, site_slug: str, source_url: str
     ) -> StoredImage | None:
@@ -174,20 +267,16 @@ class ImageStore:
 
         Returns ``None`` when the download fails, the URL is not safe to fetch,
         or the response is not a decodable image. A missing photo is never worth
-        failing a scan over.
+        failing a scan over — but it *is* worth a log line, which is the other
+        half of what was wrong here: every failure path returned None in
+        silence, so 22 refused photographs reported as "stored 1 photo".
         """
         if not _is_public_url(source_url):
+            log.warning("Refusing to fetch %s: not a public HTTP(S) URL.", scrub(source_url))
             return None
 
-        try:
-            response = session.get(
-                source_url,
-                timeout=self.config.scraping.request_timeout,
-                stream=True,
-                allow_redirects=True,
-            )
-            response.raise_for_status()
-        except requests.RequestException:
+        response = self._get_photo(session, source_url)
+        if response is None:
             return None
 
         content_type = (response.headers.get("Content-Type") or "").split(";")[0].strip().lower()

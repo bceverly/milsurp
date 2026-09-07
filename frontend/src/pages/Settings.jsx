@@ -11,6 +11,7 @@ import { useAuth } from "../auth.jsx";
 import { browserTimeZone, formatDateTime, formatRelative, timeTitle } from "../format.js";
 import { EmailStatusChip } from "../components/StatusChip.jsx";
 import Field from "../components/Field.jsx";
+import Modal from "../components/Modal.jsx";
 import { Check, Mail, Sparkle, TrendDown } from "../components/Icons.jsx";
 
 const FREQUENCIES = [
@@ -29,6 +30,7 @@ export default function SettingsPage() {
   const [prefs, setPrefs] = useState(null);
   const [sites, setSites] = useState([]);
   const [history, setHistory] = useState([]);
+  const [reading, setReading] = useState(null);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -64,6 +66,21 @@ export default function SettingsPage() {
   useEffect(load, [load]);
 
   const set = (key, value) => setPrefs((current) => ({ ...current, [key]: value }));
+
+  /** Tick every site.
+   *
+   * Not the same as clearing, even though both mean "all of them today":
+   * an empty list follows sites added later, and a full list follows exactly
+   * the ones ticked now. The Clear button beside this is the other one, and
+   * the note above says which is which.
+   */
+  function selectAllSites() {
+    setPrefs((current) => ({ ...current, site_ids: sites.map((site) => site.id) }));
+  }
+
+  function clearSites() {
+    setPrefs((current) => ({ ...current, site_ids: [] }));
+  }
 
   function toggleSite(siteId) {
     setPrefs((current) => {
@@ -132,6 +149,8 @@ export default function SettingsPage() {
   }
 
   const allSites = (prefs.site_ids || []).length === 0;
+  const everySiteTicked =
+    sites.length > 0 && (prefs.site_ids || []).length === sites.length;
 
   return (
     <div>
@@ -257,6 +276,24 @@ export default function SettingsPage() {
                 <p style={{ fontSize: 13, color: "var(--ink-500)", marginTop: 0 }}>
                   Select none to follow every enabled site, including ones added later.
                 </p>
+                <div className="picker-actions">
+                  <button
+                    type="button"
+                    className="btn btn--ghost btn--sm"
+                    onClick={selectAllSites}
+                    disabled={everySiteTicked}
+                  >
+                    Select all
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn--ghost btn--sm"
+                    onClick={clearSites}
+                    disabled={allSites}
+                  >
+                    Clear
+                  </button>
+                </div>
                 {sites.map((site) => (
                   <label className="checkbox" key={site.id}>
                     <input
@@ -411,10 +448,12 @@ export default function SettingsPage() {
               <thead>
                 <tr>
                   <th>When</th>
+                  <th>Subject</th>
                   <th>Status</th>
                   <th className="table__num">New</th>
                   <th className="table__num">Reductions</th>
                   <th>Note</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
@@ -423,6 +462,7 @@ export default function SettingsPage() {
                     <td title={timeTitle(entry.sent_at)}>
                       {formatDateTime(entry.sent_at)}
                     </td>
+                    <td style={{ fontSize: 13 }}>{entry.subject || "—"}</td>
                     <td>
                       <EmailStatusChip status={entry.status} />
                     </td>
@@ -430,6 +470,17 @@ export default function SettingsPage() {
                     <td className="table__num">{entry.price_drop_count}</td>
                     <td style={{ color: "var(--ink-500)", fontSize: 12.5 }}>
                       {entry.error_message || "—"}
+                    </td>
+                    <td className="table__actions">
+                      {entry.has_body && (
+                        <button
+                          type="button"
+                          className="btn btn--ghost btn--sm"
+                          onClick={() => setReading(entry)}
+                        >
+                          Read
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -439,8 +490,66 @@ export default function SettingsPage() {
         )}
       </div>
 
+      {reading && <MessageModal entry={reading} onClose={() => setReading(null)} />}
+
       <PasswordPanel />
     </div>
+  );
+}
+
+/**
+ * One sent digest, as it was sent.
+ *
+ * The plain-text alternative is what is shown, not the HTML. The HTML is a
+ * whole page with its own colors and layout, and dropping that into this one —
+ * whether through an iframe or, much worse, dangerouslySetInnerHTML — buys
+ * nothing a reader wants and costs the sandbox that makes stored markup safe
+ * to show. What somebody checking a delivery actually wants to read is the
+ * words and the prices, which is exactly what the text part is.
+ */
+function MessageModal({ entry, onClose }) {
+  const [body, setBody] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let live = true;
+    api
+      .emailBody(entry.id)
+      .then((result) => live && setBody(result))
+      .catch((err) => live && setError(err.message));
+    return () => {
+      live = false;
+    };
+  }, [entry.id]);
+
+  return (
+    <Modal
+      title={entry.subject || "Digest"}
+      onClose={onClose}
+      footer={
+        <button className="btn btn--secondary" onClick={onClose}>
+          Close
+        </button>
+      }
+    >
+      <p style={{ marginTop: 0, color: "var(--ink-500)", fontSize: 13 }}>
+        Sent {formatDateTime(entry.sent_at)}
+      </p>
+      {error && (
+        <div className="alert alert--error" role="alert">
+          {error}
+        </div>
+      )}
+      {!body && !error && (
+        <div className="loading-row">
+          <div className="spinner" />
+          Loading the message…
+        </div>
+      )}
+      {body && (
+        <pre className="message-body">{body.body_text || "(no text recorded)"}</pre>
+      )}
+    </Modal>
   );
 }
 

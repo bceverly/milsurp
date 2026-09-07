@@ -9,7 +9,7 @@ import time
 from fastapi import APIRouter, HTTPException, Request, status
 
 from ..deps import AppConfig, CurrentUser, DbSession
-from ..logsafe import safe_identifier, scrub
+from ..logsafe import ADDRESS_PATTERN, safe_identifier
 from ..models import User, utcnow
 from ..schemas import LoginRequest, PasswordChangeRequest, TokenResponse, UserOut
 from ..security import (
@@ -40,8 +40,13 @@ def _client_address(request: Request) -> str:
 
     Read straight from the connection, so nothing here comes from the request
     body. A test client has no peer at all.
+
+    Guarded on the way out rather than at the point it is logged, so every
+    caller gets the same value and no future one has to remember. See
+    :data:`ADDRESS_PATTERN` for why this is an allowlist and not an escape.
     """
-    return request.client.host if request.client else "unknown"
+    host = request.client.host if request.client else "unknown"
+    return safe_identifier(host, ADDRESS_PATTERN)
 
 
 def _throttle_key(username: str, request: Request) -> str:
@@ -100,11 +105,8 @@ def login(
         log.warning(
             "Failed sign-in for %s from %s",
             safe_identifier(payload.username),
-            # Scrubbed as well. This is the peer address off the connection
-            # rather than a header, so it should hold nothing but an address —
-            # but "should" is doing work there, and it costs nothing to say so
-            # in the code instead of in a comment.
-            scrub(_client_address(request)),
+            # Already guarded: _client_address() allowlists on the way out.
+            _client_address(request),
         )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

@@ -14,6 +14,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Filter as FilterIcon,
+  Grid as GridIcon,
+  List as ListIcon,
   Search as SearchIcon,
   Sparkle,
   TrendDown,
@@ -36,10 +38,32 @@ const AVAILABILITY = [
   { value: "all", label: "Everything" },
 ];
 
+//: One at a time. These read as a single question — "what am I looking for?" —
+//: and a set of checkboxes invited the answer "rifles and handguns and parts",
+//: which is the same as asking nothing.
 const KINDS = [
+  { value: "", label: "Anything" },
   { value: "rifle", label: "Rifles" },
   { value: "pistol", label: "Handguns" },
-  { value: "other", label: "Parts & accessories" },
+  { value: "bayonet", label: "Bayonets" },
+  { value: "parts_kit", label: "Parts kits" },
+  { value: "other", label: "Other parts & accessories" },
+];
+
+//: Price reduced sits under Availability because that is the question it
+//: answers — what state is this listing in — rather than what kind of thing it
+//: is. It is a radio for the same reason the rest of that group is.
+const PRICE_STATE = [
+  { value: "", label: "Any price" },
+  { value: "true", label: "Price reduced" },
+];
+
+const PER_PAGE_CHOICES = [24, 48, 96, 192];
+const DEFAULT_PER_PAGE = 48;
+
+const VIEWS = [
+  { value: "grid", label: "Cards" },
+  { value: "list", label: "List" },
 ];
 
 /** Multi-select facets, keyed by the query parameter the API expects. */
@@ -50,8 +74,6 @@ const FACETS = [
   { param: "country", facet: "countries", title: "Country" },
   { param: "manufacturer", facet: "manufacturers", title: "Manufacturer" },
 ];
-
-const PER_PAGE = 48;
 
 function FacetGroup({ title, options, selected, onToggle }) {
   const [expanded, setExpanded] = useState(false);
@@ -150,6 +172,64 @@ function ItemCard({ item }) {
   );
 }
 
+/**
+ * One listing as a row, with enough of the description to tell it apart.
+ *
+ * The card grid answers "what is there?" and this answers "which one is it?".
+ * A wall of near-identical Mosin-Nagants is exactly where the photograph stops
+ * helping and the first two lines of the dealer's prose start.
+ */
+function ItemRow({ item }) {
+  const dropped = item.price_drop > 0;
+  // Already truncated on the server, on a word boundary: a page of 192 of these
+  // should not carry 192 full descriptions to render two lines each.
+  const blurb = item.blurb;
+
+  return (
+    <Link to={`/items/${item.id}`} className="item-row">
+      <div className="item-row__media">
+        <AuthImage src={item.thumbnail_url} alt={item.title} loading="lazy" />
+      </div>
+
+      <div className="item-row__body">
+        <div className="item-row__head">
+          <span className="item-row__title">{item.title}</span>
+          <span className={`item-row__price ${dropped ? "item-row__price--drop" : ""}`}>
+            {formatMoney(item.current_price, item.currency)}
+            {dropped && (
+              <span className="item-row__was">
+                {formatMoney(item.previous_price, item.currency)}
+              </span>
+            )}
+          </span>
+        </div>
+
+        <div className="item-card__meta">
+          {item.caliber && <span>{item.caliber}</span>}
+          {item.manufacturer && <span>· {item.manufacturer}</span>}
+          {item.country && <span>· {item.country}</span>}
+          <span title={timeTitle(item.first_seen_at)}>
+            · {item.site_name} · {formatRelative(item.first_seen_at)}
+          </span>
+        </div>
+
+        {blurb && <p className="item-row__blurb">{blurb}</p>}
+
+        <div className="item-row__badges">
+          {dropped && (
+            <span className="chip chip--success">
+              <TrendDown size={12} />
+              Reduced
+            </span>
+          )}
+          {item.is_sold && <span className="chip chip--danger">Sold</span>}
+          {!item.is_active && <span className="chip chip--neutral">De-listed</span>}
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 export default function Browse() {
   useTitle("Inventory");
   const [params, setParams] = useOptimisticSearchParams();
@@ -166,6 +246,12 @@ export default function Browse() {
   const page = Number(params.get("page") || 1);
   const sort = params.get("sort") || "newest";
   const availability = params.get("availability") || "available";
+  const kind = params.get("kind") || "";
+  const priceState = params.get("price_drops_only") === "true" ? "true" : "";
+  const perPage = PER_PAGE_CHOICES.includes(Number(params.get("per_page")))
+    ? Number(params.get("per_page"))
+    : DEFAULT_PER_PAGE;
+  const view = params.get("view") === "list" ? "list" : "grid";
 
   useEffect(() => {
     const current = params.get("search") || "";
@@ -180,19 +266,19 @@ export default function Browse() {
   const query = useMemo(() => {
     const built = {
       page,
-      per_page: PER_PAGE,
+      per_page: perPage,
       sort,
       availability,
       search: params.get("search") || undefined,
-      price_drops_only: params.get("price_drops_only") === "true",
-      kind: params.getAll("kind"),
+      price_drops_only: priceState === "true",
+      kind: kind ? [kind] : [],
     };
     for (const { param } of FACETS) {
       const values = params.getAll(param);
       if (values.length) built[param] = values;
     }
     return built;
-  }, [params, page, sort, availability]);
+  }, [params, page, sort, availability, kind, priceState, perPage]);
 
   useEffect(() => {
     let cancelled = false;
@@ -273,11 +359,11 @@ export default function Browse() {
         });
       }
     }
-    for (const value of params.getAll("kind")) {
+    if (kind) {
       chips.push({
-        key: `kind:${value}`,
-        label: KINDS.find((k) => k.value === value)?.label || value,
-        clear: () => toggleMulti("kind", value),
+        key: `kind:${kind}`,
+        label: KINDS.find((k) => k.value === kind)?.label || kind,
+        clear: () => update((next) => next.delete("kind")),
       });
     }
     if (params.get("price_drops_only") === "true") {
@@ -348,6 +434,48 @@ export default function Browse() {
           ))}
         </select>
 
+        <select
+          className="select"
+          style={{ width: "auto", flex: "0 0 auto" }}
+          value={perPage}
+          onChange={(event) =>
+            update((next) => {
+              const chosen = Number(event.target.value);
+              if (chosen === DEFAULT_PER_PAGE) next.delete("per_page");
+              else next.set("per_page", String(chosen));
+            })
+          }
+          aria-label="Listings per page"
+        >
+          {PER_PAGE_CHOICES.map((size) => (
+            <option key={size} value={size}>
+              {size} per page
+            </option>
+          ))}
+        </select>
+
+        <div className="view-switch" role="group" aria-label="Layout">
+          {VIEWS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={`view-switch__button ${
+                view === option.value ? "view-switch__button--on" : ""
+              }`}
+              aria-pressed={view === option.value}
+              onClick={() =>
+                update((next) => {
+                  if (option.value === "grid") next.delete("view");
+                  else next.set("view", option.value);
+                })
+              }
+            >
+              {option.value === "grid" ? <GridIcon size={16} /> : <ListIcon size={16} />}
+              <span className="view-switch__label">{option.label}</span>
+            </button>
+          ))}
+        </div>
+
         <button
           className="btn btn--secondary filters__toggle"
           onClick={() => setShowFilters((value) => !value)}
@@ -395,6 +523,23 @@ export default function Browse() {
                   <span className="facet__option-label">{option.label}</span>
                 </label>
               ))}
+              <hr className="facet__rule" />
+              {PRICE_STATE.map((option) => (
+                <label className="facet__option" key={option.value || "any"}>
+                  <input
+                    type="radio"
+                    name="price_state"
+                    checked={priceState === option.value}
+                    onChange={() =>
+                      update((next) => {
+                        if (option.value) next.set("price_drops_only", "true");
+                        else next.delete("price_drops_only");
+                      })
+                    }
+                  />
+                  <span className="facet__option-label">{option.label}</span>
+                </label>
+              ))}
             </div>
           </details>
 
@@ -402,28 +547,21 @@ export default function Browse() {
             <summary className="facet__summary">Type</summary>
             <div className="facet__options">
               {KINDS.map((option) => (
-                <label className="facet__option" key={option.value}>
+                <label className="facet__option" key={option.value || "any"}>
                   <input
-                    type="checkbox"
-                    checked={params.getAll("kind").includes(option.value)}
-                    onChange={() => toggleMulti("kind", option.value)}
+                    type="radio"
+                    name="kind"
+                    checked={kind === option.value}
+                    onChange={() =>
+                      update((next) => {
+                        if (option.value) next.set("kind", option.value);
+                        else next.delete("kind");
+                      })
+                    }
                   />
                   <span className="facet__option-label">{option.label}</span>
                 </label>
               ))}
-              <label className="facet__option">
-                <input
-                  type="checkbox"
-                  checked={params.get("price_drops_only") === "true"}
-                  onChange={(event) =>
-                    update((next) => {
-                      if (event.target.checked) next.set("price_drops_only", "true");
-                      else next.delete("price_drops_only");
-                    })
-                  }
-                />
-                <span className="facet__option-label">Price reduced only</span>
-              </label>
             </div>
           </details>
 
@@ -467,13 +605,20 @@ export default function Browse() {
             </div>
           )}
 
-          {data?.items?.length > 0 && (
-            <div className="grid">
-              {data.items.map((item) => (
-                <ItemCard item={item} key={item.id} />
-              ))}
-            </div>
-          )}
+          {data?.items?.length > 0 &&
+            (view === "list" ? (
+              <div className="item-rows">
+                {data.items.map((item) => (
+                  <ItemRow item={item} key={item.id} />
+                ))}
+              </div>
+            ) : (
+              <div className="grid">
+                {data.items.map((item) => (
+                  <ItemCard item={item} key={item.id} />
+                ))}
+              </div>
+            ))}
 
           {totalPages > 1 && (
             <div className="pagination">

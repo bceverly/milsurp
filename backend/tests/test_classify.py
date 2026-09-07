@@ -69,6 +69,95 @@ class TestCaliber:
         assert extract_caliber("") is None
 
 
+class TestABoreWrittenOnItsOwn:
+    """The number without the cartridge, which is how half the catalog reads.
+
+    Legacy Collectibles describe a percussion revolver as "- .31" and a Yugoslav
+    Mauser as "8mm", and neither used to produce a caliber at all: 78 of their
+    listings had an empty caliber column while the number sat in the title.
+    """
+
+    @pytest.mark.parametrize(
+        ("title", "expected"),
+        [
+            # 8mm on a Mauser-pattern rifle, which is what a bare 8mm means
+            # once Lebel and Nambu have had their turn.
+            ("Yugoslavian M48 Bolt Action Rifle 8mm (L2026-02099)", "8mm Mauser"),
+            ("Late War Walther K43 Semi-Auto Rifle 8mm", "8mm Mauser"),
+            ("WWII German SS Issued converted Gew 98 8mm (R42670)", "8mm Mauser"),
+            # Inches, the percussion end of the catalog.
+            ("First Model Remington Beals M1857 Revolver - .31 Cal", ".31"),
+            ("Factory-Nickel Colt M1877 Thunderer Revolver - .41", ".41"),
+            ("US Civil War Burnside Saddle Ring Carbine - .54 Burnside", ".54"),
+            ("Antique Webley W.G. Target Model 1892 Revolver - .450 Mark I", ".450"),
+            # Millimeters with no case length.
+            ("AUGUST MENZ LILIPUT MODEL 1925, 4.25MM SEMI AUTO PISTOL", "4.25mm"),
+        ],
+    )
+    def test_the_number_is_read(self, title, expected):
+        assert extract_caliber(title) == expected
+
+    def test_a_named_cartridge_still_wins(self):
+        """The bare number is the weaker statement, so it is tried last."""
+        assert extract_caliber("German K98 Mauser 7.92x57") == "8mm Mauser"
+        assert extract_caliber("Colt 1911 .45 ACP") == ".45 ACP"
+
+    def test_bare_8mm_never_takes_a_lebel_or_a_nambu(self):
+        assert extract_caliber("Berthier Carbine 8mm Lebel") == "8mm Lebel"
+        assert extract_caliber("Japanese Type 14 Nambu Pistol 8mm") == "8mm Nambu"
+
+    def test_the_cents_of_a_price_are_not_a_caliber(self):
+        """Which is why the list of bores is closed rather than any two digits:
+        a description carrying "$1,250.50" would otherwise read as a .50."""
+        assert extract_caliber("Antique Revolver, reduced from $1,250.50") is None
+
+    def test_nor_is_a_number_too_big_to_be_a_small_arm(self):
+        assert extract_caliber("Photographed with a 35mm lens") is None
+        assert extract_caliber("Bofors 40mm anti-aircraft gun") is None
+
+    @pytest.mark.parametrize(
+        ("title", "expected"),
+        [
+            ("Winchester Model 1873 .44-40 - 1882 mfg", ".44-40 Winchester"),
+            ("Springfield Trapdoor Rifle .45-70", ".45-70 Government"),
+            ("Colt Single Action Army .32-20", ".32-20 Winchester"),
+            ("Winchester Model 1892 .38-40", ".38-40 Winchester"),
+            ("Krag-Jorgensen Rifle .30-40 Krag", ".30-40 Krag"),
+        ],
+    )
+    def test_a_hyphenated_name_keeps_both_halves(self, title, expected):
+        """Bore and powder charge, and the second number is what says which
+        cartridge it is. ".44-40" read as a bare .44, or ".32-20" read by the
+        ".32" rule as a .32 ACP, throws that away."""
+        assert extract_caliber(title) == expected
+
+
+class TestAnAccessoryWordInsideAnotherWord:
+    """ "spring" is inside "Springfield", and that was not a hypothetical.
+
+    The accessory list was matched as substrings, so every Springfield in the
+    catalog was an accessory and never got a caliber — 23 of the 28 there.
+    """
+
+    def test_springfield_is_not_a_spring(self):
+        assert extract_caliber("Springfield Model 1903 .30-06") == ".30-06"
+        assert extract_caliber("Springfield Trapdoor .45-70") == ".45-70 Government"
+
+    def test_nor_is_recovered_a_cover(self):
+        assert extract_caliber("M1 Garand recovered from a barn, .30-06") == ".30-06"
+
+    def test_but_a_spring_is_still_a_spring(self):
+        assert extract_caliber("Recoil spring assembly, .45 ACP") is None
+        assert extract_caliber("Canvas ammo pouch, 8mm") is None
+
+    def test_an_optic_is_named_by_what_it_ends_in(self):
+        """Which is why "scope" is the one keyword still allowed a prefix: a
+        telescope and a periscope are the same kind of thing as a scope and
+        neither of them is spelled like one."""
+        assert extract_caliber("Carl Zeiss Jena 10x60 Marina Romana Periscope") is None
+        assert extract_caliber("ZF41 telescope, 8mm") is None
+
+
 class TestClassification:
     @pytest.mark.parametrize(
         "title",
@@ -798,3 +887,170 @@ class TestCalibersFoundByAuditingTheCatalog:
     def test_a_periscope_is_not_a_caliber(self):
         """ "10×60" on an optic looks exactly like a metric cartridge."""
         assert classify.extract_caliber("Carl Zeiss Jena 10×60 Marina Romana Periscope") is None
+
+
+class TestAStandalonePistolMagazine:
+    """A magazine on its own is a part; a firearm sold with one is a firearm.
+
+    Both are written the same way — a model name, then the word "magazine" —
+    and eight Luger magazines at $130 to $200 were filed as handguns because
+    of it.
+    """
+
+    def kind(self, title, price=150.0, category=None):
+        d = classify.enrich(title, None, price, category=category)
+        return "pistol" if d["is_pistol"] else "rifle" if d["is_rifle"] else "accessory"
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "East German Luger Magazine, Serial Number 137",
+            "Erma Luger Magazine",
+            "FXO WWII GERMAN LUGER MAGAZINE",
+            "GERMAN LUGER MAGAZINE, SERIAL NUMBER 0388",
+            "CZ82 9x18 Makarov - 12RD Magazine + Free Accessories",
+        ],
+    )
+    def test_the_magazine_is_the_product(self, title):
+        assert self.kind(title) == "accessory"
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "CZ75D Pistol 9mm Luger with Factory Box and 2 Magazines",
+            "AR-15 9MM Rifle / Carbine with Glock Magazine",
+            "CZ BRNO Model 2 Trainer Rifle, .22 Long Rifle, 5 round magazine included",
+            "Czech VZ 82 / CZ82 - 9x18mm Makarov Pistol with Holster & 2 Magazines",
+        ],
+    )
+    def test_a_firearm_sold_with_one_is_still_a_firearm(self, title):
+        assert self.kind(title, price=900.0) != "accessory"
+
+    def test_an_unknown_model_falls_back_to_the_vendor_category(self):
+        """ "Pre-Ban Interdynamic KG-99 w/ Extra Magazines" names no word this
+        code knows to be a firearm, so the title alone genuinely does not say —
+        and the section the dealer filed it under does."""
+        title = "Pre-Ban Interdynamic KG-99 w/ Extra Magazines"
+        assert self.kind(title, 900.0) == "accessory"
+        assert self.kind(title, 900.0, category="Modern Handguns") == "pistol"
+
+    def test_a_matching_magazine_is_a_fact_about_the_pistol(self):
+        """The hard pair. Same shape, same words, opposite meanings — and only
+        "matching" tells them apart, because a collector writes it to mean the
+        serial numbers agree, which presupposes the gun."""
+        assert self.kind("Rare 1925-Dated Simson Luger - Matching Magazine", 3250.0) == "pistol"
+        assert self.kind('1934 "K Date" Mauser Luger - Matching Magazine', 3995.0) == "pistol"
+        assert self.kind("Erma Luger Magazine", 199.99) == "accessory"
+
+    def test_mag_is_not_accepted_as_an_abbreviation(self):
+        """ ".44 Mag" is a cartridge and "Mag Fed Shotgun" is a shotgun. Either
+        would lead the rule straight past the firearm it is describing."""
+        assert self.kind("Toros Arms Coppola TR-12 Semi Auto Mag Fed Shotgun, 12 Gauge", 400.0) == (
+            "rifle"
+        )
+        assert self.kind("Smith & Wesson Model 29 .44 Mag Revolver", 1200.0) == "pistol"
+
+    def test_the_barrels_you_were_told_about_are_still_parts(self):
+        """Teaching the *order* rule about model names undid this: the AK47 is
+        named before the barrels, so the listing read as a rifle. It is a box
+        of barrels, and the AK47 only says what they fit."""
+        title = "AK47 / AKM 16in Chrome Lined Barrels, New Production Parkerized, 7.62x39"
+        assert self.kind(title, 89.99) == "accessory"
+
+
+class TestBayonetsAndPartsKits:
+    """Their own flags, so they stop hiding in the accessories pile.
+
+    Both used to be "neither a rifle nor a handgun", which is also what a
+    sling, a helmet and a cleaning kit are — so somebody watching for a Carcano
+    bayonet had to read the lot.
+    """
+
+    def flags(self, title, category=None, price=200.0):
+        d = classify.enrich(title, None, price, category=category)
+        return (d["is_rifle"], d["is_pistol"], d["is_bayonet"], d["is_parts_kit"])
+
+    @pytest.mark.parametrize("title", ["1891 Carcano Bayonet", "VZ24 BAYONET", "BAYONET GRAB BAG"])
+    def test_a_bayonet_is_a_bayonet(self, title):
+        assert self.flags(title) == (False, False, True, False)
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            'Excellent Remington Model 1863 "Zouave" Rifle w/ bayonet',
+            "Springfield Model 1884 Trapdoor w/ Ramrod Bayonet - 1891 mfg",
+            "WWII Italian Carcano M91 Cavalry Carbine 6.5x52mm with bayonet",
+        ],
+    )
+    def test_but_a_firearm_that_comes_with_one_is_not_a_bayonet(self, title):
+        """A third of the listings that say "bayonet" are these, and what marks
+        them is "with" or "w/" before the word. A bayonet named without one is
+        what is for sale; "Bayonet w/ Scabbard" is still a bayonet, so only a
+        "with" that comes *before* the word counts."""
+        _rifle, _pistol, bayonet, _kit = self.flags(title, price=900.0)
+        assert bayonet is False
+
+    def test_a_bayonet_keeps_its_own_scabbard(self):
+        assert self.flags("German S84/98 Bayonet w/ Scabbard")[2] is True
+
+    def test_a_rifle_sold_without_one_is_not_a_bayonet(self):
+        """The listing that prompted all of this. Every rule involved saw the
+        word "Bayonet" and none of them saw the "No" in front of it, so a
+        799-dollar SKS was filed as a blade."""
+        # En dashes, because that is what the vendor actually types. Rewriting
+        # them as hyphens would test a title that does not exist.
+        title = (
+            "Russian Tula SKS – Letter Series 1958 – No Import Marks – "  # noqa: RUF001
+            "Numbers Matching – No Bayonet – C&R"  # noqa: RUF001
+        )
+        rifle, _pistol, bayonet, _kit = self.flags(title, price=799.99)
+        assert bayonet is False
+        assert rifle is True
+
+    def test_the_negation_has_to_be_next_to_the_word(self):
+        """That title also says "No Import Marks" forty characters earlier. An
+        unanchored search found that one and concluded nothing."""
+        assert self.flags("K98 Bayonet, no import marks")[2] is True
+
+    def test_and_it_is_not_a_negation_inside_another_word(self):
+        """ "Carca-no Bayonet". A missing word boundary here turns every Carcano
+        bayonet in the catalog into a rifle that has none."""
+        assert self.flags("1891 Carcano Bayonet")[2] is True
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "Enfield No4 Mk1 .303 British w Bayonet",
+            "Mauser 1900 Danzig Gewehr 98 7.92x57 Mauser w Bayonet",
+        ],
+    )
+    def test_a_bare_w_also_means_with(self, title):
+        """Which is how one vendor writes it, and neither of these rifles names
+        the word "rifle" anywhere."""
+        rifle, _pistol, bayonet, _kit = self.flags(title, price=900.0)
+        assert bayonet is False
+        assert rifle is True
+
+    def test_but_a_bare_w_is_not_the_start_of_a_makers_name(self):
+        """W+F Bern is Waffenfabrik Bern. Reading that W as "with" cost them
+        their K31 Pioneer Sawback Bayonet."""
+        assert self.flags("W+F Bern K31 Pioneer Sawback Bayonet 7.5x55 Swiss")[2] is True
+
+    def test_a_parts_kit_from_the_title(self):
+        assert self.flags("ENFIELD NO1 MK2 PARTS KITS")[3] is True
+
+    def test_and_from_the_vendors_own_section(self):
+        """Royal Tiger files them under a category and does not always say so
+        in the title."""
+        assert self.flags("Mauser K98 kit, no receiver", category="Parts Kit")[3] is True
+
+    def test_a_parts_kit_can_be_a_handgun_too(self):
+        """Which is why these are separate flags and not one enum: a kit is a
+        firearm minus its serialized part, so a filter for either should find
+        it."""
+        rifle, pistol, _bayonet, kit = self.flags("ENFIELD NO1 MK2 PARTS KITS")
+        assert kit is True
+        assert rifle or pistol
+
+    def test_an_ordinary_accessory_is_neither(self):
+        assert self.flags("Canvas ammo pouch") == (False, False, False, False)

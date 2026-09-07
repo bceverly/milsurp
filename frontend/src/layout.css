@@ -1255,3 +1255,192 @@
   justify-content: flex-end;
   gap: 9px;
 }
+
+/* The Select all / Clear pair above a long list of checkboxes. */
+.picker-actions {
+  display: flex;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+
+/* A sent message, shown as the plain-text alternative that was delivered. */
+.message-body {
+  margin: 0;
+  padding: 14px;
+  max-height: 60vh;
+  overflow: auto;
+  background: var(--paper-2, #f4f6fa);
+  border: 1px solid var(--line, #dbe1ea);
+  border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ---------------------------------------------------------------------------
+   List view
+
+   The alternative to the card grid, for when the photographs stop telling two
+   listings apart and the dealer's own prose starts. One row per listing: a
+   small thumbnail, the title and price on one line, and the first couple of
+   lines of the description.
+   --------------------------------------------------------------------------- */
+.item-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.item-row {
+  display: flex;
+  gap: 14px;
+  padding: 12px;
+  background: var(--surface, #fff);
+  border: 1px solid var(--line, #dbe1ea);
+  border-radius: 10px;
+  text-decoration: none;
+  color: inherit;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.item-row:hover {
+  border-color: var(--blue-400, #7ba3d6);
+  box-shadow: 0 1px 6px rgba(10, 34, 64, 0.09);
+}
+
+.item-row__media {
+  flex: 0 0 96px;
+  width: 96px;
+  height: 96px;
+  border-radius: 7px;
+  overflow: hidden;
+  background: var(--paper-2, #f4f6fa);
+}
+
+.item-row__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.item-row__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.item-row__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.item-row__title {
+  font-weight: 600;
+  font-size: 14.5px;
+  line-height: 1.35;
+}
+
+.item-row__price {
+  flex: 0 0 auto;
+  font-weight: 700;
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.item-row__price--drop {
+  color: var(--green-700, #1a7f4b);
+}
+
+.item-row__was {
+  margin-left: 7px;
+  font-weight: 500;
+  font-size: 12.5px;
+  color: var(--ink-400, #8b94a3);
+  text-decoration: line-through;
+}
+
+.item-row__blurb {
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-500, #5a6474);
+}
+
+.item-row__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.item-row__badges:empty {
+  display: none;
+}
+
+/* On a phone the thumbnail earns less room than the words do. */
+@media (max-width: 620px) {
+  .item-row__media {
+    flex-basis: 66px;
+    width: 66px;
+    height: 66px;
+  }
+
+  .item-row__head {
+    flex-direction: column;
+    gap: 3px;
+  }
+}
+
+/* --- Cards / List toggle --------------------------------------------------- */
+.view-switch {
+  display: inline-flex;
+  flex: 0 0 auto;
+  border: 1px solid var(--line, #dbe1ea);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface, #fff);
+}
+
+.view-switch__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 11px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-500, #5a6474);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.view-switch__button + .view-switch__button {
+  border-left: 1px solid var(--line, #dbe1ea);
+}
+
+.view-switch__button--on {
+  background: var(--blue-50, #eef4fc);
+  color: var(--blue-700, #1b4b8f);
+  font-weight: 600;
+}
+
+/* The icons carry the meaning once the control is narrow. */
+@media (max-width: 720px) {
+  .view-switch__label {
+    display: none;
+  }
+}
+
+/* Separates the price question from the availability one above it. */
+.facet__rule {
+  margin: 9px 0 7px;
+  border: 0;
+  border-top: 1px solid var(--line, #dbe1ea);
+}

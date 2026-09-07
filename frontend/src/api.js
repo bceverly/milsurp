@@ -170,6 +170,7 @@ export const api = {
     request("/api/preferences/email", { method: "PUT", body: payload }),
   sendTestDigest: () => request("/api/preferences/email/test", { method: "POST" }),
   emailHistory: (params) => request(`/api/preferences/email/history${qs(params)}`),
+  emailBody: (id) => request(`/api/preferences/email/history/${id}`),
 
   // --- admin ---
   status: () => request("/api/admin/status"),

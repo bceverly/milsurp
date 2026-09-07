@@ -14,6 +14,11 @@ The whole point of the application is breadth. Each new vendor is one subclass
 of `SiteScraper` in `backend/app/scrapers/` plus one line in `SCRAPER_CLASSES`;
 scheduling, admin controls, price history, images and digests all come for free.
 
+**Where this stands: nine vendors read, nineteen queued, one dropped.** Of the
+eighteen, five are blocked on something that is not the platform — two need a
+browser, one needs an entry URL, one publishes no prices, and two refuse a plain
+request — so they are not simply waiting their turn in the queue.
+
 ### Shipped
 
 | Site | Slug | Technique |
@@ -24,19 +29,22 @@ scheduling, admin controls, price history, images and digests all come for free.
 | [Collectors Firearms](https://collectorsfirearms.com/) | `collectors-firearms` | WooCommerce base class — category pages, path pagination |
 | [Ancestry Guns](https://www.ancestryguns.com/) | `ancestry-guns` | WooCommerce — one selector (their `h2` is a share widget) |
 | [Axis Arms](https://axisarmsonline.com/) | `axis-arms` | WooCommerce behind an Elementor loop; two sections |
-| [CO Gun Sales](https://cogunsales.com/) | `co-gun-sales` | WooCommerce, stock selectors throughout |
-| [Checkpoint Charlie's](https://checkpointcharlies.com/) | `checkpoint-charlies` | WooCommerce, a product *tag* rather than a category |
+| [CO Gun Sales](https://cogunsales.com/) | `co-gun-sales` | WooCommerce for text; their photographs are a CSS background and a JSON attribute, with no `<img>` anywhere |
+| [Checkpoint Charlie's](https://checkpointcharlies.com/) | `checkpoint-charlies` | WooCommerce, a product *tag* rather than a category. Catalog only — their `/product/` pages refuse every request |
+| [Legacy Collectibles](https://www.legacy-collectibles.com/) | `legacy-collectibles` | BigCommerce base class — `article.card`, `data-entity-id`, query-string pagination |
 
 ### Planned
 
 Ordered by a rough guess at effort. The platform column matters more than the
-site: eight of these are WooCommerce and four are Shopify, so the reusable base
-classes below are worth building before working through the list one by one.
+site, because the reusable base class is most of the work: two of them —
+WooCommerce and BigCommerce — are now shipped, and a site on either is a subclass
+of a few lines.
 
-The platform column is **inferred from the URL shape**, not verified — a
+The platform column below was originally **inferred from the URL shape** — a
 `/product-category/` or `/product-tag/` path means WooCommerce, `/collections/`
-means Shopify, and a trailing `-cNNNNNNNNN` means Shift4Shop/3dcart. Anything
-not inferable is marked Unknown rather than guessed at.
+means Shopify, and a trailing `-cNNNNNNNNN` means Shift4Shop/3dcart. That
+inference was wrong often enough to matter; see **Platforms, verified** below,
+which measured it instead and is what to trust.
 
 ### What to take from a site that also sells parts
 
@@ -60,10 +68,24 @@ rather than importing it and filtering later.
 ### The build order
 
 Grouped by **backend platform**, because one platform base class unlocks a whole
-group: the ten WooCommerce sites are ten selector-tweaks once the first one
-works, and the Shopify sites need no HTML parsing at all. Within each group the
-most popular site comes first, so the base class is proved against the catalog
-most worth having.
+group. Within each group the most popular site comes first, so the base class is
+proved against the catalog most worth having.
+
+**How well that has worked, now that two groups are built.** The base classes
+earned their keep — a new shop on either really is a slug, a name and a list of
+URLs. What did not hold is the claim this section used to make, that the ten
+WooCommerce sites would be "ten selector-tweaks once the first one works". Two
+of the ten were not WooCommerce at all. Three of the remaining eight are blocked
+on a client-side catalog, a Cloudflare challenge and a page of category tiles —
+none of which a base class can help with. And of the five that shipped, one
+needed its title read from a different element, one needed cards de-duplicated
+because the theme emits each twice, one needed two entirely new ways of finding
+a photograph, and one needed the scan taught to survive a shop that refuses its
+own pages.
+
+So: group by platform, because it is still the best predictor available and the
+base class is real leverage. Just do not read a group of four as four cheap
+sites. Read it as one base class plus four unknowns.
 
 **How "popular" was decided, and how far to trust it.** Where a third-party
 traffic estimate exists it is quoted with its date; those are estimates, not
@@ -74,7 +96,11 @@ are ordered by judgement and are the ones to re-check before committing to an
 order. The ordering is a starting point for scheduling work, not a claim about
 these businesses.
 
-#### Group A — WooCommerce (10 sites) · base class **shipped**
+#### Group A — WooCommerce · base class **shipped**
+
+Ten sites were filed here on the URL-shape guess. Two of them turned out to be
+BigCommerce and moved to Group B; of the eight that remain, **five are shipped**
+and three are blocked on something other than the platform.
 
 `app/scrapers/woocommerce.py` covers the group: `li.product` cards, the post id
 as the external key, sale-aware prices, lazy-loaded images, gallery
@@ -104,14 +130,26 @@ its theme is customized — a couple of selectors in front of the defaults.
    a shop measured to need more than it advertises gets a `min_request_delay`.
    Budget the *first* scan of a large shop in hours, not minutes; later scans
    only pay for listings that are new.
+5. **A 429 does not always mean "too fast".** Past the 300s ceiling there is no
+   slower left to go, so a refusal there is a refusal and fails immediately
+   rather than sleeping through three more attempts. A page that cannot be read
+   then costs what was on that page and nothing more — a product page costs its
+   listing the gallery, a catalog page ends that section. Checkpoint Charlie's
+   is the case that paid for all of it.
+6. **Count the photographs before calling a shop done.** Titles and prices being
+   right is what a working scraper looks like, and CO Gun Sales had both for 144
+   listings while storing no pictures at all. "No `<img>` on the page" does not
+   mean "needs a browser": theirs are a CSS `background-image` on the card and
+   JSON in a `data-wcsvi` attribute on the product page, and the site is
+   entirely static.
 
 | # | Site | Entry URL | Status | Notes |
 | --- | --- | --- | --- | --- |
 | — | **Collectors Firearms** | `/product-category/rifles/foreign-military-rifles/` | **Shipped** | ~284K visits/mo. Foreign and U.S. military rifles. `Crawl-delay: 10`, and their limiter wants more — see `min_request_delay` |
 | — | **Ancestry Guns** | `/product-category/curio-relic/` | **Shipped** | Curio & Relic only. Their `h2` is a "Share on:" widget, so the title comes from the `h3` |
 | — | **Axis Arms** | `/product-category/rifles/` + `/handguns/` | **Shipped** | Elementor loop: the `h1` is the name and the `h2` is the price. Cards match twice (article and inner div); de-duplicated by post id |
-| — | **CO Gun Sales** | `/product-category/curio-relics-cr/` | **Shipped** | Stock WooCommerce. The old entry URL here said `/page/6/`, which was somebody's browsing position; pagination follows the shop's own "next" link |
-| — | **Checkpoint Charlie's** | `/product-tag/cr/` | **Shipped** | A product *tag*, which renders the same loop and paginates the same way |
+| — | **CO Gun Sales** | `/product-category/curio-relics-cr/` | **Shipped** | Stock WooCommerce for titles and prices, and nothing like it for pictures: the page carries no `<img>` at all. The card's photo is a CSS `background-image` and the product gallery is JSON in a `data-wcsvi` attribute, so all 144 listings arrived with no photograph until both fallbacks existed. The old entry URL here said `/page/6/`, which was somebody's browsing position; pagination follows the shop's own "next" link |
+| — | **Checkpoint Charlie's** | `/product-tag/cr/` | **Shipped, but barely** | A product *tag*, which renders the same loop and paginates the same way. Their `/product/` pages answer 429 to any pace and any headers, and after an hour of that they stop answering the category pages too: a full run took 56 minutes to walk 24 listings and save 5. The scan now survives it — catalog-only entries, and a section that stops at the page it got to — but this site is a candidate for the browser path, or for dropping. See "When a shop refuses a page" in the README |
 | 1 | J&G Sales | `/product-category/firearms/collectors-corner/military-surplus-collectible-category/` | **Needs a browser** | The `li.product` elements come back as 65-byte empty placeholders: the catalog is rendered client-side. Same treatment as Royal Tiger |
 | 2 | DK Firearms | `/product-category/surplus/surplus-firearms/` | **Needs a browser** | Cloudflare returns a 403 challenge to plain HTTP |
 | 3 | MCT Defense | `/product-category/firearms/` | **Needs an entry URL** | That page is thirty *category* tiles, not products — no price element anywhere on it. Their actual product pages have to be found before this is worth writing |
@@ -122,55 +160,129 @@ WordPress: their robots.txt names `cart.php`, `checkout.php` and
 `productimage.php`, and nothing in their markup parses as WooCommerce. They are
 BigCommerce, and belong in Group B.
 
-#### Group B — BigCommerce (5 sites) · the largest audiences
+#### Platforms, verified
 
-Small group, but it holds the most-visited surplus catalog on the list.
+The groupings below were originally **inferred from the shape of a URL**, and
+that section said so. Having now checked every remaining site by its response
+headers and cookies — which are unambiguous where markup is not — most of those
+guesses were wrong. What follows is measured, not inferred.
 
-| # | Site | Entry URL | Audience signal | Notes |
-| --- | --- | --- | --- | --- |
-| 1 | Classic Firearms | https://www.classicfirearms.com/firearms/rifles/military-surplus/ | 1.6M visits/3mo, US e-commerce category rank #50 (Similarweb, Jul 2026) | The biggest name here; large catalog, clean pagination |
-| — | Legacy Collectibles | https://legacy-collectibles.com/new-firearms/ | Tracked by Similarweb as a peer of IMA-USA | **Moved from Group A**: BigCommerce, not WooCommerce. High-end WWI/WWII collector pieces |
-| — | Arms Unlimited | https://armsunlimited.com/surplus/ | — | **Moved from Group A**: BigCommerce, not WooCommerce |
-| 2 | AIM Surplus | https://aimsurplus.com/categories/firearm/curio-and-relic | ~357K visits/mo (Semrush, Apr 2026) | High-volume surplus dealer |
-| 3 | Century Arms | https://store.centuryarms.com/surplus-corner/firearms | Importer, widely stocked by the others | Surplus Corner section only |
+The first pass at this used HTML markers and was useless: a pattern for
+Magento's static paths matched eleven of sixteen sites. Cookies settle it —
+`SF-CSRF-TOKEN` and `fornax_anonymousId` are BigCommerce, `_shopify_y` is
+Shopify, `X-Magento-Vary` is Magento, `ssr-caching` is Wix, `OCSESSID` is
+OpenCart.
 
-#### Group C — Shopify (4 sites) · cheapest wins on the list
+| Platform | Sites | Notes |
+| --- | --- | --- |
+| **BigCommerce** | Legacy Collectibles, Arms Unlimited, Edelweiss Arms, SARCO | **Base class shipped** (`app/scrapers/bigcommerce.py`). Four sites, one platform, and the markup is close to WooCommerce's: `article.card`, an entity id per card, a "next" link. Two of these were in Group A on the URL guess. Of the four, one shipped, one was dropped as out of scope, and two are blocked — see Group B |
+| **Shopify** | IMA-USA, Centerfire Systems | **Next.** Cheapest per site — IMA-USA's `/products.json` returns full structured products. Only two sites though, and Centerfire was filed as a one-off build |
+| **Wix** | Surplus Defense, The Mosin Crate, Pasadena Pawn | Three, not one-offs. Wix renders client-side, so expect the browser path |
+| **Magento** | Century Arms | One, not the three Group B claimed |
+| **Laravel (custom)** | AIM Surplus | `laravel_session`; a bespoke application, not BigCommerce |
+| **PrestaShop** | Atlantic Firearms | The most-visited site on the list, and its own build |
+| **OpenCart** | Joe Salter | `OCSESSID`; not Shift4Shop |
+| **WooCommerce (blocked)** | J&G Sales, DK Firearms, MCT Defense | See Group A |
+| **Unknown** | Classic Firearms, Simpson Ltd | No marker in headers, cookies or markup. Need a closer look |
+| **No platform at all** | eBayonet | Apache, hand-written pages saved from Microsoft Word, no `robots.txt`. Static HTML parsing, like Empire Arms |
+| **Refused a plain request** | Liberty Tree (403), Fernwood Armory (403 + Cloudflare) | Not identified; both need the browser before anything else can be said |
+
+#### Group B — BigCommerce · base class **shipped**
+
+Four sites on the platform, and the shape is familiar: `article.card` per
+product, a numeric entity id on the card, a price element, and a `rel="next"`
+pagination link.
+
+It has not paid off the way the count suggested. One shipped, one was written
+and then dropped as out of scope, and the remaining two are each blocked on
+something the platform has nothing to do with — a client-side catalog and a shop
+that does not publish prices. The base class was still worth building; the
+lesson is that "four sites, one platform" counted sites rather than catalogs.
+
+The questions the WooCommerce work produced apply here and are worth asking
+before writing anything: is it really this platform, does the catalog arrive in
+the HTML, is that page products or categories, and did the photographs come with
+it?
+
+`app/scrapers/bigcommerce.py` covers the group. Two things differ from
+WooCommerce and are the reason it is a separate base class rather than a
+subclass: **the key**, because Stencil themes are inconsistent about carrying
+`data-entity-id` and the URL path is the fallback; and **pagination by query
+string** (`?page=2`), which a shop is entitled to disallow in robots.txt — the
+walk asks before each page rather than assuming.
+
+| # | Site | Entry URL | Status |
+| --- | --- | --- | --- |
+| — | **Legacy Collectibles** | `/new-firearms/`, `/antique-handguns/`, `/antique-long-guns/` | **Shipped.** `data-entity-id` on every card, so a listing keeps its identity through a rename. Their two "Modern" sections were dropped after the first run: Glocks, Sigs, Kimber 2011s and FN SCARs, 43 listings and not one of them surplus — the Arms Unlimited call again. `/new-firearms/` is a new-arrivals feed rather than a category and carries some of the same, but it is also the only place a Portuguese-contract Mauser Luger appears |
+| 1 | SARCO Inc. | https://www.sarcoinc.com/live-firearms/rifles/ | **Needs a browser.** No cards, titles or prices in the HTML: rendered client-side, like J&G Sales |
+| 2 | Edelweiss Arms | https://edelweissarms.com/antiques/long-guns/ | **Prices are not published.** Cards and titles parse; the price element is empty site-wide. Worth having for new-stock alerts, worth nothing for price tracking — decide before building |
+| — | ~~Arms Unlimited~~ | — | **Dropped: not a surplus dealer.** Written, run against the live site, and backed out. Their `/surplus/` section is police trade-in gear — Tasers, holsters, a water bottle — and `/rifles/` is modern Colt M4s. 97 listings landed correctly and none of them belonged in this catalog. The scraper was a two-line subclass; restoring it is easy if modern stock is ever wanted |
+
+#### Group C — Shopify (2 sites) · least work per site
 
 Shopify publishes `/products.json`: structured data, reliable prices, variants
-and image galleries, no HTML parsing and no browser. Least work per site of
-anything here.
+and image galleries, no HTML parsing and no browser. **Verified** on IMA-USA,
+which returns full product objects. Worth doing straight after BigCommerce, or
+before it if two sites quickly is more use than four sites slowly.
 
-| # | Site | Entry URL | Audience signal | Notes |
-| --- | --- | --- | --- | --- |
-| 1 | IMA-USA | https://www.ima-usa.com/collections/original-antique-guns | Trading since 1981; 70K+ eBay sales; has a Wikipedia entry | Try `/products.json` first |
-| 2 | Surplus Defense | https://www.surplusdefense.com/all-products | — | Two sources, one scraper: `/all-products` and `/surplus-rifles` |
-| 3 | Edelweiss Arms | https://edelweissarms.com/ | — | High-end collector stock |
-| 4 | The Mosin Crate | https://www.themosincrate.com/ | — | Narrow, single-family inventory |
+| # | Site | Entry URL | Audience signal |
+| --- | --- | --- | --- |
+| 1 | IMA-USA | https://www.ima-usa.com/collections/original-antique-guns | Trading since 1981; has a Wikipedia entry |
+| 2 | Centerfire Systems | https://centerfiresystems.com/ | No surplus-only section — needs filtering by category |
 
-#### Group D — Shift4Shop / 3dcart (2 sites)
+#### Group D — one site each
 
-Shared 3dcart-derived category URLs and markup; the `-cNNNNNNNNN` suffix is the
-giveaway.
-
-| # | Site | Entry URL | Audience signal | Notes |
-| --- | --- | --- | --- | --- |
-| 1 | Joe Salter | https://shop.joesalter.com/CandR-Firearms-curio-and-relic-handguns-rifles | Long-established collector dealer | — |
-| 2 | Liberty Tree Collectors | https://www.libertytreecollectors.com/Rifles-C&R-c179758763 | — | Note the literal `&` in the URL |
-
-#### Group E — one-off builds (6 sites) · no reuse, so weigh each on its own
-
-No shared platform, so each is a scraper from scratch. Atlantic Firearms is the
-single most-visited site on the whole list and is worth building on its own
-merits despite that.
+Each of these is its own build, so weigh it on its own merits. Atlantic Firearms
+is the most-visited site on the whole list and is worth building despite that.
 
 | # | Site | Entry URL | Platform | Audience signal | Notes |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Atlantic Firearms | https://atlanticfirearms.com/military-surplus | Magento/custom | ~837K visits/mo (Similarweb, Aug 2024); ~606K (Oct 2024) | The most-visited site here. Big surplus section |
-| 2 | SARCO Inc. | https://www.sarcoinc.com/live-firearms/rifles/ | Custom | Named in surplus round-ups as a primary source | Deep parts inventory — take the firearms and any parts *kits*, skip the component tree (see below) |
-| 3 | Simpson Ltd. | https://www.simpsonltd.com/ | Unknown | "Largest full-line collector shop in the Midwest", trading since 1962 | Very large; no surplus-only path, needs category filtering |
-| 4 | Centerfire Systems | https://centerfiresystems.com/ | Custom | — | No surplus-only section; needs category filtering |
-| 5 | Fernwood Armory | https://www.fernwoodarmory.com/militarysurplus.html | Static HTML | — | Likely the same shape as Empire Arms — cheap |
-| 6 | Pasadena Pawn and Gun | https://www.pasadenapawnandgun.com/antique-guns | Unknown | — | Pawn shop; inventory turns over fast and unpredictably |
+| 1 | Atlantic Firearms | https://atlanticfirearms.com/military-surplus | PrestaShop | ~837K visits/mo (Similarweb, Aug 2024) | The most-visited here. Big surplus section |
+| 2 | Classic Firearms | https://www.classicfirearms.com/firearms/rifles/military-surplus/ | Unknown | 1.6M visits/3mo (Similarweb, Jul 2026) | The biggest name on the list; identify it first |
+| 3 | AIM Surplus | https://aimsurplus.com/categories/firearm/curio-and-relic | Laravel | ~357K visits/mo (Semrush, Apr 2026) | Bespoke application. An earlier list guessed BigCommerce from the URL shape; the cookies say otherwise |
+| 4 | Century Arms | https://store.centuryarms.com/surplus-corner/firearms | Magento | Importer, widely stocked by the others | Surplus Corner section only |
+| 5 | Joe Salter | https://shop.joesalter.com/CandR-Firearms-curio-and-relic-handguns-rifles | OpenCart | Long-established collector dealer | Not Shift4Shop, which the `-cNNNNNNNNN` URL suffix suggested |
+| 6 | Simpson Ltd. | https://www.simpsonltd.com/ | Unknown | Trading since 1962 | Very large; no surplus-only path, so needs filtering by category |
+| 7 | eBayonet | https://www.ebayonet.com/bayonetsa_f.htm | Static HTML (Word export) | Specialist; catalog dated 9 Aug 2026 | Bayonets only. See below — it is the closest thing on this list to Empire Arms |
+
+**eBayonet, measured rather than guessed.** No e-commerce platform at all: an
+Apache server, hand-maintained pages, and no `robots.txt` (it 404s, which the
+crawler treats as "no restrictions"). The pages were saved out of Microsoft
+Word — `MsoNormal` classes and `<o:p>` tags throughout — so the markup carries
+no product structure whatsoever. What it does have is a consistent shape:
+
+- The catalog is five pages split by country initial: `bayonetsa_f.htm`,
+  `bayonetsg.htm`, `bayonetsh_m.htm`, `bayonetsn_s.htm`, `bayonetst_z.htm`.
+- Each listing is a `<p>` beginning with a stock number, which is a stable
+  external key and better than most shops manage.
+- Countries are `<hr>` plus a bold heading, so the country is recoverable from
+  position — this site would populate that facet properly.
+- The "G" page alone is 211 KB with 118 prices, so the catalog is substantial.
+- No images on the listing pages, so listings would carry no photograph.
+
+This is the Empire Arms treatment — static HTML, block parsing on a delimiter —
+rather than a platform base class, and it is worth doing now that bayonets have
+their own type rather than sitting in the accessories pile.
+
+#### Group E — Wix (3 sites) · expect the browser
+
+Wix renders its catalog client-side, so these are likely to need the browser
+path rather than plain HTTP, the way J&G Sales does.
+
+| # | Site | Entry URL | Notes |
+| --- | --- | --- | --- |
+| 1 | Surplus Defense | https://www.surplusdefense.com/all-products | Also `/surplus-rifles` — one scraper, two sources, the same shape as Empire Arms |
+| 2 | The Mosin Crate | https://www.themosincrate.com/ | Narrow, single-family inventory |
+| 3 | Pasadena Pawn and Gun | https://www.pasadenapawnandgun.com/antique-guns | Pawn shop; inventory may turn over fast and unpredictably |
+
+#### Group Z — refused a plain request
+
+Neither could be identified without a browser, which is itself the finding.
+
+| Site | Entry URL | What happened |
+| --- | --- | --- |
+| Liberty Tree Collectors | https://www.libertytreecollectors.com/Rifles-C&R-c179758763 | 403. Note the literal `&` in that URL |
+| Fernwood Armory | https://www.fernwoodarmory.com/militarysurplus.html | 403 behind Cloudflare. Static HTML underneath, so likely similar in shape to Empire Arms |
 
 #### Group F — built
 
@@ -179,55 +291,6 @@ merits despite that.
 | Royal Tiger Imports | https://royaltigerimports.com/ | WooCommerce / Elementor | **Built** — browser-driven; infinite scroll, Load More and pagination |
 | Empire Arms | https://www.empirearms.com/ | Static HTML | **Built** — two catalog pages |
 | [Hunter's Lodge](https://www.hunterslodge.com/) | https://www.hunterslodge.com/ | Scanned flyer image | **Built** — OCR; see below |
-
-### What to take from a site that also sells parts
-
-Several of these dealers carry a large accessories and components inventory
-alongside the firearms. **The only non-firearm category worth ingesting is
-"parts kits".** Individual components — stocks, magazines, springs, barrels,
-bayonets, slings, cleaning kits, ammunition — are explicitly out of scope: they
-turn over constantly, they swamp the listing count, and nobody is watching this
-application for a price drop on a recoil spring.
-
-A parts kit is a different thing: it is a whole disassembled firearm minus the
-receiver, it is priced and tracked like a firearm, and it is exactly what
-someone following surplus stock wants alerting on. Royal Tiger's "Parts Kit"
-section is the reference case, and `classify.enrich()` already has somewhere to
-put the distinction.
-
-Scrapers for parts-carrying sites should therefore ingest the firearm
-categories plus any parts-kit category, and skip the rest of the parts tree
-rather than importing it and filtering later.
-
-| # | Site | Entry URL | Likely platform | Notes |
-| --- | --- | --- | --- | --- |
-| 1 | Classic Firearms | https://www.classicfirearms.com/firearms/rifles/military-surplus/ | BigCommerce | Large catalog, clean pagination |
-| 2 | Atlantic Firearms | https://atlanticfirearms.com/military-surplus | Magento/custom | Big surplus section |
-| 3 | SARCO Inc. | https://www.sarcoinc.com/live-firearms/rifles/ | Custom | Deep parts inventory — take the firearms and any parts *kits*, skip the component tree (see above) |
-| 4 | Surplus Defense (all) | https://www.surplusdefense.com/all-products | Shopify | Shopify exposes `/products.json` — may need no HTML parsing at all |
-| 5 | Surplus Defense (rifles) | https://www.surplusdefense.com/surplus-rifles | Shopify | Same site, narrower section; likely one scraper with two sources |
-| 6 | DK Firearms | https://dkfirearms.com/product-category/surplus/surplus-firearms/ | WooCommerce | Candidate for the shared WooCommerce base |
-| 7 | Arms Unlimited | https://armsunlimited.com/surplus/ | WooCommerce | ” |
-| 8 | MCT Defense | https://mctdefense.com/product-category/firearms/ | WooCommerce | ” |
-| 9 | Axis Arms | https://axisarmsonline.com/product-category/rifles/ | WooCommerce | Two sections to scrape: `/product-category/rifles/` and `/product-category/handguns/`. One scraper, two sources — same shape as Empire Arms |
-| 10 | Fernwood Armory | https://www.fernwoodarmory.com/militarysurplus.html | Static HTML | Likely similar in shape to Empire Arms |
-| 11 | Edelweiss Arms | https://edelweissarms.com/ | Shopify | High-end collector stock |
-| 12 | The Mosin Crate | https://www.themosincrate.com/ | Shopify | Narrow, single-family inventory |
-| 13 | J&G Sales | https://www.jgsales.com/product-category/firearms/collectors-corner/military-surplus-collectible-category/ | WooCommerce | ” |
-| 14 | Collectors Firearms | https://collectorsfirearms.com/product-category/foreign-military-rifles/ | WooCommerce | Very large catalog; expect a long first scan |
-| 15 | Century Arms | https://store.centuryarms.com/surplus-corner/firearms | BigCommerce | Surplus Corner section |
-| 16 | Centerfire Systems | https://centerfiresystems.com/ | Custom | No surplus-only section; needs category filtering |
-| 17 | Liberty Tree Collectors | https://www.libertytreecollectors.com/Rifles-C&R-c179758763 | Shift4Shop / 3dcart | The `-cNNNNNNNNN` category suffix is the giveaway; note the literal `&` in the URL |
-| 18 | Checkpoint Charlie's | https://checkpointcharlies.com/product-tag/cr/ | WooCommerce | A product *tag*, not a category — pagination differs slightly |
-| 19 | Pasadena Pawn and Gun | https://www.pasadenapawnandgun.com/antique-guns | Unknown | Pawn shop; inventory may turn over fast and unpredictably |
-| 20 | Joe Salter | https://shop.joesalter.com/CandR-Firearms-curio-and-relic-handguns-rifles | Shift4Shop / 3dcart | Long-established collector dealer |
-| 21 | CO Gun Sales | https://cogunsales.com/product-category/curio-relics-cr/page/6/ | WooCommerce | URL given is page 6 — start from page 1 |
-| 22 | AIM Surplus | https://aimsurplus.com/categories/firearm/curio-and-relic | BigCommerce/custom | High-volume surplus dealer |
-| 23 | Ancestry Guns | https://www.ancestryguns.com/product-category/curio-relic/ | WooCommerce | Strong photography; good gallery test case |
-| 24 | IMA-USA | https://www.ima-usa.com/collections/original-antique-guns | Shopify | `/collections/` — try `/products.json` first |
-| 25 | Simpson Ltd. | https://www.simpsonltd.com/ | Unknown | Very large collector inventory; no surplus-only path given, needs category filtering |
-| 26 | Legacy Collectibles | https://legacy-collectibles.com/new-firearms/ | WooCommerce | High-end WWI/WWII collector pieces |
-| 27 | [Hunter's Lodge](https://hunterslodge.com) | https://www.hunterslodge.com/ | Scanned flyer image | **Built** — see below. No HTML catalog at all |
 
 #### Hunter's Lodge — the OCR case — **Built**
 
@@ -435,6 +498,51 @@ application and publish it as a snap.
   instructions, FFL notices) that currently reaches the detail view.
 - **Parked** — Optical character recognition of proof marks from photos. Fun,
   but a long way from paying for itself.
+
+### Calibers as a managed list, like makers
+
+**Planned.** Calibers are still a tuple of regular expressions in
+`app/services/classify.py`, which is where the maker list started before it
+became a table with an admin page. The same argument applies, and more sharply:
+a cartridge has one name that collectors use and several that vendors write, and
+which one is the "real" one is a judgement about the market rather than about
+code.
+
+The shape is the one `manufacturers` and `manufacturer_models` already have:
+
+- A **display name** — what the filter shows and what a listing is filed under.
+  "7.62 NATO", or "6.5 Swedish".
+- **Aliases** underneath it, one per line, for what vendors actually write:
+  "7.62x51mm", "7.62x51", ".308 Winchester" under the first; "6.5x55mm",
+  "6.5x55 Swedish", "6.5x55 Mauser" under the second. Matched as literal text
+  on word boundaries, never as patterns, because they come from a form.
+- Editable from the admin pages, with the edit **re-filing every listing it
+  reaches** and saying how many moved — the manufacturers page already works
+  this way and the machinery is shared.
+- Seeded from `CALIBER_NORMALIZATIONS`, exactly as the maker table was seeded
+  from `MANUFACTURER_PATTERNS`, so nothing is lost and the first edit can be
+  made from the UI.
+
+**What this fixes beyond tidiness.** The catalog currently files the same
+cartridge under whatever each vendor calls it, so "7.62x51mm" and "7.62 NATO"
+are two filter entries for one round, and neither shows the other's listings.
+Today's caliber audit found the same thing at a smaller scale — `.25ACP` and
+`6.35` are one cartridge, and only a rule in code could say so.
+
+The bare-bore rules added since — a listing that says `.31` or `4.25mm` and
+nothing more, which is how the whole percussion end of the catalog is written —
+make this sharper still. Those produce an honest *number* because that is all
+the listing gives, and a number is exactly what wants an alias: whoever runs the
+site knows that a Colt M1877 Thunderer marked ".41" is .41 Colt, and no amount
+of pattern-writing will.
+
+**Two lessons from the maker work that carry over.** Order decides ties, so the
+list needs a position column: a rule for ".38" must not be reached before
+".380". And a caliber claimed by two display names identifies neither — the
+manufacturers table already refuses to guess in that case, and this should too.
+
+Worth doing before the market-pricing work below, which needs a stable caliber
+identity to key against as much as it needs a stable model identity.
 
 ### Market pricing — "is this a good deal?"
 

@@ -421,13 +421,15 @@ def cmd_reclassify(_args: argparse.Namespace) -> int:
                 "condition": item.condition or derived["condition"],
                 "manufacturer": maker,
             }
-            if (
-                item.is_rifle != derived["is_rifle"]
-                or item.is_pistol != derived["is_pistol"]
-                or any(getattr(item, name) != value for name, value in filled.items())
-            ):
-                item.is_rifle = derived["is_rifle"]
-                item.is_pistol = derived["is_pistol"]
+            flags = {
+                "is_rifle": derived["is_rifle"],
+                "is_pistol": derived["is_pistol"],
+                "is_bayonet": derived["is_bayonet"],
+                "is_parts_kit": derived["is_parts_kit"],
+            }
+            if any(getattr(item, name) != value for name, value in (flags | filled).items()):
+                for name, value in flags.items():
+                    setattr(item, name, value)
                 for name, value in filled.items():
                     setattr(item, name, value)
                 changed += 1
@@ -439,9 +441,16 @@ def cmd_reclassify(_args: argparse.Namespace) -> int:
         pistols = session.execute(
             select(func.count(Item.id)).where(Item.is_pistol.is_(True))
         ).scalar_one()
+        bayonets = session.execute(
+            select(func.count(Item.id)).where(Item.is_bayonet.is_(True))
+        ).scalar_one()
+        kits = session.execute(
+            select(func.count(Item.id)).where(Item.is_parts_kit.is_(True))
+        ).scalar_one()
 
     print(f"Reclassified {changed} of {len(items)} listing(s).")
     print(f"  rifles: {rifles}   handguns: {pistols}   other: {len(items) - rifles - pistols}")
+    print(f"  bayonets: {bayonets}   parts kits: {kits}")
     return 0
 
 

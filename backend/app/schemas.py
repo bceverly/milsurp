@@ -253,6 +253,8 @@ class ItemOut(UTCModel):
     condition: str | None = None
     is_rifle: bool
     is_pistol: bool
+    is_bayonet: bool = False
+    is_parts_kit: bool = False
     is_sold: bool
     is_active: bool
     current_price: float | None = None
@@ -265,6 +267,12 @@ class ItemOut(UTCModel):
     delisted_at: datetime | None = None
     thumbnail_url: str | None = None
     price_drop: float | None = None
+    #: The opening of the description, for the list view.
+    #:
+    #: Truncated here rather than in the browser: a page of 192 listings would
+    #: otherwise carry 192 full descriptions, some of them a dealer's several
+    #: paragraphs, to render two lines each.
+    blurb: str | None = None
 
 
 class ItemDetail(ItemOut):
@@ -342,11 +350,24 @@ class EmailLogOut(UTCModel):
     new_item_count: int
     price_drop_count: int
     error_message: str | None = None
+    #: Whether the message itself was kept, so the list can offer to show it
+    #: without carrying fifty rendered digests to draw a table.
+    has_body: bool = False
 
     @field_validator("status", mode="before")
     @classmethod
     def _enum_value(cls, value: Any) -> Any:
         return getattr(value, "value", value)
+
+
+class EmailBodyOut(UTCModel):
+    """One message, as it was sent."""
+
+    id: int
+    sent_at: datetime
+    subject: str | None = None
+    body_html: str | None = None
+    body_text: str | None = None
 
 
 # ---------------------------------------------------------------------------
