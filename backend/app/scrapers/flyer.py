@@ -639,7 +639,7 @@ def listings_from_lines(lines: list[TextLine]) -> list[FlyerListing]:
         listings.append(
             FlyerListing(
                 title=title,
-                description=joined,
+                description=only_this_listing(joined, title),
                 price=found[0],
                 box=box,
                 lines=list(text_lines),
@@ -804,6 +804,52 @@ def _skip_to_the_first_name_word(text_lines: list[str]) -> list[str]:
             if _is_title_word(token) and any(c.isalpha() for c in token):
                 return [" ".join(tokens[position:]), *text_lines[index + 1 :]]
     return []
+
+
+def only_this_listing(text: str, title: str) -> str:
+    """Trim a listing's text down to the part that is about the listing.
+
+    Grouping cuts a page into listings, but OCR reads *lines*, and a line
+    routinely carries the tail of the panel above or the head of the one below.
+    So a listing's description arrives with a neighbour attached at one end or
+    the other, and anything derived from it — a caliber, a country, a maker —
+    is then derived from the wrong product. Hand-woven Vaquero blankets came
+    out chambered in 8mm Mauser, which is the cartridge of the Spanish M43
+    rifles advertised beneath them.
+
+    Two cuts, both from things the page itself settles:
+
+    * **The front.** The description starts where the name does. Anything in
+      front of the name belongs to whatever came before — "quality Swedish
+      steel." is the end of the stock sets above the Gahendra Martini, and it
+      is why the Gahendra was filed under Sweden.
+    * **The back.** A bullet marks the start of a product, so the first bullet
+      *after* this listing's price begins the next one. Cutting at the price
+      itself would be wrong: what follows it is usually this listing's own
+      terms and options, "Add $25 for hand select", which are worth keeping.
+
+    Neither cut is applied speculatively: if the name cannot be found in the
+    text, or no bullet follows the price, that end is left alone.
+    """
+    cleaned = text
+    if title:
+        start = cleaned.find(title)
+        if start > 0:
+            cleaned = cleaned[start:]
+
+    price = PRICE_PATTERN.search(cleaned)
+    if price is not None:
+        following = BULLET_ANYWHERE.search(cleaned, price.end())
+        if following is not None:
+            cleaned = cleaned[: following.start()]
+    return " ".join(cleaned.split()).strip()
+
+
+#: A bullet anywhere in a line, rather than only at the start of one. Used to
+#: find where the *next* product begins inside a run-together description.
+BULLET_ANYWHERE = re.compile(
+    r"[•·∙*●▪]{1,2}\s*(?=[A-Z0-9])|(?<=[.\s])[¢°«»]\s*[a-z]?\s*(?=[A-Z0-9])"
+)
 
 
 def _opens_with_a_shouted_name(text: str) -> bool:

@@ -1117,6 +1117,185 @@ opens the browse grid and every card is blank.
 - [x] Both halves tested, including the bug itself, so the fix cannot be
       quietly undone.
 
+## 29. robots.txt, obeyed
+
+Built before the WooCommerce work rather than after it, because the first shop
+on the list turned out to have rules that decide the design.
+
+- [x] `app/robots.py` — RFC 9309: wildcards, `$` anchoring, longest match wins,
+      ties to allow. **The standard library was not good enough**: measured
+      against collectorsfirearms.com's real file, `urllib.robotparser` ignored
+      `Disallow: /*?*` entirely and applied rules in file order, so
+      `Allow: /wp-admin/admin-ajax.php` under `Disallow: /wp-admin/` came back
+      disallowed. Both errors were in the direction of crawling more than
+      permitted.
+- [x] Enforced in `ScrapeContext.get()` before a request is made, with
+      `ctx.allowed(url)` public so a scraper can pick another route instead of
+      failing, and `Disallowed` as its own exception type.
+- [x] **`Crawl-delay` is honored** and becomes the floor on the politeness
+      delay. Collectors Firearms asks for ten seconds, which makes a scan of
+      their catalog half an hour of wall clock. That is their call to make.
+- [x] A robots.txt that cannot be read — 5xx, 403, connection failure — means
+      the site is off limits, not open. Erring the other way would let a blip
+      quietly switch off every restriction a vendor has.
+- [x] `scraping.obey_robots`, on by default, off in the test config (the
+      scraper tests mock a vendor's pages, not its robots.txt). 33 tests.
+
+## 30. WooCommerce base class, and the first of the ten
+
+- [x] `app/scrapers/woocommerce.py`: `li.product` cards, the WordPress post id
+      as the external key (a slug can be edited, a post id cannot), sale-aware
+      prices, lazy-loaded images, gallery de-duplication, and pagination by
+      following the shop's own "next" link rather than computing page numbers.
+- [x] `app/scrapers/collectors_firearms.py` — foreign and U.S. military rifle
+      sections only. They carry ~207,000 products; their military handguns are
+      not separately categorized, so handguns are left until they are.
+- [x] Selector overrides go *in front of* the stock ones, so a theme reverting
+      does not break the scraper.
+
+**The Store API is a trap on this platform.** Every one of these shops publishes
+`/wp-json/wc/store/v1/products`, returning exactly the structured data the HTML
+parsing recovers by hand. Filtering it to a category, or reading past the first
+ten products, needs a query string — and Collectors Firearms disallows `/*?*`.
+Reading 207,000 products ten at a time to find the rifles is not an alternative
+to reading seventeen category pages. Re-check per shop: where robots permits, a
+subclass can override `scrape()`.
+
+**Two of the ten are behind Cloudflare.** dkfirearms.com returns a 403 challenge
+to plain HTTP, so it needs the browser path Royal Tiger already uses. That is a
+per-site fact, not a platform one.
+
+- [x] Sale prices: WooCommerce renders `<del>$600</del> <ins>$450</ins>`, and
+      taking the first amount would report the price the shop is no longer
+      asking — hiding the drop this application exists to notice.
+- [x] Gallery de-duplication: WordPress stores a large upload twice, as
+      `foo.jpg` and `foo-scaled.jpg`, and offers each at half a dozen generated
+      sizes. Eleven photographs were coming back as twelve URLs.
+- [x] 23 tests, against written markup rather than a saved copy of the shop's
+      page.
+
+## 31. Descriptive fields derived where a vendor has none
+
+Found by reading the first Collectors Firearms rows: every rifle had "7.62x54R"
+in its title and nothing in the caliber column.
+
+`_upsert_item` was computing `classify.enrich()` and then using only the
+rifle/handgun split from it. Royal Tiger publishes caliber, country and
+condition as their own fields, so the gap never showed; a WooCommerce shop has
+nowhere structured to put them.
+
+- [x] The three fields fall back to what the text says, filling gaps only —
+      a value the vendor stated is theirs.
+- [x] `milsurp reclassify` backfills them, so an existing catalog gets them
+      without asking any vendor for its pages again.
+
+## 32. A 429 is an instruction, not a hiccup
+
+The first live scan of Collectors Firearms failed after sixteen minutes and
+ninety listings with `429 Too Many Requests` — while keeping to the ten-second
+`Crawl-delay` their own robots.txt publishes. Their limiter counts over a window
+that ten seconds a request eventually fills.
+
+The retry logic treated 429 exactly like a flaky 500: back off one to four
+seconds and try again, which is asking too often again. Four attempts later the
+run failed. Seventy-two listings survived, because the scan commits in batches —
+the interrupted-work design doing its job.
+
+- [x] `Retry-After` is honored, in seconds or as an HTTP date.
+- [x] A 429 sets a **standing** slower pace for that host for the rest of the
+      scan, doubling with each further refusal, capped at 300s. It is never
+      reset: a scan told twice to slow down has no business speeding up again
+      before it ends.
+- [x] A 500 still gets the short retry it wants. The two failures want opposite
+      things and no longer share a path.
+- [x] The run says it was told to slow down, so a scan that suddenly takes six
+      times as long is not a mystery to whoever reads it later.
+- [x] `min_request_delay` on the scraper, for a shop measured to need more than
+      it asks for. Collectors Firearms is set to 20s. Obeying a stated delay and
+      being refused anyway means the stated delay is not the real one.
+
+The detail pages are fetched once per listing ever, so it is the *first* scan
+that is long. Later ones only pay for what is new.
+
+## 33. Deriving facts from prose that is not about the listing
+
+Found by reading the rows `reclassify` had just filled in: hand-woven Vaquero
+blankets in 8mm Mauser from Sweden, a Japanese Arisaka from Sweden, a Gahendra
+Martini from Sweden.
+
+Section 31 had `_upsert_item` derive caliber, country and condition from title
+*and description*, which is right for a vendor whose prose is about the thing it
+is attached to. It is wrong for Hunter's Lodge, whose whole catalog comes off
+one scanned page and whose "description" is whatever OCR read nearby. This is
+the same lesson section 22 had already learned for cross-catalog matching, and
+it was not applied here.
+
+- [x] `SiteScraper.descriptions_are_reliable`, false for Hunter's Lodge, honored
+      by `classify.enrich(trust_description=...)`, `_upsert_item` and
+      `reclassify`.
+- [x] Only the *derived* fields honor it. The description is still stored, still
+      shown, and still read by the rifle/handgun rules — a judgement about a
+      whole block of text survives some contamination; a specific claim like a
+      caliber does not.
+- [x] Measured before choosing: a global "titles only" rule would have cost
+      Royal Tiger 89 countries and Empire Arms 24 calibers. The per-source flag
+      costs nothing on the sources that deserve trust.
+
+### And two the title itself got wrong
+
+- [x] **A maker's name is the last resort for a caliber, and never for a
+      handgun.** Mauser and Enfield each made a famous rifle and a famous
+      revolver; the bare name points at the rifle. "MAUSER C96 PISTOL KITS" was
+      in 8mm Mauser — the 98's cartridge, not the C96's — and "ENFIELD NO1 MK2
+      PARTS KITS", a .38 revolver, was in .303 British. The handgun test
+      consults `KNOWN_DESIGNATIONS`, so a designation whose name says nothing
+      about being a handgun is still caught.
+- [x] Demoting those rules below the explicit spellings is a fix in its own
+      right: "Spanish Mauser 7x57" was answered "8mm Mauser" because the maker
+      rule was reached first.
+- [x] Plural: "1903 TURKISH CONTRACT MAUSERS" is not `\bmauser\b`.
+
+**A note on how this was verified.** Re-deriving the catalog meant clearing the
+caliber column for every site, which would have discarded vendor-supplied values
+had there been any. Empire Arms parses calibers off its pages, lost seven, and
+was restored by a 3-second re-scan. Royal Tiger turned out never to have had
+any — its caliber is derived by `enrich` too — so the one row that changed there
+was a Mauser C96 *holster* correctly losing a caliber it should never have had.
+Next time: null the site that is wrong, not the column.
+
+## 34. Signing in returned a 500 while a scan was running
+
+Reported: "why am i getting a 500 trying to log in while that scan is running?"
+
+SQLite has one writer. A scan takes the write lock the moment it saves a listing
+and holds it until it commits, and it was committing every twenty-five listings
+— so the lock was held for however long the vendor took to hand over the next
+twenty-five. At Royal Tiger's pace that is half a minute and mostly went
+unnoticed. At the twenty seconds Collectors Firearms needs it is **eight
+minutes**, and every write the web application attempted in that window waited
+out its fifteen-second `busy_timeout` and failed. Signing in updates
+`last_login_at`, so signing in was one of them.
+
+The `min_request_delay = 20.0` added in section 32 is what turned a latent
+problem into a reproducible one. A slower crawl is politer to the vendor and, as
+written, ruder to everybody using the application.
+
+- [x] `COMMIT_SECONDS = 2.0`: commit on a clock as well as on a count, so the
+      lock is never held across a network wait. The count is kept, because
+      batching is what makes a fast scan cheap.
+- [x] Tested by comparing a slow clock against a fast one rather than against a
+      fixed number — a scan commits a few times whatever happens, and what is
+      under test is the commits the *listings* cause.
+
+- [x] And the failure mode, asked for separately: a locked database is answered
+      **503 with `Retry-After: 5`**, not 500. Nothing is broken, the request was
+      not refused, and it will very likely work if made again in a moment —
+      which is what 503 means and 500 does not. Only a lock says this; a missing
+      table or a disk that has gone away keeps its 500, or a real fault would
+      spend its life being politely retried. The message names the likely cause
+      ("a scan is running") and the frontend already shows `detail` verbatim, so
+      it reaches the person looking at the screen.
+
 ---
 
 ## Context for whoever picks this up

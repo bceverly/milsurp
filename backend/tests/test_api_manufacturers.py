@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.models import Item, Manufacturer, Site, utcnow
+from app.models import Item, Manufacturer, ManufacturerModel, Site, utcnow
 
 
 @pytest.fixture
@@ -212,3 +212,98 @@ class TestDeleting:
         client.delete(f"/api/manufacturers/{maker.id}", headers=admin_headers)
 
         assert seeded.query(Item).count() == 1
+
+
+class TestModelsOverHttp:
+    """Edited as text on the maker's own dialog, stored as rows."""
+
+    def test_they_come_back_one_per_line(self, client, admin_headers, seeded):
+        response = client.post(
+            "/api/manufacturers",
+            json={"name": "Mosin-Nagant", "models": "M44\n91/30\n", "position": 5},
+            headers=admin_headers,
+        )
+        assert response.status_code == 201
+        assert response.json()["manufacturer"]["models"] == "M44\n91/30"
+
+    def test_adding_one_files_the_listings_that_name_it(self, client, admin_headers, seeded, site):
+        add_listing(seeded, site, "a", "RUSSIAN M44 CARBINES")
+
+        response = client.post(
+            "/api/manufacturers",
+            json={"name": "Mosin-Nagant", "models": "M44", "position": 5},
+            headers=admin_headers,
+        )
+
+        assert response.json()["listings_changed"] == 1
+        seeded.expire_all()
+        assert seeded.query(Item).one().manufacturer == "Mosin-Nagant"
+
+    def test_removing_one_lets_its_listings_go(self, client, admin_headers, seeded, site):
+        created = client.post(
+            "/api/manufacturers",
+            json={"name": "Mosin-Nagant", "models": "M44", "position": 5},
+            headers=admin_headers,
+        ).json()["manufacturer"]
+        add_listing(seeded, site, "a", "RUSSIAN M44 CARBINES", manufacturer="Mosin-Nagant")
+
+        response = client.patch(
+            f"/api/manufacturers/{created['id']}", json={"models": ""}, headers=admin_headers
+        )
+
+        assert response.json()["listings_changed"] == 1
+        seeded.expire_all()
+        assert seeded.query(Item).one().manufacturer is None
+
+    def test_a_repeated_line_is_stored_once(self, client, admin_headers, seeded):
+        response = client.post(
+            "/api/manufacturers",
+            json={"name": "CZ", "models": "ZB37\n zb37 \nZB26", "position": 5},
+            headers=admin_headers,
+        )
+        assert response.json()["manufacturer"]["models"] == "ZB37\nZB26"
+
+    def test_a_model_two_makers_claim_is_reported(self, client, admin_headers, seeded):
+        client.post(
+            "/api/manufacturers",
+            json={"name": "Mosin-Nagant", "models": "M38", "position": 5},
+            headers=admin_headers,
+        )
+        client.post(
+            "/api/manufacturers",
+            json={"name": "Carcano", "models": "M38", "position": 6},
+            headers=admin_headers,
+        )
+
+        listed = client.get("/api/manufacturers", headers=admin_headers).json()
+        assert all(row["ambiguous_models"] == ["M38"] for row in listed)
+
+    def test_and_it_files_nothing(self, client, admin_headers, seeded, site):
+        add_listing(seeded, site, "a", "An M38 carbine")
+        client.post(
+            "/api/manufacturers",
+            json={"name": "Mosin-Nagant", "models": "M38", "position": 5},
+            headers=admin_headers,
+        )
+        client.post(
+            "/api/manufacturers",
+            json={"name": "Carcano", "models": "M38", "position": 6},
+            headers=admin_headers,
+        )
+
+        seeded.expire_all()
+        assert seeded.query(Item).one().manufacturer is None
+
+    def test_deleting_the_maker_takes_its_models_with_it(self, client, admin_headers, seeded, site):
+        created = client.post(
+            "/api/manufacturers",
+            json={"name": "Mosin-Nagant", "models": "M44", "position": 5},
+            headers=admin_headers,
+        ).json()["manufacturer"]
+        add_listing(seeded, site, "a", "RUSSIAN M44 CARBINES", manufacturer="Mosin-Nagant")
+
+        client.delete(f"/api/manufacturers/{created['id']}", headers=admin_headers)
+
+        seeded.expire_all()
+        assert seeded.query(Item).one().manufacturer is None
+        assert seeded.query(ManufacturerModel).count() == 0

@@ -360,3 +360,100 @@ def fill_gaps(
                     )
                 )
     return filled
+
+
+# ---------------------------------------------------------------------------
+# What a caliber says about a maker
+# ---------------------------------------------------------------------------
+#: A great many surplus cartridges were designed for one rifle and chambered in
+#: almost nothing else, so the caliber names the maker. Where the cartridge's
+#: *name* says so — "8mm Mauser", "6.5x52mm Carcano" — reading it needs no
+#: catalog at all, and manufacturers.extract() does that directly.
+#:
+#: This is for the rest: 7.62x54R is a Mosin-Nagant cartridge and does not say
+#: so anywhere. Rather than a list written from memory, the catalog is asked.
+#:
+#: The thresholds are the whole design, because the obvious version of this is
+#: dangerous. Measured against the catalog as it stood:
+#:
+#:     caliber              n   share  vendors  top maker
+#:     7.62x54R            47    100%        2  Mosin-Nagant
+#:     8mm Lebel           14    100%        1  Berthier
+#:     7.7x58mm Arisaka     7    100%        2  Arisaka
+#:     9mm                 30     93%        1  Luger
+#:     .22 LR               7     86%        2  CZ
+#:     .30 Carbine          3    100%        1  Marlin
+#:
+#: "High share wins" would have filed thirty-two M1 Carbines under Marlin on
+#: the strength of three rows, and arbitrary 9mm pistols under Luger. Neither
+#: sample size nor share separates those from the good ones. What separates
+#: them is that 7.62x54R was made for one rifle and 9mm is made for everything,
+#: which a catalog cannot see directly — but it can see that a general-purpose
+#: cartridge does not command *unanimous* agreement across *independent*
+#: vendors, because one dealer's stock reflects that dealer's buying.
+#:
+#: Hence: unanimous, two vendors or more, and enough rows to mean it. That
+#: admits Mosin-Nagant and Arisaka and rejects every trap above. It also
+#: rejects 8mm Lebel, which is correct but known from one vendor only — a false
+#: negative worth having, and one that fixes itself as vendors are added.
+MIN_CALIBER_SAMPLES = 5
+MIN_CALIBER_VENDORS = 2
+
+
+def makers_by_caliber(session: Session) -> dict[str, str]:
+    """Calibers the catalog agrees name exactly one maker."""
+    makers: dict[str, Counter[str]] = defaultdict(Counter)
+    vendors: dict[str, set[int]] = defaultdict(set)
+    rows = session.execute(
+        select(Item.caliber, Item.manufacturer, Item.site_id).where(
+            Item.is_active.is_(True),
+            Item.caliber.is_not(None),
+            Item.manufacturer.is_not(None),
+        )
+    ).all()
+    for caliber, manufacturer, site_id in rows:
+        makers[caliber][manufacturer] += 1
+        vendors[caliber].add(site_id)
+
+    agreed: dict[str, str] = {}
+    for caliber, counter in makers.items():
+        total = sum(counter.values())
+        maker, count = counter.most_common(1)[0]
+        if (
+            count == total
+            and total >= MIN_CALIBER_SAMPLES
+            and len(vendors[caliber]) >= MIN_CALIBER_VENDORS
+        ):
+            agreed[caliber] = maker
+    return agreed
+
+
+def fill_makers_from_caliber(session: Session) -> list[Filled]:
+    """Give a listing the maker its caliber implies, where nothing else did."""
+    agreed = makers_by_caliber(session)
+    if not agreed:
+        return []
+
+    filled: list[Filled] = []
+    for item in session.execute(
+        select(Item).where(
+            Item.is_active.is_(True),
+            Item.manufacturer.is_(None),
+            Item.caliber.is_not(None),
+        )
+    ).scalars():
+        maker = agreed.get(item.caliber or "")
+        if not maker:
+            continue
+        item.manufacturer = maker
+        filled.append(
+            Filled(
+                item_id=item.id,
+                title=item.title,
+                field="manufacturer",
+                value=maker,
+                source_title=f"every {item.caliber} in the catalog",
+                score=1.0,
+            )
+        )
+    return filled

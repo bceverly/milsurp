@@ -9,12 +9,25 @@ import { formatDateTime, formatMoney, formatRelative, timeTitle } from "../forma
 import AuthImage from "../components/AuthImage.jsx";
 import { ChevronLeft, External, Sparkle, TrendDown, X } from "../components/Icons.jsx";
 
-function Fact({ label, children }) {
-  if (children === null || children === undefined || children === "") return null;
+/**
+ * One labelled value.
+ *
+ * An empty one is normally left out entirely — a listing with no photograph
+ * count should not say "Photos: none". The four fields describing the firearm
+ * itself pass `always`, because for those the absence is the interesting part:
+ * they are what the classifier failed on, and hiding them makes the listings
+ * worth looking at the hardest ones to find. "Unknown" is the same word the
+ * filter uses for them.
+ */
+function Fact({ label, children, always = false }) {
+  const empty = children === null || children === undefined || children === "";
+  if (empty && !always) return null;
   return (
     <div>
       <div className="fact__label">{label}</div>
-      <div className="fact__value">{children}</div>
+      <div className={`fact__value ${empty ? "fact__value--unknown" : ""}`}>
+        {empty ? "Unknown" : children}
+      </div>
     </div>
   );
 }
@@ -232,10 +245,18 @@ export default function ItemDetail() {
           </div>
 
           <div className="detail__facts">
-            <Fact label="Caliber">{item.caliber}</Fact>
-            <Fact label="Country">{item.country}</Fact>
-            <Fact label="Manufacturer">{item.manufacturer}</Fact>
-            <Fact label="Bore condition">{item.condition}</Fact>
+            <Fact label="Manufacturer" always>
+              {item.manufacturer}
+            </Fact>
+            <Fact label="Caliber" always>
+              {item.caliber}
+            </Fact>
+            <Fact label="Country" always>
+              {item.country}
+            </Fact>
+            <Fact label="Bore condition" always>
+              {item.condition}
+            </Fact>
             <Fact label="Lowest seen">
               {item.lowest_price ? formatMoney(item.lowest_price, item.currency) : null}
             </Fact>

@@ -18,12 +18,15 @@ import re
 import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from typing import Any
+from urllib.parse import urlparse
 
 import requests
 
 from ..config import Config, ScrapingConfig
+from ..robots import RobotsCache
 
 
 @dataclass
@@ -111,6 +114,13 @@ class ScrapeContext:
         # already fetched. Defaults to True so a scraper used standalone (in a
         # test, say) still does the full job.
         self._needs_detail = needs_detail or (lambda _key: True)
+        #: One robots.txt per site per scan, fetched through this context's own
+        #: session so it is asked for under the same identity the rules are
+        #: then applied to.
+        self.robots = RobotsCache(self._fetch_robots)
+        #: Per host, a pace slower than the one we started with, because the
+        #: host asked for it with a 429. See _slow_down().
+        self._slowed: dict[str, float] = {}
         # Answers "do we hold any listing whose key starts with this?", for a
         # scraper whose keys are not predictable one at a time. Defaults to
         # False, so a scraper used standalone does the full job.
@@ -185,38 +195,123 @@ class ScrapeContext:
             raise ScrapeCanceled("Scan canceled")
 
     # -- HTTP ---------------------------------------------------------------
-    def _throttle(self) -> None:
-        delay = self.scraping.request_delay
+    def _throttle(self, url: str) -> None:
+        """Wait out the politeness delay, or the site's own, whichever is longer.
+
+        A Crawl-delay in robots.txt is the site telling us what it can take.
+        Collectors Firearms asks for ten seconds, which turns a pass over their
+        catalog from minutes into half an hour — and that is the site's call to
+        make, not ours.
+        """
+        delay = self._delay_for(url)
         if delay <= 0:
             return
         elapsed = time.monotonic() - self._last_request_at
         if elapsed < delay:
             time.sleep(delay - elapsed)
 
+    def _delay_for(self, url: str) -> float:
+        """The pace to keep with this host: ours, theirs, or the one a 429 set."""
+        return max(
+            self.scraping.request_delay,
+            self._crawl_delay_for(url),
+            self._slowed.get(_host_of(url), 0.0),
+        )
+
+    def _crawl_delay_for(self, url: str) -> float:
+        if not self.scraping.obey_robots:
+            return 0.0
+        return self.robots.for_url(url).crawl_delay(self.scraping.user_agent) or 0.0
+
+    def keep_at_least(self, url: str, seconds: float) -> None:
+        """Hold this host to a pace no faster than ``seconds`` for this scan.
+
+        For a site measured to refuse traffic that its own robots.txt says is
+        acceptable. Never lowers a pace already set, so it cannot undo a 429.
+        """
+        host = _host_of(url)
+        self._slowed[host] = min(max(self._slowed.get(host, 0.0), seconds), MAX_REQUEST_DELAY)
+
+    def allowed(self, url: str) -> bool:
+        """Whether robots.txt permits fetching this URL.
+
+        Public because a scraper often knows a cheaper thing to do than fetch
+        and fail — falling back from a query-string API to path pagination,
+        say.
+        """
+        if not self.scraping.obey_robots:
+            return True
+        return self.robots.for_url(url).allows(url, self.scraping.user_agent)
+
+    def _fetch_robots(self, url: str) -> requests.Response:
+        """Fetch a robots.txt, without consulting robots.txt about it."""
+        return self.session.get(url, timeout=self.scraping.request_timeout)
+
     def get(self, url: str, **kwargs: Any) -> requests.Response:
         """GET with politeness delay and retries on transient failures."""
+        if not self.allowed(url):
+            raise Disallowed(url)
         timeout = kwargs.pop("timeout", self.scraping.request_timeout)
         last_error: Exception | None = None
         for attempt in range(self.scraping.max_retries):
             self.check_stop()
-            self._throttle()
+            self._throttle(url)
             try:
                 response = self.session.get(url, timeout=timeout, **kwargs)
                 self._last_request_at = time.monotonic()
-                if response.status_code in (429, 500, 502, 503, 504):
-                    response.raise_for_status()
+                if response.status_code == TOO_MANY_REQUESTS:
+                    self._slow_down(url, response)
                 response.raise_for_status()
             except requests.RequestException as exc:
                 last_error = exc
                 self._last_request_at = time.monotonic()
                 if attempt < self.scraping.max_retries - 1:
-                    # Linear backoff; these sites are small and flaky rather
-                    # than rate-limiting us aggressively.
-                    time.sleep(self.scraping.request_delay * (attempt + 1) + 1.0)
+                    time.sleep(self._backoff(url, exc, attempt))
             else:
                 return response
         raise ScrapeError(
             f"GET {url} failed after {self.scraping.max_retries} attempts: {last_error}"
+        )
+
+    def _backoff(self, url: str, error: Exception, attempt: int) -> float:
+        """How long to wait before trying again.
+
+        A rate limit and a flaky server want opposite things. A 500 usually
+        clears on the next request, so a second or two is right. A 429 is the
+        site saying we are asking too often, and retrying it in a second or two
+        is asking too often again — so it waits at least the new, slower pace
+        this context has just adopted, and honors Retry-After when the site
+        gives one.
+        """
+        response = getattr(error, "response", None)
+        if response is not None and response.status_code == TOO_MANY_REQUESTS:
+            stated = _retry_after(response)
+            return max(stated or 0.0, self._delay_for(url)) * (attempt + 1)
+        return self.scraping.request_delay * (attempt + 1) + 1.0
+
+    def _slow_down(self, url: str, response: requests.Response) -> None:
+        """Take a 429 as a standing instruction, not a one-off.
+
+        Collectors Firearms publishes ``Crawl-delay: 10`` and still returned
+        429 after sixteen minutes at exactly that pace — their limiter counts
+        over a window that ten seconds a request eventually fills. Retrying the
+        one request and carrying on at the same rate walks straight back into
+        it, so the pace for the rest of the scan slows instead, doubling with
+        each further refusal.
+
+        It is never reset. A scan that has been told to slow down twice has no
+        business speeding up again before it ends.
+        """
+        host = _host_of(url)
+        current = self._slowed.get(host) or max(
+            self.scraping.request_delay, self._crawl_delay_for(url)
+        )
+        stated = _retry_after(response)
+        slower = min(max(current * 2, stated or 0.0, MIN_BACKOFF_AFTER_429), MAX_REQUEST_DELAY)
+        self._slowed[host] = slower
+        self.warn(
+            f"{host} returned 429; slowing to one request every {slower:.0f}s"
+            + (f" (it asked for {stated:.0f}s)" if stated else "")
         )
 
     def get_text(self, url: str, **kwargs: Any) -> str:
@@ -226,6 +321,54 @@ class ScrapeContext:
 
     def close(self) -> None:
         self.session.close()
+
+
+#: The status that means "you are asking too often".
+TOO_MANY_REQUESTS = 429
+
+#: Where a 429 puts the pace when the site does not say. Ten seconds was not
+#: enough for the shop this was written for, and it is the slowest Crawl-delay
+#: any of them publish.
+MIN_BACKOFF_AFTER_429 = 30.0
+
+#: However insistent a site is, a scan that would take days is not a scan. Past
+#: this the run should fail and say so rather than crawl on invisibly.
+MAX_REQUEST_DELAY = 300.0
+
+
+def _host_of(url: str) -> str:
+    return urlparse(url).netloc.lower()
+
+
+def _retry_after(response: requests.Response) -> float | None:
+    """The Retry-After header in seconds, if the site sent a usable one."""
+    raw = (response.headers.get("Retry-After") or "").strip()
+    if not raw:
+        return None
+    try:
+        return max(float(raw), 0.0)
+    except ValueError:
+        pass
+    try:
+        when = parsedate_to_datetime(raw)
+    except (TypeError, ValueError):
+        return None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=UTC)
+    return max((when - datetime.now(UTC)).total_seconds(), 0.0)
+
+
+class Disallowed(ScrapeError):
+    """robots.txt forbids this URL.
+
+    A subclass of ScrapeError so an unguarded fetch fails the scan loudly
+    rather than being mistaken for an empty catalog, and a type of its own so a
+    scraper with an alternative route can catch just this.
+    """
+
+    def __init__(self, url: str) -> None:
+        super().__init__(f"robots.txt disallows {url}")
+        self.url = url
 
 
 class ScrapeCanceled(ScrapeError):
@@ -245,6 +388,18 @@ class SiteScraper(abc.ABC):
     description: str = ""
     #: True when a headless browser is required (Selenium + Chrome).
     requires_browser: bool = False
+    #: Whether this vendor's descriptions are prose about the listing they
+    #: belong to. Nearly always true, and false for a source where the text
+    #: bleeds: Hunter's Lodge derives its whole catalog from one scanned page,
+    #: so a listing's "description" carries whatever was printed beside it.
+    #: That is fine to read and useless to derive facts from — it filed hand-
+    #: woven blankets under 8mm Mauser and put a Japanese Arisaka in Sweden.
+    #:
+    #: Only the *derived* fields honor this. The description is still stored,
+    #: still shown and still read by the rifle/handgun rules; it is only barred
+    #: from being treated as evidence about this listing's caliber, country,
+    #: maker and condition.
+    descriptions_are_reliable: bool = True
     #: Default cadence for a freshly seeded site row, in minutes.
     default_interval_minutes: int = 1440
 

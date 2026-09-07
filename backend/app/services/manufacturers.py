@@ -26,6 +26,8 @@ from __future__ import annotations
 import logging
 import re
 import threading
+from collections import Counter
+from collections.abc import Iterable
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
@@ -76,7 +78,9 @@ class Registry:
                 return name
         return None
 
-    def extract_from(self, title: str, description: str | None = None) -> str | None:
+    def extract_from(
+        self, title: str, description: str | None = None, caliber: str | None = None
+    ) -> str | None:
         """The maker, preferring the title over the prose beneath it.
 
         A title is where a vendor says what they are selling. A description is
@@ -84,8 +88,18 @@ class Registry:
         whatever the neighboring panel said -- which filed "CZ 50/70 PISTOL
         KITS" under Walther, because Walther is tried before CZ and the word
         appeared in text that had bled in from the next listing.
+
+        The caliber is asked last, and answers more often than it looks like it
+        should: a great many surplus cartridges are named after the firm that
+        designed them, so "7x57mm Mauser" and "6.5x52mm Carcano" name a maker
+        that the listing itself never mentions. "SPANISH 1916 SHORT RIFLES" is
+        a Mauser and does not say so anywhere.
         """
-        return self.extract(title or "") or self.extract(f"{title or ''} {description or ''}")
+        return (
+            self.extract(title or "")
+            or self.extract(f"{title or ''} {description or ''}")
+            or (self.extract(caliber) if caliber else None)
+        )
 
 
 def _rules_from(session: Session) -> list[Rule]:
@@ -98,7 +112,31 @@ def _rules_from(session: Session) -> list[Rule]:
         .scalars()
         .all()
     )
-    return [(row.name, pattern_for(row.spellings)) for row in rows]
+    shared = ambiguous_models(rows)
+    return [
+        (
+            row.name,
+            pattern_for([*row.spellings, *(m for m in row.model_names if m.lower() not in shared)]),
+        )
+        for row in rows
+    ]
+
+
+def ambiguous_models(rows: Iterable[Manufacturer]) -> set[str]:
+    """Model names more than one maker claims, which therefore name neither.
+
+    "M38" is a Carcano as often as it is a Mosin-Nagant. Letting whichever rule
+    comes first win would not be a decision, it would be an accident of
+    ordering — so a model two makers claim identifies nobody and is dropped
+    from matching. It stays in the table: both entries are true, and the admin
+    page says which ones cancel out, which is more use than silently picking
+    one.
+    """
+    seen: Counter[str] = Counter()
+    for row in rows:
+        for name in {model.lower() for model in row.model_names}:
+            seen[name] += 1
+    return {name for name, count in seen.items() if count > 1}
 
 
 # Compiling forty patterns on every listing of a two-hundred-listing scan is
@@ -124,7 +162,12 @@ def registry(session: Session) -> Registry:
         return _cached
 
 
-def extract(session: Session, title: str, description: str | None = None) -> str | None:
+def extract(
+    session: Session,
+    title: str,
+    description: str | None = None,
+    caliber: str | None = None,
+) -> str | None:
     """The maker named in a listing, or None.
 
     Falls back to the built-in list while the table is empty, so a database
@@ -134,7 +177,7 @@ def extract(session: Session, title: str, description: str | None = None) -> str
     rules = registry(session)
     if not rules:
         return classify.extract_manufacturer(title, description)
-    return rules.extract_from(title, description)
+    return rules.extract_from(title, description, caliber)
 
 
 # ---------------------------------------------------------------------------
@@ -169,7 +212,10 @@ def seed(session: Session) -> int:
 #: all of one shape: alternatives of literal words with the odd optional
 #: character. Anything that will not come apart cleanly is left as the
 #: canonical name alone, and can be given its aliases by hand.
-_LITERAL = re.compile(r"^[\w&.' -]+$")
+#: A model designation is a plain string, and plenty of them contain a slash:
+#: "91/30", "CZ 50/70". Without it those were dropped from the seeded aliases
+#: and the table went in missing exactly the spellings a dealer actually uses.
+_LITERAL = re.compile(r"^[\w&.'/ -]+$")
 
 #: The two ways the built-ins spell "this character is optional".
 _OPTIONAL_CLASS = re.compile(r"\[([^\]]*)\]\?")
@@ -236,7 +282,7 @@ def reprocess(session: Session, spellings: list[str]) -> int:
     rules = registry(session)
     changed = 0
     for item in candidates:
-        found = rules.extract_from(item.title, item.description)
+        found = rules.extract_from(item.title, item.description, item.caliber)
         if found != item.manufacturer:
             item.manufacturer = found
             changed += 1
@@ -253,7 +299,7 @@ def reprocess_everything(session: Session) -> int:
     rules = registry(session)
     changed = 0
     for item in session.execute(select(Item)).scalars():
-        found = rules.extract_from(item.title, item.description)
+        found = rules.extract_from(item.title, item.description, item.caliber)
         if found != item.manufacturer:
             item.manufacturer = found
             changed += 1

@@ -11,6 +11,7 @@ import io
 
 import pytest
 import responses
+from conftest import needs_ocr
 from PIL import Image, ImageDraw
 
 from app.scrapers import ScrapeContext, ScrapeError
@@ -90,6 +91,7 @@ class TestFullResolution:
     """Wix serves a resize by default; OCR needs the original."""
 
     @responses.activate
+    @needs_ocr
     def test_the_transform_is_stripped_before_downloading(self, ctx):
         responses.add(responses.GET, HOME, body=home_page(), content_type="text/html")
         responses.add(responses.GET, FLYER_ORIGINAL, body=flyer_bytes(), content_type="image/jpeg")
@@ -137,6 +139,7 @@ class TestChangeDetection:
         assert len(responses.calls) == 1
 
     @responses.activate
+    @needs_ocr
     def test_a_new_flyer_is_read(self, app_config):
         responses.add(responses.GET, HOME, body=home_page(), content_type="text/html")
         responses.add(responses.GET, FLYER_ORIGINAL, body=flyer_bytes(), content_type="image/jpeg")
@@ -148,6 +151,7 @@ class TestChangeDetection:
         assert len(responses.calls) == 2
 
     @responses.activate
+    @needs_ocr
     def test_the_issue_month_is_part_of_the_signature(self, app_config):
         """A re-scanned flyer for a new month is a new flyer.
 
@@ -185,6 +189,7 @@ class TestWhenTheSiteChanges:
             list(HuntersLodgeScraper().scrape(ctx))
 
     @responses.activate
+    @needs_ocr
     def test_an_unreadable_flyer_still_yields_the_flyer_itself(self, ctx):
         """Better one item saying "go and look" than a scan that shows nothing."""
         blank = Image.new("L", (1600, 2200), 255)
@@ -205,6 +210,7 @@ class TestWhenTheSiteChanges:
 
 class TestTheListingsItProduces:
     @responses.activate
+    @needs_ocr
     def test_each_listing_carries_its_own_crop_and_a_stable_key(self, ctx):
         responses.add(responses.GET, HOME, body=home_page(), content_type="text/html")
         responses.add(responses.GET, FLYER_ORIGINAL, body=flyer_bytes(), content_type="image/jpeg")
@@ -265,6 +271,7 @@ class TestKeysFollowTheProductNotThePage:
         assert second.startswith(first)
 
     @responses.activate
+    @needs_ocr
     def test_the_keys_a_real_read_produces_are_all_distinct(self, ctx):
         responses.add(responses.GET, HOME, body=home_page(), content_type="text/html")
         responses.add(responses.GET, FLYER_ORIGINAL, body=flyer_bytes(), content_type="image/jpeg")

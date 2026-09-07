@@ -139,7 +139,11 @@ changed — filtered to the sites you care about and capped so it stays readable
 - **Frontend** — React 18 + Vite, no UI framework. Served by the Python app in
   production; Vite's dev server proxies to it in development.
 - **Database** — SQLite in WAL mode. Right for one machine and a dozen sites;
-  PostgreSQL is on the roadmap for when that stops being true.
+  PostgreSQL is on the roadmap for when that stops being true. WAL lets readers
+  work while a scan writes, but SQLite still has only one writer, so a scan
+  commits at least every couple of seconds and never holds the write lock across
+  a network wait. If a request loses the race anyway it is answered **503 with a
+  `Retry-After`**, not 500: nothing is broken and it will work a moment later.
 - **Schema** — created and evolved **only** by Alembic, including on a brand new
   install, so a fresh database and an upgraded one are built by the same steps.
 
@@ -456,7 +460,90 @@ A few things worth knowing:
 - `services/classify.enrich()` derives caliber, country, manufacturer, condition
   and the rifle/pistol split from the title and description.
 
-Sixteen sites are queued in [ROADMAP.md](ROADMAP.md).
+### If the vendor runs WooCommerce
+
+Ten of the queued sites do, and they all render their catalog the same way. Use
+`WooCommerceScraper` instead and the whole scraper is usually a slug, a name and
+a list of category URLs:
+
+```python
+from .woocommerce import WooCommerceScraper
+
+class MyVendorScraper(WooCommerceScraper):
+    slug = "my-vendor"
+    name = "My Vendor"
+    base_url = "https://myvendor.example/"
+    description = "What this site sells."
+    sources = (
+        {"category": "Military Rifles",
+         "url": "https://myvendor.example/product-category/military-rifles/"},
+    )
+```
+
+It handles the product cards, the post id as a stable key, sale prices,
+lazy-loaded images, gallery de-duplication and pagination. Where a theme renames
+something, put the site's selector *in front of* the stock ones rather than
+replacing them, so the defaults still answer if the theme changes back:
+
+```python
+    detail_description_selectors = (
+        "div.single-product-description",
+        *WooCommerceScraper.detail_description_selectors,
+    )
+```
+
+`category` is the vendor's own section name and outranks the classification
+heuristics, so it should say what the section actually holds. Take the firearm
+categories and any parts-*kit* category; leave the rest of a parts tree alone.
+
+### Makers and models
+
+Both are tables, edited together from **Makers** in the admin navigation.
+
+A maker has **other spellings** — the same firm written differently, "S&W" for
+Smith & Wesson — and **models**, which is what that firm made. They are separate
+because they are different facts, and because a dealer names the model far more
+often than the maker: "RUSSIAN M44 CARBINES" and "WW2 RUSSIAN 91/30 RIFLES" are
+both Mosin-Nagants and neither says Mosin, or Nagant, anywhere.
+
+Order decides ties, so a name containing another — "Mosin-Nagant" and "Nagant" —
+has to come first. A model **two** makers claim identifies neither and is
+dropped from matching, because picking whichever rule came first would be an
+accident of ordering rather than a decision; "M38" is a Carcano as often as it
+is a Mosin. Both entries are kept and the dialog says which ones cancel out.
+
+Everything is matched as literal text on whole words, never as a pattern.
+Saving re-files every listing the change reaches and reports how many moved.
+
+A listing whose maker, caliber or country could not be worked out is filed under
+**Unknown** in the filters — the column stays empty, and "Unknown" is only what
+the filter calls it, so the fill-in-the-blanks rules keep working. It is there so
+the ones the heuristics fail on are the easiest to find rather than invisible.
+
+### robots.txt
+
+Every scraper obeys it: `Disallow` rules are enforced before a request is made,
+and a `Crawl-delay` becomes the floor on the politeness delay. This is real work
+rather than a formality — Collectors Firearms asks for ten seconds between
+requests, which makes a scan of their catalog half an hour of wall clock, and
+they disallow query strings entirely, which rules out the WooCommerce Store API
+their shop would otherwise serve.
+
+A scraper can ask before it fetches, so it can choose another route rather than
+fail:
+
+```python
+if ctx.allowed(url):
+    ...
+```
+
+An unguarded fetch of a disallowed URL raises `Disallowed`. If robots.txt cannot
+be read at all — a 5xx, a 403, a connection failure — the site is treated as off
+limits rather than open, so a blip cannot quietly switch off a vendor's rules.
+Set `scraping.obey_robots: false` only for a vendor who has given explicit
+permission.
+
+Twenty-five sites are queued in [ROADMAP.md](ROADMAP.md).
 
 ## Testing
 

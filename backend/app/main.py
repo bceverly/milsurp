@@ -9,13 +9,15 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import APIRouter, FastAPI, Request
+from fastapi import APIRouter, FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.exc import OperationalError
 
 from . import __version__
 from .api import access, auth, items, manufacturers, preferences, scans, sites, system
@@ -112,6 +114,22 @@ def _warn_about_weak_secrets(config) -> None:
     _warn_about_one_secret("security.password_pepper", config.security.password_pepper, source)
 
 
+#: What to tell a client to wait when the database is locked.
+#:
+#: Comfortably longer than a scan's longest write burst — it commits at least
+#: every COMMIT_SECONDS — and short enough that a person retrying by hand does
+#: not give up first.
+RETRY_AFTER_SECONDS = 5
+
+#: SQLite's way of saying "someone else is writing". Matched on the message
+#: because the DBAPI does not give these their own exception type.
+_LOCKED = re.compile(r"\b(?:database|table|schema) is locked\b", re.I)
+
+
+def _is_locked(exc: OperationalError) -> bool:
+    return bool(_LOCKED.search(str(getattr(exc, "orig", exc))))
+
+
 def create_app() -> FastAPI:
     configure_logging()
     config = get_config()
@@ -142,6 +160,39 @@ def create_app() -> FastAPI:
             allow_credentials=True,
             allow_methods=["*"],
             allow_headers=["*"],
+        )
+
+    @app.exception_handler(OperationalError)
+    async def database_busy(_request: Request, exc: OperationalError) -> Response:
+        """Answer 503 when the database is locked, rather than 500.
+
+        SQLite has one writer, and a scan of a large vendor holds the write
+        lock in short bursts for as long as the scan runs. A request that
+        arrives during one waits out its busy timeout and then fails — and
+        "500 Internal Server Error" is the wrong thing to say about it. Nothing
+        is broken, the request was not refused, and it will very likely work if
+        it is made again in a moment. That is what 503 and Retry-After mean.
+
+        Only a lock says this. Every other OperationalError — a missing table,
+        a disk that has gone away — is a genuine fault and keeps its 500, or a
+        real problem would spend its life being politely retried.
+        """
+        if not _is_locked(exc):
+            log.exception("Database error", exc_info=exc)
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={"detail": "The database could not answer that request."},
+            )
+        log.warning("Database busy; answered 503: %s", exc.orig)
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                "detail": (
+                    "The database is busy, most likely because a scan is "
+                    "running. Try again in a moment."
+                )
+            },
+            headers={"Retry-After": str(RETRY_AFTER_SECONDS)},
         )
 
     @app.middleware("http")

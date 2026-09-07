@@ -225,6 +225,11 @@ class ScrapingConfig:
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/124.0.0.0 Safari/537.36"
     )
+    # Honor robots.txt: its Disallow rules and its Crawl-delay. On by default
+    # and meant to stay on. It is here as a setting because a vendor may give a
+    # deployment explicit permission to ignore their rules, and because a test
+    # needs to be able to turn it off without a network.
+    obey_robots: bool = True
     request_timeout: int = 30
     # Politeness delay between requests to the same host, in seconds.
     request_delay: float = 1.0
@@ -389,6 +394,7 @@ def load_config(path: Path | None = None, mode: str | None = None) -> Config:
     defaults = ScrapingConfig()
     scraping = ScrapingConfig(
         user_agent=str(scr.get("user_agent", defaults.user_agent)),
+        obey_robots=bool(scr.get("obey_robots", True)),
         request_timeout=int(scr.get("request_timeout", 30)),
         request_delay=float(scr.get("request_delay", 1.0)),
         max_retries=int(scr.get("max_retries", 4)),

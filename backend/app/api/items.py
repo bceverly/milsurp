@@ -9,7 +9,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
 from fastapi.responses import FileResponse
-from sqlalchemy import Select, func, or_, select
+from sqlalchemy import Select, func, or_, select, true
 from sqlalchemy.orm import selectinload
 
 from ..deps import AppConfig, CurrentUser, DbSession
@@ -126,11 +126,11 @@ def _apply_filters(  # noqa: PLR0912 - one branch per filter; splitting it
     if categories:
         stmt = stmt.where(Item.category.in_(categories))
     if calibers:
-        stmt = stmt.where(Item.caliber.in_(calibers))
+        stmt = stmt.where(_matching(Item.caliber, calibers))
     if countries:
-        stmt = stmt.where(Item.country.in_(countries))
+        stmt = stmt.where(_matching(Item.country, countries))
     if manufacturers:
-        stmt = stmt.where(Item.manufacturer.in_(manufacturers))
+        stmt = stmt.where(_matching(Item.manufacturer, manufacturers))
 
     if kinds:
         # "rifle"/"pistol" are independent booleans, not one column, because a
@@ -191,6 +191,23 @@ def _apply_filters(  # noqa: PLR0912 - one branch per filter; splitting it
     return stmt
 
 
+#: What the filter calls a field nothing could be worked out for. Chosen to be
+#: a word no vendor would use as a name; if one ever does, it will share the
+#: bucket, which is a smaller problem than storing this in the column.
+UNKNOWN = "Unknown"
+
+
+def _matching(column, wanted: list[str]):
+    """A filter clause where "Unknown" means "this field is empty"."""
+    chosen = [value for value in wanted if value != UNKNOWN]
+    clauses = []
+    if chosen:
+        clauses.append(column.in_(chosen))
+    if UNKNOWN in wanted:
+        clauses.append(or_(column.is_(None), column == ""))
+    return or_(*clauses) if clauses else true()
+
+
 def _facets(session: DbSession, base: Select) -> ItemFacets:
     """Counts for the filter sidebar, computed over the current result set."""
 
@@ -202,10 +219,26 @@ def _facets(session: DbSession, base: Select) -> ItemFacets:
             .order_by(func.count(Item.id).desc())
             .limit(limit)
         )
-        return [
+        found = [
             FacetValue(value=str(value), count=int(count))
             for value, count in session.execute(stmt).all()
         ]
+
+        # And a bucket for the ones nothing could be worked out for. Listed
+        # last however many there are, because it is not an answer and should
+        # not sit at the top of the list looking like one.
+        #
+        # The column stays NULL in the database: "Unknown" is this view's word
+        # for it, not a value. Writing the string into the row would make it
+        # indistinguishable from a vendor of that name, and would quietly stop
+        # every "fill in the blanks" rule in the application, all of which key
+        # on the field being empty.
+        missing = session.execute(
+            base.with_only_columns(func.count(Item.id)).where(or_(column.is_(None), column == ""))
+        ).scalar_one()
+        if missing:
+            found.append(FacetValue(value=UNKNOWN, count=int(missing)))
+        return found
 
     site_rows = session.execute(
         base.with_only_columns(Site.id, Site.name, func.count(Item.id))

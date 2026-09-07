@@ -82,6 +82,18 @@ class HuntersLodgeScraper(SiteScraper):
         "month or two. Listings are recovered from the image by OCR."
     )
     requires_browser = False
+    #: True, and it took two goes to earn that.
+    #:
+    #: A listing's description is whatever OCR read near it, which used to
+    #: include the panel next door: hand-woven blankets came back chambered in
+    #: 8mm Mauser, the cartridge of the Spanish M43 rifles advertised beneath
+    #: them. The first answer was to distrust the whole description for this
+    #: vendor, which stopped the wrong answers and threw away the right ones
+    #: with them — "SPANISH 1916 SHORT RIFLES 7x57" then had no caliber either,
+    #: because the 7x57 is in its own description.
+    #:
+    #: flyer.only_this_listing() now trims each description to the part that is
+    #: about its own listing, so there is nothing left to distrust.
     #: Weekly. A new flyer appears every month or two, and a scan that finds the
     #: same one does a single request, so there is nothing to gain from asking
     #: more often and a real cost to the vendor in asking much more.

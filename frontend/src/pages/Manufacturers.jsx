@@ -21,7 +21,14 @@ import Modal from "../components/Modal.jsx";
 import Field from "../components/Field.jsx";
 import { Plus, Refresh, Trash } from "../components/Icons.jsx";
 
-const EMPTY = { name: "", aliases: "", position: 1000, enabled: true, notes: "" };
+const EMPTY = {
+  name: "",
+  aliases: "",
+  models: "",
+  position: 1000,
+  enabled: true,
+  notes: "",
+};
 
 function countLabel(n, one, many) {
   return `${n} ${n === 1 ? one : many}`;
@@ -31,7 +38,13 @@ function MakerForm({ maker, onSubmit, error }) {
   const editing = Boolean(maker);
   const [form, setForm] = useState(
     editing
-      ? { ...EMPTY, ...maker, aliases: maker.aliases || "", notes: maker.notes || "" }
+      ? {
+          ...EMPTY,
+          ...maker,
+          aliases: maker.aliases || "",
+          models: maker.models || "",
+          notes: maker.notes || "",
+        }
       : EMPTY,
   );
 
@@ -46,6 +59,7 @@ function MakerForm({ maker, onSubmit, error }) {
     onSubmit({
       name: form.name.trim(),
       aliases: form.aliases.trim() || null,
+      models: form.models.trim() || null,
       position: Number(form.position) || 0,
       enabled: form.enabled,
       notes: form.notes.trim() || null,
@@ -93,6 +107,32 @@ function MakerForm({ maker, onSubmit, error }) {
           />
         )}
       </Field>
+
+      <Field
+        label="Models (optional)"
+        hint="One per line — “M44”, “91/30”, “ZB37”. A dealer names the model far more often than the maker: “RUSSIAN M44 CARBINES” is a Mosin-Nagant and never says so."
+      >
+        {(id, describedBy) => (
+          <textarea
+            id={id}
+            aria-describedby={describedBy}
+            className="input"
+            rows={5}
+            value={form.models}
+            onChange={set("models")}
+            spellCheck={false}
+          />
+        )}
+      </Field>
+
+      {editing && maker.ambiguous_models?.length > 0 && (
+        <div className="alert alert--info" role="status">
+          Also claimed by another maker, so{" "}
+          {maker.ambiguous_models.length === 1 ? "it identifies" : "they identify"}{" "}
+          neither: <strong>{maker.ambiguous_models.join(", ")}</strong>. Both entries are
+          kept — remove it from whichever maker it does not belong to.
+        </div>
+      )}
 
       <div className="form-row form-row--2">
         <Field
@@ -268,6 +308,7 @@ export default function ManufacturersPage() {
                   <th style={{ width: 80 }}>Order</th>
                   <th>Name</th>
                   <th>Other spellings</th>
+                  <th>Models</th>
                   <th>Listings</th>
                   <th>Status</th>
                   <th />
@@ -288,6 +329,15 @@ export default function ManufacturersPage() {
                     <td style={{ fontSize: 13, color: "var(--ink-400)" }}>
                       {maker.aliases
                         ? maker.aliases
+                            .split("\n")
+                            .map((line) => line.trim())
+                            .filter(Boolean)
+                            .join(", ")
+                        : "—"}
+                    </td>
+                    <td style={{ fontSize: 13, color: "var(--ink-400)" }}>
+                      {maker.models
+                        ? maker.models
                             .split("\n")
                             .map((line) => line.trim())
                             .filter(Boolean)

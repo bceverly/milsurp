@@ -203,3 +203,79 @@ class TestPistolHolsters:
             True,
             False,
         )
+
+
+class TestWhatACaliberSaysAboutAMaker:
+    """Most surplus cartridges were made for one rifle. Not all of them.
+
+    The obvious version of this — whichever maker dominates a caliber wins —
+    was measured against the real catalog before being written, and it would
+    have filed thirty-two M1 Carbines under Marlin on the strength of three
+    rows, and arbitrary 9mm pistols under Luger. Neither sample size nor share
+    separates those from 7.62x54R, which really does mean Mosin-Nagant.
+
+    What separates them is that a general-purpose cartridge does not command
+    unanimous agreement across independent vendors.
+    """
+
+    def catalog(self, session, rows):
+        from sqlalchemy import select
+
+        from app.models import Item, Site
+
+        sites = session.execute(select(Site)).scalars().all()
+        for index, (caliber, maker, site_index) in enumerate(rows):
+            session.add(
+                Item(
+                    site_id=sites[site_index % len(sites)].id,
+                    external_key=f"k{index}",
+                    url=f"https://example.test/{index}",
+                    title=f"Rifle {index}",
+                    caliber=caliber,
+                    manufacturer=maker,
+                    is_active=True,
+                )
+            )
+        session.commit()
+
+    def test_a_cartridge_made_for_one_rifle_names_its_maker(self, seeded):
+        self.catalog(seeded, [("7.62x54R", "Mosin-Nagant", i) for i in range(6)])
+        assert cc.makers_by_caliber(seeded) == {"7.62x54R": "Mosin-Nagant"}
+
+    def test_one_dissenter_is_enough_to_refuse(self, seeded):
+        """Unanimous, because a maker who merely chambered it is not the maker."""
+        rows = [("7.62x54R", "Mosin-Nagant", i) for i in range(6)]
+        rows.append(("7.62x54R", "SAKO", 0))
+        self.catalog(seeded, rows)
+        assert cc.makers_by_caliber(seeded) == {}
+
+    def test_one_vendors_stock_is_not_evidence(self, seeded):
+        self.catalog(seeded, [(".30 Carbine", "Marlin", 0) for _ in range(20)])
+        assert cc.makers_by_caliber(seeded) == {}
+
+    def test_too_few_rows_is_not_evidence_either(self, seeded):
+        self.catalog(seeded, [("8mm Lebel", "Berthier", i) for i in range(2)])
+        assert cc.makers_by_caliber(seeded) == {}
+
+    def test_it_fills_only_the_blanks(self, seeded):
+        from sqlalchemy import select
+
+        from app.models import Item
+
+        rows = [("7.62x54R", "Mosin-Nagant", i) for i in range(6)]
+        rows.append(("7.62x54R", None, 0))
+        self.catalog(seeded, rows)
+
+        filled = cc.fill_makers_from_caliber(seeded)
+        seeded.commit()
+
+        assert len(filled) == 1
+        assert all(
+            item.manufacturer == "Mosin-Nagant" for item in seeded.execute(select(Item)).scalars()
+        )
+
+    def test_a_caliber_nobody_agrees_on_fills_nothing(self, seeded):
+        rows = [("9mm", "Luger", 0) for _ in range(10)]
+        rows.append(("9mm", None, 1))
+        self.catalog(seeded, rows)
+        assert cc.fill_makers_from_caliber(seeded) == []

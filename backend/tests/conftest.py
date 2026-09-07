@@ -18,6 +18,23 @@ REPO_ROOT = BACKEND_DIR.parent
 sys.path.insert(0, str(BACKEND_DIR))
 
 
+def _tesseract_is_installed() -> bool:
+    from app.scrapers import flyer
+
+    return flyer.ocr_available()
+
+
+#: For a test that reads a flyer. OCR needs the tesseract binary, which is a
+#: system package rather than a Python one, so a checkout can be complete and
+#: still not have it.
+#:
+#: Defined here rather than in each file because it is one policy, and having
+#: it in only one of the two files that needed it is how six OCR tests reached
+#: CI and blew up there instead of skipping: the guard was in test_flyer.py and
+#: not in test_hunters_lodge.py. CI installs tesseract, so these run there.
+needs_ocr = pytest.mark.skipif(not _tesseract_is_installed(), reason="tesseract is not installed")
+
+
 @pytest.fixture(scope="session")
 def _test_config_file(tmp_path_factory) -> Path:
     """A config file pointing every path at a temp directory."""
@@ -51,6 +68,10 @@ scheduler:
 scraping:
   request_delay: 0
   download_images: false
+  # The scraper tests mock a vendor's pages, not its robots.txt, and an
+  # unmocked robots fetch fails closed by design. Enforcement has tests of its
+  # own -- see test_robots.py and TestRobotsIsEnforced in test_scrapers_base.py.
+  obey_robots: false
 """,
         encoding="utf-8",
     )
@@ -115,6 +136,23 @@ def _forget_compiled_manufacturers():
 
 
 @pytest.fixture
+def ctx_factory(app_config):
+    """Build a ScrapeContext with particular hooks, and close it afterwards."""
+    from app.scrapers import ScrapeContext
+
+    made = []
+
+    def build(**kwargs):
+        context = ScrapeContext(app_config, **kwargs)
+        made.append(context)
+        return context
+
+    yield build
+    for context in made:
+        context.close()
+
+
+@pytest.fixture
 def clean_db(_database):
     """Truncate every table so a test starts from a known-empty database."""
     from sqlalchemy import text
@@ -133,6 +171,7 @@ def clean_db(_database):
             "items",
             "scan_runs",
             "sites",
+            "manufacturer_models",
             "manufacturers",
             "users",
         ):

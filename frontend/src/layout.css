@@ -753,6 +753,13 @@
   font-size: 14px;
   color: var(--ink-900);
 }
+/* A field nothing could be worked out for. Shown rather than hidden, so the
+   listings the classifier failed on are easy to find, but muted so it does not
+   read as a value. */
+.fact__value--unknown {
+  color: var(--ink-400);
+  font-style: italic;
+}
 
 .detail__description {
   font-size: 14px;

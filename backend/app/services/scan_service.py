@@ -17,6 +17,8 @@ pick it up anyway.
 
 from __future__ import annotations
 
+import os
+import socket
 import threading
 import time
 import traceback
@@ -38,23 +40,35 @@ from ..models import (
     as_utc,
     utcnow,
 )
-from ..scrapers import ScrapeCanceled, ScrapeContext, ScrapedItem, ScrapeError, get_scraper
+from ..scrapers import (
+    ScrapeCanceled,
+    ScrapeContext,
+    ScrapedItem,
+    ScrapeError,
+    get_scraper,
+    get_scraper_class,
+)
 from . import classify, manufacturers
 from .image_store import ImageStore
 
 #: Progress lines kept per run. Enough to debug a scrape without unbounded growth.
 MAX_LOG_LINES = 500
 
-#: Listings reconciled between commits. Small enough that an interrupted scan
-#: loses seconds of work rather than minutes; large enough that a thousand-item
-#: catalog is not a thousand transactions.
-COMMIT_EVERY = 25
+#: How often to report progress in the scan log. Not how often to commit.
+LOG_EVERY = 25
 
-#: Guards ``_running`` and ``_cancel_flags``.
+#: How often to say so in the log. Not how often to commit: see below.
+LOG_EVERY_PHOTO = 50
+
+
+#: Which sites are being scanned by *this* process, and how to ask them to
+#: stop. A separate process — the CLI, say — has its own registry and cannot
+#: see this one, which is why reap_stale_runs() treats a RUNNING row it does
+#: not recognize as orphaned.
 _lock = threading.Lock()
-#: site_id -> ScanRun.id for scans in flight in this process.
+
 _running: dict[int, int] = {}
-#: site_id -> event set when an operator asks to stop the run.
+
 _cancel_flags: dict[int, threading.Event] = {}
 
 
@@ -117,6 +131,40 @@ class _RunLog:
         self._last_flush = time.monotonic()
 
 
+def descriptions_are_reliable(site_slug: str) -> bool:
+    """Whether this vendor's prose is about the listing it is attached to.
+
+    Answered from the scraper class, which is the only thing that knows. A site
+    whose scraper has been removed keeps whatever its rows already hold, so the
+    default is the ordinary one.
+    """
+    scraper = get_scraper_class(site_slug)
+    return bool(getattr(scraper, "descriptions_are_reliable", True))
+
+
+# ---------------------------------------------------------------------------
+# Holding the write lock
+# ---------------------------------------------------------------------------
+# SQLite has one writer, and this application writes inside loops that go to
+# the network between rows. A transaction left open across one of those waits
+# holds the write lock for as long as the *vendor* takes to answer, and every
+# write the web application attempts meanwhile — signing in updates a last-seen
+# timestamp — waits out its busy timeout and fails.
+#
+# So both loops commit at the end of every iteration, before control goes back
+# to the thing that will spend twenty seconds on the network. Not every N rows,
+# and not "every N seconds, checked when a row arrives": the second of those
+# was tried and does not work, because the dead time is precisely when no row
+# is arriving. Ten listings would land in milliseconds, sit below the batch
+# size, and then the lock would be held across the twenty-second fetch of the
+# next page — with the clock never checked, because checking it happens when a
+# row arrives.
+#
+# Committing per row is affordable here in a way it would not be elsewhere:
+# WAL with synchronous=NORMAL makes a commit an append with no fsync, and these
+# loops are bounded by the network by orders of magnitude.
+
+
 def _price_changed(previous: float | None, current: float | None) -> bool:
     if current is None:
         return False
@@ -155,9 +203,8 @@ def _upsert_item(
     item.category = scraped.category
     item.caliber = scraped.caliber
     item.country = scraped.country
-    item.manufacturer = scraped.manufacturer or manufacturers.extract(
-        session, scraped.title, scraped.description
-    )
+    trusted = descriptions_are_reliable(site.slug)
+    item.manufacturer = scraped.manufacturer
     item.condition = scraped.condition
     item.is_sold = scraped.is_sold
     item.currency = scraped.currency
@@ -212,9 +259,30 @@ def _upsert_item(
         item.current_price,
         caliber=item.caliber,
         category=item.category,
+        trust_description=trusted,
     )
     item.is_rifle = derived["is_rifle"]
     item.is_pistol = derived["is_pistol"]
+
+    # And the descriptive fields, where the vendor gave none. Some catalogs
+    # publish the caliber as its own field and some write it into the title;
+    # a WooCommerce shop has nowhere structured to put it at all, so the first
+    # of them read every rifle in as "7.62x54R" in the title and blank in the
+    # column. Only the gaps are filled — a value the vendor stated is theirs.
+    item.caliber = item.caliber or derived["caliber"]
+    item.country = item.country or derived["country"]
+    item.condition = item.condition or derived["condition"]
+
+    # The maker last, because the caliber is one of the things that names it —
+    # a great many surplus cartridges are called after the firm that designed
+    # them — and the caliber is only settled on the line above. Derived first,
+    # this read a caliber that was not there yet.
+    item.manufacturer = item.manufacturer or manufacturers.extract(
+        session,
+        item.title,
+        item.description if trusted else None,
+        item.caliber,
+    )
 
     session.flush()
 
@@ -413,8 +481,9 @@ def _download_photos(
         photo.height = stored.height
         photo.downloaded_at = utcnow()
         downloaded += 1
-        if (index + 1) % 50 == 0:
-            session.commit()
+        # Same rule: each iteration above went to the network for an image.
+        session.commit()
+        if (index + 1) % LOG_EVERY_PHOTO == 0:
             ctx.log(f"  …{index + 1}/{len(pending)} photos processed.")
     session.commit()
     ctx.log(f"Stored {downloaded} photo(s).")
@@ -460,6 +529,61 @@ def download_pending_photos(
     return total
 
 
+def _owner_is_alive(host: str | None, pid: int | None) -> bool:
+    """Whether the process that claimed a run still exists.
+
+    Only answerable for a run claimed on this machine: a pid means nothing on
+    somebody else's. A run from another host is left to the timeout, which is
+    the only evidence available about it.
+    """
+    if not pid or host != socket.gethostname():
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        # Alive, and owned by another user.
+        return True
+    return True
+
+
+def _claim_site(site_id: int) -> None:
+    """Refuse to start when another *process* is already scanning this site.
+
+    A RUNNING row whose owner has gone — a crash, a kill, a restart — is not a
+    claim, and is failed here rather than blocking the site until its timeout.
+    """
+    config = get_config()
+    cutoff = utcnow() - timedelta(minutes=config.scheduler.scan_timeout_minutes)
+    with session_scope() as session:
+        for run in (
+            session.execute(
+                select(ScanRun).where(
+                    ScanRun.site_id == site_id, ScanRun.status == ScanStatus.RUNNING
+                )
+            )
+            .scalars()
+            .all()
+        ):
+            started = as_utc(run.started_at) or cutoff
+            if _owner_is_alive(run.owner_host, run.owner_pid) and started > cutoff:
+                with _lock:
+                    _running.pop(site_id, None)
+                    _cancel_flags.pop(site_id, None)
+                raise ScanBusy(
+                    f"a scan for site {site_id} is already running "
+                    f"(process {run.owner_pid} on {run.owner_host})"
+                )
+            run.status = ScanStatus.FAILED
+            run.finished_at = utcnow()
+            run.error_message = (
+                "Scan did not finish: the process running it is gone. Anything "
+                "already reconciled was saved; the next scan resumes from there."
+            )
+        session.commit()
+
+
 def reap_stale_runs(session: Session, config: Config | None = None) -> int:
     """Fail runs left RUNNING by a crash or restart.
 
@@ -479,6 +603,11 @@ def reap_stale_runs(session: Session, config: Config | None = None) -> int:
         # fallback keeps the type checker honest without inventing a time.
         started = as_utc(run.started_at) or cutoff
         if run.site_id in live and started > cutoff:
+            continue
+        # Another process's live scan is not an orphan. Without this the CLI
+        # marked the web application's running scan as failed the moment it
+        # started, because a RUNNING row it did not own looked abandoned.
+        if _owner_is_alive(run.owner_host, run.owner_pid) and started > cutoff:
             continue
         now = utcnow()
         run.status = ScanStatus.FAILED
@@ -526,6 +655,12 @@ def run_scan(  # noqa: PLR0912,PLR0915 - one linear scan lifecycle; see ROADMAP
         _running[site_id] = -1
         _cancel_flags[site_id] = cancel
 
+    # ...and again in the database, which is the only thing the CLI and the web
+    # application share. The dictionary above is per-process, so without this
+    # both would scan the same vendor at once, at twice the request rate its
+    # robots.txt asks for. Collectors Firearms answered that with 429s.
+    _claim_site(site_id)
+
     config = get_config()
     started = time.monotonic()
 
@@ -536,7 +671,13 @@ def run_scan(  # noqa: PLR0912,PLR0915 - one linear scan lifecycle; see ROADMAP
                 raise ScanBusy(f"site {site_id} does not exist")
 
             scraper = get_scraper(site.slug)
-            run = ScanRun(site_id=site.id, trigger=trigger, status=ScanStatus.RUNNING)
+            run = ScanRun(
+                site_id=site.id,
+                trigger=trigger,
+                status=ScanStatus.RUNNING,
+                owner_host=socket.gethostname(),
+                owner_pid=os.getpid(),
+            )
             session.add(run)
             session.commit()
             with _lock:
@@ -641,8 +782,10 @@ def run_scan(  # noqa: PLR0912,PLR0915 - one linear scan lifecycle; see ROADMAP
                     seen_keys.add(entry.external_key)
                     processed += 1
 
-                    if processed % COMMIT_EVERY == 0:
-                        session.commit()
+                    # Before going back to the scraper, which is about to
+                    # spend twenty seconds on the network.
+                    session.commit()
+                    if processed % LOG_EVERY == 0:
                         log(f"  …{len(seen_keys)} listing(s) saved.")
 
                 session.commit()

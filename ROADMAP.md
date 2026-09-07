@@ -20,6 +20,8 @@ scheduling, admin controls, price history, images and digests all come for free.
 | --- | --- | --- |
 | [Royal Tiger Imports](https://royaltigerimports.com/) | `royal-tiger` | Headless Chrome — infinite scroll, "Load More", classic pagination, Elementor gallery |
 | [Empire Arms](https://www.empirearms.com/) | `empire-arms` | Static HTML, thumbnail-delimited block parsing |
+| [Hunter's Lodge](https://www.hunterslodge.com/) | `hunters-lodge` | OCR of a scanned magazine flyer |
+| [Collectors Firearms](https://collectorsfirearms.com/) | `collectors-firearms` | WooCommerce base class — category pages, path pagination |
 
 ### Planned
 
@@ -68,16 +70,42 @@ are ordered by judgement and are the ones to re-check before committing to an
 order. The ordering is a starting point for scheduling work, not a claim about
 these businesses.
 
-#### Group A — WooCommerce (10 sites) · build the base class here
+#### Group A — WooCommerce (10 sites) · base class **shipped**
 
-Ten of the twenty-six remaining sites. The Royal Tiger scraper already has most
-of the parsing logic, so this is the highest-leverage work on the list.
+`app/scrapers/woocommerce.py` covers the group: `li.product` cards, the post id
+as the external key, sale-aware prices, lazy-loaded images, gallery
+de-duplication, and pagination by following the shop's own "next" link. A new
+shop in this group should be a slug, a name, a list of category URLs and — if
+its theme is customized — a couple of selectors in front of the defaults.
+
+**Three findings from the first build that apply to the whole group.**
+
+1. **The WooCommerce Store API is not the shortcut it looks like.** Every shop
+   here publishes `/wp-json/wc/store/v1/products`, which returns exactly the
+   structured data the HTML parsing recovers by hand. Filtering it to a
+   category, or reading past the first ten products, needs a query string — and
+   Collectors Firearms disallows `/*?*`. Their catalog is 207,000 products, so
+   an unfiltered walk is not an alternative. Worth re-checking per shop: where
+   robots permits it, a subclass can override `scrape()` and use the API.
+2. **robots.txt is now obeyed** (`app/robots.py`), which changes scan planning
+   more than anything else here: Collectors Firearms sets `Crawl-delay: 10`, so
+   their scan is half an hour of wall clock and almost no bandwidth.
+3. **Two of these shops sit behind a Cloudflare challenge.** dkfirearms.com
+   returns 403 to plain HTTP, so it needs the browser path Royal Tiger already
+   uses rather than the `requests` path. Expect the same of others in the group;
+   it is a per-site fact, not a platform one.
+4. **A published `Crawl-delay` may be optimistic.** Collectors Firearms asks for
+   ten seconds, was crawled at exactly ten, and returned 429 after sixteen
+   minutes. A 429 now sets a standing slower pace for the rest of the scan, and
+   a shop measured to need more than it advertises gets a `min_request_delay`.
+   Budget the *first* scan of a large shop in hours, not minutes; later scans
+   only pay for listings that are new.
 
 | # | Site | Entry URL | Audience signal | Notes |
 | --- | --- | --- | --- | --- |
-| 1 | Collectors Firearms | https://collectorsfirearms.com/product-category/foreign-military-rifles/ | ~284K visits/mo (Similarweb, Oct 2024) | Largest of the group; expect a long first scan |
+| — | **Collectors Firearms** | https://collectorsfirearms.com/product-category/rifles/foreign-military-rifles/ | ~284K visits/mo (Similarweb, Oct 2024) | **Shipped.** Foreign and U.S. military rifle sections. Their military handguns are not separately categorized, so handguns are out of scope for this vendor until they are |
 | 2 | J&G Sales | https://www.jgsales.com/product-category/firearms/collectors-corner/military-surplus-collectible-category/ | Top-10 competitor of Classic Firearms (Similarweb) | Long-established, high volume |
-| 3 | DK Firearms | https://dkfirearms.com/product-category/surplus/surplus-firearms/ | Competitor set includes Atlantic Firearms | Good first target: clean category URLs |
+| 3 | DK Firearms | https://dkfirearms.com/product-category/surplus/surplus-firearms/ | Competitor set includes Atlantic Firearms | **Behind Cloudflare** — plain HTTP gets a 403 challenge page, so this one needs the browser |
 | 4 | Legacy Collectibles | https://legacy-collectibles.com/new-firearms/ | Tracked by Similarweb as a peer of IMA-USA | High-end WWI/WWII collector pieces |
 | 5 | Ancestry Guns | https://www.ancestryguns.com/product-category/curio-relic/ | — | Strong photography; the gallery test case |
 | 6 | Axis Arms | https://axisarmsonline.com/product-category/rifles/ | — | **Two sections**: `/product-category/rifles/` and `/product-category/handguns/`. One scraper, two sources — same shape as Empire Arms |

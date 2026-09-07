@@ -10,7 +10,7 @@ import dataclasses
 from datetime import timedelta
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.models import Item, ItemPhoto, PriceHistory, ScanRun, ScanStatus, Site, utcnow
 from app.scrapers import ScrapedItem, ScrapeError, SiteScraper
@@ -35,6 +35,9 @@ class FakeScraper(SiteScraper):
     #: Yield this many listings, then raise, to model a scan that is cut off
     #: part way through — a restart, a killed process, a network collapse.
     fail_after: int | None = None
+    #: Called after each listing is yielded, standing in for the network wait
+    #: a real scraper takes before producing the next one.
+    between_items = None
 
     def scrape(self, ctx):
         if self.raise_error:
@@ -49,6 +52,15 @@ class FakeScraper(SiteScraper):
             if self.fail_after is not None and index >= self.fail_after:
                 raise ScrapeError("connection lost part way through")
             yield item
+            # Where a real scraper spends twenty seconds fetching the next
+            # page. Anything the scan is holding, it holds across this.
+            #
+            # Read off the class, not off self: a plain function stored on the
+            # class becomes a bound method through an instance, and the hook
+            # would be handed the scraper as its first argument.
+            hook = FakeScraper.between_items
+            if hook is not None:
+                hook(index)
 
 
 @pytest.fixture
@@ -64,6 +76,7 @@ def fake_site(clean_db, monkeypatch):
         enabled=True,
         scan_interval_minutes=60,
     )
+    FakeScraper.between_items = None
     clean_db.add(site)
     clean_db.commit()
     yield site
@@ -704,3 +717,369 @@ class TestGeneratedCropsFollowTheReader:
         store = ImageStore(storing_images)
         stored = store.absolute_path(self.photos_of(clean_db)[0].filename).read_bytes()
         assert stored == other
+
+
+class TestDescriptiveFieldsAreDerivedWhereTheVendorGivesNone:
+    """A catalog with no field for the caliber still names it in the title.
+
+    Royal Tiger publishes the caliber, the country and the condition as their
+    own fields; a WooCommerce shop has nowhere structured to put them. The
+    first one read in came back with "7.62x54R" in every title and nothing in
+    the column.
+    """
+
+    def stored(self, session, key="a"):
+        return session.execute(select(Item).where(Item.external_key == key)).scalar_one()
+
+    def test_they_are_read_out_of_the_text(self, clean_db, fake_site):
+        FakeScraper.payload = [
+            listing(
+                "a",
+                title="WWII Russian Izhevsk M91/30 Mosin-Nagant 7.62x54R",
+                description="Bore is excellent with strong rifling.",
+                caliber=None,
+                country=None,
+                condition=None,
+            )
+        ]
+        scan_service.run_scan(fake_site.id, trigger="test")
+
+        item = self.stored(clean_db)
+        assert item.caliber == "7.62x54R"
+        assert item.country == "Russia"
+        assert item.condition == "Excellent"
+
+    def test_what_the_vendor_states_is_never_overwritten(self, clean_db, fake_site):
+        """Their field beats our reading of their prose."""
+        FakeScraper.payload = [
+            listing(
+                "a",
+                title="Mosin-Nagant 7.62x54R",
+                description="Bore is excellent.",
+                caliber="7.62x54mmR",
+                country="Soviet Union",
+                condition="Fair",
+            )
+        ]
+        scan_service.run_scan(fake_site.id, trigger="test")
+
+        item = self.stored(clean_db)
+        assert (item.caliber, item.country, item.condition) == (
+            "7.62x54mmR",
+            "Soviet Union",
+            "Fair",
+        )
+
+
+class TestTheWriteLockIsNotHeldAcrossTheNetwork:
+    """Why a scan must commit on a clock, not only on a count.
+
+    SQLite has one writer. A scan takes the write lock the moment it saves a
+    listing and holds it until it commits, so batching by count alone means
+    holding it for however long the vendor takes to hand over the next
+    twenty-five listings. Against a shop that wants twenty seconds between
+    requests that is eight minutes, and every write the web application
+    attempts in that window waits out its busy timeout and fails — signing in
+    updates a last-seen timestamp, so signing in returned a 500.
+    """
+
+    @pytest.fixture
+    def commits(self):
+        """Count commits on any session, via SQLAlchemy's own event."""
+        from sqlalchemy import event
+        from sqlalchemy.orm import Session as SessionClass
+
+        counted: list[int] = [0]
+
+        def bump(_session):
+            counted[0] += 1
+
+        event.listen(SessionClass, "after_commit", bump)
+        yield counted
+        event.remove(SessionClass, "after_commit", bump)
+
+    def clock(self, monkeypatch, step: float):
+        """A monotonic clock that advances by `step` every time it is read."""
+        now = [1000.0]
+
+        def read():
+            now[0] += step
+            return now[0]
+
+        monkeypatch.setattr("app.services.scan_service.time.monotonic", read)
+
+    def test_a_slow_vendor_gets_a_commit_between_listings(
+        self, clean_db, fake_site, monkeypatch, commits
+    ):
+        FakeScraper.payload = [listing(str(index)) for index in range(5)]
+        self.clock(monkeypatch, step=5.0)
+
+        scan_service.run_scan(fake_site.id, trigger="test")
+
+        # Five listings, five commits at least: one each, rather than one for
+        # the batch of twenty-five that never arrives.
+        assert commits[0] >= 5
+
+    def test_a_fast_vendor_still_gets_the_cheap_batch(
+        self, clean_db, fake_site, monkeypatch, commits
+    ):
+        """The batching is what makes a fast scan cheap; it must survive.
+
+        Compared against a slow run rather than against a fixed number: a scan
+        commits a few times whatever happens — opening the run, finishing it —
+        and what is under test is the commits the *listings* cause.
+        """
+        FakeScraper.payload = [listing(str(index)) for index in range(5)]
+
+        self.clock(monkeypatch, step=0.0)
+        scan_service.run_scan(fake_site.id, trigger="test")
+        fast = commits[0]
+
+        commits[0] = 0
+        self.clock(monkeypatch, step=5.0)
+        scan_service.run_scan(fake_site.id, trigger="test")
+        slow = commits[0]
+
+        assert fast < slow
+
+    def test_and_everything_still_lands(self, clean_db, fake_site, monkeypatch):
+        FakeScraper.payload = [listing(str(index)) for index in range(5)]
+        self.clock(monkeypatch, step=5.0)
+
+        scan_service.run_scan(fake_site.id, trigger="test")
+
+        assert clean_db.execute(select(func.count(Item.id))).scalar_one() == 5
+
+
+class TestTheWriteLockIsFreeBetweenListings:
+    """The property the whole thing exists for, checked the way it is felt.
+
+    SQLite has one writer. A scan that keeps a transaction open while it waits
+    on the network holds the write lock for as long as the *vendor* takes, and
+    every write the web application attempts meanwhile fails — signing in
+    updates a last-seen timestamp, so signing in returned a 500.
+
+    Checked from a separate connection, because that is what the web
+    application is. An earlier fix committed "every N listings, or every N
+    seconds checked when a listing arrives", passed its own tests, and failed
+    this one: ten listings arrive in milliseconds, sit below the batch size,
+    and the lock is then held across the twenty-second fetch of the next page
+    — with the clock never checked, because checking it happens when a listing
+    arrives.
+    """
+
+    def another_connection(self):
+        """A connection like the web application's: separate, and impatient."""
+        import sqlite3
+
+        from app.config import get_config
+
+        connection = sqlite3.connect(str(get_config().database_path), timeout=0.5)
+        connection.execute("PRAGMA busy_timeout=500")
+        return connection
+
+    def can_write(self) -> bool:
+        import sqlite3
+
+        connection = self.another_connection()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            connection.rollback()
+        except sqlite3.OperationalError:
+            return False
+        else:
+            return True
+        finally:
+            connection.close()
+
+    def test_another_connection_can_write_between_listings(self, clean_db, fake_site):
+        free: list[bool] = []
+        FakeScraper.between_items = lambda _index: free.append(self.can_write())
+        FakeScraper.payload = [listing(str(index)) for index in range(4)]
+
+        scan_service.run_scan(fake_site.id, trigger="test")
+
+        assert free == [True, True, True, True]
+
+    def test_and_the_work_is_visible_there_too(self, clean_db, fake_site):
+        """Not merely unlocked but committed, so an interrupted scan keeps what
+        it had reached."""
+        counts: list[int] = []
+
+        def count(_index):
+            connection = self.another_connection()
+            try:
+                counts.append(connection.execute("SELECT count(*) FROM items").fetchone()[0])
+            finally:
+                connection.close()
+
+        FakeScraper.between_items = count
+        FakeScraper.payload = [listing(str(index)) for index in range(4)]
+
+        scan_service.run_scan(fake_site.id, trigger="test")
+
+        assert counts == [1, 2, 3, 4]
+
+
+class TestPhotoDownloadsDoNotHoldTheLockEither:
+    """The second loop with the same bug, found after the first was fixed.
+
+    Each iteration downloads an image over the network, and it committed every
+    fifty — so the write lock was held across up to fifty downloads. It runs at
+    the *end* of a scan, which is where a person trying to sign in would meet
+    it.
+    """
+
+    @pytest.fixture
+    def storing_images(self, app_config, monkeypatch, tmp_path):
+        config = dataclasses.replace(
+            app_config,
+            images_path=tmp_path / "images",
+            scraping=dataclasses.replace(app_config.scraping, download_images=True),
+        )
+        config.images_path.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setattr("app.services.scan_service.get_config", lambda: config)
+        return config
+
+    @pytest.fixture
+    def commits(self):
+        from sqlalchemy import event
+        from sqlalchemy.orm import Session as SessionClass
+
+        counted = [0]
+
+        def bump(_session):
+            counted[0] += 1
+
+        event.listen(SessionClass, "after_commit", bump)
+        yield counted
+        event.remove(SessionClass, "after_commit", bump)
+
+    def test_a_slow_image_host_gets_a_commit_between_photos(
+        self, clean_db, fake_site, monkeypatch, storing_images, commits
+    ):
+        monkeypatch.setattr(
+            "app.services.image_store.ImageStore.download",
+            lambda *_args, **_kwargs: StoredImage(
+                filename="s/a.jpg",
+                thumb_filename="s/a_t.jpg",
+                content_type="image/jpeg",
+                bytes=10,
+                thumb_bytes=5,
+                width=10,
+                height=10,
+            ),
+        )
+        FakeScraper.payload = [
+            listing("a", image_urls=[f"https://fake.test/{n}.jpg" for n in range(6)])
+        ]
+        now = [1000.0]
+
+        def slow():
+            now[0] += 5.0
+            return now[0]
+
+        monkeypatch.setattr("app.services.scan_service.time.monotonic", slow)
+
+        scan_service.run_scan(fake_site.id, trigger="test")
+
+        # Six photos, and the loop used to commit once for all of them.
+        assert commits[0] >= 6
+
+
+class TestOnlyOneProcessScansASite:
+    """A scan claimed its site in a process-local dictionary.
+
+    So the CLI and the web application could not see each other's runs. Both
+    scanned Collectors Firearms at once, at twice the request rate their
+    robots.txt asks for, and the vendor answered with 429s. Worse, each
+    process's stale-run reaper marked the other's *live* scan as failed,
+    because a RUNNING row it did not own looked orphaned.
+
+    The database is the only thing the two processes share, so the claim lives
+    there.
+    """
+
+    def running_row(self, session, site, *, pid, host=None, minutes_ago=0):
+        import socket
+
+        run = ScanRun(
+            site_id=site.id,
+            trigger="manual",
+            status=ScanStatus.RUNNING,
+            started_at=utcnow() - timedelta(minutes=minutes_ago),
+            owner_host=host if host is not None else socket.gethostname(),
+            owner_pid=pid,
+        )
+        session.add(run)
+        session.commit()
+        return run
+
+    def test_a_live_scan_in_another_process_blocks_a_second(self, clean_db, fake_site):
+        import os
+
+        self.running_row(clean_db, fake_site, pid=os.getpid())
+        FakeScraper.payload = [listing("a")]
+
+        with pytest.raises(scan_service.ScanBusy, match="already running"):
+            scan_service.run_scan(fake_site.id, trigger="test")
+
+    def test_and_says_which_process(self, clean_db, fake_site):
+        import os
+
+        self.running_row(clean_db, fake_site, pid=os.getpid())
+        with pytest.raises(scan_service.ScanBusy, match=str(os.getpid())):
+            scan_service.run_scan(fake_site.id, trigger="test")
+
+    def test_a_row_whose_process_is_gone_does_not_block(self, clean_db, fake_site):
+        """A crash should not lock a site out until its timeout."""
+        stale = self.running_row(clean_db, fake_site, pid=999_999)
+        FakeScraper.payload = [listing("a")]
+
+        scan_service.run_scan(fake_site.id, trigger="test")
+
+        clean_db.expire_all()
+        assert clean_db.get(ScanRun, stale.id).status == ScanStatus.FAILED
+
+    def test_nor_does_one_from_before_this_column_existed(self, clean_db, fake_site):
+        """Rows written by an older version have no owner recorded."""
+        self.running_row(clean_db, fake_site, pid=None, host=None)
+        FakeScraper.payload = [listing("a")]
+        scan_service.run_scan(fake_site.id, trigger="test")
+
+    def test_another_machine_is_left_to_the_timeout(self, clean_db, fake_site):
+        """A pid means nothing on somebody else's host, so it is not evidence
+        either way — but a recent run there is still a claim."""
+        self.running_row(clean_db, fake_site, pid=1, host="some-other-host")
+        FakeScraper.payload = [listing("a")]
+
+        scan_service.run_scan(fake_site.id, trigger="test")
+
+    def test_the_new_run_records_who_owns_it(self, clean_db, fake_site):
+        import os
+        import socket
+
+        FakeScraper.payload = [listing("a")]
+        run_id = scan_service.run_scan(fake_site.id, trigger="test")
+
+        run = clean_db.get(ScanRun, run_id)
+        assert run.owner_pid == os.getpid()
+        assert run.owner_host == socket.gethostname()
+
+    def test_the_reaper_leaves_another_process_s_live_scan_alone(self, clean_db, fake_site):
+        import os
+
+        live = self.running_row(clean_db, fake_site, pid=os.getpid())
+
+        assert scan_service.reap_stale_runs(clean_db) == 0
+        clean_db.expire_all()
+        assert clean_db.get(ScanRun, live.id).status == ScanStatus.RUNNING
+
+    def test_but_still_reaps_one_that_has_timed_out(self, clean_db, fake_site):
+        import os
+
+        old = self.running_row(clean_db, fake_site, pid=os.getpid(), minutes_ago=600)
+
+        assert scan_service.reap_stale_runs(clean_db) == 1
+        clean_db.expire_all()
+        assert clean_db.get(ScanRun, old.id).status == ScanStatus.FAILED

@@ -91,7 +91,7 @@ MODEL_CALIBERS: tuple[tuple[str, str], ...] = (
     (r"gewehr\s+(?:71|88|98)", "8mm Mauser"),
     (r"mg\s*34", "8mm Mauser"),
     (r"zb\s*(?:26|37)", "8mm Mauser"),
-    (r"lee\s*-?\s*enfield|lee\s*-?\s*speed|\benfield\b", ".303 British"),
+    (r"lee\s*-?\s*enfield|lee\s*-?\s*speed", ".303 British"),
     (r"\bberthier\b", "8mm Lebel"),
     (r"st\.?\s*etienne\s*19(?:07|15)", "8mm Lebel"),
     (r"\bmakarov\b", "9x18 Makarov"),
@@ -121,9 +121,26 @@ MODEL_CALIBERS: tuple[tuple[str, str], ...] = (
     (r"\bmosin\b", "7.62x54R"),
     (r"\btokarev\b|\btt-?33\b", "7.62x25mm Tokarev"),
     (r"schmidt-?rubin", "7.5x55 Swiss"),
-    (r"mauser.*8mm|mauser\s+rifle|\bmauser\b", "8mm Mauser"),
+    (r"mauser.*8mm|mauser\s+rifle", "8mm Mauser"),
     (r"\.22\s*long\s*rifle|trainer.*\.22|\.22.*trainer", ".22 LR"),
 )
+
+#: A maker's name and nothing else. Tried last, and not at all for a handgun.
+#:
+#: Both of these firms made a famous rifle and a famous revolver, and the name
+#: alone points at the rifle. "MAUSER C96 PISTOL KITS" came back in 8mm Mauser,
+#: which is the 98's cartridge and not the C96's, and "ENFIELD NO1 MK2 PARTS
+#: KITS" — a .38 revolver — came back in .303 British.
+#:
+#: They are also demoted below the explicit spellings, which is a fix in its
+#: own right: a title reading "Spanish Mauser 7x57" was answered "8mm Mauser"
+#: because the maker rule was reached first.
+#: Plural, because a dealer sells lots: "1903 TURKISH CONTRACT MAUSERS".
+MAKER_CALIBERS: tuple[tuple[str, str], ...] = (
+    (r"\benfields?\b", ".303 British"),
+    (r"\bmausers?\b", "8mm Mauser"),
+)
+
 
 # Explicit caliber spellings, normalized to one canonical label each.
 CALIBER_NORMALIZATIONS: tuple[tuple[str, str], ...] = (
@@ -138,6 +155,11 @@ CALIBER_NORMALIZATIONS: tuple[tuple[str, str], ...] = (
     (r"9\s*[x×]\s*18", "9x18 Makarov"),
     (r"\.38\s*special", ".38 Special"),
     (r"8\s*[x×]\s*57", "8mm Mauser"),
+    # Its actual name, and it matters: this table names the maker wherever the
+    # cartridge does, and that is where a listing like "SPANISH 1916 SHORT
+    # RIFLES 7x57" gets its maker from. Left as a bare "7x57" by the generic
+    # metric fallback, it named nobody.
+    (r"7\s*[x×]\s*57", "7x57mm Mauser"),
     (r"8\s*[x×]\s*56\s*r", "8x56mmR"),
     (r"8\s*[x×]\s*50\s*r", "8x50mmR"),
     (r"7\.5\s*[x×]\s*55", "7.5x55 Swiss"),
@@ -199,11 +221,26 @@ def extract_caliber(  # noqa: PLR0911 - each return is one distinct rule class
         if re.search(pattern, haystack):
             return caliber
 
-    # Last resort: an unrecognized but well-formed metric caliber.
+    # An unrecognized but well-formed metric caliber.
     match = re.search(r"\b\d{1,2}(?:\.\d+)?\s*[x×]\s*\d{2,3}\s*r?\b", haystack)
     if match:
         return re.sub(r"\s+", "", match.group(0)).replace("×", "x").upper().replace("X", "x")
+
+    # Last of all, the maker's name — and never for a handgun, whose maker's
+    # famous cartridge is not its own.
+    if not _names_a_handgun(title_lower):
+        for pattern, caliber in MAKER_CALIBERS:
+            if re.search(pattern, haystack):
+                return caliber
     return None
+
+
+def _names_a_handgun(title_lower: str) -> bool:
+    """Whether the title says outright, or by designation, that this is one."""
+    known = _known_designation(title_lower)
+    if known is not None:
+        return known[1]
+    return any(re.search(pattern, title_lower) for pattern in PISTOL_PATTERNS)
 
 
 # ---------------------------------------------------------------------------
@@ -724,7 +761,10 @@ COUNTRY_PATTERNS: tuple[tuple[str, str], ...] = (
 )
 
 MANUFACTURER_PATTERNS: tuple[tuple[str, str], ...] = (
-    (r"\bMosin[- ]?Nagant\b", "Mosin-Nagant"),
+    # The model designations too, because a dealer often gives only those:
+    # "RUSSIAN M44 CARBINES" and "WW2 RUSSIAN 91/30 RIFLES" name no maker at
+    # all. Deliberately not M38, which is a Carcano as often as it is a Mosin.
+    (r"\bMosin[- ]?Nagant\b|\bM?91/30\b|\bM44\b", "Mosin-Nagant"),
     (r"\bTikka\b", "Tikka"),
     (r"\bVKT\b", "VKT"),
     (r"\bSAKO\b", "SAKO"),
@@ -743,7 +783,9 @@ MANUFACTURER_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"\bGlock\b", "Glock"),
     (r"\bWalther\b", "Walther"),
     (r"\bLuger\b|\bP-?08\b", "Luger"),
-    (r"\bArisaka\b", "Arisaka"),
+    # "Arisika" is not a spelling anyone uses; it is what OCR makes of a
+    # flyer's "ARISAKA", and a scanned page is a source like any other.
+    (r"\bArisaka\b|\bArisika\b", "Arisaka"),
     (r"\bCarcano\b", "Carcano"),
     (r"\bSchmidt-?Rubin\b", "Schmidt-Rubin"),
     (r"\bHusqvarna\b", "Husqvarna"),
@@ -756,7 +798,11 @@ MANUFACTURER_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"\bIzhevsk\b", "Izhevsk"),
     (r"\bTula\b", "Tula"),
     (r"\bFN\b", "FN"),
-    (r"\bCZ\b|\bBrno\b", "CZ"),
+    # ZB is Zbrojovka Brno, the same firm. Named by model because a bare "ZB"
+    # is two letters that turn up inside other things; ZB26 and ZB37 are what
+    # a dealer actually writes. Without this a ZB37 machine gun took its maker
+    # from its cartridge and came back a Mauser.
+    (r"\bCZ\b|\bBrno\b|\bZB\s?(?:26|37|30)\b", "CZ"),
     (r"\bVetterli\b", "Vetterli"),
     (r"\bBerthier\b", "Berthier"),
     (r"\bMannlicher\b", "Mannlicher"),
@@ -838,20 +884,30 @@ def enrich(
     country: str | None = None,
     manufacturer: str | None = None,
     category: str | None = None,
+    trust_description: bool = True,
 ) -> EnrichedFields:
     """Derive every structured field at once.
 
     Values a scraper already parsed off the page are trusted and passed through;
     only the gaps are filled by the heuristics. ``category`` is the vendor's own
     section name, which outranks the heuristics when it names a firearm type.
+
+    ``trust_description`` is false for a source whose prose is not about the
+    listing it is attached to — a flyer read by OCR, where the text beside a
+    product bleeds in from the panel next to it. The description is still used
+    to tell a rifle from a handgun, which is a judgement about the whole block
+    of text and survives some contamination; it is barred from supplying a
+    caliber, a country, a maker or a condition, which are specific claims and
+    do not.
     """
-    caliber = caliber or extract_caliber(title, description)
+    evidence = description if trust_description else None
+    caliber = caliber or extract_caliber(title, evidence)
     is_rifle, is_pistol = classify_firearm(title, description, caliber, price, category)
     return {
         "caliber": caliber,
-        "country": country or extract_country(title, description),
-        "manufacturer": manufacturer or extract_manufacturer(title, description),
-        "condition": extract_bore_condition(description),
+        "country": country or extract_country(title, evidence),
+        "manufacturer": manufacturer or extract_manufacturer(title, evidence),
+        "condition": extract_bore_condition(evidence),
         "is_rifle": is_rifle,
         "is_pistol": is_pistol,
     }

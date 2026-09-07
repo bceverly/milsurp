@@ -11,12 +11,14 @@ from __future__ import annotations
 import os
 
 from .base import (
+    Disallowed,
     ScrapeCanceled,
     ScrapeContext,
     ScrapedItem,
     ScrapeError,
     SiteScraper,
 )
+from .collectors_firearms import CollectorsFirearmsScraper
 from .demo import DemoScraper
 from .empire_arms import EmpireArmsScraper
 from .hunters_lodge import HuntersLodgeScraper
@@ -44,6 +46,7 @@ SCRAPER_CLASSES: tuple[type[SiteScraper], ...] = (
     RoyalTigerScraper,
     EmpireArmsScraper,
     HuntersLodgeScraper,
+    CollectorsFirearmsScraper,
     *((DemoScraper,) if _demo_site_enabled() else ()),
 )
 
@@ -72,6 +75,7 @@ def iter_scrapers() -> list[SiteScraper]:
 
 __all__ = [
     "SCRAPER_CLASSES",
+    "Disallowed",
     "ScrapeCanceled",
     "ScrapeContext",
     "ScrapeError",

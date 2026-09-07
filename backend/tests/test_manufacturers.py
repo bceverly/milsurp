@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import pytest
 from sqlalchemy import select
 
-from app.models import Item, Manufacturer, Site
+from app.models import Item, Manufacturer, ManufacturerModel, Site
 from app.services import classify
 from app.services import manufacturers as service
 
@@ -211,3 +212,127 @@ class TestTheTitleOutranksTheDescription:
 
     def test_and_order_still_decides_within_the_title(self):
         assert self.registry().extract_from("Walther and CZ lot") == "Walther"
+
+
+class TestDesignationsThatNameNoMaker:
+    """A dealer often gives the model and never the maker.
+
+    "RUSSIAN M44 CARBINES" and "WW2 RUSSIAN 91/30 RIFLES" are Mosin-Nagants
+    that do not contain the word Mosin, or Nagant, anywhere. On a vendor whose
+    descriptions can be trusted the prose rescues them; on a flyer read by OCR
+    there is nothing but the title, so they had no maker and did not appear
+    under the filter.
+    """
+
+    def registry(self):
+        """The built-in list as the seed would put it into the table.
+
+        The canonical name belongs in the pattern, exactly as
+        Manufacturer.spellings puts it there. Leaving it out builds a rule for
+        "Carcano" that does not match the word Carcano — which is what this
+        helper did at first, and it made a passing test out of a broken one.
+        """
+        rules = [
+            (name, service.pattern_for([name, *service._spellings_in(pattern, name)]))
+            for pattern, name in classify.MANUFACTURER_PATTERNS
+        ]
+        return service.Registry(rules)
+
+    @pytest.mark.parametrize(
+        "title", ["RUSSIAN M44 CARBINES", "WW2 RUSSIAN 91/30 RIFLES", "Izhevsk M91/30"]
+    )
+    def test_a_model_number_identifies_the_maker(self, title):
+        assert self.registry().extract(title) == "Mosin-Nagant"
+
+    def test_but_not_one_that_two_makers_share(self):
+        """M38 is a Carcano as often as it is a Mosin, so it is not a rule."""
+        assert self.registry().extract("C Grade M38 Carcano Cavalry Carbine") == "Carcano"
+
+    def test_and_not_a_number_that_merely_looks_similar(self):
+        """ "Type 44" is not "M44"; whole words only."""
+        assert self.registry().extract("Koishikawa Arsenal Type 44 Carbine") != "Mosin-Nagant"
+
+    def test_an_ocr_misreading_is_a_spelling_like_any_other(self):
+        """A scanned page is a source too, and it says ARISIKA."""
+        assert self.registry().extract("JAP ARISIKA BBL REC .T-99, T-38") == "Arisaka"
+
+
+class TestSeedingKeepsDesignationsWithSlashes:
+    def test_a_slash_survives_into_the_aliases(self):
+        """ "91/30" and "50/70" are how these guns are written. The literal
+        check rejected them, so the table was seeded without the spellings
+        dealers actually use."""
+        spellings = service._spellings_in(
+            r"\bMosin[- ]?Nagant\b|\bM?91/30\b|\bM44\b", "Mosin-Nagant"
+        )
+        assert "91/30" in spellings
+        assert "M91/30" in spellings
+
+    def test_and_it_matches_as_plain_text(self):
+        pattern = service.pattern_for(["91/30"])
+        assert pattern.search("WW2 RUSSIAN 91/30 RIFLES")
+        assert not pattern.search("WW2 RUSSIAN 91-30 RIFLES")
+
+
+class TestModelsBelongToAMaker:
+    """A dealer names the model far more often than the maker.
+
+    Kept as rows rather than as more lines in the alias box, because "M44" and
+    "Mosin Nagant" are different kinds of fact — what a firm made, and how its
+    name is spelled — and a model has somewhere to grow: its caliber, its type,
+    the years it ran.
+    """
+
+    def maker(self, session, name, models=(), position=10):
+        row = Manufacturer(name=name, position=position)
+        row.models = [ManufacturerModel(name=model) for model in models]
+        session.add(row)
+        session.flush()
+        service.invalidate()
+        return row
+
+    def test_a_model_identifies_its_maker(self, clean_db):
+        self.maker(clean_db, "Mosin-Nagant", ["M44", "91/30"])
+        registry = service.registry(clean_db)
+        assert registry.extract("RUSSIAN M44 CARBINES") == "Mosin-Nagant"
+        assert registry.extract("WW2 RUSSIAN 91/30 RIFLES") == "Mosin-Nagant"
+
+    def test_it_is_matched_as_literal_text_on_whole_words(self):
+        """Same rule as an alias: it comes from a form, so it is escaped."""
+        assert service.pattern_for(["M44"]).search("RUSSIAN M44 CARBINES")
+        assert not service.pattern_for(["M44"]).search("Koishikawa Type 44 Carbine")
+        assert not service.pattern_for(["M44"]).search("M448 widget")
+
+    def test_a_model_two_makers_claim_identifies_neither(self, clean_db):
+        """M38 is a Carcano as often as it is a Mosin. Picking the first rule
+        in the list would be an accident of ordering, not a decision."""
+        self.maker(clean_db, "Mosin-Nagant", ["M38"], position=10)
+        self.maker(clean_db, "Carcano", ["M38"], position=20)
+
+        assert service.registry(clean_db).extract("An M38 carbine") is None
+
+    def test_but_both_entries_are_kept(self, clean_db):
+        """They are both true; the admin page says which ones cancel out."""
+        first = self.maker(clean_db, "Mosin-Nagant", ["M38"], position=10)
+        second = self.maker(clean_db, "Carcano", ["M38"], position=20)
+
+        assert first.model_names == ["M38"]
+        assert second.model_names == ["M38"]
+        assert service.ambiguous_models([first, second]) == {"m38"}
+
+    def test_an_unshared_model_still_works_alongside_a_shared_one(self, clean_db):
+        self.maker(clean_db, "Mosin-Nagant", ["M38", "M44"], position=10)
+        self.maker(clean_db, "Carcano", ["M38"], position=20)
+
+        registry = service.registry(clean_db)
+        assert registry.extract("An M38 carbine") is None
+        assert registry.extract("An M44 carbine") == "Mosin-Nagant"
+
+    def test_a_disabled_maker_does_not_make_a_model_ambiguous(self, clean_db):
+        keep = self.maker(clean_db, "Mosin-Nagant", ["M38"], position=10)
+        gone = self.maker(clean_db, "Carcano", ["M38"], position=20)
+        gone.enabled = False
+        clean_db.flush()
+        service.invalidate()
+
+        assert service.registry(clean_db).extract("An M38 carbine") == keep.name

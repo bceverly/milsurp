@@ -338,3 +338,97 @@ def _one_pixel_png() -> bytes:
     buffer = io.BytesIO()
     Image.new("L", (2, 2), 255).save(buffer, format="PNG")
     return buffer.getvalue()
+
+
+class TestUnknownIsAFilterValue:
+    """A listing nothing could be worked out for should still be findable.
+
+    Otherwise the ones the heuristics fail on are exactly the ones nobody can
+    see, which is the wrong way round: they are the ones worth looking at.
+
+    The column stays NULL. "Unknown" is this view's word for an empty field,
+    not a value written into the row — writing it would make it
+    indistinguishable from a vendor of that name and would quietly stop every
+    "fill in the blanks" rule in the application, all of which key on the field
+    being empty.
+    """
+
+    @pytest.fixture
+    def catalog(self, seeded):
+        site = seeded.query(Site).first()
+        for key, maker, caliber in [
+            ("a", "Mauser", "8mm Mauser"),
+            ("b", "Mauser", "8mm Mauser"),
+            ("c", None, None),
+            ("d", None, "7.62x54R"),
+        ]:
+            seeded.add(
+                Item(
+                    site_id=site.id,
+                    external_key=key,
+                    url=f"https://example.test/{key}",
+                    title=f"Rifle {key}",
+                    manufacturer=maker,
+                    caliber=caliber,
+                    is_active=True,
+                    first_seen_at=utcnow(),
+                    last_seen_at=utcnow(),
+                )
+            )
+        seeded.commit()
+        return seeded
+
+    def facet(self, client, headers, name):
+        return client.get("/api/items", headers=headers).json()["facets"][name]
+
+    def test_the_unknowns_are_counted(self, client, admin_headers, catalog):
+        makers = self.facet(client, admin_headers, "manufacturers")
+        assert {"value": "Unknown", "label": None, "count": 2} in [
+            {"value": m["value"], "label": m.get("label"), "count": m["count"]} for m in makers
+        ]
+
+    def test_it_is_listed_last(self, client, admin_headers, catalog):
+        """It is not an answer and should not sit at the top looking like one."""
+        makers = self.facet(client, admin_headers, "manufacturers")
+        assert makers[-1]["value"] == "Unknown"
+
+    def test_choosing_it_returns_exactly_those_listings(self, client, admin_headers, catalog):
+        response = client.get("/api/items?manufacturer=Unknown", headers=admin_headers)
+        titles = {item["title"] for item in response.json()["items"]}
+        assert titles == {"Rifle c", "Rifle d"}
+
+    def test_a_real_maker_still_filters_normally(self, client, admin_headers, catalog):
+        response = client.get("/api/items?manufacturer=Mauser", headers=admin_headers)
+        assert {item["title"] for item in response.json()["items"]} == {"Rifle a", "Rifle b"}
+
+    def test_it_combines_with_a_real_maker(self, client, admin_headers, catalog):
+        response = client.get(
+            "/api/items?manufacturer=Mauser&manufacturer=Unknown", headers=admin_headers
+        )
+        assert len(response.json()["items"]) == 4
+
+    def test_the_other_fields_have_one_too(self, client, admin_headers, catalog):
+        """A filter where one field admits Unknown and the others do not would
+        be a puzzle rather than a feature."""
+        assert any(v["value"] == "Unknown" for v in self.facet(client, admin_headers, "calibers"))
+        response = client.get("/api/items?caliber=Unknown", headers=admin_headers)
+        assert {item["title"] for item in response.json()["items"]} == {"Rifle c"}
+
+    def test_no_bucket_when_nothing_is_missing(self, client, admin_headers, seeded):
+        site = seeded.query(Site).first()
+        seeded.add(
+            Item(
+                site_id=site.id,
+                external_key="only",
+                url="https://example.test/only",
+                title="Rifle",
+                manufacturer="Mauser",
+                is_active=True,
+                first_seen_at=utcnow(),
+                last_seen_at=utcnow(),
+            )
+        )
+        seeded.commit()
+
+        makers = self.facet(client, admin_headers, "manufacturers")
+        assert all(m["value"] != "Unknown" for m in makers)

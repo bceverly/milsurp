@@ -150,6 +150,13 @@ scheduler:
 
 # --- Scraping --------------------------------------------------------------
 scraping:
+  # Honor robots.txt: its Disallow rules and its Crawl-delay. Meant to stay on.
+  # It is a setting because a vendor may give a deployment explicit permission
+  # to ignore their rules -- not because it is optional by default.
+  #
+  # It changes how long a scan takes. Collectors Firearms asks for ten seconds
+  # between requests, which makes their scan half an hour of wall clock.
+  obey_robots: true                  # default: true
   user_agent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
   request_timeout: 30                # seconds, default: 30
   request_delay: 1.0                 # politeness delay between requests

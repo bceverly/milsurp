@@ -16,6 +16,7 @@ from __future__ import annotations
 import io
 
 import pytest
+from conftest import needs_ocr
 from PIL import Image, ImageDraw
 
 from app.scrapers import flyer
@@ -268,7 +269,7 @@ class TestCropping:
         assert Image.open(io.BytesIO(data)).size == page.size
 
 
-@pytest.mark.skipif(not flyer.ocr_available(), reason="tesseract is not installed")
+@needs_ocr
 class TestWithRealOcr:
     """End to end over a page this test draws itself."""
 
@@ -1083,3 +1084,64 @@ class TestALicenseIsNotAProduct:
             "ENFIELD NO1 MK2 PARTS KITS",
             "COLT PP .38 FRAMES",
         ]
+
+
+class TestADescriptionBelongsToItsOwnListing:
+    """OCR reads lines; a line carries its neighbours.
+
+    Grouping cuts a page into listings, but a line routinely holds the tail of
+    the panel above or the head of the one below, so a description arrives with
+    somebody else's product attached. Anything derived from it is then derived
+    from the wrong thing: hand-woven blankets came back chambered in 8mm
+    Mauser, which is the cartridge of the Spanish M43 rifles advertised
+    underneath them.
+    """
+
+    def test_the_next_product_is_cut_off_at_its_bullet(self):
+        text = (
+            ") « HAND WOVEN EXTRA LARGE VAQUERO BLANKETS. Native hand spun and woven "
+            "blankets, different colors $36.88. ¢e SPANISH M43 RIFLES 8x57 as is, off "
+            "the top $99.00."
+        )
+        trimmed = flyer.only_this_listing(text, "HAND WOVEN EXTRA LARGE VAQUERO BLANKETS")
+        assert "SPANISH M43" not in trimmed
+        assert "8x57" not in trimmed
+        assert "different colors $36.88." in trimmed
+
+    def test_but_this_listing_s_own_terms_survive(self):
+        """Cutting at the price itself would lose the options, which are real."""
+        text = "1916 SPANISH MAUSER ONLY $219.00. Add $25 for hand select. FFL or C&R required"
+        trimmed = flyer.only_this_listing(text, "1916 SPANISH MAUSER")
+        assert "Add $25 for hand select" in trimmed
+        assert "C&R required" in trimmed
+
+    def test_a_neighbour_in_front_is_cut_too(self):
+        """ "quality Swedish steel." is the end of the stock sets above, and it
+        is why the Gahendra Martini was filed under Sweden."""
+        text = "quality Swedish steel. GAHENDRA MARTINI RIFLE Supply limited. $48.88"
+        trimmed = flyer.only_this_listing(text, "GAHENDRA MARTINI RIFLE")
+        assert trimmed.startswith("GAHENDRA MARTINI RIFLE")
+        assert "Swedish" not in trimmed
+
+    def test_a_section_header_in_front_goes_the_same_way(self):
+        # Curly quotes because that is what tesseract returns here.
+        text = (
+            "“OLE ZEKE’S” TREASURES RUSSIAN M44 CARBINES good condition. $179.88."  # noqa: RUF001
+        )
+        trimmed = flyer.only_this_listing(text, "RUSSIAN M44 CARBINES")
+        assert trimmed.startswith("RUSSIAN M44 CARBINES")
+
+    def test_a_clean_description_is_left_alone(self):
+        """And this is the case that matters most: the caliber lives here.
+
+        Distrusting the whole description for this vendor was the first fix,
+        and it cost "SPANISH 1916 SHORT RIFLES 7x57" its caliber.
+        """
+        text = "¢ SPANISH 1916 SHORT RIFLES 7x57 as is, off the top $99.00. C&F"
+        trimmed = flyer.only_this_listing(text, "SPANISH 1916 SHORT RIFLES")
+        assert "7x57" in trimmed
+
+    def test_neither_cut_is_made_on_a_guess(self):
+        """No name found, no bullet after the price: nothing is trimmed."""
+        text = "Some prose with no name in it and a price $10.00 and then more prose."
+        assert flyer.only_this_listing(text, "NOT PRESENT") == text

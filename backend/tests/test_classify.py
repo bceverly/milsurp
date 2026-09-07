@@ -644,3 +644,106 @@ class TestLicensesAreNotProducts:
     def test_a_license_is_ruled_out_rather_than_merely_unknown(self):
         """The difference matters to anything that fills gaps from elsewhere."""
         assert classify.is_ruled_out("C&R/FFL required")
+
+
+class TestAMakersNameIsTheLastResortForACaliber:
+    """Mauser and Enfield each made a famous rifle and a famous revolver.
+
+    The name alone points at the rifle, which is right for a listing that says
+    nothing more and wrong the moment it does. "MAUSER C96 PISTOL KITS" came
+    back in 8mm Mauser — the 98's cartridge, not the C96's — and "ENFIELD NO1
+    MK2 PARTS KITS", a .38 revolver, came back in .303 British.
+    """
+
+    def test_a_maker_alone_still_answers_for_a_rifle(self):
+        assert classify.extract_caliber("1903 TURKISH CONTRACT MAUSERS") == "8mm Mauser"
+        assert classify.extract_caliber("ENFIELD NO4 MK1 RIFLES") == ".303 British"
+
+    def test_but_never_for_a_handgun(self):
+        assert classify.extract_caliber("MAUSER C96 PISTOL KITS") is None
+        assert classify.extract_caliber("Mauser C96 Broomhandle") is None
+
+    def test_including_one_only_a_designation_identifies(self):
+        """The Enfield No.1 Mk.2 does not say "revolver" anywhere in its name."""
+        assert classify.extract_caliber("ENFIELD NO1 MK2 PARTS KITS") is None
+
+    def test_an_explicit_caliber_beats_the_maker(self):
+        """The maker rule used to be reached first and overrule the page."""
+        assert classify.extract_caliber("Spanish Mauser 7x57 short rifle") == "7x57mm Mauser"
+
+    def test_a_model_rule_still_beats_both(self):
+        assert classify.extract_caliber("GERMAN K98 Mauser rifle") == "8mm Mauser"
+        assert classify.extract_caliber("BRITISH Lee-Enfield No4 Mk1") == ".303 British"
+
+    def test_a_dealer_sells_them_in_lots(self):
+        """ "MAUSERS" is not "MAUSER" to a word boundary."""
+        assert classify.extract_caliber("Lot of Mausers, as is") == "8mm Mauser"
+
+
+class TestDescriptionsThatAreNotAboutTheirListing:
+    """A flyer read by OCR carries the panel next door into every description.
+
+    Reading it is useful. Deriving facts from it is not: it filed hand-woven
+    blankets under 8mm Mauser and put a Japanese Arisaka in Sweden.
+    """
+
+    BLED = "8mm Mauser, Swedish steel, excellent bore. $47.88 C&R"
+
+    def test_by_default_a_description_is_evidence(self):
+        found = classify.enrich("HAND WOVEN BLANKETS", self.BLED)
+        assert found["caliber"] == "8mm Mauser"
+        assert found["country"] == "Sweden"
+
+    def test_and_for_a_bleeding_source_it_is_not(self):
+        found = classify.enrich("HAND WOVEN BLANKETS", self.BLED, trust_description=False)
+        assert found["caliber"] is None
+        assert found["country"] is None
+        assert found["condition"] is None
+
+    def test_the_title_still_answers(self):
+        found = classify.enrich(
+            "6.5MM ITALIAN CARCANO CARBINES", self.BLED, trust_description=False
+        )
+        assert found["caliber"] == "6.5x52mm Carcano"
+        assert found["country"] == "Italy"
+
+    def test_the_rifle_handgun_split_still_reads_the_description(self):
+        """A judgement about a whole block of text survives some contamination;
+        a specific claim like a caliber does not."""
+        found = classify.enrich("GAHENDRA MARTINI", "a fine old rifle", trust_description=False)
+        assert found["is_rifle"] is True
+
+    def test_what_a_vendor_states_is_still_taken(self):
+        found = classify.enrich("Blankets", self.BLED, caliber="8mm", trust_description=False)
+        assert found["caliber"] == "8mm"
+
+
+class TestACartridgeNamedAfterItsDesigner:
+    """This table names the maker wherever the cartridge does, and that is
+    where a listing gets a maker it never mentions.
+
+    "SPANISH 1916 SHORT RIFLES 7x57" is a Mauser and says so nowhere. Left as
+    a bare "7x57" by the generic metric fallback, it named nobody.
+    """
+
+    def test_7x57_is_a_mauser_cartridge(self):
+        assert classify.extract_caliber("SPANISH 1916 SHORT RIFLES 7x57 as is") == "7x57mm Mauser"
+
+    def test_and_is_not_confused_with_8x57(self):
+        assert classify.extract_caliber("SPANISH M43 RIFLES 8x57 as is") == "8mm Mauser"
+
+    @pytest.mark.parametrize(
+        ("caliber", "expected"),
+        [
+            ("8mm Mauser", "Mauser"),
+            ("7x57mm Mauser", "Mauser"),
+            ("6.5x52mm Carcano", "Carcano"),
+            ("7.7x58mm Arisaka", "Arisaka"),
+            (".45 ACP", None),
+            ("7.62x54R", None),
+        ],
+    )
+    def test_the_label_is_read_for_a_maker(self, caliber, expected):
+        """Only what the name actually says. 7.62x54R is a Mosin cartridge and
+        does not say so, which is what the catalog scan is for."""
+        assert classify.extract_manufacturer(caliber) == expected

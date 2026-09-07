@@ -139,6 +139,13 @@ class ManufacturerOut(UTCModel):
     id: int
     name: str
     aliases: str | None = None
+    #: The models this maker made, one per line. Edited as text for the same
+    #: reason the aliases are — a list of short strings is a textarea, not a
+    #: form — and stored as rows, so a model has somewhere to grow.
+    models: str | None = None
+    #: Models another maker also claims, and which therefore identify neither.
+    #: "M38" is a Carcano as often as it is a Mosin-Nagant.
+    ambiguous_models: list[str] = Field(default_factory=list)
     position: int
     enabled: bool
     notes: str | None = None
@@ -149,6 +156,8 @@ class ManufacturerOut(UTCModel):
 
 class ManufacturerCreate(BaseModel):
     name: str = Field(min_length=1, max_length=128)
+    #: One model per line.
+    models: str | None = Field(default=None, max_length=8000)
     #: Other spellings, one per line. Matched as literal text, never as a
     #: pattern -- see app/services/manufacturers.py.
     aliases: str | None = Field(default=None, max_length=4000)
@@ -159,6 +168,7 @@ class ManufacturerCreate(BaseModel):
 
 class ManufacturerUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=128)
+    models: str | None = Field(default=None, max_length=8000)
     aliases: str | None = Field(default=None, max_length=4000)
     position: int | None = Field(default=None, ge=0, le=100_000)
     enabled: bool | None = None

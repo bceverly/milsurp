@@ -384,26 +384,47 @@ def cmd_reclassify(_args: argparse.Namespace) -> int:
     """
     changed = 0
     with session_scope() as session:
+        # Whether a site's prose is about the listing it is attached to. Looked
+        # up once per site rather than once per listing.
+        trusted = {
+            site.id: scan_service.descriptions_are_reliable(site.slug)
+            for site in session.execute(select(Site)).scalars()
+        }
         items = session.execute(select(Item)).scalars().all()
         for item in items:
+            evidence = item.description if trusted.get(item.site_id, True) else None
             derived = classify.enrich(
                 item.title,
                 item.description,
                 item.current_price,
                 caliber=item.caliber,
                 category=item.category,
+                trust_description=trusted.get(item.site_id, True),
             )
+            # The caliber first: it is one of the things that names a maker,
+            # since a great many surplus cartridges are called after the firm
+            # that designed them.
+            caliber = item.caliber or derived["caliber"]
             maker = item.manufacturer or manufacturers.extract(
-                session, item.title, item.description
+                session, item.title, evidence, caliber
             )
+            # Only the blanks: a value the vendor stated is theirs, and this
+            # command must be safe to run against a catalog that has some.
+            filled = {
+                "caliber": caliber,
+                "country": item.country or derived["country"],
+                "condition": item.condition or derived["condition"],
+                "manufacturer": maker,
+            }
             if (
                 item.is_rifle != derived["is_rifle"]
                 or item.is_pistol != derived["is_pistol"]
-                or item.manufacturer != maker
+                or any(getattr(item, name) != value for name, value in filled.items())
             ):
                 item.is_rifle = derived["is_rifle"]
                 item.is_pistol = derived["is_pistol"]
-                item.manufacturer = maker
+                for name, value in filled.items():
+                    setattr(item, name, value)
                 changed += 1
         session.commit()
 
@@ -456,7 +477,14 @@ def cmd_infer(args: argparse.Namespace) -> int:
     each time. On a two-vendor catalog it will often find nothing at all.
     """
     with session_scope() as session:
-        filled = crosscatalog.fill_gaps(session, same_site=bool(args.same_site))
+        agreed = crosscatalog.makers_by_caliber(session)
+        if agreed:
+            print("Calibers the catalog agrees name one maker:")
+            for caliber, maker in sorted(agreed.items()):
+                print(f"  {caliber:<22} {maker}")
+            print()
+        filled = crosscatalog.fill_makers_from_caliber(session)
+        filled += crosscatalog.fill_gaps(session, same_site=bool(args.same_site))
         for entry in sorted(filled, key=lambda f: -f.score):
             print(f"  {entry.title[:40]:<40} {entry.field}={entry.value}")
             print(f"  {'':<40} from {entry.source_title[:44]} ({entry.score})")

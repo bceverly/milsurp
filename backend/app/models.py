@@ -180,6 +180,16 @@ class Manufacturer(Base, TimestampMixin):
     #: A note for whoever edits this next.
     notes: Mapped[str | None] = mapped_column(Text)
 
+    models: Mapped[list["ManufacturerModel"]] = relationship(
+        back_populates="manufacturer",
+        cascade="all, delete-orphan",
+        order_by="ManufacturerModel.name",
+    )
+
+    @property
+    def model_names(self) -> list[str]:
+        return [model.name for model in self.models]
+
     @property
     def spellings(self) -> list[str]:
         """Every string that means this maker, canonical name first."""
@@ -189,6 +199,36 @@ class Manufacturer(Base, TimestampMixin):
             if alias and alias.lower() not in {item.lower() for item in found}:
                 found.append(alias)
         return found
+
+
+class ManufacturerModel(Base, TimestampMixin):
+    """A model this maker made: "M44" for Mosin-Nagant, "ZB37" for CZ.
+
+    Separate from :attr:`Manufacturer.aliases`, which is the same firm spelled
+    differently. A model is a different kind of fact — "the thing named this was
+    made by that firm" — and dealers name the model far more often than the
+    maker: "RUSSIAN M44 CARBINES" and "WW2 RUSSIAN 91/30 RIFLES" are both
+    Mosin-Nagants that never say Mosin, or Nagant, anywhere.
+
+    Kept as rows rather than as more lines in the aliases box so that a model
+    has somewhere to grow: its caliber, its type, the years it was made are all
+    facts about a model rather than about a firm.
+    """
+
+    __tablename__ = "manufacturer_models"
+    __table_args__ = (
+        UniqueConstraint("manufacturer_id", "name", name="uq_model_per_manufacturer"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    manufacturer_id: Mapped[int] = mapped_column(
+        ForeignKey("manufacturers.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    #: As a dealer writes it. Matched as literal text on word boundaries, like
+    #: an alias, and never as a pattern.
+    name: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+
+    manufacturer: Mapped["Manufacturer"] = relationship(back_populates="models")
 
 
 class ScanRun(Base):
@@ -201,6 +241,14 @@ class ScanRun(Base):
     site_id: Mapped[int] = mapped_column(
         ForeignKey("sites.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    #: Which process is running this, so another one can tell a live scan from
+    #: a row left behind by a crash. A scan used to claim a site in a
+    #: process-local dictionary, which meant the CLI and the web application
+    #: could not see each other's runs: both would scan the same vendor at the
+    #: same time, at twice the agreed request rate, and both got 429ed for it.
+    owner_host: Mapped[str | None] = mapped_column(String(128))
+    owner_pid: Mapped[int | None] = mapped_column(Integer)
+
     status: Mapped[ScanStatus] = mapped_column(
         Enum(ScanStatus, native_enum=False, length=16),
         default=ScanStatus.RUNNING,
