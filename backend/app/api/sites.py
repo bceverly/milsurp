@@ -8,19 +8,31 @@ from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import case, func, select
 
 from ..deps import AdminUser, CurrentUser, DbSession
-from ..models import Item, ScanRun, Site, utcnow
+from ..models import HostCooldown, Item, ScanRun, Site, as_utc, utcnow
 from ..schemas import (
     ScanRunOut,
     ScanStartResponse,
     SiteOut,
     SiteUpdate,
 )
-from ..services import scan_service
+from ..services import cooldown, scan_service
 
 router = APIRouter(prefix="/sites", tags=["sites"])
 
 
-def _site_out(session: DbSession, site: Site) -> SiteOut:
+def _resting_hosts() -> dict[str, HostCooldown]:
+    """Every host currently being left alone, by hostname.
+
+    Read once for a whole listing rather than per site: it is one query either
+    way thanks to the register's own cache, but doing it here makes that
+    obvious instead of accidental.
+    """
+    return {row.host: row for row in cooldown.active()}
+
+
+def _site_out(
+    session: DbSession, site: Site, resting: dict[str, HostCooldown] | None = None
+) -> SiteOut:
     """One site plus the roll-ups the admin list shows at a glance."""
     total, active = session.execute(
         select(
@@ -44,6 +56,16 @@ def _site_out(session: DbSession, site: Site) -> SiteOut:
     data.active_item_count = int(active or 0)
     data.is_scanning = scan_service.is_running(site.id)
     data.last_run = ScanRunOut.model_validate(last_run) if last_run else None
+
+    paused = (resting if resting is not None else _resting_hosts()).get(
+        cooldown.host_of(site.base_url)
+    )
+    if paused is not None:
+        now = utcnow()
+        remaining = ((as_utc(paused.until) or now) - now).total_seconds()
+        if remaining > 0:
+            data.resting_seconds = int(remaining)
+            data.resting_reason = paused.reason
     return data
 
 
@@ -51,7 +73,8 @@ def _site_out(session: DbSession, site: Site) -> SiteOut:
 def list_sites(_user: CurrentUser, session: DbSession) -> list[SiteOut]:
     """Every site with its current status. Readable by any signed-in user."""
     sites = session.execute(select(Site).order_by(Site.name)).scalars().all()
-    return [_site_out(session, site) for site in sites]
+    resting = _resting_hosts()
+    return [_site_out(session, site, resting) for site in sites]
 
 
 @router.get("/{site_id}", response_model=SiteOut)
@@ -159,6 +182,26 @@ def start_scan(site_id: int, _admin: AdminUser, session: DbSession) -> ScanStart
     return ScanStartResponse(
         scan_run_id=run_id, site_id=site_id, message=f"Scan of {site.name} started."
     )
+
+
+@router.post("/{site_id}/resting/clear", status_code=status.HTTP_200_OK)
+def clear_resting(site_id: int, _admin: AdminUser, session: DbSession) -> dict[str, str]:
+    """Let this site's host be asked again before its pause is up.
+
+    Admin-only, because it is an undertaking to the vendor rather than a local
+    preference: the pause exists because their server refused us, and lifting
+    it early means going back sooner than they asked. Worth doing once the
+    cause is known and fixed, and worth a deliberate click rather than a
+    default.
+    """
+    site = session.get(Site, site_id)
+    if site is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such site.")
+
+    host = cooldown.host_of(site.base_url)
+    if not cooldown.clear(host):
+        return {"message": f"{host or site.name} was not resting."}
+    return {"message": f"{host} may be asked again."}
 
 
 @router.post("/{site_id}/scan/cancel", status_code=status.HTTP_202_ACCEPTED)

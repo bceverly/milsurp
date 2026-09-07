@@ -396,7 +396,46 @@ class ItemPhoto(Base):
     height: Mapped[int | None] = mapped_column(Integer)
     downloaded_at: Mapped[datetime | None] = mapped_column(DateTime)
 
+    #: How many times this photo has been asked for and not arrived.
+    #:
+    #: A queued photo is a row with no ``filename``, so without a counter a URL
+    #: that can never succeed is indistinguishable from one that has not been
+    #: reached yet — and gets retried on every scan forever. The queue is
+    #: ordered by this, so a dead row drifts to the back rather than occupying
+    #: the per-scan budget ahead of photos that would work.
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime)
+    #: Why the last attempt failed, for whoever is wondering where the picture
+    #: went. Cleared on success.
+    last_error: Mapped[str | None] = mapped_column(Text)
+
     item: Mapped["Item"] = relationship(back_populates="photos")
+
+
+class HostCooldown(Base):
+    """A host that has told us to go away, and when it becomes polite to ask again.
+
+    Per *host* rather than per site, because that is the unit a rate limiter
+    actually works on: a vendor's pages and their uploads directory are usually
+    the same host, and the CDN in front of both is the thing counting.
+
+    Shared through the database because nothing else is shared. The scheduler,
+    the CLI and a `make photos` run are separate processes, and a limit learned
+    in one of them used to be unlearned the moment it exited.
+    """
+
+    __tablename__ = "host_cooldowns"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    host: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    #: When it becomes reasonable to ask this host for something again.
+    until: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    #: Consecutive refusals, which is what makes the wait grow. Reset by a
+    #: request that succeeds.
+    refusals: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    reason: Mapped[str | None] = mapped_column(String(255))
+    first_refused_at: Mapped[datetime | None] = mapped_column(DateTime)
+    last_refused_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
 class PriceHistory(Base):

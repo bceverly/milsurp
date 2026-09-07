@@ -745,8 +745,19 @@ def _accessory_leads(title_lower: str) -> bool:
 #: Removing the phrase rather than special-casing each rule is what makes this
 #: hold: the vetoes then simply never see a part that was never for sale.
 _ATTACHED_PART = re.compile(
-    r"\b(?:with|w/|w|no|without|w/o|less|minus|missing|sans|plus|and|incl(?:udes|uding)?)\s+"
-    r"(?:the\s+|a\s+|an\s+|its\s+|original\s+|reproduction\s+|ramrod\s+|matching\s+)*"
+    r"\b(?:"
+    # "with a bayonet", "w/ Ramrod Bayonet", "no bayonet". Up to two words are
+    # allowed to sit between, because the adjective cannot be enumerated: a
+    # list of the ones seen so far missed "with Spike Bayonet" the first time
+    # this ran against a real catalog.
+    r"(?:with|w/|w|no|without|w/o|less|minus|missing|sans|plus|and|incl(?:udes|uding)?)"
+    r"(?:\s+\w+){0,2}"
+    # Or the provenance adjective on its own: "Mauser - Matching Bayonet" is a
+    # rifle whose bayonet has the right serial, which is why it is mentioned.
+    # Nine identical Portuguese-contract Kar98ks came back as blades without
+    # this.
+    r"|(?:numbers[\s-]?)?matching|original|correct"
+    r")\s+"
     r"(?:bayonets?|scabbards?|slings?|holsters?|magazines?)\b",
     re.I,
 )

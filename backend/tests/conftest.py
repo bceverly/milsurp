@@ -7,6 +7,7 @@ real schema rather than a `create_all()` approximation that could drift from it.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import sys
 from pathlib import Path
@@ -119,6 +120,26 @@ def session(_database):
     finally:
         db.rollback()
         db.close()
+
+
+@pytest.fixture(autouse=True)
+def _forget_host_cooldowns():
+    """Drop the shared "leave this host alone" register between tests.
+
+    It is deliberately process-wide and database-backed, because its whole
+    purpose is to outlive one scan and be seen by every other fetcher. That is
+    also exactly what makes it leak between tests: a test that provokes a 429
+    would otherwise pause a host for the tests after it, which fail with a
+    message about resting rather than about themselves.
+    """
+    from app.services import cooldown
+
+    cooldown._cache.clear()
+    cooldown._warned = False
+    yield
+    cooldown._cache.clear()
+    with contextlib.suppress(Exception):
+        cooldown.clear()
 
 
 @pytest.fixture(autouse=True)

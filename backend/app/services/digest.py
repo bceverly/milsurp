@@ -19,9 +19,11 @@ import html
 import logging
 from datetime import UTC, datetime, timedelta
 from functools import lru_cache
+from io import BytesIO
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from PIL import Image, ImageOps
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -37,6 +39,7 @@ from ..models import (
     utcnow,
 )
 from . import mailer
+from .image_store import ImageStore, ImageStoreError
 
 log = logging.getLogger("milsurp.digest")
 
@@ -78,9 +81,63 @@ def _mark_bytes() -> bytes | None:
 
 
 def inline_images() -> dict[str, bytes]:
-    """What the digest HTML refers to by Content-ID."""
+    """What the digest HTML refers to by Content-ID, before any listings."""
     payload = _mark_bytes()
     return {MARK_CID: payload} if payload is not None else {}
+
+
+#: How big a listing's photograph is in the message, in pixels.
+#:
+#: The cell is 72px, and this is twice that so it stays sharp on a phone. The
+#: stored thumbnail is 640px, which is right for a web grid and far too heavy to
+#: attach twenty of — those run 40-60KB each, so a digest would be over a
+#: megabyte of pictures nobody asked to download on a mobile connection.
+EMAIL_PHOTO_PX = 144
+
+#: Never attach more than this, however many listings the digest covers.
+#:
+#: A digest is capped per site rather than overall, so a night when four
+#: vendors all restock is a long message. The pictures stop; the listings do
+#: not — a row without one still has its title, price and link.
+MAX_EMAIL_PHOTOS = 24
+
+#: And never more than this in total, as a second belt.
+MAX_EMAIL_PHOTO_BYTES = 400 * 1024
+
+
+def _photo_for(item: Item, store: ImageStore) -> bytes | None:
+    """One listing's picture, sized for a message, or None.
+
+    Read from the thumbnail already on disk and shrunk again rather than from
+    the original: the original can be 2000px and several megabytes, and this
+    runs while somebody is waiting for their email to send.
+    """
+    photo = next(
+        (candidate for candidate in item.photos if candidate.thumb_filename or candidate.filename),
+        None,
+    )
+    if photo is None:
+        return None
+    try:
+        stored = photo.thumb_filename or photo.filename
+        if not stored:
+            return None
+        with Image.open(store.absolute_path(stored)) as opened:
+            # Rotated to how a phone actually took it, then flattened: a PNG
+            # with transparency becomes black on a JPEG otherwise.
+            upright = ImageOps.exif_transpose(opened) or opened
+            small = upright.convert("RGB")
+            small.thumbnail((EMAIL_PHOTO_PX, EMAIL_PHOTO_PX))
+            buffer = BytesIO()
+            small.save(buffer, format="JPEG", quality=78, optimize=True)
+            payload: bytes = buffer.getvalue()
+            return payload
+    except (OSError, ValueError, ImageStoreError) as exc:
+        # A missing or unreadable file costs this row its picture and nothing
+        # else. A digest that fails to send because one photograph moved would
+        # be a poor trade.
+        log.info("No email photo for item %s: %s", item.id, exc)
+        return None
 
 
 GREEN = "#1E7A46"
@@ -199,7 +256,7 @@ def _e(value: str | None) -> str:
     return html.escape(value or "", quote=True)
 
 
-def _item_row(item: Item, zone, show_drop: bool) -> str:
+def _item_row(item: Item, zone, show_drop: bool, photo_cid: str | None = None) -> str:
     price = _money(item.current_price, item.currency)
     if show_drop and item.previous_price is not None and item.current_price is not None:
         was = _money(item.previous_price, item.currency)
@@ -215,9 +272,26 @@ def _item_row(item: Item, zone, show_drop: bool) -> str:
     facts = " · ".join(_e(value) for value in (item.caliber, item.country, item.category) if value)
     seen = _fmt_time(item.price_changed_at if show_drop else item.first_seen_at, zone)
 
+    # The picture is its own cell rather than a float: floats are not reliable
+    # in mail clients, and a table cell is. Fixed width so a row without a
+    # photograph still lines up with the rows that have one.
+    picture = (
+        f"""
+        <td width="84" valign="top"
+            style="padding:14px 12px 14px 0;border-bottom:1px solid #E3E8F0;">
+          <a href="{_e(item.url)}" style="text-decoration:none;">
+            <img src="cid:{photo_cid}" width="72" height="72" alt=""
+                 style="display:block;width:72px;height:72px;object-fit:cover;
+                        border-radius:6px;border:1px solid #E3E8F0;" />
+          </a>
+        </td>"""
+        if photo_cid
+        else ""
+    )
+
     return f"""
-      <tr>
-        <td style="padding:14px 0;border-bottom:1px solid #E3E8F0;">
+      <tr>{picture}
+        <td valign="top" style="padding:14px 0;border-bottom:1px solid #E3E8F0;">
           <a href="{_e(item.url)}" style="color:{NAVY};font-weight:600;font-size:15px;
              text-decoration:none;line-height:1.35;">{_e(item.title)}</a>
           <div style="color:{MUTED};font-size:12px;margin:5px 0 8px;">{facts or '&nbsp;'}</div>
@@ -233,6 +307,7 @@ def _section(
     sites: dict[int, Site],
     zone,
     show_drop: bool,
+    photos: dict[int, str] | None = None,
 ) -> str:
     if not grouped:
         return ""
@@ -240,7 +315,9 @@ def _section(
     for site_id, items in grouped.items():
         site = sites.get(site_id)
         site_name = _e(site.name if site else "Unknown site")
-        rows = "".join(_item_row(item, zone, show_drop) for item in items)
+        rows = "".join(
+            _item_row(item, zone, show_drop, (photos or {}).get(item.id)) for item in items
+        )
         blocks.append(f"""
         <tr><td style="padding:18px 24px 0;">
           <div style="font-size:12px;font-weight:700;letter-spacing:.10em;
@@ -262,8 +339,13 @@ def render_digest(
     sites: dict[int, Site],
     since: datetime,
     config: Config,
-) -> tuple[str, str]:
-    """Return ``(subject, html_body)``."""
+) -> tuple[str, str, dict[str, bytes]]:
+    """Return ``(subject, html_body, inline_images)``.
+
+    The pictures travel with the message rather than being linked: mail clients
+    block remote images by default, so a linked thumbnail is an empty box for
+    most readers on first open.
+    """
     # None means the user never chose one; the email has no browser to ask,
     # so UTC is the only honest fallback.
     preference = user.email_preference
@@ -278,6 +360,27 @@ def render_digest(
     if drop_count:
         parts.append(f"{drop_count} price drop{'s' if drop_count != 1 else ''}")
     subject = f"{BRAND}: {' and '.join(parts)}" if parts else f"{BRAND}: nothing new"
+
+    # One picture per listing, attached and referenced by Content-ID, until the
+    # budget runs out. A digest covering four vendors restocking at once is a
+    # long message, and nobody wants a megabyte of photographs arriving on a
+    # phone — so the pictures stop and the listings carry on without them.
+    images = inline_images()
+    photo_cids: dict[int, str] = {}
+    store = ImageStore(config)
+    budget = MAX_EMAIL_PHOTO_BYTES
+    for group in (new_items, price_drops):
+        for items in group.values():
+            for item in items:
+                if len(photo_cids) >= MAX_EMAIL_PHOTOS or budget <= 0:
+                    break
+                payload = _photo_for(item, store)
+                if payload is None or len(payload) > budget:
+                    continue
+                cid = f"item-{item.id}"
+                images[cid] = payload
+                photo_cids[item.id] = cid
+                budget -= len(payload)
 
     # The mark travels with the message and is referenced by Content-ID.
     #
@@ -321,8 +424,8 @@ def render_digest(
     sites you follow.
   </td></tr>
 
-  {_section('New listings', new_items, sites, zone, False)}
-  {_section('Price reductions', price_drops, sites, zone, True)}
+  {_section('New listings', new_items, sites, zone, False, photo_cids)}
+  {_section('Price reductions', price_drops, sites, zone, True, photo_cids)}
 
   {'' if (new_count or drop_count) else f'''
   <tr><td style="padding:24px;color:{MUTED};font-size:14px;">
@@ -343,7 +446,7 @@ def render_digest(
   </td></tr>
 
 </table></td></tr></table></body></html>"""
-    return subject, body
+    return subject, body, images
 
 
 # ---------------------------------------------------------------------------
@@ -356,11 +459,11 @@ def next_send_time(preference: EmailPreference, from_time: datetime | None = Non
 
 def build_digest(
     session: Session, user: User, config: Config | None = None
-) -> tuple[str, str, int, int, datetime] | None:
+) -> tuple[str, str, dict[str, bytes], int, int, datetime] | None:
     """Assemble one user's digest.
 
-    Returns ``(subject, html, new_count, drop_count, cutoff)``, or ``None`` when
-    the user has nothing selected at all.
+    Returns ``(subject, html, inline_images, new_count, drop_count, cutoff)``,
+    or ``None`` when the user has nothing selected at all.
     """
     config = config or get_config()
     preference = user.email_preference
@@ -385,10 +488,10 @@ def build_digest(
         site.id: site
         for site in session.execute(select(Site).where(Site.id.in_(site_ids))).scalars().all()
     }
-    subject, body = render_digest(user, new_items, price_drops, sites, since, config)
+    subject, body, images = render_digest(user, new_items, price_drops, sites, since, config)
     new_count = sum(len(v) for v in new_items.values())
     drop_count = sum(len(v) for v in price_drops.values())
-    return subject, body, new_count, drop_count, cutoff
+    return subject, body, images, new_count, drop_count, cutoff
 
 
 def send_digest_for_user(
@@ -421,7 +524,7 @@ def send_digest_for_user(
         session.commit()
         return log
 
-    subject, body, new_count, drop_count, cutoff = built
+    subject, body, images, new_count, drop_count, cutoff = built
 
     if not force and preference.skip_when_empty and not (new_count or drop_count):
         # Advance the schedule but not the watermark, so the next digest still
@@ -438,7 +541,7 @@ def send_digest_for_user(
         return log
 
     try:
-        mailer.send_html(user.email, subject, body, config=config, inline_images=inline_images())
+        mailer.send_html(user.email, subject, body, config=config, inline_images=images)
     except mailer.MailError as exc:
         log = EmailLog(
             user_id=user.id,

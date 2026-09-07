@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from app.api import auth
+from app.models import User
+
 
 class TestLogin:
     def test_success(self, client):
@@ -226,3 +229,38 @@ class TestUserManagement:
         )
         assert response.status_code == 200
         assert client.get("/api/auth/me", headers=headers).status_code == 401
+
+
+class TestTheSignInLogNeverQuotesTheRequest:
+    """A failed sign-in names the account it matched, or nothing.
+
+    The submitted string used to be passed through an allowlist, on the belief
+    that a guard was a barrier a taint tracker would respect. It is not — the
+    guard returns the original string on the matching branch — so the value
+    reaching the log was still the one from the request, and CodeQL went on
+    reporting log injection because it was right to.
+
+    The rule is asserted rather than the log line. What matters is where the
+    name comes from, and testing that through a logging handler tests the
+    logging framework instead.
+    """
+
+    def test_a_real_account_is_named(self, seeded):
+        user = seeded.query(User).filter(User.username == "admin").one()
+        assert auth.account_label(user) == "admin"
+
+    def test_and_an_unknown_one_is_not_named_at_all(self):
+        assert auth.account_label(None) == auth.NO_SUCH_ACCOUNT
+
+    def test_nothing_the_request_said_can_reach_it(self):
+        """The label is either a column from the database or a literal. There
+        is no third case, so there is nowhere for a forged record to enter."""
+        forged = "admin\nWARNING milsurp.auth: Successful sign-in for root"
+        assert forged not in auth.account_label(None)
+
+    def test_the_failing_request_still_answers_401(self, client):
+        """The rule above is only worth anything on the path that uses it."""
+        auth._attempts.clear()
+        response = client.post("/api/auth/login", json={"username": "admin", "password": "wrong"})
+        assert response.status_code == 401
+        assert response.json()["detail"] == "Incorrect username or password."

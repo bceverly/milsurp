@@ -460,6 +460,35 @@ A few things worth knowing:
 - `services/classify.enrich()` derives caliber, country, manufacturer, condition
   and the rifle/pistol split from the title and description.
 
+### If the vendor runs Shopify
+
+The cheapest case, and worth checking for first: Shopify publishes every
+collection as JSON at `/collections/<handle>/products.json`, carrying the
+product id, title, price, availability, SKU, full gallery and description. A
+subclass is a slug, a name and a list of collections — there is no markup to
+parse and **no per-listing detail fetch**, which is where every other scraper
+spends its time.
+
+```python
+from .shopify import ShopifyScraper
+
+class MyVendorScraper(ShopifyScraper):
+    slug = "my-vendor"
+    name = "My Vendor"
+    base_url = "https://myvendor.com/"
+    sources = (
+        {"category": "Curio & Relic", "url": "https://myvendor.com/collections/c-r"},
+    )
+```
+
+Two things to check. Pagination is `?limit=250&page=N`, so a shop that
+disallows query strings in robots.txt cannot be read this way — the walk asks
+first and stops with a warning rather than failing. And **scope it to
+collections**: a general retailer's top-level feed is their whole shop,
+ammunition and modern rifles included.
+
+Cookies identify the platform: `_shopify_y` or `_shopify_essential`.
+
 ### If the vendor runs BigCommerce
 
 `BigCommerceScraper` is the same idea for Stencil themes: `article.card` per
@@ -608,6 +637,56 @@ meaning changes. A refusal that arrives when there is no slower left to go
 cannot be "you are asking too often", so it fails immediately instead of
 sleeping through three more attempts at a pace already shown not to work.
 
+**Being refused is remembered across processes.** A pace learned inside one
+scan used to die when that process exited, so the scheduler, the CLI and a
+`make photos` run each rediscovered the same rate limit separately — which from
+the vendor's side is not one crawler being told to slow down, it is several
+ignoring the same instruction.
+
+`app/services/cooldown.py` keeps a `host_cooldowns` table, and every fetching
+path consults it before making a request. Three things about it are deliberate:
+
+- **It is published only once the in-process backoff is exhausted.** A single
+  429 means "slow down" and is handled where it happens; being refused *at the
+  slowest pace available* is a different statement, and that is the one worth
+  sharing. Publishing on the first 429 would have a scan abandon a whole vendor
+  over a hiccup.
+- **It is per host, not per site.** A rate limiter counts requests to a
+  hostname, and a vendor's catalog pages and their uploads directory are
+  usually the same one.
+- **It fails open.** A cooldown that cannot be read means "carry on", never
+  "fail the fetch" — an application whose HTTP layer stops working because a
+  table is missing is a worse failure than asking a vendor too often.
+
+A photo skipped because its host is resting does **not** count as a failed
+attempt, or a cooldown would burn a photograph's whole retry budget without a
+single request being made.
+
+**A pause ends by itself.** The wait doubles with each refusal up to an hour,
+and once it is up every fetcher resumes with no intervention — that is the
+"cooling off" the whole thing is for. The Sites page shows which hosts are
+resting and why, and an admin can lift one early with **Fetch anyway** once the
+cause is known and fixed; `cli.py resting` and `cli.py resting --clear` do the
+same from a terminal. Lifting it is deliberately a separate button rather than
+a confirmation on Scan now: the pause exists because the vendor's server
+refused us, so going back before they asked is a decision about them.
+
+**When a photograph will not arrive.** The photo queue is rows with no file
+yet, so a URL that can never work looks exactly like one not reached — and used
+to be retried on every scan for the life of the listing, silently. Each row now
+counts its `attempts` and keeps the `last_error`; the queue is read
+fewest-failures-first so a dead URL drifts to the back instead of consuming the
+per-scan budget ahead of photographs that would work; and after three failures
+it is left alone.
+
+**Only a failure that will still be true tomorrow counts.** A 404 or an
+unsupported content type is a property of the URL and is worth giving up on; a
+429, a 503 or a timeout is a property of the moment, and letting those
+accumulate would strand every photograph a busy afternoon touched — which is
+what the host cooldown exists to prevent, not to cause. Transient failures are
+recorded and retried; bounding them is the cooldown's job. `make photos-retry` clears the counts once the cause is fixed,
+which is the right thing to do by hand and the wrong thing to do on a schedule.
+
 **When a shop refuses a page.** A page that cannot be read costs what was on
 that page, and nothing more. Both storefront base classes apply that twice:
 
@@ -633,7 +712,7 @@ having walked 24 listings and saved 5, reporting nothing found. Both rules
 together turn that same hour into a PARTIAL run with the listings it managed to
 read. It is still a bad site to scan, and it may yet need the browser path.
 
-Nine vendors are read today; nineteen more are queued in
+Eleven vendors are read today; seventeen more are queued in
 [ROADMAP.md](ROADMAP.md), grouped by the platform they run on because one base
 class unlocks a whole group.
 
@@ -833,7 +912,7 @@ backend/cli.py backup           # snapshot the database now, and prune old ones
 
 ## Roadmap
 
-[ROADMAP.md](ROADMAP.md) tracks planned work, including the nineteen vendor
+[ROADMAP.md](ROADMAP.md) tracks planned work, including the seventeen vendor
 sites queued for support, Debian packages and a Launchpad PPA driven by
 `v1.2.3.4` git tags, and an Electron desktop app published to the Snap Store.
 

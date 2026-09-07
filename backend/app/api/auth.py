@@ -22,6 +22,26 @@ from ..security import (
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+#: Stands in for a username that matched no account.
+#:
+#: Fixed text, so a log line can never be written by the person failing to sign
+#: in. The rate limiter still counts attempts per submitted name and address,
+#: so a sweep through a list of guessed accounts is still visible as a burst of
+#: these from one address — just without their contents.
+NO_SUCH_ACCOUNT = "<no such account>"
+
+
+def account_label(user: User | None) -> str:
+    """What to call the account somebody failed to sign in to.
+
+    The name comes from the database or it does not come at all. Never from the
+    request — that is the whole point, and it is a rule worth having somewhere
+    testable rather than inline in a log call.
+    """
+    return user.username if user is not None else NO_SUCH_ACCOUNT
+
+
 log = logging.getLogger("milsurp.auth")
 
 # --- Login throttling -------------------------------------------------------
@@ -94,17 +114,29 @@ def login(
             # difference between "no such user" and "wrong password".
             hash_password("timing-equalizer", config)
         _record_failure(key)
-        # The username goes through an allowlist rather than an escape: it is
-        # either one of this application's account names or it is nothing.
+        # What is logged is the account that was *matched*, read back from the
+        # database — never the string that was submitted.
+        #
+        # The submitted name used to be passed through an allowlist, on the
+        # belief that a guard was a barrier a taint tracker would respect. It
+        # is not: the function returns the original string on the matching
+        # branch, so the value in the log line was still the one from the
+        # request, and CodeQL went on reporting log injection because it was
+        # right to.
+        #
+        # Nothing is lost by this. A failed sign-in against a real account is
+        # the line worth having, and it names that account exactly. A sign-in
+        # against an account that does not exist is somebody guessing, and
+        # writing their guess into the log is how the guess becomes the
+        # message — so those are counted, not quoted.
         #
         # The client address is read from the request, not sliced back out of
         # the throttle key. The key is built as "<username>|<address>", so
         # key.split("|")[-1] carried the submitted username along with it — an
-        # obscure way to obtain something the request already has, and one that
-        # put attacker-controlled text into a log line that looked sanitised.
+        # obscure way to obtain something the request already has.
         log.warning(
             "Failed sign-in for %s from %s",
-            safe_identifier(payload.username),
+            account_label(user),
             # Already guarded: _client_address() allowlists on the way out.
             _client_address(request),
         )

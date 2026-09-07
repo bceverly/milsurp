@@ -15,7 +15,7 @@ from sqlalchemy import func, select
 from app.models import Item, ItemPhoto, PriceHistory, ScanRun, ScanStatus, Site, utcnow
 from app.scrapers import ScrapedItem, ScrapeError, SiteScraper
 from app.services import scan_service
-from app.services.image_store import ImageStore, StoredImage
+from app.services.image_store import FetchResult, ImageStore, StoredImage
 
 
 class FakeScraper(SiteScraper):
@@ -592,6 +592,132 @@ class TestDownloadPendingPhotos:
     def test_nothing_queued_is_not_an_error(self, fake_site, clean_db, images_enabled):
         assert scan_service.download_pending_photos() == 0
 
+    def _always_fails(self, monkeypatch, reason="404 Not Found", permanent=True):
+        """A store where every photograph refuses to arrive."""
+        calls: list[str] = []
+
+        class FailingStore:
+            def __init__(self, _config):
+                pass
+
+            def fetch(self, _session, _slug, url):
+                calls.append(url)
+                return FetchResult(None, reason, permanent=permanent)
+
+        monkeypatch.setattr(scan_service, "ImageStore", FailingStore)
+        return calls
+
+    def test_a_failure_is_counted_and_its_reason_kept(
+        self, fake_site, clean_db, monkeypatch, images_enabled
+    ):
+        """Without this a queued photo that can never arrive is indistinguishable
+        from one not reached yet."""
+        self._seed_photos(clean_db, fake_site, 2)
+        self._always_fails(monkeypatch)
+
+        assert scan_service.download_pending_photos() == 0
+
+        photos = clean_db.execute(select(ItemPhoto)).scalars().all()
+        assert [photo.attempts for photo in photos] == [1, 1]
+        assert all(photo.last_error == "404 Not Found" for photo in photos)
+        assert all(photo.last_attempt_at is not None for photo in photos)
+        assert all(photo.filename is None for photo in photos)
+
+    def test_it_gives_up_after_enough_failures(
+        self, fake_site, clean_db, monkeypatch, images_enabled
+    ):
+        """A dead URL used to be retried on every scan for the life of the
+        listing, silently."""
+        self._seed_photos(clean_db, fake_site, 1)
+        calls = self._always_fails(monkeypatch)
+
+        for _ in range(scan_service.MAX_PHOTO_ATTEMPTS + 3):
+            scan_service.download_pending_photos()
+
+        assert len(calls) == scan_service.MAX_PHOTO_ATTEMPTS
+
+    def test_a_passing_failure_does_not_count_against_the_budget(
+        self, fake_site, clean_db, monkeypatch, images_enabled
+    ):
+        """A 429 is the shop having a bad afternoon, not a broken URL.
+
+        Counting those would strand every photograph the afternoon touched —
+        which is what the host cooldown exists to prevent, not to cause.
+        """
+        self._seed_photos(clean_db, fake_site, 1)
+        calls = self._always_fails(monkeypatch, "429 after 3 attempts", permanent=False)
+
+        for _ in range(scan_service.MAX_PHOTO_ATTEMPTS + 2):
+            scan_service.download_pending_photos()
+
+        assert len(calls) == scan_service.MAX_PHOTO_ATTEMPTS + 2, "still being tried"
+        photo = clean_db.execute(select(ItemPhoto)).scalars().one()
+        assert photo.attempts == 0
+        # The error is still recorded, so it is visible rather than silent.
+        assert photo.last_error == "429 after 3 attempts"
+        assert photo.last_attempt_at is not None
+
+    def test_the_queue_puts_the_failures_last(
+        self, fake_site, clean_db, monkeypatch, images_enabled
+    ):
+        """The budget is finite, so a handful of dead rows at the front of an
+        unordered queue starve every photograph behind them."""
+        self._seed_photos(clean_db, fake_site, 4)
+        photos = clean_db.execute(select(ItemPhoto).order_by(ItemPhoto.id)).scalars().all()
+        # The first two have already failed once; the last two are untouched.
+        for photo in photos[:2]:
+            photo.attempts = 1
+        clean_db.commit()
+        fresh = [photo.source_url for photo in photos[2:]]
+
+        calls = self._always_fails(monkeypatch)
+        scan_service.download_pending_photos(limit=2)
+
+        assert calls == fresh
+
+    def test_retrying_clears_the_count_so_they_are_tried_again(
+        self, fake_site, clean_db, monkeypatch, images_enabled
+    ):
+        """The right thing after fixing whatever was wrong, and the wrong thing
+        to do on a schedule — hence a flag rather than the default."""
+        self._seed_photos(clean_db, fake_site, 1)
+        calls = self._always_fails(monkeypatch)
+
+        for _ in range(scan_service.MAX_PHOTO_ATTEMPTS):
+            scan_service.download_pending_photos()
+        assert len(calls) == scan_service.MAX_PHOTO_ATTEMPTS
+
+        scan_service.download_pending_photos()
+        assert len(calls) == scan_service.MAX_PHOTO_ATTEMPTS, "given up on, so not asked again"
+
+        scan_service.download_pending_photos(retry_failed=True)
+        assert len(calls) == scan_service.MAX_PHOTO_ATTEMPTS + 1
+
+    def test_a_success_clears_a_previous_error(
+        self, fake_site, clean_db, monkeypatch, images_enabled
+    ):
+        self._seed_photos(clean_db, fake_site, 1)
+        photo = clean_db.execute(select(ItemPhoto)).scalars().one()
+        photo.attempts, photo.last_error = 1, "429 Too Many Requests"
+        clean_db.commit()
+
+        class WorkingStore:
+            def __init__(self, _config):
+                pass
+
+            def fetch(self, _session, _slug, _url):
+                return FetchResult(
+                    StoredImage(filename="s/a.jpg", content_type="image/jpeg", bytes=10), None
+                )
+
+        monkeypatch.setattr(scan_service, "ImageStore", WorkingStore)
+        assert scan_service.download_pending_photos() == 1
+
+        clean_db.expire_all()
+        photo = clean_db.execute(select(ItemPhoto)).scalars().one()
+        assert photo.filename == "s/a.jpg"
+        assert photo.last_error is None
+
     def test_it_stops_at_the_limit_and_leaves_the_rest_queued(
         self, fake_site, clean_db, monkeypatch, images_enabled
     ):
@@ -603,16 +729,19 @@ class TestDownloadPendingPhotos:
             def __init__(self, _config):
                 pass
 
-            def download(self, _session, _slug, url):
+            def fetch(self, _session, _slug, url):
                 calls.append(url)
-                return StoredImage(
-                    filename=f"f/{len(calls)}.jpg",
-                    content_type="image/jpeg",
-                    bytes=10,
-                    thumb_filename=f"f/{len(calls)}_t.jpg",
-                    thumb_bytes=5,
-                    width=10,
-                    height=10,
+                return FetchResult(
+                    StoredImage(
+                        filename=f"f/{len(calls)}.jpg",
+                        content_type="image/jpeg",
+                        bytes=10,
+                        thumb_filename=f"f/{len(calls)}_t.jpg",
+                        thumb_bytes=5,
+                        width=10,
+                        height=10,
+                    ),
+                    None,
                 )
 
         monkeypatch.setattr(scan_service, "ImageStore", FakeStore)
@@ -959,15 +1088,18 @@ class TestPhotoDownloadsDoNotHoldTheLockEither:
         self, clean_db, fake_site, monkeypatch, storing_images, commits
     ):
         monkeypatch.setattr(
-            "app.services.image_store.ImageStore.download",
-            lambda *_args, **_kwargs: StoredImage(
-                filename="s/a.jpg",
-                thumb_filename="s/a_t.jpg",
-                content_type="image/jpeg",
-                bytes=10,
-                thumb_bytes=5,
-                width=10,
-                height=10,
+            "app.services.image_store.ImageStore.fetch",
+            lambda *_args, **_kwargs: FetchResult(
+                StoredImage(
+                    filename="s/a.jpg",
+                    thumb_filename="s/a_t.jpg",
+                    content_type="image/jpeg",
+                    bytes=10,
+                    thumb_bytes=5,
+                    width=10,
+                    height=10,
+                ),
+                None,
             ),
         )
         FakeScraper.payload = [

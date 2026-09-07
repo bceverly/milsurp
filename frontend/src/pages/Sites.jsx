@@ -9,12 +9,19 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api.js";
 import { useInterval, useTitle } from "../hooks.js";
-import { formatDuration, formatInterval, formatRelative, timeTitle } from "../format.js";
+import {
+  formatCountdown,
+  formatDuration,
+  formatInterval,
+  formatRelative,
+  timeTitle,
+} from "../format.js";
 import { ScanStatusChip } from "../components/StatusChip.jsx";
 import {
   Browser,
   Check,
   History,
+  Pause,
   Play,
   Refresh,
   Stop,
@@ -122,6 +129,24 @@ function SiteCard({ site, result, onChange, onError, onDismissResult }) {
     }
   }
 
+  /** Lift the pause early, once whatever caused it is known and fixed.
+   *
+   * Deliberately a separate button rather than a confirmation on "Scan now":
+   * the pause exists because the vendor's server refused us, so going back
+   * before they asked is a decision about them, not a local preference.
+   */
+  async function wakeUp() {
+    setBusy(true);
+    try {
+      await api.clearResting(site.id);
+      onChange({ ...site, resting_seconds: null, resting_reason: null });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function scanNow() {
     setBusy(true);
     try {
@@ -168,6 +193,14 @@ function SiteCard({ site, result, onChange, onError, onDismissResult }) {
               <span className="chip chip--info">
                 <span className="spinner spinner--sm" />
                 Scanning…
+              </span>
+            ) : site.resting_seconds ? (
+              <span
+                className="chip chip--warning"
+                title={site.resting_reason || "This host refused our requests"}
+              >
+                <Pause size={12} />
+                Resting {formatCountdown(site.resting_seconds)}
               </span>
             ) : site.last_run ? (
               <ScanStatusChip status={site.last_run.status} />
@@ -277,10 +310,21 @@ function SiteCard({ site, result, onChange, onError, onDismissResult }) {
           <button
             className="btn btn--primary btn--sm"
             onClick={scanNow}
-            disabled={busy || !site.is_available}
+            disabled={busy || !site.is_available || Boolean(site.resting_seconds)}
+            title={
+              site.resting_seconds
+                ? "This host asked to be left alone. Scanning it now would ignore that."
+                : undefined
+            }
           >
             <Play size={14} />
             Scan now
+          </button>
+        )}
+
+        {Boolean(site.resting_seconds) && (
+          <button className="btn btn--secondary btn--sm" onClick={wakeUp} disabled={busy}>
+            Fetch anyway
           </button>
         )}
 
@@ -291,6 +335,15 @@ function SiteCard({ site, result, onChange, onError, onDismissResult }) {
       </div>
 
       {result && <ScanResult result={result} onDismiss={onDismissResult} />}
+
+      {Boolean(site.resting_seconds) && (
+        <div className="site-card__resting">
+          Every scan and photo download is leaving this host alone for another{" "}
+          {formatCountdown(site.resting_seconds)}
+          {site.resting_reason ? ` — ${site.resting_reason}.` : "."} It refused our
+          requests, so nothing will ask it again until then.
+        </div>
+      )}
 
       {site.next_scan_at && site.enabled && !site.is_scanning && (
         <div

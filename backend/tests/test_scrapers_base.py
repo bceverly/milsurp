@@ -27,6 +27,19 @@ def robots(body: str, status: int = 200) -> None:
     )
 
 
+@pytest.fixture
+def no_global_cooldown(monkeypatch):
+    """Neutralize the shared "leave this host alone" register.
+
+    These tests drive a host to its refusal ceiling on purpose, to exercise the
+    escalation *inside* one context. Reaching that ceiling is also what
+    publishes a cooldown every other process obeys — correct behavior, and a
+    different subject. Tested separately in test_cooldown.py.
+    """
+    monkeypatch.setattr("app.scrapers.base.cooldown.paused_for", lambda _url: 0.0)
+    monkeypatch.setattr("app.scrapers.base.cooldown.refused", lambda *_a, **_k: 0.0)
+
+
 class TestRobotsIsEnforced:
     @responses.activate
     def test_an_allowed_page_is_fetched(self, obeying):
@@ -307,7 +320,9 @@ class TestBeingRateLimited:
             context.close()
 
     @responses.activate
-    def test_a_site_that_answers_again_is_no_longer_refusing(self, obeying, slept):
+    def test_a_site_that_answers_again_is_no_longer_refusing(
+        self, obeying, slept, no_global_cooldown
+    ):
         """The flag has to outlive nothing but the condition. A genuine rate
         limit arriving after an hour of successful requests deserves the same
         chance to be slowed down as the first one did."""

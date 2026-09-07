@@ -171,6 +171,8 @@ export const api = {
   sendTestDigest: () => request("/api/preferences/email/test", { method: "POST" }),
   emailHistory: (params) => request(`/api/preferences/email/history${qs(params)}`),
   emailBody: (id) => request(`/api/preferences/email/history/${id}`),
+  clearResting: (siteId) =>
+    request(`/api/sites/${siteId}/resting/clear`, { method: "POST" }),
 
   // --- admin ---
   status: () => request("/api/admin/status"),

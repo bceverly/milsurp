@@ -199,6 +199,10 @@ photos: $(VENV_PY) ## Download queued photos without re-scraping (make photos li
 		$(VENV_PY) backend/cli.py fetch-photos; \
 	fi
 
+.PHONY: photos-retry
+photos-retry: $(VENV_PY) ## Try photos that were given up on after repeated failures
+	@$(VENV_PY) backend/cli.py fetch-photos --retry-failed $(if $(limit),--limit "$(limit)",)
+
 .PHONY: reclassify
 reclassify: $(VENV_PY) ## Re-derive rifle/handgun for stored listings (no network)
 	@$(VENV_PY) backend/cli.py reclassify

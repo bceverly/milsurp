@@ -265,3 +265,13 @@ export function List(props) {
     </Svg>
   );
 }
+
+/** Two bars: paused, resting, deliberately not running. */
+export function Pause(props) {
+  return (
+    <Svg {...props}>
+      <line x1="9" y1="5" x2="9" y2="19" />
+      <line x1="15" y1="5" x2="15" y2="19" />
+    </Svg>
+  );
+}

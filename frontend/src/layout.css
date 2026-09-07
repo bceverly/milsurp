@@ -936,13 +936,22 @@
      rather than a fixed count so the cells wrap to two rows on a narrow card
      instead of squeezing "14m 36s" onto two lines. */
   grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
-  border-top: 1px solid var(--silver-200);
-  background: var(--silver-100);
+  /* Filled hard enough to actually read as a band.
+     It was --silver-100 (#eef1f6) on a white card on a --paper (#f4f6fa)
+     page: a contrast ratio of 1.05 against the page, which is no edge at all,
+     so the strip read as a gap between cards. The first attempt at fixing it
+     moved to --navy-50 (#eef3fb) — 1.016 against the colour it replaced, which
+     is to say invisible, and 1.03 against the page, which is worse. Measure
+     these rather than eyeballing hex codes that look different in a diff.
+     --silver-300 is 1.46 against the page and 1.58 against the card. */
+  background: var(--silver-300);
 }
 .site-card__stat {
   padding: 10px 12px;
   text-align: center;
-  border-right: 1px solid var(--silver-200);
+  /* White, because the dividers now sit *on* a filled band: a grey line on a
+     grey fill is the same mistake one level down. */
+  border-right: 1px solid var(--surface);
 }
 .site-card__stat:last-child {
   border-right: none;
@@ -957,7 +966,9 @@
   font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--ink-400);
+  /* Darker now there is real colour underneath: 8:1 on the filled band, where
+     --ink-400 would have been 3.4:1 on 10.5px uppercase text. */
+  color: var(--ink-700);
   margin-top: 1px;
 }
 
@@ -1443,4 +1454,19 @@
   margin: 9px 0 7px;
   border: 0;
   border-top: 1px solid var(--line, #dbe1ea);
+}
+
+/* A host that refused us, and is being left alone by every fetcher. */
+.site-card__resting {
+  margin: 0 16px 13px;
+  padding: 9px 11px;
+  /* The same palette the warning chip beside it uses, rather than two
+     invented shades of amber that only nearly match. */
+  border: 1px solid var(--amber-100);
+  border-left: 3px solid var(--amber-600);
+  border-radius: 7px;
+  background: var(--amber-100);
+  color: var(--amber-600);
+  font-size: 12.5px;
+  line-height: 1.5;
 }

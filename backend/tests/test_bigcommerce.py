@@ -66,6 +66,19 @@ def product_page(title: str, description: str, images: list[str]) -> str:
     """
 
 
+@pytest.fixture
+def no_global_cooldown(monkeypatch):
+    """Neutralize the shared "leave this host alone" register.
+
+    These tests drive a host to its refusal ceiling on purpose, to exercise the
+    escalation *inside* one context. Reaching that ceiling is also what
+    publishes a cooldown every other process obeys — correct behavior, and a
+    different subject. Tested separately in test_cooldown.py.
+    """
+    monkeypatch.setattr("app.scrapers.base.cooldown.paused_for", lambda _url: 0.0)
+    monkeypatch.setattr("app.scrapers.base.cooldown.refused", lambda *_a, **_k: 0.0)
+
+
 class Shop(BigCommerceScraper):
     slug = "shop-test"
     name = "Shop"
@@ -320,7 +333,7 @@ class TestWhenProductPagesAreRefused:
         assert any("Keeping the catalog entry only" in w for w in ctx.warnings)
 
     @responses.activate
-    def test_a_shop_that_refuses_all_of_them_stops_asking(self, ctx):
+    def test_a_shop_that_refuses_all_of_them_stops_asking(self, ctx, no_global_cooldown):
         """Otherwise the whole catalog is walked one pointless request at a
         time, each one paying the full retry-and-backoff bill."""
         wanted = Shop.MAX_DETAIL_FAILURES
@@ -338,7 +351,7 @@ class TestWhenProductPagesAreRefused:
         assert any("taking the rest of this scan from the catalog only" in w for w in ctx.warnings)
 
     @responses.activate
-    def test_one_that_recovers_is_not_given_up_on(self, ctx):
+    def test_one_that_recovers_is_not_given_up_on(self, ctx, no_global_cooldown):
         """The count is failures *in a row*. A shop having a bad minute in the
         middle of a long catalog should not lose the rest of its galleries."""
         responses.add(responses.GET, f"{SHOP}/rifles/", body=self.catalog_of(4))

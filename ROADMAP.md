@@ -14,10 +14,10 @@ The whole point of the application is breadth. Each new vendor is one subclass
 of `SiteScraper` in `backend/app/scrapers/` plus one line in `SCRAPER_CLASSES`;
 scheduling, admin controls, price history, images and digests all come for free.
 
-**Where this stands: nine vendors read, nineteen queued, one dropped.** Of the
-eighteen, five are blocked on something that is not the platform — two need a
-browser, one needs an entry URL, one publishes no prices, and two refuse a plain
-request — so they are not simply waiting their turn in the queue.
+**Where this stands: eleven vendors read, seventeen queued, one dropped.** Of
+the seventeen, five are blocked on something that is not the platform — two need
+a browser, one needs an entry URL, one publishes no prices, and two refuse a
+plain request — so they are not simply waiting their turn in the queue.
 
 ### Shipped
 
@@ -32,6 +32,8 @@ request — so they are not simply waiting their turn in the queue.
 | [CO Gun Sales](https://cogunsales.com/) | `co-gun-sales` | WooCommerce for text; their photographs are a CSS background and a JSON attribute, with no `<img>` anywhere |
 | [Checkpoint Charlie's](https://checkpointcharlies.com/) | `checkpoint-charlies` | WooCommerce, a product *tag* rather than a category. Catalog only — their `/product/` pages refuse every request |
 | [Legacy Collectibles](https://www.legacy-collectibles.com/) | `legacy-collectibles` | BigCommerce base class — `article.card`, `data-entity-id`, query-string pagination |
+| [IMA-USA](https://www.ima-usa.com/) | `ima-usa` | Shopify base class — `products.json`, no HTML parsing and no detail fetch |
+| [Centerfire Systems](https://centerfiresystems.com/) | `centerfire-systems` | Shopify; three surplus collections out of a general retailer's catalog |
 
 ### Planned
 
@@ -176,7 +178,7 @@ OpenCart.
 | Platform | Sites | Notes |
 | --- | --- | --- |
 | **BigCommerce** | Legacy Collectibles, Arms Unlimited, Edelweiss Arms, SARCO | **Base class shipped** (`app/scrapers/bigcommerce.py`). Four sites, one platform, and the markup is close to WooCommerce's: `article.card`, an entity id per card, a "next" link. Two of these were in Group A on the URL guess. Of the four, one shipped, one was dropped as out of scope, and two are blocked — see Group B |
-| **Shopify** | IMA-USA, Centerfire Systems | **Next.** Cheapest per site — IMA-USA's `/products.json` returns full structured products. Only two sites though, and Centerfire was filed as a one-off build |
+| **Shopify** | IMA-USA, Centerfire Systems | **Both shipped** (`app/scrapers/shopify.py`). Cheapest per site, and the estimate held: structured JSON, no browser, no detail fetch. Centerfire had been filed as a one-off build on the URL guess |
 | **Wix** | Surplus Defense, The Mosin Crate, Pasadena Pawn | Three, not one-offs. Wix renders client-side, so expect the browser path |
 | **Magento** | Century Arms | One, not the three Group B claimed |
 | **Laravel (custom)** | AIM Surplus | `laravel_session`; a bespoke application, not BigCommerce |
@@ -218,17 +220,32 @@ walk asks before each page rather than assuming.
 | 2 | Edelweiss Arms | https://edelweissarms.com/antiques/long-guns/ | **Prices are not published.** Cards and titles parse; the price element is empty site-wide. Worth having for new-stock alerts, worth nothing for price tracking — decide before building |
 | — | ~~Arms Unlimited~~ | — | **Dropped: not a surplus dealer.** Written, run against the live site, and backed out. Their `/surplus/` section is police trade-in gear — Tasers, holsters, a water bottle — and `/rifles/` is modern Colt M4s. 97 listings landed correctly and none of them belonged in this catalog. The scraper was a two-line subclass; restoring it is easy if modern stock is ever wanted |
 
-#### Group C — Shopify (2 sites) · least work per site
+#### Group C — Shopify · base class **shipped**
 
-Shopify publishes `/products.json`: structured data, reliable prices, variants
-and image galleries, no HTML parsing and no browser. **Verified** on IMA-USA,
-which returns full product objects. Worth doing straight after BigCommerce, or
-before it if two sites quickly is more use than four sites slowly.
+The cheapest group by a distance, and the only one whose estimate held up.
+`/collections/<handle>/products.json` returns the numeric product id, the
+title, the price, availability, the SKU, the full gallery at original
+resolution and the description — so `app/scrapers/shopify.py` does **no HTML
+parsing and no per-listing detail fetch at all**. That second point is the win:
+the detail fetch is where every other scraper spends its time, and a collection
+of two hundred products is one request here.
 
-| # | Site | Entry URL | Audience signal |
+Measured on the live sites before writing anything, because the two rules that
+have caught this project out both applied:
+
+- **Pagination is `?limit=250&page=N`,** and a query string is exactly what
+  ruled out the WooCommerce Store API — Collectors Firearms disallows `/*?*`.
+  Both of these shops allow it, and neither publishes a `Crawl-delay`. The walk
+  still asks robots.txt before each page.
+- **The catalog has to be scoped to collections.** Centerfire's unscoped
+  `/products.json` opens with Browning hunting ammunition, and their two
+  largest collections are 455 AR-15 rifles and 288 AR-15 pistols. That is the
+  Arms Unlimited mistake waiting to be made a third time.
+
+| # | Site | Collections read | Status |
 | --- | --- | --- | --- |
-| 1 | IMA-USA | https://www.ima-usa.com/collections/original-antique-guns | Trading since 1981; has a Wikipedia entry |
-| 2 | Centerfire Systems | https://centerfiresystems.com/ | No surplus-only section — needs filtering by category |
+| — | **IMA-USA** | `original-antique-guns`, `collectible-antique-guns`, `antique-long-guns`, `antique-handguns`, `garand-u-s-rifles` | **Shipped.** 197 listings from the first collection alone, every one with a price, a gallery (21–27 photographs) and a description. `/collections/all` is 2,898 items including gun parts and holsters, so it is not read |
+| — | **Centerfire Systems** | `c-r-eligible` (360), `firearms-classic-firearms-military` (147), `firearms-certified-used` (25) | **Shipped.** A general retailer with a genuine surplus section. Sold-out listings keep their price, which is what tells "sold" apart from "call for price" |
 
 #### Group D — one site each
 

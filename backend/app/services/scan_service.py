@@ -25,7 +25,7 @@ import traceback
 from collections.abc import Callable, Iterable
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from ..config import Config, get_config
@@ -59,6 +59,18 @@ LOG_EVERY = 25
 
 #: How often to say so in the log. Not how often to commit: see below.
 LOG_EVERY_PHOTO = 50
+
+#: Stop asking for a photograph after this many failures.
+#:
+#: A queued photo is a row with no file, so a URL that can never work looks
+#: exactly like one not reached yet. Without a ceiling it is retried on every
+#: scan for the life of the listing. Three is enough to ride out a bad
+#: afternoon — the downloader already retries a 429 within a single attempt —
+#: and small enough that a dead URL stops costing anything quickly.
+MAX_PHOTO_ATTEMPTS = 3
+
+#: Room for a sentence, not a traceback.
+PHOTO_ERROR_CHARS = 500
 
 
 #: Which sites are being scanned by *this* process, and how to ask them to
@@ -432,23 +444,45 @@ def _download_photos(
     Only rows with no file, so a photo is downloaded exactly once however many
     times its listing is re-scanned. What is left over after the per-scan
     budget is picked up by the next run.
+
+    Rows that have already failed :data:`MAX_PHOTO_ATTEMPTS` times are left
+    alone, and the rest are taken fewest-failures-first. Both matter for the
+    same reason: the budget is finite, and without this a few hundred dead URLs
+    — a 404, a removed image — sit at the front of an unordered queue and are
+    retried on every scan forever, while photographs that would have worked are
+    never reached.
     """
     if not config.scraping.download_images:
         return 0
     limit = limit if limit is not None else config.scraping.max_photo_downloads_per_scan
     store = ImageStore(config)
+    waiting = (Item.site_id == site.id, ItemPhoto.filename.is_(None))
+    live = (*waiting, ItemPhoto.attempts < MAX_PHOTO_ATTEMPTS)
+
     outstanding = session.execute(
+        select(func.count(ItemPhoto.id)).join(Item, Item.id == ItemPhoto.item_id).where(*live)
+    ).scalar_one()
+    given_up = session.execute(
         select(func.count(ItemPhoto.id))
         .join(Item, Item.id == ItemPhoto.item_id)
-        .where(Item.site_id == site.id, ItemPhoto.filename.is_(None))
+        .where(*waiting, ItemPhoto.attempts >= MAX_PHOTO_ATTEMPTS)
     ).scalar_one()
+    if given_up:
+        ctx.warn(
+            f"{given_up} photo(s) have failed {MAX_PHOTO_ATTEMPTS} times and are no longer "
+            f"being retried. Run 'make photos-retry' once the cause is fixed."
+        )
     if not outstanding:
         return 0
     pending = (
         session.execute(
             select(ItemPhoto)
             .join(Item, Item.id == ItemPhoto.item_id)
-            .where(Item.site_id == site.id, ItemPhoto.filename.is_(None))
+            .where(*live)
+            # Fewest failures first, so a row that keeps failing drifts to the
+            # back of the queue instead of consuming the budget ahead of one
+            # that would succeed.
+            .order_by(ItemPhoto.attempts.asc(), ItemPhoto.id.asc())
             .limit(limit)
         )
         .scalars()
@@ -468,12 +502,33 @@ def _download_photos(
         )
     )
     downloaded = 0
+    failed = 0
     for index, photo in enumerate(pending):
         if ctx.stopped:
             break
-        stored = store.download(ctx.session, site.slug, photo.source_url)
+        result = store.fetch(ctx.session, site.slug, photo.source_url)
+        if result.resting:
+            # Nothing was asked, so nothing failed. Every photo left in this
+            # batch is on the same host, so there is no point walking the rest
+            # of them to be told the same thing four hundred times.
+            ctx.warn(f"{result.reason}. Leaving the remaining photo(s) queued.")
+            break
+        photo.last_attempt_at = utcnow()
+        stored = result.image
         if stored is None:
+            failed += 1
+            photo.last_error = (result.reason or "unknown error")[:PHOTO_ERROR_CHARS]
+            # Only a failure that will still be true tomorrow counts against
+            # the budget. A 429 or a timeout is the shop having a bad
+            # afternoon, and letting those accumulate would strand every
+            # photograph the afternoon touched — which is precisely what a host
+            # cooldown exists to prevent rather than cause.
+            if result.permanent:
+                photo.attempts += 1
+            session.commit()
             continue
+        photo.attempts += 1
+        photo.last_error = None
         photo.filename = stored.filename
         photo.thumb_filename = stored.thumb_filename
         photo.content_type = stored.content_type
@@ -488,7 +543,14 @@ def _download_photos(
         if (index + 1) % LOG_EVERY_PHOTO == 0:
             ctx.log(f"  …{index + 1}/{len(pending)} photos processed.")
     session.commit()
-    ctx.log(f"Stored {downloaded} photo(s).")
+    # Say what did not arrive as well as what did. "Stored 1 photo" out of
+    # twenty-three read as success for as long as the failures were silent.
+    ctx.log(
+        f"Stored {downloaded} photo(s)."
+        + (f" {failed} could not be fetched; see the log for each." if failed else "")
+    )
+    if failed:
+        ctx.warn(f"{failed} of {len(pending)} photo(s) could not be fetched.")
     return downloaded
 
 
@@ -496,6 +558,7 @@ def download_pending_photos(
     site_slug: str | None = None,
     limit: int | None = None,
     progress: Callable[[str], None] | None = None,
+    retry_failed: bool = False,
 ) -> int:
     """Fetch the bytes for photo rows that are still waiting for a file.
 
@@ -508,6 +571,12 @@ def download_pending_photos(
     This is that download step on its own: no browser, no detail pages, no
     re-scrape. Nothing is inserted or de-listed, so it is safe to run at any
     time and safe to interrupt.
+
+    ``retry_failed`` clears the attempt counts first, so photographs that have
+    been given up on are tried again. That is the right thing after fixing
+    whatever was wrong — a vendor's rate limit, a scraper reading the wrong
+    URL — and the wrong thing to do on a schedule, which is why it is a flag
+    rather than the default.
     """
     config = get_config()
     log = progress or (lambda _message: None)
@@ -518,6 +587,24 @@ def download_pending_photos(
             sites = [site for site in sites if site.slug == site_slug]
             if not sites:
                 raise ScanBusy(f"no site with slug {site_slug!r}")
+
+        if retry_failed:
+            result = session.execute(
+                update(ItemPhoto)
+                .where(
+                    ItemPhoto.filename.is_(None),
+                    ItemPhoto.attempts > 0,
+                    ItemPhoto.item_id.in_(
+                        select(Item.id).where(Item.site_id.in_([site.id for site in sites]))
+                    ),
+                )
+                .values(attempts=0, last_error=None)
+            )
+            # CursorResult in practice; the Result protocol does not promise a
+            # row count, and an UPDATE always has one.
+            reset = getattr(result, "rowcount", 0)
+            session.commit()
+            log(f"Retrying {reset} photo(s) that had been given up on.")
 
         ctx = ScrapeContext(config, progress=log)
         try:

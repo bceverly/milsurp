@@ -27,6 +27,7 @@ import requests
 
 from ..config import Config, ScrapingConfig
 from ..robots import RobotsCache
+from ..services import cooldown
 
 
 @dataclass
@@ -255,6 +256,14 @@ class ScrapeContext:
         """GET with politeness delay and retries on transient failures."""
         if not self.allowed(url):
             raise Disallowed(url)
+
+        # Somebody — possibly another process — was told to go away by this
+        # host recently. Waiting it out inside a scan would stall the run for
+        # up to an hour, so this fails and lets the caller decide: a catalog
+        # page ends the section, a product page costs that listing its gallery.
+        resting = cooldown.paused_for(url)
+        if resting > 0:
+            raise HostResting(url, resting)
         timeout = kwargs.pop("timeout", self.scraping.request_timeout)
         last_error: Exception | None = None
         for attempt in range(self.scraping.max_retries):
@@ -266,6 +275,21 @@ class ScrapeContext:
                 if response.status_code == TOO_MANY_REQUESTS:
                     self._slow_down(url, response)
                     if _host_of(url) in self._refusing:
+                        # Only *now* is it worth telling the other processes.
+                        #
+                        # A single 429 means "slow down", and this context
+                        # already knows how to do that on its own. Publishing a
+                        # cooldown on the first one would have a scan abandon a
+                        # whole vendor over a hiccup. Being refused at the
+                        # slowest pace available is a different statement, and
+                        # it is the one worth sharing — it is what a scheduler
+                        # starting in a minute, or a `make photos` run, needs
+                        # to know before it walks into the same wall.
+                        cooldown.refused(
+                            url,
+                            f"{TOO_MANY_REQUESTS} at the slowest pace available",
+                            _retry_after(response),
+                        )
                         # Already as slow as this context goes, and still
                         # refused. Fail now rather than sleeping through three
                         # more attempts at a pace that has been shown not to
@@ -288,6 +312,7 @@ class ScrapeContext:
                 # hour of successful requests — would fail on the first ask
                 # instead of being given the chance to slow down.
                 self._refusing.discard(_host_of(url))
+                cooldown.succeeded(url)
                 return response
         raise ScrapeError(
             f"GET {url} failed after {self.scraping.max_retries} attempts: {last_error}"
@@ -380,6 +405,22 @@ def _retry_after(response: requests.Response) -> float | None:
     if when.tzinfo is None:
         when = when.replace(tzinfo=UTC)
     return max((when - datetime.now(UTC)).total_seconds(), 0.0)
+
+
+class HostResting(ScrapeError):
+    """This host asked to be left alone and the time is not up yet.
+
+    A subclass of ScrapeError so every existing handler already does something
+    sensible with it — the storefront walks fall back to the catalog, and a
+    scan reports PARTIAL rather than pretending it read everything.
+    """
+
+    def __init__(self, url: str, seconds: float) -> None:
+        self.seconds = seconds
+        super().__init__(
+            f"{_host_of(url)} asked to be left alone; {seconds:.0f}s still to wait "
+            f"before anything asks it for {url}"
+        )
 
 
 class Disallowed(ScrapeError):

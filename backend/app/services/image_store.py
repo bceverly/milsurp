@@ -25,10 +25,12 @@ import hashlib
 import ipaddress
 import logging
 import mimetypes
+import os
 import socket
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from secrets import token_hex
 from typing import NamedTuple
 from urllib.parse import urlparse
 
@@ -38,6 +40,7 @@ from PIL.Image import Image as PILImage
 
 from ..config import Config
 from ..logsafe import scrub
+from . import cooldown
 
 log = logging.getLogger("milsurp.images")
 
@@ -70,6 +73,24 @@ MAX_PHOTO_BACKOFF = 60.0
 
 #: HTTP 429, named rather than spelled, to match the scrapers.
 TOO_MANY_REQUESTS = 429
+
+#: Statuses that will still be true tomorrow.
+#:
+#: This decides whether a failure counts against a photograph's retry budget. A
+#: 404 is a property of the URL and will not improve, so it is worth giving up
+#: on. A 429 or a 503 is a property of the *moment* — and a rate-limit burst
+#: that burned three attempts would strand every photograph it touched,
+#: permanently, for a shop that was merely busy. Bounding those is the host
+#: cooldown's job, not this counter's.
+#:
+#: 403 is here despite being arguable: it is usually a real block rather than a
+#: passing one, and `make photos-retry` exists for the cases where it clears.
+PERMANENT_STATUSES = frozenset({400, 401, 403, 404, 405, 410, 414, 415, 451})
+
+
+def _is_permanent(status: int | None) -> bool:
+    """Whether a failure at this status is worth giving up on."""
+    return status is not None and status in PERMANENT_STATUSES
 
 
 def _photo_backoff(response: requests.Response, current: float) -> float:
@@ -124,6 +145,27 @@ class StoredImage:
     thumb_bytes: int | None = None
     width: int | None = None
     height: int | None = None
+
+
+@dataclass
+class FetchResult:
+    """What came back from asking for one photograph.
+
+    ``image`` and ``reason`` are mutually exclusive: exactly one is set. The
+    reason is a short sentence rather than a traceback, because it is stored on
+    the photo row and read by a person wondering where the picture went.
+    """
+
+    image: StoredImage | None
+    reason: str | None
+    #: True when the failure is a property of the URL rather than the moment,
+    #: so it is worth counting against the photograph's retry budget.
+    permanent: bool = False
+    #: True when nothing was actually tried, because the host is being left
+    #: alone. The caller must not count this as a failed attempt — a cooldown
+    #: would otherwise burn a photograph's whole retry budget without a single
+    #: request being made.
+    resting: bool = False
 
 
 def _is_public_url(url: str) -> bool:
@@ -202,7 +244,9 @@ class ImageStore:
             return False
 
     # -- writing ------------------------------------------------------------
-    def _get_photo(self, session: requests.Session, source_url: str) -> requests.Response | None:
+    def _get_photo(
+        self, session: requests.Session, source_url: str
+    ) -> tuple[requests.Response | None, str | None, bool]:
         """GET one photograph, waiting out a 429 rather than giving up on it.
 
         The scraper has a whole apparatus for being told to slow down and this
@@ -211,6 +255,16 @@ class ImageStore:
         directory and every photograph in the queue is thrown away in a burst.
         """
         host = urlparse(source_url).hostname or ""
+
+        # Another process may already have been told to go away by this host.
+        # Photographs are the most skippable thing the application fetches, so
+        # this reports and moves on rather than sleeping through it.
+        resting = cooldown.paused_for(source_url)
+        if resting > 0:
+            reason = f"{host} is resting for another {resting:.0f}s"
+            log.info("Skipping %s: %s.", scrub(source_url), reason)
+            return None, reason, False
+
         for attempt in range(PHOTO_ATTEMPTS):
             self._wait_for(host)
             try:
@@ -221,18 +275,22 @@ class ImageStore:
                     allow_redirects=True,
                 )
             except requests.RequestException as exc:
+                # A connection that could not be made says nothing about the
+                # URL, so it is never permanent.
                 log.warning("Could not fetch %s: %s", scrub(source_url), scrub(exc))
-                return None
+                return None, str(exc), False
 
             self._last_request_at[host] = time.monotonic()
             if response.status_code != TOO_MANY_REQUESTS:
                 try:
                     response.raise_for_status()
                 except requests.RequestException as exc:
+                    status = response.status_code
                     response.close()
                     log.warning("Could not fetch %s: %s", scrub(source_url), scrub(exc))
-                    return None
-                return response
+                    return None, str(exc), _is_permanent(status)
+                cooldown.succeeded(source_url)
+                return response, None, False
 
             wait = _photo_backoff(response, self._slowed.get(host, 0.0))
             self._slowed[host] = wait
@@ -243,13 +301,13 @@ class ImageStore:
                 )
                 time.sleep(wait)
 
-        log.warning(
-            "Gave up on %s after %s attempts: the host kept answering %s.",
-            scrub(source_url),
-            PHOTO_ATTEMPTS,
-            TOO_MANY_REQUESTS,
-        )
-        return None
+        reason = f"{TOO_MANY_REQUESTS} after {PHOTO_ATTEMPTS} attempts"
+        log.warning("Gave up on %s: the host kept answering %s.", scrub(source_url), reason)
+        # Exhausted, so this is the host refusing rather than asking us to slow
+        # down — and worth telling every other process about, which is the
+        # whole point: a scan starting in a minute should not walk into it too.
+        cooldown.refused(source_url, f"{TOO_MANY_REQUESTS} on photographs")
+        return None, reason, False
 
     def _wait_for(self, host: str) -> None:
         """Honor the pace a host has already asked for."""
@@ -263,21 +321,27 @@ class ImageStore:
     def download(
         self, session: requests.Session, site_slug: str, source_url: str
     ) -> StoredImage | None:
+        """The image, or None. Use :meth:`fetch` when the reason matters."""
+        return self.fetch(session, site_slug, source_url).image
+
+    def fetch(self, session: requests.Session, site_slug: str, source_url: str) -> FetchResult:
         """Fetch one image, store it, and generate its thumbnail.
 
-        Returns ``None`` when the download fails, the URL is not safe to fetch,
-        or the response is not a decodable image. A missing photo is never worth
-        failing a scan over — but it *is* worth a log line, which is the other
-        half of what was wrong here: every failure path returned None in
-        silence, so 22 refused photographs reported as "stored 1 photo".
+        Returns the reason alongside the result rather than only ``None``. A
+        missing photo is never worth failing a scan over, but the queue is a
+        table of rows with no file yet — so without a reason a URL that can
+        never work is indistinguishable from one not reached yet, and gets
+        retried on every scan forever.
         """
         if not _is_public_url(source_url):
             log.warning("Refusing to fetch %s: not a public HTTP(S) URL.", scrub(source_url))
-            return None
+            return FetchResult(None, "not a public HTTP(S) URL", permanent=True)
 
-        response = self._get_photo(session, source_url)
+        response, error, permanent = self._get_photo(session, source_url)
         if response is None:
-            return None
+            return FetchResult(
+                None, error, resting=cooldown.paused_for(source_url) > 0, permanent=permanent
+            )
 
         content_type = (response.headers.get("Content-Type") or "").split(";")[0].strip().lower()
         extension = ALLOWED_CONTENT_TYPES.get(content_type)
@@ -288,13 +352,18 @@ class ImageStore:
             extension = ALLOWED_CONTENT_TYPES.get(guessed or "")
             if extension is None:
                 response.close()
-                return None
+                reason = f"unsupported content type {content_type or 'none'}"
+                log.warning("Skipping %s: %s.", scrub(source_url), reason)
+                # What the server serves at this URL, not a passing condition.
+                return FetchResult(None, reason, permanent=True)
             content_type = guessed or "image/jpeg"
 
         declared = response.headers.get("Content-Length")
         if declared and declared.isdigit() and int(declared) > MAX_IMAGE_BYTES:
             response.close()
-            return None
+            reason = f"image is {int(declared):,} bytes, over the {MAX_IMAGE_BYTES:,} limit"
+            log.warning("Skipping %s: %s.", scrub(source_url), reason)
+            return FetchResult(None, reason, permanent=True)
 
         relative = self._relative_path(site_slug, source_url, extension)
         target = self.absolute_path(relative)
@@ -304,7 +373,15 @@ class ImageStore:
 
         # Write to a temporary file first so an interrupted download never
         # leaves a truncated image that later looks cached and complete.
-        temp = target.with_suffix(target.suffix + ".part")
+        #
+        # The temporary name carries a process id and a random token, because
+        # the final name does not distinguish writers: it is a hash of the
+        # source URL, so two processes fetching the same photograph — the
+        # scheduler mid-scan and a `make photos` draining the same queue — chose
+        # the same ".part" path. One finished and renamed it away; the other
+        # then chmod'd or renamed a file that no longer existed and reported
+        # "No such file or directory" for a download that had in fact worked.
+        temp = target.with_name(f"{target.name}.{os.getpid()}.{token_hex(4)}.part")
         written = 0
         try:
             with temp.open("wb") as handle:
@@ -321,15 +398,16 @@ class ImageStore:
                     handle.write(chunk)
             temp.chmod(FILE_MODE)
             temp.replace(target)
-        except (OSError, ImageStoreError, requests.RequestException):
+        except (OSError, ImageStoreError, requests.RequestException) as exc:
             temp.unlink(missing_ok=True)
-            return None
+            log.warning("Could not store %s: %s", scrub(source_url), scrub(exc))
+            return FetchResult(None, str(exc))
         finally:
             response.close()
 
         stored = StoredImage(filename=relative, content_type=content_type, bytes=written)
         self._make_thumbnail(stored, site_slug, source_url)
-        return stored
+        return FetchResult(stored, None)
 
     def store_bytes(
         self, site_slug: str, key: str, data: bytes, extension: str = ".png"

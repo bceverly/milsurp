@@ -181,7 +181,7 @@ class TestRendering:
         add_items(seeded, site, 2)
         built = digest.build_digest(seeded, user_with_prefs, app_config)
         assert built is not None
-        subject, body, new_count, _drop_count, _cutoff = built
+        subject, body, _images, new_count, _drop_count, _cutoff = built
 
         assert new_count == 2
         assert "new listing" in subject
@@ -210,7 +210,7 @@ class TestRendering:
         assert "&lt;script&gt;" in body
 
     def test_empty_digest_says_so(self, seeded, user_with_prefs, app_config):
-        subject, body, new_count, drop_count, _ = digest.build_digest(
+        subject, body, _images, new_count, drop_count, _ = digest.build_digest(
             seeded, user_with_prefs, app_config
         )
         assert new_count == 0 and drop_count == 0
@@ -291,3 +291,103 @@ class TestNextSendTime:
         preference.frequency_hours = 12
         base = utcnow()
         assert digest.next_send_time(preference, base) == base + timedelta(hours=12)
+
+
+class TestListingPhotographs:
+    """A picture per listing, attached rather than linked.
+
+    Mail clients block remote images by default, so a linked thumbnail is an
+    empty box for most readers on first open. These travel with the message.
+    """
+
+    def _with_photo(self, session, item, store, app_config, size=(400, 300)):
+        from PIL import Image
+
+        from app.models import ItemPhoto
+
+        relative = f"{item.site_id}/x{item.id}.jpg"
+        path = store.absolute_path(relative)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", size, (90, 110, 140)).save(path, format="JPEG")
+        session.add(
+            ItemPhoto(
+                item_id=item.id,
+                source_url=f"https://vendor.test/{item.id}.jpg",
+                filename=relative,
+                thumb_filename=relative,
+                position=0,
+            )
+        )
+        session.commit()
+
+    def test_a_listing_with_a_photo_carries_it(self, seeded, user_with_prefs, app_config):
+        from app.services.image_store import ImageStore
+
+        site = seeded.query(Site).first()
+        add_items(seeded, site, 1)
+        item = seeded.query(Item).filter(Item.site_id == site.id).one()
+        self._with_photo(seeded, item, ImageStore(app_config), app_config)
+
+        _subject, body, images, *_ = digest.build_digest(seeded, user_with_prefs, app_config)
+
+        cid = f"item-{item.id}"
+        assert cid in images
+        assert f"cid:{cid}" in body
+        # Shrunk for the message: the stored thumbnail is 640px and far too
+        # heavy to attach twenty of.
+        assert len(images[cid]) < 20_000
+
+    def test_a_listing_without_one_is_still_listed(self, seeded, user_with_prefs, app_config):
+        site = seeded.query(Site).first()
+        add_items(seeded, site, 1)
+        item = seeded.query(Item).filter(Item.site_id == site.id).one()
+
+        _subject, body, images, *_ = digest.build_digest(seeded, user_with_prefs, app_config)
+
+        assert f"item-{item.id}" not in images
+        assert item.title in body
+
+    def test_an_unreadable_file_costs_the_row_its_picture_and_nothing_else(
+        self, seeded, user_with_prefs, app_config
+    ):
+        """A digest that failed to send because one photograph moved would be a
+        poor trade."""
+        from app.models import ItemPhoto
+
+        site = seeded.query(Site).first()
+        add_items(seeded, site, 1)
+        item = seeded.query(Item).filter(Item.site_id == site.id).one()
+        seeded.add(
+            ItemPhoto(
+                item_id=item.id,
+                source_url="https://vendor.test/gone.jpg",
+                filename="nowhere/gone.jpg",
+                thumb_filename="nowhere/gone.jpg",
+                position=0,
+            )
+        )
+        seeded.commit()
+
+        _subject, body, images, *_ = digest.build_digest(seeded, user_with_prefs, app_config)
+
+        assert f"item-{item.id}" not in images
+        assert item.title in body
+
+    def test_the_number_of_pictures_is_bounded(
+        self, seeded, user_with_prefs, app_config, monkeypatch
+    ):
+        """A night when four vendors all restock should not arrive as a
+        megabyte of photographs on a phone."""
+        from app.services.image_store import ImageStore
+
+        monkeypatch.setattr(digest, "MAX_EMAIL_PHOTOS", 2)
+        site = seeded.query(Site).first()
+        add_items(seeded, site, 5)
+        store = ImageStore(app_config)
+        for item in seeded.query(Item).filter(Item.site_id == site.id).all():
+            self._with_photo(seeded, item, store, app_config)
+
+        _subject, _body, images, *_ = digest.build_digest(seeded, user_with_prefs, app_config)
+
+        # Two listings plus the brand mark.
+        assert len(images) == 3

@@ -241,3 +241,57 @@ class TestScansEndpoints:
 
     def test_missing_run(self, client, admin_headers):
         assert client.get("/api/scans/99999", headers=admin_headers).status_code == 404
+
+
+class TestARestingHost:
+    """A site whose host refused us is left alone by every process.
+
+    Worth saying on the page: otherwise the scheduler quietly does nothing for
+    an hour and there is no way to tell that from a bug.
+    """
+
+    def test_a_free_site_says_nothing(self, client, admin_headers, site):
+        row = client.get("/api/sites", headers=admin_headers).json()[0]
+        assert row["resting_seconds"] is None
+        assert row["resting_reason"] is None
+
+    def test_a_resting_host_is_reported_with_its_reason(self, client, admin_headers, site):
+        from app.services import cooldown
+
+        site = client.get("/api/sites", headers=admin_headers).json()[0]
+        cooldown.refused(site["base_url"], "429 on photographs", retry_after=600)
+        cooldown._cache.clear()
+
+        row = next(
+            item
+            for item in client.get("/api/sites", headers=admin_headers).json()
+            if item["id"] == site["id"]
+        )
+        assert row["resting_seconds"] > 0
+        assert row["resting_reason"] == "429 on photographs"
+
+    def test_an_admin_can_lift_it(self, client, admin_headers, site):
+        from app.services import cooldown
+
+        site = client.get("/api/sites", headers=admin_headers).json()[0]
+        cooldown.refused(site["base_url"], "429", retry_after=600)
+        cooldown._cache.clear()
+
+        response = client.post(f"/api/sites/{site['id']}/resting/clear", headers=admin_headers)
+        assert response.status_code == 200
+        cooldown._cache.clear()
+        assert cooldown.paused_for(site["base_url"]) == 0.0
+
+    def test_lifting_one_that_is_not_resting_is_not_an_error(self, client, admin_headers, site):
+        site = client.get("/api/sites", headers=admin_headers).json()[0]
+        response = client.post(f"/api/sites/{site['id']}/resting/clear", headers=admin_headers)
+        assert response.status_code == 200
+        assert "was not resting" in response.json()["message"]
+
+    def test_a_normal_user_cannot_lift_it(self, client, normal_user, site):
+        """It is an undertaking to the vendor, not a local preference."""
+        site = client.get("/api/sites", headers=normal_user["headers"]).json()[0]
+        response = client.post(
+            f"/api/sites/{site['id']}/resting/clear", headers=normal_user["headers"]
+        )
+        assert response.status_code == 403

@@ -115,3 +115,21 @@ export function formatDuration(seconds) {
   const rest = Math.round(seconds % 60);
   return `${minutes}m ${rest}s`;
 }
+
+/**
+ * How long is left, phrased as a wait rather than a measurement.
+ *
+ * Deliberately not formatDuration: that one reports what something took, to a
+ * tenth of a second, which is the wrong register for "come back later". Nobody
+ * wants to be told to wait 299.0 seconds.
+ */
+export function formatCountdown(seconds) {
+  if (seconds === null || seconds === undefined) return "—";
+  const total = Math.max(0, Math.round(seconds));
+  if (total < 60) return `${total}s`;
+  const minutes = Math.round(total / 60);
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest ? `${hours}h ${rest}m` : `${hours}h`;
+}

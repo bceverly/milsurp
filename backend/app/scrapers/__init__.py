@@ -20,12 +20,14 @@ from .base import (
     ScrapeError,
     SiteScraper,
 )
+from .centerfire_systems import CenterfireSystemsScraper
 from .checkpoint_charlies import CheckpointCharliesScraper
 from .co_gun_sales import CoGunSalesScraper
 from .collectors_firearms import CollectorsFirearmsScraper
 from .demo import DemoScraper
 from .empire_arms import EmpireArmsScraper
 from .hunters_lodge import HuntersLodgeScraper
+from .ima_usa import ImaUsaScraper
 from .legacy_collectibles import LegacyCollectiblesScraper
 from .royal_tiger import RoyalTigerScraper
 
@@ -57,6 +59,8 @@ SCRAPER_CLASSES: tuple[type[SiteScraper], ...] = (
     CoGunSalesScraper,
     CheckpointCharliesScraper,
     LegacyCollectiblesScraper,
+    ImaUsaScraper,
+    CenterfireSystemsScraper,
     *((DemoScraper,) if _demo_site_enabled() else ()),
 )
 

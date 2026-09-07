@@ -76,10 +76,20 @@ def safe_identifier(value: object, pattern: re.Pattern[str] = USERNAME_PATTERN) 
 
     For static analysis: :func:`scrub` escapes, and an escaping function is
     just string manipulation as far as a taint tracker is concerned, so the
-    value stays tainted all the way to the log call — CodeQL kept reporting log
-    injection on a sign-in failure that was already being escaped. A guard that
-    only lets a matching value through is a shape it recognises, because after
-    it the set of possible values is finite and known.
+    value stays tainted all the way to the log call.
+
+    **This function does not fix that, and it was once claimed here that it
+    did.** It returns the original string on the matching branch, so a taint
+    tracker follows the value straight through the conditional — CodeQL went on
+    reporting log injection on the sign-in failure this was written for, and it
+    was right to. A guard narrows what an attacker can *say*; it does not
+    change where the string came from.
+
+    So use it where a bounded shape is the point — an IP address, a slug — and
+    do not reach for it to launder request data into a log line. The way to
+    keep request data out of a log is to log something else: the sign-in path
+    now names the account it matched, read back from the database, and a fixed
+    marker when there was none.
     """
     text = value if isinstance(value, str) else str(value)
     return text if pattern.fullmatch(text) else REJECTED

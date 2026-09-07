@@ -36,6 +36,7 @@ from app.models import (
     Site,
     User,
     UserRole,
+    as_utc,
     utcnow,
 )
 from app.security import (
@@ -370,13 +371,50 @@ def cmd_digest(args: argparse.Namespace) -> int:
 def cmd_fetch_photos(args: argparse.Namespace) -> int:
     """Drain the photo download queue without re-scraping anything."""
     downloaded = scan_service.download_pending_photos(
-        site_slug=args.site, limit=args.limit, progress=lambda message: print(f"  {message}")
+        site_slug=args.site,
+        limit=args.limit,
+        progress=lambda message: print(f"  {message}"),
+        retry_failed=args.retry_failed,
     )
     if not downloaded:
         print("No photos are waiting to be downloaded.")
     else:
         print(f"Downloaded {downloaded} photo(s).")
     return 0
+
+
+def cmd_resting(args: argparse.Namespace) -> int:
+    """Show, or lift, the hosts every fetcher is currently leaving alone."""
+    from app.services import cooldown
+
+    if args.clear is not None:
+        lifted = cooldown.clear(args.clear or None)
+        target = args.clear or "every host"
+        print(f"Lifted {lifted} pause(s) on {target}.")
+        return 0
+
+    rows = cooldown.active()
+    if not rows:
+        print("No hosts are being rested; everything is fetchable.")
+        return 0
+
+    now = utcnow()
+    print(f"{'HOST':<34} {'FOR':>8}  {'TIMES':>5}  REASON")
+    for row in rows:
+        remaining = (as_utc(row.until) - now).total_seconds()
+        print(
+            f"{row.host[:34]:<34} {_duration(remaining):>8}  "
+            f"{row.refusals:>5}  {row.reason or '—'}"
+        )
+    print("\nRun 'cli.py resting --clear' to lift these once the cause is fixed.")
+    return 0
+
+
+def _duration(seconds: float) -> str:
+    seconds = max(0, int(seconds))
+    if seconds < 60:
+        return f"{seconds}s"
+    return f"{seconds // 60}m{seconds % 60:02d}s"
 
 
 def cmd_reclassify(_args: argparse.Namespace) -> int:
@@ -690,7 +728,22 @@ def build_parser() -> argparse.ArgumentParser:
     photos.add_argument(
         "--limit", type=int, help="Stop after this many (default: the per-scan budget)."
     )
+    photos.add_argument(
+        "--retry-failed",
+        action="store_true",
+        help="Also try photos that have been given up on after repeated failures.",
+    )
     photos.set_defaults(func=cmd_fetch_photos)
+
+    resting = sub.add_parser("resting", help="Show hosts being left alone after refusing requests.")
+    resting.add_argument(
+        "--clear",
+        metavar="HOST",
+        nargs="?",
+        const="",
+        help="Lift the pause on one host, or on all of them when given no value.",
+    )
+    resting.set_defaults(func=cmd_resting)
 
     running = sub.add_parser("running-scans", help="List in-flight scans; exit 1 if there are any.")
     running.add_argument(

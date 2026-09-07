@@ -121,6 +121,13 @@ class SiteOut(UTCModel):
     active_item_count: int = 0
     is_scanning: bool = False
     last_run: "ScanRunOut | None" = None
+    #: Seconds until this site's host may be asked for anything again, or None
+    #: when it is free. Every fetching process obeys this, so a site that is
+    #: resting will not be scanned by the scheduler either — which is worth
+    #: saying on the page rather than leaving somebody to wonder why nothing
+    #: is happening.
+    resting_seconds: int | None = None
+    resting_reason: str | None = None
 
 
 class SiteUpdate(BaseModel):

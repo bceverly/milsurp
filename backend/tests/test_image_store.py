@@ -301,3 +301,51 @@ class TestRebuildingAThumbnail:
 
     def test_a_missing_original_cannot_be_rebuilt_from(self, store):
         assert store.write_thumbnail("s/nothing/here.png", "s/nothing/here_t.jpg") is None
+
+
+class TestTwoWritersAtOnce:
+    """The scheduler and `make photos` drain the same queue.
+
+    Nothing stops them running together — the CLI refuses to start a second
+    *scan*, but downloading photographs is not a scan. Both then fetch the same
+    URLs, and the stored name is a hash of the URL, so the writers have to be
+    told apart some other way.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _reachable(self, monkeypatch):
+        """example.test does not resolve, and this is not about SSRF."""
+        monkeypatch.setattr("app.services.image_store._is_public_url", lambda _url: True)
+
+    def test_the_temporary_name_is_unique_per_writer(self, store, app_config):
+        """It used to be the target plus ".part", which is the same path for
+        every writer of the same photograph. One would finish and rename it
+        away; the next would chmod or rename a file that no longer existed and
+        report "No such file or directory" for a download that had worked."""
+        url = "https://example.test/rifle.jpg"
+        target = store.absolute_path(store._relative_path("site", url, ".jpg"))
+
+        names = set()
+        for _ in range(8):
+            stored = store.download(FakeSession(FakeResponse(make_png(40, 30))), "site", url)
+            assert stored is not None
+            names.add(stored.filename)
+            # Whatever temporary name was used, nothing is left behind.
+            assert not list(target.parent.glob("*.part"))
+
+        # Same photograph, so one final name — the temporary ones differed.
+        assert len(names) == 1
+
+    def test_concurrent_downloads_of_one_photo_all_succeed(self, store):
+        from concurrent.futures import ThreadPoolExecutor
+
+        url = "https://example.test/shared.jpg"
+
+        def grab(_n):
+            return store.download(FakeSession(FakeResponse(make_png(60, 40))), "site", url)
+
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            results = list(pool.map(grab, range(6)))
+
+        assert all(result is not None for result in results)
+        assert len({result.filename for result in results}) == 1

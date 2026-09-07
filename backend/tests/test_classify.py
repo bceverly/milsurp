@@ -1031,6 +1031,27 @@ class TestBayonetsAndPartsKits:
         assert bayonet is False
         assert rifle is True
 
+    def test_a_matching_bayonet_belongs_to_the_rifle(self):
+        """Nine identical Portuguese-contract Kar98ks came back as blades. A
+        collector writes "matching" to mean the serials agree, which is a claim
+        about a rifle that has the bayonet — the same word that already had to
+        be taught about magazines."""
+        title = (
+            "German Kar98k M937B 8mm WWII (Portuguese Contract) Mauser - "
+            "Matching Bayonet and Scabbard"
+        )
+        assert self.flags(title, price=1200.0)[2] is False
+
+    def test_the_adjective_between_with_and_bayonet_can_be_anything(self):
+        """Enumerating them missed "with Spike Bayonet" on the first real
+        catalog this ran against."""
+        for title in (
+            "Chinese SKS Type 56 7.62x39mm Semi-Auto Rifle with Spike Bayonet",
+            "Century Arms Portuguese Mauser M937A -K98 Rifle with Bayonet",
+            "Springfield Model 1884 Trapdoor w/ Ramrod Bayonet - 1891 mfg",
+        ):
+            assert self.flags(title, price=900.0)[2] is False, title
+
     def test_but_a_bare_w_is_not_the_start_of_a_makers_name(self):
         """W+F Bern is Waffenfabrik Bern. Reading that W as "with" cost them
         their K31 Pioneer Sawback Bayonet."""
