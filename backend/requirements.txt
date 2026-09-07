@@ -22,7 +22,7 @@ Pillow>=11.0
 requests>=2.32
 beautifulsoup4>=4.12
 lxml>=5.3
-selenium>=4.27
+selenium>=4.48.0
 
 # OCR, for vendors that publish a scanned flyer instead of a catalog
 # (Hunter's Lodge). This is only the Python binding: it needs the `tesseract`
