@@ -30,7 +30,17 @@ import {
 } from "../components/Icons.jsx";
 
 /** Offered cadences. The API floor is 5 minutes; nothing below an hour is
- *  polite to a vendor, so the shortest option here is hourly. */
+ *  polite to a vendor, so the shortest option here is hourly. The ceiling is
+ *  the API's 30 days.
+ *
+ *  Spelled "Every 2 weeks" rather than "biweekly" on purpose: that word means
+ *  both "every two weeks" and "twice a week" and half the readers of a select
+ *  box would pick the wrong one. Same reason "Every 2 days" is not "bidaily".
+ *
+ *  A fortnight is here for the vendors whose scan is genuinely expensive —
+ *  Collectors Firearms ask for a 10-second crawl delay and refuse it at 10, so
+ *  a first pass over their 691 listings is hours of somebody else's bandwidth
+ *  and their stock does not turn over in a day. */
 const INTERVALS = [
   { value: 60, label: "Every hour" },
   { value: 180, label: "Every 3 hours" },
@@ -39,6 +49,7 @@ const INTERVALS = [
   { value: 1440, label: "Daily" },
   { value: 2880, label: "Every 2 days" },
   { value: 10080, label: "Weekly" },
+  { value: 20160, label: "Every 2 weeks" },
 ];
 
 /**

@@ -1747,6 +1747,22 @@ class TestTheFourthPassOfReports:
         everything to do with an M1 Garand and must not."""
         assert self.kind(title, category="Pistols") == "handgun"
 
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "German Military Radom VIS 35 - Red Grips",
+            "Rare, Factory Engraved Colt Army Special - Steer Head Grips",
+            "Excellent, Possible SS Contract Walther PPK Rig - W/ SS Mags & Leather Holster",
+            "Very Rare, Dual-Marked Ithaca M1911A1 - Documented In Clawson Book",
+        ],
+    )
+    def test_the_shop_that_writes_it_as_two_words(self, title):
+        """ "long guns" was already spelled with its space and "hand guns" was
+        not, so Legacy Collectibles' section -- 696 of their 1,001 listings --
+        did not count as a bare type at all, and six of their guns read as
+        accessories on the strength of a word in the title."""
+        assert self.kind(title, category="Hand Guns") == "handgun"
+
     def test_but_a_collection_named_after_a_model_still_does_not(self):
         assert (
             self.kind(

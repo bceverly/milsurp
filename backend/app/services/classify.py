@@ -891,7 +891,7 @@ _NO_FRAME_PATTERN = re.compile(
 # heading the classifier could read and did nothing with. SARCO file 73 of them
 # there.
 _CATEGORY_RIFLE = re.compile(r"\b(?:rifles?|carbines?|muskets?|shotguns?|long\s*guns?)\b", re.I)
-_CATEGORY_PISTOL = re.compile(r"\b(?:handguns?|pistols?|revolvers?|sidearms?)\b", re.I)
+_CATEGORY_PISTOL = re.compile(r"\b(?:hand\s*guns?|pistols?|revolvers?|sidearms?)\b", re.I)
 
 #: A section that says "these are guns" without saying which kind. Read only
 #: as a last resort -- see the end of classify_firearm().
@@ -905,7 +905,12 @@ _CATEGORY_FIREARM = re.compile(r"\b(?:firearms?|guns?)\b", re.I)
 #: accessory vetoes outrank kind_from_category in general. A bare type word is
 #: the case where they should not.
 _CATEGORY_IS_ONLY_A_TYPE = re.compile(
-    r"^\s*(?:handguns?|pistols?|revolvers?|rifles?|carbines?|shotguns?|muskets?"
+    # "hand guns" spaced, the same way "long guns" already was. Legacy
+    # Collectibles name their two catalog sections "Hand Guns" and "Long Guns",
+    # and without the space six of their listings read as accessories on the
+    # strength of a word in the title -- a Radom VIS 35 "Red Grips", a PPK rig
+    # "W/ SS Mags", an M1911A1 "Documented In Clawson Book".
+    r"^\s*(?:hand\s*guns?|pistols?|revolvers?|rifles?|carbines?|shotguns?|muskets?"
     r"|long\s*guns?)\s*$",
     re.I,
 )
@@ -2096,7 +2101,7 @@ def enrich(
     ``trust_description`` is false for a source whose prose is not about the
     listing it is attached to — a flyer read by OCR, where the text beside a
     product bleeds in from the panel next to it. The description is still used
-    to tell a rifle from a handgun, which is a judgement about the whole block
+    to tell a rifle from a handgun, which is a judgment about the whole block
     of text and survives some contamination; it is barred from supplying a
     caliber, a country, a maker or a condition, which are specific claims and
     do not.

@@ -25,6 +25,11 @@ class CoGunSalesScraper(WooCommerceScraper):
 
     sources = (
         {"category": "Curio & Relic", "url": f"{SITE_BASE}product-category/curio-relics-cr/"},
+        # Antiques are not C&R and share almost nothing with that section: 47
+        # of its 48 listings appear nowhere else. Snider-Enfield Mk II**,
+        # Schmidt-Rubin 1889, a Swiss Modell 1842/59, two W+F Bern cadet
+        # rifles, a Whitney breech-loading carbine.
+        {"category": "Antique Firearms", "url": f"{SITE_BASE}product-category/antiques/"},
         {
             # The full path, not /product-category/parts-kits/. That shorter
             # URL answers 200 with a page of sub-category tiles -- "FAL Parts

@@ -97,6 +97,12 @@ export function formatBytes(bytes) {
 export function formatInterval(minutes) {
   if (!minutes) return "—";
   if (minutes < 60) return `${minutes} min`;
+  // Weeks before days: a fortnightly scan reading "14 days" is arithmetic
+  // rather than a cadence, and the select box offers it as "Every 2 weeks".
+  if (minutes % 10080 === 0) {
+    const weeks = minutes / 10080;
+    return weeks === 1 ? "1 week" : `${weeks} weeks`;
+  }
   if (minutes % 1440 === 0) {
     const days = minutes / 1440;
     return days === 1 ? "1 day" : `${days} days`;

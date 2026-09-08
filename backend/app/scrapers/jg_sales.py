@@ -53,4 +53,13 @@ class JgSalesScraper(WooStoreApiScraper):
         # costs one request and the section is real; an empty first page ends
         # a walk silently, so nothing is reported when there is nothing there.
         {"category": "Parts Kits", "id": 3773},
+        # Three small sections found by auditing their category list against
+        # what this reads. Twelve listings between them and every one on
+        # subject: a Swiss K11 short rifle, a Carcano M.91 cavalry carbine, a
+        # Yugo M57 Tokarev, an Arisaka Type 38 trainer, three Springfield 1903s
+        # and a Krag, an Izhevsk 91/30. Their big "Handguns" (239) and "Rifles"
+        # (65) sections are the modern retail catalog and stay out.
+        {"category": "Gunsmith Specials", "id": 3692},
+        {"category": "US Military Pattern", "id": 3673},
+        {"category": "Mosin Nagant", "id": 3761},
     )

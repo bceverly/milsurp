@@ -46,7 +46,7 @@ Cloudflare challenge rather than a rendering problem.
 | [Axis Arms](https://axisarmsonline.com/) | `axis-arms` | WooCommerce behind an Elementor loop; two sections |
 | [CO Gun Sales](https://cogunsales.com/) | `co-gun-sales` | WooCommerce for text; their photographs are a CSS background and a JSON attribute, with no `<img>` anywhere |
 | [Checkpoint Charlie's](https://checkpointcharlies.com/) | `checkpoint-charlies` | WooCommerce, a product *tag* rather than a category. Catalog only — their `/product/` pages refuse every request |
-| [Legacy Collectibles](https://www.legacy-collectibles.com/) | `legacy-collectibles` | BigCommerce base class — `article.card`, `data-entity-id`, query-string pagination |
+| [Legacy Collectibles](https://www.legacy-collectibles.com/) | `legacy-collectibles` | BigCommerce base class — `article.card`, `data-entity-id`, query-string pagination. Their spec table supplies the caliber, maker and bore grade; 1,001 listings |
 | [IMA-USA](https://www.ima-usa.com/) | `ima-usa` | Shopify base class — `products.json`, no HTML parsing and no detail fetch |
 | [Centerfire Systems](https://centerfiresystems.com/) | `centerfire-systems` | Shopify; three surplus collections out of a general retailer's catalog |
 | [Classic Firearms](https://www.classicfirearms.com/) | `classic-firearms` | Magento base class — schema.org JSON-LD; facet-walked, because they disallow `?p=` |
@@ -88,6 +88,110 @@ Scrapers for parts-carrying sites should therefore ingest the firearm
 categories plus any parts-kit category, and skip the rest of the parts tree
 rather than importing it and filtering later.
 
+### The source-list audit — **Shipped**
+
+Legacy Collectibles was being read at 13% and nobody noticed for weeks, so the
+same question was put to every other vendor: **does this shop's own navigation
+call something a catalog that we are not reading?** Every site's category list
+was fetched and every candidate section was counted before anything was
+changed.
+
+Five shops were under-read, and the misses were not marginal:
+
+| Vendor | Was | Now | What was missing |
+| --- | --- | --- | --- |
+| **Collectors Firearms** | 218 | **691** | US Model 1861 and 1842 muskets, a B.S.A. Snider, a Spandau 1871/84, a Vetterli-Carcano, a Type 14 Nambu, an Astra 600/43, Mauser S/42 Lugers, a C96 flatside, a byf 44 P.38 |
+| **Ancestry Guns** | 12 | **36** | A Gustave Young-engraved Colt M1849, a Civil War surgeon's M1860 Army, a Confederate 3rd Model Dragoon, a Sharps U.S. Navy M1855, an 1866 Winchester musket, a Brown Bess |
+| **CO Gun Sales** | 171 | **218** | Snider-Enfield Mk II\*\*, Schmidt-Rubin 1889, a Swiss Modell 1842/59, two W+F Bern cadet rifles, a Whitney breech-loading carbine |
+| **J&G Sales** | — | **+12** | A Swiss K11, a Carcano M.91 cavalry carbine, a Yugo M57 Tokarev, an Arisaka Type 38 trainer, three Springfield 1903s, a Krag, an Izhevsk 91/30 |
+| **Checkpoint Charlie's** | 163 | **349** | A Winchester Hotchkiss 1879 carbine, a Quality Hardware M1 Carbine, a Krieghoff Luftwaffe flare pistol, Allen & Wheelock and Remington derringers |
+
+Axis Arms gained their Curio & Relic section, which held one listing the other
+two did not.
+
+Checkpoint Charlie's is the one that needed a second look at *why*: they were
+read through `/product-tag/cr/`, and C&R eligibility is a legal fact about a
+gun's age rather than a claim the shop makes about every old gun it stocks. 186
+of the 264 listings in their military and antique leaves carry no such tag.
+**A tag is a filter, not a catalog.**
+
+**Five shops were checked and needed nothing**, which is worth recording so the
+work is not repeated: IMA-USA (the five collections read cover 272 products and
+every other antique-firearm collection adds nine), Centerfire Systems (their
+other firearm collections are AK, AR, 1911 and shotgun), Classic Firearms
+(`/firearms/` has one C&R and two military-surplus leaves and this reads all
+three), SARCO and Apex Gun Parts.
+
+**The lesson, three times over.** Each miss came from taking one thing a shop
+said about itself and stopping there. On Collectors Firearms a parent category is
+a page of **sub-category tiles with no products on it at all** — the MCT
+Defense trap recorded elsewhere in this document — so "Antique Handguns" looked
+like a section and was a menu; the two leaves under it are 74 listings. On
+Ancestry Guns the three sections have **no product in common**, so "Curio &
+Relic" being the C&R section did not make it the catalog. And Checkpoint Charlie's were read through a *tag*, which is a filter over a
+catalog and not the catalog. *Open every parent before judging it, check
+whether sections overlap before assuming one contains another, and do not
+mistake a filter for a catalog.*
+
+**What it costs.** Collectors Firearms ask for a 10-second crawl delay and get
+20 (their limiter refuses 10), so their 473 new listings are about two and a
+half hours of first-scan wall clock, paid once. The others are minutes —
+Checkpoint Charlie's especially, whose product pages refuse every request
+anyway, so a section there costs its category pages and nothing more.
+
+
+### Legacy Collectibles: read the catalog, not three corners of it — **Shipped**
+
+Found by asking why 142 of their listings de-listed in a single day. A sample
+of 24 found only **5 genuinely sold**; the other 19 were still on sale, under
+sections this scraper did not read. Chasing that turned up the real problem:
+
+| Section | Listings | Read before |
+| --- | --- | --- |
+| `/hand-guns` | **696** | no |
+| `/rifles` | **281** | no |
+| `/us-military` | 105 | no |
+| `/walther-ppk` | 52 | no |
+| `/new-firearms` | 78 | yes |
+| `/antique-long-guns` | 38 | yes |
+| `/antique-handguns` | 22 | yes |
+
+**We were reading 127 of 977 — thirteen percent.** And the 87% skipped was not
+modern stock but a Commercial Mauser C96, a Swiss Bern 1906/29 Luger, a
+Kriegsmarine Mauser 1934 rig, a 1902 American Eagle Luger, Walther PP and P.38
+rigs, an Izhevsk M91/30, a Robbins & Lawrence Mississippi Rifle. The "Modern
+Handguns"/"Modern Long Guns" sections this scraper declines — and was right to
+decline — are different and far narrower sections than these two.
+
+The new source list is `/hand-guns`, `/rifles`, the two antique sections,
+`/us-military` and `/walther-ppk`. **A live walk returns 1,001 unique listings,
+no warnings, and a price on every one**: 530 rifles, 460 handguns, 11 that the
+classifier would not type from a title. The four narrow sections are there only
+for what the first two lack — 4 antique handguns, 6 antique long guns, 11 US
+military rifles, 4 Walther PPKs.
+
+**Two sections are deliberately absent.**
+
+- `/discounted-items` is 57 listings unreachable elsewhere and 55 of them are
+  gear: Luger holsters, a K98 bayonet, a Hospital Corps pouch, binoculars, a
+  Luftwaffe overcoat, a book. The standing rule refuses all of it.
+- `/new-firearms` is gone, and its removal is the fix for the de-listing. A
+  rolling new-arrivals feed de-lists everything that ages off it, which is
+  indistinguishable from a withdrawal. With the catalog itself read, its only
+  unique listing was one already sold.
+
+**One classifier change fell out of it**, measured against all 3,067 stored
+listings before being accepted: `_CATEGORY_IS_ONLY_A_TYPE` knew `long guns`
+with its space and `handguns` without one, so "Hand Guns" did not count as a
+bare type at all and six of their guns read as accessories on a word in the
+title — a Radom VIS 35 "Red Grips", a PPK rig "W/ SS Mags", an M1911A1
+"Documented In Clawson Book". Bringing the spelling into line moves nothing
+else anywhere.
+
+**What it costs.** The first scan fetches about 880 new product pages at five
+seconds apiece — a little over an hour, paid once. After that only new arrivals
+need one.
+
 ### Sold listings on BigCommerce — **Shipped**
 
 Reported: a $1,095 Winchester titled "SOLD - Excellent Winchester Model 9410
@@ -121,12 +225,30 @@ product whose *variants* differ in stock, and on every related-product card in
 the page footer — an in-stock PPSh-41 kit at $599.99 carries the phrase five
 times over.
 
-Two things this leaves open. The **catalog grid** also labels an out-of-stock
-card (`a.card-figcaption-button` reading "Out of stock" instead of "Add to
-Cart"), which would let a re-scan notice a sale without fetching the product
-page at all — worth doing, and not done. And a listing that sells **between**
-scans of its site is still shown as available until the next one; that is true
-of every vendor here and is a property of the scan interval, not of this fix.
+**The catalog grid says so too, and it says so on every scan.** That was left
+open when the product-page reading shipped, and is now done: `sold_from_card()`
+reads the same signal off the card in the grid — `a.card-figcaption-button`,
+which reads "Add to Cart" on an in-stock product and is swapped for "Out of
+stock" or "SOLD" on a sold one, plus Legacy's badge over the photograph. It
+costs no request at all, and it matters because a product page is fetched
+**once**: without it a listing that sells after that fetch stays available for
+as long as it stays in the catalog.
+
+Measured across the three shops' whole catalogs from the grid alone: 27 of Arms
+of America's 47 and 7 of Bowman's 17 read as sold, 12 of them stored as
+available, and **not one moved the other way**. One of the twelve can be caught
+no other way at all — Bowman's Colt 653 answers 403 to every request, retries
+included, so its product page is never read.
+
+**Scoped to those elements, never the card's whole text.** A card carries its
+own title, and Legacy Collectibles rename a sold listing "SOLD - ..." — so
+reading the text would make a title sufficient evidence on any shop that had
+merely used the word, which is how Apex Gun Parts describe most of their kits
+("Sold as a Set").
+
+What remains open is only this: a listing that sells **between** scans of its
+site is shown as available until the next one. That is true of every vendor
+here and is a property of the scan interval, not of this fix.
 
 ### Legacy Collectibles' spec table — **Shipped**
 
@@ -899,9 +1021,84 @@ application and publish it as a snap.
 
 ### Search and discovery
 
-- **Planned** — Saved searches: name a set of filters and return to it.
-- **Planned** — Per-search email alerts, so a digest can be scoped to "Mosin
-  Nagants under $400" rather than to whole sites.
+#### Saved searches, and a daily email per search — **Planned**
+
+Requested. The browse page already takes a rich query — keyword, site,
+category, caliber, country, manufacturer, armory model, kind, availability,
+price range, "new since", price-drops-only, and one of six sort orders — and
+every one of those already lives in the URL. **A saved search is a name and
+that query**, so the hard part is not the searching; it is the email and the
+lifecycle around it.
+
+**What the user asked for, in their order:**
+
+1. Set up a search on the browse page and **save it under a name**.
+2. **See the saved searches** as a list.
+3. **Run one** from that list, landing back on browse with every filter set.
+4. **Turn a daily email on or off per search**, delivering that search's
+   results with a photograph, a truncated title and a truncated description.
+5. Click an item in the email and land on **our** item page for it — from
+   which the existing "View on vendor site" button does the rest.
+6. **The sort order is part of the saved search, and the email is in that same
+   order.** Explicitly asked for, and the thing most easily lost: an email
+   assembled by a digest job naturally comes out in whatever order the query
+   planner returned, which is not the order the user saved.
+
+**The shape.**
+
+**Storage.** One table, `saved_searches`: `user_id`, `name`, the query, `sort`,
+`email_enabled`, and the usual timestamps. Store the query as the **query
+string the browse page already produces**, not as a column per filter — the
+filter set has grown four times already, and a column per filter means a
+migration each time. It also makes "run this search" a redirect and nothing
+more. Validate on save by parsing it through the same code
+`GET /api/items` uses, so a saved search cannot outlive a parameter it names.
+
+**Sort belongs in the same row and in the email's own query.** The digest must
+re-run the search rather than re-filter a list it already has, or the order is
+whatever the second query returned.
+
+**The email.** The existing digest (`services/digest.py`) already renders
+listings with photographs and knows how to link back to an item page, so this
+is a third section beside "new items" and "price drops" rather than a new
+mailer. What it does not have and this needs:
+
+- **Truncation with an ellipsis**, on both the title and the description, to a
+  fixed length. Truncate on a word boundary and append "…"; the character
+  budget belongs next to the existing per-site caps so both are tuned in one
+  place.
+- **A per-search cap**, for the same reason the digest already caps per site: a
+  saved search matching four hundred listings must not send a four-hundred-row
+  email. Cap it, and say in the email how many more there were.
+- **A link to the search itself** at the foot of the section, so "see the rest"
+  is one click.
+
+**Questions worth settling before building:**
+
+- **Daily, or the user's existing digest frequency?** They said daily. The
+  digest already has a `frequency_hours` per user, and two schedules for one
+  user is two emails a day. Simplest that honors the request: saved-search
+  results ride in the *existing* digest email as their own section, and
+  "daily" is what the digest is already set to for most people.
+- **Everything, or only what changed?** A search for "Mosin under $400" that
+  matches sixty listings will match the same sixty tomorrow. The digest's other
+  two sections are both about *change*, and an unchanged sixty-row email every
+  morning is the fastest way to get a digest filtered into a folder. Strongly
+  recommend the email carry **what is new to that search since it last sent**,
+  with the total as context: "7 new, 60 matching in all". That is a change to
+  what the user asked for and should be their call.
+- **Whose photograph?** The item's first stored photo, at thumbnail size, which
+  is what the digest already embeds.
+
+**Where it touches:** a migration and one model; `api/items.py`'s query parsing
+extracted so the saved search and the browse page cannot drift; a small
+`api/saved_searches.py`; `services/digest.py` for the section; and on the
+front end a "Save this search" control on the browse page plus a Saved
+Searches page. The armory's approval pattern is not wanted here — a saved
+search is the user's own and needs no review.
+
+#### The rest of the search work
+
 - **Planned** — SQLite FTS5 full-text index. The current `LIKE`-per-term search
   is fine at tens of thousands of rows; it will not stay fine at hundreds of
   thousands.

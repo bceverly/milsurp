@@ -18,7 +18,12 @@ from __future__ import annotations
 import pytest
 from bs4 import BeautifulSoup
 
-from app.scrapers.bigcommerce import BigCommerceScraper, custom_fields, sold_out
+from app.scrapers.bigcommerce import (
+    BigCommerceScraper,
+    custom_fields,
+    sold_from_card,
+    sold_out,
+)
 from app.scrapers.legacy_collectibles import LegacyCollectiblesScraper
 
 
@@ -252,4 +257,64 @@ class TestSold:
                 )
             )
             is False
+        )
+
+
+class TestSoldFromTheGridAlone:
+    """The product page is read once; the grid is read on every scan.
+
+    Without this a listing that sells *after* its product page was fetched
+    stays "available" for as long as it stays in the catalog — and one of them
+    could never be caught any other way: Bowman Arms' Colt 653 answers 403 to
+    every request, retries included, so its product page is never read at all.
+    Its card says "Out of stock" plainly.
+
+    Measured across the three shops' whole catalogs, from the grid and nothing
+    else: 27 of Arms of America's 47 and 7 of Bowman's 17 read as sold, 12 of
+    them listings stored as available, and not one moved the other way.
+    """
+
+    def card(self, inner):
+        return BeautifulSoup(f"<article class='card'>{inner}</article>", "html.parser").select_one(
+            "article"
+        )
+
+    @pytest.mark.parametrize("words", ["Out of stock", "SOLD", "Sold Out"])
+    def test_the_theme_swaps_the_words_on_the_cart_button(self, words):
+        """In stock it reads "Add to Cart"; sold, the theme replaces it. All
+        three shops here do this and only the wording differs."""
+        assert sold_from_card(self.card(f'<a class="card-figcaption-button">{words}</a>')) is True
+
+    def test_and_legacy_lay_a_badge_over_the_photograph_as_well(self):
+        assert sold_from_card(self.card('<span class="sold-out-text">SOLD</span>')) is True
+
+    def test_an_ordinary_card_is_not_sold(self):
+        assert (
+            sold_from_card(
+                self.card(
+                    '<a class="card-figcaption-button">Add to Cart</a>'
+                    '<h4 class="card-title">Yugo M56 Parts Kit</h4>'
+                )
+            )
+            is False
+        )
+
+    def test_the_word_in_the_title_is_not_the_signal(self):
+        """The trap, and a live one: Legacy Collectibles rename a sold listing
+        "SOLD - ...". Reading the card's whole text would make the title
+        sufficient evidence on any shop that merely used the word — "Sold as a
+        Set", which is how Apex Gun Parts describe most of their kits."""
+        assert (
+            sold_from_card(
+                self.card(
+                    '<h4 class="card-title">Beretta 950B Parts Kit — Sold as a Set</h4>'
+                    '<a class="card-figcaption-button">Add to Cart</a>'
+                )
+            )
+            is False
+        )
+
+    def test_a_quick_view_button_says_nothing_either_way(self):
+        assert (
+            sold_from_card(self.card('<a class="card-figcaption-button">Quick view</a>')) is False
         )

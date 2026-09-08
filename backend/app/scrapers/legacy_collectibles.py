@@ -9,8 +9,9 @@ Their theme is close to stock Stencil and carries ``data-entity-id`` on every
 card, so listings keep their identity through a rename — see
 :meth:`BigCommerceScraper.key_for` for why that matters.
 
-The categories are the firearm ones. They also sell collectible gun *parts*,
-which the roadmap's rule leaves alone.
+The categories are the firearm ones. They also sell collectible gun *parts*
+and a great deal of gear -- holsters, pouches, binoculars, uniforms -- which
+the roadmap's rule leaves alone.
 
 **They publish no prose description, on any of their 258 listings**, and for a
 while that meant 258 listings arriving with nothing in the description at all.
@@ -49,29 +50,53 @@ class LegacyCollectiblesScraper(BigCommerceScraper):
     name = "Legacy Collectibles"
     base_url = SITE_BASE
     description = (
-        "High-end WWI and WWII collector pieces. Their antique and new-arrival "
-        "sections are read; their modern retail and parts sections are not."
+        "High-end WWI and WWII collector pieces. Their handgun and long-gun "
+        "catalog is read; their gear, parts and modern retail sections are not."
     )
     requires_browser = False
     default_interval_minutes = 1440
 
-    #: Their three collector sections, and not their two modern ones.
+    #: Their catalog, which is very nearly all of it in scope.
     #:
-    #: "Modern Handguns" and "Modern Long Guns" are what those names say: Glock
-    #: 17s, Sig P365s, Kimber 2011s, FN SCARs. Forty-three of them landed on the
-    #: first run and not one was surplus. This is the same call already made
-    #: about Arms Unlimited, and for the same reason — a catalog that mixes
-    #: current retail stock into the surplus is worse at the job than one that
-    #: does not.
+    #: This list was three narrow sections for a long time and that was a
+    #: mistake worth writing down. It read **127 of their 977 listings** --
+    #: thirteen percent -- and what it skipped was not modern stock but a
+    #: Commercial Mauser C96, a Swiss Bern 1906/29 Luger, a Kriegsmarine Mauser
+    #: 1934 rig, a 1902 American Eagle Luger, Walther PP and P.38 rigs, an
+    #: Izhevsk M91/30 and a Robbins & Lawrence Mississippi Rifle. The "Modern
+    #: Handguns"/"Modern Long Guns" sections this scraper still declines are
+    #: different and much narrower sections than these two.
     #:
-    #: "New Firearms" stays despite carrying some of the same, because it is
-    #: their new-arrivals feed rather than a category: a Springfield 1903, a
-    #: Portuguese-contract Mauser Luger and a Finnish-marked Tula M1891 all
-    #: appear there first, and nowhere else.
+    #: Measured: ``/hand-guns`` and ``/rifles`` are 976 unique listings, 860 of
+    #: them new, classifying 406 handguns / 444 rifles / 10 other. Not one
+    #: title in either begins "SOLD" -- this shop moves a sold listing into
+    #: ``/recently-sold-items``, so leaving these sections really does mean
+    #: gone.
+    #:
+    #: The type-named sections come first, because the vendor's section name
+    #: outranks the classifier's reading of a title and "Hand Guns" says what
+    #: "US Military" does not. The four narrow ones follow, and each is here
+    #: only for what the first two do not carry: 4 antique handguns, 6 antique
+    #: long guns, 16 US-military rifles (a Springfield 1873 with its socket
+    #: bayonet, a Krag Jorgensen carbine, two National Match 1903s) and 4
+    #: Walther PPKs (an RZM rig, an SS-contract gun).
+    #:
+    #: **Two of their sections are deliberately absent.** ``/discounted-items``
+    #: is 57 listings this cannot reach otherwise and 55 of them are gear --
+    #: Luger holsters, a K98 bayonet, binoculars, a Luftwaffe overcoat, a book
+    #: -- which the standing rule refuses. And ``/new-firearms`` is a rolling
+    #: new-arrivals feed whose only unique listing was one already sold: with
+    #: the catalog itself read there is nothing left for it to add, and reading
+    #: it was actively harmful, because a listing that ages off a feed looks
+    #: exactly like a listing that has been withdrawn. It de-listed 142
+    #: listings in a day, of which a sample of 24 found only 5 genuinely sold.
     sources = (
-        {"category": "New Firearms", "url": f"{SITE_BASE}new-firearms/"},
+        {"category": "Hand Guns", "url": f"{SITE_BASE}hand-guns/"},
+        {"category": "Long Guns", "url": f"{SITE_BASE}rifles/"},
         {"category": "Antique Handguns", "url": f"{SITE_BASE}antique-handguns/"},
         {"category": "Antique Long Guns", "url": f"{SITE_BASE}antique-long-guns/"},
+        {"category": "US Military", "url": f"{SITE_BASE}us-military/"},
+        {"category": "Walther PPK", "url": f"{SITE_BASE}walther-ppk/"},
     )
 
     #: Their spec table, mapped onto the columns it answers.

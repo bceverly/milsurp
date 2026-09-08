@@ -983,7 +983,7 @@ def _title_from(lines: list[TextLine]) -> str:
         skipped = _skip_to_the_first_name_word(cleaned)
         title = " ".join(_title_words(skipped)) if skipped else ""
     if len(title.strip(" .,:;-")) < MIN_TITLE_LENGTH:
-        # Nothing recognisable as a name — usually a listing whose heading was
+        # Nothing recognizable as a name — usually a listing whose heading was
         # lost. Fall back to its opening line so it is at least identifiable.
         title = cleaned[0]
 

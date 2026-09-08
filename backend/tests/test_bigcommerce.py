@@ -15,6 +15,7 @@ from bs4 import BeautifulSoup
 from app.scrapers import ScrapeContext
 from app.scrapers.base import ScrapeError
 from app.scrapers.bigcommerce import BigCommerceScraper, full_size, price_now
+from app.scrapers.legacy_collectibles import LegacyCollectiblesScraper
 
 SHOP = "https://shop.test"
 CDN = "https://cdn11.bigcommerce.com/s-abc/images/stencil"
@@ -267,7 +268,6 @@ class TestWalkingTheCatalog:
 
 class TestTheShop:
     def test_legacy_collectibles_leaves_the_parts_section_alone(self):
-        from app.scrapers.legacy_collectibles import LegacyCollectiblesScraper
 
         urls = [source["url"] for source in LegacyCollectiblesScraper.sources]
         assert not any("parts" in url for url in urls)
@@ -275,13 +275,48 @@ class TestTheShop:
     def test_nor_does_it_take_their_modern_retail_stock(self):
         """Their "Modern" sections are Glocks, Sigs and FN SCARs — 43 of them
         on the first run and not one of them surplus. Same call as Arms
-        Unlimited. "New Firearms" is a new-arrivals feed, not a category, and
-        is the only place a Portuguese-contract Luger shows up, so it stays."""
+        Unlimited. Note these are much narrower sections than `/hand-guns` and
+        `/rifles`, which are their collector catalog and *are* read."""
         from app.scrapers.legacy_collectibles import LegacyCollectiblesScraper
 
         urls = [source["url"] for source in LegacyCollectiblesScraper.sources]
         assert not any("modern" in url for url in urls)
-        assert any("new-firearms" in url for url in urls)
+
+    def test_it_reads_their_catalog_rather_than_three_corners_of_it(self):
+        """This list was `/new-firearms/` plus the two antique sections, and
+        that was 127 of their 977 listings. `/hand-guns` and `/rifles` are 976
+        of them, 860 of which nothing else here reaches."""
+        from app.scrapers.legacy_collectibles import LegacyCollectiblesScraper
+
+        urls = [source["url"] for source in LegacyCollectiblesScraper.sources]
+        assert any(url.endswith("/hand-guns/") for url in urls)
+        assert any(url.endswith("/rifles/") for url in urls)
+
+    def test_the_type_named_sections_come_first(self):
+        """A listing is taken by the first source that offers it and that
+        source's name becomes the category the classifier trusts over its own
+        reading. "Hand Guns" says what "US Military" does not."""
+        names = [source["category"] for source in LegacyCollectiblesScraper.sources]
+        assert names[:2] == ["Hand Guns", "Long Guns"]
+        assert names.index("US Military") > names.index("Hand Guns")
+
+    def test_the_new_arrivals_feed_is_gone(self):
+        """A rolling feed de-lists everything that ages off it. Reading it cost
+        142 de-listings in one day, of which a sample of 24 found 5 genuinely
+        sold — the rest still on sale under sections this now reads. With the
+        catalog itself read, its only unique listing was one already sold."""
+        from app.scrapers.legacy_collectibles import LegacyCollectiblesScraper
+
+        urls = [source["url"] for source in LegacyCollectiblesScraper.sources]
+        assert not any("new-firearms" in url for url in urls)
+
+    def test_their_gear_section_is_left_alone(self):
+        """`/discounted-items` is 57 listings unreachable elsewhere and 55 are
+        holsters, pouches, binoculars, a Luftwaffe overcoat and a book."""
+        from app.scrapers.legacy_collectibles import LegacyCollectiblesScraper
+
+        urls = [source["url"] for source in LegacyCollectiblesScraper.sources]
+        assert not any("discounted" in url for url in urls)
 
     def test_it_does_not_need_a_browser(self):
         from app.scrapers.legacy_collectibles import LegacyCollectiblesScraper

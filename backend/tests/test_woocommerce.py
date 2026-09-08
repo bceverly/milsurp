@@ -272,10 +272,45 @@ class TestTheProductPage:
 
 
 class TestCollectorsFirearms:
-    def test_it_reads_only_the_military_rifle_sections(self):
-        """They are a general dealer with 207,000 products."""
+    def test_it_reads_only_military_and_antique_sections(self):
+        """They are a general dealer with 207,000 products, so every source has
+        to name a section that is surplus or collector stock — never a parent
+        like `/rifles/`, which also holds sporting, tactical and rimfire."""
         urls = [source["url"] for source in CollectorsFirearmsScraper.sources]
-        assert all("military-rifles" in url for url in urls)
+        assert all(
+            any(word in url for word in ("military", "martial", "antique", "luger", "mauser"))
+            for url in urls
+        )
+
+    def test_it_reads_the_five_sections_it_used_to_claim_did_not_exist(self):
+        """This file said "their military handguns are not separately
+        categorized". `/modern-handguns/military-handguns/` is 91 listings,
+        `/lugers/` 48 and `/mausers/` 20, and the two antique-military leaves
+        are 240 more. Reading two sections was 218 of 691 — 32%."""
+        urls = " ".join(source["url"] for source in CollectorsFirearmsScraper.sources)
+        for leaf in (
+            "modern-handguns/military-handguns/",
+            "modern-handguns/lugers/",
+            "modern-handguns/mausers/",
+            "antique-long-guns/u-s-military-antique-long-guns/",
+            "antique-long-guns/foreign-military-antique-long-guns/",
+            "antique-handguns/u-s-martial-antique-handguns/",
+            "antique-handguns/foreign-military-antique-handguns/",
+        ):
+            assert leaf in urls
+
+    def test_every_source_is_a_leaf_rather_than_a_parent(self):
+        """On this shop a parent renders a page of sub-category *tiles* with no
+        products on it at all — the trap the roadmap records against MCT
+        Defense, and what hid five sections here for months."""
+        urls = [source["url"] for source in CollectorsFirearmsScraper.sources]
+        parents = (
+            "/product-category/rifles/",
+            "/product-category/antique-handguns/",
+            "/product-category/antique-long-guns/",
+            "/product-category/modern-handguns/",
+        )
+        assert not any(url.endswith(parent) for url in urls for parent in parents)
 
     def test_it_keeps_the_stock_selectors_behind_its_own(self):
         """If the theme reverts, the WooCommerce defaults still answer."""
@@ -380,13 +415,32 @@ class TestTheOtherWooCommerceShops:
 
         assert AxisArmsScraper.title_selectors[0] == "h1.elementor-heading-title"
 
-    def test_axis_arms_reads_both_of_its_sections(self):
+    def test_axis_arms_reads_all_three_of_its_sections(self):
         from app.scrapers.axis_arms import AxisArmsScraper
 
         assert {source["category"] for source in AxisArmsScraper.sources} == {
             "Rifles",
             "Handguns",
+            "Curio & Relic Rifles",
         }
+
+    def test_ancestry_guns_reads_more_than_its_c_and_r_section(self):
+        """Their three sections are twelve listings each and share not one
+        product: `/curio-relic/` was a third of what they publish."""
+        from app.scrapers.ancestry_guns import AncestryGunsScraper
+
+        assert {source["category"] for source in AncestryGunsScraper.sources} == {
+            "Curio & Relic",
+            "Handguns",
+            "Long Guns",
+        }
+
+    def test_co_gun_sales_reads_its_antiques_too(self):
+        """47 of the 48 there appear in no other section they publish."""
+        from app.scrapers.co_gun_sales import CoGunSalesScraper
+
+        urls = [source["url"] for source in CoGunSalesScraper.sources]
+        assert any(url.endswith("/product-category/antiques/") for url in urls)
 
     def test_co_gun_sales_starts_at_page_one(self):
         """The roadmap recorded page 6, which is where somebody happened to be
@@ -394,6 +448,24 @@ class TestTheOtherWooCommerceShops:
         from app.scrapers.co_gun_sales import CoGunSalesScraper
 
         assert all("/page/" not in source["url"] for source in CoGunSalesScraper.sources)
+
+    def test_checkpoint_charlies_reads_more_than_its_c_and_r_tag(self):
+        """C&R eligibility is a fact about a gun's age and this shop does not
+        tag everything old: their twelve military and antique leaves hold 264
+        listings, 186 of them untagged."""
+        from app.scrapers.checkpoint_charlies import CheckpointCharliesScraper
+
+        urls = " ".join(source["url"] for source in CheckpointCharliesScraper.sources)
+        assert "/product-tag/cr/" in urls
+        for leaf in ("us-military-handguns", "p38-handguns", "us-military-long-guns"):
+            assert leaf in urls
+
+    def test_checkpoint_charlies_leaves_their_commercial_stock_alone(self):
+        from app.scrapers.checkpoint_charlies import CheckpointCharliesScraper
+
+        urls = " ".join(source["url"] for source in CheckpointCharliesScraper.sources)
+        for out in ("commercial-", "firearm-accessories", "bb-guns", "jej-"):
+            assert out not in urls
 
     def test_checkpoint_charlies_reads_a_tag_not_a_category(self):
         """A tag archive renders the same loop; the URL just looks wrong."""

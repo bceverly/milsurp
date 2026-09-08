@@ -27,6 +27,14 @@ class AxisArmsScraper(WooCommerceScraper):
     sources = (
         {"category": "Rifles", "url": f"{SITE_BASE}product-category/rifles/"},
         {"category": "Handguns", "url": f"{SITE_BASE}product-category/handguns/"},
+        # Almost a subset of the two above -- it held one listing they did not
+        # when it was measured -- but it is their C&R section and it is one
+        # request. The two type-named sections come first so that their names
+        # are the ones the classifier is given.
+        {
+            "category": "Curio & Relic Rifles",
+            "url": f"{SITE_BASE}product-category/curio-and-relic-rifles/",
+        },
     )
 
     #: An h1 per card, which is unusual and is the product name. The h2 beside

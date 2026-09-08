@@ -213,11 +213,25 @@ def _upsert_item(
     if scraped.description:
         item.description = scraped.description
     item.category = scraped.category
-    item.caliber = scraped.caliber
-    item.country = scraped.country
+    # Only what the scraper actually stated, exactly like the description above.
+    #
+    # These four can come from a *product page*, and a scraper skips the
+    # product page of a listing it has already fetched one for — so on every
+    # re-scan the same listing arrives with all four empty, meaning "I did not
+    # ask" and not "the vendor no longer says". Assigning that unconditionally
+    # wiped them and let the heuristics fill the hole: Legacy Collectibles
+    # publish "Maker: IMI" in a field of their own, and one scan later their
+    # Uzi's manufacturer was **Luger**, read back out of "9mm Luger" in the
+    # title. Every bore grade they publish was gone the same way.
+    #
+    # The cost of this direction is that a vendor who *removes* a value does
+    # not clear ours. That is the same trade the description has always made,
+    # and `reclassify --recompute` is the way to force a rebuild.
+    item.caliber = scraped.caliber or item.caliber
+    item.country = scraped.country or item.country
     trusted = descriptions_are_reliable(site.slug)
-    item.manufacturer = scraped.manufacturer
-    item.condition = scraped.condition
+    item.manufacturer = scraped.manufacturer or item.manufacturer
+    item.condition = scraped.condition or item.condition
     item.is_sold = scraped.is_sold
     item.currency = scraped.currency
     if scraped.posted_at:
@@ -255,7 +269,7 @@ def _upsert_item(
 
     # Firearm classification happens here, not in the scrapers.
     #
-    # It is the same judgement for every vendor, and putting it in the scrapers
+    # It is the same judgment for every vendor, and putting it in the scrapers
     # meant each one had to remember — none did. classify.enrich() returned
     # is_rifle/is_pistol from the very first commit and nothing ever read them
     # onto the row, so every listing on every site sat at the column default of
@@ -434,7 +448,7 @@ def _store_generated_images(session: Session, item: Item, scraped: ScrapedItem) 
     There is no URL to fetch later, so the bytes go to disk now and the row is
     written already complete — which also means _download_photos never sees it.
     The key doubles as the photo's source_url so a re-scan of the same flyer
-    recognises the same crop instead of storing it again — but "the same crop"
+    recognizes the same crop instead of storing it again — but "the same crop"
     has to mean the same *pixels*, not merely the same key. These images are
     derived by our own code from a page that has not changed, so the thing that
     changes them is a change to the reader: when it learned to include the

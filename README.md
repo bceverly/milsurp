@@ -594,6 +594,22 @@ differ from WooCommerce and are worth knowing:
 - **Pagination is a query string** (`?page=2`), not a path. A shop may disallow
   those in robots.txt, so the walk asks before each page and stops that section
   rather than failing the scan.
+- **Open every parent category before judging it.** On some shops a parent
+  renders a page of sub-category *tiles* with no products on it at all, so a
+  section in the nav can be a menu. Collectors Firearms hid five military and
+  antique leaves that way — 473 listings against the 218 being read — and CO
+  Gun Sales' parts-kit section is behind the same trap.
+- **Check whether sections overlap before assuming one contains another.**
+  Ancestry Guns publish `/curio-relic/`, `/handguns/` and `/longguns/`, twelve
+  listings each and **no product in common**: reading the C&R section alone was
+  a third of their catalog. Fetch both and compare the keys.
+- **Read the catalog, not a new-arrivals feed.** A feed de-lists everything
+  that ages off it, and that is indistinguishable from a withdrawal: reading
+  Legacy Collectibles' `/new-firearms/` de-listed 142 listings in one day, of
+  which a sample of 24 found five genuinely sold. It also hid how much was
+  being missed — their `/hand-guns` and `/rifles` are 976 listings against the
+  127 three narrow sections were reaching. Take the sections a shop's own
+  navigation calls its catalog.
 - **A sold listing says so on the product page and nowhere else.** Its card in
   the grid looks exactly like an in-stock one, so this platform read every
   listing as available until `sold_out()` existed — and Legacy Collectibles,
@@ -607,6 +623,14 @@ differ from WooCommerce and are worth knowing:
   related-product card in the footer — an in-stock PPSh-41 kit at $599.99 has
   the phrase on its page five times over. Measured over 52 product pages with
   both signals in place: 14 listings move to sold and none the other way.
+- **The grid says it too, and says it every scan.** A product page is fetched
+  once, so a listing that sells afterwards would stay available for as long as
+  it stayed in the catalog. `sold_from_card()` reads
+  `a.card-figcaption-button` — "Add to Cart" in stock, swapped for "Out of
+  stock" or "SOLD" when not — for free, on every pass. It caught 12 more, one
+  of them a listing whose product page answers 403 to every retry and is never
+  read at all. Scope it to that element: a card carries its own title, and
+  "Sold as a Set" is how Apex describe most of their kits.
 - **Their custom fields may be the whole listing.** BigCommerce lets a shop
   define its own product fields and renders them as
   `table.productView-custom-fields`. Legacy Collectibles write no prose

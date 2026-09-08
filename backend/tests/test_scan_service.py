@@ -911,6 +911,57 @@ class TestDescriptiveFieldsAreDerivedWhereTheVendorGivesNone:
         )
 
 
+class TestAStatedValueSurvivesTheNextScan:
+    """The scan that does not re-read the product page must not undo the one
+    that did.
+
+    A scraper skips the product page of a listing it has already fetched one
+    for — that is what keeps a re-scan cheap — so a caliber, maker, country or
+    grade that only the product page carries arrives empty on every scan after
+    the first. Empty means "I did not ask", not "the vendor no longer says".
+
+    Reading it the second way cost the whole of the Legacy Collectibles spec
+    table one scan after it landed: they publish "Maker: IMI" in a field of
+    their own, and their Uzi came back a **Luger** — read out of "9mm Luger" in
+    the title — with every bore grade they publish gone the same way.
+    """
+
+    def stored(self, session, key="a"):
+        return session.execute(select(Item).where(Item.external_key == key)).scalar_one()
+
+    def test_the_second_scan_keeps_what_the_first_was_told(self, clean_db, fake_site):
+        FakeScraper.payload = [
+            listing(
+                "a",
+                title="IMI Model 45 Uzi - 9mm Luger",
+                caliber="9mm Luger",
+                country="Israel",
+                manufacturer="IMI",
+                condition="9/10",
+            )
+        ]
+        scan_service.run_scan(fake_site.id, trigger="test")
+
+        # The same listing as a re-scan sees it: catalog only, no product page.
+        FakeScraper.payload = [listing("a", title="IMI Model 45 Uzi - 9mm Luger")]
+        scan_service.run_scan(fake_site.id, trigger="test")
+
+        item = self.stored(clean_db)
+        assert item.manufacturer == "IMI"
+        assert item.country == "Israel"
+        assert item.condition == "9/10"
+
+    def test_and_a_value_the_vendor_changes_still_wins(self, clean_db, fake_site):
+        """Keeping what we were told is not refusing to be told again."""
+        FakeScraper.payload = [listing("a", title="Mosin", caliber="7.62x54mmR")]
+        scan_service.run_scan(fake_site.id, trigger="test")
+
+        FakeScraper.payload = [listing("a", title="Mosin", caliber="7.62x53R")]
+        scan_service.run_scan(fake_site.id, trigger="test")
+
+        assert self.stored(clean_db).caliber == "7.62x53R"
+
+
 class TestTheArmorySuppliesACountryNobodyStated:
     """The case the model's country exists for.
 

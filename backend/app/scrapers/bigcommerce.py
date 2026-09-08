@@ -62,6 +62,40 @@ CUSTOM_FIELD_COLUMNS = frozenset({"caliber", "country", "manufacturer", "conditi
 _SOLD_OUT = re.compile(r"\bsold\b|out of stock|no longer available", re.I)
 
 
+#: Where a Stencil *card* says the product cannot be bought.
+#:
+#: ``a.card-figcaption-button`` is the one that matters: on an in-stock product
+#: it reads "Add to Cart" and on a sold one the theme swaps the words. All
+#: three shops here use it -- Arms of America and Bowman Arms write "Out of
+#: stock", Legacy Collectibles write "SOLD". Legacy also lay a badge over the
+#: photograph, which is listed after it as corroboration rather than instead.
+_SOLD_CARD_SELECTORS = (
+    "a.card-figcaption-button",
+    ".sold-out-text",
+    ".sold-out-flag-sash",
+)
+
+
+def sold_from_card(card: Tag) -> bool:
+    """Whether the grid itself says this listing is gone.
+
+    The product page is the authority and this is not a replacement for it --
+    but a scan only fetches a product page once, so without this a listing that
+    sells *after* its page was read stays "available" for as long as it stays
+    in the catalog. Reading the card costs no request at all.
+
+    Scoped to the elements above and never the card's whole text: a card
+    carries its own title, and "SOLD" in a title -- which is exactly how Legacy
+    Collectibles rename one -- would then be the only evidence needed, on a
+    shop that had merely used the word.
+    """
+    for selector in _SOLD_CARD_SELECTORS:
+        for element in card.select(selector):
+            if _SOLD_OUT.search(text_of(element)):
+                return True
+    return False
+
+
 def sold_out(soup: BeautifulSoup) -> bool:
     """Whether this product page says the item cannot be bought.
 
@@ -317,6 +351,9 @@ class BigCommerceScraper(SiteScraper):
             title=title,
             price=price_now(card),
             category=category,
+            # The grid says so too, and it says so on every scan -- where the
+            # product page is read once and then skipped. See sold_from_card().
+            is_sold=sold_from_card(card),
             image_urls=thumbnails[:1],
             # One preview, not the gallery. Saying otherwise would let a
             # re-scan of the grid delete photographs a detail fetch collected.
