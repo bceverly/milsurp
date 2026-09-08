@@ -186,6 +186,9 @@ class FirearmModelOut(UTCModel):
     name: str
     aliases: str | None = None
     kind: FirearmKind | None = None
+    #: Where the pattern comes from, spelled as the classifier spells it so
+    #: that a model's answer and a title's answer land in the same bucket.
+    country: str | None = None
     #: What it chambers. A list because a model built across decades is often
     #: chambered in more than one round: a Steyr M95 may be 8x50mmR or 8x56mmR.
     caliber_ids: list[int] = Field(default_factory=list)
@@ -209,6 +212,7 @@ class FirearmModelCreate(BaseModel):
     name: str = Field(min_length=1, max_length=128)
     aliases: str | None = Field(default=None, max_length=4000)
     kind: FirearmKind | None = None
+    country: str | None = Field(default=None, max_length=64)
     caliber_ids: list[int] = Field(default_factory=list)
     manufacturer_ids: list[int] = Field(default_factory=list)
     wikipedia_url: str | None = Field(default=None, max_length=500)
@@ -222,6 +226,7 @@ class FirearmModelUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=128)
     aliases: str | None = Field(default=None, max_length=4000)
     kind: FirearmKind | None = None
+    country: str | None = Field(default=None, max_length=64)
     caliber_ids: list[int] | None = None
     manufacturer_ids: list[int] | None = None
     wikipedia_url: str | None = Field(default=None, max_length=500)
@@ -288,6 +293,18 @@ class ManufacturerOut(UTCModel):
     position: int
     enabled: bool
     notes: str | None = None
+    #: Awaiting approval or in production, exactly as for a model or a caliber.
+    #:
+    #: This was missing, and the admin page reads it: with no status in the
+    #: payload every one of the fifty-one makers drew the "Awaiting approval"
+    #: chip -- which is the fallback for a status it does not recognize -- and
+    #: promoting them changed nothing visible, because they were approved
+    #: already and the next payload still carried no status.
+    status: ArmoryStatus = ArmoryStatus.APPROVED
+    #: What it was folded into, when it was.
+    merged_into: str | None = None
+    #: The listing titles a pending row was proposed from.
+    first_seen_in: str | None = None
     #: How many listings currently carry this name, so the admin page can show
     #: what an edit is about to affect.
     item_count: int = 0
@@ -295,6 +312,18 @@ class ManufacturerOut(UTCModel):
 
 class ManufacturerCreate(BaseModel):
     name: str = Field(min_length=1, max_length=128)
+    #: Approved by default, and deliberately unlike a caliber or a model.
+    #:
+    #: Those arrive pending because filling a form in is not the same as having
+    #: checked it. A maker is different in one respect that decides it: saving
+    #: one **re-files every listing it can reach and reports how many moved**,
+    #: which is the whole point of the page. A pending maker matches nothing,
+    #: so defaulting this to pending would make that number always zero and the
+    #: feature silently useless.
+    #:
+    #: A maker a *scan* proposes is another matter and does arrive pending --
+    #: see :func:`app.services.armory.propose_manufacturer`.
+    status: ArmoryStatus = ArmoryStatus.APPROVED
     #: Other spellings, one per line. Matched as literal text, never as a
     #: pattern -- see app/services/manufacturers.py.
     aliases: str | None = Field(default=None, max_length=4000)
@@ -306,6 +335,7 @@ class ManufacturerCreate(BaseModel):
 class ManufacturerUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=128)
     aliases: str | None = Field(default=None, max_length=4000)
+    status: ArmoryStatus | None = None
     position: int | None = Field(default=None, ge=0, le=100_000)
     enabled: bool | None = None
     notes: str | None = Field(default=None, max_length=4000)
@@ -387,6 +417,11 @@ class ItemOut(UTCModel):
     country: str | None = None
     manufacturer: str | None = None
     condition: str | None = None
+    #: The armory model this listing matched, when one did. The name to show,
+    #: and the id because that is what a filter on it uses — a model renamed
+    #: in the armory keeps its listings, which a name filter would not.
+    model: str | None = None
+    firearm_model_id: int | None = None
     is_rifle: bool
     is_pistol: bool
     is_bayonet: bool = False
@@ -415,6 +450,12 @@ class ItemDetail(ItemOut):
     description: str | None = None
     photos: list[PhotoOut] = Field(default_factory=list)
     price_history: list[PricePointOut] = Field(default_factory=list)
+    #: What the armory knows about the matched model, for the facts panel.
+    #: Absent when nothing matched, which is most listings on most days.
+    model_kind: str | None = None
+    model_makers: list[str] = Field(default_factory=list)
+    model_calibers: list[str] = Field(default_factory=list)
+    model_reference_url: str | None = None
 
 
 class FacetValue(BaseModel):
@@ -426,6 +467,10 @@ class FacetValue(BaseModel):
 class ItemFacets(BaseModel):
     sites: list[FacetValue] = Field(default_factory=list)
     categories: list[FacetValue] = Field(default_factory=list)
+    #: The armory models the current results match. A filter on this is a
+    #: filter on a fact somebody vouched for, rather than on a string a vendor
+    #: happened to type — which is the whole difference from the others.
+    models: list[FacetValue] = Field(default_factory=list)
     calibers: list[FacetValue] = Field(default_factory=list)
     countries: list[FacetValue] = Field(default_factory=list)
     manufacturers: list[FacetValue] = Field(default_factory=list)

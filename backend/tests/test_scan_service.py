@@ -12,9 +12,20 @@ from datetime import timedelta
 import pytest
 from sqlalchemy import func, select
 
-from app.models import Item, ItemPhoto, PriceHistory, ScanRun, ScanStatus, Site, utcnow
+from app.models import (
+    ArmoryStatus,
+    FirearmKind,
+    FirearmModel,
+    Item,
+    ItemPhoto,
+    PriceHistory,
+    ScanRun,
+    ScanStatus,
+    Site,
+    utcnow,
+)
 from app.scrapers import ScrapedItem, ScrapeError, SiteScraper
-from app.services import scan_service
+from app.services import armory, scan_service
 from app.services.image_store import FetchResult, ImageStore, StoredImage
 
 
@@ -898,6 +909,129 @@ class TestDescriptiveFieldsAreDerivedWhereTheVendorGivesNone:
             "Soviet Union",
             "Fair",
         )
+
+
+class TestTheArmorySuppliesACountryNobodyStated:
+    """The case the model's country exists for.
+
+    "M1 Garand, EXC, all matching" names no country and there is nothing in it
+    to read one out of, so the listing had none -- and the browse page's
+    country filter had no opinion about it. The armory knows the pattern is
+    American whoever built the rifle.
+    """
+
+    def stored(self, session, key="a"):
+        return session.execute(select(Item).where(Item.external_key == key)).scalar_one()
+
+    @pytest.fixture
+    def garand(self, clean_db):
+        row = FirearmModel(
+            name="M1 Garand",
+            kind=FirearmKind.RIFLE,
+            country="United States",
+            status=ArmoryStatus.APPROVED,
+        )
+        clean_db.add(row)
+        clean_db.commit()
+        armory.invalidate()
+        yield row
+        armory.invalidate()
+
+    def test_a_title_that_names_no_country_gets_the_models(self, clean_db, fake_site, garand):
+        FakeScraper.payload = [
+            listing("a", title="M1 Garand, EXC, all matching", description=None, country=None)
+        ]
+        scan_service.run_scan(fake_site.id, trigger="test")
+        assert self.stored(clean_db).country == "United States"
+
+    def test_a_title_that_names_one_keeps_what_it_says(self, clean_db, fake_site, garand):
+        """A K98k assembled in Brno after the war is a German pattern made in
+        Czechoslovakia, and whoever wrote the listing was looking at the gun."""
+        FakeScraper.payload = [
+            listing("a", title="Italian M1 Garand, Beretta rebuild", country=None)
+        ]
+        scan_service.run_scan(fake_site.id, trigger="test")
+        assert self.stored(clean_db).country == "Italy"
+
+    def test_and_so_does_a_vendor_who_states_one(self, clean_db, fake_site, garand):
+        FakeScraper.payload = [
+            listing("a", title="M1 Garand, EXC, all matching", country="Denmark")
+        ]
+        scan_service.run_scan(fake_site.id, trigger="test")
+        assert self.stored(clean_db).country == "Denmark"
+
+    def test_a_pending_model_supplies_nothing(self, clean_db, fake_site, garand):
+        garand.status = ArmoryStatus.PENDING
+        clean_db.commit()
+        armory.invalidate()
+        FakeScraper.payload = [
+            listing("a", title="M1 Garand, EXC, all matching", description=None, country=None)
+        ]
+        scan_service.run_scan(fake_site.id, trigger="test")
+        assert self.stored(clean_db).country is None
+
+
+class TestAScanFillsTheArmoryQueue:
+    """The half that was missing: the armory was read by every scan and never
+    written to, so meeting a gun the table had never heard of recorded nothing.
+    """
+
+    def test_an_unknown_designation_is_proposed(self, clean_db, fake_site):
+        FakeScraper.payload = [
+            listing("a", title="Winchester Model 1873 Lever Action Rifle", caliber=None)
+        ]
+        scan_service.run_scan(fake_site.id, trigger="test")
+        row = clean_db.query(FirearmModel).filter_by(name="Model 1873").one()
+        assert row.status is ArmoryStatus.PENDING
+        assert "Winchester" in (row.first_seen_in or "")
+
+    def test_it_is_reported_in_the_scan_log(self, clean_db, fake_site):
+        FakeScraper.payload = [
+            listing("a", title="Winchester Model 1873 Lever Action Rifle", caliber=None)
+        ]
+        run_id = scan_service.run_scan(fake_site.id, trigger="test")
+        run = clean_db.get(ScanRun, run_id)
+        assert "Armory: proposed" in (run.log or "")
+
+    def test_it_does_not_make_the_scan_partial(self, clean_db, fake_site):
+        """Proposals are housekeeping. They must not change what a scan reports
+        about the catalog it just saved."""
+        FakeScraper.payload = [
+            listing("a", title="Winchester Model 1873 Lever Action Rifle", caliber=None)
+        ]
+        run_id = scan_service.run_scan(fake_site.id, trigger="test")
+        assert clean_db.get(ScanRun, run_id).status is ScanStatus.SUCCESS
+
+    def test_a_second_scan_proposes_nothing_new(self, clean_db, fake_site):
+        FakeScraper.payload = [
+            listing("a", title="Winchester Model 1873 Lever Action Rifle", caliber=None)
+        ]
+        scan_service.run_scan(fake_site.id, trigger="test")
+        run_id = scan_service.run_scan(fake_site.id, trigger="test")
+        assert "Armory: proposed" not in (clean_db.get(ScanRun, run_id).log or "")
+        assert clean_db.query(FirearmModel).filter_by(name="Model 1873").count() == 1
+
+    def test_a_catalog_larger_than_sqlites_variable_limit(self, clean_db, fake_site):
+        """The keys are gathered back in one SELECT, and SQLite caps a
+        statement at 999 bound variables. A first scan of a large shop carries
+        more listings than that."""
+        FakeScraper.payload = [
+            listing(f"k{n}", title=f"Winchester Model 18{n:02d} Rifle", caliber=None)
+            for n in range(scan_service._KEYS_PER_QUERY + 120)
+        ]
+        run_id = scan_service.run_scan(fake_site.id, trigger="test")
+        assert clean_db.get(ScanRun, run_id).status is ScanStatus.SUCCESS
+        assert clean_db.query(FirearmModel).count() > 0
+
+    def test_nothing_proposed_decides_anything(self, clean_db, fake_site):
+        """A pending row is inert, which is what makes proposing from a guess
+        safe. The listing must not take a kind or a caliber from one."""
+        FakeScraper.payload = [
+            listing("a", title="Winchester Model 1873 Lever Action Rifle", caliber=None)
+        ]
+        scan_service.run_scan(fake_site.id, trigger="test")
+        item = clean_db.execute(select(Item).where(Item.external_key == "a")).scalar_one()
+        assert item.firearm_model_id is None
 
 
 class TestTheWriteLockIsNotHeldAcrossTheNetwork:

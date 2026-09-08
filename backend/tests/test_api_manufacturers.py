@@ -76,6 +76,76 @@ class TestListing:
         assert row["item_count"] == 2
 
 
+class TestTheApprovalStateIsVisible:
+    """Reported from the running site: every maker in the Manufacturers tab
+    drew the "Awaiting approval" chip, and approving them changed nothing.
+
+    Two bugs, and the second hid the first. ManufacturerOut carried no
+    ``status`` at all, so the page read ``undefined`` and fell through to the
+    chip it shows for a status it does not recognize -- while the database
+    said all fifty-one were approved. And the list endpoint took no ``status``
+    filter, so the tab returned every row whatever the page was set to.
+    """
+
+    def test_the_status_comes_back(self, client, admin_headers, seeded):
+        seeded.add(Manufacturer(name="Mauser", status=ArmoryStatus.APPROVED))
+        seeded.commit()
+        row = client.get("/api/manufacturers", headers=admin_headers).json()[0]
+        assert row["status"] == "approved"
+
+    def test_a_pending_one_says_so(self, client, admin_headers, seeded):
+        seeded.add(Manufacturer(name="Norinco", status=ArmoryStatus.PENDING))
+        seeded.commit()
+        row = client.get("/api/manufacturers", headers=admin_headers).json()[0]
+        assert row["status"] == "pending"
+
+    def test_the_list_can_be_filtered_by_it(self, client, admin_headers, seeded):
+        seeded.add_all(
+            [
+                Manufacturer(name="Mauser", status=ArmoryStatus.APPROVED),
+                Manufacturer(name="Norinco", status=ArmoryStatus.PENDING),
+            ]
+        )
+        seeded.commit()
+        pending = client.get("/api/manufacturers?status=pending", headers=admin_headers).json()
+        assert [row["name"] for row in pending] == ["Norinco"]
+        approved = client.get("/api/manufacturers?status=approved", headers=admin_headers).json()
+        assert [row["name"] for row in approved] == ["Mauser"]
+
+    def test_and_searched(self, client, admin_headers, seeded):
+        seeded.add_all(
+            [
+                Manufacturer(name="Mauser", aliases="Mauser-Werke"),
+                Manufacturer(name="Norinco"),
+            ]
+        )
+        seeded.commit()
+        found = client.get("/api/manufacturers?search=werke", headers=admin_headers).json()
+        assert [row["name"] for row in found] == ["Mauser"]
+
+    def test_promoting_one_is_visible_in_the_next_payload(self, client, admin_headers, seeded):
+        """The half that made it look like nothing happened."""
+        seeded.add(Manufacturer(name="Norinco", status=ArmoryStatus.PENDING))
+        seeded.commit()
+        row_id = client.get("/api/manufacturers", headers=admin_headers).json()[0]["id"]
+        client.post(
+            "/api/armory/manufacturers/promote", json={"ids": [row_id]}, headers=admin_headers
+        )
+        row = client.get("/api/manufacturers", headers=admin_headers).json()[0]
+        assert row["status"] == "approved"
+
+    def test_a_maker_typed_by_hand_is_production_at_once(self, client, admin_headers, seeded):
+        """Deliberately unlike a model or a caliber. Saving a maker re-files
+        every listing it can reach, which is the point of the page, and a
+        pending maker matches nothing."""
+        body = client.post(
+            "/api/manufacturers", json={"name": "Husqvarna"}, headers=admin_headers
+        ).json()
+        row = seeded.query(Manufacturer).filter_by(name="Husqvarna").one()
+        assert row.status is ArmoryStatus.APPROVED
+        assert "listings_changed" in body
+
+
 class TestAdding:
     def test_it_files_the_listings_that_name_it(self, client, admin_headers, seeded, site):
         add_listing(seeded, site, "a", "Husqvarna M38 Swedish rifle")

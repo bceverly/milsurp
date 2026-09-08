@@ -13,7 +13,7 @@ from sqlalchemy import Select, case, func, or_, select, true
 from sqlalchemy.orm import selectinload
 
 from ..deps import AppConfig, CurrentUser, DbSession
-from ..models import Item, ItemPhoto, PriceHistory, Site, utcnow
+from ..models import FirearmModel, Item, ItemPhoto, PriceHistory, Site, utcnow
 from ..schemas import (
     FacetValue,
     ItemDetail,
@@ -117,6 +117,10 @@ def _blurb(description: str | None) -> str | None:
 
 def _to_out(item: Item, site_names: dict[int, str]) -> ItemOut:
     data = ItemOut.model_validate(item)
+    # The name only. `firearm_model` on the row is a relationship and the
+    # field here is a string -- the same word for two shapes, which is exactly
+    # what ManufacturerOut.models got wrong before it was taken out.
+    data.model = item.firearm_model.name if item.firearm_model else None
     data.site_name = site_names.get(item.site_id)
     data.thumbnail_url = _thumbnail_url(item)
     data.price_drop = item.price_drop_amount
@@ -158,6 +162,7 @@ def _apply_filters(  # noqa: PLR0912 - one branch per filter; splitting it
     calibers: list[str] | None,
     countries: list[str] | None,
     manufacturers: list[str] | None,
+    models: list[str] | None,
     kinds: list[str] | None,
     availability: str,
     search: str | None,
@@ -176,6 +181,11 @@ def _apply_filters(  # noqa: PLR0912 - one branch per filter; splitting it
         stmt = stmt.where(_matching(Item.country, countries))
     if manufacturers:
         stmt = stmt.where(_matching(Item.manufacturer, manufacturers))
+    if models:
+        # By id, not by name. This one is a foreign key to a row somebody
+        # vouched for, so there is an id to filter on and no reason to match
+        # text -- and a model renamed in the armory keeps its listings.
+        stmt = stmt.where(Item.firearm_model_id.in_([int(value) for value in models]))
 
     if kinds:
         clauses = [_kind_clause(k) for k in kinds if k in KINDS]
@@ -295,6 +305,14 @@ def _facets(session: DbSession, base: Select) -> ItemFacets:
             found.append(FacetValue(value=UNKNOWN, count=int(missing)))
         return found
 
+    model_rows = session.execute(
+        base.with_only_columns(FirearmModel.id, FirearmModel.name, func.count(Item.id))
+        .join(FirearmModel, FirearmModel.id == Item.firearm_model_id)
+        .group_by(FirearmModel.id, FirearmModel.name)
+        .order_by(func.count(Item.id).desc())
+        .limit(40)
+    ).all()
+
     site_rows = session.execute(
         base.with_only_columns(Site.id, Site.name, func.count(Item.id))
         .join(Site, Site.id == Item.site_id)
@@ -307,6 +325,10 @@ def _facets(session: DbSession, base: Select) -> ItemFacets:
         sites=[
             FacetValue(value=str(sid), label=name, count=int(count))
             for sid, name, count in site_rows
+        ],
+        models=[
+            FacetValue(value=str(model_id), label=name, count=int(count))
+            for model_id, name, count in model_rows
         ],
         categories=tally(Item.category),
         calibers=tally(Item.caliber),
@@ -331,6 +353,7 @@ def list_items(
     caliber: list[str] | None = Query(default=None),
     country: list[str] | None = Query(default=None),
     manufacturer: list[str] | None = Query(default=None),
+    model: list[str] | None = Query(default=None, description="Armory model ids."),
     kind: list[str] | None = Query(
         default=None, description="rifle | pistol | bayonet | parts_kit | other"
     ),
@@ -358,6 +381,7 @@ def list_items(
         calibers=caliber,
         countries=country,
         manufacturers=manufacturer,
+        models=model,
         kinds=None,
         availability=availability,
         search=search,
@@ -373,6 +397,7 @@ def list_items(
         calibers=caliber,
         countries=country,
         manufacturers=manufacturer,
+        models=model,
         kinds=kind,
         availability=availability,
         search=search,
@@ -430,6 +455,15 @@ def get_item(item_id: int, _user: CurrentUser, session: DbSession) -> ItemDetail
         **_to_out(item, site_names).model_dump(),
         description=item.description,
     )
+    # What the armory knows about the match, so the facts panel can show it
+    # and link out. Read here rather than on the list endpoint: it is three
+    # relationship loads per listing and the grid shows none of it.
+    if item.firearm_model is not None:
+        found = item.firearm_model
+        detail.model_kind = found.kind.value if found.kind else None
+        detail.model_makers = found.manufacturer_names
+        detail.model_calibers = found.caliber_names
+        detail.model_reference_url = found.wikipedia_url
     detail.photos = [
         PhotoOut(
             id=photo.id,

@@ -157,7 +157,7 @@ export const api = {
   deleteUser: (id) => request(`/api/users/${id}`, { method: "DELETE" }),
 
   // --- manufacturers ---
-  manufacturers: () => request("/api/manufacturers"),
+  manufacturers: (params = {}) => request(`/api/manufacturers${qs(params)}`),
   createManufacturer: (payload) =>
     request("/api/manufacturers", { method: "POST", body: payload }),
   updateManufacturer: (id, patch) =>
@@ -167,6 +167,7 @@ export const api = {
   // --- the armory: manufacturers, models, calibers, and the approval gate ---
   armorySummary: () => request("/api/armory/summary"),
   armoryKinds: () => request("/api/armory/kinds"),
+  armoryCountries: () => request("/api/armory/countries"),
   armoryModels: (params) => request(`/api/armory/models${qs(params)}`),
   armoryCalibers: (params) => request(`/api/armory/calibers${qs(params)}`),
   createArmoryRow: (table, payload) =>

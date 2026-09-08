@@ -1071,13 +1071,30 @@ class TestBayonetsAndPartsKits:
         in the title."""
         assert self.flags("Mauser K98 kit, no receiver", category="Parts Kit")[3] is True
 
-    def test_a_parts_kit_can_be_a_handgun_too(self):
-        """Which is why these are separate flags and not one enum: a kit is a
-        firearm minus its serialized part, so a filter for either should find
-        it."""
+    def test_a_parts_kit_is_not_also_a_firearm(self):
+        """It used to be both, on the reasoning that a kit is a firearm minus
+        its serialized part and a filter for either should find it.
+
+        The site's owner asked for the opposite, and the browse page agrees
+        with them: its five types are meant to partition the catalog -- "other"
+        is defined as the absence of the other four so that the counts add up
+        -- and a listing in two buckets is counted twice and shown under
+        whichever is asked for first. A Czechoslovakian ZB37 heavy machine gun
+        sold as a kit was appearing under Rifles.
+
+        The same deference is_bayonet has always shown, for the same reason.
+        """
         rifle, pistol, _bayonet, kit = self.flags("ENFIELD NO1 MK2 PARTS KITS")
         assert kit is True
-        assert rifle or pistol
+        assert not (rifle or pistol)
+
+    def test_including_one_the_vendor_filed_rather_than_titled(self):
+        rifle, pistol, _bayonet, kit = self.flags(
+            "Czechoslovakian ZB37, Heavy machine gun with FREE AMMUNITION BOX",
+            category="Parts Kit",
+        )
+        assert kit is True
+        assert not (rifle or pistol)
 
     def test_an_ordinary_accessory_is_neither(self):
         assert self.flags("Canvas ammo pouch") == (False, False, False, False)
@@ -1496,3 +1513,238 @@ class TestADashSeparatedSpecList:
         Laser Grips" -- so the threshold has to be high enough that ordinary
         punctuation does not trip it."""
         assert self.kind("Original U.S. M1907 Leather Sling - Boyt - 1943") == "accessory"
+
+
+class TestCalibersThatShareABore:
+    """A bare ".38" used to answer ".38 Special" for every one of them.
+
+    That filed a Colt 1911 in .38 Super as a revolver cartridge, and it looked
+    entirely reasonable on the page. The named cartridges are tried before the
+    bare-bore fallback, and the fallback now refuses the ones it cannot tell
+    apart rather than guessing.
+    """
+
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            ('Colt "Inti The Sun God" Govt 1911, 38 Super, 5in Barrel', ".38 Super"),
+            ("Colt 1911, .38 Super, Stainless", ".38 Super"),
+            ("Enfield No2 Mk1 Revolver .38 S&W", ".38 S&W"),
+            ("Smith & Wesson Model 10 .38 Special 4in", ".38 Special"),
+            ("Colt Lightning .38-40 Winchester", ".38-40 Winchester"),
+            # The fallback still answers where nothing contradicts it.
+            ("A .38 revolver, blued", ".38 Special"),
+        ],
+    )
+    def test_the_thirty_eights(self, text, expected):
+        assert classify.extract_caliber(text) == expected
+
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            ('Colt "Nimschke Edition" SAA Revolver, 45LC, Polished Nickel', ".45 Colt"),
+            ("Colt SAA .45 Long Colt, 5.5in", ".45 Colt"),
+            ("Colt SAA, .45 LC", ".45 Colt"),
+            ("Government Model 1911A1 .45 ACP", ".45 ACP"),
+            ("Springfield Trapdoor .45-70 Government", ".45-70 Government"),
+        ],
+    )
+    def test_the_forty_fives(self, text, expected):
+        assert classify.extract_caliber(text) == expected
+
+
+class TestTheFourthPassOfReports:
+    """Twenty-eight listings the site's owner sent back, and two causes.
+
+    Most of them had *no rule fire at all*. A surplus dealer's title is often a
+    maker, a designation and a caliber and nothing else -- "SAVAGE 4C .22LR",
+    "JARMANN 1883 10.15 x 61R", "ANSCHUTZ MODEL 525 .22 LR" -- and with no gun
+    noun to read, the classifier said nothing and the listing fell to "other
+    parts & accessories". The rest were complete firearms carrying an accessory
+    word: a barrel count, a missing bolt, an engraved slide, or a maker whose
+    surname is a gun part.
+    """
+
+    def kind(self, title, category=None, price=500.0, description=None):
+        f = classify.enrich(title, description, price, category=category)
+        if f["is_parts_kit"]:
+            return "parts kit"
+        if f["is_rifle"]:
+            return "rifle"
+        if f["is_pistol"]:
+            return "handgun"
+        if f["is_bayonet"]:
+            return "bayonet"
+        return "other"
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "JARMANN 1883 10.15 x 61R",
+            "SAVAGE 4C .22LR",
+            "ANSCHUTZ MODEL 525 .22 LR",
+            "HUSQVARNA MODEL 16 .22 LR",
+            "MOSSBERG 640 KD .22 MAGNUM",
+            "CANADIAN INDUSTRIES LIMITED MODEL 171 .22LR",
+            "CHINESE JW-8 .22 LR",
+            "VOERE LAUFSTAHL 1 .22 LR",
+            "Deutch Werke Model 1 (FG413)",
+            "GECO ALPHA 6MM GLATT (FG366)",
+            "MARLIN MODEL 88 .22LR *GUNSMITH SPECIAL*",
+            "Smith & Wesson M&P 15 SPORT II with MAGPUL® MOE® M-LOK®",
+        ],
+    )
+    def test_a_generic_firearms_section_says_it_is_a_gun(self, title):
+        """No gun noun, no designation the heuristics know, and a section that
+        says only "firearms". That is still more than nothing, and it is the
+        last thing consulted rather than the first -- so it can only rescue a
+        listing every other rule has already declined to call anything."""
+        assert self.kind(title, category="Shop All Firearms") == "rifle"
+
+    def test_and_the_caliber_says_which_kind(self):
+        assert self.kind("Some Unknown 9mm", category="Shop All Firearms") == "handgun"
+
+    def test_but_it_cannot_rescue_an_accessory(self):
+        """The whole of its safety: it sits after the vetoes, not beside the
+        category. A shop's "Guns" section is full of things that are not."""
+        assert self.kind("Leather sling for a Mauser rifle", category="Firearms") == "other"
+        assert self.kind("Canvas ammo pouch", category="Shop All Firearms") == "other"
+
+    def test_a_shotgun_section_is_a_long_gun(self):
+        """The browse split is long gun against handgun, and this was the one
+        type heading the classifier could read and did nothing with."""
+        assert self.kind("GEBR MERKEL SUHL 9.3 X 74R", category="Shotguns") == "rifle"
+
+    @pytest.mark.parametrize(
+        "title",
+        ["KRICO SINGLE BARREL .22LR", "HUSQVARNA SINGLE BARREL .22LR", "KRICO .22LR SINGLE BARREL"],
+    )
+    def test_a_barrel_count_describes_the_gun(self, title):
+        """ "Single barrel" is how many barrels it has, not an offer of one."""
+        assert self.kind(title, category="Shop All Firearms") == "rifle"
+
+    def test_a_part_the_listing_says_is_missing(self):
+        """A rifle described by what it lacks is still a rifle. The bolt rule
+        knew "without bolt" and "w/o bolt" and not the plain "No Bolt"."""
+        assert self.kind("Romanian UMC Cugir - No Bolt", category="Shop All Firearms") == "rifle"
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "Hungarian FEG Hi Power - Plastic Grips",
+            "FRANZ STOCK TYPE 1 7.65 MM (FG128)",
+        ],
+    )
+    def test_a_section_named_only_for_a_type_outranks_a_part_word(self, title):
+        """One describes its grips; the other is a maker whose surname is a gun
+        part. A section called nothing but "Pistols" settles both -- unlike
+        IMA-USA's "M1 Garand & U.S. Rifles", which is a collection of
+        everything to do with an M1 Garand and must not."""
+        assert self.kind(title, category="Pistols") == "handgun"
+
+    def test_but_a_collection_named_after_a_model_still_does_not(self):
+        assert (
+            self.kind(
+                "M1 Garand Rifle 1907 Pattern Leather Sling", category="M1 Garand & U.S. Rifles"
+            )
+            == "other"
+        )
+
+    def test_the_colt_government_model(self):
+        """A bare "1911" is a Schmidt-Rubin rifle as often as a Colt; the word
+        in front of it says which a dealer means."""
+        assert (
+            self.kind(
+                "Colt “Oscuro Y Plata” Govt 1911, 5″ Barrel, Polished Blue, "
+                "Silver Inlay Scroll Engraved Slide, 38 Super, New.",
+                category="Collector's Corner",
+            )
+            == "handgun"
+        )
+
+    def test_a_bayonet_scabbard_is_a_bayonet(self):
+        """The title says scabbard and never says bayonet; the description
+        does. Safe to read here because enrich() only asks about a listing
+        already neither a rifle nor a handgun."""
+        assert (
+            self.kind(
+                "U.S. WWII Garand and Springfield Scabbard Replacement Body",
+                category="M1 Garand & U.S. Rifles",
+                description="Replacement scabbard body for the WW2 Long Garand and "
+                "Springfield Bayonet scabbards that are often split or broken.",
+            )
+            == "bayonet"
+        )
+
+    def test_but_a_scabbard_a_rifle_rides_in_is_not(self):
+        assert (
+            self.kind(
+                "U.S. WWII M1 Carbine Leather Scabbard Holster",
+                description="A leather scabbard for carrying the carbine.",
+            )
+            == "other"
+        )
+
+
+class TestACutUpReceiverIsAPartsKit:
+    """Asked for directly by the site's owner: "a cut up receiver ... should be
+    a parts kit regardless of how the ATF categorizes it".
+
+    That overrides a rule this module has held from the beginning -- that a
+    receiver *is* the firearm, being the serialized part the law regulates.
+    True of an intact one, and beside the point for the remains of a machine
+    gun that has been torched in half.
+    """
+
+    def kind(self, title, category=None, price=500.0):
+        f = classify.enrich(title, None, price, category=category)
+        if f["is_parts_kit"]:
+            return "parts kit"
+        if f["is_rifle"]:
+            return "rifle"
+        if f["is_pistol"]:
+            return "handgun"
+        return "other"
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "Czechoslovakian ZB37 Receiver, Torch Cut",
+            "MG42 receiver, saw cut",
+            "Demilled Bren gun receiver",
+            "German MG34 demilitarized receiver",
+            "Vickers receiver, cut apart",
+        ],
+    )
+    def test_a_destroyed_receiver_is_a_kit(self, title):
+        assert self.kind(title) == "parts kit"
+
+    def test_but_an_intact_one_is_still_the_firearm(self):
+        """The rule it overrides is still right about everything else."""
+        assert self.kind("Rock Island Armory 1911-A1 Frame, Parkerized") != "parts kit"
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            # "Billet cut" is how a receiver was machined, not how it was
+            # destroyed. A bare "cut receiver" pattern took both of these and
+            # was removed for it.
+            "BM-59 7.62 NATO, Semi-Auto Rifle, W/ New Steel Billet Cut Receiver, by JRA",
+            "BM-62 7.62 NATO Semi-Automatic W/ New Barrel & New Steel Billet Cut Receiver",
+            # A factory cutaway is a teaching aid; a cutdown is simply short.
+            "Enfield No.1 MKI Cutaway .303 British (R20113)",
+            "Ethiopian Cutdown B GRADE M95 STEYR MANNLICHER RIFLE 8X50",
+        ],
+    )
+    def test_and_the_word_cut_is_a_minefield(self, title):
+        assert self.kind(title, category="Military Surplus Rifles") == "rifle"
+
+    def test_including_inside_another_word_entirely(self):
+        """ "Consecutive" contains "cut"."""
+        assert (
+            self.kind(
+                "Pair of Consecutive Serial Number WaffenFabrik Bern 1929 Lugers",
+                category="Pistols",
+            )
+            == "handgun"
+        )

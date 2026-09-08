@@ -205,6 +205,45 @@ class TestTheRestOfThePage:
         assert values["percussion_revolver"] is True
         assert "flintlock_pistol" in values
 
+    def test_the_countries_come_from_the_classifier(self, client, admin_headers):
+        """Suggested from the same list titles are read with. A model recorded
+        as "USSR" against listings read as "Russia" would split one country
+        into two filters, each showing half the rifles."""
+        names = client.get("/api/armory/countries", headers=admin_headers).json()
+        assert "Russia" in names and "United States" in names
+        assert "USSR" not in names
+        assert names == sorted(names)
+
+    def test_a_model_carries_its_country(self, client, admin_headers):
+        created = client.post(
+            "/api/armory/models",
+            json={"name": "M1 Garand", "country": "United States"},
+            headers=admin_headers,
+        ).json()
+        assert created["country"] == "United States"
+        edited = client.patch(
+            f"/api/armory/models/{created['id']}",
+            json={"country": "Sweden"},
+            headers=admin_headers,
+        ).json()
+        assert edited["country"] == "Sweden"
+
+    def test_clearing_the_box_stores_nothing_rather_than_an_empty_string(
+        self, client, admin_headers
+    ):
+        """The same trap as the notes and the reference link: "" is a row that
+        differs from an untouched one in the database and not on the screen,
+        and an export and a sync then disagree about it forever."""
+        created = client.post(
+            "/api/armory/models",
+            json={"name": "M1 Garand", "country": "United States"},
+            headers=admin_headers,
+        ).json()
+        edited = client.patch(
+            f"/api/armory/models/{created['id']}", json={"country": "   "}, headers=admin_headers
+        ).json()
+        assert edited["country"] is None
+
     def test_search_matches_the_spellings_too(self, client, admin_headers):
         client.post(
             "/api/armory/calibers",

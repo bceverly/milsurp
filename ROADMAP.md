@@ -14,10 +14,18 @@ The whole point of the application is breadth. Each new vendor is one subclass
 of `SiteScraper` in `backend/app/scrapers/` plus one line in `SCRAPER_CLASSES`;
 scheduling, admin controls, price history, images and digests all come for free.
 
-**Where this stands: twelve vendors read, fifteen queued, two dropped.** Of
-the fifteen, five are blocked on something that is not the platform — two need
-a browser, one needs an entry URL, one publishes no prices, and two refuse a
-plain request — so they are not simply waiting their turn in the queue.
+**Where this stands: fourteen vendors read, thirteen queued, two dropped.**
+Eight of the thirteen are blocked on something no base class can fix — a
+Cloudflare challenge, two missing entry URLs, a shop that publishes no prices,
+two that refuse a plain request, and two Wix pages that turn out to be photo
+galleries rather than stores. They are not simply waiting their turn.
+
+**Two of them left the queue without a browser being written.** J&G Sales and
+SARCO were both filed under "needs a browser" on the same evidence — a catalog
+page with no products in it — and both turned out to be publishing the whole
+catalog as JSON to the widget that draws the grid. See `woo_store_api.py` and
+`searchanise.py`. That leaves exactly one site waiting on Chrome, and it is a
+Cloudflare challenge rather than a rendering problem.
 
 ### Shipped
 
@@ -35,6 +43,8 @@ plain request — so they are not simply waiting their turn in the queue.
 | [IMA-USA](https://www.ima-usa.com/) | `ima-usa` | Shopify base class — `products.json`, no HTML parsing and no detail fetch |
 | [Centerfire Systems](https://centerfiresystems.com/) | `centerfire-systems` | Shopify; three surplus collections out of a general retailer's catalog |
 | [Classic Firearms](https://www.classicfirearms.com/) | `classic-firearms` | Magento base class — schema.org JSON-LD; facet-walked, because they disallow `?p=` |
+| [J&G Sales](https://www.jgsales.com/) | `jg-sales` | WooCommerce **Store API** — the catalog as JSON, no browser and no detail fetch |
+| [SARCO, Inc.](https://www.sarcoinc.com/) | `sarco` | Searchanise base class — the search widget's own JSON API, plus a product-page fetch for the description the API truncates |
 
 ### Planned
 
@@ -67,6 +77,72 @@ put the distinction.
 Scrapers for parts-carrying sites should therefore ingest the firearm
 categories plus any parts-kit category, and skip the rest of the parts tree
 rather than importing it and filtering later.
+
+#### Parts kits as a coverage push — **Planned**
+
+That rule has been in this document since the beginning and **no scraper has
+ever followed it.** Audited across all fourteen: not one names a parts-kit
+section in its `sources`. The 25 parts kits in the catalog are entirely
+incidental — 22 from Royal Tiger, whose scraper walks the whole site rather
+than a list of categories, and 3 from `classify` recognizing the word "kit" in
+a title that happened to arrive through a firearms section.
+
+So this is a real gap, and it is two jobs rather than one.
+
+**1. Add the section to the vendors already read.** Cheapest work on this list:
+these are running scrapers and a section is a line in `sources`. Confirmed live
+rather than assumed:
+
+| Vendor | Parts-kit section | Cost |
+| --- | --- | --- |
+| Centerfire Systems | `/collections/parts-kits-surplus-parts-kits` | One line. Shopify, so no HTML and no detail fetch |
+| SARCO | `Parts & Kits` (465 items), `Kits / Sets` (22) | One line, but see the caution below — 465 is mostly loose components |
+| CO Gun Sales | `/product-category/parts-kits/` | One line |
+| J&G Sales | `/product-category/parts-kits/` exists | Needs the numeric category id from the Store API |
+
+The remaining ten answered 404 to the obvious URL, which is **not** evidence
+they have no parts kits — it is evidence the guess was wrong. Their sections
+have to be found from each site's own navigation before anything is concluded.
+
+**The caution, and it is the whole difficulty.** "Parts kits" as a *vendor
+category name* is not the same thing as a parts kit. SARCO's "Parts & Kits" is
+465 items and most of them are single components — the ampersand is doing the
+work. Ingesting a section on the strength of its name would import exactly the
+recoil springs this section exists to keep out, and it would do it at a scale
+that swamps the firearms. Whatever gets built needs `classify` to confirm that
+a listing really is a whole kit, and needs measuring against a live section
+before it is switched on — the standing discipline everywhere else here.
+
+**2. Thirteen candidate sites, measured.** Every URL below was fetched. The
+platform column is from response headers and markup, not from the URL shape:
+
+| Site | Entry URL | Platform | What the fetch showed |
+| --- | --- | --- | --- |
+| Apex Gun Parts | `/parts-kits.html?product_list_limit=all` | Magento | 200, 115 prices, 837 product blocks in one 722KB page — `product_list_limit=all` returns the whole section at once. The largest of these by a distance |
+| Arms of America | `/all-products/parts-kits/` | BigCommerce | 200, 82 prices, 86 cards. `BigCommerceScraper` should take it nearly as-is |
+| Every Gun Part | `/parts-kits/` | BigCommerce | 200, 158 prices, 13 cards |
+| Bowman Arms | `/parts-kits/` | BigCommerce | 200, 51 prices, 34 cards |
+| Centerfire Systems | `/collections/parts-kits-surplus-parts-kits` | Shopify | **Already a shipped vendor** — this is job 1 above, not a new site |
+| Robert RTG | `/parts-kits` | Not identified | 200, 33 prices, 32 blocks. Renders server-side; needs its markup read |
+| Proteus Armaments | `/partskits` | Not identified | 200, 18 prices, 18 blocks. Small |
+| Atlantic Firearms | `/parts-kits` | PrestaShop | 200, 36 prices, 12 cards. Already queued in Group D as the most-visited site on the whole list; the parts-kit section is another reason to build it |
+| Max Arms | `/product-category/parts-kits/` | WooCommerce | 200, 16 cards and **zero prices** — either client-side rendering or no prices published. Check the Store API first, the way J&G was settled |
+| MCT Defense | `/product/military-surplus-parts-kits/` | WooCommerce | 200, 2 cards, zero prices. Note the URL is `/product/`, not `/product-category/` — this is one product page, not a section. Already in Group A as "needs an entry URL", and this does not supply one |
+| Numrich (gunpartscorp) | `/category/gun-parts-kits` | Not identified | 200 but 2 prices and no cards — client-side. Look for the endpoint before concluding it needs a browser; that reading has now been wrong twice |
+| What A Country | `/parts-kits.aspx` | ASP.NET | 200, 64 prices, no recognizable cards. A bespoke build, like eBayonet |
+| APP Arms Co | `/product-category/parts-kits/` | — | **403 from nginx** to a plain request, 75KB of body. Not Cloudflare; some other block. Bottom of the list with DK Firearms |
+
+**Suggested order**, cheapest first: the four existing vendors (job 1), then the
+three BigCommerce sites, then Apex Gun Parts for its size, then Atlantic
+Firearms as part of building that vendor properly. Robert RTG, Proteus, What A
+Country and Numrich are each their own build. Max Arms and MCT need a question
+answered before they are worth starting, and APP Arms Co is blocked.
+
+**One thing to settle before writing any of it**: the browse page currently
+treats "Parts kits" as one of five Types. Thirteen dealers' worth of kits is a
+different proposition from 25 — it is plausibly the largest category in the
+application — and it is worth deciding whether a kit should be filterable by
+the model it builds before there are thousands of them.
 
 ### The build order
 
@@ -153,9 +229,9 @@ its theme is customized — a couple of selectors in front of the defaults.
 | — | **Axis Arms** | `/product-category/rifles/` + `/handguns/` | **Shipped** | Elementor loop: the `h1` is the name and the `h2` is the price. Cards match twice (article and inner div); de-duplicated by post id |
 | — | **CO Gun Sales** | `/product-category/curio-relics-cr/` | **Shipped** | Stock WooCommerce for titles and prices, and nothing like it for pictures: the page carries no `<img>` at all. The card's photo is a CSS `background-image` and the product gallery is JSON in a `data-wcsvi` attribute, so all 144 listings arrived with no photograph until both fallbacks existed. The old entry URL here said `/page/6/`, which was somebody's browsing position; pagination follows the shop's own "next" link |
 | — | **Checkpoint Charlie's** | `/product-tag/cr/` | **Shipped, but barely** | A product *tag*, which renders the same loop and paginates the same way. Their `/product/` pages answer 429 to any pace and any headers, and after an hour of that they stop answering the category pages too: a full run took 56 minutes to walk 24 listings and save 5. The scan now survives it — catalog-only entries, and a section that stops at the page it got to — but this site is a candidate for the browser path, or for dropping. See "When a shop refuses a page" in the README |
-| 1 | J&G Sales | `/product-category/firearms/collectors-corner/military-surplus-collectible-category/` | **Needs a browser** | Re-measured: 13 `li.product` elements arrive, all empty, and there is not one `$` in 394 KB. The catalog is rendered client-side. See "Browser-backed fetching" below |
-| 2 | DK Firearms | `/product-category/surplus/surplus-firearms/` | **Needs a browser** | Cloudflare returns a 403 challenge to plain HTTP |
-| 3 | MCT Defense | `/product-category/firearms/` | **Needs an entry URL** | That page is thirty *category* tiles, not products — no price element anywhere on it. Their actual product pages have to be found before this is worth writing |
+| ~~1~~ | ~~J&G Sales~~ | — | **Shipped** | The HTML observation was right and the conclusion drawn from it was wrong. The catalog is rendered client-side, but the same WordPress install publishes the WooCommerce **Store API** — the whole catalog as JSON, with prices, stock, galleries and descriptions, and no browser. See `scrapers/woo_store_api.py`. The lesson is the one this section already draws about platform inference: what the HTML looks like is not what a site *is* |
+| 2 | MCT Defense | `/product-category/firearms/` | **Needs an entry URL** | That page is thirty *category* tiles, not products — no price element anywhere on it. Their actual product pages have to be found before this is worth writing |
+| **last** | DK Firearms | `/product-category/surplus/surplus-firearms/` | **Parked — Cloudflare** | Moved to the bottom of the list deliberately. Not a rendering problem and not a scraping problem: the site answers plain HTTP with a `cf-mitigated: challenge` interstitial, so what is being asked for is a way *around* a bot check the operator switched on. Everything else in the queue is a site that will simply answer. Revisit if they ever turn it off |
 
 **Moved out of this group.** Legacy Collectibles and Arms Unlimited were listed
 here on the URL-shape inference this section warned about, and they are not
@@ -178,14 +254,14 @@ OpenCart.
 
 | Platform | Sites | Notes |
 | --- | --- | --- |
-| **BigCommerce** | Legacy Collectibles, Arms Unlimited, Edelweiss Arms, SARCO | **Base class shipped** (`app/scrapers/bigcommerce.py`). Four sites, one platform, and the markup is close to WooCommerce's: `article.card`, an entity id per card, a "next" link. Two of these were in Group A on the URL guess. Of the four, one shipped, one was dropped as out of scope, and two are blocked — see Group B |
+| **BigCommerce** | Legacy Collectibles, Arms Unlimited, Edelweiss Arms, SARCO | **Base class shipped** (`app/scrapers/bigcommerce.py`). Four sites, one platform, and the markup is close to WooCommerce's: `article.card`, an entity id per card, a "next" link. Two of these were in Group A on the URL guess. Of the four, two shipped, one was dropped as out of scope, and one publishes no prices. SARCO is on the platform and is *not* read by this class: its grid is drawn by Searchanise, so it goes through `searchanise.py` instead — but the external keys are deliberately the same `bc-<id>`, so it could move here without arriving as a duplicate catalog |
 | **Shopify** | IMA-USA, Centerfire Systems | **Both shipped** (`app/scrapers/shopify.py`). Cheapest per site, and the estimate held: structured JSON, no browser, no detail fetch. Centerfire had been filed as a one-off build on the URL guess |
 | **Wix** | Surplus Defense, The Mosin Crate, Pasadena Pawn | Three, not one-offs. Wix renders client-side, so expect the browser path |
 | **Magento** | Classic Firearms, ~~Century Arms~~ | **Base class shipped** (`app/scrapers/magento.py`), and one site of the two kept. Classic Firearms was listed as Unknown until its markup was read: 59 `mage.` markers and a `/media/catalog/product/cache/` image path. It is the most-visited site on the list. Century Arms is dealer-only and was dropped |
 | **Laravel (custom)** | AIM Surplus | `laravel_session`; a bespoke application, not BigCommerce |
 | **PrestaShop** | Atlantic Firearms | The most-visited site on the list, and its own build |
 | **OpenCart** | Joe Salter | `OCSESSID`; not Shift4Shop |
-| **WooCommerce (blocked)** | J&G Sales, DK Firearms, MCT Defense | See Group A |
+| **WooCommerce (blocked)** | DK Firearms, MCT Defense | See Group A. J&G Sales was here and shipped through the Store API |
 | **Unknown** | Simpson Ltd | No marker in headers or cookies, and the home page answers with 2.8 KB — a splash or a client-side shell rather than a catalog. Needs a real entry URL before anything else can be said |
 | **No platform at all** | eBayonet | Apache, hand-written pages saved from Microsoft Word, no `robots.txt`. Static HTML parsing, like Empire Arms |
 | **Refused a plain request** | Liberty Tree (403), Fernwood Armory (403 + Cloudflare) | Not identified; both need the browser before anything else can be said |
@@ -217,8 +293,8 @@ walk asks before each page rather than assuming.
 | # | Site | Entry URL | Status |
 | --- | --- | --- | --- |
 | — | **Legacy Collectibles** | `/new-firearms/`, `/antique-handguns/`, `/antique-long-guns/` | **Shipped.** `data-entity-id` on every card, so a listing keeps its identity through a rename. Their two "Modern" sections were dropped after the first run: Glocks, Sigs, Kimber 2011s and FN SCARs, 43 listings and not one of them surplus — the Arms Unlimited call again. `/new-firearms/` is a new-arrivals feed rather than a category and carries some of the same, but it is also the only place a Portuguese-contract Mauser Luger appears |
-| 1 | SARCO Inc. | https://www.sarcoinc.com/live-firearms/rifles/ | **Needs a browser.** Re-measured: zero cards and zero prices in 236 KB. See "Browser-backed fetching" below |
-| 2 | Edelweiss Arms | https://edelweissarms.com/antiques/long-guns/ | **Prices are not published.** Cards and titles parse; the price element is empty site-wide. Worth having for new-stock alerts, worth nothing for price tracking — decide before building |
+| — | **SARCO, Inc.** | Searchanise — Pistols, Shotgun, Shop All Firearms | **Shipped, and not on the base class this group is about.** The measurement that filed it here was right — zero cards and zero prices in 236 KB — and so was the platform: it *is* BigCommerce, and the product pages are ordinary Stencil. Only the catalog grid is client-side, drawn by a Searchanise widget from a public JSON API whose key the page carries in plain sight. 429 listings kept of 512 offered: 83 bare frames and stripped receivers are skipped as components, and the sections are read specific-first because the vendor's section name outranks the classifier — under the parent category 200 of their 283 pistols read as handguns, under "Pistols" 281 do. Their rifles live in a category called "Rifles \| Military Surplus Guns" and the pipe makes it unaskable, so those 75 come through the catch-all and are left to the classifier and the armory. See `scrapers/searchanise.py`, and the second finding under Group A about what an empty page does and does not prove |
+| 1 | Edelweiss Arms | https://edelweissarms.com/antiques/long-guns/ | **Prices are not published.** Cards and titles parse; the price element is empty site-wide. Worth having for new-stock alerts, worth nothing for price tracking — decide before building |
 | — | ~~Arms Unlimited~~ | — | **Dropped: not a surplus dealer.** Written, run against the live site, and backed out. Their `/surplus/` section is police trade-in gear — Tasers, holsters, a water bottle — and `/rifles/` is modern Colt M4s. 97 listings landed correctly and none of them belonged in this catalog. The scraper was a two-line subclass; restoring it is easy if modern stock is ever wanted |
 
 #### Group C — Shopify · base class **shipped**
@@ -386,31 +462,37 @@ shop:
 | The Mosin Crate | `/shop-1` is a Wix Pro Gallery, not a store: 71 dollar amounts on the page and the first is the shipping table. No catalog blob |
 | Pasadena Pawn and Gun | Also a Pro Gallery, and the prices are **in the image filenames** — `Savage Model 1899 Takedown Rifle – .300 Savage - Frank 30__$975__.jpg`. No product ids, no stock, no product pages. Their navigation is Glock, Taurus, Canik and Sig, so it is a modern shop besides |
 
-#### Browser-backed fetching — the best leverage left
+#### Browser-backed fetching — no longer the leverage it looked like
 
-No platform group remains, but three sites are blocked on the *same missing
-piece*, and each already has its platform base class written:
+This section used to name three sites blocked on the *same missing piece*, and
+call building it the best remaining work. Two of the three have since shipped
+with no browser involved, which is worth recording as a finding rather than
+quietly editing away.
 
-| Site | Base class | What blocks it |
+| Site | What was said | What was true |
 | --- | --- | --- |
-| J&G Sales | `WooCommerceScraper` | Catalog rendered client-side |
-| DK Firearms | `WooCommerceScraper` | Cloudflare answers plain HTTP with 403 |
-| SARCO Inc. | `BigCommerceScraper` | Catalog rendered client-side |
+| J&G Sales | Catalog rendered client-side | It is. The same WordPress install publishes the WooCommerce Store API — the whole catalog as JSON. **Shipped** |
+| SARCO, Inc. | Catalog rendered client-side | It is. The Searchanise widget that draws the grid reads a public JSON API, key in the page source. 429 of its 512 firearms, in nine requests. **Shipped** |
+| DK Firearms | Cloudflare answers plain HTTP with 403 | Still true, and still the last item on the list |
 
-So the work is not three scrapers; it is **one mechanism** — letting a
-storefront base class fetch its pages through Chrome instead of `requests` —
-after which each site is the usual slug, name and list of URLs.
+**The finding: "the catalog is not in the HTML" says nothing about whether a
+browser is needed.** A client-side grid has to get its products from
+*somewhere*, and that somewhere is an HTTP endpoint the page itself will tell
+you about. Both of these took under an hour to find — a `grep` for the widget
+script, and one request to the API it names — against an estimated multi-day
+build for browser-backed fetching. **Look for the endpoint before reaching for
+Chrome.**
 
-Most of it exists already. `app/scrapers/browser.py` has the Chrome context
-manager, the infinite-scroll loop and the "Load More" handling, all written for
-Royal Tiger and all reusable; Chrome is installed. What is missing is a way for
-`ScrapeContext.get_text()` to be browser-backed so the existing walks work
-unchanged.
+What is left, then, is not a mechanism blocking three sites. It is one site,
+and a browser may not unblock it: DK Firearms is a Cloudflare challenge rather
+than a rendering problem, and headless Chrome does not reliably pass one.
+Getting past it is bot-check circumvention rather than scraping, which is why
+it now sits at the bottom of Group A rather than at the top of a plan. The
+Wix sites need no browser either (Group E), and Royal Tiger — the one site that
+genuinely does — already has `app/scrapers/browser.py` to itself.
 
-**One risk worth stating before starting.** DK Firearms is a Cloudflare
-challenge rather than a rendering problem, and a headless browser does not
-always pass one. That site may still be blocked afterwards, which would make
-this two sites rather than three.
+Build browser-backed `get_text()` when a site turns up that actually needs it.
+Right now none does.
 
 #### Group Z — refused a plain request
 
@@ -669,8 +751,9 @@ application and publish it as a snap.
   know which this one is. Kind is finer than the browse filter: rifle, carbine,
   shotgun, pistol, revolver, each also in flintlock and percussion, because a
   Trapdoor Carbine and a Trapdoor Rifle are different guns. Every row is
-  awaiting-approval or production and only production rows decide anything, so
-  a scan can safely write down every designation it meets. Merging folds
+  awaiting-approval or production and only production rows decide anything,
+  which is what would make it safe for a scan to write down every designation
+  it meets — see the discovery item below, which is still not wired up. Merging folds
   "Mosin" into "Mosin-Nagant", carrying the spellings across and restamping the
   listings. The catalog seeds from a versioned file, exports back to one, and
   syncs with a plan-then-apply flow.
@@ -687,14 +770,56 @@ application and publish it as a snap.
   "Inland" left "Inland M1 Carbine" with no maker and nothing to explain it.
   Not called "Registry", deliberately: in the US firearms world that word means
   a government list of owners.
-- **Planned** — Let a listing name the model it matched on the item detail page,
-  and filter the browse page by model and by the finer kinds. The data is there;
-  only the reading of it is missing.
-- **Planned** — Propose pending rows automatically from scans. The mechanism is
-  built and tested (`catalog.propose_model`, `catalog.propose_caliber`) and
-  deliberately not yet wired into the scan loop: it wants a rule for what counts
-  as a designation worth proposing, or the queue fills with noise on the first
-  large scan.
+- **Shipped** — A listing records which armory model it matched (migration
+  0012, a foreign key rather than a copy of the name), the browse rail offers a
+  Model filter, and the detail view names the model with its kind and a
+  reference link. 592 of 1,994 listings name one. Models are matched from the
+  title only: reading descriptions gave sixty-three listings the Walther PP,
+  a third of them CZ pistols described as copies of it and one of them a box of
+  ammunition listing what it suits.
+- **Shipped** — A model carries its **country of origin** (migration 0013),
+  seeded for all 57 shipped models and filled into any listing whose own text
+  names no country. That was the commonest blank left: the classifier reads
+  "RUSSIAN M44 CARBINES" and "SWEDISH MAUSER M96" perfectly well and has
+  nothing to say about "M1 Garand, EXC, all matching". Origin of the *pattern*,
+  not provenance of the gun — a Mosin-Nagant is Russian however many Finland
+  rebuilt — so the fill is one-directional and a listing that states a country
+  keeps what it states. Unlike the maker it is never a choice: all nine firms
+  that built the M1 Carbine built an American carbine, so a model can state the
+  country even where it cannot name a maker. The admin box suggests the
+  classifier's own spellings, because both answers land in the same column and
+  a model recorded as "USSR" against listings read as "Russia" would split one
+  country into two half-empty filters.
+- **Planned** — Filter the browse page by the finer kinds (flintlock pistol,
+  percussion carbine). The data is there through the model link; only the
+  reading of it is missing.
+- **Shipped** — The armory fills its own queue. Every scan ends by reading the
+  listings it just stored and proposing the cartridges, firms and designations
+  the table cannot explain (`services/discovery.py`); `make armory-discover`
+  does the same over a whole catalog. Measured over 2,014 listings: 287 models,
+  57 calibers, 20 manufacturers. Everything arrives pending, so nothing it
+  writes can change what a scan decides about a listing.
+  The design problem was never recall, it was junk — a queue nobody reads is
+  worse than no queue — so each rule was measured before it was kept and each
+  is narrower than the obvious one. Calibers come from the classifier's own
+  reading, which already had to look like a cartridge. Models come from
+  designation *shapes* and only from listings that are firearms and that the
+  armory cannot already match; parentheses are stripped first, because that is
+  where vendors put lot codes and every one of those has a designation's shape.
+  Makers are the weak case: a firm's name has no shape, only a position (the
+  words before a designation), so a candidate must be seen in two different
+  listings before it is written down. A leading-capitals rule was tried first
+  and measured at about half junk — "U.S.", "Ben's", "Vietnam Bring-Back
+  Chinese".
+  Two bugs fell out of building it, both latent for as long as the propose
+  functions had existed: the session runs with `autoflush=False`, so proposing
+  the same name twice without a commit added two rows and died on the UNIQUE
+  constraint at flush — every earlier test committed in between, which is
+  exactly why nothing caught it. And a maker propose path did not exist at all.
+- **Planned** — Better maker candidates. Two in three is a usable queue and not
+  a good one. The obvious next signal is the description rather than the title,
+  and the obvious risk is the one that made model matching title-only: prose
+  names other people's guns.
 - **Planned** — Cross-site duplicate detection proper. The same rifle listed by
   two vendors should be recognizable — the token index built for field filling
   is the start of this, but a duplicate needs more than a shared model name.

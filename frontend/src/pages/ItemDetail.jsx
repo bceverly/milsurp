@@ -7,6 +7,16 @@ import { api } from "../api.js";
 import { useTitle } from "../hooks.js";
 import { formatDateTime, formatMoney, formatRelative, timeTitle } from "../format.js";
 import AuthImage from "../components/AuthImage.jsx";
+
+/** "percussion_revolver" as a person would write it.
+ *
+ * Derived rather than looked up: the armory's own labels come from an
+ * admin-only endpoint, and this page is for everybody. */
+function kindLabel(kind) {
+  if (!kind) return null;
+  const words = kind.replace(/_/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
 import { ChevronLeft, External, Sparkle, TrendDown, X } from "../components/Icons.jsx";
 
 /**
@@ -245,6 +255,35 @@ export default function ItemDetail() {
           </div>
 
           <div className="detail__facts">
+            {/* The armory's answer first, when it has one. It is the only
+                line here that somebody vouched for rather than the software
+                inferring it, so it says so, and it links to whatever is
+                known about the gun. */}
+            {item.model && (
+              <Fact label="Model" always>
+                <Link
+                  to={`/?model=${item.firearm_model_id ?? ""}`}
+                  className="detail__model"
+                >
+                  {item.model}
+                </Link>
+                {item.model_kind && (
+                  <span className="detail__model-kind">{kindLabel(item.model_kind)}</span>
+                )}
+                {item.model_reference_url && (
+                  <>
+                    {" "}
+                    <a
+                      href={item.model_reference_url}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                    >
+                      reference
+                    </a>
+                  </>
+                )}
+              </Fact>
+            )}
             <Fact label="Manufacturer" always>
               {item.manufacturer}
             </Fact>

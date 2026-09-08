@@ -68,6 +68,9 @@ const VIEWS = [
 
 /** Multi-select facets, keyed by the query parameter the API expects. */
 const FACETS = [
+  // First, because it is the only one of these backed by a fact somebody
+  // vouched for rather than a string a vendor happened to type.
+  { param: "model", facet: "models", title: "Model" },
   { param: "site_id", facet: "sites", title: "Site" },
   { param: "category", facet: "categories", title: "Category" },
   { param: "caliber", facet: "calibers", title: "Caliber" },

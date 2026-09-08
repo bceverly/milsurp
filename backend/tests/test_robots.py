@@ -172,3 +172,67 @@ class TestFetching:
     def test_an_implausibly_large_file_is_ignored(self):
         cache, _ = self.cache(self.Response(200, "User-agent: *\nDisallow: /\n" + "#" * 600_000))
         assert cache.for_url("https://shop.test/a").allows("/anything", UA)
+
+
+class TestAFailedFetchIsNotAnAnswer:
+    """A dropped connection must not stand as a host's rules for the next hour.
+
+    Both a 403 and a timeout refuse the request, and only one of them is a
+    decision. Caching the timeout as though it were cost a whole SARCO scan:
+    every section of that catalog is served by one third-party host, so the
+    first failed robots.txt fetch denied all six sections, and the run finished
+    PARTIAL with zero listings and six warnings reading "robots.txt disallows"
+    about a file that had never been read.
+    """
+
+    class Response:
+        def __init__(self, status_code, text=""):
+            self.status_code = status_code
+            self.text = text
+
+    def cache(self, *responses):
+        """A fetcher that returns (or raises) each of these in turn."""
+        queue = list(responses)
+        calls = []
+
+        def fetch(url):
+            calls.append(url)
+            answer = queue.pop(0) if len(queue) > 1 else queue[0]
+            if isinstance(answer, Exception):
+                raise answer
+            return answer
+
+        return RobotsCache(fetch), calls
+
+    def test_the_request_that_provoked_it_is_still_refused(self):
+        """Failing closed on the attempt is the safety property, and stays."""
+        cache, _ = self.cache(OSError("connection reset"))
+        assert not cache.for_url("https://shop.test/a").allows("/anything", UA)
+
+    def test_but_the_next_request_asks_again(self):
+        cache, calls = self.cache(
+            OSError("connection reset"), self.Response(200, "User-agent: *\nDisallow:\n")
+        )
+        assert not cache.for_url("https://shop.test/a").allows("/anything", UA)
+        assert cache.for_url("https://shop.test/b").allows("/anything", UA)
+        assert len(calls) == 2
+
+    def test_a_real_answer_is_still_remembered(self):
+        """Only the failure is re-asked; a site that answered is asked once."""
+        cache, calls = self.cache(self.Response(403))
+        cache.for_url("https://shop.test/a")
+        cache.for_url("https://shop.test/b")
+        assert len(calls) == 1
+
+    def test_a_server_error_is_an_answer_and_is_remembered(self):
+        """A 500 came from the host. A timeout came from nowhere."""
+        cache, calls = self.cache(self.Response(503))
+        assert not cache.for_url("https://shop.test/a").allows("/x", UA)
+        cache.for_url("https://shop.test/b")
+        assert len(calls) == 1
+
+    def test_the_two_are_told_apart(self):
+        unreachable, _ = self.cache(OSError("no route to host"))
+        refused, _ = self.cache(self.Response(403))
+        assert unreachable.for_url("https://shop.test/a").reachable is False
+        assert refused.for_url("https://shop.test/a").reachable is True

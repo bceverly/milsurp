@@ -44,7 +44,15 @@ from app.security import (
     hash_password,
     validate_password,
 )
-from app.services import armory, bootstrap, classify, crosscatalog, manufacturers, scan_service
+from app.services import (
+    armory,
+    bootstrap,
+    classify,
+    crosscatalog,
+    discovery,
+    manufacturers,
+    scan_service,
+)
 from app.services import backup as backup_service
 from app.services import digest as digest_service
 from app.services.image_store import ImageStore
@@ -403,8 +411,7 @@ def cmd_resting(args: argparse.Namespace) -> int:
     for row in rows:
         remaining = (as_utc(row.until) - now).total_seconds()
         print(
-            f"{row.host[:34]:<34} {_duration(remaining):>8}  "
-            f"{row.refusals:>5}  {row.reason or '—'}"
+            f"{row.host[:34]:<34} {_duration(remaining):>8}  {row.refusals:>5}  {row.reason or '—'}"
         )
     print("\nRun 'cli.py resting --clear' to lift these once the cause is fixed.")
     return 0
@@ -417,7 +424,7 @@ def _duration(seconds: float) -> str:
     return f"{seconds // 60}m{seconds % 60:02d}s"
 
 
-def cmd_reclassify(_args: argparse.Namespace) -> int:
+def cmd_reclassify(args: argparse.Namespace) -> int:
     """Re-derive rifle/pistol and the other inferred fields from stored text.
 
     Classification runs on every upsert, so a re-scan fixes it — but a re-scan
@@ -440,7 +447,11 @@ def cmd_reclassify(_args: argparse.Namespace) -> int:
                 item.title,
                 item.description,
                 item.current_price,
-                caliber=item.caliber,
+                # Under --recompute the stored caliber is withheld here too.
+                # enrich() hands back whatever it is given, so passing the
+                # stale value in made every downstream step vouch for it and
+                # the flag changed nothing at all.
+                caliber=None if args.recompute else item.caliber,
                 category=item.category,
                 trust_description=trusted.get(item.site_id, True),
             )
@@ -454,20 +465,51 @@ def cmd_reclassify(_args: argparse.Namespace) -> int:
             # the first had missed. That made the command need two passes to
             # settle, which is a bad property for something whose whole job is
             # to say what changed.
-            found = armory.fill_in(session, item.title, evidence, item.caliber)
-            caliber = found.caliber or item.caliber or derived["caliber"]
-            maker = item.manufacturer or manufacturers.extract(
-                session, item.title, evidence, caliber
+            # Under --recompute the stored caliber is deliberately NOT handed
+            # to the armory. fill_in() normalizes what it is given and hands it
+            # straight back, so passing the stale value in made the armory
+            # vouch for it and --recompute changed nothing at all.
+            stated = derived["caliber"] if args.recompute else item.caliber
+            found = armory.fill_in(session, item.title, evidence, stated)
+            caliber = found.caliber or stated or derived["caliber"]
+            maker = (
+                manufacturers.extract(session, item.title, evidence, caliber)
+                if args.recompute
+                else item.manufacturer
+                or manufacturers.extract(session, item.title, evidence, caliber)
             )
-            # Only the blanks: a value the vendor stated is theirs, and this
-            # command must be safe to run against a catalog that has some.
-            filled = {
-                "caliber": caliber,
-                "country": item.country or derived["country"],
-                "condition": item.condition or derived["condition"],
-                "manufacturer": maker or found.manufacturer,
-            }
+            # Only the blanks by default: a value the vendor stated is theirs,
+            # and this command must be safe to run against a catalog that has
+            # some.
+            #
+            # --recompute overrides that, and exists because the default has a
+            # cost that took a while to notice: most stored calibers were
+            # derived here rather than stated by a vendor, and nothing records
+            # which. So a fix to the caliber rules never reached the listings
+            # that needed it -- ".38 Super" stayed filed as ".38 Special" long
+            # after the rule that did it was corrected, because the wrong
+            # answer looked like something to preserve.
+            if args.recompute:
+                filled = {
+                    "caliber": caliber or item.caliber,
+                    # The title first, then the armory. A listing that names a
+                    # country is talking about the gun in front of them; the
+                    # model is talking about where the pattern comes from, and
+                    # it answers the far commoner case of a title that names
+                    # no country at all.
+                    "country": derived["country"] or found.country or item.country,
+                    "condition": derived["condition"] or item.condition,
+                    "manufacturer": found.manufacturer or maker,
+                }
+            else:
+                filled = {
+                    "caliber": caliber,
+                    "country": item.country or derived["country"] or found.country,
+                    "condition": item.condition or derived["condition"],
+                    "manufacturer": maker or found.manufacturer,
+                }
             flags = {
+                "firearm_model_id": found.model_id,
                 "is_rifle": derived["is_rifle"],
                 "is_pistol": derived["is_pistol"],
                 "is_bayonet": derived["is_bayonet"],
@@ -529,28 +571,26 @@ def cmd_armory(args: argparse.Namespace) -> int:
     a designation names. It is worth version control, and these three commands
     are how it gets there and back.
 
-      seed    add anything the shipped file has and this database does not.
-              Additive only, everything arrives awaiting approval.
-      export  write this database's armory to a file fit to commit.
-      sync    reconcile this database with such a file. Prints a plan and does
-              nothing unless --apply is given.
+      seed      add anything the shipped file has and this database does not.
+                Additive only, everything arrives awaiting approval.
+      export    write this database's armory to a file fit to commit.
+      sync      reconcile this database with such a file. Prints a plan and
+                does nothing unless --apply is given.
+      discover  read every stored listing and write down the cartridges, firms
+                and designations the armory cannot explain, as pending rows.
+                Every scan now does this for the listings it touched; this is
+                the one-off pass over a catalog collected before it did.
     """
     action = args.armory_command
-    if action == "seed":
-        with session_scope() as session:
-            report = armory.seed(session)
-        print(
-            f"Added {report.manufacturers} manufacturer(s), {report.calibers} caliber(s) "
-            f"and {report.models} model(s), all awaiting approval."
-        )
-        return 0
-
+    simple = {"seed": _armory_seed, "discover": _armory_discover, "export": None}
     if action == "export":
         path = Path(args.file)
         with session_scope() as session:
             written = armory.write_export(session, path)
         print(f"Wrote {written} row(s) to {path}.")
         return 0
+    if action in simple:
+        return simple[action]()
 
     path = Path(args.file)
     if not path.is_file():
@@ -567,8 +607,7 @@ def cmd_armory(args: argparse.Namespace) -> int:
             return 0
         done = armory.apply_sync(session, path, prune=args.prune)
     print(
-        f"\nApplied: {done['added']} added, {done['updated']} updated, "
-        f"{done['deleted']} deleted."
+        f"\nApplied: {done['added']} added, {done['updated']} updated, {done['deleted']} deleted."
     )
     return 0
 
@@ -766,6 +805,55 @@ def cmd_rebuild_thumbnails(args: argparse.Namespace) -> int:
     return 0
 
 
+def _add_reclassify_command(sub) -> None:
+    """The reclassify subcommand, kept out of build_parser() for its own sake."""
+    command = sub.add_parser(
+        "reclassify", help="Re-derive rifle/handgun from stored text (no network)."
+    )
+    command.add_argument(
+        "--recompute",
+        action="store_true",
+        help="Also correct caliber, country, condition and maker that are already "
+        "set, rather than only filling blanks. Use after changing the rules: most "
+        "stored values were derived here, not stated by a vendor, so a fix "
+        "otherwise never reaches the listings that need it. A vendor-supplied "
+        "value comes back on the next scan of that site.",
+    )
+    command.set_defaults(func=cmd_reclassify)
+
+
+def _armory_seed() -> int:
+    """Add what the shipped file has and this database does not."""
+    with session_scope() as session:
+        report = armory.seed(session)
+    print(
+        f"Added {report.manufacturers} manufacturer(s), {report.calibers} caliber(s) "
+        f"and {report.models} model(s), all awaiting approval."
+    )
+    return 0
+
+
+def _armory_discover() -> int:
+    """The one-off pass: propose armory rows from every listing already stored.
+
+    A scan does this for the listings it touched, so this exists for a catalog
+    collected before that did -- and for a rules change, since a tightened
+    extractor should be re-run over everything rather than only over whatever
+    is scraped next.
+    """
+    with session_scope() as session:
+        items = session.execute(select(Item)).scalars().all()
+        found = discovery.discover(session, items)
+        session.commit()
+    print(f"Read {len(items)} listing(s); proposed {found.summary()}, awaiting approval.")
+    if found.manufacturers:
+        print("\n  Manufacturers proposed:")
+        for name in sorted(found.manufacturers):
+            print(f"    {name}")
+    print("\n  Nothing proposed decides anything until somebody promotes it, at /armory.")
+    return 0
+
+
 def _add_armory_commands(sub) -> None:
     """The armory subcommands, kept out of build_parser() for its own sake."""
     armory_cmd = sub.add_parser(
@@ -774,6 +862,11 @@ def _add_armory_commands(sub) -> None:
     armory_sub = armory_cmd.add_subparsers(dest="armory_command", required=True)
     armory_sub.add_parser(
         "seed", help="Add what the shipped armory file has and this database does not."
+    )
+    armory_sub.add_parser(
+        "discover",
+        help="Propose armory rows from every stored listing (scans do this "
+        "for their own listings automatically).",
     )
     armory_export = armory_sub.add_parser(
         "export", help="Write this database's armory to a file fit to commit."
@@ -852,9 +945,7 @@ def build_parser() -> argparse.ArgumentParser:
     digest_cmd.add_argument("--user", help="Send to one user now, even if not due.")
     digest_cmd.set_defaults(func=cmd_digest)
 
-    sub.add_parser(
-        "reclassify", help="Re-derive rifle/handgun from stored text (no network)."
-    ).set_defaults(func=cmd_reclassify)
+    _add_reclassify_command(sub)
 
     _add_armory_commands(sub)
 

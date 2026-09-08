@@ -168,7 +168,31 @@ class FetchResult:
     resting: bool = False
 
 
-def _is_public_url(url: str) -> bool:
+class UrlVerdict(NamedTuple):
+    """Whether a URL may be fetched, and whether the answer will hold."""
+
+    allowed: bool
+    reason: str | None = None
+    #: True when the refusal is a property of the URL rather than of the
+    #: moment. See _check_url() for why that distinction is load-bearing.
+    permanent: bool = False
+
+
+#: Hostnames already resolved and found to be public, for the life of the
+#: process. A scan of four hundred photographs from one CDN asked the resolver
+#: four hundred times for the same name, and that volume is what provoked the
+#: failures this exists to prevent: one SARCO scan had 151 photographs refused
+#: as "not a public HTTP(S) URL", every one of them an ordinary
+#: cdn11.bigcommerce.com address that resolves perfectly well.
+#:
+#: Only successes are remembered. A refusal is re-checked, so a host that was
+#: briefly unresolvable is not written off, and one that has genuinely moved to
+#: a private address is caught the next time it is asked about.
+_PUBLIC_HOSTS: set[str] = set()
+
+
+def _check_url(url: str) -> UrlVerdict:  # noqa: PLR0911 - one return per way a
+    #                        URL can be refused, each with its own explanation
     """Reject anything that is not a plain public HTTP(S) URL.
 
     Image URLs come from third-party markup, so fetching one is a server-side
@@ -176,22 +200,41 @@ def _is_public_url(url: str) -> bool:
     publicly routable address is allowed, which keeps a malicious listing from
     making the scanner probe localhost, link-local metadata endpoints
     (169.254.169.254) or anything else on the internal network.
+
+    **Failing to resolve a name is not the same as resolving it to somewhere
+    forbidden**, and the two used to come back identically: both as "not a
+    public HTTP(S) URL", both marked permanent, which spends one of the
+    photograph's three attempts. A private address is a fact about the URL and
+    will be just as true tomorrow. A resolver that gave up is a fact about the
+    last half-second. Reported as such, and the message says which happened --
+    "not a public HTTP(S) URL" sends whoever reads the log looking at a URL
+    that turns out to be fine.
     """
     try:
         parsed = urlparse(url)
     except ValueError:
-        return False
+        return UrlVerdict(False, "malformed URL", permanent=True)
     if parsed.scheme not in ("http", "https") or not parsed.hostname:
-        return False
+        return UrlVerdict(False, "not an HTTP(S) URL", permanent=True)
+
+    host = parsed.hostname
+    if host in _PUBLIC_HOSTS:
+        return UrlVerdict(True)
     try:
-        infos = socket.getaddrinfo(parsed.hostname, None)
-    except (socket.gaierror, UnicodeError):
-        return False
+        infos = socket.getaddrinfo(host, None)
+    except socket.gaierror as exc:
+        # Transient by default. The name may be gone for good, in which case
+        # the fetch that follows would fail anyway and the retry budget runs
+        # out on its own terms.
+        return UrlVerdict(False, f"could not resolve {host} ({exc.strerror or exc})")
+    except UnicodeError:
+        return UrlVerdict(False, "hostname is not encodable", permanent=True)
+
     for info in infos:
         try:
             address = ipaddress.ip_address(info[4][0])
         except ValueError:
-            return False
+            return UrlVerdict(False, "unreadable address", permanent=True)
         if (
             address.is_private
             or address.is_loopback
@@ -200,8 +243,9 @@ def _is_public_url(url: str) -> bool:
             or address.is_multicast
             or address.is_unspecified
         ):
-            return False
-    return True
+            return UrlVerdict(False, f"{host} resolves to a non-public address", permanent=True)
+    _PUBLIC_HOSTS.add(host)
+    return UrlVerdict(True)
 
 
 class ImageStore:
@@ -333,9 +377,10 @@ class ImageStore:
         never work is indistinguishable from one not reached yet, and gets
         retried on every scan forever.
         """
-        if not _is_public_url(source_url):
-            log.warning("Refusing to fetch %s: not a public HTTP(S) URL.", scrub(source_url))
-            return FetchResult(None, "not a public HTTP(S) URL", permanent=True)
+        verdict = _check_url(source_url)
+        if not verdict.allowed:
+            log.warning("Refusing to fetch %s: %s.", scrub(source_url), verdict.reason)
+            return FetchResult(None, verdict.reason, permanent=verdict.permanent)
 
         response, error, permanent = self._get_photo(session, source_url)
         if response is None:

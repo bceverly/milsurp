@@ -451,6 +451,23 @@ class FirearmModel(Base, TimestampMixin):
         Enum(FirearmKind, native_enum=False, length=32), index=True
     )
 
+    #: Where the pattern comes from: "Russia" for a Mosin-Nagant, whoever
+    #: happened to build the individual rifle.
+    #:
+    #: A property of the *design*, not of the gun in front of you, and the
+    #: distinction is the whole reason this is worth storing. A K98k assembled
+    #: in Brno after the war is a German pattern made in Czechoslovakia; a
+    #: listing that says so keeps what it says, because the armory only ever
+    #: fills a blank here. What it answers is the case where nobody says
+    #: anything at all -- "M1 GARANDS, EXC" names no country and is American,
+    #: and until this existed the browse page's country filter simply had no
+    #: opinion about it.
+    #:
+    #: Spelled the way :data:`app.services.classify.COUNTRY_PATTERNS` spells
+    #: it, because the same column holds both and a filter offering both
+    #: "Russia" and "USSR" would split one country in two.
+    country: Mapped[str | None] = mapped_column(String(64), index=True)
+
     #: Pending by default, for the reason given on :class:`Caliber`.
     status: Mapped[ArmoryStatus] = mapped_column(
         Enum(ArmoryStatus, native_enum=False, length=16),
@@ -594,6 +611,19 @@ class Item(Base, TimestampMixin):
     country: Mapped[str | None] = mapped_column(String(64), index=True)
     manufacturer: Mapped[str | None] = mapped_column(String(128), index=True)
     condition: Mapped[str | None] = mapped_column(String(64))
+    #: Which armory model this listing matched, when one did.
+    #:
+    #: A foreign key rather than the name in text, unlike the maker and the
+    #: caliber beside it. Those are free strings a vendor may have supplied;
+    #: this is only ever set from a row somebody vouched for, so it can point
+    #: at that row and carry everything on it -- the kind, the makers, the
+    #: reference link -- rather than duplicating any of it.
+    #:
+    #: SET NULL rather than CASCADE: deleting a model from the armory is a
+    #: statement about the armory, not a reason to delete a $4,000 rifle.
+    firearm_model_id: Mapped[int | None] = mapped_column(
+        ForeignKey("firearm_models.id", ondelete="SET NULL"), index=True
+    )
     is_rifle: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_pistol: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     #: Separate flags rather than one "kind", because a listing can be several
@@ -632,6 +662,7 @@ class Item(Base, TimestampMixin):
     currency: Mapped[str] = mapped_column(String(8), default="USD", nullable=False)
 
     site: Mapped["Site"] = relationship(back_populates="items")
+    firearm_model: Mapped["FirearmModel | None"] = relationship()
     photos: Mapped[list["ItemPhoto"]] = relationship(
         back_populates="item", cascade="all, delete-orphan", order_by="ItemPhoto.position"
     )

@@ -213,8 +213,8 @@ photos-retry: $(VENV_PY) ## Try photos that were given up on after repeated fail
 	@$(VENV_PY) backend/cli.py fetch-photos --retry-failed $(if $(limit),--limit "$(limit)",)
 
 .PHONY: reclassify
-reclassify: $(VENV_PY) ## Re-derive rifle/handgun for stored listings (no network)
-	@$(VENV_PY) backend/cli.py reclassify
+reclassify: $(VENV_PY) ## Re-derive kind/caliber/country/maker for stored listings (recompute=1 to overwrite, not just fill)
+	@$(VENV_PY) backend/cli.py reclassify $(if $(recompute),--recompute,)
 
 .PHONY: scan
 scan: $(VENV_PY) ## Scan every enabled site now (or one: make scan site=empire-arms)
@@ -243,6 +243,10 @@ ARMORY_FILE := backend/app/seed/armory.yaml
 .PHONY: armory-seed
 armory-seed: $(VENV_PY) ## Add shipped manufacturers/models/calibers, all awaiting approval
 	@$(VENV_PY) backend/cli.py armory seed
+
+.PHONY: armory-discover
+armory-discover: $(VENV_PY) ## Propose armory rows from every stored listing (scans do their own)
+	@$(VENV_PY) backend/cli.py armory discover
 
 .PHONY: armory-export
 armory-export: $(VENV_PY) ## Write this database's armory over the shipped file, to review and commit

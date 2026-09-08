@@ -9,11 +9,12 @@ why that is a narrow query rather than a pass over the catalog.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import func, select
+from sqlalchemy.orm import selectinload
 
 from ..deps import AdminUser, DbSession
-from ..models import Item, Manufacturer
+from ..models import ArmoryStatus, Item, Manufacturer
 from ..schemas import (
     ManufacturerCreate,
     ManufacturerOut,
@@ -51,6 +52,9 @@ def _to_out(row: Manufacturer, counts: dict[str, int]) -> ManufacturerOut:
         position=row.position,
         enabled=row.enabled,
         notes=row.notes,
+        status=row.status,
+        merged_into=row.merged_into.name if row.merged_into else None,
+        first_seen_in=row.first_seen_in,
         item_count=counts.get(row.name, 0),
     )
 
@@ -84,14 +88,31 @@ def _reject_duplicate(session: DbSession, name: str, *, exclude_id: int | None =
 
 
 @router.get("", response_model=list[ManufacturerOut])
-def list_manufacturers(_admin: AdminUser, session: DbSession) -> list[ManufacturerOut]:
-    rows = (
-        session.execute(select(Manufacturer).order_by(Manufacturer.position, Manufacturer.name))
-        .scalars()
-        .all()
+def list_manufacturers(
+    _admin: AdminUser,
+    session: DbSession,
+    status_filter: ArmoryStatus | None = Query(default=None, alias="status"),
+    search: str | None = Query(default=None, max_length=100),
+) -> list[ManufacturerOut]:
+    """The maker list, filtered the same way the armory's other two tabs are.
+
+    The filters were missing, so the Manufacturers tab ignored the status the
+    page was set to and always returned all of them -- which, with no status in
+    the payload either, read as fifty-one makers all awaiting approval.
+    """
+    stmt = (
+        select(Manufacturer)
+        .options(selectinload(Manufacturer.merged_into))
+        .order_by(Manufacturer.position, Manufacturer.name)
     )
+    if status_filter is not None:
+        stmt = stmt.where(Manufacturer.status == status_filter)
+    if search:
+        stmt = stmt.where(
+            Manufacturer.name.ilike(f"%{search}%") | Manufacturer.aliases.ilike(f"%{search}%")
+        )
     counts = _counts(session)
-    return [_to_out(row, counts) for row in rows]
+    return [_to_out(row, counts) for row in session.execute(stmt).scalars()]
 
 
 @router.post("", response_model=ManufacturerWrite, status_code=status.HTTP_201_CREATED)
@@ -103,6 +124,7 @@ def create_manufacturer(
     row = Manufacturer(
         name=payload.name.strip(),
         aliases=payload.aliases,
+        status=payload.status,
         position=payload.position,
         enabled=payload.enabled,
         notes=payload.notes,
@@ -138,6 +160,8 @@ def update_manufacturer(
         row.name = payload.name.strip()
     if payload.aliases is not None:
         row.aliases = payload.aliases
+    if payload.status is not None:
+        row.status = payload.status
     if payload.position is not None:
         row.position = payload.position
     if payload.enabled is not None:

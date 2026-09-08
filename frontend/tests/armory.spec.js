@@ -115,6 +115,10 @@ test.describe("armory", () => {
 
   test("manufacturers can be approved the same way", async ({ signedIn }) => {
     await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    // Wait for it to report before touching the tab. The click kicks off a
+    // POST and a reload, and load() does not cancel an in-flight request, so
+    // a filter change made during it can be overwritten by the older response.
+    await expect(signedIn.locator(".alert--success")).toBeVisible();
     await signedIn.getByRole("tab", { name: "Manufacturers" }).click();
     // The makers that arrived with the shipped armory are awaiting approval
     // like everything else, and this tab selects them the same way.
@@ -125,10 +129,69 @@ test.describe("armory", () => {
     await expect(signedIn.locator(".alert--success")).toContainText("production");
   });
 
+  test("an approved manufacturer does not read as awaiting approval", async ({
+    signedIn,
+  }) => {
+    // Reported from the running site: every maker drew the "Awaiting approval"
+    // chip and approving them changed nothing. The payload carried no status
+    // at all, so the page fell through to the chip it shows for one it does
+    // not recognize -- while the database said they were all approved.
+    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    // Wait for it to report before touching the tab. The click kicks off a
+    // POST and a reload, and load() does not cancel an in-flight request, so
+    // a filter change made during it can be overwritten by the older response.
+    await expect(signedIn.locator(".alert--success")).toBeVisible();
+    await signedIn.getByRole("tab", { name: "Manufacturers" }).click();
+    await signedIn.getByLabel("Showing").selectOption("approved");
+
+    // Mauser's own row, not "the first chip in the table". The tests in this
+    // file share one database and the one above promotes every pending maker,
+    // so anything asserted about the table as a whole depends on what ran
+    // before it. Mauser is the fixed point: seeded from the built-in maker
+    // list in production, and nothing here sends it back.
+    //
+    // Waiting on the row rather than on "tbody tr" matters for a second
+    // reason: that selector also matches the one-cell loading row, so it is
+    // visible before any data has arrived.
+    const mauser = signedIn.locator("tbody tr", { hasText: "Mauser" }).first();
+    await expect(mauser).toBeVisible();
+    await expect(mauser.locator(".chip--success")).toHaveText("Production");
+    await expect(mauser.locator(".chip--warning")).toHaveCount(0);
+  });
+
+  test("the manufacturers tab honors the status filter", async ({ signedIn }) => {
+    // It took no status parameter, so it returned every maker whatever the
+    // page was set to -- which is what made the whole list look pending.
+    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    // Wait for it to report before touching the tab. The click kicks off a
+    // POST and a reload, and load() does not cancel an in-flight request, so
+    // a filter change made during it can be overwritten by the older response.
+    await expect(signedIn.locator(".alert--success")).toBeVisible();
+    await signedIn.getByRole("tab", { name: "Manufacturers" }).click();
+
+    // One maker, both ways round. Counts do not auto-wait, so comparing two of
+    // them across a re-fetch compares whatever happened to be rendered -- and
+    // naming a second, pending maker would depend on which tests ran first,
+    // since they share a database and one of them promotes the whole queue.
+    const mauser = signedIn.locator("tbody tr", { hasText: "Mauser" });
+
+    await signedIn.getByLabel("Showing").selectOption("approved");
+    await expect(mauser.first()).toBeVisible();
+
+    await signedIn.getByLabel("Showing").selectOption("pending");
+    await expect(mauser).toHaveCount(0);
+  });
+
   test("manufacturers are a tab here, not a page of their own", async ({ signedIn }) => {
     await signedIn.getByRole("tab", { name: "Manufacturers" }).click();
-    const rows = signedIn.locator("tbody tr");
-    await expect(rows.first()).toBeVisible();
+    // Mauser is seeded from the built-in maker list and arrives in production,
+    // so the default "Awaiting approval" view does not list it. The tab honors
+    // that filter like the other two -- which it did not, and every maker read
+    // as pending because of it.
+    await signedIn.getByLabel("Showing").selectOption("approved");
+    await expect(
+      signedIn.locator("tbody tr", { hasText: "Mauser" }).first(),
+    ).toBeVisible();
     // No flat models textbox on a maker any more: the models are rows.
     await signedIn.getByRole("button", { name: "Mauser", exact: true }).first().click();
     await expect(signedIn.getByLabel("Also written as")).toBeVisible();
@@ -137,10 +200,17 @@ test.describe("armory", () => {
 
   test("a maker expands to the models the armory says it built", async ({ signedIn }) => {
     await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    // Wait for it to report before touching the tab. The click kicks off a
+    // POST and a reload, and load() does not cancel an in-flight request, so
+    // a filter change made during it can be overwritten by the older response.
+    await expect(signedIn.locator(".alert--success")).toBeVisible();
     await signedIn.getByRole("tab", { name: "Manufacturers" }).click();
+    // Mauser is in production, so it is not in the default pending view.
+    await signedIn.getByLabel("Showing").selectOption("approved");
 
-    const row = signedIn.locator("tbody tr", { hasText: "Mauser" }).first();
-    await row.getByRole("button", { name: /Expand/ }).click();
+    const expand = signedIn.getByRole("button", { name: "Expand Mauser" });
+    await expect(expand).toBeVisible();
+    await expand.click();
     const drilldown = signedIn.locator(".armory-drilldown");
     await expect(drilldown).toBeVisible();
     // Mauser built the K98k, and "+ Add model" is offered right there.
@@ -150,8 +220,10 @@ test.describe("armory", () => {
 
   test("+ Add model from a maker pre-checks that maker", async ({ signedIn }) => {
     await signedIn.getByRole("tab", { name: "Manufacturers" }).click();
-    const row = signedIn.locator("tbody tr", { hasText: "Mauser" }).first();
-    await row.getByRole("button", { name: /Expand/ }).click();
+    await signedIn.getByLabel("Showing").selectOption("approved");
+    const expand = signedIn.getByRole("button", { name: "Expand Mauser" });
+    await expect(expand).toBeVisible();
+    await expand.click();
     await signedIn
       .locator(".armory-drilldown")
       .getByRole("button", { name: "Add model" })
@@ -162,6 +234,116 @@ test.describe("armory", () => {
     const makers = signedIn.locator(".armory-checkboxes").last();
     const mauser = makers.locator("label.checkbox", { hasText: /^Mauser$/ });
     await expect(mauser.locator('input[type="checkbox"]')).toBeChecked();
+  });
+
+  test("the maker list is alphabetical, whatever order the API sends", async ({
+    signedIn,
+  }) => {
+    // The API orders makers by `position` -- the order their matching rules are
+    // tried in, which is right for the API and no way to read fifty firms.
+    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await expect(signedIn.locator(".alert--success")).toBeVisible();
+    await signedIn.getByRole("tab", { name: "Manufacturers" }).click();
+    await signedIn.getByLabel("Showing").selectOption("approved");
+    await expect(
+      signedIn.locator("tbody tr", { hasText: "Mauser" }).first(),
+    ).toBeVisible();
+
+    const names = await signedIn
+      .locator("tbody tr td:nth-child(3) button")
+      .allInnerTexts();
+    expect(names.length).toBeGreaterThan(2);
+    const alphabetical = [...names].sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }),
+    );
+    expect(names).toEqual(alphabetical);
+  });
+
+  test("a column header sorts by it, and again reverses it", async ({ signedIn }) => {
+    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await expect(signedIn.locator(".alert--success")).toBeVisible();
+    await signedIn.getByRole("tab", { name: "Calibers" }).click();
+
+    const firstName = signedIn.locator("tbody tr td:nth-child(2) button").first();
+    await expect(firstName).toBeVisible();
+    const ascending = await firstName.innerText();
+
+    await signedIn
+      .locator("thead")
+      .getByRole("button", { name: "Name", exact: true })
+      .click();
+    await expect(signedIn.locator('th[aria-sort="descending"]')).toHaveCount(1);
+    expect(await firstName.innerText()).not.toBe(ascending);
+
+    await signedIn
+      .locator("thead")
+      .getByRole("button", { name: "Name", exact: true })
+      .click();
+    expect(await firstName.innerText()).toBe(ascending);
+  });
+
+  test("calibers sort by bore, not by the digits in their names", async ({
+    signedIn,
+  }) => {
+    // The general collator reads ".303" and ".45" as 303 and 45, so it put
+    // .303 British after .45 ACP. As bore diameters they are 0.303" and 0.45"
+    // and the .303 belongs between .30-06 and .308.
+    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await expect(signedIn.locator(".alert--success")).toBeVisible();
+    await signedIn.getByRole("tab", { name: "Calibers" }).click();
+    await signedIn.getByLabel("Showing").selectOption("");
+    await expect(
+      signedIn.locator("tbody tr", { hasText: ".303 British" }).first(),
+    ).toBeVisible();
+
+    const names = await signedIn
+      .locator("tbody tr td:nth-child(2) button")
+      .allInnerTexts();
+    const at = (name) => names.indexOf(name);
+    expect(at(".30-06 Springfield")).toBeLessThan(at(".303 British"));
+    expect(at(".303 British")).toBeLessThan(at(".32 ACP"));
+    expect(at(".32 ACP")).toBeLessThan(at(".45 ACP"));
+    // Metric after the inch bores, gauges last: different units, kept apart.
+    expect(at(".45 ACP")).toBeLessThan(at("7.62x54R"));
+    expect(at("7.62x54R")).toBeLessThan(at("12 gauge"));
+  });
+
+  test("the merge dropdown offers rows the table is not showing", async ({
+    signedIn,
+  }) => {
+    // A merge folds one row into another, and the other is usually not in the
+    // view you are looking at -- a freshly discovered "Mosin" into the approved
+    // "Mosin-Nagant". The dialog was being handed the filtered rows, which made
+    // exactly that impossible.
+    //
+    // Narrowed with the search box rather than the status filter: the tests in
+    // this file share a database and one of them promotes the whole pending
+    // queue, so "some rows are pending" is true or not depending on what ran
+    // first. A search for one name hides the rest either way.
+    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await expect(signedIn.locator(".alert--success")).toBeVisible();
+    await signedIn.getByRole("tab", { name: "Manufacturers" }).click();
+    await signedIn.getByLabel("Showing").selectOption("");
+    await signedIn.getByLabel("Search").fill("Mauser");
+
+    const row = signedIn
+      .locator("tbody tr")
+      .filter({ has: signedIn.getByRole("button", { name: "Merge…" }) })
+      .first();
+    await expect(row).toBeVisible();
+    await expect(signedIn.locator("tbody tr", { hasText: "Colt" })).toHaveCount(0);
+
+    await row.getByRole("button", { name: "Merge…" }).click();
+    const names = (
+      await signedIn.getByLabel("Merge into").locator("option").allInnerTexts()
+    ).slice(1);
+
+    // Colt is filtered out of the table behind the dialog and still offered.
+    expect(names).toContain("Colt");
+    const alphabetical = [...names].sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }),
+    );
+    expect(names).toEqual(alphabetical);
   });
 
   test("a caliber can be added without leaving the model dialog", async ({
@@ -187,6 +369,32 @@ test.describe("armory", () => {
     await expect(row).toHaveCount(1);
     await expect(row.locator(".chip")).toHaveText("Awaiting approval");
     await expect(row).toContainText("Carbine");
+  });
+
+  test("a model records the country its pattern comes from", async ({ signedIn }) => {
+    await signedIn.getByRole("button", { name: "Add model" }).click();
+    const unique = `Test Model ${Date.now()}`;
+    await signedIn.getByLabel("Name").fill(unique);
+    await signedIn.getByLabel("Country of origin").fill("Sweden");
+    await signedIn.getByRole("button", { name: "Add, awaiting approval" }).click();
+
+    const row = signedIn.locator("tbody tr", { hasText: unique });
+    await expect(row).toContainText("Sweden");
+  });
+
+  test("the country box suggests the spellings the classifier uses", async ({
+    signedIn,
+  }) => {
+    // Held server-side for the same reason the kinds are: a model recorded as
+    // "USSR" against listings read as "Russia" would split one country into
+    // two filters, each showing half the rifles.
+    await signedIn.getByRole("button", { name: "Add model" }).click();
+    const options = signedIn.locator("#armory-countries option");
+    await expect.poll(() => options.count()).toBeGreaterThan(0);
+    const values = await options.evaluateAll((nodes) => nodes.map((n) => n.value));
+    expect(values).toContain("Russia");
+    expect(values).toContain("United States");
+    expect(values).not.toContain("USSR");
   });
 });
 

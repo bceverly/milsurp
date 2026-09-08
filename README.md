@@ -614,8 +614,10 @@ caught one out:
   BigCommerce; their `li.product` markup looks similar and parses to nothing.
   If the cards have no `post-NNNN` class, it is not WooCommerce.
 - **Does the catalog arrive in the HTML?** J&G Sales returns `li.product`
-  elements that are empty placeholders filled in by JavaScript, so it needs
-  `requires_browser = True` rather than this base class.
+  elements that are empty placeholders filled in by JavaScript, so this base
+  class parses their catalog into nothing. That is a reason to go looking for
+  the endpoint the JavaScript reads — not a reason to reach for a browser. See
+  **If the catalog is not in the HTML** below.
 - **Is that page products or categories?** MCT Defense's firearms page is
   thirty category tiles with no price element anywhere on it.
 - **Did the photographs come with it?** Count them, on a card and on a product
@@ -642,6 +644,90 @@ static — the pictures are simply not in `<img>` tags:
 
 Both are fallbacks, reached only when the ordinary path finds nothing, so
 neither can change what a shop that renders normal markup already produces.
+
+### If the catalog is not in the HTML
+
+Two of the sites here return a category page with no products in it: sixteen
+empty `li.product` elements and not one dollar sign in 394 KB (J&G Sales), and
+zero cards and zero prices in 236 KB (SARCO). Both were filed under "needs a
+browser" on that evidence, and neither needed one.
+
+**A grid drawn in the browser still has to get its products from somewhere**,
+and that somewhere is an HTTP endpoint the page will tell you about. Look for it
+before writing anything:
+
+```bash
+curl -s https://vendor.example/category/ -o page.html
+grep -o 'src="[^"]*"' page.html | grep -Ei 'api|search|widget|init\.js'
+curl -s https://vendor.example/wp-json/wc/store/v1/products?per_page=1 | head -c 400
+```
+
+Both cases took under an hour to find. Browser-backed fetching was estimated in
+days.
+
+**`WooStoreApiScraper`** — WooCommerce ships a public, read-only JSON API at
+`/wp-json/wc/store/v1/products` carrying the product id, name, price, stock,
+SKU, categories, full gallery and description. A subclass is a slug, a name and
+one entry per category, named by the numeric id the endpoint filters on (they
+are listed at `/wp-json/wc/store/v1/products/categories`):
+
+```python
+class MyVendorScraper(WooStoreApiScraper):
+    sources = ({"category": "Military Mausers", "id": 3689},)
+```
+
+The one field that would be plausible while catastrophically wrong is the
+price: **the Store API reports money in minor units**, so
+`{"price": "82995", "currency_minor_unit": 2}` is $829.95, and read as a float
+it is eighty-two thousand — a figure that would sit unremarked among the
+four-figure listings around it.
+
+**`SearchaniseScraper`** — Searchanise is a hosted search add-on; where a shop
+installs it, the shop stops rendering its own grid and a widget fills it in from
+`searchserverapi.com`. The key is in the page: `init.js?api_key=XXXXXXXXXX`.
+
+```python
+class MyVendorScraper(SearchaniseScraper):
+    api_key = "XXXXXXXXXX"
+    sources = (                             # specific first, catch-all last
+        {"category": "Pistols"},
+        {"category": "Shotgun", "label": "Shotguns"},
+        {"category": "Shop All Firearms"},
+    )
+    exclude_categories = ("Frames", "Actions & Receivers")
+    detail_description_selectors = ("#tab-description",)
+```
+
+Six things to know about it:
+
+- **The API is on somebody else's host,** so `searchserverapi.com/robots.txt`
+  is what governs the request, not the shop's. It allows everything; the walk
+  asks anyway.
+- **The category filter cannot contain a pipe.** `restrictBy[categories]` uses
+  `|` as its own separator, so SARCO's "Rifles | Military Surplus Guns" cannot
+  be asked for at all — the full name matches nothing and so does either half,
+  and it returns **200 with an empty list**, which looks exactly like an empty
+  shop. The walk warns when a section's first page is empty, because nothing
+  else would.
+- **`sources` is ordered, and the order is the classification.** A listing is
+  taken by the first section that offers it, and that section's name becomes
+  the `category` — which outranks the classifier's own reading of the title.
+  Measured on SARCO's 283 pistols: arriving under the parent "Shop All
+  Firearms", 200 read as handguns, 77 as nothing at all and 6 as rifles;
+  arriving under "Pistols", 281 of 283 read as handguns. **Specific sections
+  first, catch-all last.**
+- **`exclude_categories` suppresses a section entirely,** read before anything
+  else. SARCO files 83 bare frames and stripped receivers under firearms —
+  legally correct, and components as far as this application is concerned.
+  Suppression rather than filtering afterwards, because fifteen of the fifty
+  frames are also in "Pistols" and that section is read first.
+- **The description is truncated to 200 characters,** which is why this base
+  class fetches the product page when a subclass says where to look. Bounded by
+  `ctx.needs_detail()`, so it is once per listing ever, not once per scan.
+- **Neither stock field means what it looks like.** On SARCO, `quantity` is 0
+  on 157 of 509 live, purchasable firearms and `inventory_level` is an empty
+  string on 151 of them. Nothing is marked sold from either; a sold listing
+  stops arriving, and the scan's de-listing handles that.
 
 ### Makers and models
 
@@ -773,6 +859,22 @@ separately would let the two disagree on screen. They are also the fastest way
 to see a classification change land: a shift of forty in one column after
 `reclassify` is either the fix or the regression.
 
+#### Where it shows up
+
+A listing records **which model it matched**, as a foreign key rather than a
+copy of the name, so the browse rail offers a Model filter and the detail view
+names the model with its kind and a link to read about it. That filter is the
+only one in the rail backed by a fact somebody vouched for; the others match
+whatever a vendor happened to type.
+
+**A model is read from the title only** — unlike the maker, which does fall
+back to the description. A maker's name in the prose is usually still the
+maker; a model designation in the prose is very often a comparison. A CZ vz.50
+is described as a Walther PP copy and a box of .32 ACP lists the pistols it
+suits, and reading those gave sixty-three listings the Walther PP as their
+model, a third of them CZs and one of them ammunition — each of which would
+then have taken the PP's caliber and kind.
+
 ### The write-ahead log
 
 SQLite runs in WAL mode here, so writes append to a `milsurp.db-wal` sidecar and
@@ -833,6 +935,27 @@ none of the nine makers does not tell us which built it, and "Steyr M95" does
 not say which cartridge this particular rifle takes. A guess dressed as a fact
 is worse than a blank.
 
+**A model also says where its pattern comes from.** The classifier reads a
+country out of a title — "RUSSIAN M44 CARBINES" is Russia, "SWEDISH MAUSER M96"
+is Sweden — and a great many titles name none at all. "M1 Garand, EXC, all
+matching" is one, and until the armory carried this those listings simply had
+no country and the browse page's filter had no opinion about them.
+
+Origin of the *pattern*, not provenance of the gun: a Mosin-Nagant is Russian
+however many of them Finland captured and rebuilt, and a K98k assembled in Brno
+after the war is a German pattern made in Czechoslovakia. So the fill is
+one-directional, like the maker and unlike the caliber's normalization — a
+listing that states a country keeps what it states, because whoever wrote it
+was looking at the gun. This only ever answers a blank.
+
+Unlike the maker, it is never a choice. All nine firms that built the M1
+Carbine built an American carbine, so the model can state the country even
+where it cannot name a maker. The spellings are suggested from the
+classifier's own list, and for a reason worth stating: both answers land in the
+same `items.country` column, and a model recorded as "USSR" against listings
+read as "Russia" would split one country into two filters that each show half
+the rifles.
+
 The kind is finer than the browse filter's rifle/handgun split, because the
 ignition system is half of what a muzzleloader is: rifle, carbine, shotgun,
 pistol and revolver, each also in flintlock and percussion. A **carbine is not
@@ -850,20 +973,111 @@ something called M44", so a designation two firms both made had to be dropped
 from maker-matching entirely. Now the same fact is expressible directly, and a
 model with exactly one maker names it while a model with nine names none.
 
+**Every column sorts, and the default is the name.** The tables arrive from
+the API in the order that makes sense to the API — models and calibers by name,
+makers by `position`, which is the order their matching rules are tried in and
+is no way to read fifty firms — so the page sorts them itself. Clicking a
+header sorts by that column; clicking the one already sorted reverses it, and
+ties fall back to the name so equal counts still read alphabetically.
+
+The comparison is `Intl.Collator` with `numeric: true`, because these names are
+mostly numbers and a plain string sort reads them wrong: it puts "Model 1873"
+before "Model 94", "M1903" before "M91/30", and "12 gauge" before "7.62x54R".
+
+**Calibers get their own comparator**, because for them even numeric collation
+is wrong. A caliber's leading number is not one kind of measurement:
+
+| Written | Is | Sorted on |
+| --- | --- | --- |
+| `.303 British` | a fraction of an inch | 0.303 |
+| `7.62x54R` | millimeters | 7.62 |
+| `12 gauge` | a bore gauge, where a bigger number is a *smaller* bore | 12 |
+
+Read as ordinals, ".303" sorts after ".45" — 303 against 45 — when as bore
+diameters the .303 belongs between .30-06 and .308. So the leading number is
+parsed for what it actually is, the three shapes are kept in separate blocks,
+and each block is numeric within itself:
+
+```
+.22 LR · .30-06 Springfield · .303 British · .31 · .32 ACP · .38 Special ·
+.38 Super · .380 ACP · .410 bore · .45 ACP · .45-70 Government · .450 ·
+.455 Webley · .577 · .58 | 4.25mm · 5.56x45mm NATO · 7.62x54R · 9mm ·
+10.4x38mm Swiss · 26.5mm Flare | 12 gauge · 20 gauge
+```
+
+Note `.577` before `.58`, and `.45-70` reading as 0.45 — the 70 is grains of
+powder, not part of the bore. Where the bore is genuinely shared, as it is by
+`.38 Special`, `.38 Super` and `.380 ACP`, the name settles the order.
+
+The blocks are kept apart rather than converted to a common unit. Interleaving
+".30-06 Springfield" with "7.62x54R" because they are the same bore would be
+true, and nobody scanning a list for a cartridge reads it that way.
+
+The **merge dialog** is always alphabetical whatever the table behind it is
+sorted by, and it offers every row of that kind rather than the ones the status
+filter admits. That second part was a real limitation: a merge folds a row that
+is usually pending into one that is usually in production — a freshly
+discovered "Mosin" into the approved "Mosin-Nagant" — and the filtered list
+made exactly that impossible.
+
 **Approving is a checkbox in the header away.** Each tab selects everything it
 is currently listing — which, on the default "Awaiting approval" view, is the
 whole queue for that tab — and promotes it in one go. The request is sent in
 batches, because a single call is bounded and select-all on a grown armory is
 exactly what outruns it.
 
+**A maker an admin types is the one exception, and it is deliberate.** Models
+and calibers arrive awaiting approval however they were created, because
+filling a form in is not the same as having checked it. Saving a *maker*
+re-files every listing it can reach and reports how many moved — that is the
+whole point of the page — and a pending maker matches nothing, so one typed by
+hand arrives in production. A maker a **scan** proposes still arrives pending,
+like everything else discovery writes.
+
 **Nothing decides anything until a person says so.** Every row is either
 *awaiting approval* or *production*, and only production rows fill in a
-caliber or settle what kind of gun a listing is. That is what makes it safe
-for a scan to write down every designation it does not recognize: a proposal
-is inert, it is recorded once rather than re-asked on every scan, and it waits
-somewhere an admin can rule on it. Promoting is one-way and sending a row back
-is a separate button, because "I have checked this" and "I no longer trust
-this" are different statements.
+caliber, supply a country or settle what kind of gun a listing is. That is
+what would make it safe for a scan to write down every designation it does not
+recognize: a proposal is inert, it is recorded once rather than re-asked on
+every scan, and it waits somewhere an admin can rule on it. Promoting is
+one-way and sending a row back is a separate button, because "I have checked
+this" and "I no longer trust this" are different statements.
+
+**Every scan fills the queue.** `services/discovery.py` reads the listings a
+scan just stored and writes down the cartridges, firms and designations the
+armory cannot explain, as pending rows. `make armory-discover` does the same
+over the whole catalog, for stock collected before this existed and after any
+change to the rules below.
+
+**The risk it is designed around is not missing things. It is junk** — a queue
+nobody reads is worse than no queue, and the way to get one is to propose every
+capitalised word in a title. Each rule was measured over all 2,014 stored
+listings before it was kept, and each is tighter than the obvious version:
+
+| | How a candidate is found | Measured |
+| --- | --- | --- |
+| **Calibers** | The classifier's own reading, which is either a name from a closed vocabulary or a well-formed cartridge like `10.35x22mm`. | 57 proposed, no junk — something already had to look like a cartridge |
+| **Models** | Designation *shapes*: `Model 1873`, `Type 99`, `K98k`, `No.4 Mk.I`, `vz.24`, `M91/30`, `CZ75B`. Only from a listing that is a firearm and that the armory cannot already match. | 287 proposed, nearly all real |
+| **Manufacturers** | The capitalised words immediately before a designation — `Bernardelli M1934`, `Norinco Type 56` — because a firm's name has no shape to recognize. | 20 proposed, ~4 junk |
+
+Three things the extractors deliberately refuse, each of which reached the
+queue during development:
+
+- **Anything in parentheses.** That is where vendors put lot and SKU codes —
+  `(L2026-10870)`, `(FG389)`, `(SGR110)` — and every one has a designation's
+  shape.
+- **A cartridge as a model.** `GP11` looks exactly like a designation and is
+  the Swiss service round, so a candidate the caliber registry recognizes is
+  dropped.
+- **A firm seen only once.** A designation is a shape and can be trusted on
+  first sight; a maker is a *position* in the title, so a candidate has to
+  appear in two different listings before it is written down. A leading-capitals
+  rule was tried first and measured at about half junk — it proposed "U.S.",
+  "Ben's" and "Vietnam Bring-Back Chinese" as firms.
+
+Model and maker candidates are read only from listings already classified as a
+firearm. A bayonet listing names the rifle it fits, and proposing that rifle
+from it teaches the armory nothing it can trust.
 
 **Merging is how the same thing said twice becomes one thing.** "Mosin" folds
 into "Mosin-Nagant", "7.65mm Browning" into ".32 ACP". The source's spellings
@@ -886,6 +1100,7 @@ grow for as long as the site does.
 
 ```
 make armory-seed      # add what the shipped file has and this database does not
+make armory-discover  # propose rows from every stored listing (scans do their own)
 make armory-export    # write this database's armory OVER the shipped file
 make armory-sync      # preview what the shipped file would change here
 make armory-apply     # carry that out (prune=1 to also delete)
@@ -1057,7 +1272,7 @@ having walked 24 listings and saved 5, reporting nothing found. Both rules
 together turn that same hour into a PARTIAL run with the listings it managed to
 read. It is still a bad site to scan, and it may yet need the browser path.
 
-Twelve vendors are read today; fifteen more are queued in
+Fourteen vendors are read today; thirteen more are queued in
 [ROADMAP.md](ROADMAP.md), grouped by the platform they run on because one base
 class unlocks a whole group.
 
@@ -1248,7 +1463,9 @@ backend/cli.py passwd NAME
 backend/cli.py digest [--user NAME]
 backend/cli.py prune-images     # delete image files nothing references
 backend/cli.py rebuild-thumbnails  # regenerate thumbnails from stored originals
-backend/cli.py reclassify       # re-derive rifle/handgun/maker from stored text
+backend/cli.py reclassify       # re-derive kind/caliber/country/maker from stored text
+backend/cli.py reclassify --recompute   # ...overwriting what is there, not only filling blanks
+backend/cli.py armory discover  # propose armory rows from every stored listing
 backend/cli.py fetch-photos     # drain the photo queue without re-scraping
 backend/cli.py running-scans    # list in-flight scans; exit 1 if any
 backend/cli.py infer            # fill blank caliber/country/maker from other vendors

@@ -218,6 +218,13 @@ def seed(session: Session) -> int:
             Manufacturer(
                 name=name,
                 aliases="\n".join(_spellings_in(pattern, name)) or None,
+                # Approved, and the only thing here that is. This list is the
+                # classifier's own vocabulary moved into a table rather than
+                # anybody's proposal, and a fresh install whose maker matching
+                # did nothing until somebody clicked through thirty-six rows
+                # would be broken on arrival. Everything else -- an admin's
+                # form, a scan's proposal -- arrives pending.
+                status=ArmoryStatus.APPROVED,
                 position=(position + 1) * 10,
             )
         )

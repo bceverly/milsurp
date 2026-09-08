@@ -59,12 +59,19 @@ class Match:
     """What the table was able to say about a listing."""
 
     model: str | None = None
+    #: The armory row this came from, so a listing can point back at it rather
+    #: than carry a copy of its name that drifts when the row is renamed.
+    model_id: int | None = None
     kind: FirearmKind | None = None
     caliber: str | None = None
     manufacturer: str | None = None
+    #: Where the pattern comes from. Unlike the maker, this is never a choice:
+    #: nine firms built the M1 Carbine and all nine of them built an American
+    #: rifle, so the model can state it even when it cannot name a maker.
+    country: str | None = None
 
     def __bool__(self) -> bool:
-        return any((self.model, self.kind, self.caliber, self.manufacturer))
+        return any((self.model, self.kind, self.caliber, self.manufacturer, self.country))
 
 
 # ---------------------------------------------------------------------------
@@ -122,22 +129,28 @@ class ModelRegistry:
     def __len__(self) -> int:
         return len(self.rules)
 
-    def match(self, title: str, description: str | None = None) -> Match:
-        """The model named in a listing, preferring the title.
+    def match(self, title: str, description: str | None = None) -> Match:  # noqa: ARG002
+        """The model named in a listing's *title*. The description is not read.
 
-        The title is where a vendor says what they are selling; the
-        description is where they talk about it, and on a flyer read by OCR it
-        carries whatever the neighboring panel said. Same reasoning as
-        :meth:`manufacturers.Registry.extract_from`, and the same order.
+        This is stricter than the maker lookup beside it, which does fall back
+        to the description, and the difference is deliberate. A maker's name in
+        the prose is usually still the maker. A model designation in the prose
+        is very often a *comparison*: a CZ vz.50 is described as a Walther PP
+        copy, an East German P1001 as a Walther PP copy, and a box of .32 ACP
+        ammunition lists the pistols it suits. Reading those gave sixty-three
+        listings the Walther PP as their model, of which a third were CZs and
+        one was ammunition -- and each of them would then have taken the PP's
+        caliber and kind.
+
+        A dealer selling a gun puts its designation in the title. Where they
+        have not, the honest answer is that the armory does not know.
+
+        The ``description`` argument is kept so callers need not care, and so
+        that the reason it is ignored has somewhere to live.
         """
         for pattern, found in self.rules:
             if pattern.search(title or "") and not _contradicted(title, found):
                 return found
-        if description:
-            for pattern, found in self.rules:
-                text = f"{title or ''} {description}"
-                if pattern.search(text) and not _contradicted(title, found):
-                    return found
         return Match()
 
 
@@ -165,7 +178,11 @@ def _contradicted(title: str, found: Match) -> bool:
 
 def _facts_known(row: FirearmModel) -> int:
     """How much this row can tell a caller, for breaking ties between rows."""
-    return sum(1 for fact in (row.kind, row.calibers, row.wikipedia_url, row.manufacturers) if fact)
+    return sum(
+        1
+        for fact in (row.kind, row.calibers, row.wikipedia_url, row.manufacturers, row.country)
+        if fact
+    )
 
 
 def _model_rules(session: Session) -> list[tuple[re.Pattern[str], Match]]:
@@ -195,6 +212,7 @@ def _model_rules(session: Session) -> list[tuple[re.Pattern[str], Match]]:
             manufacturers.pattern_for(row.spellings),
             Match(
                 model=row.name,
+                model_id=row.id,
                 kind=row.kind,
                 # Only when there is exactly one and so no choice to make. An
                 # M95 may be 8x50mmR or 8x56mmR, and the model does not say
@@ -206,6 +224,7 @@ def _model_rules(session: Session) -> list[tuple[re.Pattern[str], Match]]:
                 # than picking one. With a single maker on the row there is
                 # nothing to pick and the fact is simply true.
                 manufacturer=(row.manufacturers[0].name if len(row.manufacturers) == 1 else None),
+                country=row.country,
             ),
         )
         for row in rows
@@ -295,9 +314,11 @@ def fill_in(
     stated = canonical_caliber(session, caliber) or (caliber.strip() if caliber else None)
     return Match(
         model=found.model,
+        model_id=found.model_id,
         kind=found.kind,
         caliber=stated or found.caliber,
         manufacturer=found.manufacturer,
+        country=found.country,
     )
 
 
@@ -332,6 +353,45 @@ def propose_caliber(session: Session, name: str, seen_in: str = "") -> Caliber |
     if row is None:
         row = Caliber(name=cleaned, status=ArmoryStatus.PENDING, first_seen_in=seen_in or None)
         session.add(row)
+        # Flushed immediately. This session runs with autoflush off, so
+        # without it the row just added is invisible to the next lookup in the
+        # same session -- and a scan proposing the same unknown cartridge from
+        # forty listings would add forty identical rows and fail the commit on
+        # a UNIQUE violation. Every existing test committed between calls,
+        # which is exactly why nothing caught it.
+        session.flush()
+        invalidate()
+    elif seen_in and row.status == ArmoryStatus.PENDING:
+        row.first_seen_in = _note_sighting(row.first_seen_in, seen_in)
+    return row
+
+
+def propose_manufacturer(session: Session, name: str, seen_in: str = "") -> Manufacturer | None:
+    """Write down a firm nothing in the table explains.
+
+    Returns None when the maker registry already recognizes the name under any
+    of its spellings, so a scan meeting "Norinco" for the hundredth time stops
+    proposing it the moment somebody approves the row.
+    """
+    cleaned = " ".join((name or "").split())
+    if not cleaned:
+        return None
+    if manufacturers.registry(session).extract(cleaned):
+        return None
+
+    row = session.execute(
+        select(Manufacturer).where(func.lower(Manufacturer.name) == cleaned.lower())
+    ).scalar_one_or_none()
+    if row is None:
+        row = Manufacturer(name=cleaned, status=ArmoryStatus.PENDING, first_seen_in=seen_in or None)
+        session.add(row)
+        # Flushed immediately. This session runs with autoflush off, so
+        # without it the row just added is invisible to the next lookup in the
+        # same session -- and a scan proposing the same unknown cartridge from
+        # forty listings would add forty identical rows and fail the commit on
+        # a UNIQUE violation. Every existing test committed between calls,
+        # which is exactly why nothing caught it.
+        session.flush()
         invalidate()
     elif seen_in and row.status == ArmoryStatus.PENDING:
         row.first_seen_in = _note_sighting(row.first_seen_in, seen_in)
@@ -352,6 +412,13 @@ def propose_model(session: Session, name: str, seen_in: str = "") -> FirearmMode
     if row is None:
         row = FirearmModel(name=cleaned, status=ArmoryStatus.PENDING, first_seen_in=seen_in or None)
         session.add(row)
+        # Flushed immediately. This session runs with autoflush off, so
+        # without it the row just added is invisible to the next lookup in the
+        # same session -- and a scan proposing the same unknown cartridge from
+        # forty listings would add forty identical rows and fail the commit on
+        # a UNIQUE violation. Every existing test committed between calls,
+        # which is exactly why nothing caught it.
+        session.flush()
         invalidate()
     elif seen_in and row.status == ArmoryStatus.PENDING:
         row.first_seen_in = _note_sighting(row.first_seen_in, seen_in)
@@ -522,6 +589,7 @@ def seed(session: Session, path: Path | None = None) -> SeedReport:
             name=name,
             aliases=_lines(entry.get("aliases")),
             kind=FirearmKind(kind) if kind else None,
+            country=entry.get("country"),
             wikipedia_url=entry.get("wikipedia"),
             status=ArmoryStatus.PENDING,
         )
@@ -638,6 +706,7 @@ def export_armory(session: Session) -> dict[str, Any]:
                     "name": row.name,
                     "aliases": row.spellings[1:],
                     "kind": row.kind.value if row.kind else None,
+                    "country": row.country,
                     "calibers": sorted(row.caliber_names),
                     "manufacturers": sorted(row.manufacturer_names),
                     "wikipedia": row.wikipedia_url,
@@ -774,6 +843,7 @@ def _model_differences(row: FirearmModel, entry: dict[str, Any]) -> list[str]:
         {
             "aliases": row.spellings[1:],
             "kind": row.kind.value if row.kind else None,
+            "country": row.country,
             "calibers": sorted(row.caliber_names),
             "manufacturers": sorted(row.manufacturer_names),
             "wikipedia": row.wikipedia_url,
@@ -785,6 +855,7 @@ def _model_differences(row: FirearmModel, entry: dict[str, Any]) -> list[str]:
         {
             "aliases": [str(a) for a in entry.get("aliases") or []],
             "kind": entry.get("kind"),
+            "country": entry.get("country"),
             "calibers": sorted(_caliber_list(entry)),
             "manufacturers": sorted(str(m) for m in entry.get("manufacturers") or []),
             "wikipedia": entry.get("wikipedia"),
@@ -959,6 +1030,7 @@ def _write_model(
     kind = entry.get("kind")
     row.aliases = _lines(entry.get("aliases"))
     row.kind = FirearmKind(str(kind)) if kind else None
+    row.country = entry.get("country")
     row.calibers = [
         calibers[name.strip().lower()]
         for name in _caliber_list(entry)

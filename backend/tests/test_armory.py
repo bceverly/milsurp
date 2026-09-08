@@ -245,6 +245,39 @@ class TestDiscovery:
         seeded.commit()
         assert row.first_seen_in.splitlines() == ["First listing", "Second listing"]
 
+    def test_the_same_name_twice_without_a_commit_is_one_row(self, seeded):
+        """The shape a scan produces, and the shape nothing tested.
+
+        This session runs with autoflush off, so a row added and not flushed is
+        invisible to the next lookup in it. Every test above commits between
+        proposals; a scan meeting the same unknown cartridge in forty listings
+        does not, and it added forty identical rows and died on the UNIQUE
+        constraint at commit.
+        """
+        first = armory.propose_caliber(seeded, "8x57mm", "One rifle")
+        again = armory.propose_caliber(seeded, "8x57mm", "Another rifle")
+        seeded.commit()
+        assert first is again
+        assert seeded.query(Caliber).filter_by(name="8x57mm").count() == 1
+
+    def test_and_the_same_holds_for_models_and_makers(self, seeded):
+        armory.propose_model(seeded, "Model 1873", "One")
+        armory.propose_model(seeded, "Model 1873", "Two")
+        armory.propose_manufacturer(seeded, "Bernardelli", "One")
+        armory.propose_manufacturer(seeded, "Bernardelli", "Two")
+        seeded.commit()
+        assert seeded.query(FirearmModel).filter_by(name="Model 1873").count() == 1
+        assert seeded.query(Manufacturer).filter_by(name="Bernardelli").count() == 1
+
+    def test_a_maker_the_registry_knows_is_not_proposed(self, seeded, carbine):
+        """Including under one of its other spellings, which is the point."""
+        maker = seeded.query(Manufacturer).filter_by(name="Inland").one()
+        maker.aliases = "Inland Division"
+        maker.status = ArmoryStatus.APPROVED
+        seeded.commit()
+        armory.invalidate()
+        assert armory.propose_manufacturer(seeded, "Inland Division") is None
+
     def test_something_already_known_is_not_proposed(self, seeded, carbine):
         assert armory.propose_model(seeded, "US M1 Carbine") is None
 
@@ -737,3 +770,181 @@ class TestTheShippedFileIsActuallyShipped:
 
         data = yaml.safe_load(armory.SEED_FILE.read_text(encoding="utf-8"))
         assert data["manufacturers"] and data["calibers"] and data["models"]
+
+
+class TestAModelIsNamedInTheTitleOrNotAtAll:
+    """The description is not read for models, unlike for makers.
+
+    A maker's name in the prose is usually still the maker. A model
+    designation in the prose is very often a comparison: a CZ vz.50 is
+    described as a Walther PP copy, and a box of .32 ACP lists the pistols it
+    suits. Reading those gave sixty-three listings the Walther PP as their
+    model -- a third of them CZs, one of them ammunition -- and each would then
+    have taken the PP's caliber and kind.
+    """
+
+    @pytest.fixture
+    def walther(self, seeded):
+        row = FirearmModel(
+            name="Walther PP",
+            kind=FirearmKind.PISTOL,
+            status=ArmoryStatus.APPROVED,
+        )
+        seeded.add(row)
+        seeded.commit()
+        armory.invalidate()
+        return row
+
+    def test_the_title_names_it(self, seeded, walther):
+        assert armory.match(seeded, "Waffen Walther PP Rig").model == "Walther PP"
+
+    def test_a_mention_in_the_prose_does_not(self, seeded, walther):
+        found = armory.match(
+            seeded,
+            "CZ vz.50 .32 ACP Czech Police Surplus Pistol",
+            "The vz.50 is a close copy of the Walther PP, in the same calibre.",
+        )
+        assert found.model is None
+
+    def test_nor_does_a_box_of_ammunition_listing_what_it_suits(self, seeded, walther):
+        found = armory.match(
+            seeded,
+            "Czech .32 ACP/7.65 Browning 73 Grain FMJ Brass Case Ammo",
+            "Suits the Walther PP, CZ 50 and other .32 ACP pistols.",
+        )
+        assert found.model is None
+
+
+class TestAListingRemembersItsModel:
+    def test_the_match_carries_the_row_id(self, seeded):
+        row = FirearmModel(name="M1 Garand", status=ArmoryStatus.APPROVED)
+        seeded.add(row)
+        seeded.commit()
+        armory.invalidate()
+
+        found = armory.match(seeded, "Excellent M1 Garand - 1943 mfg")
+        assert found.model_id == row.id
+
+    def test_and_nothing_when_nothing_matched(self, seeded):
+        assert armory.match(seeded, "A leather sling").model_id is None
+
+
+class TestACountryOfOrigin:
+    """Where the pattern comes from, filled into listings that do not say.
+
+    The classifier reads a country out of a title -- "RUSSIAN M44 CARBINES"
+    is Russia, "SWEDISH MAUSER M96" is Sweden -- and a great many titles name
+    none. "M1 GARANDS, EXC" is one, and until the armory carried this those
+    listings had no country at all and the browse filter had no opinion about
+    them.
+    """
+
+    @pytest.fixture
+    def american(self, seeded, carbine):
+        carbine.country = "United States"
+        seeded.commit()
+        armory.invalidate()
+        return carbine
+
+    def test_the_model_supplies_it(self, seeded, american):
+        assert armory.fill_in(seeded, "US M1 Carbine, 1944").country == "United States"
+
+    def test_a_model_with_none_says_nothing(self, seeded, carbine):
+        assert armory.fill_in(seeded, "US M1 Carbine").country is None
+
+    def test_a_pending_model_supplies_nothing(self, seeded, american):
+        """The same gate as everything else here."""
+        american.status = ArmoryStatus.PENDING
+        seeded.commit()
+        armory.invalidate()
+        assert armory.fill_in(seeded, "US M1 Carbine").country is None
+
+    def test_it_is_stated_even_when_the_maker_cannot_be(self, seeded, american):
+        """Unlike the maker, this is never a choice. Nine firms built the M1
+        Carbine, so a title naming none of them leaves the maker unanswerable
+        -- and all nine of them built an American carbine."""
+        found = armory.fill_in(seeded, "US M1 Carbine")
+        assert found.manufacturer is None
+        assert found.country == "United States"
+
+    def test_a_match_carrying_only_a_country_is_still_a_match(self, seeded):
+        assert bool(armory.Match(country="Sweden"))
+
+    def test_it_survives_the_round_trip_to_a_file(self, seeded, american, tmp_path):
+        path = tmp_path / "armory.yaml"
+        armory.write_export(seeded, path)
+        assert "country: United States" in path.read_text(encoding="utf-8")
+        plan = armory.plan_sync(seeded, path)
+        assert not plan
+
+    def test_changing_it_in_the_file_is_reported_as_a_difference(self, seeded, american, tmp_path):
+        path = tmp_path / "armory.yaml"
+        armory.write_export(seeded, path)
+        path.write_text(
+            path.read_text(encoding="utf-8").replace("country: United States", "country: Sweden"),
+            encoding="utf-8",
+        )
+        change = next(c for c in armory.plan_sync(seeded, path).models if c.name == "M1 Carbine")
+        assert change.fields == ["country"]
+
+    def test_and_applying_it_writes_it(self, seeded, american, tmp_path):
+        path = tmp_path / "armory.yaml"
+        armory.write_export(seeded, path)
+        path.write_text(
+            path.read_text(encoding="utf-8").replace("country: United States", "country: Sweden"),
+            encoding="utf-8",
+        )
+        armory.apply_sync(seeded, path)
+        seeded.commit()
+        assert seeded.query(FirearmModel).filter_by(name="M1 Carbine").one().country == "Sweden"
+
+
+class TestTheShippedFileNamesItsCountries:
+    """Every model in the shipped armory says where its pattern comes from,
+    and says it the way the classifier says it.
+
+    Both matter. A blank means a listing that names no country stays blank,
+    which is the case this exists for. A spelling the classifier never
+    produces -- "USSR" against titles read as "Russia" -- is worse than a
+    blank: it splits one country into two filters that each show half the
+    rifles.
+    """
+
+    @pytest.fixture
+    def entries(self):
+        import yaml
+
+        return yaml.safe_load(armory.SEED_FILE.read_text(encoding="utf-8"))["models"]
+
+    def test_every_curated_model_has_one(self, entries):
+        """A model somebody has looked at names its country.
+
+        Stated as "has a kind" rather than "is in the file", and that is the
+        whole point of the wording. The file is no longer only the hand-written
+        baseline: discovery proposes designations from listings, so it now
+        carries hundreds of rows that are a name and nothing else. Demanding a
+        country on those would fail this suite until somebody had worked
+        through every one of them, which is a test holding the build hostage to
+        a curation backlog.
+
+        A kind is the marker of a row somebody has actually judged -- it cannot
+        be guessed from a title -- and every model carrying one carries a
+        country too. So the invariant maintains itself: curate a discovered row
+        far enough to say it is a carbine, and this asks where it is from.
+        """
+        judged = [
+            entry for entry in entries if entry.get("kind") and entry.get("status") != "merged"
+        ]
+        assert judged, "no curated models in the file at all -- has it been overwritten?"
+        assert [entry["name"] for entry in judged if not entry.get("country")] == []
+
+    def test_every_one_is_a_country_the_classifier_can_produce(self, entries):
+        known = {country for _pattern, country in classify.COUNTRY_PATTERNS}
+        named = {entry["country"] for entry in entries if entry.get("country")}
+        assert named <= known, f"not spelled the way the classifier spells them: {named - known}"
+
+    def test_the_seeder_carries_it_across(self, seeded):
+        armory.seed(seeded)
+        seeded.commit()
+        garand = seeded.query(FirearmModel).filter_by(name="M1 Garand").one()
+        assert garand.country == "United States"

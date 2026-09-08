@@ -360,3 +360,41 @@ class TestBeingRateLimited:
             context.close()
 
         assert max(slept) < 30
+
+
+class TestARefusalSaysWhichKindItWas:
+    """ "robots.txt disallows this" and "we never managed to read robots.txt"
+    both refuse the fetch and read completely differently in a scan log. The
+    second one worded as the first sends whoever is debugging looking for a
+    rule that does not exist.
+    """
+
+    def test_a_real_rule_says_disallows(self, obeying):
+        ctx = ScrapeContext(obeying)
+        # RobotsCache captures the bound fetcher when the context is built, so
+        # the cache's own hook is what a test has to replace.
+        ctx.robots._fetch = lambda _url: _Response(200, "User-agent: *\nDisallow: /x")
+        with pytest.raises(Disallowed) as caught:
+            ctx.get("https://shop.test/x")
+        assert "disallows" in str(caught.value)
+        assert caught.value.reachable is True
+        ctx.close()
+
+    def test_an_unreadable_file_says_so(self, obeying):
+        ctx = ScrapeContext(obeying)
+
+        def boom(_url):
+            raise OSError("connection reset")
+
+        ctx.robots._fetch = boom
+        with pytest.raises(Disallowed) as caught:
+            ctx.get("https://shop.test/x")
+        assert "could not read robots.txt" in str(caught.value)
+        assert caught.value.reachable is False
+        ctx.close()
+
+
+class _Response:
+    def __init__(self, status_code, text=""):
+        self.status_code = status_code
+        self.text = text

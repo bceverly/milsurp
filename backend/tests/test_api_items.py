@@ -581,3 +581,72 @@ class TestSecretsAreJudgedNotPassedAround:
             SecretHealth.SHORT,
         }
         assert inspect_secret("hunter2hunter2hunter2") in set(SecretHealth)
+
+
+class TestTheArmoryIsVisible:
+    """A listing names the model it matched, and you can filter on it.
+
+    The armory has been shaping listings since it existed and doing all of it
+    invisibly: nothing said *which* model a fill had come from, so a
+    questionable caliber could not be traced and the M91/30s could not be
+    browsed.
+    """
+
+    @pytest.fixture
+    def garand(self, seeded, inventory):
+        from app.models import ArmoryStatus, Caliber, FirearmKind, FirearmModel, Manufacturer
+
+        maker = Manufacturer(name="Springfield")
+        cartridge = Caliber(name=".30-06 Springfield", status=ArmoryStatus.APPROVED)
+        model = FirearmModel(
+            name="M1 Garand",
+            kind=FirearmKind.RIFLE,
+            status=ArmoryStatus.APPROVED,
+            wikipedia_url="https://en.wikipedia.org/wiki/M1_Garand",
+        )
+        seeded.add_all([maker, cartridge, model])
+        model.manufacturers = [maker]
+        model.calibers = [cartridge]
+        seeded.flush()
+        inventory[0].firearm_model_id = model.id
+        seeded.commit()
+        return model
+
+    def test_a_listing_names_its_model(self, client, admin_headers, garand, inventory):
+        body = client.get("/api/items", headers=admin_headers).json()
+        named = [row for row in body["items"] if row["model"]]
+        assert [row["model"] for row in named] == ["M1 Garand"]
+        assert named[0]["firearm_model_id"] == garand.id
+
+    def test_the_detail_view_carries_what_the_armory_knows(
+        self, client, admin_headers, garand, inventory
+    ):
+        body = client.get(f"/api/items/{inventory[0].id}", headers=admin_headers).json()
+        assert body["model"] == "M1 Garand"
+        assert body["model_kind"] == "rifle"
+        assert body["model_makers"] == ["Springfield"]
+        assert body["model_calibers"] == [".30-06 Springfield"]
+        assert body["model_reference_url"].endswith("M1_Garand")
+
+    def test_a_listing_with_no_match_says_nothing(self, client, admin_headers, inventory):
+        body = client.get(f"/api/items/{inventory[1].id}", headers=admin_headers).json()
+        assert body["model"] is None
+        assert body["model_makers"] == []
+
+    def test_the_models_are_a_facet(self, client, admin_headers, garand, inventory):
+        facets = client.get("/api/items", headers=admin_headers).json()["facets"]
+        assert [(f["label"], f["count"]) for f in facets["models"]] == [("M1 Garand", 1)]
+
+    def test_and_a_filter(self, client, admin_headers, garand, inventory):
+        body = client.get(f"/api/items?model={garand.id}", headers=admin_headers).json()
+        assert body["total"] == 1
+        assert body["items"][0]["model"] == "M1 Garand"
+
+    def test_the_filter_is_by_id_so_a_rename_keeps_its_listings(
+        self, client, admin_headers, garand, seeded, inventory
+    ):
+        garand.name = "US Rifle, Cal. .30, M1"
+        seeded.commit()
+        body = client.get(f"/api/items?model={garand.id}", headers=admin_headers).json()
+        assert body["total"] == 1
+        assert body["items"][0]["model"] == "US Rifle, Cal. .30, M1"

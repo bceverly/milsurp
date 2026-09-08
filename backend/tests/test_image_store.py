@@ -3,17 +3,19 @@
 from __future__ import annotations
 
 import io
+import socket
 
 import pytest
 import requests
 from PIL import Image
 
+from app.services import image_store
 from app.services.image_store import (
     MAX_IMAGE_BYTES,
     THUMBNAIL_MAX_EDGE,
     ImageStore,
     ImageStoreError,
-    _is_public_url,
+    _check_url,
 )
 
 
@@ -83,7 +85,7 @@ class TestSsrfGuard:
     )
     def test_private_and_loopback_addresses_rejected(self, url):
         """A hostile listing must not turn the scraper into an internal probe."""
-        assert not _is_public_url(url)
+        assert not _check_url(url).allowed
 
     @pytest.mark.parametrize(
         "url",
@@ -96,10 +98,59 @@ class TestSsrfGuard:
         ],
     )
     def test_non_http_schemes_rejected(self, url):
-        assert not _is_public_url(url)
+        assert not _check_url(url).allowed
 
     def test_unresolvable_host_rejected(self):
-        assert not _is_public_url("http://this-host-does-not-exist.invalid/x.jpg")
+        assert not _check_url("http://this-host-does-not-exist.invalid/x.jpg").allowed
+
+    def test_but_being_unresolvable_is_not_a_permanent_verdict(self):
+        """A resolver that gave up is a fact about the last half-second, not
+        about the URL, and marking it permanent spends one of the photograph's
+        three attempts. One SARCO scan lost 151 photographs to this -- every
+        one an ordinary CDN address that resolves perfectly well, refused as
+        "not a public HTTP(S) URL" because getaddrinfo buckled under four
+        hundred lookups of the same name.
+        """
+        verdict = _check_url("http://this-host-does-not-exist.invalid/x.jpg")
+        assert verdict.permanent is False
+        assert "could not resolve" in verdict.reason
+
+    def test_whereas_a_private_address_is(self):
+        """That one will be just as true tomorrow."""
+        verdict = _check_url("http://127.0.0.1/photo.jpg")
+        assert verdict.allowed is False
+        assert verdict.permanent is True
+        assert "non-public" in verdict.reason
+
+    def test_a_public_host_is_resolved_once(self, monkeypatch):
+        """Four hundred photographs from one CDN asked the resolver four
+        hundred times for the same name, which is what provoked the failures
+        above."""
+        image_store._PUBLIC_HOSTS.discard("example.com")
+        calls = []
+
+        def counted(host, _port):
+            calls.append(host)
+            return [(None, None, None, None, ("93.184.216.34", 0))]
+
+        monkeypatch.setattr(image_store.socket, "getaddrinfo", counted)
+        for _ in range(5):
+            assert _check_url("https://example.com/a.jpg").allowed
+        assert calls == ["example.com"]
+
+    def test_but_a_refusal_is_not_remembered(self, monkeypatch):
+        """So a host that was briefly unresolvable is not written off."""
+        answers = [socket.gaierror(-2, "Name or service not known")]
+
+        def flaky(host, _port):
+            if answers:
+                raise answers.pop()
+            return [(None, None, None, None, ("93.184.216.34", 0))]
+
+        image_store._PUBLIC_HOSTS.discard("flaky.example")
+        monkeypatch.setattr(image_store.socket, "getaddrinfo", flaky)
+        assert not _check_url("https://flaky.example/a.jpg").allowed
+        assert _check_url("https://flaky.example/a.jpg").allowed
 
     def test_download_refuses_a_private_url(self, store):
         session = FakeSession(FakeResponse(make_png(10, 10)))
@@ -128,7 +179,10 @@ class TestPathSafety:
 
 class TestDownload:
     def test_stores_the_file_and_a_thumbnail(self, store, monkeypatch):
-        monkeypatch.setattr("app.services.image_store._is_public_url", lambda _url: True)
+        monkeypatch.setattr(
+            "app.services.image_store._check_url",
+            lambda _url: image_store.UrlVerdict(True),
+        )
         session = FakeSession(FakeResponse(make_png(1600, 1200)))
         stored = store.download(session, "royal-tiger", "https://example.test/big.png")
 
@@ -146,51 +200,75 @@ class TestDownload:
 
     def test_small_images_reuse_the_original(self, store, monkeypatch):
         """No point writing a second copy of an already-small picture."""
-        monkeypatch.setattr("app.services.image_store._is_public_url", lambda _url: True)
+        monkeypatch.setattr(
+            "app.services.image_store._check_url",
+            lambda _url: image_store.UrlVerdict(True),
+        )
         session = FakeSession(FakeResponse(make_png(200, 150)))
         stored = store.download(session, "site", "https://example.test/small.png")
         assert stored.thumb_filename == stored.filename
 
     def test_transparency_is_flattened(self, store, monkeypatch):
         """JPEG has no alpha channel; an RGBA source must not fail to save."""
-        monkeypatch.setattr("app.services.image_store._is_public_url", lambda _url: True)
+        monkeypatch.setattr(
+            "app.services.image_store._check_url",
+            lambda _url: image_store.UrlVerdict(True),
+        )
         session = FakeSession(FakeResponse(make_png(1200, 900, mode="RGBA")))
         stored = store.download(session, "site", "https://example.test/alpha.png")
         assert stored.thumb_filename is not None
         assert store.exists(stored.thumb_filename)
 
     def test_content_addressed_filenames_are_stable(self, store, monkeypatch):
-        monkeypatch.setattr("app.services.image_store._is_public_url", lambda _url: True)
+        monkeypatch.setattr(
+            "app.services.image_store._check_url",
+            lambda _url: image_store.UrlVerdict(True),
+        )
         url = "https://example.test/same.png"
         first = store.download(FakeSession(FakeResponse(make_png(300, 200))), "site", url)
         second = store.download(FakeSession(FakeResponse(make_png(300, 200))), "site", url)
         assert first.filename == second.filename
 
     def test_non_image_content_type_rejected(self, store, monkeypatch):
-        monkeypatch.setattr("app.services.image_store._is_public_url", lambda _url: True)
+        monkeypatch.setattr(
+            "app.services.image_store._check_url",
+            lambda _url: image_store.UrlVerdict(True),
+        )
         session = FakeSession(FakeResponse(b"<html>nope</html>", content_type="text/html"))
         assert store.download(session, "site", "https://example.test/page") is None
 
     def test_oversized_declared_length_rejected(self, store, monkeypatch):
-        monkeypatch.setattr("app.services.image_store._is_public_url", lambda _url: True)
+        monkeypatch.setattr(
+            "app.services.image_store._check_url",
+            lambda _url: image_store.UrlVerdict(True),
+        )
         response = FakeResponse(make_png(10, 10))
         response.headers["Content-Length"] = str(MAX_IMAGE_BYTES + 1)
         assert store.download(FakeSession(response), "site", "https://example.test/x.png") is None
 
     def test_network_failure_returns_none(self, store, monkeypatch):
         """A missing photo is never worth failing a scan over."""
-        monkeypatch.setattr("app.services.image_store._is_public_url", lambda _url: True)
+        monkeypatch.setattr(
+            "app.services.image_store._check_url",
+            lambda _url: image_store.UrlVerdict(True),
+        )
         session = FakeSession(raises=requests.ConnectionError("refused"))
         assert store.download(session, "site", "https://example.test/x.png") is None
 
     def test_http_error_returns_none(self, store, monkeypatch):
-        monkeypatch.setattr("app.services.image_store._is_public_url", lambda _url: True)
+        monkeypatch.setattr(
+            "app.services.image_store._check_url",
+            lambda _url: image_store.UrlVerdict(True),
+        )
         session = FakeSession(FakeResponse(b"", content_type="image/png", status=404))
         assert store.download(session, "site", "https://example.test/x.png") is None
 
     def test_corrupt_image_keeps_the_file_but_has_no_thumbnail(self, store, monkeypatch):
         """Pillow cannot decode it, but the bytes are already on disk."""
-        monkeypatch.setattr("app.services.image_store._is_public_url", lambda _url: True)
+        monkeypatch.setattr(
+            "app.services.image_store._check_url",
+            lambda _url: image_store.UrlVerdict(True),
+        )
         session = FakeSession(FakeResponse(b"not really a png", content_type="image/png"))
         stored = store.download(session, "site", "https://example.test/bad.png")
         assert stored is not None
@@ -198,7 +276,10 @@ class TestDownload:
         assert stored.thumb_filename is None
 
     def test_no_partial_files_left_behind(self, store, monkeypatch):
-        monkeypatch.setattr("app.services.image_store._is_public_url", lambda _url: True)
+        monkeypatch.setattr(
+            "app.services.image_store._check_url",
+            lambda _url: image_store.UrlVerdict(True),
+        )
         store.download(
             FakeSession(FakeResponse(make_png(800, 600))), "site", "https://e.test/a.png"
         )
@@ -207,13 +288,19 @@ class TestDownload:
 
 class TestHousekeeping:
     def test_usage_bytes(self, store, monkeypatch):
-        monkeypatch.setattr("app.services.image_store._is_public_url", lambda _url: True)
+        monkeypatch.setattr(
+            "app.services.image_store._check_url",
+            lambda _url: image_store.UrlVerdict(True),
+        )
         assert store.usage_bytes() == 0
         store.download(FakeSession(FakeResponse(make_png(400, 300))), "s", "https://e.test/a.png")
         assert store.usage_bytes() > 0
 
     def test_prune_removes_unreferenced_files(self, store, monkeypatch):
-        monkeypatch.setattr("app.services.image_store._is_public_url", lambda _url: True)
+        monkeypatch.setattr(
+            "app.services.image_store._check_url",
+            lambda _url: image_store.UrlVerdict(True),
+        )
         keep = store.download(
             FakeSession(FakeResponse(make_png(400, 300))), "s", "https://e.test/keep.png"
         )
@@ -246,7 +333,10 @@ class TestThumbnailsAreNotOrphans:
     """
 
     def stored_pair(self, store, monkeypatch, url="https://e.test/a.png"):
-        monkeypatch.setattr("app.services.image_store._is_public_url", lambda _url: True)
+        monkeypatch.setattr(
+            "app.services.image_store._check_url",
+            lambda _url: image_store.UrlVerdict(True),
+        )
         return store.download(FakeSession(FakeResponse(make_png(1600, 1200))), "s", url)
 
     def test_a_prune_that_is_told_about_both_keeps_both(self, store, monkeypatch):
@@ -272,7 +362,10 @@ class TestRebuildingAThumbnail:
     """Derived from a file already held, so losing one costs no bandwidth."""
 
     def test_it_is_written_from_the_stored_original(self, store, monkeypatch):
-        monkeypatch.setattr("app.services.image_store._is_public_url", lambda _url: True)
+        monkeypatch.setattr(
+            "app.services.image_store._check_url",
+            lambda _url: image_store.UrlVerdict(True),
+        )
         stored = store.download(
             FakeSession(FakeResponse(make_png(1600, 1200))), "s", "https://e.test/a.png"
         )
@@ -289,7 +382,10 @@ class TestRebuildingAThumbnail:
             assert max(thumb.size) <= THUMBNAIL_MAX_EDGE
 
     def test_an_image_already_small_points_back_at_itself(self, store, monkeypatch):
-        monkeypatch.setattr("app.services.image_store._is_public_url", lambda _url: True)
+        monkeypatch.setattr(
+            "app.services.image_store._check_url",
+            lambda _url: image_store.UrlVerdict(True),
+        )
         stored = store.download(
             FakeSession(FakeResponse(make_png(200, 150))), "s", "https://e.test/small.png"
         )
@@ -315,7 +411,10 @@ class TestTwoWritersAtOnce:
     @pytest.fixture(autouse=True)
     def _reachable(self, monkeypatch):
         """example.test does not resolve, and this is not about SSRF."""
-        monkeypatch.setattr("app.services.image_store._is_public_url", lambda _url: True)
+        monkeypatch.setattr(
+            "app.services.image_store._check_url",
+            lambda _url: image_store.UrlVerdict(True),
+        )
 
     def test_the_temporary_name_is_unique_per_writer(self, store, app_config):
         """It used to be the target plus ".part", which is the same path for

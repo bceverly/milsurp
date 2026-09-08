@@ -129,9 +129,16 @@ def parse(text: str) -> list[Group]:
 class Robots:
     """One site's robots.txt, ready to answer questions about it."""
 
-    def __init__(self, groups: list[Group], *, allow_all: bool = False) -> None:
+    def __init__(
+        self, groups: list[Group], *, allow_all: bool = False, reachable: bool = True
+    ) -> None:
         self._groups = groups
         self._allow_all = allow_all
+        #: False when the file could not be fetched at all, as opposed to
+        #: fetched and found to forbid things. Both answers refuse the request
+        #: -- see :meth:`RobotsCache._load` -- but only one of them is an
+        #: answer, and callers word their warnings differently.
+        self.reachable = reachable
 
     @classmethod
     def allowing_everything(cls) -> Robots:
@@ -139,9 +146,12 @@ class Robots:
         return cls([], allow_all=True)
 
     @classmethod
-    def denying_everything(cls) -> Robots:
+    def denying_everything(cls, *, reachable: bool = True) -> Robots:
         """What a server error from the robots endpoint means."""
-        return cls([Group(agents={"*"}, rules=[Rule(re.compile("^/"), 1, False)])])
+        return cls(
+            [Group(agents={"*"}, rules=[Rule(re.compile("^/"), 1, False)])],
+            reachable=reachable,
+        )
 
     @classmethod
     def parse(cls, text: str) -> Robots:
@@ -222,7 +232,19 @@ class RobotsCache:
             return cached[1]
 
         robots = self._load(f"{origin}/robots.txt")
-        self._cache[origin] = (now, robots)
+        # A file we could not fetch is not an answer, so it is not remembered
+        # as one. Caching it would let a single dropped connection stand as
+        # this host's rules for the next hour -- which is how one timeout cost
+        # a whole SARCO scan: every section of that catalog is served by one
+        # third-party host, so the first failure denied all six of them and the
+        # run finished PARTIAL with zero listings and a warning that said
+        # "robots.txt disallows", which it did not.
+        #
+        # The request that provoked it is still refused. Failing closed on the
+        # attempt is the safety property; remembering the failure is not part
+        # of it, and the next request asks again.
+        if robots.reachable:
+            self._cache[origin] = (now, robots)
         return robots
 
     def _load(self, url: str) -> Robots:
@@ -231,8 +253,12 @@ class RobotsCache:
         except Exception:
             # We could not ask. Erring towards "allowed" here would mean a
             # network blip silently turns off every restriction a site has.
+            #
+            # Marked unreachable so the caller can say "could not read" rather
+            # than "disallows", and so for_url() does not remember a dropped
+            # connection as this host's rules.
             log.warning("Could not fetch %s; treating the site as off limits.", url)
-            return Robots.denying_everything()
+            return Robots.denying_everything(reachable=False)
 
         status = getattr(response, "status_code", 0)
         if status in (401, 403):

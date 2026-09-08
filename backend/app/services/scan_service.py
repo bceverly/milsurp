@@ -48,7 +48,7 @@ from ..scrapers import (
     get_scraper,
     get_scraper_class,
 )
-from . import armory, classify, manufacturers
+from . import armory, classify, discovery, manufacturers
 from .image_store import ImageStore
 
 #: Progress lines kept per run. Enough to debug a scrape without unbounded growth.
@@ -336,9 +336,20 @@ def _apply_catalog(session: Session, item: Item, trusted: bool) -> None:
     nobody has answered yet, and a question must not rewrite the armory.
     """
     found = armory.fill_in(session, item.title, item.description if trusted else None, item.caliber)
+    # Which model, recorded rather than merely used. Without it the armory
+    # shaped a listing and left nothing to say it had: no way to browse the
+    # M91/30s, no link to what is known about the gun, and no way to look at a
+    # questionable caliber and see where it came from.
+    item.firearm_model_id = found.model_id
     if found.caliber:
         item.caliber = found.caliber
     item.manufacturer = item.manufacturer or found.manufacturer
+    # Same one-directional fill, and for a sharper reason than the maker. The
+    # model's country is where the *pattern* comes from; a listing's is where
+    # this particular gun is said to be from, and those genuinely differ -- a
+    # K98k assembled in Brno after the war is a German pattern made in
+    # Czechoslovakia. Whoever wrote the listing was looking at the gun.
+    item.country = item.country or found.country
     # The kind *refines*, it never promotes. The armory knows what a model is;
     # it does not know whether this listing is selling one. "Early style band
     # bolt handle Berthier 1907/15 and M16 bolt assembly" names a rifle and is
@@ -941,6 +952,8 @@ def run_scan(  # noqa: PLR0912,PLR0915 - one linear scan lifecycle; see ROADMAP
                     f"{delisted} de-listed, {changes} price change(s)."
                 )
 
+                _propose_armory_rows(session, site, seen_keys, log)
+
                 images = _download_photos(session, site, ctx, config)
 
                 run.items_found = len(seen_keys)
@@ -979,6 +992,52 @@ def run_scan(  # noqa: PLR0912,PLR0915 - one linear scan lifecycle; see ROADMAP
         with _lock:
             _running.pop(site_id, None)
             _cancel_flags.pop(site_id, None)
+
+
+#: Keys per SELECT when gathering a scan's listings back. Under SQLite's
+#: default 999-variable ceiling with room for the other bound parameters.
+_KEYS_PER_QUERY = 500
+
+
+def _propose_armory_rows(session: Session, site: Site, keys: set[str], log: "_RunLog") -> None:
+    """Write down what this scan met and the armory cannot explain.
+
+    At the end, over the listings this run actually touched, rather than per
+    listing during the reconcile loop. Two reasons: the loop commits between
+    listings to keep the write lock free, and a proposal is worth making from
+    the *stored* record -- caliber filled in, rifle-or-handgun settled -- not
+    from the raw scrape.
+
+    Everything it writes is pending, so nothing here can change what a scan
+    decides about a listing. A failure is a warning rather than a scan failure,
+    because the catalog is already saved by this point and losing a run over a
+    housekeeping pass would be a poor trade.
+    """
+    if not keys:
+        return
+    try:
+        # Chunked, because SQLite caps a statement at 999 bound variables by
+        # default and a first scan of a large catalog carries more keys than
+        # that. Centerfire's 495 fit; SARCO's 429 fit; the next shop need not.
+        keys_list = list(keys)
+        items: list[Item] = []
+        for start in range(0, len(keys_list), _KEYS_PER_QUERY):
+            batch = keys_list[start : start + _KEYS_PER_QUERY]
+            items.extend(
+                session.execute(
+                    select(Item).where(Item.site_id == site.id, Item.external_key.in_(batch))
+                )
+                .scalars()
+                .all()
+            )
+        found = discovery.discover(session, items)
+        session.commit()
+    except Exception as exc:  # pragma: no cover - defensive; see the docstring
+        session.rollback()
+        log(f"Could not update the armory queue: {type(exc).__name__}: {exc}")
+        return
+    if found.total_added:
+        log(f"Armory: proposed {found.summary()}, awaiting approval.")
 
 
 def due_site_ids(session: Session) -> list[int]:

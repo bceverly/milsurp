@@ -893,6 +893,48 @@
   background: var(--navy-50);
 }
 
+/* A sortable column header. The button fills the cell so the whole header is
+   the target, and it inherits the header's own type rather than looking like a
+   control dropped into it. */
+.table__sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+}
+
+.table__sort:hover {
+  color: var(--ink-900);
+}
+
+.table__sort:focus-visible {
+  outline: 2px solid var(--navy-500);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.table__sort--active {
+  color: var(--ink-900);
+}
+
+/* Dimmed until the column is the one being sorted, so the header row reads as
+   headings with an affordance rather than a row of arrows. */
+.table__sort-mark {
+  font-size: 9px;
+  opacity: 0.35;
+}
+
+.table__sort--active .table__sort-mark {
+  opacity: 1;
+}
+
 .table__num {
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -1536,4 +1578,15 @@
 
 .armory-inline-add .input {
   flex: 1;
+}
+
+/* The armory's answer on an item, set apart from the inferred fields around
+   it: it is the one line a person vouched for. */
+.detail__model {
+  font-weight: 600;
+}
+
+.detail__model-kind {
+  margin-left: 0.5rem;
+  opacity: 0.75;
 }

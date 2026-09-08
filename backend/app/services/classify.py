@@ -188,6 +188,13 @@ CALIBER_NORMALIZATIONS: tuple[tuple[str, str], ...] = (
     # below match their first half: ".32-20" read by the ".32" rule becomes a
     # .32 ACP, and ".44-40" read by the bare-bore rule becomes a .44. Either
     # way the half of the name that says *which* one is thrown away.
+    # And the ones that share a bore with a different cartridge entirely. A
+    # bare ".38" used to answer ".38 Special" for all of them, which filed a
+    # Colt 1911 in .38 Super as a revolver round; ".45 Colt" and ".45 LC" are
+    # not .45 ACP either.
+    (r"\.?38\s*super\b", ".38 Super"),
+    (r"\.?38\s*s\s*&\s*w\b|\.?38\s*smith\b", ".38 S&W"),
+    (r"\.?45\s*(?:lc\b|long\s+colt\b|colt\b)", ".45 Colt"),
     (r"\.?44-40\b", ".44-40 Winchester"),
     (r"\.?38-40\b", ".38-40 Winchester"),
     (r"\.?38-55\b", ".38-55 Winchester"),
@@ -230,7 +237,16 @@ CALIBER_NORMALIZATIONS: tuple[tuple[str, str], ...] = (
     (r"\.25\s*acp|\b6\.35\s*mm\b|\b6\.35\b|\.25\b", ".25 ACP"),
     (r"\.380\s*acp|\.380\b", ".380 ACP"),
     # After .380, so the longer number is read first.
-    (r"\.38\s*(?:special|spl)\b|\.38\b", ".38 Special"),
+    # The bare-bore fallback, which must not answer for a cartridge that
+    # merely starts with the same number. The named ones above are tried
+    # first, and this refuses the rest rather than guessing.
+    (
+        (
+            r"\.38\s*(?:special|spl)\b"
+            r"|\.38\b(?!\s*(?:super|s\s*&\s*w|smith|acp|auto|colt|long|short|-))"
+        ),
+        ".38 Special",
+    ),
     (r"\.32\s*acp|\.\s*32\s*acp|\.32\b", ".32 ACP"),
     (r"7\.65\s*mm\b", ".32 ACP"),
     (r"\.22\s*lr|\.22(?!\s*\d)", ".22 LR"),
@@ -374,6 +390,13 @@ def _bare_bore(haystack: str) -> str | None:
 #: "BM-59 Paratrooper ... Bipod, Bayonet Lug" are both rifles.
 _BAYONET = re.compile(r"\bbayonets?\b(?!\s+lugs?\b)", re.I)
 
+#: The sheath. On its own it says nothing -- see _is_a_bayonet().
+_SCABBARD = re.compile(r"\bscabbards?\b", re.I)
+
+#: The bolt, which a rifle listing names as often to say it is missing.
+_BOLT = re.compile(r"\bbolts?\b", re.I)
+
+
 #: A listing saying what it does *not* come with.
 #:
 #: "Russian Tula SKS - No Import Marks - Numbers Matching - No Bayonet" is a
@@ -414,6 +437,29 @@ _COMES_WITH = re.compile(r"\bw/|\bw(?=\s)|\b(?:with|and|plus|incl(?:udes|uding)?
 #: title carries it otherwise.
 _PARTS_KIT = re.compile(r"\bparts?\s+kits?\b", re.I)
 
+#: A receiver that has been cut apart, which is a parts kit whatever the law
+#: calls it. The site's owner asked for this explicitly: a torch-cut ZB37
+#: receiver is the remains of a machine gun, and nobody watching for a rifle
+#: wants one in the results.
+#:
+#: Every word here is anchored, because "cut" is a minefield in this catalog.
+#: It sits inside *conse-cut-ive*, which would have taken a pair of consecutive
+#: serial-numbered Lugers; "CNC Billet Cut" is how a receiver was machined;
+#: and a "Cutaway" or "Cutdown" rifle is a rifle -- the first a factory
+#: teaching aid, the second simply shortened. \bcut\b matches none of those
+#: three, and the qualifiers in front of it rule out the fourth.
+#:
+#: A bare "cut receiver" was tried and taken straight back out. JRA sell a
+#: BM-59 and a BM-62 built on a "New Steel Billet Cut Receiver" -- a receiver
+#: freshly machined out of billet, which is the opposite of a demilled one and
+#: reads identically. Only the destructive qualifiers are kept.
+_DEMILLED = re.compile(
+    r"\b(?:torch|saw|flame|plasma|acetylene)[\s-]*cut\b"
+    r"|\bcut[\s-]*(?:up|apart)\b"
+    r"|\bde-?mil(?:led|itari[sz]ed)?\b",
+    re.I,
+)
+
 #: A muzzleloader sold as a kit to build. It belongs with the parts kits for
 #: the same reason they do: it is a whole gun that is not yet a gun, and
 #: somebody watching for a finished 1861 Springfield does not want one in the
@@ -439,9 +485,20 @@ _KIT_OF_SOMETHING_ELSE = re.compile(
 )
 
 
-def _is_a_bayonet(title: str) -> bool:
+def _is_a_bayonet(title: str, description: str | None = None) -> bool:
     found = _BAYONET.search(title or "")
-    if found is None or _lacks(title, _BAYONET):
+    if found is None:
+        # A scabbard is the bayonet's sheath and belongs with them -- but the
+        # word alone will not do it, because a scabbard is also what a rifle
+        # rides in: "U.S. WWII M1 Carbine Leather Scabbard Holster" is a case
+        # for the carbine. So the listing has to say bayonet somewhere.
+        #
+        # The description is read here and nowhere else in this module, and it
+        # is safe for one reason: enrich() only asks this about a listing that
+        # is already neither a rifle nor a handgun, so prose mentioning a
+        # bayonet cannot take a rifle away from the rifles.
+        return bool(_SCABBARD.search(title or "") and _BAYONET.search(description or ""))
+    if _lacks(title, _BAYONET):
         return False
     return _COMES_WITH.search(title[: found.start()]) is None
 
@@ -451,6 +508,7 @@ def _is_a_parts_kit(title: str, category: str | None) -> bool:
         _PARTS_KIT.search(title or "")
         or _PARTS_KIT.search(category or "")
         or _is_a_muzzleloader_kit(title or "")
+        or _DEMILLED.search(title or "")
     )
 
 
@@ -707,6 +765,7 @@ PISTOL_CALIBERS = (
     r"\b9x19\b",
     r"\b\.?45\s*acp\b",
     r"\b\.?38\s*special\b",
+    r"\b\.?38\s*super\b",
     r"\b\.?357\b",
     r"\b\.?44\b",
     r"\bflare\b",
@@ -767,8 +826,30 @@ _NO_FRAME_PATTERN = re.compile(
 
 
 #: Category names that state the firearm type outright.
-_CATEGORY_RIFLE = re.compile(r"\b(?:rifles?|carbines?|muskets?|long\s*guns?)\b", re.I)
+# "shotguns?" belongs here and was missing. The browse filter's split is long
+# gun against handgun, not rifle against everything, and FirearmKind.SHOTGUN
+# reports is_long_gun -- so a dealer's "Shotguns" section was the one type
+# heading the classifier could read and did nothing with. SARCO file 73 of them
+# there.
+_CATEGORY_RIFLE = re.compile(r"\b(?:rifles?|carbines?|muskets?|shotguns?|long\s*guns?)\b", re.I)
 _CATEGORY_PISTOL = re.compile(r"\b(?:handguns?|pistols?|revolvers?|sidearms?)\b", re.I)
+
+#: A section that says "these are guns" without saying which kind. Read only
+#: as a last resort -- see the end of classify_firearm().
+_CATEGORY_FIREARM = re.compile(r"\b(?:firearms?|guns?)\b", re.I)
+
+#: A category that is *only* a type word, with nothing else in it.
+#:
+#: The distinction this draws is between a section and a collection. SARCO's
+#: "Pistols" holds pistols; IMA-USA's "M1 Garand & U.S. Rifles" holds anything
+#: to do with an M1 Garand, slings and bayonets included -- which is why the
+#: accessory vetoes outrank kind_from_category in general. A bare type word is
+#: the case where they should not.
+_CATEGORY_IS_ONLY_A_TYPE = re.compile(
+    r"^\s*(?:handguns?|pistols?|revolvers?|rifles?|carbines?|shotguns?|muskets?"
+    r"|long\s*guns?)\s*$",
+    re.I,
+)
 
 
 def kind_from_category(category: str | None) -> tuple[bool, bool] | None:
@@ -925,7 +1006,12 @@ _MEASURED = re.compile(r"""[\d/.]+\s*(?:"|”|″|'|in\.?|inch(?:es)?|cm|mm)?[\s
 #: one for sale on its own.
 _FEATURE_QUALIFIED = re.compile(
     r"\b(?:threaded|ported|match|octagonal|octagon|bull|heavy|fluted|tapered|shrouded"
-    r"|fixed|folding|fold|thumbhole|rejected|adjustable|collapsible)\s+$",
+    r"|fixed|folding|fold|thumbhole|rejected|adjustable|collapsible"
+    # How many barrels the gun has, which is a fact about the gun and not an
+    # offer of a barrel: "KRICO SINGLE BARREL .22LR" and "HUSQVARNA SINGLE
+    # BARREL .22LR" are rifles, and all three of these were filed under
+    # accessories on the strength of the word "barrel".
+    r"|single|double|twin|triple|over\s*/?\s*under|side\s+by\s+side)\s+$",
     re.I,
 )
 
@@ -1074,7 +1160,8 @@ def _is_the_head_noun(title_lower: str, found: re.Match[str]) -> bool:
     return not (_NAMES_A_FIREARM_OR_MODEL.search(after) or _FRAME_PATTERN.search(after))
 
 
-def _accessory_leads(title_lower: str) -> bool:
+def _accessory_leads(title_lower: str) -> bool:  # noqa: PLR0911 - each return is
+    #                          one way a title can name a part without selling it
     """Whether the title offers an accessory rather than a firearm with one.
 
     "Leather sling for a Mauser rifle" and "Mosin Nagant rifle with sling" both
@@ -1083,6 +1170,14 @@ def _accessory_leads(title_lower: str) -> bool:
     """
     accessory = _BUNDLED_ACCESSORY.search(title_lower)
     if not accessory:
+        return False
+
+    # A part the title is using to describe the gun is not the thing being
+    # sold, wherever in the sentence it sits. Order is the rule here and this
+    # is the exception to it: "KRICO SINGLE BARREL .22LR" is a single-barrel
+    # rifle, and reading the barrel as the product because nothing precedes it
+    # filed three of them under accessories.
+    if _is_a_specification(accessory.group(0), title_lower[: accessory.start()]):
         return False
 
     # An accessory described as belonging to this particular firearm is not
@@ -1466,9 +1561,13 @@ def _is_a_standalone_part(title_lower: str) -> bool:
         and not _NAMES_A_FIREARM_OR_MODEL.search(title_lower)
     ):
         return True
+    # _lacks rather than a bespoke "without bolt": a rifle described by what is
+    # missing is still a rifle, and the dealer writes that half a dozen ways.
+    # "Romanian UMC Cugir - No Bolt" was filed under accessories because this
+    # knew only "without" and "w/o".
     return (
-        re.search(r"\bbolts?\b", title_lower) is not None
-        and not re.search(r"w(?:ithout|/o)\s+bolt", title_lower)
+        _BOLT.search(title_lower) is not None
+        and not _lacks(title_lower, _BOLT)
         and not any(word in title_lower for word in FIREARM_WORDS)
     )
 
@@ -1478,6 +1577,11 @@ def _is_a_standalone_part(title_lower: str) -> bool:
 #: facts about the market rather than facts about English, and it is expected
 #: to grow.
 KNOWN_DESIGNATIONS: tuple[tuple[str, bool, bool], ...] = (
+    # "Govt 1911" and "Government Model" are the Colt automatic. A bare "1911"
+    # is not enough on its own -- the Schmidt-Rubin Model 1911 is a rifle, and
+    # the armory refuses that designation for exactly this reason -- but the
+    # word in front of it settles which one a dealer means.
+    (r"\bgov(?:'?t|ernment)\b[\s,-]*(?:model\s*)?1911\b", False, True),
     # On a surplus flyer "Enfield No1 Mk2" is the revolver, not the SMLE rifle
     # that shares most of that designation. Reported by the site's owner.
     (r"\benfield\s*n[o0]\.?\s*1\s*mk\.?\s*2\b", False, True),
@@ -1623,7 +1727,9 @@ def _break_the_tie(title_lower: str) -> tuple[bool, bool]:
     return (True, False) if rifle_at <= pistol_at else (False, True)
 
 
-def classify_firearm(
+def classify_firearm(  # noqa: PLR0911 - one return per rule class; a single
+    #                        exit would mean a mutable answer threaded through
+    #                        every veto, which is harder to read, not easier
     title: str,
     description: str | None = None,
     caliber: str | None = None,
@@ -1654,10 +1760,18 @@ def classify_firearm(
     # Only the confident half. The rest of that test fires on "Winchester Model
     # 1873 - Octagonal Barrel" and "Swiss K31 Carbine Rifle w/ Matching
     # Bayonet", and the category is what has been quietly rescuing those.
+    stated = kind_from_category(category)
+    if stated is not None and _CATEGORY_IS_ONLY_A_TYPE.match(category or ""):
+        # A section named for nothing but a type outranks even the confident
+        # accessory test. Two listings in SARCO's "Pistols" were being read as
+        # parts because of a word inside them: "Hungarian FEG Hi Power -
+        # Plastic Grips" describes its grips, and "FRANZ STOCK TYPE 1" is a
+        # maker whose surname is a gun part.
+        return stated
+
     if _definitely_not_a_firearm(title_lower):
         return (False, False)
 
-    stated = kind_from_category(category)
     if stated is not None:
         return stated
 
@@ -1695,7 +1809,35 @@ def classify_firearm(
             # carbine. Leaving it at neither filed two of them under parts.
             is_rifle = True
 
+    if not (is_rifle or is_pistol) and _CATEGORY_FIREARM.search(category or ""):
+        # Last resort, and only ever from neither-of-the-two.
+        #
+        # A dealer's generic firearms section -- "Shop All Firearms", "Firearms
+        # & Ammunition" -- says the thing IS a gun without saying which kind.
+        # Nothing else here reads that, so a title naming a maker, a
+        # designation and a caliber and no gun noun at all fell through to
+        # accessories: "SAVAGE 4C .22LR", "JARMANN 1883 10.15 x 61R",
+        # "ANSCHUTZ MODEL 525 .22 LR". Eighteen of them in one SARCO scan.
+        #
+        # Placed *after* the accessory vetoes and the price floor rather than
+        # beside kind_from_category, which is deliberate and is the whole of
+        # its safety: it can only rescue a listing that every other rule has
+        # already declined to call anything, so it cannot promote a sling out
+        # of a shop's "Guns" section.
+        #
+        # The caliber splits it, because the category will not. A cartridge
+        # only ever chambered in handguns says handgun; anything else is the
+        # long gun that a surplus dealer's general section is mostly made of.
+        return _kind_from_caliber(caliber)
+
     return (is_rifle, is_pistol)
+
+
+def _kind_from_caliber(caliber: str | None) -> tuple[bool, bool]:
+    """Long gun or handgun, on the cartridge alone. Used only as a last resort."""
+    if caliber and any(re.search(p, caliber.lower()) for p in PISTOL_CALIBERS):
+        return (False, True)
+    return (True, False)
 
 
 # ---------------------------------------------------------------------------
@@ -1899,6 +2041,16 @@ def enrich(
     evidence = description if trust_description else None
     caliber = caliber or extract_caliber(title, evidence)
     is_rifle, is_pistol = classify_firearm(title, description, caliber, price, category)
+
+    # A parts kit is not a complete firearm, so it does not also count as one.
+    # The same deference is_bayonet has always shown, and for the same reason:
+    # the browse filter's five buckets are meant to partition the catalog, and
+    # a listing in two of them is counted twice and read as whichever the
+    # filter happens to ask about first. A Czech ZB37 heavy machine gun sold as
+    # a kit was showing under Rifles.
+    is_kit = _is_a_parts_kit(title, category)
+    if is_kit:
+        is_rifle = is_pistol = False
     return {
         "caliber": caliber,
         "country": country or extract_country(title, evidence),
@@ -1909,6 +2061,6 @@ def enrich(
         # Both are kinds of "neither a rifle nor a handgun", so they are only
         # ever asked about a listing that is already neither. "Springfield
         # Trapdoor Rifle w/ Ramrod Bayonet" says bayonet and is a rifle.
-        "is_bayonet": not (is_rifle or is_pistol) and _is_a_bayonet(title),
-        "is_parts_kit": _is_a_parts_kit(title, category),
+        "is_bayonet": not (is_rifle or is_pistol) and _is_a_bayonet(title, evidence),
+        "is_parts_kit": is_kit,
     }

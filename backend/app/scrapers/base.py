@@ -255,7 +255,7 @@ class ScrapeContext:
     def get(self, url: str, **kwargs: Any) -> requests.Response:
         """GET with politeness delay and retries on transient failures."""
         if not self.allowed(url):
-            raise Disallowed(url)
+            raise Disallowed(url, reachable=self.robots.for_url(url).reachable)
 
         # Somebody — possibly another process — was told to go away by this
         # host recently. Waiting it out inside a scan would stall the run for
@@ -424,16 +424,28 @@ class HostResting(ScrapeError):
 
 
 class Disallowed(ScrapeError):
-    """robots.txt forbids this URL.
+    """robots.txt forbids this URL, or could not be read to find out.
 
     A subclass of ScrapeError so an unguarded fetch fails the scan loudly
     rather than being mistaken for an empty catalog, and a type of its own so a
     scraper with an alternative route can catch just this.
+
+    The two cases behave identically -- both refuse the request, because a rule
+    we could not read is not a rule we may ignore -- and read very differently
+    in a warning. Saying "robots.txt disallows" when the file was never fetched
+    sends whoever reads the scan log looking for a rule that does not exist,
+    which is exactly what one dropped connection did to a SARCO run.
     """
 
-    def __init__(self, url: str) -> None:
-        super().__init__(f"robots.txt disallows {url}")
+    def __init__(self, url: str, *, reachable: bool = True) -> None:
+        super().__init__(
+            f"robots.txt disallows {url}"
+            if reachable
+            else f"could not read robots.txt for {url}, so it was not fetched"
+        )
         self.url = url
+        #: Whether the rules were actually read. False means we never found out.
+        self.reachable = reachable
 
 
 class ScrapeCanceled(ScrapeError):

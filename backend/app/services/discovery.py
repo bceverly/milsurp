@@ -1,0 +1,427 @@
+"""Reading candidate armory rows out of listings nobody has curated yet.
+
+The armory only ever knew what the shipped seed file said and what an admin
+typed. A scan read it and never wrote to it, so meeting a rifle the table had
+never heard of recorded nothing at all -- and the "awaiting approval" queue
+that the whole design is built around was filled by hand.
+
+This is the other half. Every scan ends by reading what it just stored and
+writing down the cartridges, firms and designations the armory cannot explain,
+as *pending* rows. Nothing here decides anything: a pending row is inert until
+somebody promotes it, which is exactly what makes it safe to propose from a
+guess.
+
+**The risk this module is designed around is not missing things. It is junk.**
+A queue nobody reads is worse than no queue, and the way to get one is to
+propose every capitalised word in a title. So each of the three has a rule
+measured over the 2,014 stored listings before it was kept, and each rule is
+tighter than the obvious version:
+
+============  ===========================================================
+Calibers      The classifier's own reading, which is either a name from a
+              closed vocabulary or a well-formed cartridge like
+              "10.35x22mm". Highest precision of the three by a distance:
+              51 candidates over the catalog and no junk in them, because
+              something already had to look like a cartridge.
+Models        Designation *shapes* -- "Model 1873", "Type 99", "K98k",
+              "No.4 Mk.I", "vz.24", "M91/30", "CZ75" -- taken only from a
+              listing that is a firearm and that the armory cannot already
+              match. Measured at 293 candidates, nearly all real.
+Manufacturers The hardest by far, and the only one with a sightings
+              threshold. A firm's name has no shape to recognize, so it is
+              read positionally: the capitalised words immediately before a
+              designation, which is how the trade writes it ("Bernardelli
+              M1934", "Norinco Type 56"). Measured precision is around two
+              in three even after the filters, so a candidate must appear
+              in :data:`MIN_MAKER_SIGHTINGS` different listings before it is
+              written down. A real firm that stocks a shop appears more than
+              once; a mangled phrase usually does not.
+============  ===========================================================
+
+Every candidate is also checked against what is already known, so approving a
+row is what stops it being proposed again -- including under another spelling,
+which is the case that matters. "7.65mm Browning" stops being offered the
+moment ".32 ACP" carries it as an alias.
+"""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Iterable
+from dataclasses import dataclass, field
+
+from sqlalchemy.orm import Session
+
+from ..models import Item
+from . import armory, classify, manufacturers
+
+#: How many different listings must name a maker candidate before it is
+#: written down. Calibers and models are proposed on first sight; a firm's
+#: name is a positional guess rather than a shape, so it has to corroborate.
+MIN_MAKER_SIGHTINGS = 2
+
+#: A model designation as the trade writes one.
+#:
+#: **Case-sensitive on purpose.** The first version of this was case-insensitive
+#: and the bare-initials branch immediately matched "with 4" out of "Pistol with
+#: 4 magazines". Designations are capitalised wherever they are written.
+DESIGNATION = re.compile(
+    r"""(?<![\w/.-])(?:
+        (?:Model|Mod\.|Type|Pattern|Gewehr|Gew\.|Karabiner|Kar\.)\s*\d{1,4}(?:/\d{1,2}){0,2}[A-Za-z]?
+      | (?:vz\.?|VZ)\s?\d{2}(?:/\d{2})?
+      | No\.?\s?\d\s*M[kK]\.?\s*(?:[IVX]+|\d)
+      | M\d{1,4}[A-Z]?\d?(?:/\d{1,2}){0,2}
+      | K\d{2,3}[a-z]?
+      | P\.?\d{2}
+      | [A-Z]{2,4}-?\d{1,3}[A-Z]?
+    )(?![\w-])""",
+    re.X,
+)
+
+#: Things with a designation's shape that are not one. Each earned its place
+#: against the live catalog: ".380 ACP 3.5\"" produced "ACP 3", and a boxed
+#: pistol produced "NIB 2".
+_NOT_A_DESIGNATION = frozenset(
+    (
+        "acp",
+        "lr",
+        "ga",
+        "mm",
+        "wcf",
+        "smg",
+        "nato",
+        "wsm",
+        "spl",
+        "gen",
+        "lot",
+        "sku",
+        "ser",
+        "nib",
+        "exc",
+        "vg",
+        "unf",
+        "ffl",
+        "oal",
+        "ww",
+        "ww1",
+        "ww2",
+        "wwi",
+        "wwii",
+        "us",
+        "usa",
+        "uk",
+        "cr",
+    )
+)
+
+
+#: What the trade writes about a gun, as opposed to who made it. Used only to
+#: stop a maker candidate, so a word here is never lost from a designation.
+_TRADE_WORDS = frozenset(
+    (
+        "original",
+        "antique",
+        "vintage",
+        "rare",
+        "scarce",
+        "fine",
+        "very",
+        "good",
+        "excellent",
+        "fair",
+        "poor",
+        "nice",
+        "surplus",
+        "military",
+        "police",
+        "contract",
+        "commercial",
+        "semi",
+        "auto",
+        "automatic",
+        "bolt",
+        "action",
+        "lever",
+        "pump",
+        "single",
+        "double",
+        "rifle",
+        "rifles",
+        "carbine",
+        "carbines",
+        "pistol",
+        "pistols",
+        "revolver",
+        "revolvers",
+        "shotgun",
+        "shotguns",
+        "musket",
+        "muskets",
+        "machine",
+        "gun",
+        "guns",
+        "receiver",
+        "barrel",
+        "stock",
+        "grips",
+        "holster",
+        "magazine",
+        "mag",
+        "round",
+        "rounds",
+        "caliber",
+        "cal",
+        "condition",
+        "sniper",
+        "target",
+        "sporting",
+        "training",
+        "display",
+        "inert",
+        "deactivated",
+        "dummy",
+        "replica",
+        "matching",
+        "mismatched",
+        "refurbished",
+        "arsenal",
+        "refinished",
+        "import",
+        "marked",
+        "unissued",
+        "issued",
+        "used",
+        "new",
+        "boxed",
+        "minty",
+        "pre",
+        "ban",
+        "post",
+        "eligible",
+        "elig",
+        "collection",
+        "private",
+        "from",
+        "with",
+        "without",
+        "and",
+        "the",
+        "for",
+        "all",
+        "early",
+        "late",
+        "model",
+        "type",
+        "pattern",
+        "grade",
+        "parts",
+        "kit",
+        "kits",
+        "set",
+        "sets",
+        "straight",
+        "pull",
+        "flintlock",
+        "percussion",
+        "caplock",
+        "era",
+        "civil",
+        "war",
+        "world",
+        "factory",
+        "bring",
+        "back",
+        "deluxe",
+        "gauge",
+        "series",
+        "wwi",
+        "wwii",
+        "ww1",
+        "ww2",
+        "ww",
+        "anib",
+        "nib",
+        "mint",
+    )
+)
+
+
+@dataclass
+class Discovered:
+    """What one pass proposed, in the terms the scan log reports it.
+
+    Distinct names rather than sightings. A scan meeting the same unknown
+    cartridge in forty listings has found one thing, and a line saying it
+    proposed forty calibers would be forty times wrong.
+
+    ``added`` counts the rows that did not exist before, which is what changes
+    the badge on the armory page. The name sets are wider than that: they
+    include candidates already pending, which only picked up another sighting.
+    """
+
+    calibers: set[str] = field(default_factory=set)
+    manufacturers: set[str] = field(default_factory=set)
+    models: set[str] = field(default_factory=set)
+    #: New rows per table, from the pending counts either side of the pass.
+    added: dict[str, int] = field(default_factory=dict)
+
+    @property
+    def total_added(self) -> int:
+        return sum(self.added.values())
+
+    def summary(self) -> str:
+        return ", ".join(
+            f"{self.added.get(table, 0)} {label}"
+            for table, label in (
+                ("models", "model(s)"),
+                ("calibers", "caliber(s)"),
+                ("manufacturers", "manufacturer(s)"),
+            )
+        )
+
+
+# ---------------------------------------------------------------------------
+# Reading one listing
+# ---------------------------------------------------------------------------
+def _strip_noise(title: str, caliber: str | None) -> str:
+    """The title with everything that is not a name taken out.
+
+    Parentheses go first because that is where vendors put lot and SKU codes --
+    "(L2026-10870)", "(FG389)" -- every one of which has a designation's shape.
+    """
+    text = re.sub(r"\([^)]*\)", " ", title or "")
+    text = re.sub(r"(?i)\b(?:serial(?:\s*number)?|s/n|sku|lot)\b.*$", " ", text)
+    if caliber:
+        text = text.replace(caliber, " ")
+    # Any remaining cartridge or measurement. "7.62x25mm" and "26.5mm" both
+    # end in a designation-shaped fragment once the digits are split off.
+    text = re.sub(r"[\d.]+\s*(?:[x×]\s*\d+)?\s*(?:mm|MM)\b", " ", text)
+    text = re.sub(r'\b[\d.]+\s*(?:"|inch|in\b)', " ", text)
+    return text
+
+
+def _designations(text: str) -> Iterable[re.Match[str]]:
+    for match in DESIGNATION.finditer(text):
+        head = re.split(r"[\s.-]", match.group(0))[0].lower()
+        if head in _NOT_A_DESIGNATION or match.group(0).lower() in _NOT_A_DESIGNATION:
+            continue
+        yield match
+
+
+def model_candidates(session: Session, title: str, caliber: str | None) -> list[str]:
+    """Designations in this title that could be a model."""
+    found: list[str] = []
+    for match in _designations(_strip_noise(title, caliber)):
+        text = " ".join(match.group(0).split())
+        # A cartridge is not a model. "GP11" has the shape and is the Swiss
+        # service round, and it reached the queue before this line existed.
+        if armory.canonical_caliber(session, text):
+            continue
+        if text not in found:
+            found.append(text)
+    return found
+
+
+def maker_candidates(title: str) -> list[str]:
+    """Capitalised words immediately before a designation.
+
+    "Bernardelli M1934", "Norinco Type 56", "Grendel P.30" -- maker then
+    designation is how the trade names a gun, and it is the only positional
+    signal here strong enough to be worth acting on. A leading-capitals rule
+    was tried first and measured at about half junk: it proposed "U.S.",
+    "Ben's", "ANIB" and "Vietnam Bring-Back Chinese" as firms.
+    """
+    text = _strip_noise(title, None)
+    found: list[str] = []
+    for match in _designations(text):
+        words = re.findall(r"[A-Za-z][\w&.'-]*", text[: match.start()])
+        take: list[str] = []
+        for word in reversed(words):
+            bare = word.strip(".'-").lower()
+            if not word[:1].isupper() or len(bare) < 2 or bare in _TRADE_WORDS:
+                break
+            # A nationality is not a firm. Asked of the word itself rather than
+            # pattern-matched, so "Yugoslavian" and "Czechoslovakian" are
+            # caught by the same list the classifier uses on titles.
+            if classify.extract_country(word):
+                break
+            take.append(word)
+            if len(take) == 3:
+                # Three, because two truncated "James River Armory" to "River
+                # Armory" -- a name that is wrong rather than merely short.
+                break
+        name = " ".join(reversed(take))
+        if name and not DESIGNATION.fullmatch(name) and name not in found:
+            found.append(name)
+    return found
+
+
+# ---------------------------------------------------------------------------
+# A whole pass
+# ---------------------------------------------------------------------------
+def discover(session: Session, items: Iterable[Item]) -> Discovered:
+    """Propose what these listings name and the armory cannot explain.
+
+    Everything proposed arrives pending, so this is safe to run at the end of
+    every scan: it records questions, and answering them is somebody's job
+    rather than this function's.
+    """
+    found = Discovered()
+    before = armory.pending_counts(session)
+    # Keyed by the lowercased name so two spellings corroborate each other,
+    # holding the first spelling seen and the titles it came from.
+    maker_sightings: dict[str, tuple[str, list[str]]] = {}
+
+    for item in items:
+        title = item.title or ""
+        if not title:
+            continue
+
+        caliber = item.caliber or classify.extract_caliber(title, item.description)
+        if (
+            caliber
+            and not armory.canonical_caliber(session, caliber)
+            and armory.propose_caliber(session, caliber, title) is not None
+        ):
+            found.calibers.add(caliber)
+
+        # Models and makers are only read out of something that is a gun. A
+        # bayonet listing names the rifle it fits, and proposing that rifle's
+        # designation from it teaches the armory nothing it can trust.
+        if not (item.is_rifle or item.is_pistol):
+            continue
+
+        if not armory.match(session, title).model:
+            for name in model_candidates(session, title, caliber):
+                if armory.propose_model(session, name, title) is not None:
+                    found.models.add(name)
+
+        if not manufacturers.registry(session).extract(title):
+            for name in maker_candidates(title):
+                maker_sightings.setdefault(name.lower(), (name, []))[1].append(title)
+
+    _propose_makers(session, maker_sightings, found)
+
+    # Counted from the tables rather than from what was appended, because a
+    # candidate that was already pending is not a new row and must not be
+    # reported as one.
+    session.flush()
+    after = armory.pending_counts(session)
+    found.added = {table: max(after.get(table, 0) - count, 0) for table, count in before.items()}
+    return found
+
+
+def _propose_makers(
+    session: Session, sightings: dict[str, tuple[str, list[str]]], found: Discovered
+) -> None:
+    """Write down the corroborated maker candidates -- see MIN_MAKER_SIGHTINGS."""
+    for spelling, titles in sightings.values():
+        if len(titles) < MIN_MAKER_SIGHTINGS:
+            continue
+        row = None
+        for title in titles[:MIN_MAKER_SIGHTINGS]:
+            # Each sighting is offered so the pending row carries more than one
+            # title, which is what somebody judging it actually reads.
+            row = armory.propose_manufacturer(session, spelling, title)
+        if row is not None:
+            found.manufacturers.add(spelling)

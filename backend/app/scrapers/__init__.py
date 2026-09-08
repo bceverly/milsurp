@@ -29,8 +29,10 @@ from .demo import DemoScraper
 from .empire_arms import EmpireArmsScraper
 from .hunters_lodge import HuntersLodgeScraper
 from .ima_usa import ImaUsaScraper
+from .jg_sales import JgSalesScraper
 from .legacy_collectibles import LegacyCollectiblesScraper
 from .royal_tiger import RoyalTigerScraper
+from .sarco import SarcoScraper
 
 
 def _demo_site_enabled() -> bool:
@@ -63,6 +65,8 @@ SCRAPER_CLASSES: tuple[type[SiteScraper], ...] = (
     ImaUsaScraper,
     CenterfireSystemsScraper,
     ClassicFirearmsScraper,
+    JgSalesScraper,
+    SarcoScraper,
     *((DemoScraper,) if _demo_site_enabled() else ()),
 )
 

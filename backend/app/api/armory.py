@@ -52,6 +52,7 @@ from ..schemas import (
     FirearmModelUpdate,
 )
 from ..services import armory as service
+from ..services import classify
 
 router = APIRouter(prefix="/armory", tags=["armory"])
 
@@ -116,6 +117,7 @@ def _model_out(row: FirearmModel, matched: int = 0) -> FirearmModelOut:
         name=row.name,
         aliases=row.aliases,
         kind=row.kind,
+        country=row.country,
         caliber_ids=[cartridge.id for cartridge in row.calibers],
         calibers=row.caliber_names,
         manufacturer_ids=[maker.id for maker in row.manufacturers],
@@ -171,6 +173,22 @@ def kinds(_admin: AdminUser) -> list[ArmoryKind]:
         ArmoryKind(value=kind.value, label=label, is_handgun=kind.is_handgun)
         for kind, label in KIND_LABELS.items()
     ]
+
+
+@router.get("/countries", response_model=list[str])
+def countries(_admin: AdminUser) -> list[str]:
+    """Every country the classifier is able to name a listing with.
+
+    Offered as suggestions on the model form for the same reason KIND_LABELS
+    lives here: the armory's answer and the classifier's answer end up in the
+    same ``items.country`` column, and a model recorded as "USSR" against
+    titles read as "Russia" would split one country into two filters that each
+    show half the rifles.
+
+    Suggestions, not a whitelist. The column is free text and the list is a
+    dozen countries short of the world.
+    """
+    return sorted({country for _pattern, country in classify.COUNTRY_PATTERNS})
 
 
 @router.get("/calibers", response_model=list[CaliberOut])
@@ -381,7 +399,7 @@ def seed(_admin: AdminUser, session: DbSession) -> ArmoryAction:
 #: "the empty string". Storing "" makes a row that differs from an untouched
 #: one in the database and not on the screen, which is how an export and a
 #: sync ended up disagreeing forever about two Walthers.
-_OPTIONAL_TEXT = ("aliases", "notes", "wikipedia_url", "first_seen_in")
+_OPTIONAL_TEXT = ("aliases", "notes", "wikipedia_url", "first_seen_in", "country")
 
 
 def _emptied(changes: dict[str, Any]) -> dict[str, Any]:
