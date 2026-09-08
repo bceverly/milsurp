@@ -35,7 +35,9 @@ from .base import (
     ScrapedItem,
     ScrapeError,
     SiteScraper,
-    normalize_whitespace,
+    is_sold_out,
+    product_json_ld,
+    text_of,
 )
 from .storefront import image_sources, parse_price
 
@@ -46,6 +48,84 @@ ENTITY_ID = ("data-entity-id", "data-product-id")
 #: `/images/stencil/500x659/products/…`. Asking for the original gets the
 #: photograph the shop uploaded rather than a thumbnail of it.
 STENCIL_SIZE = re.compile(r"(/images/stencil/)(?:\d+x\d+|\d+w)(/)")
+
+
+#: The only ScrapedItem fields a custom field may set: the four a vendor can
+#: state about a firearm. A shop's own field names are its own business; what
+#: they are allowed to mean here is not.
+CUSTOM_FIELD_COLUMNS = frozenset({"caliber", "country", "manufacturer", "condition"})
+
+
+#: The words a shop puts in that banner. ``\bsold\b`` on its own because
+#: Legacy Collectibles' banner says exactly "SOLD" and nothing else -- it is
+#: scoped to the banner, so a bare "sold" there can only be about this product.
+_SOLD_OUT = re.compile(r"\bsold\b|out of stock|no longer available", re.I)
+
+
+def sold_out(soup: BeautifulSoup) -> bool:
+    """Whether this product page says the item cannot be bought.
+
+    Two signals, because the shops here split evenly on which they publish.
+    Measured over 25 product pages across the three BigCommerce vendors:
+
+    * **schema.org availability.** Legacy Collectibles (15 of 15) and Bowman
+      Arms (4 of 4) publish it, and it is exactly right -- Legacy's one
+      "SOLD - ..." listing is the one ``OutOfStock``, and two of Bowman's four
+      are sold with nothing else on the page to say so.
+    * **Stencil's ``.alertBox--error`` banner.** Arms of America publish no
+      structured data at all (0 of 6) and show this instead. Legacy show both:
+      theirs reads simply "SOLD".
+
+    Measured again with both signals in place, over 52 product pages across the
+    three shops: **14 listings move from available to sold and none the other
+    way.** Six of seventeen Bowman kits, five Arms of America kits, and three
+    of thirteen Legacy listings -- one of which is a $5,175 Atlas Gunworks the
+    shop had renamed "SOLD - ..." since it was last read, so the stored title
+    gave no sign at all.
+
+    **Scoped to that element, never a search of the page.** "Out of stock"
+    appears in the theme's JSON configuration, in the option list of a product
+    whose *variants* differ in stock, and on every related-product card in the
+    footer -- so an in-stock PPSh-41 kit at $599.99 has the phrase on its page
+    five times over. The banner is the only place it means this product.
+    """
+    if is_sold_out(product_json_ld(soup)):
+        return True
+    return any(_SOLD_OUT.search(text_of(box)) for box in soup.select(".alertBox--error"))
+
+
+def custom_fields(soup: BeautifulSoup) -> dict[str, str]:
+    """A product's Stencil custom-field table, as ``{label: value}``.
+
+    BigCommerce lets a shop define its own product fields and renders them as
+    ``table.productView-custom-fields``, one ``.custom-field-label`` and
+    ``.custom-field-value`` per row. It is a stock platform feature rather than
+    one shop's theme, which is why this lives here.
+
+    Legacy Collectibles use it for everything: they publish no prose
+    description at all, and instead
+
+        Year: 1911-15   Maker: Mauser   Type: C96
+        Caliber: 7.63mm Mauser   Bore: 9/10   Condition: ~94-95%
+
+    on all 258 of their listings. That is not a poor substitute for a
+    description -- it is better than one, because it is the vendor stating the
+    facts this application otherwise has to guess at from prose.
+
+    Labels come back lowercased and without their trailing colon, so a shop
+    that writes "Caliber:" and one that writes "caliber" read the same.
+    """
+    found: dict[str, str] = {}
+    for row in soup.select("table.productView-custom-fields tr"):
+        label = row.select_one(".custom-field-label")
+        value = row.select_one(".custom-field-value")
+        if label is None or value is None:
+            continue
+        name = text_of(label).rstrip(":").strip().lower()
+        text = text_of(value)
+        if name and text:
+            found.setdefault(name, text)
+    return found
 
 
 def full_size(url: str) -> str:
@@ -110,6 +190,19 @@ class BigCommerceScraper(SiteScraper):
         ".productView-info-value--sku",
         ".sku",
     )
+
+    #: Which of this shop's Stencil custom fields mean something here.
+    #:
+    #: ``((custom field label, ScrapedItem field), …)``, labels lowercased and
+    #: without their colon. Empty by default and deliberately so: the labels
+    #: are the shop's own words, and "Type" means the model on one site and
+    #: the action on another. A shop that publishes a field this application
+    #: has a column for says so here, and the value is then a **vendor-stated**
+    #: one -- which outranks anything the classifier would derive.
+    #:
+    #: Only these four are accepted, because they are the four columns a
+    #: vendor can state: caliber, country, manufacturer, condition.
+    custom_field_map: tuple[tuple[str, str], ...] = ()
 
     #: As gentle as the WooCommerce default, and for the same reason: these are
     #: small dealers, and one request a second was enough to be refused.
@@ -249,7 +342,7 @@ class BigCommerceScraper(SiteScraper):
         for selector in selectors:
             found = scope.select_one(selector)
             if found is not None:
-                text = normalize_whitespace(found.get_text(" ", strip=True))
+                text = text_of(found)
                 if text:
                     return text
         return ""
@@ -305,15 +398,57 @@ class BigCommerceScraper(SiteScraper):
 
         self._detail_failures = 0
         images = self.gallery(soup, item.url)
+        fields = custom_fields(soup) if self.custom_field_map else {}
+        stated = self._stated(fields)
         return replace(
             item,
+            # The product page is the only place a sold listing says so on this
+            # platform: its card in the grid looks exactly like an in-stock
+            # one. Legacy Collectibles rename a sold listing "SOLD - ..." and
+            # go on showing it at its price, so without this it sat in
+            # Available at $1,095.
+            #
+            # ``or item.is_sold`` because the catalog may already have said so,
+            # and a page that publishes nothing must not un-sell it.
+            is_sold=sold_out(soup) or item.is_sold,
             title=self._first_text(soup, self.detail_title_selectors) or item.title,
             description=self._first_text(soup, self.detail_description_selectors)
+            or self.description_from(fields)
             or item.description,
             image_urls=images or item.image_urls,
             images_are_complete=bool(images),
             extra={**item.extra, "sku": self._sku(soup)},
+            # A value the shop stated in a field of its own, where it has one.
+            # Named rather than splatted: these four are the whole of what a
+            # custom field is allowed to set, and that should be readable here.
+            caliber=stated.get("caliber") or item.caliber,
+            country=stated.get("country") or item.country,
+            manufacturer=stated.get("manufacturer") or item.manufacturer,
+            condition=stated.get("condition") or item.condition,
         )
+
+    def _stated(self, fields: dict[str, str]) -> dict[str, str]:
+        """The custom fields this shop says are caliber, country, maker, grade."""
+        stated: dict[str, str] = {}
+        for label, column in self.custom_field_map:
+            if column not in CUSTOM_FIELD_COLUMNS:  # pragma: no cover - a subclass bug
+                raise ValueError(f"{type(self).__name__} maps {label!r} to unknown {column!r}")
+            value = fields.get(label)
+            if value:
+                stated[column] = value
+        return stated
+
+    def description_from(self, _fields: dict[str, str]) -> str | None:
+        """A description built out of the custom fields, for a shop with none.
+
+        Off unless a subclass wants it, and worth being clear about what it is
+        for: the *reader*. The fields a subclass maps are what the classifier
+        should be reading; a description assembled out of the same table adds
+        nothing there and was measured not to. What it adds is the fields that
+        have no column -- see LegacyCollectiblesScraper, where "Year" and
+        "Type" reach a detail page this way and nowhere else.
+        """
+        return None
 
     def gallery(self, soup: BeautifulSoup, base: str) -> list[str]:
         """Every photograph on the product page, de-duplicated, original size."""

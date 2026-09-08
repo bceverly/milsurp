@@ -455,6 +455,16 @@ _COMES_WITH = re.compile(r"\bw/|\bw(?=\s)|\b(?:with|and|plus|incl(?:udes|uding)?
 #: title carries it otherwise.
 _PARTS_KIT = re.compile(r"\bparts?\s+kits?\b", re.I)
 
+#: Kits that are not a disassembled firearm. Removed from the text before the
+#: parts-kit test rather than merely vetoing it, so "1911 Auto Repair Parts
+#: Kit" is disqualified while a genuine "Parts Kit" elsewhere in the same title
+#: would still count.
+_NOT_THIS_KIND_OF_KIT = re.compile(
+    r"\b(?:clean(?:ing)?|service|servicing|repair|maintenance|tool|spare|nipple"
+    r"|care|starter|conversion|cleaning\s+rod)\s+(?:parts\s+)?kits?\b",
+    re.I,
+)
+
 #: A receiver that has been cut apart, which is a parts kit whatever the law
 #: calls it. The site's owner asked for this explicitly: a torch-cut ZB37
 #: receiver is the remains of a machine gun, and nobody watching for a rifle
@@ -521,13 +531,44 @@ def _is_a_bayonet(title: str, description: str | None = None) -> bool:
     return _COMES_WITH.search(title[: found.start()]) is None
 
 
-def _is_a_parts_kit(title: str, category: str | None) -> bool:
-    return bool(
-        _PARTS_KIT.search(title or "")
-        or _PARTS_KIT.search(category or "")
-        or _is_a_muzzleloader_kit(title or "")
-        or _DEMILLED.search(title or "")
-    )
+def _is_a_parts_kit(title: str, category: str | None, description: str | None = None) -> bool:
+    """A whole firearm minus its serialized part -- and nothing else.
+
+    The vendor's section used to be enough on its own, and it is not. Measured
+    against the live parts-kit sections of two shops: CO Gun Sales file a $9.99
+    cleaning kit, a $24.95 service kit and a gas block under theirs, and SARCO's
+    "Parts & Kits" is 465 items of solenoids, sears, extractors and springs.
+    Believing the heading would import exactly the recoil springs the rule
+    exists to keep out, and at a scale that swamps the firearms.
+
+    So a section heading proposes and the listing has to corroborate: it must
+    say "kit" somewhere of its own. That is what tells a Royal Tiger ZB37 parts
+    kit from the M3 Tripod Mount and the Zeiss periscope filed beside it, both
+    of which were parts kits until this existed.
+    """
+    title = title or ""
+    if _DEMILLED.search(title) or _is_a_muzzleloader_kit(title):
+        return True
+    # A cleaning, service or repair kit is a kit and is not this one.
+    without = _NOT_THIS_KIND_OF_KIT.sub(" ", title)
+    if _PARTS_KIT.search(without):
+        return True
+    if _KIT.search(title) and not _KIT.search(without):
+        # The title's only kit is one of those, and that settles it whatever
+        # the section says and whatever the prose does. A "K31 Swiss Military
+        # Issue Service Kit" describes itself with the word "kit" five more
+        # times, and every one of them used to corroborate the heading.
+        return False
+    if _PARTS_KIT.search(category or ""):
+        text = f"{title} {description or ''}"
+        # A demilled part is a parts kit, and the prose is where a dealer says
+        # so: CO Gun Sales title two FAL front ends "Front Stub w Barrel" and
+        # only the description calls them de-milled. Read here rather than
+        # above because the section heading is what makes it safe to.
+        if _DEMILLED.search(text):
+            return True
+        return bool(_KIT.search(_NOT_THIS_KIND_OF_KIT.sub(" ", text)))
+    return False
 
 
 def _is_a_muzzleloader_kit(title: str) -> bool:
@@ -1409,6 +1450,10 @@ def _too_cheap_to_be_one(title_lower: str, price: float | None) -> bool:
 _NEVER_A_FIREARM = (
     r"\bparts\s*kits?\b",
     r"\bcleaning\s+kits?\b",
+    # A set of parts for changing a gun's chambering. Not a firearm, and not a
+    # parts kit either -- a Rhineland .45 ACP Mauser conversion kit came back a
+    # rifle on the strength of the word "Mauser".
+    r"\bconversion\s+kits?\b",
     r"\bbandoli?ers?\b",
     r"\bammo\b",
     r"\b80\s*%",
@@ -2066,7 +2111,7 @@ def enrich(
     # a listing in two of them is counted twice and read as whichever the
     # filter happens to ask about first. A Czech ZB37 heavy machine gun sold as
     # a kit was showing under Rifles.
-    is_kit = _is_a_parts_kit(title, category)
+    is_kit = _is_a_parts_kit(title, category, evidence)
     if is_kit:
         is_rifle = is_pistol = False
     return {
@@ -2079,6 +2124,15 @@ def enrich(
         # Both are kinds of "neither a rifle nor a handgun", so they are only
         # ever asked about a listing that is already neither. "Springfield
         # Trapdoor Rifle w/ Ramrod Bayonet" says bayonet and is a rifle.
-        "is_bayonet": not (is_rifle or is_pistol) and _is_a_bayonet(title, evidence),
+        #
+        # And a kit outranks a bayonet for the same reason it outranks a rifle:
+        # the buckets partition the catalog. Arms of America sell a "Polish
+        # Radom Military Collectors Package - Circle 11 AKM Parts Kit ... +
+        # Circle 11 Bayonet & Circle 11 Magazine", which is a kit that happens
+        # to include a bayonet, and it was filed under Bayonets -- where the
+        # word appears -- rather than under the thing being sold. Clearing the
+        # firearm flags above is not enough on its own: it is what makes the
+        # bayonet question get asked at all.
+        "is_bayonet": not (is_rifle or is_pistol or is_kit) and _is_a_bayonet(title, evidence),
         "is_parts_kit": is_kit,
     }

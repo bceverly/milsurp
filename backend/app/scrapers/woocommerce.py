@@ -38,7 +38,7 @@ from .base import (
     ScrapedItem,
     ScrapeError,
     SiteScraper,
-    normalize_whitespace,
+    text_of,
 )
 from .storefront import background_images, image_sources, parse_price
 
@@ -302,7 +302,7 @@ class WooCommerceScraper(SiteScraper):
         for selector in selectors:
             found = scope.select_one(selector)
             if found is not None:
-                text = normalize_whitespace(found.get_text(" ", strip=True))
+                text = text_of(found)
                 if text:
                     return text
         return ""

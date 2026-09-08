@@ -25,4 +25,16 @@ class CoGunSalesScraper(WooCommerceScraper):
 
     sources = (
         {"category": "Curio & Relic", "url": f"{SITE_BASE}product-category/curio-relics-cr/"},
+        {
+            # The full path, not /product-category/parts-kits/. That shorter
+            # URL answers 200 with a page of sub-category tiles -- "FAL Parts
+            # (23)", "Luger Parts (1)" -- and only a dozen products among them.
+            #
+            # 27 listings, and not all of them kits: a $9.99 cleaning kit, a
+            # $24.95 service kit and a gas block are filed here too. The
+            # classifier now requires a listing to say "kit" of its own before
+            # a section heading may call it one -- see _is_a_parts_kit.
+            "category": "Parts Kits",
+            "url": f"{SITE_BASE}product-category/parts-accessories/parts-kits/",
+        },
     )

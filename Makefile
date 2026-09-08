@@ -216,6 +216,10 @@ photos-retry: $(VENV_PY) ## Try photos that were given up on after repeated fail
 reclassify: $(VENV_PY) ## Re-derive kind/caliber/country/maker for stored listings (recompute=1 to overwrite, not just fill)
 	@$(VENV_PY) backend/cli.py reclassify $(if $(recompute),--recompute,)
 
+.PHONY: refetch-details
+refetch-details: $(VENV_PY) ## Re-read product pages next scan (default: descriptions that are markup; site=SLUG, all=1, dry=1)
+	@$(VENV_PY) backend/cli.py refetch-details $(if $(site),--site "$(site)",) $(if $(all),--all,) $(if $(dry),--dry-run,)
+
 .PHONY: scan
 scan: $(VENV_PY) ## Scan every enabled site now (or one: make scan site=empire-arms)
 	@if [ -n "$(site)" ]; then \

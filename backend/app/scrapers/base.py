@@ -14,6 +14,7 @@ The two reference implementations bracket the difficulty range:
 from __future__ import annotations
 
 import abc
+import json
 import re
 import time
 from collections.abc import Callable, Iterable
@@ -24,6 +25,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 import requests
+from bs4 import BeautifulSoup, Tag
 
 from ..config import Config, ScrapingConfig
 from ..robots import RobotsCache
@@ -519,6 +521,131 @@ _PRICE_RE = re.compile(r"[\d][\d,]*(?:\.\d{1,2})?")
 
 def normalize_whitespace(text: str) -> str:
     return _WS_RE.sub(" ", (text or "").replace("\xa0", " ")).strip()
+
+
+#: Elements whose text is code, not prose. ``get_text()`` returns their
+#: contents like any other node, which is how 47 Apex Gun Parts listings came to
+#: have a Magento Page Builder stylesheet where their description should be:
+#: ``#html-body [data-pb-style=TWCLXS0]{justify-content:flex-start;…``. Every
+#: platform here flattens a description the same way, so every one of them had
+#: the same hole.
+_NOT_PROSE = ("style", "script", "noscript", "template")
+
+#: The schema.org states that mean "you cannot buy this today".
+#:
+#: ``SoldOut`` is the one that matters most here and the one a plain
+#: ``OutOfStock`` check misses. ``Discontinued`` is included because a vendor
+#: who marks a collectible that way is saying the same thing.
+_UNAVAILABLE = ("OutOfStock", "SoldOut", "Discontinued")
+
+
+def product_json_ld(soup: BeautifulSoup) -> dict[str, Any] | None:
+    """The schema.org Product node on a product page, if the shop publishes one.
+
+    Not a platform's idea: any storefront may emit it, and three of the four
+    here do. It is preferred over reading markup because it is the shop's own
+    description of the product rather than the theme's arrangement of it -- and
+    a theme is exactly the thing that differs between two shops on the same
+    platform.
+    """
+    for tag in soup.select('script[type="application/ld+json"]'):
+        try:
+            data = json.loads(tag.string or "")
+        except (ValueError, TypeError):
+            # Someone else's malformed block is not this scraper's problem.
+            continue
+        for node in data if isinstance(data, list) else [data]:
+            if isinstance(node, dict) and node.get("@type") == "Product":
+                return node
+    return None
+
+
+def offer_of(node: dict[str, Any] | None) -> dict[str, Any]:
+    """The Offer inside a Product node, whether it is one or a list of them."""
+    offers = (node or {}).get("offers") or {}
+    if isinstance(offers, list):
+        offers = next((o for o in offers if isinstance(o, dict)), {})
+    return offers if isinstance(offers, dict) else {}
+
+
+def is_sold_out(node: dict[str, Any] | None) -> bool:
+    """Whether the shop's own structured data says this cannot be bought.
+
+    False when the shop says nothing, which is the honest answer: "no
+    availability published" is not "in stock", but marking a listing sold on
+    silence would de-list a whole catalog the first time a theme dropped the
+    field.
+    """
+    availability = str(offer_of(node).get("availability") or "")
+    return any(state in availability for state in _UNAVAILABLE)
+
+
+#: Text that is code rather than prose: a stylesheet, a script, or tags that
+#: survived. Used to decide whether a description a shop handed over is worth
+#: keeping -- see is_prose() -- and by ``milsurp refetch-details`` to find the
+#: listings already stored with one.
+NOT_PROSE_TEXT = re.compile(
+    r"#html-body|data-pb-style"
+    r"|\{[^{}]{0,200}:[^{}]{0,200};"
+    r"|</[a-zA-Z][a-zA-Z0-9]*\s*>"
+    r"|\bfunction\s*\(|\bvar\s+\w+\s*=|\bdocument\.getElement",
+)
+
+
+def is_prose(text: str | None) -> bool:
+    """Whether a description reads as words rather than as code.
+
+    Apex Gun Parts publish a schema.org ``description`` that is Magento's
+    *meta* description: auto-generated from a Page Builder layout, truncated at
+    120 characters, and so always the opening of its stylesheet --
+    ``#html-body [data-pb-style=I4K3LY4]{justify-content:flex-start;…`` -- with
+    the real description only in the markup. There is no ``<style>`` element to
+    drop; the field simply is not prose, and something else has to answer.
+    """
+    if not text or not text.strip():
+        return False
+    return NOT_PROSE_TEXT.search(text) is None
+
+
+#: Something that still looks like markup after one flattening pass. That
+#: happens when a shop escapes its own HTML twice -- Classic Firearms have one
+#: description ending ``&amp;nbsp;&lt;/span&gt;&lt;/p&gt;``, which decodes to
+#: literal ``</span></p>`` *text* rather than to tags.
+_STILL_MARKUP = re.compile(r"</[a-zA-Z][a-zA-Z0-9]*\s*>|<[a-zA-Z][a-zA-Z0-9]*(?:\s[^<>]*)?/?>")
+
+
+def text_of(node: Tag | BeautifulSoup) -> str:
+    """The readable text of one element, without the code inside it.
+
+    Works on a copy: a scraper may read the same node twice (a price, then a
+    description), and a helper that quietly empties the tree it was handed is
+    a trap for whatever runs next.
+    """
+    clone = BeautifulSoup(str(node), "html.parser")
+    for tag in clone.find_all(_NOT_PROSE):
+        tag.decompose()
+    return normalize_whitespace(clone.get_text(" ", strip=True))
+
+
+def flatten_html(markup: str | None) -> str:
+    """A block of description HTML as the plain text a reader wants.
+
+    Used by every platform that receives a description as markup -- Shopify's
+    ``body_html``, WooCommerce's Store API ``description``, Searchanise's
+    ``description``, Magento's JSON-LD -- so that they all get the same answer
+    to the same question.
+
+    Flattens twice at most. The second pass is for a shop that escaped its own
+    markup twice, where decoding the entities leaves tags behind as text; it is
+    guarded on the text still looking like markup, so ordinary prose containing
+    a ``<`` is not put through it.
+    """
+    if not markup or not markup.strip():
+        return ""
+    text = text_of(BeautifulSoup(markup, "html.parser"))
+    if _STILL_MARKUP.search(text):
+        text = text_of(BeautifulSoup(text, "html.parser"))
+    return text
 
 
 def parse_price(text: str | None) -> float | None:

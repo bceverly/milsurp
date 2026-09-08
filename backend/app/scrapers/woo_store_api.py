@@ -28,14 +28,13 @@ import json
 from collections.abc import Iterable, Iterator
 from typing import Any
 
-from bs4 import BeautifulSoup
-
 from .base import (
     Disallowed,
     ScrapeContext,
     ScrapedItem,
     ScrapeError,
     SiteScraper,
+    flatten_html,
     normalize_whitespace,
 )
 
@@ -50,10 +49,7 @@ def html_to_text(markup: str | None) -> str | None:
     reads prose and the detail view renders text, so it is flattened once here
     rather than in both.
     """
-    if not markup:
-        return None
-    text = normalize_whitespace(BeautifulSoup(markup, "html.parser").get_text(" ", strip=True))
-    return text or None
+    return flatten_html(markup) or None
 
 
 def price_now(product: dict[str, Any]) -> float | None:

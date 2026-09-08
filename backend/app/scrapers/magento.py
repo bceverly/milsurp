@@ -23,10 +23,10 @@ page one, which is not a failure and is reported rather than worked around.
 
 from __future__ import annotations
 
-import json
 import re
 from collections.abc import Iterable, Iterator
 from dataclasses import replace
+from html import unescape
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
@@ -38,7 +38,13 @@ from .base import (
     ScrapedItem,
     ScrapeError,
     SiteScraper,
+    flatten_html,
+    is_prose,
+    is_sold_out,
     normalize_whitespace,
+    offer_of,
+    product_json_ld,
+    text_of,
 )
 from .storefront import image_sources, parse_price
 
@@ -67,30 +73,22 @@ def full_size(url: str) -> str:
     return _CACHE_PATH.sub("/", url)
 
 
-def product_data(soup: BeautifulSoup) -> dict[str, Any] | None:
-    """The schema.org Product node on a product page, if the shop publishes one.
+def _plain_text(value: object) -> str:
+    """One JSON-LD text field, with its HTML entities decoded.
 
-    Preferred over reading the markup because it is the shop's own description
-    of the product rather than the theme's arrangement of it — and because a
-    theme is exactly the thing that differs between two shops on this platform.
+    Magento writes the *escaped* name into its structured data on at least one
+    shop: Apex Gun Parts publish ``1911 Pistol Parts Kit, 5&quot; Barrel`` in
+    the JSON-LD and the correct ``5" Barrel`` in the ``<h1>`` beside it. JSON is
+    not HTML, so nothing decodes those on the way in, and the entity would be
+    stored, shown to the reader and handed to the classifier as-is.
+
+    ``html.unescape`` and not a BeautifulSoup round-trip: a name is plain text
+    that happens to be escaped, not markup, and an ampersand in a product name
+    should survive as an ampersand.
     """
-    for tag in soup.select('script[type="application/ld+json"]'):
-        try:
-            data = json.loads(tag.string or "")
-        except (ValueError, TypeError):
-            # Someone else's malformed block is not this scraper's problem.
-            continue
-        for node in data if isinstance(data, list) else [data]:
-            if isinstance(node, dict) and node.get("@type") == "Product":
-                return node
-    return None
-
-
-def _offer(node: dict[str, Any]) -> dict[str, Any]:
-    offers = node.get("offers") or {}
-    if isinstance(offers, list):
-        offers = next((o for o in offers if isinstance(o, dict)), {})
-    return offers if isinstance(offers, dict) else {}
+    if not isinstance(value, str):
+        return ""
+    return normalize_whitespace(unescape(value))
 
 
 def price_now(card: Tag) -> float | None:
@@ -441,9 +439,24 @@ class MagentoScraper(SiteScraper):
             ctx.warn(f"Could not read {item.url}: {exc}. Keeping the catalog entry only.")
             return item
 
-        node = product_data(soup)
+        node = product_json_ld(soup)
         if node is not None:
-            return self._from_json_ld(item, node)
+            found = self._from_json_ld(item, node)
+            if is_prose(found.description):
+                return found
+            # The structured data's description is not one. On a Page Builder
+            # shop that field is Magento's auto-generated meta description,
+            # truncated inside the layout's stylesheet, and the real text is in
+            # the markup -- so ask the markup, and keep everything else the
+            # structured data gave (price, availability, SKU, full-size images),
+            # which is not in doubt.
+            #
+            # No description at all is better than a stylesheet: this is the
+            # text a reader is shown and the text the classifier reasons over.
+            return replace(
+                found,
+                description=self._first_text(soup, self.detail_description_selectors) or None,
+            )
 
         images = [full_size(urljoin(item.url, url)) for url in self._gallery(soup)]
         return replace(
@@ -455,7 +468,7 @@ class MagentoScraper(SiteScraper):
         )
 
     def _from_json_ld(self, item: ScrapedItem, node: dict[str, Any]) -> ScrapedItem:
-        offer = _offer(node)
+        offer = offer_of(node)
         raw_images = node.get("image")
         if isinstance(raw_images, str):
             raw_images = [raw_images]
@@ -464,20 +477,19 @@ class MagentoScraper(SiteScraper):
             for url in (raw_images or [])
             if isinstance(url, str) and url.strip()
         ]
-        availability = str(offer.get("availability") or "")
         price = parse_price(str(offer.get("price"))) if offer.get("price") is not None else None
         sku = node.get("sku")
 
         return replace(
             item,
-            title=normalize_whitespace(str(node.get("name") or "")) or item.title,
+            title=_plain_text(node.get("name")) or item.title,
             # The description is HTML in this field, so it is flattened the way
             # the detail view and the classifier both want it.
             description=self._as_text(node.get("description")) or item.description,
             # The card's price is the one that is missing on a MAP listing; the
             # offer's is the one the shop publishes.
             price=price if price is not None else item.price,
-            is_sold="OutOfStock" in availability or "SoldOut" in availability,
+            is_sold=is_sold_out(node),
             image_urls=images or item.image_urls,
             images_are_complete=bool(images),
             extra={**item.extra, "sku": str(sku) if sku else ""},
@@ -485,9 +497,15 @@ class MagentoScraper(SiteScraper):
 
     @staticmethod
     def _as_text(value: object) -> str | None:
-        if not isinstance(value, str) or not value.strip():
+        """One JSON-LD description, as prose.
+
+        The field is HTML, and on a Page Builder shop that HTML opens with a
+        stylesheet -- which ``get_text()`` reads out like any other text.
+        :func:`flatten_html` drops it; see ``_NOT_PROSE``.
+        """
+        if not isinstance(value, str):
             return None
-        return normalize_whitespace(BeautifulSoup(value, "html.parser").get_text(" ", strip=True))
+        return flatten_html(value) or None
 
     def _gallery(self, soup: BeautifulSoup) -> list[str]:
         found: dict[str, str] = {}
@@ -504,7 +522,7 @@ class MagentoScraper(SiteScraper):
         for selector in selectors:
             found = scope.select_one(selector)
             if found is not None:
-                text = normalize_whitespace(found.get_text(" ", strip=True))
+                text = text_of(found)
                 if text:
                     return text
         return ""

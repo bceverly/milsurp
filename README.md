@@ -55,6 +55,11 @@ changed — filtered to the sites you care about and capped so it stays readable
   along its own printed rules, each panel is read separately, and every listing
   carries a crop of the flyer it came from. It checks whether the flyer has
   changed before doing any of that, so an unchanged month costs one request.
+- **Parts kits, not parts.** Three vendors are read for their kits rather than
+  their guns. A vendor section called "parts kits" is not taken at its word —
+  the listing has to corroborate it — because the alternative is 465 solenoids
+  and feed trays arriving as collectible firearms. See
+  [If the vendor sells parts kits](#if-the-vendor-sells-parts-kits).
 - **A background scheduler** runs each site on its own cadence. An admin can
   disable a site, change its frequency, start a scan immediately, or cancel one
   mid-flight.
@@ -402,7 +407,7 @@ Run `make` on its own for the full list with descriptions.
 | **Setup** | `install-dev` · `install` · `secrets` · `config` |
 | **Database** | `migrate` · `migrate-status` · `migration` · `init` · `passwd` |
 | **Run** | `start` · `stop` · `restart` · `status` · `logs` · `dev` · `build-frontend` |
-| **Scraping** | `scan` · `sites` · `digest` · `reclassify` · `photos` |
+| **Scraping** | `scan` · `sites` · `digest` · `reclassify` · `refetch-details` · `photos` |
 | **Quality** | `lint` · `lint-fix` · `test` · `test-backend` · `test-frontend` · `coverage` · `security` · `install-hooks` |
 | **Docs** | `screenshots` |
 | **Release** | `release` |
@@ -492,8 +497,10 @@ Cookies identify the platform: `_shopify_y` or `_shopify_essential`.
 ### If the vendor runs Magento
 
 `MagentoScraper` covers `li.product-item` grids and `?p=N` pagination — but
-Magento is themed harder than the other platforms, and the two shops using it
-here share almost no CSS class, so treat the selectors as defaults to override:
+Magento is themed harder than the other platforms, and the shops using it here
+share almost no CSS class, so treat the selectors as defaults to override.
+Apex Gun Parts runs on the stock ones unchanged; Classic Firearms replaces
+every one of them:
 
 ```python
 class MyVendorScraper(MagentoScraper):
@@ -525,7 +532,7 @@ Caliber/Gauge (19 values, largest 19, covering all 122) over Manufacturer (38
 values, same coverage), and rejects Action (largest 60) and Price (largest 48).
 It is paid for only when there is a next page being refused.
 
-Three things to check, each of which cost something here:
+Five things to check, each of which cost something here:
 
 - **Take the category URLs from the site's own navigation.** Guessing produced
   two 404s on a shop whose real sections were one click away.
@@ -538,6 +545,23 @@ Three things to check, each of which cost something here:
   then disagrees with the product page forever. Remove that element from the
   tree, not its text from the string — `"$1599 99"` minus the first `"99"` is
   `"$15 9"`.
+- **Structured data can be escaped where the markup is not.** Apex Gun Parts
+  publish `1911 Pistol Parts Kit, 5&quot; Barrel` in their JSON-LD and the
+  correct `5" Barrel` in the `<h1>` beside it. JSON is not HTML, so nothing
+  decodes that on the way in — the entity would be stored, shown to the reader
+  and handed to the classifier. The base class runs the name through
+  `html.unescape`; the description goes through `flatten_html`, which decodes
+  as a side effect of flattening.
+- **A shop's `description` may not be a description.** Magento fills that field
+  from the *meta* description, and on a Page Builder page the meta description
+  is generated from the layout — so Apex's is the opening of their own
+  stylesheet, truncated at 120 characters, on every product they sell:
+  `#html-body [data-pb-style=I4K3LY4]{justify-content:flex-start;…`. There is
+  no `<style>` element to drop; the field simply is not prose. So the base
+  class tests it with `is_prose()` and falls back to the markup selectors when
+  it fails, keeping everything else the structured data gave. 85 listings were
+  stored with a stylesheet where their description should be before this
+  existed.
 
 Cookies do not identify Magento; look for `X-Magento-Vary`, `mage.` in the
 markup, or a `/media/catalog/product/` image path.
@@ -570,6 +594,78 @@ differ from WooCommerce and are worth knowing:
 - **Pagination is a query string** (`?page=2`), not a path. A shop may disallow
   those in robots.txt, so the walk asks before each page and stops that section
   rather than failing the scan.
+- **A sold listing says so on the product page and nowhere else.** Its card in
+  the grid looks exactly like an in-stock one, so this platform read every
+  listing as available until `sold_out()` existed — and Legacy Collectibles,
+  who rename a sold listing `SOLD - ...` and go on showing it at its price, had
+  a $1,095 Winchester sitting in Available. Two signals, because the shops
+  split evenly on which they publish: schema.org `availability` (Legacy 15 of
+  15, Bowman Arms 4 of 4) and Stencil's `.alertBox--error` banner (Arms of
+  America, who publish no structured data at all). **Scope the banner check to
+  that element.** "Out of stock" also appears in the theme's JSON config, in
+  the option list of a product whose *variants* differ in stock, and on every
+  related-product card in the footer — an in-stock PPSh-41 kit at $599.99 has
+  the phrase on its page five times over. Measured over 52 product pages with
+  both signals in place: 14 listings move to sold and none the other way.
+- **Their custom fields may be the whole listing.** BigCommerce lets a shop
+  define its own product fields and renders them as
+  `table.productView-custom-fields`. Legacy Collectibles write no prose
+  description at all and put everything there instead — `Year: 1911-15  Maker:
+  Mauser  Type: C96  Caliber: 7.63mm Mauser  Bore: 9/10  Condition: ~94-95%`,
+  on all 258 of their listings.
+
+  A subclass says which of its shop's field names mean something here:
+
+  ```python
+  custom_field_map = (("caliber", "caliber"), ("maker", "manufacturer"), ("bore", "condition"))
+  ```
+
+  Only `caliber`, `country`, `manufacturer` and `condition` may be set that
+  way — the four a vendor can state about a firearm — and a shop that maps
+  nothing has nothing read. **Name the field; do not pour the table into the
+  description.** Fed to the classifier as prose, a Magnum Research Desert Eagle
+  reported its manufacturer as "Luger", out of "Caliber: 9mm Luger". Measured
+  on forty of their listings, naming the fields gained 17 calibers, 13 makers
+  and 40 bore grades, and corrected 13 calibers and 13 makers, with nothing
+  reclassified and nothing lost.
+
+### If the vendor sells parts kits
+
+Three of the seventeen vendors are here for their **parts kits** rather than
+their guns — Apex Gun Parts, Arms of America and Bowman Arms — and they are the
+first ones where the interesting decision was not the platform but the scope.
+
+The standing rule is that the only non-firearm category worth ingesting is a
+parts *kit*. Individual components — stocks, magazines, springs, barrels,
+bayonets, slings, cleaning kits, ammunition — are out: they turn over
+constantly, they swamp the listing count, and nobody is watching this
+application for a price drop on a recoil spring.
+
+Three things that rule does not decide on its own:
+
+- **A section called "parts kits" is not automatically a section of parts
+  kits.** SARCO's "Parts & Kits" is 465 solenoids, feed trays, sears and
+  screws; the ampersand is doing the work. So `classify._is_a_parts_kit` does
+  not believe a section heading by itself — the heading proposes, and the
+  listing has to corroborate by saying "kit" somewhere of its own. A cleaning,
+  service, repair, maintenance or conversion kit is disqualified by name.
+- **A parts-kit section is not automatically a *surplus* parts-kit section.**
+  Every Gun Part's is 177 listings of which nine name anything milsurp, and
+  those nine are modern production. It was measured and refused. "It is on a
+  platform we already support" is a statement about cost, not value — the same
+  call that backed this list out of Arms Unlimited and Century Arms after their
+  scrapers were already written.
+- **A cut-up receiver is a parts kit** regardless of how the ATF categorizes
+  it. `_DEMILLED` takes torch-, saw-, flame-, plasma- and acetylene-cut
+  receivers, and anything "cut up", "cut apart", "demilled" or
+  "demilitarized". A bare "cut receiver" was tried
+  and removed: JRA build their BM-59s on a *billet* cut receiver, which is a
+  manufacturing step, not a destruction.
+
+So the shape of the work is: read the vendor's own navigation, fetch each
+candidate section, run it through `enrich()`, and count what comes out before
+adding a line to `sources`. Each of the three scrapers' docstrings records that
+count and, where a section was left out, why.
 
 ### If the vendor runs WooCommerce
 
@@ -644,6 +740,36 @@ static — the pictures are simply not in `<img>` tags:
 
 Both are fallbacks, reached only when the ordinary path finds nothing, so
 neither can change what a shop that renders normal markup already produces.
+
+### A description has to be prose
+
+Every platform here receives a description as HTML and flattens it to text, and
+for a while every one of them did it the same wrong way. `get_text()` returns
+the contents of a `<style>` or `<script>` element like any other text, so a
+theme that puts a stylesheet inside the description block gets that stylesheet
+stored as the description.
+
+One helper answers it for all of them now — `scrapers.base.flatten_html()`,
+used by Shopify's `body_html`, the WooCommerce Store API's `description`,
+Searchanise's, and Magento's JSON-LD, with `text_of()` doing the same for a
+description read out of a selected element. It drops `style`, `script`,
+`noscript` and `template`, and it flattens **twice at most**: Classic Firearms
+have one description ending `&amp;nbsp;&lt;/span&gt;&lt;/p&gt;`, where decoding
+the entities once leaves literal `</span></p>` behind as text. The second pass
+is guarded on the result still looking like markup, so "bore < 7.63mm" is left
+alone.
+
+`is_prose()` is the other half: a shop can hand over a `description` field that
+is not one at all (see the Magento note above), and a scraper that stores it
+anyway has put code in front of a reader and in front of the classifier. **No
+description is better than a wrong one.**
+
+**Fixing how a page is read does not fix the pages already read.** A scan skips
+the product page of any listing it has already fetched one for, which is what
+keeps a re-scan cheap. `make refetch-details` clears that mark so the next scan
+reads them again — by default only the listings whose stored description fails
+`is_prose()`, or `site=SLUG` for a whole site, `all=1` for everything, `dry=1`
+to see the count first.
 
 ### If the catalog is not in the HTML
 
@@ -1104,7 +1230,7 @@ a note saying which guns collided, rather than removed. The row stays visible,
 the note survives a re-seed, and nothing has to be re-discovered to find out it
 was rejected. `DC8` and `MOS8` turned out to be Glock option codes.
 
-The evidence for that judgement is in the listings themselves: a designation
+The evidence for that judgment is in the listings themselves: a designation
 whose own matches disagree about **rifle versus handgun** identifies nothing.
 Country and caliber variation is normal by contrast — an FN-49 really was built
 in Belgium for Egypt and Argentina in three chamberings.
@@ -1338,7 +1464,7 @@ having walked 24 listings and saved 5, reporting nothing found. Both rules
 together turn that same hour into a PARTIAL run with the listings it managed to
 read. It is still a bad site to scan, and it may yet need the browser path.
 
-Fourteen vendors are read today; thirteen more are queued in
+Seventeen vendors are read today; thirteen more are queued in
 [ROADMAP.md](ROADMAP.md), grouped by the platform they run on because one base
 class unlocks a whole group.
 
@@ -1531,6 +1657,8 @@ backend/cli.py prune-images     # delete image files nothing references
 backend/cli.py rebuild-thumbnails  # regenerate thumbnails from stored originals
 backend/cli.py reclassify       # re-derive kind/caliber/country/maker from stored text
 backend/cli.py reclassify --recompute   # ...overwriting what is there, not only filling blanks
+backend/cli.py refetch-details  # re-read product pages next scan (default: descriptions that are not prose)
+backend/cli.py refetch-details --site apex-gun-parts --dry-run
 backend/cli.py armory discover  # propose armory rows from every stored listing
 backend/cli.py fetch-photos     # drain the photo queue without re-scraping
 backend/cli.py running-scans    # list in-flight scans; exit 1 if any

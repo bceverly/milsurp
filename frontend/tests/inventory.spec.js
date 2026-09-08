@@ -297,3 +297,86 @@ test.describe("pagination", () => {
     await expect(signedIn).not.toHaveURL(/page=2/);
   });
 });
+
+test.describe("the filter panel", () => {
+  /**
+   * One scrollbar for the screen, not three.
+   *
+   * The panel used to be a scroll container (`position: sticky` with a
+   * viewport height cap) with a second scroll container inside every open
+   * facet (`max-height: 250px`). Eight options at 34px each overflow 250px, so
+   * the inner bar appeared as soon as a facet opened — and reaching an option
+   * meant scrolling the page to the panel, the panel to the facet, then the
+   * facet to the option. It grows now, and the page scrolls.
+   */
+  const scrollersInsideTheFilters = (page) =>
+    page.evaluate(() => {
+      const panel = document.querySelector(".filters");
+      if (!panel) return ["no .filters at all"];
+      return [panel, ...panel.querySelectorAll("*")]
+        .filter((el) => {
+          const style = getComputedStyle(el);
+          const overflows =
+            el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1;
+          return overflows && /auto|scroll/.test(style.overflowY + style.overflowX);
+        })
+        .map(
+          (el) => `${el.className || el.tagName} (${el.clientHeight}/${el.scrollHeight})`,
+        );
+    });
+
+  test("nothing inside it scrolls, however many facets are open", async ({
+    signedIn,
+  }) => {
+    await expect(signedIn.locator(".filters")).toBeVisible();
+    await expect(signedIn.locator(".item-card").first()).toBeVisible();
+
+    // Every facet open and every "Show all" taken — the worst case there is.
+    //
+    // Re-queried each time rather than iterating `.all()`. Clicking one
+    // re-renders its facet, so the handles taken up front go stale and the
+    // third click waits ten seconds for an element that no longer exists.
+    const openEverything = () =>
+      signedIn.evaluate(() => {
+        document.querySelectorAll(".filters details").forEach((d) => (d.open = true));
+      });
+
+    await openEverything();
+    const showAll = signedIn.getByRole("button", { name: /Show all/ });
+    for (let taken = 0; taken < 12 && (await showAll.count()); taken += 1) {
+      await showAll.first().click();
+      await openEverything();
+    }
+
+    expect(await scrollersInsideTheFilters(signedIn)).toEqual([]);
+  });
+
+  test("and the whole of it stays reachable by scrolling the page", async ({
+    signedIn,
+  }) => {
+    /**
+     * The reason it is no longer sticky. Pin the top of something taller than
+     * the viewport and its bottom can never be scrolled to — which is why the
+     * height cap and its scrollbar were there in the first place.
+     */
+    await expect(signedIn.locator(".filters")).toBeVisible();
+    await signedIn.evaluate(() => {
+      document.querySelectorAll(".filters details").forEach((d) => (d.open = true));
+    });
+
+    expect(
+      await signedIn.evaluate(
+        () => getComputedStyle(document.querySelector(".filters")).position,
+      ),
+    ).toBe("static");
+
+    await signedIn.evaluate(() =>
+      window.scrollTo(0, document.documentElement.scrollHeight),
+    );
+    const bottom = await signedIn.evaluate(() => {
+      const box = document.querySelector(".filters").getBoundingClientRect();
+      return { bottom: box.bottom, viewport: window.innerHeight };
+    });
+    expect(bottom.bottom).toBeLessThanOrEqual(bottom.viewport + 1);
+  });
+});

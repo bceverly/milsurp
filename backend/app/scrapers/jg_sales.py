@@ -18,6 +18,10 @@ named by their numeric category id because that is what the endpoint filters
 on. "Surplus Military Gear", "M1 Carbine & Surplus Stocks" and "US Military
 Pattern" are deliberately left out: those are field gear, stocks and clothing,
 and the accessory rules would spend their time throwing the results away.
+
+**Their category ids are not guessable and the listing does not page far.**
+`/wp-json/wc/store/v1/products/categories` returns 224 of them across three
+pages, and reading only the first missed the parts-kit section entirely.
 """
 
 from __future__ import annotations
@@ -43,4 +47,10 @@ class JgSalesScraper(WooStoreApiScraper):
         {"category": "Commercial Collectibles", "id": 3663},
         {"category": "C&R and Antique Guns", "id": 3685},
         {"category": "Military & Surplus Collectible", "id": 3686},
+        # Their parts-kit section, five products deep and reading empty as of
+        # 8 Sep 2026 -- the Store API returns none for it, as it does for
+        # Military Mausers, whose 56 are simply out of stock. Kept because it
+        # costs one request and the section is real; an empty first page ends
+        # a walk silently, so nothing is reported when there is nothing there.
+        {"category": "Parts Kits", "id": 3773},
     )

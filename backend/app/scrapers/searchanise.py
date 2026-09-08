@@ -64,7 +64,9 @@ from .base import (
     ScrapedItem,
     ScrapeError,
     SiteScraper,
+    flatten_html,
     normalize_whitespace,
+    text_of,
 )
 
 #: Where every Searchanise store is served from, whatever the shop's own domain.
@@ -98,10 +100,7 @@ def full_size(url: str) -> str:
 
 def html_to_text(markup: str | None) -> str | None:
     """A description as prose. The field may carry markup; readers want text."""
-    if not markup:
-        return None
-    text = normalize_whitespace(BeautifulSoup(markup, "html.parser").get_text(" ", strip=True))
-    return text or None
+    return flatten_html(markup) or None
 
 
 def price_now(product: dict[str, Any]) -> float | None:
@@ -414,7 +413,7 @@ class SearchaniseScraper(SiteScraper):
             found = soup.select_one(selector)
             if found is None:
                 continue
-            text = normalize_whitespace(found.get_text(" ", strip=True))
+            text = text_of(found)
             if text:
                 return text
         return None

@@ -412,10 +412,13 @@
   font-size: 12px;
 }
 
+/* No height cap and no scrollbar of its own. A facet is already capped at
+   eight options with "Show all" behind them, so it opens to a readable size on
+   its own — and a 250px box around eight 34px rows meant every open facet grew
+   a scrollbar inside a pane that had one too. Nested scrollbars are miserable
+   to use; the panel grows instead and the page scrolls. */
 .facet__options {
   margin-top: 6px;
-  max-height: 250px;
-  overflow-y: auto;
 }
 
 .facet__option {
@@ -484,11 +487,14 @@
     gap: 24px;
     align-items: start;
   }
+  /* Deliberately not sticky, and deliberately not a scroll container.
+     Sticky needs a height cap to stay reachable — pin the top of something
+     taller than the viewport and its bottom can never be scrolled to — and a
+     height cap means a scrollbar inside the page's own. Letting the column
+     scroll with the document is one scrollbar for the whole screen, at the
+     cost of the filters leaving the top of the viewport on a long list.
+     `align-items: start` on the grid already stops it stretching. */
   .filters {
-    position: sticky;
-    top: calc(var(--header-height) + 20px);
-    max-height: calc(100vh - var(--header-height) - 44px);
-    overflow-y: auto;
     margin-bottom: 0;
   }
   .filters[hidden] {

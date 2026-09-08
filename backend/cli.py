@@ -10,6 +10,7 @@ milsurp adduser NAME EMAIL       create an account (prompts for a password)
 milsurp passwd NAME              change an account's password
 milsurp digest [--user NAME]     send digests that are due, or one now
 milsurp prune-images             delete image files no listing references
+milsurp refetch-details          re-read product pages on the next scan
 """
 
 from __future__ import annotations
@@ -39,6 +40,7 @@ from app.models import (
     as_utc,
     utcnow,
 )
+from app.scrapers.base import is_prose
 from app.security import (
     PasswordPolicyError,
     hash_password,
@@ -805,6 +807,81 @@ def cmd_rebuild_thumbnails(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_refetch_details(args: argparse.Namespace) -> int:
+    """Mark listings for a fresh product-page read on the next scan.
+
+    A scan skips the product page of any listing it has already fetched one
+    for, which is what keeps a re-scan cheap -- and what means a fix to how a
+    page is *read* never reaches the listings that were read wrongly. This
+    clears that mark so the next scan of the site fetches them again.
+
+    The default picks the listings whose stored description is not prose --
+    ``scrapers.base.is_prose``, the same test the scrapers now apply before
+    keeping one. That is the case this was written for: 85 Apex Gun Parts
+    listings whose description was a Magento Page Builder stylesheet.
+    ``--site`` takes a whole site instead, and ``--all`` every listing that
+    has ever been fetched.
+    """
+    with session_scope() as session:
+        query = select(Item).where(Item.detail_fetched_at.is_not(None))
+        if args.site:
+            site = session.execute(select(Site).where(Site.slug == args.site)).scalar_one_or_none()
+            if site is None:
+                print(f"No site with slug '{args.site}'.", file=sys.stderr)
+                return 1
+            query = query.where(Item.site_id == site.id)
+
+        items = list(session.execute(query).scalars())
+        if not (args.all or args.site):
+            # It has to *have* a description that is not prose. is_prose()
+            # answers "is this text worth keeping", so it says False for an
+            # empty one too -- and a listing whose product page simply carries
+            # no description is not damaged and must not be re-fetched.
+            items = [i for i in items if i.description and not is_prose(i.description)]
+
+        by_site: dict[int, int] = {}
+        for item in items:
+            # A dry run counts and does not touch, not even in memory: the
+            # caller asked what would happen, and a half-applied change in a
+            # live session is not that.
+            if not args.dry_run:
+                item.detail_fetched_at = None
+            by_site[item.site_id] = by_site.get(item.site_id, 0) + 1
+        if not args.dry_run:
+            session.commit()
+
+        slugs = {
+            site.id: site.slug
+            for site in session.execute(select(Site).where(Site.id.in_(by_site))).scalars()
+        }
+
+    verb = "Would clear" if args.dry_run else "Cleared"
+    print(f"{verb} the detail mark on {len(items)} listing(s).")
+    for site_id, count in sorted(by_site.items(), key=lambda pair: -pair[1]):
+        print(f"  {count:6d}  {slugs.get(site_id, site_id)}")
+    if items and not args.dry_run:
+        print("Their product pages are read again on the next scan of each site.")
+    return 0
+
+
+def _add_refetch_details_command(sub) -> None:
+    command = sub.add_parser(
+        "refetch-details",
+        help="Re-read product pages on the next scan (default: listings whose "
+        "stored description is markup rather than prose).",
+    )
+    command.add_argument("--site", help="Only this site's listings, whatever their description.")
+    command.add_argument(
+        "--all",
+        action="store_true",
+        help="Every listing that has ever had its product page fetched.",
+    )
+    command.add_argument(
+        "--dry-run", action="store_true", help="Report what would be cleared and change nothing."
+    )
+    command.set_defaults(func=cmd_refetch_details)
+
+
 def _add_reclassify_command(sub) -> None:
     """The reclassify subcommand, kept out of build_parser() for its own sake."""
     command = sub.add_parser(
@@ -946,6 +1023,7 @@ def build_parser() -> argparse.ArgumentParser:
     digest_cmd.set_defaults(func=cmd_digest)
 
     _add_reclassify_command(sub)
+    _add_refetch_details_command(sub)
 
     _add_armory_commands(sub)
 

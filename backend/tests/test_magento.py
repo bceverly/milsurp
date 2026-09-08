@@ -18,7 +18,8 @@ from bs4 import BeautifulSoup
 
 from app.scrapers import ScrapeContext
 from app.scrapers.base import ScrapeError
-from app.scrapers.magento import MagentoScraper, _amount, full_size, price_now, product_data
+from app.scrapers.base import product_json_ld as product_data
+from app.scrapers.magento import MagentoScraper, _amount, full_size, price_now
 
 SHOP = "https://shop.test"
 MEDIA = f"{SHOP}/media/catalog/product"
@@ -228,6 +229,30 @@ class TestTheProductPage:
         assert item.image_urls == [f"{MEDIA}/b/m/photo0.jpg", f"{MEDIA}/b/m/photo1.jpg"]
 
     @responses.activate
+    def test_html_entities_in_the_name_are_decoded(self, ctx):
+        """Apex Gun Parts escape their structured-data name and not the `<h1>`
+        beside it: the JSON-LD says `5&quot; Barrel` where the heading says
+        `5" Barrel`. JSON is not HTML, so nothing decodes that on the way in --
+        the entity would be stored, shown to the reader, and handed to the
+        classifier, which is looking for a barrel length and would not find one.
+        """
+        responses.add(responses.GET, f"{SHOP}/surplus", body=catalog(stock_card(7, "Rifle")))
+        responses.add(
+            responses.GET,
+            f"{SHOP}/rifle.html",
+            body=product_page("1911 Parts Kit, 5&quot; Barrel &amp; Grips"),
+        )
+
+        assert next(iter(Shop().scrape(ctx))).title == '1911 Parts Kit, 5" Barrel & Grips'
+
+    @responses.activate
+    def test_a_name_with_nothing_to_decode_is_untouched(self, ctx):
+        responses.add(responses.GET, f"{SHOP}/surplus", body=catalog(stock_card(7, "Rifle")))
+        responses.add(responses.GET, f"{SHOP}/rifle.html", body=product_page("M39 & Bayonet"))
+
+        assert next(iter(Shop().scrape(ctx))).title == "M39 & Bayonet"
+
+    @responses.activate
     def test_out_of_stock_is_read_from_the_offer(self, ctx):
         responses.add(responses.GET, f"{SHOP}/surplus", body=catalog(stock_card(7, "Rifle")))
         responses.add(
@@ -237,6 +262,55 @@ class TestTheProductPage:
         )
 
         assert next(iter(Shop().scrape(ctx))).is_sold is True
+
+    @responses.activate
+    def test_a_description_that_is_a_stylesheet_falls_back_to_the_markup(self, ctx):
+        """Apex Gun Parts' schema.org `description` is Magento's *meta*
+        description: auto-generated from a Page Builder layout and truncated at
+        120 characters, so on every one of their products it is the opening of
+        that layout's stylesheet and never a word of prose. There is no
+        `<style>` element to drop -- the field simply is not a description, and
+        the markup has to answer instead.
+
+        Everything else the structured data gave still stands: the price, the
+        availability, the SKU and the full-resolution gallery are not in doubt.
+        """
+        responses.add(responses.GET, f"{SHOP}/surplus", body=catalog(stock_card(7, "Rifle")))
+        page = product_page("M39 Finnish Rifle").replace(
+            "<body>",
+            '<body><div class="short-description">An original Finnish M39.</div>',
+        )
+        responses.add(
+            responses.GET,
+            f"{SHOP}/rifle.html",
+            body=page.replace(
+                "An <strong>original</strong> rifle.",
+                "#html-body [data-pb-style=Q4CBT5K]{justify-content:flex-start;display:flex...",
+            ),
+        )
+
+        item = next(iter(Shop().scrape(ctx)))
+
+        assert item.description == "An original Finnish M39."
+        assert item.price == 1599.99
+        assert item.extra["sku"] == "SKU-1"
+        assert item.images_are_complete is True
+
+    @responses.activate
+    def test_and_where_the_markup_has_none_either_the_stylesheet_is_not_kept(self, ctx):
+        """No description at all beats a stylesheet: this is the text a reader
+        is shown and the text the classifier reasons over."""
+        responses.add(responses.GET, f"{SHOP}/surplus", body=catalog(stock_card(7, "Rifle")))
+        responses.add(
+            responses.GET,
+            f"{SHOP}/rifle.html",
+            body=product_page("M39").replace(
+                "<p>An <strong>original</strong> rifle.</p>",
+                "#html-body [data-pb-style=Q4CBT5K]{display:flex...",
+            ),
+        )
+
+        assert next(iter(Shop().scrape(ctx))).description is None
 
     @responses.activate
     def test_a_page_without_structured_data_falls_back_to_the_markup(self, ctx):

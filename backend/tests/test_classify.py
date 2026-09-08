@@ -1088,13 +1088,118 @@ class TestBayonetsAndPartsKits:
         assert kit is True
         assert not (rifle or pistol)
 
+    def test_a_kit_that_includes_a_bayonet_is_still_a_kit(self):
+        """Arms of America's "Polish Radom Military Collectors Package" is an
+        AKM parts kit sold with a bayonet and a magazine in the box, and it was
+        filed under Bayonets -- where the word appears -- rather than under the
+        thing being sold.
+
+        This is the one case clearing the firearm flags made *worse*: the
+        bayonet question is only asked of a listing that is neither a rifle nor
+        a handgun, so calling the kit neither is what let the bayonet through.
+        """
+        flags = classify.enrich(
+            "Polish Radom Military Collectors Package - Circle 11 AKM Parts Kit "
+            "headspaced to an original Polish barrel + Circle 11 Bayonet & "
+            "Circle 11 Magazine & More",
+            None,
+            category="Parts Kits",
+        )
+        assert flags["is_parts_kit"] is True
+        assert flags["is_bayonet"] is False
+        assert not (flags["is_rifle"] or flags["is_pistol"])
+
+    def test_and_a_bayonet_that_is_not_a_kit_still_reads_as_one(self):
+        """The guard is narrow: it only fires where a kit was already found."""
+        assert self.flags("Circle 11 Polish AKM Bayonet & Scabbard") == (
+            False,
+            False,
+            True,
+            False,
+        )
+
     def test_including_one_the_vendor_filed_rather_than_titled(self):
-        rifle, pistol, _bayonet, kit = self.flags(
+        """The section proposes and the listing corroborates: this one never
+        says "kit" in its title and its description says "parts kits"."""
+        flags = classify.enrich(
             "Czechoslovakian ZB37, Heavy machine gun with FREE AMMUNITION BOX",
+            "Czechoslovakian ZB37 Heavy machine gun parts kits, good condition.",
+            900.0,
             category="Parts Kit",
         )
-        assert kit is True
-        assert not (rifle or pistol)
+        assert flags["is_parts_kit"] is True
+        assert not (flags["is_rifle"] or flags["is_pistol"])
+
+    @pytest.mark.parametrize(
+        ("title", "description"),
+        [
+            # Royal Tiger file both of these under "Parts Kit", and both were
+            # parts kits until the listing had to say so itself.
+            ("M3 Tripod Mount", "A complete weapons mounting platform for the M2HB."),
+            ("WWII German Carl Zeiss Jena Periscope", "These sights are incomplete."),
+        ],
+    )
+    def test_but_the_section_alone_is_not_enough(self, title, description):
+        assert (
+            classify.enrich(title, description, 500.0, category="Parts Kit")["is_parts_kit"]
+            is False
+        )
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            # All of these are filed under a shop's parts-kits section.
+            "Original Romanian AKM PM-MD63 Cleaning Kit NEW",
+            "K31 Swiss Military Issue Service Kit",
+            "Romanian AK Gas Block/Combo Sight (Wieger Style)",
+            "Romanian made AK Side Rail for Optics Mounting with Rivets",
+            "1911 .45 Cal Auto Repair Parts Kit",
+            "CZ-52 Armorer's Repair Kit 7.62x25",
+            "Mauser 45 ACP Large Ring Military Profile Conversion Kit",
+        ],
+    )
+    def test_nor_is_every_kit_in_a_parts_kit_section_one(self, title):
+        """A $9.99 cleaning kit and a $24.95 service kit sit beside the FALs."""
+        assert self.flags(title, category="Parts Kits")[3] is False
+
+    def test_and_the_title_settles_it_however_often_the_prose_says_kit(self):
+        """A service kit's description says "kit" five more times, and every
+        one of them corroborated the section heading."""
+        flags = classify.enrich(
+            "K31 Swiss Military Issue Service Kit",
+            "An original 1960s K31 Swiss military cleaning kit. The kit comes with "
+            "its original cloth wrap and the kit includes a chamber cleaner.",
+            24.95,
+            category="Parts Kits",
+        )
+        assert flags["is_parts_kit"] is False
+
+    def test_a_conversion_kit_is_not_a_rifle_either(self):
+        """Disqualifying it from parts kits left it to the ordinary rules,
+        which read the word "Mauser" and called it a rifle."""
+        flags = classify.enrich(
+            "Rhineland Arms .45 ACP Mauser Small Ring Conversion Kit",
+            None,
+            229.99,
+            category="Parts Kits",
+        )
+        assert (flags["is_parts_kit"], flags["is_rifle"], flags["is_pistol"]) == (
+            False,
+            False,
+            False,
+        )
+
+    def test_a_demilled_part_is_a_kit_even_when_only_the_prose_says_so(self):
+        """CO Gun Sales title two FAL front ends "Front Stub w Barrel" and call
+        them de-milled only in the description. Read there because the section
+        heading is what makes it safe to."""
+        flags = classify.enrich(
+            "Imbel Chilean Contract FN FAL 7.62x51 NATO Front Stub w Barrel & Wood",
+            "Chilean Contract FAL - Demilled Front Stub w Wood Handguard.",
+            899.99,
+            category="Parts Kits",
+        )
+        assert flags["is_parts_kit"] is True
 
     def test_an_ordinary_accessory_is_neither(self):
         assert self.flags("Canvas ammo pouch") == (False, False, False, False)

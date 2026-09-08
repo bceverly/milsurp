@@ -34,14 +34,13 @@ from collections.abc import Iterable, Iterator
 from typing import Any
 from urllib.parse import urljoin
 
-from bs4 import BeautifulSoup
-
 from .base import (
     Disallowed,
     ScrapeContext,
     ScrapedItem,
     ScrapeError,
     SiteScraper,
+    flatten_html,
     normalize_whitespace,
 )
 
@@ -77,10 +76,7 @@ def html_to_text(body_html: str | None) -> str | None:
     bold, the occasional table. The classifier reads prose, and the detail page
     renders text, so it is flattened once here rather than in both.
     """
-    if not body_html:
-        return None
-    text = normalize_whitespace(BeautifulSoup(body_html, "html.parser").get_text(" ", strip=True))
-    return text or None
+    return flatten_html(body_html) or None
 
 
 def price_now(product: dict[str, Any]) -> float | None:
