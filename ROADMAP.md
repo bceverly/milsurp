@@ -816,6 +816,38 @@ application and publish it as a snap.
   the same name twice without a commit added two rows and died on the UNIQUE
   constraint at flush — every earlier test committed in between, which is
   exactly why nothing caught it. And a maker propose path did not exist at all.
+- **Shipped** — A fifth pass of misclassification reports from the site's
+  owner, twenty-eight listings, and two causes. Most had **no rule fire at
+  all**: a surplus title is often a maker, a designation and a caliber with no
+  gun noun, so a generic "firearms" category is now read as a last resort and
+  the caliber decides the kind. The rest were complete firearms carrying an
+  accessory word — a barrel count ("SINGLE BARREL"), a missing bolt ("No
+  Bolt"), an engraved slide, or a maker whose surname is a gun part ("FRANZ
+  STOCK"). A category that is *only* a type word now outranks the accessory
+  veto, unlike a collection like "M1 Garand & U.S. Rifles". 33 listings moved,
+  29 of them the reported ones and the other four correct.
+  A parts kit no longer counts as a firearm as well, and a **cut-up receiver is
+  a parts kit** whatever the ATF calls it. That last rule was written twice: a
+  bare "cut receiver" pattern took the JRA BM-59 and BM-62, which are built on
+  a *billet cut* receiver — freshly machined, the opposite of demilled.
+- **Shipped** — The armory curated end to end: 53 merges, 108 fills and 46
+  designations disabled. Models carrying a kind went 51 → 159 and a country
+  56 → 164; listings pointing at a model that could not say what it was fell
+  **745 → 78**. The Lee-Enfields alone had been written six ways by five
+  dealers. The disabled rows are the interesting half — `M16` was matching
+  French Berthier carbines in 8mm Lebel, `Model 1911` the Colt automatic and
+  the Schmidt-Rubin rifle — and they are turned off with a note rather than
+  deleted, so the judgement survives a re-seed.
+  Two bugs fell out of doing it. Six Zastava M83s titled ".357 Magnum" were
+  stored as .38 Special, because the caliber extractor pooled title and
+  description and let the *order of the table* decide; the title now wins, and
+  68 listings were corrected. And `merge_models` was dropping the `country` of
+  the row it folded away — missed when that column was added.
+- **Planned** — Two caliber patterns that are wrong in the same way: a bare
+  `8mm` claims "8mm Mauser" ahead of "8mm Lebel", and `7.65mm` claims ".32 ACP"
+  where a Luger means 7.65 Parabellum. Both surfaced while measuring whether a
+  title's stated caliber should outrank `MODEL_CALIBERS` — which it should, and
+  cannot until these are fixed, because today that change is a wash.
 - **Planned** — Better maker candidates. Two in three is a usable queue and not
   a good one. The obvious next signal is the description rather than the title,
   and the obvious risk is the one that made model matching title-only: prose
@@ -951,6 +983,12 @@ fact.
   API, ten kept, `backups/` gitignored, off in development. Taken by the
   scheduler on the age of the newest snapshot rather than on a timer, so a
   restart does not skip a day, and `milsurp backup` takes one by hand.
+- **Shipped** — The photo SSRF guard tells a private address from a resolver
+  that gave up. Both used to be reported as "not a public HTTP(S) URL" and both
+  counted against a photograph's retry budget; one SARCO scan refused 151
+  perfectly good CDN images that way, because the guard resolved every photo URL
+  separately and the resolver buckled under four hundred lookups of one name.
+  Resolutions are cached per host, and only successes are cached.
 - **Planned** — A documented restore drill. A backup nobody has restored is not
   a backup, and the snapshots above have been opened by the tests but never
   actually restored into service.

@@ -298,8 +298,10 @@ def _looks_like_accessory(title_lower: str) -> bool:
     return bool(_ACCESSORY_WORDS.search(title_lower))
 
 
-def extract_caliber(  # noqa: PLR0911 - each return is one distinct rule class
-    title: str, description: str | None = None
+def extract_caliber(  # noqa: PLR0911,PLR0912 - each branch is one rule class,
+    #                     tried in order of how much it is trusted
+    title: str,
+    description: str | None = None,
 ) -> str | None:
     """Best-effort caliber for a listing, or ``None`` when there isn't one."""
     title_lower = (title or "").lower()
@@ -318,6 +320,22 @@ def extract_caliber(  # noqa: PLR0911 - each return is one distinct rule class
 
     for pattern, caliber in MODEL_CALIBERS:
         if re.search(pattern, haystack):
+            return caliber
+
+    # The title first, on its own, and only then the description.
+    #
+    # Both used to be pooled into one haystack, which made the *order of the
+    # table* decide rather than what the vendor called the thing. A Zastava M83
+    # is titled ".357 Magnum Revolver" and its description says it also
+    # chambers .38 Special -- and ".38 Special" sits at index 20 of the table
+    # against ".357 Magnum" at 44, so all six of them were stored as .38
+    # Specials. Every one had the right answer in its title.
+    #
+    # The same rule the accessory test and the model matcher already follow: a
+    # title is where a vendor says what they are selling, a description is
+    # where they talk about it.
+    for pattern, caliber in CALIBER_NORMALIZATIONS:
+        if re.search(pattern, title_lower):
             return caliber
 
     for pattern, caliber in CALIBER_NORMALIZATIONS:

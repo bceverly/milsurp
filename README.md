@@ -729,6 +729,23 @@ Six things to know about it:
   string on 151 of them. Nothing is marked sold from either; a sold listing
   stops arriving, and the scan's de-listing handles that.
 
+**Photographs are fetched through an SSRF guard**, because an image URL comes
+from third-party markup and fetching one is a server-side request driven by
+untrusted input. Only http/https to a publicly routable address is allowed,
+which keeps a hostile listing from making the scanner probe localhost or a
+cloud metadata endpoint.
+
+Two ways that can refuse, and they are not the same: a name that **resolves to
+a private address** is a fact about the URL and permanent, while a resolver
+that **gave up** is a fact about the last half-second. Both used to come back
+as "not a public HTTP(S) URL" and both counted against the photograph's three
+attempts. One SARCO scan lost 151 photographs to that — every one an ordinary
+CDN address that resolves perfectly well — because the guard called
+`getaddrinfo` once per photo URL and the resolver buckled under four hundred
+lookups of the same name. Resolutions are cached per host now, and only
+successes are remembered, so a host that was briefly unreachable is not written
+off.
+
 ### Makers and models
 
 Both are tables, edited together from **Makers** in the admin navigation.
@@ -843,6 +860,40 @@ name on its own decides nothing. The same list is what tells a specification
 from a product in the rule above, which is why adding a maker there has a cost
 — `hammerli` matched "Target Rifle – **Hammerli** Barrel" and turned a rifle
 into a barrel, and now only the model does.
+
+**On the caliber, the title outranks the description.** Both used to be pooled
+into one string, which let the *order of `CALIBER_NORMALIZATIONS`* decide rather
+than what the vendor called the thing: six Zastava M83s titled ".357 Magnum
+Revolver" were all stored as .38 Special, because their prose notes that a .357
+also chambers .38 Special and ".38 Special" sits at index 20 of that table
+against ".357 Magnum" at 44. The title is where a vendor says what they are
+selling — the same rule the accessory test and the model matcher already
+follow. Measured over the catalog it corrected **68 listings**, among them
+Browning Hi Powers filed as .40 S&W and Winchester 1873s filed as .45 Colt
+instead of .44-40.
+
+The description is still read when the title names no cartridge, which is most
+of them. And `MODEL_CALIBERS` still outranks both, deliberately: making a
+stated caliber beat it was measured and is a wash — it fixes the 9mm AR-15s and
+the Ishapore 2As in .308, and breaks the Berthiers, where "8mm Lebel" is misread
+as "8mm Mauser" by a bare `8mm` pattern, and the Lugers, where "7.65mm" is
+7.65 Parabellum and not the .32 ACP that shares the number. Those two pattern
+bugs are the real fault and want fixing before that precedence is revisited.
+
+**A generic firearms section says it is a gun.** A surplus title is often a
+maker, a designation and a caliber with no gun noun at all — "SAVAGE 4C .22LR",
+"JARMANN 1883 10.15 x 61R" — and nothing above has anything to read. Where the
+vendor's own category says "firearms" generically, that settles that it *is*
+one, and the caliber decides which kind. It is consulted **last**, after every
+veto and the price floor, which is the whole of its safety: it can only rescue a
+listing every other rule has already declined to call anything, so it cannot
+promote a sling out of a shop's "Guns" section.
+
+**A parts kit is not also a firearm**, and a **cut-up receiver is a parts kit**
+whatever the law calls it — a torch-cut ZB37 receiver is the remains of a
+machine gun. Only the destructive qualifiers count: `cut` is a minefield here,
+sitting inside *conse-cut-ive*, and a "Billet Cut Receiver" is one freshly
+machined from billet while a Cutaway or Cutdown rifle is a rifle.
 
 A listing whose maker, caliber or country could not be worked out is filed under
 **Unknown** in the filters — the column stays empty, and "Unknown" is only what
@@ -1042,6 +1093,21 @@ recognize: a proposal is inert, it is recorded once rather than re-asked on
 every scan, and it waits somewhere an admin can rule on it. Promoting is
 one-way and sending a row back is a separate button, because "I have checked
 this" and "I no longer trust this" are different statements.
+
+**A designation that identifies nothing is disabled, not deleted.** Discovery
+proposes bare designations, and some of them are claimed by two unrelated guns:
+`M16` was matching French **Berthier M16 carbines in 8mm Lebel**, `Model 60` the
+H&R Reising .45 carbine *and* the Bernardelli .32 pistol, `Model 1917` the Colt
+revolver *and* the Enfield rifle. A row like that is worse than no row — it
+stamps a model onto a listing it knows nothing about — so it is turned off with
+a note saying which guns collided, rather than removed. The row stays visible,
+the note survives a re-seed, and nothing has to be re-discovered to find out it
+was rejected. `DC8` and `MOS8` turned out to be Glock option codes.
+
+The evidence for that judgement is in the listings themselves: a designation
+whose own matches disagree about **rifle versus handgun** identifies nothing.
+Country and caliber variation is normal by contrast — an FN-49 really was built
+in Belgium for Egypt and Argentina in three chamberings.
 
 **Every scan fills the queue.** `services/discovery.py` reads the listings a
 scan just stored and writes down the cartridges, firms and designations the

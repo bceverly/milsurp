@@ -1134,6 +1134,11 @@ def merge_models(session: Session, source_id: int, target_id: int) -> int:
     # not worth overwriting, because the target is the row being kept.
     if target.kind is None:
         target.kind = source.kind
+    # Added when the country column was, and missed here at the time: a merge
+    # that dropped it on the floor lost the one fact the source row may have
+    # been the only one to carry.
+    if target.country is None:
+        target.country = source.country
     for cartridge in list(source.calibers):
         if cartridge not in target.calibers:
             target.calibers.append(cartridge)

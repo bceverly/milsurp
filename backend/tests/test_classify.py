@@ -1748,3 +1748,75 @@ class TestACutUpReceiverIsAPartsKit:
             )
             == "handgun"
         )
+
+
+class TestTheTitleOutranksTheDescriptionOnCaliber:
+    """Both used to be pooled into one string, which let the *order of the
+    table* decide instead of what the vendor called the thing.
+
+    Found while curating the armory: six Zastava M83s, every one titled ".357
+    Magnum Revolver", were all stored as .38 Special -- because their
+    descriptions mention that a .357 also chambers .38 Special, and ".38
+    Special" sits at index 20 of CALIBER_NORMALIZATIONS against ".357 Magnum"
+    at 44. Measured over the catalog, 68 listings were reading a caliber out of
+    their prose that their own title contradicted.
+    """
+
+    def test_a_magnum_is_not_its_shorter_cartridge(self):
+        assert (
+            classify.extract_caliber(
+                "Zastava M83 .357 Magnum Revolver 4 Inch Blued",
+                "The Zastava M83 is a .357 Magnum revolver. It will also chamber .38 Special.",
+            )
+            == ".357 Magnum"
+        )
+
+    @pytest.mark.parametrize(
+        ("title", "description", "wanted"),
+        [
+            (
+                "Original U.S. Winchester Model 1873 .44-40 Lever Action Rifle",
+                "Sold alongside our Colt Single Action Army revolvers in .45 Colt.",
+                ".44-40 Winchester",
+            ),
+            (
+                "Browning Hi Power 9mm Pistol Serial E02172",
+                "The Hi Power was later offered in .40 S&W as well.",
+                "9mm",
+            ),
+            (
+                "Egyptian Hakim Rifle - 8mm Mauser - 1967 C&R",
+                "Based on the Swedish Ljungman, which was made in 6.5x55 and 7x57mm Mauser.",
+                "8mm Mauser",
+            ),
+            (
+                "Beretta M1935 Pistol, .32 ACP / 7.65mm - New Barrel",
+                "The Beretta 1934 was the .380 ACP version of the same design.",
+                ".32 ACP",
+            ),
+        ],
+    )
+    def test_the_title_wins_wherever_the_table_puts_them(self, title, description, wanted):
+        assert classify.extract_caliber(title, description) == wanted
+
+    def test_a_model_the_table_knows_still_outranks_both(self):
+        """MODEL_CALIBERS runs first and is deliberately left there. Making a
+        title's stated caliber beat it was measured over the catalog and is a
+        wash: it fixes the 9mm AR-15s and the Ishapore 2As in .308, and breaks
+        the Berthiers -- where "8mm Lebel" is misread as "8mm Mauser" by a bare
+        8mm pattern -- and the Lugers, where 7.65mm means 7.65 Parabellum and
+        not the .32 ACP that shares the number. Those two pattern bugs are the
+        real fault and are worth fixing before this precedence is revisited.
+        """
+        assert (
+            classify.extract_caliber("Lee-Enfield No 1 Mark III .22lr Trainer - Conversion")
+            == ".303 British"
+        )
+
+    def test_but_the_description_is_still_read_when_the_title_is_silent(self):
+        """It is a preference, not an exclusion. Plenty of titles name no
+        cartridge at all and the prose is the only source there is."""
+        assert (
+            classify.extract_caliber("Russian M44 Carbine, matching", "Chambered in 7.62x54R.")
+            == "7.62x54R"
+        )

@@ -899,6 +899,28 @@ class TestACountryOfOrigin:
         assert seeded.query(FirearmModel).filter_by(name="M1 Carbine").one().country == "Sweden"
 
 
+class TestAMergeCarriesTheCountry:
+    def test_the_survivor_gains_it(self, seeded):
+        """Added when the column was and missed in merge_models, which would
+        have dropped the one fact the folded-away row was carrying."""
+        keep = FirearmModel(name="Mosin-Nagant M91/30", status=ArmoryStatus.APPROVED)
+        gone = FirearmModel(name="M91/30", country="Russia", status=ArmoryStatus.APPROVED)
+        seeded.add_all([keep, gone])
+        seeded.commit()
+        armory.merge_models(seeded, gone.id, keep.id)
+        seeded.commit()
+        assert keep.country == "Russia"
+
+    def test_but_it_does_not_overwrite_one(self, seeded):
+        keep = FirearmModel(name="Karabiner 98k", country="Germany", status=ArmoryStatus.APPROVED)
+        gone = FirearmModel(name="K98k", country="Portugal", status=ArmoryStatus.APPROVED)
+        seeded.add_all([keep, gone])
+        seeded.commit()
+        armory.merge_models(seeded, gone.id, keep.id)
+        seeded.commit()
+        assert keep.country == "Germany"
+
+
 class TestTheShippedFileNamesItsCountries:
     """Every model in the shipped armory says where its pattern comes from,
     and says it the way the classifier says it.
