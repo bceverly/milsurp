@@ -59,21 +59,32 @@ images:
   path: /etc/milsurp/images
 
 # --- Backups ---------------------------------------------------------------
-# Daily snapshots of the database: through SQLite's online backup API, so each
-# one is a complete .db that opens on its own, or through "pg_dump -Fc" under
-# PostgreSQL, which writes a .dump for pg_restore. Production only: nothing is
-# written in development, where the database is a scratch copy.
+# Snapshots of the database: through SQLite's online backup API, so each one is
+# a complete .db that opens on its own, or through "pg_dump -Fc" under
+# PostgreSQL, which writes a .dump for pg_restore.
 #
 # The database is the one part of this application that cannot be rebuilt. The
 # code is in version control and the photos can be fetched again, but the price
 # history is a record of what a vendor was asking on a day that has passed.
+#
+# **Whether, how often and how many to keep are no longer set here.** They are
+# on the Backups page in the admin navigation, because they are policy and an
+# administrator should not have to edit a file on the server and restart to
+# change a retention window. The values below seed those settings the first
+# time the database is upgraded, and are ignored afterwards.
+#
+# What stays here is the directory: where files land is a fact about the
+# machine, and a text box that can point the writer at any path is a worse idea
+# than a default nobody can change from a browser.
 backups:
-  enabled: true                      # default: true (and always off in dev)
   # Development default: <repo root>/backups
   # Production default:  /etc/milsurp/backups
   directory: /etc/milsurp/backups
-  keep: 10                           # snapshots to keep, default: 10
-  interval_hours: 24                 # default: 24
+
+  # Seed values only — the Backups page owns these after the first upgrade.
+  enabled: true                      # seeded off in development
+  keep: 10                           # snapshots to keep
+  interval_hours: 24                 # hours between snapshots
 
 # --- Security --------------------------------------------------------------
 # Generate real values with:  make secrets

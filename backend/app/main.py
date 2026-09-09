@@ -25,6 +25,7 @@ from .api import (
     access,
     armory,
     auth,
+    backups,
     items,
     manufacturers,
     preferences,
@@ -336,6 +337,7 @@ def create_app() -> FastAPI:
         return response
 
     api = APIRouter(prefix="/api")
+    api.include_router(backups.router)
     api.include_router(system.router)
     api.include_router(auth.router)
     api.include_router(access.router)

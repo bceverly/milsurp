@@ -626,6 +626,48 @@ class HealthOut(BaseModel):
     server_time: str
 
 
+class BackupSettingsOut(UTCModel):
+    """UTCModel, not BaseModel: these columns are naive-but-UTC like every
+    other datetime here, and without the serializer they reach the browser with
+    no timezone at all -- which Date.parse reads as *local*, putting "last run"
+    hours out on the very page whose job is to say when the last run was."""
+
+    enabled: bool
+    interval_hours: int
+    keep: int
+    last_run_at: datetime | None = None
+    last_status: str | None = None
+    last_error: str | None = None
+    last_bytes: int | None = None
+
+
+class BackupSettingsUpdate(BaseModel):
+    """Every field optional: the page sends the one that changed."""
+
+    enabled: bool | None = None
+    interval_hours: int | None = None
+    keep: int | None = None
+
+
+class BackupSnapshotOut(BaseModel):
+    name: str
+    bytes: int
+    taken_at: str
+
+
+class BackupStateOut(BaseModel):
+    settings: BackupSettingsOut
+    #: Where they land. Shown, not editable -- see api/backups.py.
+    directory: str
+    engine: str
+    restore_hint: str
+    snapshots: list[BackupSnapshotOut]
+    total_bytes: int
+    #: The choices the page offers, so the two ends cannot disagree about them.
+    interval_choices: list[int]
+    keep_choices: list[int]
+
+
 class SystemStatusOut(BaseModel):
     version: str
     mode: str

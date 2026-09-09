@@ -534,19 +534,38 @@ yourself a digest immediately from **Email digest → Send one now**.
 
 ### Backups
 
-In production the scheduler snapshots the database once a day and keeps the ten
-most recent, in `backups/` beside the database (`/var/lib/milsurp/backups` by
-default). Nothing is written in development, where the database is a scratch
-copy. `backend/cli.py backup` takes one on demand — worth doing before anything
-that rewrites listings in bulk.
+The scheduler snapshots the database on a schedule an administrator sets, and
+keeps a fixed number of the most recent, in `backups/` beside the database
+(`/etc/milsurp/backups` by default).
+
+**The schedule lives on the Backups page**, in the admin navigation: a switch,
+how often, how many to keep, a **Back up now** button, and the list of what is
+actually on disk with its sizes. It reports what happened last time, so a backup
+that has been failing quietly for a week is visible where the setting is rather
+than only in a log.
+
+Those three settings used to be in `config.yaml` and moved into the database in
+migration 0015, seeded from whatever the file said, because they are policy —
+and an administrator should not have to edit a file on the server and restart
+the service to change a retention window. `backend/cli.py backup --force` still
+takes one from the command line.
+
+What stays in `config.yaml` is where the files land, because that is a fact
+about the machine rather than a policy, and a text box that can point the writer
+at any path is a worse idea than a default nobody can change from a browser:
 
 ```yaml
 backups:
-  enabled: true          # production only; dev never writes one
-  directory: backups     # relative to the state directory
-  keep: 10
-  interval_hours: 24
+  directory: /etc/milsurp/backups   # relative paths resolve against the state directory
 ```
+
+**Development no longer means "never".** It used to: a scratch database should
+not fill a working tree with copies of itself, and when the only way to change
+the setting was to edit the server's config that was the right default. It is
+the wrong rule once it is a switch on a page — a development-mode installation
+can hold real data, which is exactly the case that prompted this. The upgrade
+seeds the switch *off* in development, so nothing starts writing files nobody
+asked for; turning it on is one click.
 
 Under SQLite, snapshots are taken through the online backup API rather than by
 copying the file: a copy taken while the application is writing can catch a

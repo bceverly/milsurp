@@ -257,3 +257,49 @@ test.describe("navigation", () => {
     await expect(signedIn.getByRole("heading", { name: "Inventory" })).toBeVisible();
   });
 });
+
+test.describe("backups", () => {
+  test("the schedule can be switched on and its frequency changed", async ({
+    signedIn,
+  }) => {
+    await signedIn.goto("/backups");
+    await expect(signedIn.getByRole("heading", { name: "Backups" })).toBeVisible();
+
+    // Off on a new installation: an upgrade should not start writing files
+    // nobody asked for.
+    const toggle = signedIn.getByRole("checkbox");
+    await expect(toggle).not.toBeChecked();
+
+    // The frequency is unusable until the schedule is on, which is the whole
+    // meaning of the switch.
+    const howOften = signedIn.getByLabel("How often");
+    await expect(howOften).toBeDisabled();
+
+    await signedIn.locator("label.switch").click();
+    await expect(toggle).toBeChecked();
+    await expect(howOften).toBeEnabled();
+
+    await howOften.selectOption("12");
+    // It persisted, rather than only changing on screen.
+    await signedIn.reload();
+    await expect(signedIn.getByLabel("How often")).toHaveValue("12");
+    await expect(signedIn.getByRole("checkbox")).toBeChecked();
+  });
+
+  test("“Back up now” writes a snapshot and lists it", async ({ signedIn }) => {
+    await signedIn.goto("/backups");
+    await expect(signedIn.getByRole("heading", { name: "Backups" })).toBeVisible();
+
+    // Nothing yet, and the empty state says why rather than being blank.
+    await expect(signedIn.locator(".empty")).toContainText("No snapshots yet");
+
+    await signedIn.getByRole("button", { name: "Back up now" }).click();
+
+    await expect(signedIn.locator(".alert--success")).toContainText("Wrote milsurp-");
+    const rows = signedIn.locator("table.table tbody tr");
+    await expect(rows).toHaveCount(1);
+    await expect(rows.first()).toContainText("milsurp-");
+    // And the run is recorded where somebody would look for it.
+    await expect(signedIn.getByText(/Last run/)).toBeVisible();
+  });
+});

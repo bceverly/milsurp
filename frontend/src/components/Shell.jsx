@@ -16,6 +16,7 @@ import {
   Rifle,
   Sites as SitesIcon,
   Tag as TagIcon,
+  Database as DatabaseIcon,
   Users as UsersIcon,
   X,
 } from "./Icons.jsx";
@@ -34,6 +35,7 @@ const NAV = [
   // of models that nothing else could see.
   { to: "/armory", label: "Armory", icon: TagIcon, adminOnly: true },
   { to: "/users", label: "Users", icon: UsersIcon, adminOnly: true },
+  { to: "/backups", label: "Backups", icon: DatabaseIcon, adminOnly: true },
   { to: "/settings", label: "Email digest", icon: Mail },
 ];
 

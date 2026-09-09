@@ -131,6 +131,11 @@ export const api = {
       body: { current_password, new_password },
     }),
 
+  // --- backups (admin) ---
+  backups: () => request("/api/admin/backups"),
+  updateBackups: (body) => request("/api/admin/backups", { method: "PATCH", body }),
+  runBackup: () => request("/api/admin/backups/run", { method: "POST" }),
+
   // --- items ---
   items: (params) => request(`/api/items${qs(params)}`),
   item: (id) => request(`/api/items/${id}`),

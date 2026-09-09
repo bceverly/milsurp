@@ -1531,10 +1531,29 @@ fact.
 - **Planned** — Prometheus metrics endpoint: scan durations, item counts, error
   rates.
 - **Planned** — Structured JSON logging, for log aggregation in production.
-- **Shipped** — Daily database snapshots in production: SQLite's online backup
-  API, ten kept, `backups/` gitignored, off in development. Taken by the
+- **Shipped** — Database snapshots, taken by the application itself: SQLite's
+  online backup API or `pg_dump -Fc`, `backups/` gitignored. Taken by the
   scheduler on the age of the newest snapshot rather than on a timer, so a
-  restart does not skip a day, and `milsurp backup` takes one by hand.
+  restart does not skip a day.
+- **Shipped** — **The schedule is an administrator's, not a file's.** Whether
+  snapshots are taken, how often, and how many to keep moved out of
+  `config.yaml` into a settings row (migration 0015, seeded from the file) and
+  onto a Backups page: a switch, two dropdowns, a **Back up now** button, and
+  the list of what is on disk with sizes and ages. The outcome of the last run
+  is recorded on the row, so a backup failing quietly for a week is visible
+  where the setting is rather than only in a log.
+
+  What did *not* move is `backups.directory`. Where files land is a fact about
+  the machine, and a text box that can point the writer at any path on the
+  server is a worse idea than a default nobody can change from a browser.
+
+  It also retired the rule that development never backs up. That was right when
+  the only way to change the setting was to edit the server's config — a
+  scratch database should not fill a working tree with copies of itself — and
+  wrong once it is a switch on a page. The prompt was this installation:
+  development mode, PostgreSQL, real price history, and no backups at all. The
+  upgrade seeds the switch off in development so nothing starts writing files
+  nobody asked for.
 - **Shipped** — The photo SSRF guard tells a private address from a resolver
   that gave up. Both used to be reported as "not a public HTTP(S) URL" and both
   counted against a photograph's retry budget; one SARCO scan refused 151

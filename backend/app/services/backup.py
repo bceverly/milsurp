@@ -37,7 +37,10 @@ import subprocess  # nosec B404
 from datetime import UTC, datetime
 from pathlib import Path
 
+from sqlalchemy.orm import Session
+
 from ..config import Config
+from ..models import BackupSetting, utcnow
 
 log = logging.getLogger("milsurp.backup")
 
@@ -58,8 +61,33 @@ SECURE_DIR_MODE = 0o700
 SECURE_FILE_MODE = 0o600
 
 
-def is_enabled(config: Config) -> bool:
-    return config.backups.enabled and not config.is_dev
+def settings(session: Session) -> BackupSetting:
+    """The one settings row, created if a database somehow lacks it.
+
+    Migration 0015 seeds it, so the create is for a database built some other
+    way -- an old stamp, a create_all() in a test -- rather than a path anybody
+    takes on purpose.
+    """
+    row = session.get(BackupSetting, 1)
+    if row is None:
+        row = BackupSetting(id=1, enabled=False, interval_hours=24, keep=10)
+        session.add(row)
+        session.commit()
+    return row
+
+
+def is_enabled(session: Session) -> bool:
+    """Whether the schedule is on. The admin decides; the run mode does not.
+
+    It used to be ``config.backups.enabled and not config.is_dev``, which was
+    right when the only way to change it was to edit a file on the server: a
+    development checkout should not fill its working tree with snapshots of a
+    scratch database. Now that it is a switch on a page, "development" is no
+    longer a reason to overrule somebody who has asked for backups -- and this
+    installation, which runs in development mode against a PostgreSQL database
+    holding real price history, is exactly why.
+    """
+    return bool(settings(session).enabled)
 
 
 def existing(directory: Path) -> list[Path]:
@@ -82,11 +110,17 @@ def age_hours(directory: Path, *, now: datetime | None = None) -> float | None:
     return (now - taken).total_seconds() / 3600
 
 
-def is_due(config: Config, *, now: datetime | None = None) -> bool:
-    if not is_enabled(config):
+def is_due(session: Session, config: Config, *, now: datetime | None = None) -> bool:
+    """Measured against the newest file on disk, not against a timer.
+
+    A process that restarts twice a day should still produce one backup a day,
+    and a timer resets on every restart while the files do not.
+    """
+    row = settings(session)
+    if not row.enabled:
         return False
     age = age_hours(config.backups.directory, now=now)
-    return age is None or age >= config.backups.interval_hours
+    return age is None or age >= row.interval_hours
 
 
 def take(config: Config, *, now: datetime | None = None) -> Path:
@@ -182,12 +216,39 @@ def prune(directory: Path, keep: int) -> list[Path]:
     return removed
 
 
-def run(config: Config, *, now: datetime | None = None) -> Path | None:
-    """Take a snapshot and prune the old ones. None when backups are off."""
-    if not is_enabled(config):
+def run(
+    session: Session, config: Config, *, now: datetime | None = None, force: bool = False
+) -> Path | None:
+    """Take a snapshot and prune the old ones. None when backups are off.
+
+    ``force`` is the "Back up now" button: a person asking for one is a good
+    enough reason, whatever the schedule says.
+
+    The outcome is written to the settings row either way, so the admin page
+    can report what happened without anybody reading a log -- and so a backup
+    that has been failing quietly for a week is visible where the setting is,
+    which is the place somebody would look.
+    """
+    row = settings(session)
+    if not (row.enabled or force):
         return None
-    destination = take(config, now=now)
-    removed = prune(config.backups.directory, config.backups.keep)
+
+    row.last_run_at = utcnow()
+    try:
+        destination = take(config, now=now)
+    except Exception as exc:
+        row.last_status = "FAILED"
+        row.last_error = str(exc)[:500]
+        row.last_bytes = None
+        session.commit()
+        raise
+
+    removed = prune(config.backups.directory, row.keep)
+    row.last_status = "SUCCESS"
+    row.last_error = None
+    row.last_bytes = destination.stat().st_size
+    session.commit()
+
     log.info(
         "Wrote %s (%.1f MB); pruned %d old snapshot(s)",
         destination.name,

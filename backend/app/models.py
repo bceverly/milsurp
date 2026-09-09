@@ -756,6 +756,44 @@ class HostCooldown(Base):
     last_refused_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
+class BackupSetting(Base, TimestampMixin):
+    """How often the database is snapshotted, and how many are kept.
+
+    **One row, id 1.** A schedule is a property of the installation, not of a
+    user, and there is nothing to key it by.
+
+    These three settings used to live in config.yaml. They moved here because
+    an administrator is the person who should decide how often a backup is
+    taken and how many to keep, and editing a YAML file on the server and
+    restarting is not a thing an administrator should have to do to change a
+    retention window. What stayed in config.yaml is ``backups.directory``:
+    where files land on disk is an operator's decision about the machine, not
+    an administrator's about policy, and a text box that can point the writer
+    at any path is a worse idea than an unchangeable default.
+
+    The values in config.yaml seed this row the first time it is created, so a
+    deployment that had configured them keeps what it had.
+    """
+
+    __tablename__ = "backup_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    #: Hours between snapshots. Measured against the newest file on disk rather
+    #: than against a timer, so a process that restarts twice a day still
+    #: produces one backup a day. See services.backup.is_due.
+    interval_hours: Mapped[int] = mapped_column(Integer, default=24, nullable=False)
+    #: How many to keep. The oldest beyond this are deleted after each run.
+    keep: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
+
+    #: What happened last time, so the admin page can say so without reading a
+    #: log. Set by both the scheduler and the "Back up now" button.
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime)
+    last_status: Mapped[str | None] = mapped_column(String(16))
+    last_error: Mapped[str | None] = mapped_column(String(500))
+    last_bytes: Mapped[int | None] = mapped_column(Integer)
+
+
 class PriceHistory(Base):
     """Every price observation, so a listing's price over time is queryable.
 

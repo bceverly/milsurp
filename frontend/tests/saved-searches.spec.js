@@ -127,6 +127,15 @@ test.describe("the saved searches page", () => {
 
   test("with nothing saved it explains where to start", async ({ signedIn }) => {
     await signedIn.goto("/saved-searches");
+
+    // Wait for the list to have rendered *something* before counting it.
+    // `.count()` does not auto-wait, so on a slow first paint it reads zero on
+    // an empty DOM, the delete loop below never runs, and the test then fails
+    // looking for an empty state while two saved searches sit on the screen.
+    // Anchoring on "a card or the empty state, whichever comes" is the wait
+    // that was missing.
+    await expect(signedIn.locator(".saved-search, .empty").first()).toBeVisible();
+
     // Whatever earlier tests left behind, clear it. Re-queried each time
     // rather than iterating `.all()`: deleting one re-renders the list, so
     // handles taken up front go stale.

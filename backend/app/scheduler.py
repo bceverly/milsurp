@@ -135,13 +135,15 @@ class Scheduler:
         process that was down when a timer would have fired should take one as
         soon as it comes back.
         """
-        if not backup.is_due(self.config):
-            return
         try:
-            backup.run(self.config)
+            with session_scope() as session:
+                if not backup.is_due(session, self.config):
+                    return
+                backup.run(session, self.config)
         except Exception:
-            # Never let a failed backup stop the scans. It is logged, and the
-            # next tick tries again.
+            # Never let a failed backup stop the scans. It is logged, recorded
+            # on the settings row for the admin page to show, and the next tick
+            # tries again.
             log.exception("Database backup failed")
 
     # -- scans --------------------------------------------------------------

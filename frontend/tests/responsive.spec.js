@@ -69,6 +69,10 @@ test.describe("mobile layout", () => {
     //
     // So: walk the listings until one qualifies, and fail loudly if none does,
     // rather than pass quietly on a page that cannot demonstrate anything.
+    // Wait for the grid before reading it: evaluateAll does not auto-wait, so
+    // on a slow first paint it returns an empty list from an empty DOM and the
+    // test fails claiming there are no listings.
+    await expect(signedIn.locator(".item-card").first()).toBeVisible();
     const hrefs = await signedIn
       .locator('a[href^="/items/"]')
       .evaluateAll((links) => [...new Set(links.map((a) => a.getAttribute("href")))]);

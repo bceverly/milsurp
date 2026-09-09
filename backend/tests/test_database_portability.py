@@ -147,7 +147,10 @@ class TestTheEngineIsBuiltForTheDatabaseItIsTalkingTo:
         database_module.get_engine()
 
         assert captured["url"].startswith("postgresql+psycopg://")
-        assert "connect_args" not in captured["kwargs"]
+        # check_same_thread is a SQLite DBAPI argument; psycopg rejects it. The
+        # only connect_arg PostgreSQL gets is the session timezone -- see
+        # TestTimestampsAreStoredInUTCOnBothEngines.
+        assert captured["kwargs"]["connect_args"] == {"options": "-c timezone=UTC"}
         assert captured["kwargs"]["pool_pre_ping"] is True
         # Sized from the scan concurrency rather than fixed -- see
         # TestThePoolIsBigEnoughForTheScans.
@@ -744,3 +747,96 @@ class TestThePoolIsBigEnoughForTheScans:
         from app.main import pool_complaint
 
         assert pool_complaint(self.config_for(tmp_path, "database:\n  path: /tmp/x.db\n")) is None
+
+
+class TestTimestampsAreStoredInUTCOnBothEngines:
+    """The bug this class exists for cost four hours on every row.
+
+    Every datetime in this schema is UTC and every column is naive
+    (``timestamp without time zone``, or SQLite's text). ``models.utcnow()``
+    hands the driver an *aware* UTC value.
+
+    SQLite formats that value's own fields, which are already UTC, so it was
+    always right. PostgreSQL receives it as ``timestamptz`` and casts to
+    ``timestamp`` **using the session's TimeZone** — so on a server set to
+    America/New_York, 19:36 UTC was stored as 15:36 and read back as though it
+    were UTC. Scan times went backwards, "last seen" was four hours early, and
+    nothing raised: the application had simply written the wrong number.
+
+    ``connect_args={"options": "-c timezone=UTC"}`` is the fix, and this is the
+    check that it stays. It is exactly the shape of mistake the "Two engines,
+    one schema" rule is about — correct on one engine, silently wrong on the
+    other — which is why it lives here.
+    """
+
+    def stamp(self, url: str, **engine_kwargs):
+        """Round-trip utcnow() through a real DateTime column on this engine.
+
+        Through SQLAlchemy's own type, because that is what the application
+        uses -- and because binding a datetime to a raw statement goes through
+        the DBAPI's adapter instead, which is a different code path and, on
+        sqlite3, a deprecated one.
+        """
+        from app.models import utcnow
+
+        metadata = sa.MetaData()
+        table = sa.Table("tz_probe", metadata, sa.Column("at", sa.DateTime()))
+        engine = sa.create_engine(url, **engine_kwargs)
+        try:
+            metadata.create_all(engine)
+            sent = utcnow()
+            with engine.begin() as connection:
+                connection.execute(table.insert(), {"at": sent})
+                stored = connection.execute(sa.select(table.c.at)).scalar_one()
+            return sent.replace(tzinfo=None), stored
+        finally:
+            metadata.drop_all(engine)
+            engine.dispose()
+
+    def test_sqlite_stores_what_utcnow_produced(self, tmp_path):
+        sent, stored = self.stamp(f"sqlite:///{tmp_path / 'tz.db'}")
+        assert abs((stored - sent).total_seconds()) < 1, f"stored {stored}, sent {sent}"
+
+    @needs_postgres
+    def test_and_so_does_postgresql_with_the_setting(self):
+        sent, stored = self.stamp(POSTGRES_URL, connect_args={"options": "-c timezone=UTC"})
+        assert abs((stored - sent).total_seconds()) < 1, f"stored {stored}, sent {sent}"
+
+    @needs_postgres
+    def test_and_would_not_without_it_on_a_server_in_another_zone(self):
+        """The test that makes the one above mean something.
+
+        Pointed at a session in another zone, the same write lands hours out --
+        which is what a server whose operator set TimeZone to a local zone does
+        by default, and what happened here.
+        """
+        sent, stored = self.stamp(
+            POSTGRES_URL, connect_args={"options": "-c timezone=America/New_York"}
+        )
+        assert abs((stored - sent).total_seconds()) > 3000
+
+    def test_the_application_asks_postgresql_for_utc(self, monkeypatch, tmp_path):
+        """A server's TimeZone is whatever its operator set. The application
+        must not inherit it."""
+        import app.database as database_module
+        from app.config import load_config
+
+        captured: dict = {}
+
+        def fake_create_engine(url, **kwargs):
+            captured.update(url=url, kwargs=kwargs)
+            return object()
+
+        config_path = tmp_path / "config.yaml"
+        config_path.write_text(
+            "database:\n  engine: postgresql\n  host: h\n  name: n\n  user: u\n"
+            f"images:\n  path: {tmp_path / 'images'}\n",
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(database_module, "create_engine", fake_create_engine)
+        monkeypatch.setattr(database_module, "get_config", lambda: load_config(config_path))
+        monkeypatch.setattr(database_module, "_engine", None)
+
+        database_module.get_engine()
+
+        assert captured["kwargs"]["connect_args"] == {"options": "-c timezone=UTC"}

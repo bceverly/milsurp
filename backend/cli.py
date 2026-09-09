@@ -652,19 +652,24 @@ def cmd_backup(args: argparse.Namespace) -> int:
     """
     config = get_config()
     directory = config.backups.directory
-    if config.is_dev and not args.force:
-        print("Backups are off in development: the database here is a scratch copy.")
-        print("Re-run with --force to take one anyway.")
-        return 0
+    with session_scope() as session:
+        settings = backup_service.settings(session)
+        if not settings.enabled and not args.force:
+            print("The backup schedule is switched off (Backups, in the admin navigation).")
+            print("Re-run with --force to take one anyway.")
+            return 0
 
-    destination = backup_service.take(config)
-    removed = backup_service.prune(directory, config.backups.keep)
+        # force=True either way: reaching here means the schedule is on, or the
+        # person said --force. Both are a decision to take one now.
+        destination = backup_service.run(session, config, force=True)
+        keep = settings.keep
+
+    if destination is None:  # pragma: no cover - force makes this unreachable
+        return 0
     size = destination.stat().st_size / 1_048_576
     print(f"Wrote {destination} ({size:.1f} MB).")
-    if removed:
-        print(f"Pruned {len(removed)} snapshot(s) beyond the newest {config.backups.keep}.")
     kept = backup_service.existing(directory)
-    print(f"{len(kept)} snapshot(s) in {directory}.")
+    print(f"{len(kept)} snapshot(s) in {directory} (keeping the newest {keep}).")
     return 0
 
 

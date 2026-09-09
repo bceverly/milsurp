@@ -49,6 +49,18 @@ def get_engine() -> Engine:
             _engine = create_engine(
                 config.database_url,
                 future=True,
+                # Every datetime in this schema is UTC, and every column is
+                # "timestamp without time zone". utcnow() hands the driver an
+                # *aware* UTC value, and PostgreSQL casts timestamptz to
+                # timestamp using the session's TimeZone -- so on a server set
+                # to America/New_York, 19:36 UTC was stored as 15:36 and read
+                # back as though it were UTC. Four hours, silently, on every
+                # row the application wrote.
+                #
+                # SQLite never had the problem: it formats the datetime's own
+                # fields, which for an aware UTC value are already UTC. This is
+                # the session setting that makes PostgreSQL agree.
+                connect_args={"options": "-c timezone=UTC"},
                 # A pooled connection can be handed out after the far end has
                 # quietly dropped it -- a restarted server, an idle timeout on
                 # a firewall or pgbouncer. pre_ping costs one round trip and

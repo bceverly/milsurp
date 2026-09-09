@@ -31,30 +31,90 @@ def configured(app_config, _database, tmp_path):
 
 
 class TestWhenItRuns:
-    def test_development_never_writes_a_snapshot(self, app_config, tmp_path):
-        """A development database is a scratch copy that gets re-seeded."""
-        config = replace(
-            app_config, mode="dev", backups=replace(app_config.backups, directory=tmp_path)
-        )
+    """The schedule is a row in the database, not a line in config.yaml.
 
-        assert backup.is_enabled(config) is False
-        assert backup.is_due(config) is False
-        assert backup.run(config) is None
-        assert backup.existing(tmp_path) == []
+    It moved because an administrator is the person who should decide how often
+    a snapshot is taken, and editing a file on the server and restarting is not
+    a thing an administrator should have to do to change a retention window.
 
-    def test_the_first_run_is_always_due(self, configured):
-        assert backup.is_due(configured) is True
+    One consequence is worth stating: the run mode no longer overrules the
+    setting. "Development never backs up" was right when the only way to change
+    it was to edit the server's config -- a scratch database should not fill a
+    working tree with copies of itself. It is wrong now, and this installation
+    is why: it runs in development mode against a PostgreSQL database holding
+    real price history.
+    """
 
-    def test_it_is_not_due_again_until_the_interval_has_passed(self, configured):
+    def test_a_new_installation_has_it_switched_off(self, session, configured):
+        assert backup.is_enabled(session) is False
+        assert backup.is_due(session, configured) is False
+        assert backup.run(session, configured) is None
+        assert backup.existing(configured.backups.directory) == []
+
+    def test_switching_it_on_is_all_it_takes(self, session, configured):
+        backup.settings(session).enabled = True
+        assert backup.is_due(session, configured) is True
+        assert backup.run(session, configured) is not None
+
+    def test_the_first_run_is_always_due(self, session, configured):
+        backup.settings(session).enabled = True
+        assert backup.is_due(session, configured) is True
+
+    def test_it_is_not_due_again_until_the_interval_has_passed(self, session, configured):
+        backup.settings(session).enabled = True
         backup.take(configured)
 
-        assert backup.is_due(configured) is False
+        assert backup.is_due(session, configured) is False
         later = datetime.now(UTC) + timedelta(hours=25)
-        assert backup.is_due(configured, now=later) is True
+        assert backup.is_due(session, configured, now=later) is True
 
-    def test_turning_it_off_turns_it_off(self, configured):
-        config = replace(configured, backups=replace(configured.backups, enabled=False))
-        assert backup.run(config) is None
+    def test_the_interval_comes_from_the_row(self, session, configured):
+        """Which is the whole point of moving it out of the file."""
+        settings = backup.settings(session)
+        settings.enabled = True
+        settings.interval_hours = 6
+        backup.take(configured)
+
+        assert backup.is_due(session, configured) is False
+        later = datetime.now(UTC) + timedelta(hours=7)
+        assert backup.is_due(session, configured, now=later) is True
+
+    def test_turning_it_off_turns_it_off(self, session, configured):
+        backup.settings(session).enabled = False
+        assert backup.run(session, configured) is None
+
+    def test_but_asking_for_one_by_hand_works_anyway(self, session, configured):
+        """The "Back up now" button. Somebody about to do something risky is a
+        good enough reason, whatever the schedule says."""
+        backup.settings(session).enabled = False
+        assert backup.run(session, configured, force=True) is not None
+
+
+class TestTheOutcomeIsRecorded:
+    """A backup that has been failing quietly for a week should be visible
+    where the setting is, which is where somebody would look."""
+
+    def test_a_success_is_written_down(self, session, configured):
+        backup.run(session, configured, force=True)
+        settings = backup.settings(session)
+
+        assert settings.last_status == "SUCCESS"
+        assert settings.last_error is None
+        assert settings.last_bytes > 0
+        assert settings.last_run_at is not None
+
+    def test_and_so_is_a_failure(self, session, configured, monkeypatch):
+        def explode(*_args, **_kwargs):
+            raise RuntimeError("pg_dump is not on PATH")
+
+        monkeypatch.setattr(backup, "take", explode)
+        with pytest.raises(RuntimeError):
+            backup.run(session, configured, force=True)
+
+        settings = backup.settings(session)
+        assert settings.last_status == "FAILED"
+        assert "pg_dump" in settings.last_error
+        assert settings.last_bytes is None
 
 
 class TestTheSnapshotItself:
@@ -115,12 +175,15 @@ class TestPruning:
         backup.take(configured)
         assert backup.prune(configured.backups.directory, keep=10) == []
 
-    def test_a_run_prunes_as_it_goes(self, configured, seeded):
-        config = replace(configured, backups=replace(configured.backups, keep=2))
+    def test_a_run_prunes_as_it_goes(self, session, configured, seeded):
+        """And "how many to keep" is read from the row, not the file."""
+        settings = backup.settings(session)
+        settings.enabled = True
+        settings.keep = 2
         for day in range(1, 5):
-            backup.run(config, now=datetime(2026, 3, day, 4, 5, 6, tzinfo=UTC))
+            backup.run(session, configured, now=datetime(2026, 3, day, 4, 5, 6, tzinfo=UTC))
 
-        assert len(backup.existing(config.backups.directory)) == 2
+        assert len(backup.existing(configured.backups.directory)) == 2
 
     def test_files_that_are_not_snapshots_are_left_alone(self, configured):
         backup.take(configured)

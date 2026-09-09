@@ -55,6 +55,13 @@ database:
   path: $WORK_DIR/e2e.db
 images:
   path: $WORK_DIR/images
+backups:
+  # Isolated like everything else. Without this the suite falls back to the
+  # dev default -- the repository's own backups/ -- and the "Back up now"
+  # test writes snapshots into a real backup directory, where they count
+  # towards the retention limit and can push genuine backups out of it. Which
+  # is exactly what happened the first time that test ran.
+  directory: $WORK_DIR/backups
 security:
   password_pepper: "$E2E_PEPPER"
   jwt_secret: "$E2E_JWT_SECRET"
