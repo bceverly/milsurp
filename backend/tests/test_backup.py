@@ -130,3 +130,101 @@ class TestPruning:
         backup.prune(configured.backups.directory, keep=0)
 
         assert stray.exists()
+
+
+class TestUnderPostgreSQL:
+    """The same job, done by pg_dump.
+
+    A PostgreSQL snapshot is not a file this process can write: the data lives
+    on a server, and ``pg_dump`` is the supported way to get a consistent copy
+    of it out. So these tests are about the argv, the file mode and the failure
+    message rather than about the bytes -- the bytes are PostgreSQL's problem,
+    and there is an end-to-end check of them in test_database_portability.py.
+    """
+
+    @pytest.fixture
+    def on_postgres(self, configured):
+        from app.config import DatabaseConfig
+
+        return replace(
+            configured,
+            database=DatabaseConfig(
+                engine="postgresql",
+                host="db.internal",
+                port=6432,
+                name="milsurp",
+                user="milsurp",
+                password="hunter2",
+            ),
+        )
+
+    def test_the_snapshot_is_named_dump_not_db(self, on_postgres, monkeypatch):
+        """The two are not interchangeable: a .db opens with sqlite3 and a
+        .dump only with pg_restore, so the name has to say which it is."""
+        monkeypatch.setattr(backup.shutil, "which", lambda _: "/usr/bin/pg_dump")
+        monkeypatch.setattr(backup.subprocess, "run", lambda *a, **k: None)
+
+        written = backup.take(on_postgres, now=datetime(2026, 3, 1, 4, 5, 6, tzinfo=UTC))
+
+        assert written.name == "milsurp-20260301-040506.dump"
+        assert backup.existing(on_postgres.backups.directory) == [written]
+
+    def test_the_file_is_0600_before_pg_dump_writes_a_byte_into_it(self, on_postgres, monkeypatch):
+        """It holds every email address the site knows. Creating it first and
+        passing --file, rather than redirecting into it, is what keeps it from
+        being briefly world-readable."""
+        seen = {}
+
+        def fake_run(argv, **kwargs):
+            target = next(a for a in argv if a.startswith("--file="))[len("--file=") :]
+            from pathlib import Path
+
+            seen["mode"] = Path(target).stat().st_mode & 0o777
+
+        monkeypatch.setattr(backup.shutil, "which", lambda _: "/usr/bin/pg_dump")
+        monkeypatch.setattr(backup.subprocess, "run", fake_run)
+
+        backup.take(on_postgres)
+
+        assert seen["mode"] == 0o600
+
+    def test_the_password_goes_in_the_environment_not_the_command_line(
+        self, on_postgres, monkeypatch
+    ):
+        """Anything on the argv is readable by every account on the box for as
+        long as the dump runs."""
+        seen = {}
+
+        monkeypatch.setattr(backup.shutil, "which", lambda _: "/usr/bin/pg_dump")
+        monkeypatch.setattr(
+            backup.subprocess, "run", lambda argv, **kw: seen.update(argv=argv, env=kw.get("env"))
+        )
+
+        backup.take(on_postgres)
+
+        assert not any("hunter2" in argument for argument in seen["argv"])
+        assert seen["env"]["PGPASSWORD"] == "hunter2"
+        assert "--host=db.internal" in seen["argv"]
+        assert "--port=6432" in seen["argv"]
+        assert seen["argv"][-1] == "milsurp"
+
+    def test_a_missing_pg_dump_says_which_package_to_install(self, on_postgres, monkeypatch):
+        monkeypatch.setattr(backup.shutil, "which", lambda _: None)
+
+        with pytest.raises(RuntimeError, match="postgresql-client"):
+            backup.take(on_postgres)
+
+    def test_a_failed_dump_leaves_no_file_behind_to_be_believed(self, on_postgres, monkeypatch):
+        """A zero-byte .dump in the backup directory is worse than no file:
+        it makes is_due() say a snapshot was taken today."""
+        import subprocess
+
+        def fail(argv, **kwargs):
+            raise subprocess.CalledProcessError(1, argv, stderr="FATAL: role does not exist")
+
+        monkeypatch.setattr(backup.shutil, "which", lambda _: "/usr/bin/pg_dump")
+        monkeypatch.setattr(backup.subprocess, "run", fail)
+
+        with pytest.raises(RuntimeError, match="role does not exist"):
+            backup.take(on_postgres)
+        assert backup.existing(on_postgres.backups.directory) == []

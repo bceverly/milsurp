@@ -85,6 +85,27 @@ jobs:
         # Every version pyproject's requires-python claims. A floor nobody
         # tests is not a floor.
         python-version: ["3.12", "3.13", "3.14"]
+
+    # The portability tests need a real PostgreSQL to run their half against;
+    # without one they skip, and a skipped test proves nothing. This database
+    # is one the suite drops every table in, so it is the service's own and
+    # nothing else uses it.
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: milsurp
+          POSTGRES_PASSWORD: milsurp
+          POSTGRES_DB: milsurp_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U milsurp"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      MILSURP_TEST_POSTGRES_URL: postgresql+psycopg://milsurp:milsurp@127.0.0.1:5432/milsurp_test
     steps:
       - uses: actions/checkout@v7
 
@@ -140,9 +161,33 @@ jobs:
           if-no-files-found: ignore
 
   # ==========================================================================
+  # The schema has to build, re-build and round-trip on *both* engines: SQLite
+  # is what development and the test suite use, PostgreSQL is what a deployment
+  # that has outgrown one writer uses. A default that only one of them accepts
+  # is the failure this leg exists to catch — see README.md, "Two engines, one
+  # schema".
   migrations:
-    name: Migrations
+    name: Migrations (${{ matrix.engine }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [sqlite, postgresql]
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: milsurp
+          POSTGRES_PASSWORD: milsurp
+          POSTGRES_DB: milsurp
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U milsurp"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
       - uses: actions/checkout@v7
 
@@ -158,10 +203,40 @@ jobs:
           .venv/bin/pip install --quiet --upgrade pip
           .venv/bin/pip install --quiet -r backend/requirements.txt
 
+      # A config.yaml naming the engine under test. The SQLite leg writes one
+      # too rather than relying on the default, so the two legs differ in
+      # exactly one block.
+      - name: Point config.yaml at ${{ matrix.engine }}
+        run: |
+          if [ "${{ matrix.engine }}" = "postgresql" ]; then
+            cat > config.yaml <<'YAML'
+          database:
+            engine: postgresql
+            host: 127.0.0.1
+            port: 5432
+            name: milsurp
+            user: milsurp
+            password: milsurp
+          YAML
+          else
+            cat > config.yaml <<'YAML'
+          database:
+            path: ci-milsurp.db
+          YAML
+          fi
+
       # Alembic builds the schema even on a brand new database, so this also
       # proves a fresh install works.
       - name: Build the database from scratch
         run: .venv/bin/python scripts/dbupdate.py
+
+      # Down to base and back up. This is what catches a downgrade that does
+      # not undo its own upgrade — a dangling index on SQLite, in the one case
+      # that has actually happened.
+      - name: Round-trip the whole chain
+        run: |
+          .venv/bin/python scripts/dbupdate.py --downgrade --revision base
+          .venv/bin/python scripts/dbupdate.py
 
       # Every migration is written to be re-runnable; prove it rather than
       # trusting the comment.

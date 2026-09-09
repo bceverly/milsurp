@@ -16,6 +16,7 @@ from app.scrapers import ScrapeContext
 from app.scrapers.base import ScrapeError
 from app.scrapers.bigcommerce import BigCommerceScraper, full_size, price_now
 from app.scrapers.legacy_collectibles import LegacyCollectiblesScraper
+from app.scrapers.storefront import image_sources
 
 SHOP = "https://shop.test"
 CDN = "https://cdn11.bigcommerce.com/s-abc/images/stencil"
@@ -162,6 +163,42 @@ class TestPrice:
 
     def test_a_price_carried_in_an_attribute(self):
         assert self.price_of('<article data-product-price="4495"></article>') == 4495.0
+
+
+class TestAPhotographIsNeverAnSvg:
+    """DuPage Trading's theme puts `.../img/loading.svg` in the `src` of every
+    product image and the real photograph in `data-src`.
+
+    Both came back from `image_sources`, so every listing queued a spinner
+    beside its photograph and every scan finished PARTIAL: "23 of 46 photo(s)
+    could not be fetched". Costless to refuse — the image store rejects an SVG
+    on arrival anyway, so nothing that could have been stored is dropped, only
+    the attempt and the warning.
+    """
+
+    def test_the_spinner_is_not_a_photograph(self):
+        tag = BeautifulSoup(
+            '<img src="https://cdn11.bigcommerce.com/s-x/stencil/a/e/b/img/loading.svg"'
+            ' data-src="https://cdn11.bigcommerce.com/s-x/images/stencil/500x659/'
+            'products/780/2857/bayonet.png" />',
+            "html.parser",
+        ).select_one("img")
+
+        assert image_sources(tag) == [
+            "https://cdn11.bigcommerce.com/s-x/images/stencil/500x659/products/780/2857/bayonet.png"
+        ]
+
+    def test_any_svg_is_refused_wherever_it_sits(self):
+        tag = BeautifulSoup(
+            '<img src="https://shop.test/rifle.svg?v=2" />', "html.parser"
+        ).select_one("img")
+        assert image_sources(tag) == []
+
+    def test_but_a_filename_that_merely_contains_svg_is_a_photograph(self):
+        tag = BeautifulSoup(
+            '<img src="https://shop.test/svgrifle.jpg" />', "html.parser"
+        ).select_one("img")
+        assert image_sources(tag) == ["https://shop.test/svgrifle.jpg"]
 
 
 class TestImages:

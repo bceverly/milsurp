@@ -52,8 +52,12 @@ class FakeScraper(SiteScraper):
     #: Called after each listing is yielded, standing in for the network wait
     #: a real scraper takes before producing the next one.
     between_items = None
+    #: Filled in by scrape() with what the context said this site already
+    #: holds, so a test can check the wiring rather than the scraper.
+    saw_stored_categories: set[str] = set()
 
     def scrape(self, ctx):
+        type(self).saw_stored_categories = set(ctx.stored_categories)
         if self.raise_error:
             raise ScrapeError(self.raise_error)
         if self.warn_with:
@@ -328,6 +332,48 @@ class TestASectionThatWasNotReadIsNotDeListed:
         scan_service.run_scan(fake_site.id, trigger="test")
 
         assert self.active(clean_db) == 1
+
+
+class TestAScraperIsToldWhichSectionsItHasAlreadyRead:
+    """So that "the vendor says this section has not changed" can be told
+    apart from "we already have this section".
+
+    Collectors Firearms conflated the two and skipped 132 listings it had
+    never read — permanently, because a section nobody opens never changes
+    either. The scraper decides; this is only about it being given the fact.
+    """
+
+    def test_a_first_scan_is_told_that_nothing_has_been_read(self, clean_db, fake_site):
+        FakeScraper.payload = [listing("a", category="Rifles")]
+        scan_service.run_scan(fake_site.id, trigger="test")
+        # Read at the *start* of that run, when the table was still empty.
+        assert FakeScraper.saw_stored_categories == set()
+
+    def test_the_next_scan_is_told_what_the_first_one_stored(self, clean_db, fake_site):
+        FakeScraper.payload = [
+            listing("a", category="Rifles"),
+            listing("b", category="Handguns"),
+        ]
+        scan_service.run_scan(fake_site.id, trigger="test")
+        scan_service.run_scan(fake_site.id, trigger="test")
+        assert FakeScraper.saw_stored_categories == {"Rifles", "Handguns"}
+
+    def test_a_de_listed_section_still_counts_as_read(self, clean_db, fake_site):
+        """It was opened once and found empty; that is a fact about us, not
+        about whether the vendor currently stocks anything."""
+        FakeScraper.payload = [listing("a", category="Rifles")]
+        scan_service.run_scan(fake_site.id, trigger="test")
+
+        FakeScraper.payload = []
+        scan_service.run_scan(fake_site.id, trigger="test")  # de-lists it
+        scan_service.run_scan(fake_site.id, trigger="test")
+        assert FakeScraper.saw_stored_categories == {"Rifles"}
+
+    def test_a_listing_with_no_category_contributes_nothing(self, clean_db, fake_site):
+        FakeScraper.payload = [listing("a", category="Rifles"), listing("b", category=None)]
+        scan_service.run_scan(fake_site.id, trigger="test")
+        scan_service.run_scan(fake_site.id, trigger="test")
+        assert FakeScraper.saw_stored_categories == {"Rifles"}
 
 
 class TestPhotos:

@@ -1,4 +1,12 @@
-"""SQLAlchemy engine and session management."""
+"""SQLAlchemy engine and session management.
+
+Two engines are supported, and which one is in use is decided entirely by
+``database:`` in config.yaml. SQLite needs a set of pragmas and one connection
+argument; PostgreSQL needs neither and wants a pool instead. Everything above
+this module is written against the ORM and does not know the difference --
+which is the property the "Two engines, one schema" rule in README.md exists to
+keep.
+"""
 
 from __future__ import annotations
 
@@ -37,13 +45,27 @@ def get_engine() -> Engine:
     if _engine is None:
         config = get_config()
         config.ensure_directories()
-        _engine = create_engine(
-            config.database_url,
-            future=True,
-            # The scheduler runs scans on worker threads that share the engine.
-            connect_args={"check_same_thread": False},
-        )
-        event.listen(_engine, "connect", _configure_sqlite)
+        if config.database.is_postgres:
+            _engine = create_engine(
+                config.database_url,
+                future=True,
+                # A pooled connection can be handed out after the far end has
+                # quietly dropped it -- a restarted server, an idle timeout on
+                # a firewall or pgbouncer. pre_ping costs one round trip and
+                # turns that into a reconnect rather than an error.
+                pool_pre_ping=True,
+                pool_size=config.database.pool_size,
+                max_overflow=config.database.max_overflow,
+                pool_recycle=config.database.pool_recycle_seconds,
+            )
+        else:
+            _engine = create_engine(
+                config.database_url,
+                future=True,
+                # The scheduler runs scans on worker threads that share the engine.
+                connect_args={"check_same_thread": False},
+            )
+            event.listen(_engine, "connect", _configure_sqlite)
     return _engine
 
 

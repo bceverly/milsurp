@@ -95,7 +95,7 @@ def upgrade(config: Config | None = None, revision: str = "head") -> str | None:
     if outstanding:
         log.info("Applying %s migration(s): %s", len(outstanding), ", ".join(outstanding))
     elif before is None:
-        log.info("Creating a new database at %s", config.database_path)
+        log.info("Creating a new database at %s", config.database.describe())
 
     command.upgrade(alembic_config(config), revision)
 
@@ -125,7 +125,8 @@ def status(config: Config | None = None) -> dict[str, object]:
     head = head_revision(config)
     pending = pending_revisions(config)
     return {
-        "database_path": str(config.database_path),
+        "database_path": config.database.describe(),
+        "engine": config.database.engine,
         "mode": config.mode,
         "current_revision": current,
         "head_revision": head,

@@ -18,9 +18,10 @@ from __future__ import annotations
 import contextlib
 import os
 import secrets
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 import yaml
 
@@ -188,6 +189,28 @@ class ServerConfig:
     public_url: str = "https://localhost"
 
 
+#: Concurrent scans, per engine.
+#:
+#: Two on SQLite because it has one writer. A scan commits after every listing
+#: -- it must, or it would hold the write lock across a twenty-second fetch --
+#: so more scan threads means more contention for that one lock, and every
+#: write the web application attempts waits behind them.
+#:
+#: Six on PostgreSQL because that constraint is gone: concurrent writers do not
+#: block each other, and the real ceiling becomes the connection pool. A scan
+#: holds one connection for its whole duration, which for a large vendor is
+#: hours, so six leaves comfortable headroom in a pool of fifteen for the API
+#: and the photo worker. It is not a throughput claim: these scans are bounded
+#: by vendor rate limits, not by the database, so the win is in how many
+#: *different* sites can be in flight, not in how fast any one of them runs.
+CONCURRENT_SCANS = {"sqlite": 2, "postgresql": 6}
+
+#: Connections kept beyond the scans, for the API, the scheduler and the photo
+#: worker. The pool's default size is derived from the scan concurrency plus
+#: this, so raising one does not quietly starve the other.
+POOL_HEADROOM = 6
+
+
 @dataclass(frozen=True)
 class SchedulerConfig:
     enabled: bool = True
@@ -200,10 +223,83 @@ class SchedulerConfig:
     # run for hours; without this the remainder would drain one scan at a time,
     # which on a daily cadence is days of listings with no pictures.
     photo_tick_seconds: int = 180
+    #: How many sites are scanned at once. **The default depends on the
+    #: database engine** -- see CONCURRENT_SCANS. Naming it in config.yaml
+    #: overrides that, whichever engine is in use.
     max_concurrent_scans: int = 2
     # Refuse to start a scan if one for the same site has been running longer
     # than this; the previous run is marked failed and reaped.
     scan_timeout_minutes: int = 120
+
+
+@dataclass(frozen=True)
+class DatabaseConfig:
+    """Which database to talk to, and how to reach it.
+
+    Two engines are supported and both are first-class: SQLite, which is what a
+    development checkout and the test suite use, and PostgreSQL, which is what
+    a deployment that has outgrown one writer should use. **Every schema change
+    in this project has to work on both** -- see the rule in README.md under
+    "Two engines, one schema".
+
+    Under ``sqlite`` only :attr:`path` is read. Under ``postgresql`` the
+    connection is assembled from the host/port/name/user/password fields, or
+    taken verbatim from :attr:`url` when that is set -- the escape hatch for a
+    connection string that needs something this dataclass does not model (a
+    Unix socket directory, a client certificate, a connection pooler).
+    """
+
+    engine: str = "sqlite"
+    #: The SQLite file. Kept meaningful under PostgreSQL too, because it is
+    #: where the importer reads from and what the backup service snapshots.
+    path: Path = Path("milsurp.db")
+    host: str = "localhost"
+    port: int = 5432
+    name: str = "milsurp"
+    user: str = "milsurp"
+    password: str = ""
+    #: libpq's ``sslmode``. Blank leaves libpq's own default in place, which is
+    #: ``prefer``; a deployment reaching across a network should say ``require``
+    #: or stronger.
+    sslmode: str = ""
+    #: A complete SQLAlchemy URL, used as-is when present.
+    url: str = ""
+    #: Connection pool. Ignored under SQLite, which uses one file handle.
+    pool_size: int = 5
+    max_overflow: int = 10
+    #: Recycle a pooled connection after this long. Below the idle timeout of
+    #: whatever sits between the app and the server -- pgbouncer, a firewall --
+    #: so a connection is never handed out after the far end has dropped it.
+    pool_recycle_seconds: int = 1800
+
+    @property
+    def is_sqlite(self) -> bool:
+        return self.engine == "sqlite"
+
+    @property
+    def is_postgres(self) -> bool:
+        return self.engine == "postgresql"
+
+    @property
+    def sqlalchemy_url(self) -> str:
+        if self.url:
+            return self.url
+        if self.is_postgres:
+            auth = quote(self.user, safe="")
+            if self.password:
+                auth += ":" + quote(self.password, safe="")
+            query = f"?sslmode={quote(self.sslmode, safe='')}" if self.sslmode else ""
+            return (
+                f"postgresql+psycopg://{auth}@{self.host}:{self.port}/"
+                f"{quote(self.name, safe='')}{query}"
+            )
+        return f"sqlite:///{self.path}"
+
+    def describe(self) -> str:
+        """What to show a human. Never includes the password."""
+        if self.is_postgres:
+            return f"postgresql://{self.user}@{self.host}:{self.port}/{self.name}"
+        return str(self.path)
 
 
 @dataclass(frozen=True)
@@ -252,7 +348,7 @@ class ScrapingConfig:
 class Config:
     mode: str
     source_path: Path | None
-    database_path: Path
+    database: DatabaseConfig
     images_path: Path
     security: SecurityConfig
     admin: AdminSeedConfig
@@ -270,8 +366,14 @@ class Config:
         return self.mode == "dev"
 
     @property
+    def database_path(self) -> Path:
+        """The SQLite file. Still resolved under PostgreSQL: it is what the
+        importer reads from and what a pre-migration snapshot is taken of."""
+        return self.database.path
+
+    @property
     def database_url(self) -> str:
-        return f"sqlite:///{self.database_path}"
+        return self.database.sqlalchemy_url
 
     @property
     def host(self) -> str:
@@ -279,7 +381,11 @@ class Config:
 
     def ensure_directories(self) -> None:
         """Create the database and image directories with safe permissions."""
-        self.database_path.parent.mkdir(parents=True, exist_ok=True)
+        # A PostgreSQL server owns its own storage; there is no local directory
+        # to make, and on a production box the SQLite default path may well sit
+        # somewhere this account cannot write.
+        if self.database.is_sqlite:
+            self.database_path.parent.mkdir(parents=True, exist_ok=True)
         self.images_path.mkdir(parents=True, exist_ok=True)
         # The image store holds downloaded photos and is not served by nginx;
         # keep it readable only by the account that runs the app.
@@ -299,6 +405,96 @@ def _resolve_path(value: Any, base: Path) -> Path:
     return path if path.is_absolute() else (base / path)
 
 
+#: The engines this application knows how to talk to. Aliases are accepted
+#: because "postgres" and "psql" are what people type.
+_ENGINE_ALIASES = {
+    "sqlite": "sqlite",
+    "sqlite3": "sqlite",
+    "postgres": "postgresql",
+    "postgresql": "postgresql",
+    "psql": "postgresql",
+    "pg": "postgresql",
+}
+
+
+def _database(section: dict[str, Any], state_dir: Path) -> DatabaseConfig:
+    """Read the ``database:`` block.
+
+    The engine is inferred rather than required: a file that only says ``path``
+    is the shape every existing deployment already has, and it must keep
+    meaning SQLite. Naming any PostgreSQL field -- or a ``url:`` that starts
+    with ``postgres`` -- is taken as asking for PostgreSQL, so the smallest
+    working block is four lines and no ``engine:`` key.
+    """
+    url = str(section.get("url", "") or "").strip()
+    declared = str(section.get("engine", "") or "").strip().lower()
+    if declared:
+        engine = _ENGINE_ALIASES.get(declared)
+        if engine is None:
+            raise ConfigError(f"database.engine '{declared}' is not one of: sqlite, postgresql")
+    elif url:
+        engine = "postgresql" if url.startswith(("postgres://", "postgresql")) else "sqlite"
+    elif any(key in section for key in ("host", "name", "user", "password", "port")):
+        engine = "postgresql"
+    else:
+        engine = "sqlite"
+
+    db_path = section.get("path")
+    path = _resolve_path(db_path, ROOT_DIR) if db_path else state_dir / "milsurp.db"
+
+    if engine == "sqlite":
+        return DatabaseConfig(engine="sqlite", path=path, url=url)
+
+    # psycopg is the driver this project uses; an operator who pastes the URL
+    # libpq prints ("postgresql://...") should not have to know that.
+    if url.startswith("postgres://"):
+        url = "postgresql+psycopg://" + url[len("postgres://") :]
+    elif url.startswith("postgresql://"):
+        url = "postgresql+psycopg://" + url[len("postgresql://") :]
+
+    try:
+        port = int(section.get("port", 5432))
+    except (TypeError, ValueError) as exc:
+        raise ConfigError(f"database.port must be a number: {section.get('port')!r}") from exc
+
+    return DatabaseConfig(
+        engine="postgresql",
+        path=path,
+        host=str(section.get("host", "localhost") or "localhost"),
+        port=port,
+        name=str(section.get("name", "milsurp") or "milsurp"),
+        user=str(section.get("user", "milsurp") or "milsurp"),
+        password=str(section.get("password", "") or ""),
+        sslmode=str(section.get("sslmode", "") or ""),
+        url=url,
+        pool_size=int(section.get("pool_size", 5)),
+        max_overflow=int(section.get("max_overflow", 10)),
+        pool_recycle_seconds=int(section.get("pool_recycle_seconds", 1800)),
+    )
+
+
+def _size_the_pool(
+    database: DatabaseConfig, section: dict[str, Any], scheduler: SchedulerConfig
+) -> DatabaseConfig:
+    """Make sure the pool can hold every scan plus everything else.
+
+    A scan holds one connection for as long as it runs, which for a large
+    vendor is hours. Raising ``max_concurrent_scans`` without raising the pool
+    would leave the API waiting on a checkout that only finishes when a scan
+    does -- the same starvation the move off SQLite was meant to end, one layer
+    down.
+
+    Only ever raises, and only when the file did not name ``pool_size``: an
+    operator who set a size meant it.
+    """
+    if not database.is_postgres or "pool_size" in section:
+        return database
+    wanted = scheduler.max_concurrent_scans + POOL_HEADROOM
+    if wanted <= database.pool_size:
+        return database
+    return replace(database, pool_size=wanted)
+
+
 def load_config(path: Path | None = None, mode: str | None = None) -> Config:
     """Read the config file (if any) and merge it over the defaults."""
     mode = mode or _env_mode()
@@ -307,12 +503,7 @@ def load_config(path: Path | None = None, mode: str | None = None) -> Config:
 
     state_dir = _default_state_dir(mode)
 
-    db_section = _section(data, "database")
-    db_path = db_section.get("path")
-    if db_path:
-        database_path = _resolve_path(db_path, ROOT_DIR)
-    else:
-        database_path = state_dir / "milsurp.db"
+    database = _database(_section(data, "database"), state_dir)
 
     img_section = _section(data, "images")
     img_path = img_section.get("path")
@@ -385,9 +576,12 @@ def load_config(path: Path | None = None, mode: str | None = None) -> Config:
         enabled=bool(sch.get("enabled", True)),
         tick_seconds=int(sch.get("tick_seconds", 60)),
         digest_tick_seconds=int(sch.get("digest_tick_seconds", 300)),
-        max_concurrent_scans=int(sch.get("max_concurrent_scans", 2)),
+        max_concurrent_scans=int(
+            sch.get("max_concurrent_scans", CONCURRENT_SCANS[database.engine])
+        ),
         scan_timeout_minutes=int(sch.get("scan_timeout_minutes", 120)),
     )
+    database = _size_the_pool(database, _section(data, "database"), scheduler)
 
     scr = _section(data, "scraping")
     sel = _section(scr, "selenium")
@@ -440,7 +634,7 @@ def load_config(path: Path | None = None, mode: str | None = None) -> Config:
     return Config(
         mode=mode,
         source_path=source,
-        database_path=database_path,
+        database=database,
         images_path=images_path,
         security=security,
         admin=admin,

@@ -66,7 +66,9 @@ def system_status(_admin: AdminUser, session: DbSession, config: AppConfig) -> S
         version=__version__,
         mode=config.mode,
         config_path=str(config.source_path) if config.source_path else None,
-        database_path=str(config.database_path),
+        # Under PostgreSQL this is a DSN without the password, not a path.
+        database_path=config.database.describe(),
+        database_engine=config.database.engine,
         images_path=str(config.images_path),
         image_bytes=ImageStore(config).usage_bytes(),
         email_enabled=config.email.enabled,

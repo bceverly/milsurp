@@ -186,9 +186,21 @@ class CollectorsFirearmsScraper(WooCommerceScraper):
         off a three-hour pass. It costs one request to find out, so it is worth
         having, and it is not the answer to a slow scan.
 
-        The safety is the part that matters. A skipped section is declared
-        unread, so the reconcile does not treat its listings as withdrawn --
-        without that this would de-list every Mauser on the first run.
+        Two safeties, and the second one was learned the hard way.
+
+        A skipped section is declared unread, so the reconcile does not treat
+        its listings as withdrawn -- without that this would de-list every
+        Mauser on the first run.
+
+        **And a section is only skipped if we have actually read it before.**
+        "Unchanged" is not "already have it", and conflating the two is a trap
+        that closes permanently: a section nobody opens never changes either,
+        so it is skipped again on every future run. The scan on 9 Sep skipped
+        U.S. Military Antique Long Guns as unchanged -- correctly, it had not
+        been edited -- when it was 132 listings this scraper had never read,
+        because it was one of the seven sections added after the last
+        successful scan. Five more of the new sections were still ahead of that
+        run and would have gone the same way.
         """
         if self.min_request_delay:
             ctx.keep_at_least(self.base_url, self.min_request_delay)
@@ -198,7 +210,18 @@ class CollectorsFirearmsScraper(WooCommerceScraper):
         changed_since = self._changed_since(ctx)
         seen: set[str] = set()
         for source in self.sources:
-            if changed_since is not None and source["url"] in changed_since:
+            unchanged = changed_since is not None and source["url"] in changed_since
+            if unchanged and not ctx.holds_category(source.get("category")):
+                # Unchanged, and never read. Skipping here would be permanent:
+                # a section nobody opens never changes either, so it would be
+                # skipped again on every future run. Read it once, and the
+                # ordinary skip applies from the next scan onwards.
+                ctx.log(
+                    f"{source['category']}: the shop says unchanged, but nothing is "
+                    f"stored from it yet; reading it."
+                )
+                unchanged = False
+            if unchanged:
                 ctx.log(f"{source['category']}: unchanged since the last scan; skipping it.")
                 ctx.not_read(source.get("category"))
                 continue

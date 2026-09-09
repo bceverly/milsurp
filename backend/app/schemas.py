@@ -630,7 +630,9 @@ class SystemStatusOut(BaseModel):
     version: str
     mode: str
     config_path: str | None
+    #: Where the data is. A file path under SQLite, a "postgresql://user@host:port/name" DSN under PostgreSQL.
     database_path: str
+    database_engine: str = "sqlite"
     images_path: str
     image_bytes: int
     email_enabled: bool

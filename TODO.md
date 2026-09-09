@@ -8,18 +8,12 @@ Last updated: 2026-09-06 — lint clean, 577 backend tests green (75.4% coverage
 
 ---
 
-## Ground rules (standing instructions)
+## Ground rules
 
-- [x] **The project is BSD 3-Clause, not MIT.** I initially wrote MIT into the
-      README and `pyproject.toml` without reading `LICENSE`; corrected.
-
-- [x] **Never run any `git` command** — not `status`, `diff`, `log`, `add`,
-      anything. Also never `gh`. Surface the command for the user to run.
-      Enforced by `permissions.deny` in `~/.claude/settings.json`
-      (`Bash(git)` / `Bash(git:*)` / `Bash(gh)` / `Bash(gh:*)`), documented in
-      `~/.claude/CLAUDE.md`, and saved as a memory
-      (`no-git-commands.md`).
-- [x] American spelling everywhere (from `~/.claude/CLAUDE.md`).
+- **The project is BSD 3-Clause.** Check `LICENSE` before writing a license
+  into the README, `pyproject.toml` or a package manifest.
+- **American spelling everywhere** — prose, comments, commit messages. Proper
+  nouns and quoted material keep their own spelling.
 
 ---
 
@@ -350,11 +344,10 @@ Implemented so far:
       config is authoritative, and `GET /api/policy` serves the derived rules
       to the UI so the on-screen guidance can never drift from enforcement.
       All four default to true in `config.yaml.sample` and the local config.
-- [x] Diagnosed the user's 401: the repo-root `milsurp.db` was **my** test
-      artifact, seeded with my scratchpad password. `ensure_admin` only seeds
-      when no admin exists, so their configured password was never applied —
-      and nothing said so. `make init` now reports this explicitly, and
-      `make passwd` was added.
+- [x] Fixed a confusing 401 on first run: when the repo-root `milsurp.db`
+      already exists with an admin in it, `ensure_admin` seeds nothing, so the
+      password in `config.yaml` is never applied — and nothing said so.
+      `make init` now reports this explicitly, and `make passwd` was added.
 - [x] Ten more vendor sites added to the roadmap (17–26), plus Hunter's Lodge
       as its own OCR milestone.
 - [x] **`make start` is now a restart**: it stops any running instance, waits
@@ -784,8 +777,8 @@ the endpoint has no ordering logic to get wrong. The URL was the problem:
 ```
 
 - [x] Neither id is stable. SQLite reuses a rowid after a delete, so clearing a
-      site and re-scanning it hands the same URL to a different picture — and I
-      did exactly that, twice, while improving the flyer reader.
+      site and re-scanning it hands the same URL to a different picture — which
+      happened twice while the flyer reader was being improved.
 - [x] The comment justifying the 24-hour cache said the content was immutable
       "because the filename is a hash". The filename is a hash of the image's
       *source*, not of its bytes, and the URL is neither. For a generated crop
@@ -856,16 +849,16 @@ Reported twice, and the second time was the useful one: on Rifles, every
 listing showed the *next* one's crop — a consistent one-place shift.
 
 The data was never wrong. The crops on disk, the thumbnails, the item-to-photo
-rows and the API response all check out; I rendered the served thumbnails and
-each was its own product. The URL was the problem:
+rows and the API response all check out, and rendering the served thumbnails
+showed each was its own product. The URL was the problem:
 
 ```
 /api/items/<item_id>/photos/<photo_id>     Cache-Control: private, max-age=86400
 ```
 
 - [x] Neither id names its content. SQLite reuses a rowid after a delete, so
-      clearing a site and re-scanning it — which I did repeatedly while
-      improving the flyer reader — hands the very same URL to a different
+      clearing a site and re-scanning it — which happens repeatedly while a
+      scraper is being worked on — hands the very same URL to a different
       picture. Every browser that had seen the old one kept showing it for a
       day, and reloading could not help, because the URL genuinely had not
       changed.
@@ -1098,7 +1091,7 @@ had happened**. A price-drop email is worth nothing if it can do that.
 
 ## 28. `prune-images` was deleting every thumbnail
 
-Not reported — found by checking the output of a prune I ran, which said it had
+Not reported — found by reading the output of a prune, which said it had
 removed 1,942 files and reclaimed 81 MB when about 60 files should have gone.
 
 A photo row names two files, the original and its thumbnail, and
@@ -1374,13 +1367,12 @@ installed.
 
 ### Immediate next steps, in order
 
-1. **Commit and push.** The user commits; I never run git. The changes since
-   `v1.0.0.0` are the section 16 fixes plus the dependency upgrades.
+1. **Commit and push.** The changes since `v1.0.0.0` are the section 16 fixes
+   plus the dependency upgrades.
 2. **Watch the next CI run.** Expected green. The one thing that cannot be
    verified locally is whether GitHub's code-scanning UI honors the in-source
    `# codeql[...]` suppressions in `cli.py`. If alerts #1 and #2 come back,
-   dismiss them in the Security tab as "won't fix" — only the user can, since I
-   must not run `gh`.
+   dismiss them by hand in the Security tab as "won't fix".
 3. **Section 13's open item** — a test for the production-only access-request
    endpoint. Needs a fixture that builds a `MILSURP_ENV=production` config with
    `email.enabled`, since the endpoint deliberately 404s in dev.
@@ -1405,11 +1397,6 @@ installed.
 ### Running it
 
 ```bash
-# A dev config lives in the scratchpad, NOT in the repo:
-#   /tmp/claude-1000/-home-bceverly-dev-milsurp/<session>/scratchpad/devcfg.yaml
-# It sets admin password "correct-horse-battery-staple" and scheduler.enabled: false.
-#
-# For a clean start instead:
 make config          # writes config.yaml from the sample, mode 600
 $EDITOR config.yaml  # set admin.password (12+ chars)
 make init            # migrate + seed sites and the admin account

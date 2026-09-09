@@ -68,10 +68,11 @@ async def lifespan(_app: FastAPI):
         config.mode,
         config.source_path or "built-in defaults",
     )
-    log.info("Database: %s", config.database_path)
+    log.info("Database: %s", config.database.describe())
     log.info("Image store: %s", config.images_path)
 
     _warn_about_weak_secrets(config)
+    _warn_about_the_connection_pool(config)
     bootstrap.initialize(config)
 
     scheduler = get_scheduler()
@@ -154,6 +155,49 @@ def _warn_about_weak_secrets(config) -> None:
     )
 
 
+#: Connections that must remain available to everything that is not a scan:
+#: the API, the scheduler's own bookkeeping, the photo worker. Below this the
+#: pool is a queue rather than a pool.
+MIN_POOL_HEADROOM = 4
+
+
+def pool_complaint(config) -> str | None:
+    """What is wrong with the connection pool, or None.
+
+    A scan holds one connection for as long as it runs -- hours, for a large
+    vendor -- so a pool that cannot seat every concurrent scan *and* leave room
+    for the API means requests wait on a checkout that only frees when a scan
+    finishes. The defaults size themselves to avoid this; a config file that
+    names both numbers can still put itself there, and the symptom (requests
+    hanging, then timing out, but only while scans run) is a miserable thing to
+    diagnose from first principles.
+
+    Returns the message rather than logging it, so a test can read the verdict
+    directly. Capturing log output would be the obvious alternative and is not
+    reliable here: half the suite builds the app, which calls
+    configure_logging() and reconfigures logging out from under caplog.
+    """
+    if not config.database.is_postgres:
+        return None
+    scans = config.scheduler.max_concurrent_scans
+    capacity = config.database.pool_size + config.database.max_overflow
+    if capacity - scans >= MIN_POOL_HEADROOM:
+        return None
+    return (
+        f"scheduler.max_concurrent_scans is {scans} but the connection pool holds only "
+        f"{capacity} (database.pool_size {config.database.pool_size} + max_overflow "
+        f"{config.database.max_overflow}). A scan holds a connection for its whole run, "
+        f"so the API can be left waiting on one. Raise database.pool_size, or lower the "
+        f"scan count."
+    )
+
+
+def _warn_about_the_connection_pool(config) -> None:
+    complaint = pool_complaint(config)
+    if complaint:
+        log.warning("%s", complaint)
+
+
 #: What to tell a client to wait when the database is locked.
 #:
 #: Comfortably longer than a scan's longest write burst — it commits at least
@@ -161,9 +205,20 @@ def _warn_about_weak_secrets(config) -> None:
 #: not give up first.
 RETRY_AFTER_SECONDS = 5
 
-#: SQLite's way of saying "someone else is writing". Matched on the message
-#: because the DBAPI does not give these their own exception type.
-_LOCKED = re.compile(r"\b(?:database|table|schema) is locked\b", re.I)
+#: "Someone else is writing", in each engine's words. Matched on the message
+#: because neither DBAPI gives these their own exception type.
+#:
+#: SQLite says "database is locked" and means its single writer. PostgreSQL has
+#: no such thing, but it has three transient conditions that are the same shape
+#: of answer -- the request was not refused, nothing is broken, try again in a
+#: moment -- and they deserve the same 503 rather than a 500.
+_LOCKED = re.compile(
+    r"\b(?:database|table|schema) is locked\b"
+    r"|\bdeadlock detected\b"
+    r"|\bcanceling statement due to (?:lock timeout|user request)\b"
+    r"|\btoo many (?:clients|connections)\b",
+    re.I,
+)
 
 
 def _is_locked(exc: OperationalError) -> bool:

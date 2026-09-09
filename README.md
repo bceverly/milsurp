@@ -287,9 +287,166 @@ scripts/dbupdate.py --status  # current vs head revision
 scripts/dbupdate.py --check   # exit 1 if anything is outstanding (for CI)
 ```
 
-It resolves the database path exactly as the app does, creates the file and its
-parent directory with correct permissions if needed, and applies the Alembic
-chain. Every migration is written to be idempotent, so re-running is a no-op.
+It resolves the database exactly as the app does, creates the file and its
+parent directory with correct permissions if needed (SQLite), and applies the
+Alembic chain. Every migration is written to be idempotent, so re-running is a
+no-op.
+
+### Two engines, one schema
+
+**This project supports SQLite and PostgreSQL, and every schema change has to
+work on both. This is a rule, not a preference.**
+
+SQLite is not going away: it is what a development checkout uses, what the test
+suite builds 1,800 times a run, and what a small deployment should keep using.
+PostgreSQL is for a deployment that has outgrown one writer. Which one is in
+use is a `config.yaml` setting and nothing else — no different package set, no
+build flag, no second code path above the ORM.
+
+So, two rules for anyone changing the schema:
+
+1. **Every migration works on both engines.** Do not write a default, a type or
+   a constraint that only one of them accepts.
+2. **Every migration is idempotent.** Running it twice is running it once. The
+   application calls `upgrade()` on every start, `make migrate` gets run by hand
+   whenever anybody is unsure, and a production box gets both — so a revision
+   that finds its own work already done shrugs rather than raises.
+
+What that means in practice:
+
+| Do | Not | Because |
+|---|---|---|
+| `server_default=sa.false()` | `server_default=sa.text("0")` | PostgreSQL: *column is of type boolean but default expression is of type integer*. `sa.false()` is rendered by the dialect. |
+| `VALUES (..., TRUE)` in raw SQL | `VALUES (..., 1)` | Same reason. SQLite has accepted `TRUE` since 3.23. |
+| `.ilike(pattern)` | `.like(pattern)` | SQLite's `LIKE` ignores ASCII case and PostgreSQL's does not, so `like` silently makes a search case-sensitive on one engine only. |
+| `.desc().nulls_last()` on a nullable column | `.desc()` | They disagree about where a NULL goes: SQLite puts it last, PostgreSQL first. |
+| Drop an index inside the same `batch_alter_table` that drops its column | Drop the column and leave the index | SQLite's batch mode rebuilds the table from what it reflects, and recreates the index over a column that has just gone. |
+| Ask the database what exists first (`app.migration_utils`) | Assume the previous revision left things as written | Idempotency. `0013` and `0014` are the patterns to copy. |
+| Insert self-referencing rows with the pointer NULL, then `UPDATE` | Rely on insert order | PostgreSQL checks a foreign key the instant the row lands; SQLite does not enforce them at all by default. |
+
+None of this is left to memory. `backend/tests/test_database_portability.py`
+checks the boolean-default rule statically over every migration file, runs the
+whole chain up/down/up on SQLite everywhere, and does the same against a real
+PostgreSQL server when `MILSURP_TEST_POSTGRES_URL` names one. CI's **Migrations**
+job runs as a matrix over both engines.
+
+### Running on PostgreSQL
+
+Three steps: make the database, point `config.yaml` at it, copy the rows over.
+
+**1. Create the role and the database.** These are the only commands that need
+a superuser, and they are deliberately not something the application can do —
+the credentials in `config.yaml` cannot create or drop a database. Run them
+yourself as the `postgres` role:
+
+```bash
+# Pick a real password:
+#   python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+
+sudo -u postgres psql <<'SQL'
+CREATE ROLE milsurp WITH LOGIN PASSWORD 'PUT-A-LONG-RANDOM-PASSWORD-HERE';
+CREATE DATABASE milsurp WITH OWNER = milsurp ENCODING = 'UTF8';
+
+-- Nobody but this role gets in. PostgreSQL grants CONNECT to PUBLIC on a new
+-- database by default, which on a shared server means every other role on it.
+REVOKE ALL ON DATABASE milsurp FROM PUBLIC;
+GRANT CONNECT ON DATABASE milsurp TO milsurp;
+SQL
+
+# On PostgreSQL 14 and older the database owner does not automatically own the
+# public schema, so grant it explicitly. Harmless to run on 15+.
+sudo -u postgres psql -d milsurp -c 'GRANT ALL ON SCHEMA public TO milsurp;'
+```
+
+That is the whole grant list. The role needs no `SUPERUSER`, no `CREATEDB` and
+no `CREATEROLE`: it owns one database and creates its own tables inside it,
+which is what the migration chain needs and nothing more.
+
+If the database is on another machine, also allow the connection in
+`pg_hba.conf` (`hostssl milsurp milsurp <app-ip>/32 scram-sha-256`) and set
+`sslmode: require` in the config block below.
+
+**2. Point `config.yaml` at it.** Replace the `database:` block:
+
+```yaml
+database:
+  engine: postgresql
+  host: localhost
+  port: 5432
+  name: milsurp
+  user: milsurp
+  password: "PUT-A-LONG-RANDOM-PASSWORD-HERE"
+  # sslmode: require        # for anything crossing a network
+  # pool_size: 5
+  # max_overflow: 10
+
+  # Add the PostgreSQL keys above; leave whatever `path:` line you already
+  # had exactly as it was, and if you never had one, do not add one. It still
+  # names the SQLite file — which is where the importer reads from — and the
+  # default for your run mode already points at the right file. Writing a
+  # path here that is not the database you have been using is the one way to
+  # make step 3 look for a file that is not there.
+```
+
+**Which run mode you are in matters here**, because it decides the defaults for
+everything you leave unset. `MILSURP_ENV=dev` puts the SQLite file and the image
+store inside the repository; anything else means production and puts them under
+`/etc/milsurp`. `make migrate` sets `dev` for you; running `scripts/dbupdate.py`
+bare does not, so on a development checkout run it as
+`MILSURP_ENV=dev scripts/dbupdate.py` (or just `make migrate`). It prints the
+mode, the database and the image path before it does anything — check those
+three lines say what you expect.
+
+`config.yaml` now holds a database password as well as your SMTP credentials
+and signing secrets, so it stays mode 600 — `sudo chmod 600
+/etc/milsurp/config.yaml`. Naming `host`/`name`/`user` is enough on its own;
+`engine: postgresql` is there to be explicit. A `database:` block with only a
+`path:` still means SQLite, so an existing deployment does not change meaning.
+
+**3. Build the schema and copy the rows.**
+
+```bash
+# Stop the app first: nothing should be writing to the SQLite file mid-copy.
+make stop
+
+# Builds the schema on PostgreSQL from the same migration chain that built the
+# SQLite one, so the two cannot drift apart. Prefix with MILSURP_ENV=dev on a
+# development checkout; `make migrate` is the same thing with that set.
+scripts/dbupdate.py
+
+# What would move, without moving it. Check the "From:" line names the SQLite
+# file you have actually been using before going any further.
+scripts/sqlite-to-postgres.py --dry-run
+
+# Do it. --from overrides which SQLite file is read, when the configured path
+# is not the one you want.
+scripts/sqlite-to-postgres.py          # or: make db-import
+
+make start
+```
+
+The importer reads both databases through the same SQLAlchemy table
+definitions, which is what makes the conversions right — SQLite has no boolean
+and no datetime type, and reading its `0`/`1` and its
+`"2026-09-09 04:15:00.123456"` back through the column definitions turns them
+into `True` and a `datetime` before PostgreSQL ever sees them. It refuses to run
+unless both databases are at the same Alembic revision and the target is empty
+(`--force` empties it first), compares every table's row count afterwards, and
+winds each sequence past the ids it carried over — ids come across unchanged,
+because they are in URLs, in saved searches and in emails that have already gone
+out.
+
+**Keep the SQLite file** until you have clicked around the running application.
+Nothing deletes it, and going back is a one-line edit to `config.yaml`.
+
+Two things change once you are on PostgreSQL:
+
+- `make backup` shells out to `pg_dump -Fc` and writes a `.dump` rather than a
+  `.db`. Restore one with `pg_restore --clean --if-exists -d milsurp <file>`.
+  `pg_dump` has to be on `PATH`: it ships in `postgresql-client`, not the server
+  package.
+- `make checkpoint` and everything else about the write-ahead log stop applying;
+  they are SQLite's.
 
 ## Configuration
 
@@ -391,11 +548,18 @@ backups:
   interval_hours: 24
 ```
 
-Snapshots are taken through SQLite's online backup API rather than by copying
-the file: a copy taken while the application is writing can catch a transaction
-halfway through, and under write-ahead logging the file on disk is not the whole
-database. Each one is a complete `.db` that opens on its own, so restoring is
-stopping the service and moving the file into place.
+Under SQLite, snapshots are taken through the online backup API rather than by
+copying the file: a copy taken while the application is writing can catch a
+transaction halfway through, and under write-ahead logging the file on disk is
+not the whole database. Each one is a complete `.db` that opens on its own, so
+restoring is stopping the service and moving the file into place.
+
+Under PostgreSQL the same job is `pg_dump -Fc`, and a snapshot is a `.dump`
+restored with `pg_restore --clean --if-exists -d milsurp <file>`. The server
+handles the consistent-snapshot part, so the hazard above does not arise.
+`pg_dump` must be on `PATH` — it is in `postgresql-client`, not the server
+package — and the password is passed to it in the environment rather than on
+the command line, where every account on the box could read it.
 
 ### Makers
 
@@ -413,10 +577,10 @@ Run `make` on its own for the full list with descriptions.
 | | |
 |---|---|
 | **Setup** | `install-dev` · `install` · `secrets` · `config` |
-| **Database** | `migrate` · `migrate-status` · `migration` · `init` · `passwd` |
+| **Database** | `migrate` · `migrate-status` · `migration` · `db-import` · `init` · `passwd` |
 | **Run** | `start` · `stop` · `restart` · `status` · `logs` · `dev` · `build-frontend` |
 | **Scraping** | `scan` · `sites` · `digest` · `reclassify` · `refetch-details` · `photos` |
-| **Quality** | `lint` · `lint-fix` · `test` · `test-backend` · `test-frontend` · `coverage` · `security` · `install-hooks` |
+| **Quality** | `lint` · `lint-fix` · `test` · `test-backend` · `test-frontend` · `test-postgres` · `coverage` · `security` · `install-hooks` |
 | **Docs** | `screenshots` |
 | **Release** | `release` |
 | **Housekeeping** | `clean` · `clean-data` |
@@ -468,6 +632,14 @@ A few things worth knowing:
   should downgrade it to PARTIAL instead.
 - `ctx.needs_detail(key)` tells you whether a listing has already been fully
   fetched, so detail-page requests are paid for once rather than every scan.
+- `ctx.not_read(category)` declares that a section was never opened, so its
+  listings are treated as a gap rather than as withdrawn. A scraper that reads
+  part of a catalog **must** say so, or the reconcile de-lists the rest.
+- `ctx.holds_category(name)` answers "have we ever read this section?", which
+  is the question to ask before skipping one on the vendor's word that it has
+  not changed. Those are different claims: a section nobody opens never changes
+  either, so skipping on "unchanged" alone skips it forever. Collectors
+  Firearms lost 132 listings to exactly that.
 - For a JavaScript catalog, set `requires_browser = True` and use the helpers in
   `scrapers/browser.py` (`scroll_until_stable`, `load_more_until_stable`).
 - `services/classify.enrich()` derives caliber, country, manufacturer, condition
@@ -681,7 +853,7 @@ unknown sort, a price that is not a number. That check runs when a search is
 
 ### If the vendor sells parts kits
 
-Three of the eighteen vendors are here for their **parts kits** rather than
+Four of the nineteen vendors are here for their **parts kits** rather than
 their guns — Apex Gun Parts, Arms of America and Bowman Arms — and they are the
 first ones where the interesting decision was not the platform but the scope.
 
@@ -1104,6 +1276,8 @@ then have taken the PP's caliber and kind.
 
 ### The write-ahead log
 
+*SQLite only — none of this section applies on PostgreSQL.*
+
 SQLite runs in WAL mode here, so writes append to a `milsurp.db-wal` sidecar and
 are folded back on a checkpoint. The automatic checkpoints are PASSIVE: they
 copy the pages across but leave the file at its high-water mark to be reused —
@@ -1514,7 +1688,7 @@ having walked 24 listings and saved 5, reporting nothing found. Both rules
 together turn that same hour into a PARTIAL run with the listings it managed to
 read. It is still a bad site to scan, and it may yet need the browser path.
 
-Eighteen vendors are read today; thirteen more are queued in
+Nineteen vendors are read today; eleven more are queued in
 [ROADMAP.md](ROADMAP.md), grouped by the platform they run on because one base
 class unlocks a whole group.
 
@@ -1532,9 +1706,52 @@ make test-frontend   # Playwright
 | Frontend | Playwright | 69 | 79.1% lines | 65% |
 
 - **Warnings are errors.** A warning is a library telling you something is
-  wrong; letting them scroll past defeats the point.
+  wrong; letting them scroll past defeats the point. `make lint` holds the
+  linters to the same rule: a tool that exits 0 while printing `WARNING` or
+  `note:` fails the run, because a finding a tool decided not to insist on is
+  still a finding. Silence one at the source — fix the code, or narrow the
+  tool's config — never by loosening the check.
+- **A test that cannot fail is not a test.** The mobile item-detail page
+  scrolled sideways by 378px for a year with a test watching it, because the
+  demo seed gave every listing at most four photos and four thumbnails fit a
+  phone. Where a test needs a particular condition to be meaningful, assert
+  that the condition is present before asserting the behavior.
 - The backend suite builds a throwaway database **through the real migration
   chain**, so it exercises the production schema rather than an approximation.
+- `test_database_portability.py` holds the "Two engines, one schema" checks. It
+  round-trips the whole migration chain up/down/up on SQLite everywhere, and
+  does the same against a real PostgreSQL when `MILSURP_TEST_POSTGRES_URL`
+  names one. **Six tests skip without it** — that is what the
+  `MILSURP_TEST_POSTGRES_URL is not set` lines in a local run mean. CI always
+  sets it, so they always run there.
+
+  To run them here, create their database once — a separate one, never the
+  database the application uses, because they `DROP SCHEMA public CASCADE`:
+
+  ```bash
+  sudo -u postgres psql -c "CREATE DATABASE milsurp_test OWNER milsurp;"
+  sudo -u postgres psql -d milsurp_test -c "GRANT ALL ON SCHEMA public TO milsurp;"
+
+  make test-postgres
+  ```
+
+  No URL to type: `make test-postgres` reads the role, host and password out of
+  your `config.yaml` and puts `_test` on the end of the database name, then
+  prints the target it settled on. Set `MILSURP_TEST_POSTGRES_URL` yourself
+  only when it should go somewhere else.
+
+  Two guards, both hard errors at collection rather than skips, because a skip
+  would hide the mistake and leave you believing the PostgreSQL half had run:
+
+  - **The database name must contain "test".** `milsurp` and `milsurp_test`
+    differ by five characters, sit on the same server and answer to the same
+    credentials; a typo must not be able to destroy the first one.
+  - **The server must answer before any test runs.** Otherwise a wrong password
+    fails six fixtures and prints six SQLAlchemy tracebacks — twelve hundred
+    lines to say one thing.
+
+  Skipping is otherwise fine: the dialect rules are *also* checked statically
+  over the migration files, and that part runs everywhere.
 - The frontend suite drives the real application — instrumented build, real API,
   a disposable database seeded with sample listings — and collects coverage from
   the running app via `vite-plugin-istanbul` and nyc.
@@ -1603,8 +1820,8 @@ Two workflows, one job per concern, so a red tick names the thing that broke.
 | Workflow | Job | What it does |
 |---|---|---|
 | `ci.yml` | `lint` | `make lint` — black, ruff, mypy, bandit, prettier, eslint, shellcheck |
-| | `test` | three jobs, one per supported Python (3.12, 3.13, 3.14): `make test-backend`, then `make test-frontend`; the frontend step runs even when the backend step fails, so one push reports both, and `fail-fast` is off so one bad interpreter does not hide the others |
-| | `migrations` | applies the Alembic chain to an empty database and checks the models match |
+| | `test` | three jobs, one per supported Python (3.12, 3.13, 3.14): `make test-backend`, then `make test-frontend`; the frontend step runs even when the backend step fails, so one push reports both, and `fail-fast` is off so one bad interpreter does not hide the others. A PostgreSQL service runs alongside so the portability tests have a real server rather than skipping |
+| | `migrations` | **two jobs, one per engine** (SQLite, PostgreSQL): builds an empty database from the Alembic chain, round-trips it down to base and back up, re-runs it to prove idempotency, and checks the models match |
 | | `build` | production bundle, and asserts no coverage instrumentation shipped in it |
 | `security.yml` | `security` | installs every scanner, then runs `make security` — the same script you run locally |
 | | `codeql` | Python and JavaScript, `security-extended`; reports into the Security tab |
@@ -1678,7 +1895,7 @@ backend/
     models.py       ORM — every datetime is UTC
     config.py       YAML loading and defaults
     security.py     Argon2id hashing and JWTs
-  alembic/          migrations (idempotent)
+  alembic/          migrations (idempotent, and SQLite + PostgreSQL both)
   tests/            pytest suite
   cli.py            administration CLI
   run.py            server entry point
@@ -1688,7 +1905,8 @@ frontend/
 deploy/
   nginx/            production and bootstrap site configs
   systemd/          hardened service unit
-scripts/            install, migrate, lint, test, security, screenshots, brand
+scripts/            install, migrate, sqlite-to-postgres, lint, test, security,
+                    screenshots, brand
 marketing/images/   logo, favicon, coverage badges, screenshots
 ```
 

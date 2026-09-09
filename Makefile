@@ -88,6 +88,11 @@ migrate-status: $(VENV_PY) ## Show the current and pending schema revisions
 checkpoint: ## Fold the write-ahead log back in and give its disk back (safe any time)
 	@scripts/checkpoint-wal.sh --verbose
 
+.PHONY: db-import
+db-import: $(VENV_PY) ## Copy the SQLite database into the configured PostgreSQL one (from=FILE, force=1, dry=1)
+	@$(VENV_PY) scripts/sqlite-to-postgres.py \
+		$(if $(from),--from "$(from)") $(if $(force),--force) $(if $(dry),--dry-run)
+
 .PHONY: migration
 migration: $(VENV_PY) ## Create a new migration: make migration m="add widget"
 	@if [ -z "$(m)" ]; then echo 'Usage: make migration m="what changed"' >&2; exit 1; fi
@@ -276,6 +281,14 @@ lint-fix: ## Auto-fix what the linters can fix, then re-check
 
 .PHONY: test
 test: test-backend test-frontend ## Run backend + frontend tests with coverage gates
+
+.PHONY: test-postgres
+test-postgres: $(VENV_PY) ## Run the schema tests against a real PostgreSQL (uses <your database>_test)
+	@url="$(MILSURP_TEST_POSTGRES_URL)"; \
+	if [ -z "$$url" ]; then url="$$($(VENV_PY) scripts/test-postgres-url.py)" || exit 1; fi; \
+	echo "Target: $$(echo "$$url" | sed 's,//[^@]*@,//,')"; \
+	MILSURP_TEST_POSTGRES_URL="$$url" \
+		$(VENV_PY) -m pytest backend/tests/test_database_portability.py -q --no-cov
 
 .PHONY: test-backend
 test-backend: $(VENV_PY) ## Run the pytest suite (fails under 65% coverage)

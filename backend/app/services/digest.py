@@ -231,7 +231,7 @@ def collect_price_drops(
                     Item.current_price.is_not(None),
                     Item.current_price < Item.previous_price,
                 )
-                .order_by(Item.price_changed_at.desc())
+                .order_by(Item.price_changed_at.desc().nulls_last())
             )
             .scalars()
             .all()

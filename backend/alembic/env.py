@@ -28,8 +28,23 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 app_config = get_config()
-app_config.ensure_directories()
-config.set_main_option("sqlalchemy.url", app_config.database_url)
+
+# A URL set by the caller wins. Normally nobody sets one -- alembic.ini
+# deliberately has no url, so this falls through to the application's own
+# config and `make migrate` targets whatever database.yaml resolves to. But
+# `alembic -x`, and the portability tests, need to point the chain at a
+# throwaway database, and a line that always clobbers the URL makes that
+# impossible: the run silently goes to the real database instead. Which it did,
+# once, while this file was being written.
+explicit = config.get_main_option("sqlalchemy.url", None)
+if not explicit:
+    config.set_main_option("sqlalchemy.url", app_config.database_url)
+    explicit = app_config.database_url
+
+# Only a SQLite target needs a directory made, and only when it is the one the
+# application configured -- a temp file passed in from a test makes its own.
+if explicit == app_config.database_url:
+    app_config.ensure_directories()
 
 target_metadata = Base.metadata
 
@@ -37,7 +52,7 @@ target_metadata = Base.metadata
 def run_migrations_offline() -> None:
     """Emit SQL to stdout instead of running it (``alembic upgrade --sql``)."""
     context.configure(
-        url=app_config.database_url,
+        url=explicit,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},

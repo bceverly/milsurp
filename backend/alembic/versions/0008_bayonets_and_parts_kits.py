@@ -31,10 +31,13 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    # sa.false(), not sa.text("0"). The literal renders per dialect -- "0" for
+    # SQLite, "false" for PostgreSQL -- and PostgreSQL refuses an integer
+    # default on a boolean column outright. See "Two engines, one schema".
     for column in ("is_bayonet", "is_parts_kit"):
         add_column_if_missing(
             "items",
-            sa.Column(column, sa.Boolean(), nullable=False, server_default=sa.text("0")),
+            sa.Column(column, sa.Boolean(), nullable=False, server_default=sa.false()),
         )
 
 

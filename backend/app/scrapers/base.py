@@ -108,6 +108,7 @@ class ScrapeContext:
         needs_detail: Callable[[str], bool] | None = None,
         already_seen: Callable[[str], bool] | None = None,
         last_success_at: datetime | None = None,
+        stored_categories: Iterable[str] | None = None,
     ) -> None:
         self.config = config
         self.scraping: ScrapingConfig = config.scraping
@@ -137,6 +138,10 @@ class ScrapeContext:
         #: never has. A scraper that can ask a vendor "what changed since?"
         #: needs a since; nothing else does.
         self.last_success_at = last_success_at
+        #: The section names this site already holds listings under. Empty by
+        #: default, so a scraper used standalone reads everything. See
+        #: holds_category().
+        self.stored_categories: set[str] = set(stored_categories or ())
         #: Sections this run did not read, by the category name they would
         #: have been filed under. See not_read().
         self.unread_categories: set[str] = set()
@@ -221,6 +226,28 @@ class ScrapeContext:
         particular key to ask about.
         """
         return self._already_seen(key_prefix)
+
+    def holds_category(self, category: str | None) -> bool:
+        """True when this site already has listings filed under this section.
+
+        The question to ask before *skipping* a section on the vendor's word
+        that it has not changed. "Unchanged" and "already read" are different
+        claims, and a scraper that treats them as the same one will skip a
+        section it has never opened -- forever, because a section nobody reads
+        never changes either.
+
+        That is not hypothetical. Collectors Firearms grew from two sections to
+        nine, and the run after the new ones were added skipped U.S. Military
+        Antique Long Guns as "unchanged since the last scan". It was unchanged.
+        It was also 132 listings we had never read, and the last successful
+        scan predated the section existing as a source at all.
+
+        Empty when nothing is known, which means a scraper used standalone --
+        in a test, or on its very first run -- reads every section. That is the
+        safe direction: the cost of reading a section twice is time, and the
+        cost of never reading one is a gap nobody sees.
+        """
+        return bool(category) and category in self.stored_categories
 
     @property
     def stopped(self) -> bool:

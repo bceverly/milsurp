@@ -68,7 +68,7 @@ def cmd_init(_args: argparse.Namespace) -> int:
     config = get_config()
     print(f"Mode:      {config.mode}")
     print(f"Config:    {config.source_path or 'built-in defaults (no file found)'}")
-    print(f"Database:  {config.database_path}")
+    print(f"Database:  {config.database.describe()}")
     print(f"Images:    {config.images_path}")
     bootstrap.initialize(config)
     with session_scope() as session:

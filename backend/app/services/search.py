@@ -28,7 +28,11 @@ SORTS: dict[str, tuple[Any, ...]] = {
     "price_asc": (Item.current_price.is_(None).asc(), Item.current_price.asc()),
     "price_desc": (Item.current_price.is_(None).asc(), Item.current_price.desc()),
     "title": (Item.title.asc(),),
-    "price_drop": (Item.price_changed_at.desc(),),
+    # nulls_last, because the two engines disagree about where a NULL goes in
+    # a descending sort -- SQLite puts it last, PostgreSQL puts it first -- and
+    # first is plainly wrong here: it would lead "Price reduced" with every
+    # listing whose price has never moved.
+    "price_drop": (Item.price_changed_at.desc().nulls_last(),),
 }
 
 
@@ -128,14 +132,21 @@ def apply_filters(  # noqa: PLR0912 - one branch per filter; splitting it
         for term in _search_terms(search):
             escaped = term.replace("!", "!!").replace("%", "!%").replace("_", "!_")
             pattern = f"%{escaped}%"
+            # ilike, not like. SQLite's LIKE ignores case for ASCII and
+            # PostgreSQL's does not, so plain `like` would quietly make the
+            # search case-sensitive the day this moves to PostgreSQL --
+            # "enfield" would stop matching "ENFIELD SMLE", which is how most
+            # of these vendors write a title. ILIKE means the same thing on
+            # both: PostgreSQL has it natively and SQLAlchemy renders
+            # lower(x) LIKE lower(y) on SQLite.
             stmt = stmt.where(
                 or_(
-                    Item.title.like(pattern, escape="!"),
-                    Item.description.like(pattern, escape="!"),
-                    Item.caliber.like(pattern, escape="!"),
-                    Item.manufacturer.like(pattern, escape="!"),
-                    Item.country.like(pattern, escape="!"),
-                    Item.category.like(pattern, escape="!"),
+                    Item.title.ilike(pattern, escape="!"),
+                    Item.description.ilike(pattern, escape="!"),
+                    Item.caliber.ilike(pattern, escape="!"),
+                    Item.manufacturer.ilike(pattern, escape="!"),
+                    Item.country.ilike(pattern, escape="!"),
+                    Item.category.ilike(pattern, escape="!"),
                 )
             )
 

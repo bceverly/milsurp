@@ -6,14 +6,20 @@ This is the single supported way to touch the schema, in every environment:
     make migrate                      # development (wraps this script)
     scripts/dbupdate.py               # production (run it directly)
 
-It resolves the database location the same way the application does, so it
-always targets the right file:
+It resolves the database the same way the application does, so it always
+targets the right one. Under SQLite that is a file:
 
     dev         <repo root>/milsurp.db
     production  /etc/milsurp/milsurp.db
 
 ...or whatever ``database.path`` in config.yaml says, which wins in both modes.
 Set ``MILSURP_ENV=dev`` for development; anything else means production.
+
+Under PostgreSQL it is whatever the ``database:`` block names. The server and
+the database itself are not created here -- that is a one-time ``createdb`` an
+administrator does, and the credentials in config.yaml deliberately do not have
+the rights to do it. This creates and evolves the *schema*, exactly as it does
+on SQLite, from the same migration chain.
 
 The schema itself is built entirely by Alembic, including on a brand new
 install, so a fresh database and an upgraded one are produced by the same
@@ -39,7 +45,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "backend"))
 
 from app import migrations  # noqa: E402
-from app.config import get_config  # noqa: E402
+from app.config import ETC_DIR, get_config  # noqa: E402
 
 SQLITE_DIR_MODE = 0o750
 SQLITE_FILE_MODE = 0o640
@@ -88,7 +94,76 @@ def ensure_database_file(database_path: Path) -> bool:
     return True
 
 
-def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912 - CLI dispatch
+def check_directories(config) -> bool:
+    """Create the local directories the application needs, or explain.
+
+    The image store is a local directory whichever engine holds the data, and
+    in production it defaults to /etc/milsurp/images -- which an ordinary
+    account cannot create. That has to be said in those words, because
+    everything downstream of it (Alembic's config, the engine) calls
+    ensure_directories() too, and the failure surfaces there as a traceback
+    about the wrong thing entirely.
+    """
+    try:
+        config.ensure_directories()
+    except PermissionError as exc:
+        path = getattr(exc, "filename", None) or config.images_path
+        print(f"error: cannot create {path}", file=sys.stderr)
+        print("       Three ways out, depending on what this machine is:", file=sys.stderr)
+        print(
+            f"         production — pre-create it and hand it over:\n"
+            f"           sudo install -d -o $USER -g $USER -m 700 {config.images_path}",
+            file=sys.stderr,
+        )
+        print(
+            "         anywhere    — set images.path in config.yaml to a " "directory you can write",
+            file=sys.stderr,
+        )
+        print(
+            "         development — run `make migrate`, or set MILSURP_ENV=dev, "
+            "which keeps\n                       state inside the repository "
+            f"instead of {ETC_DIR}",
+            file=sys.stderr,
+        )
+        return False
+    return True
+
+
+def check_reachable(config) -> bool:
+    """Connect once and say something useful if it does not work.
+
+    Alembic's own failure here is a psycopg traceback, and the three things
+    that actually go wrong -- the database does not exist, the role cannot log
+    in, the server is not listening -- all deserve to be named rather than
+    read out of a stack trace.
+
+    The engine is built here rather than taken from app.database, which would
+    call ensure_directories() on the way past: a directory this account cannot
+    create would then be reported as a failure to connect to a server nothing
+    had tried to reach.
+    """
+    from sqlalchemy import create_engine, text
+
+    engine = create_engine(config.database_url)
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+    except Exception as exc:
+        message = str(getattr(exc, "orig", exc)).strip()
+        print(f"error: cannot connect to {config.database.describe()}", file=sys.stderr)
+        print(f"       {message}", file=sys.stderr)
+        print(
+            "       See README.md, 'Running on PostgreSQL', for the CREATE ROLE "
+            "and CREATE DATABASE this expects to have been run already.",
+            file=sys.stderr,
+        )
+        return False
+    finally:
+        engine.dispose()
+    return True
+
+
+def main(argv: list[str] | None = None) -> int:  # noqa: PLR0911,PLR0912 - CLI dispatch
     parser = argparse.ArgumentParser(
         description="Create or upgrade the Milsurp Monitor database.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -119,7 +194,15 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912 - CLI dispatch
     if not args.quiet:
         print(f"Mode:     {config.mode}")
         print(f"Config:   {config.source_path or 'built-in defaults (no config.yaml found)'}")
-        print(f"Database: {config.database_path}")
+        print(f"Database: {config.database.describe()}")
+        print(f"Images:   {config.images_path}")
+
+    # First, because everything below reaches ensure_directories() eventually
+    # -- Alembic's config does, and so does the engine -- and a directory this
+    # account cannot create should be reported as itself rather than as
+    # whatever it happened to break.
+    if not check_directories(config):
+        return 1
 
     if args.status:
         state = migrations.status(config)
@@ -143,9 +226,12 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912 - CLI dispatch
             print("Database is up to date.")
         return 0
 
-    created = ensure_database_file(config.database_path)
-    if created and not args.quiet:
-        print(f"Created a new empty database at {config.database_path}")
+    if config.database.is_sqlite:
+        created = ensure_database_file(config.database_path)
+        if created and not args.quiet:
+            print(f"Created a new empty database at {config.database_path}")
+    elif not check_reachable(config):
+        return 1
 
     if args.downgrade:
         revision = migrations.downgrade(config, args.revision)
@@ -161,9 +247,6 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0912 - CLI dispatch
         else:
             print(f"Upgraded {before or '(empty)'} -> {after}.")
 
-    # The image store lives alongside the database and has the same lifecycle,
-    # so create it here too rather than making the first scan do it.
-    config.ensure_directories()
     if not args.quiet:
         print(f"Image store ready at {config.images_path}")
     return 0

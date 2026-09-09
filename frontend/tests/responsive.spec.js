@@ -56,9 +56,49 @@ test.describe("mobile layout", () => {
   });
 
   test("the item detail view stacks without horizontal scroll", async ({ signedIn }) => {
-    await signedIn.locator(".item-card").first().click();
-    await expect(signedIn.locator(".detail")).toBeVisible();
+    // This test needs a listing whose thumbnail strip is wider than the phone,
+    // and it has to go and find one rather than take whichever card is first.
+    //
+    // Both halves of that were learned the hard way. The page scrolled
+    // sideways by 378px for a year with this test watching it, because the
+    // seed gave every listing at most four photos and four thumbnails — 296px
+    // — fit a phone: the test opened the page and proved nothing. And the
+    // obvious repair, "seed one listing with ten photos and click the first
+    // card", fails whenever admin.spec.js has already run: scanning the Demo
+    // Vendor creates six listings dated now, and those lead "newest first".
+    //
+    // So: walk the listings until one qualifies, and fail loudly if none does,
+    // rather than pass quietly on a page that cannot demonstrate anything.
+    const hrefs = await signedIn
+      .locator('a[href^="/items/"]')
+      .evaluateAll((links) => [...new Set(links.map((a) => a.getAttribute("href")))]);
+    expect(hrefs.length).toBeGreaterThan(0);
 
+    let measured = null;
+    for (const href of hrefs.slice(0, 12)) {
+      await signedIn.goto(href);
+      await expect(signedIn.locator(".detail")).toBeVisible();
+      const strip = signedIn.locator(".gallery__thumbs");
+      if (!(await strip.count())) continue;
+      const seen = await strip.evaluate((el) => ({
+        content: el.scrollWidth,
+        box: el.clientWidth,
+        viewport: document.documentElement.clientWidth,
+      }));
+      if (seen.content > seen.viewport) {
+        measured = seen;
+        break;
+      }
+    }
+    expect(
+      measured,
+      "no seeded listing has a thumbnail strip wider than the viewport, so this " +
+        "test cannot show anything — check seed_demo_data.GALLERY_PHOTOS",
+    ).not.toBeNull();
+
+    // The strip absorbs the overflow by scrolling itself...
+    expect(measured.box).toBeLessThanOrEqual(measured.viewport);
+    // ...rather than by pushing the page sideways.
     const overflow = await signedIn.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );

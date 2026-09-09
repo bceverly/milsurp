@@ -17,13 +17,14 @@ from __future__ import annotations
 
 import argparse
 import sys
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "backend"))
 
-from sqlalchemy import select  # noqa: E402
+from sqlalchemy import func, select  # noqa: E402
+from sqlalchemy.orm import Session  # noqa: E402
 
 from app.config import get_config  # noqa: E402
 from app.database import session_scope  # noqa: E402
@@ -131,6 +132,65 @@ _PLACEHOLDER_COLORS = (
     ((90, 100, 116), (43, 51, 64)),
     ((30, 122, 70), (17, 21, 28)),
 )
+
+
+#: Photos on the listing the inventory page shows first.
+#:
+#: Four thumbnails is 296px of strip, which fits a phone -- so the responsive
+#: test that checks the item page for horizontal overflow passed for a year
+#: against a page that could not overflow, while the real page scrolled
+#: sideways by 378px on any listing with ten. A real listing carries ten (SARCO
+#: publishes ten of everything) and ten thumbnails is 752px, wider than any
+#: phone. That is the case worth having on screen and under test.
+GALLERY_PHOTOS = 10
+
+
+def _widen_one_gallery(session: Session, store: ImageStore, now: datetime) -> None:
+    """Guarantee that at least one listing has a gallery wider than a phone.
+
+    Which listing does not matter: the responsive test walks the inventory
+    until it finds one, because the card order is not stable -- scanning the
+    Demo Vendor creates six listings dated now, and those lead "newest first".
+    What matters is that such a listing exists at all, since without one the
+    test can only prove that a page it cannot stress does not break.
+
+    Newest active is chosen because it is the one a screenshot lands on, so the
+    documentation shows a full gallery rather than a strip of two.
+    """
+    newest = session.execute(
+        select(Item)
+        .where(Item.is_active.is_(True))
+        .order_by(Item.first_seen_at.desc(), Item.id.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+    if newest is None:
+        return
+
+    have = session.execute(
+        select(func.count(ItemPhoto.id)).where(ItemPhoto.item_id == newest.id)
+    ).scalar_one()
+    if have >= GALLERY_PHOTOS:
+        return
+
+    for offset, (relative, size) in enumerate(
+        _make_placeholder_photos(store, newest, GALLERY_PHOTOS - have)
+    ):
+        position = have + offset
+        session.add(
+            ItemPhoto(
+                item_id=newest.id,
+                source_url=f"https://example.invalid/demo/{newest.id}/{position}.jpg",
+                filename=relative,
+                thumb_filename=relative,
+                content_type="image/jpeg",
+                bytes=size,
+                thumb_bytes=size,
+                width=1200,
+                height=900,
+                position=position,
+                downloaded_at=now,
+            )
+        )
 
 
 def _make_placeholder_photos(store: ImageStore, item: Item, count: int) -> list[tuple[str, int]]:
@@ -272,6 +332,9 @@ def seed(  # noqa: PLR0912 - a linear fixture builder; branches are per-field
             # both appear in screenshots. The page-two filler gets one each:
             # drawing four apiece for thirty listings would slow every e2e run
             # for no extra coverage.
+            #
+            # **Except one, which gets ten** -- see GALLERY_PHOTOS and the
+            # top-up after this loop.
             photo_count = 1 if index >= len(LISTINGS) else 1 + (index % 4)
             for position, (relative, size) in enumerate(
                 _make_placeholder_photos(store, item, photo_count)
@@ -310,6 +373,8 @@ def seed(  # noqa: PLR0912 - a linear fixture builder; branches are per-field
                     )
                 )
             created += 1
+
+        _widen_one_gallery(session, store, now)
 
         # A little scan history, so the admin views are not empty either.
         for site in sites:

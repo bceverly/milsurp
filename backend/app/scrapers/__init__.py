@@ -13,6 +13,7 @@ import os
 from .ancestry_guns import AncestryGunsScraper
 from .apex_gun_parts import ApexGunPartsScraper
 from .arms_of_america import ArmsOfAmericaScraper
+from .atlantic_firearms import AtlanticFirearmsScraper
 from .axis_arms import AxisArmsScraper
 from .base import (
     Disallowed,
@@ -75,6 +76,7 @@ SCRAPER_CLASSES: tuple[type[SiteScraper], ...] = (
     ArmsOfAmericaScraper,
     BowmanArmsScraper,
     DupageTradingScraper,
+    AtlanticFirearmsScraper,
     *((DemoScraper,) if _demo_site_enabled() else ()),
 )
 

@@ -104,7 +104,7 @@ def upgrade() -> None:
                 "position", sa.Integer(), nullable=False, server_default=sa.text("1000"), index=True
             ),
             sa.Column(
-                "enabled", sa.Boolean(), nullable=False, server_default=sa.text("1"), index=True
+                "enabled", sa.Boolean(), nullable=False, server_default=sa.true(), index=True
             ),
             sa.Column("wikipedia_url", sa.String(500), nullable=True),
             sa.Column("first_seen_in", sa.Text(), nullable=True),
@@ -199,7 +199,7 @@ def _carry_over_the_old_models(bind) -> None:
         model_id = bind.execute(
             sa.text(
                 "INSERT INTO firearm_models (name, status, position, enabled) "
-                "VALUES (:name, 'APPROVED', 1000, 1) RETURNING id"
+                "VALUES (:name, 'APPROVED', 1000, TRUE) RETURNING id"
             ),
             {"name": name},
         ).scalar_one()
@@ -225,6 +225,22 @@ def downgrade() -> None:
         if inspector.has_table(table):
             op.drop_table(table)
     existing = _columns(bind, "manufacturers")
-    for column in ("status", "merged_into_id", "first_seen_in"):
-        if column in existing:
-            op.drop_column("manufacturers", column)
+    doomed = [
+        column for column in ("status", "merged_into_id", "first_seen_in") if column in existing
+    ]
+    if not doomed:
+        return
+
+    # One batch, with every index over a doomed column dropped inside it.
+    # Both details are SQLite: it cannot drop a column that an index still
+    # names, and Alembic's batch mode rebuilds the table from what it reflects
+    # -- so an index left in place is *recreated* over a column that has just
+    # gone, and the rebuild itself fails with "no such column: merged_into_id".
+    # PostgreSQL drops a dependent index by itself and does not care either
+    # way, which is exactly why this needed a test on both engines to find.
+    with op.batch_alter_table("manufacturers") as batch:
+        for index in sa.inspect(bind).get_indexes("manufacturers"):
+            if set(index["column_names"]) & set(doomed):
+                batch.drop_index(index["name"])
+        for column in doomed:
+            batch.drop_column(column)

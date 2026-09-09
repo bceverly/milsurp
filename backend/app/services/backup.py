@@ -5,11 +5,19 @@ code is in version control and the photos can be fetched again, but the price
 history is a record of what a vendor was asking on a day that has passed, and
 nothing on the internet will give it back.
 
-Snapshots are taken with SQLite's online backup API rather than by copying the
-file. A copy taken while the application is running can catch a write halfway
-through, and with write-ahead logging the file on disk is not the database
-anyway -- part of it is in the -wal beside it. The backup API reads through
-the same machinery the application does and produces a file that opens.
+Under SQLite, snapshots are taken with the online backup API rather than by
+copying the file. A copy taken while the application is running can catch a
+write halfway through, and with write-ahead logging the file on disk is not the
+database anyway -- part of it is in the -wal beside it. The backup API reads
+through the same machinery the application does and produces a file that opens.
+
+Under PostgreSQL the same job belongs to ``pg_dump``, and this shells out to it
+in custom format (``-Fc``), which is compressed and is what ``pg_restore``
+wants. The server does the consistent-snapshot part; there is no equivalent of
+the SQLite hazard above. ``pg_dump`` has to be on PATH -- it ships with the
+client package, not the server -- and the credentials are the ones already in
+config.yaml, handed over in the environment rather than on the command line so
+the password never appears in ``ps``.
 
 Nothing is written in development. A development database is a scratch copy
 that gets deleted and re-seeded, and filling a working tree with snapshots of
@@ -19,8 +27,13 @@ it would be noise.
 from __future__ import annotations
 
 import logging
+import os
 import re
+import shutil
 import sqlite3
+
+# pg_dump, invoked below with a fixed argv and no shell.
+import subprocess  # nosec B404
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -28,9 +41,16 @@ from ..config import Config
 
 log = logging.getLogger("milsurp.backup")
 
-#: Backups are named so that sorting them by name sorts them by age.
+#: Backups are named so that sorting them by name sorts them by age. The
+#: suffix says which engine wrote it, because the two are not interchangeable:
+#: a .db opens with sqlite3 and a .dump only with pg_restore.
 STAMP_FORMAT = "%Y%m%d-%H%M%S"
-NAME_PATTERN = re.compile(r"^milsurp-\d{8}-\d{6}\.db$")
+NAME_PATTERN = re.compile(r"^milsurp-\d{8}-\d{6}\.(?:db|dump)$")
+
+#: How long pg_dump is given before it is treated as hung. A snapshot of this
+#: database is seconds; the ceiling is here so a wedged dump cannot hold the
+#: scheduler's backup tick open forever.
+PG_DUMP_TIMEOUT_SECONDS = 3600
 
 #: The snapshot directory is readable only by the account that runs the
 #: application: it holds every email address the site knows.
@@ -80,8 +100,18 @@ def take(config: Config, *, now: datetime | None = None) -> Path:
     directory.chmod(SECURE_DIR_MODE)
 
     stamp = (now or datetime.now(UTC)).strftime(STAMP_FORMAT)
-    destination = directory / f"milsurp-{stamp}.db"
+    if config.database.is_postgres:
+        destination = directory / f"milsurp-{stamp}.dump"
+        _pg_dump(config, destination)
+    else:
+        destination = directory / f"milsurp-{stamp}.db"
+        _sqlite_backup(config, destination)
 
+    destination.chmod(SECURE_FILE_MODE)
+    return destination
+
+
+def _sqlite_backup(config: Config, destination: Path) -> None:
     source = sqlite3.connect(f"file:{config.database_path}?mode=ro", uri=True)
     try:
         target = sqlite3.connect(destination)
@@ -92,8 +122,55 @@ def take(config: Config, *, now: datetime | None = None) -> Path:
     finally:
         source.close()
 
-    destination.chmod(SECURE_FILE_MODE)
-    return destination
+
+def _pg_dump(config: Config, destination: Path) -> None:
+    """Snapshot a PostgreSQL database with pg_dump, in custom format.
+
+    Restore one with::
+
+        pg_restore --clean --if-exists -d milsurp milsurp-20260909-030000.dump
+
+    The file is created mode 0600 *before* pg_dump writes into it -- with
+    ``--file`` rather than a redirect -- so it is never briefly world-readable.
+    """
+    binary = shutil.which("pg_dump")
+    if binary is None:
+        raise RuntimeError(
+            "pg_dump is not on PATH. Install the PostgreSQL client package "
+            "(postgresql-client on Debian/Ubuntu) or set backups.enabled: false."
+        )
+
+    database = config.database
+    destination.touch(mode=SECURE_FILE_MODE)
+    environment = {**os.environ, "PGPASSWORD": database.password} if database.password else None
+    argv = [
+        binary,
+        "--format=custom",
+        "--no-owner",
+        "--no-privileges",
+        f"--file={destination}",
+        f"--host={database.host}",
+        f"--port={database.port}",
+        f"--username={database.user}",
+        database.name,
+    ]
+    try:
+        # Fixed argv, no shell: every element is built here, and the
+        # database name is the only one that comes from config.yaml.
+        subprocess.run(  # noqa: S603  # nosec B603
+            argv,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=PG_DUMP_TIMEOUT_SECONDS,
+            env=environment,
+        )
+    except subprocess.CalledProcessError as exc:
+        destination.unlink(missing_ok=True)
+        raise RuntimeError(f"pg_dump failed: {exc.stderr.strip()}") from exc
+    except subprocess.TimeoutExpired as exc:
+        destination.unlink(missing_ok=True)
+        raise RuntimeError("pg_dump did not finish within the timeout") from exc
 
 
 def prune(directory: Path, keep: int) -> list[Path]:

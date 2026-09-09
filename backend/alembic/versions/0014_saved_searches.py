@@ -59,7 +59,7 @@ def upgrade() -> None:
         sa.Column("query", sa.String(length=2000), nullable=False, server_default=""),
         sa.Column("sort", sa.String(length=32), nullable=False, server_default="newest"),
         sa.Column(
-            "email_enabled", sa.Boolean(), nullable=False, server_default=sa.text("0"), index=True
+            "email_enabled", sa.Boolean(), nullable=False, server_default=sa.false(), index=True
         ),
         sa.Column("email_item_limit", sa.Integer(), nullable=False, server_default="10"),
         sa.Column("last_emailed_at", sa.DateTime(), nullable=True),

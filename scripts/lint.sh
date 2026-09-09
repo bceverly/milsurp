@@ -26,14 +26,34 @@ skip()    { printf '  \033[93m-\033[0m %s\n' "$*"; }
 
 have() { [ -x "$VENV/bin/$1" ]; }
 
+#: Lines that mean "this passed, but". Every one of these was printed by a
+#: tool that then exited 0, so `make lint` said "clean" with the finding on
+#: screen directly above it.
+WARNING_LINE='(^|[^[:alnum:]])(WARNING|warning:|note:)'
+
 run() {
   # run <label> <command...>
+  #
+  # A warning is a failure. A tool that exits 0 while printing "WARNING" or
+  # "note:" has found something and decided not to insist, and letting that
+  # scroll past is how a finding gets ignored forever -- the project's rule
+  # for the test suites, applied to the linters as well.
+  #
+  # If a warning is genuinely not worth acting on, silence it at the source
+  # (fix the code, or narrow the tool's config) rather than here.
   local label="$1"; shift
-  if "$@"; then
-    ok "$label"
-  else
+  local output status
+  output="$("$@" 2>&1)"; status=$?
+  [ -n "$output" ] && printf '%s\n' "$output" | sed 's/^/  /'
+
+  if [ "$status" -ne 0 ]; then
     bad "$label"
     FAILURES+=("$label")
+  elif printf '%s' "$output" | grep -Eq "$WARNING_LINE"; then
+    bad "$label (exited 0, but warned — warnings are errors here)"
+    FAILURES+=("$label")
+  else
+    ok "$label"
   fi
 }
 

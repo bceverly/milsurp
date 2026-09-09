@@ -890,16 +890,40 @@ def run_scan(  # noqa: PLR0912,PLR0915 - one linear scan lifecycle; see ROADMAP
                 return fetched is None
 
             def holds_key_prefix(key_prefix: str) -> bool:
-                """Whether anything from this source is stored under this prefix."""
+                """Whether anything from this source is stored under this prefix.
+
+                ilike rather than like so the answer does not change with the
+                engine: SQLite's LIKE ignores ASCII case and PostgreSQL's does
+                not. Both sides of the comparison are built by the same
+                scraper, so case never actually differs -- this is about the
+                two databases agreeing, not about matching more.
+                """
                 pattern = key_prefix.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%"
                 return (
                     session.execute(
                         select(Item.id)
-                        .where(Item.site_id == site.id, Item.external_key.like(pattern, escape="!"))
+                        .where(
+                            Item.site_id == site.id, Item.external_key.ilike(pattern, escape="!")
+                        )
                         .limit(1)
                     ).scalar_one_or_none()
                     is not None
                 )
+
+            # The sections this site already holds listings under, read once
+            # before the scan writes anything. A scraper that skips a section
+            # on the vendor's word that it has not changed needs to know
+            # whether it has ever actually read it -- see
+            # ScrapeContext.holds_category().
+            stored_categories = {
+                category
+                for (category,) in session.execute(
+                    select(Item.category)
+                    .where(Item.site_id == site.id, Item.category.is_not(None))
+                    .distinct()
+                ).all()
+                if category
+            }
 
             ctx = ScrapeContext(
                 config,
@@ -908,6 +932,7 @@ def run_scan(  # noqa: PLR0912,PLR0915 - one linear scan lifecycle; see ROADMAP
                 needs_detail=needs_detail,
                 already_seen=holds_key_prefix,
                 last_success_at=as_utc(site.last_success_at),
+                stored_categories=stored_categories,
             )
             seen_at = utcnow()
 

@@ -734,6 +734,16 @@
    --------------------------------------------------------------------------- */
 .detail {
   display: grid;
+  /* minmax(0, 1fr), not the implied "auto". A grid item's min-width defaults
+     to auto, which means "as wide as my content needs" -- so this single
+     column sized itself to the widest thing in it, which is the gallery's
+     thumbnail strip: ten 68px thumbnails and their gaps is 752px, and on a
+     390px phone the whole page scrolled sideways by 378px. The strip's own
+     overflow-x: auto never got a chance, because the column had already grown
+     to fit it. Capping the minimum at 0 lets the column be the width of the
+     screen and hands the overflow back to the strip, which knows how to
+     scroll. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 22px;
 }
 

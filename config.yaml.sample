@@ -12,7 +12,8 @@
 #   cp config.yaml.sample config.yaml                   # development
 #   sudo install -D -m 600 config.yaml.sample /etc/milsurp/config.yaml
 #
-# It holds SMTP credentials and signing secrets, so keep it mode 600 and owned
+# It holds SMTP credentials, signing secrets and -- under PostgreSQL -- the
+# database password, so keep it mode 600 and owned
 # by the account that runs the service. The repo-root copy is gitignored.
 #
 # Every setting below is optional: anything you omit falls back to the default
@@ -23,10 +24,32 @@
 # Omit these and the location follows the run mode: in dev the database and
 # images sit in the repository root, in production they sit in /etc/milsurp.
 # A relative path is resolved against the repository root.
+# Two engines are supported: SQLite (the default, and what development and the
+# test suite use) and PostgreSQL. A block with only a "path" means SQLite, so
+# this file keeps its meaning unchanged if you never touch it.
 database:
   # Development default: <repo root>/milsurp.db
   # Production default:  /etc/milsurp/milsurp.db
   path: /etc/milsurp/milsurp.db
+
+  # --- PostgreSQL ----------------------------------------------------------
+  # Uncomment these to move. Naming host/name/user is enough on its own;
+  # "engine" is here to be explicit. See README.md, "Running on PostgreSQL",
+  # for the CREATE ROLE / CREATE DATABASE to run first (they need a superuser,
+  # and the role below deliberately is not one), and for the one command that
+  # copies the existing rows across.
+  #
+  # Leave "path" above in place: it is what the importer reads from.
+  #
+  # engine: postgresql
+  # host: localhost
+  # port: 5432
+  # name: milsurp
+  # user: milsurp
+  # password: "a long random password"
+  # sslmode: require        # for a connection that crosses a network
+  # pool_size: 5
+  # max_overflow: 10
 
 images:
   # Downloaded listing photos. Created mode 0700 and never served as static
@@ -36,8 +59,9 @@ images:
   path: /etc/milsurp/images
 
 # --- Backups ---------------------------------------------------------------
-# Daily snapshots of the database, taken through SQLite's online backup API so
-# each one is a complete .db that opens on its own. Production only: nothing is
+# Daily snapshots of the database: through SQLite's online backup API, so each
+# one is a complete .db that opens on its own, or through "pg_dump -Fc" under
+# PostgreSQL, which writes a .dump for pg_restore. Production only: nothing is
 # written in development, where the database is a scratch copy.
 #
 # The database is the one part of this application that cannot be rebuilt. The
@@ -144,8 +168,19 @@ scheduler:
   # How often to work through the photo download queue between scans, so a
   # backlog drains in the background instead of one batch per scan.
   photo_tick_seconds: 180            # default: 180
-  # A browser-driven scan is heavy; two at once is plenty on a small VPS.
-  max_concurrent_scans: 2            # default: 2
+  # How many sites are scanned at once. Left commented out, the default
+  # follows the database engine, because that is what actually constrains it:
+  #
+  #   sqlite       2   one writer; more scan threads just contend for it
+  #   postgresql   6   writers do not block each other, so the ceiling is the
+  #                    connection pool, and a scan holds one for its whole run
+  #
+  # Uncomment to pin it either way. On PostgreSQL, database.pool_size follows
+  # this number unless you set that too -- and the app warns at startup if the
+  # pool cannot seat the scans and still answer the web application.
+  #
+  # A browser-driven scan is heavy, whichever engine is underneath.
+  # max_concurrent_scans: 6
   scan_timeout_minutes: 120          # a longer run is treated as crashed
 
 # --- Scraping --------------------------------------------------------------

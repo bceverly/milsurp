@@ -14,7 +14,7 @@ The whole point of the application is breadth. Each new vendor is one subclass
 of `SiteScraper` in `backend/app/scrapers/` plus one line in `SCRAPER_CLASSES`;
 scheduling, admin controls, price history, images and digests all come for free.
 
-**Where this stands: eighteen vendors read, thirteen queued, two dropped.**
+**Where this stands: nineteen vendors read, eleven queued, three dropped.**
 Eight of the thirteen are blocked on something no base class can fix — a
 Cloudflare challenge, two missing entry URLs, a shop that publishes no prices,
 two that refuse a plain request, and two Wix pages that turn out to be photo
@@ -25,7 +25,7 @@ guns**, which is a first for this list: Apex Gun Parts, Arms of America and
 Bowman Arms. **None of them came out of the queue below** — they came out of
 the parts-kit candidate list, which is why the queued count has not moved. See
 **Parts kits as a coverage push** for what each was measured at and, in one
-case, why a fourth was refused on measurement.
+case, why one of them was refused on measurement.
 
 **Two of them left the queue without a browser being written.** J&G Sales and
 SARCO were both filed under "needs a browser" on the same evidence — a catalog
@@ -56,6 +56,7 @@ Cloudflare challenge rather than a rendering problem.
 | [Arms of America](https://armsofamerica.com/) | `arms-of-america` | BigCommerce — their parts kits and their four Swiss C&R rifles; their modern AK builds are left alone |
 | [Bowman Arms](https://bowmanarms.com/) | `bowman-arms` | BigCommerce — parts kits, which is all they list |
 | [DuPage Trading](https://dupagetrading.com/) | `dupage-trading` | BigCommerce — 20 bayonets and 3 WWII rifles; their grid renders each product twice |
+| [Atlantic Firearms](https://www.atlanticfirearms.com/) | `atlantic-firearms` | PrestaShop base class — three of their nine sections; the other six are gear and modern builds |
 
 ### Planned
 
@@ -156,6 +157,37 @@ catalog pages at twenty seconds each. Antique and collector stock does not turn
 over in a day. That needed a new cadence on the site list, which stopped at
 weekly — it is spelled **"Every 2 weeks"** and not "biweekly", because that
 word means both "every two weeks" and "twice a week".
+
+#### "Unchanged" is not "already read" — **Fixed**
+
+The category sitemap saves a section whose `lastmod` predates our last
+successful scan. On 9 Sep that skipped **U.S. Military Antique Long Guns**, and
+it was right about the fact and wrong about what to do with it: the section was
+unchanged, and it was also 132 listings this scraper had never opened, because
+it was one of the seven sections added *after* the last successful scan.
+
+The trap closes permanently. A section nobody reads never changes either, so it
+would have been skipped again on every run from then on — and five more of the
+new sections (Military Handguns, U.S. Martial Antique Handguns, Foreign
+Military Antique Handguns, Lugers, Mausers) were still ahead of that run and
+would have gone the same way. A twelve-hour scan would have finished having
+read three sections of nine, reported success, and de-listed nothing, so
+nothing would have looked wrong.
+
+The fix is to ask both questions instead of one. `ScrapeContext` now carries
+`stored_categories` — the sections this site already holds listings under, read
+once at the start of a run before it writes anything — and
+`ctx.holds_category(name)` answers it. A section is skipped only when the shop
+says unchanged **and** we have read it before; otherwise it is read, with a log
+line saying why. The saving is not discarded, only made to wait until it is
+true.
+
+**Still open, and smaller:** a section counts as read the moment one listing
+from it is stored, so a section interrupted part way through counts as fully
+read. Closing that needs per-section read state, which is a schema change; the
+practical mitigation today is that an interrupted run never updates
+`last_success_at`, so the next run compares against the same "since" and walks
+whatever it walked before.
 
 
 ### Legacy Collectibles: read the catalog, not three corners of it — **Shipped**
@@ -328,6 +360,55 @@ One thing left open: `condition` now holds two vocabularies. It is shown as
 happily beside the seven grades `BORE_GRADES` derives — but that has to be
 settled before anything filters on it.
 
+### Atlantic Firearms — **Shipped**, and the fifth platform
+
+The most-visited site on this list — roughly 837,000 visits a month when that
+was last measured — and the shop the PrestaShop base class was written for.
+
+**Three sections of nine, and measuring all six candidates before writing
+anything is what kept the other four out:**
+
+| Section | Rows | Verdict |
+| --- | --- | --- |
+| `/parts-kits` | 77 | **Taken.** 38 read as kits — Yugo, AK, VZ58, Galil, RPD. The other 39 are bare barrels, AR uppers and "IGLIM packages" of trigger guards and sights |
+| `/c-r-eligible` | 38 | **Taken.** FN 1910s, a Radom P-64, a Bernardelli 60, Yugo M48A and M24/47 |
+| `/knives-blades` | 13 | **Taken.** 8 AKM bayonets, and that bucket is small enough to want them |
+| `/military-surplus` | 180 | **Refused.** 98 read as neither gun nor kit: gas masks, rucksacks, ammo pouches, thread protectors, magazine grips |
+| `/surplus-guns-gear` | 165 | **Refused.** The name is honest — guns *and gear* — and it overlaps the above |
+| `/soviet-russian-surplus` | 20 | **Refused.** GP-5 gas masks, AKM wood grips, recoil spring assemblies |
+| `/other-cool-firearms` | 180 | **Refused.** "Classic Military Arms" is modern Bula Defense M14 builds. The Arms Unlimited call, for the fifth time |
+
+The four refused sections are 318 unique listings between them, 123 of which
+are gear. Refusing them is the standing rule working rather than timidity.
+
+**A live run over the three taken returns 128 listings and no warnings**: 55
+kits, 47 rifles, 13 handguns, 13 neither. Fifty-five rather than the 38 a
+title-only count suggested — the product pages say "kit" where several titles
+do not, which is the corroboration rule earning its keep again.
+
+**The caveat is the price, and it is a real one.** **71 of the 128** show no
+price at all — PrestaShop hides it on an out-of-stock product. They are worth storing and start reporting a price
+when the shop restocks, but a price watcher gets less from this vendor than the
+listing count suggests. That is a smaller version of what dropped Century Arms,
+where the prices were hidden by policy rather than by stock, and it is written
+down so nobody re-measures it hopefully.
+
+**Two things the build turned up**, both now in the base class:
+
+- **Their theme wraps every card twice.** Each `article.product-miniature` sits
+  inside a `div.js-product`, so a plain comma-selector matched 24 cards for 12
+  products. `_cards()` keeps the innermost match — the inner element is the
+  card, the outer is the grid cell holding it — which fixes it for any
+  PrestaShop theme rather than only this one.
+- **The cover is not the gallery.** `.product-cover img` is one photograph and
+  `.product-images img` is the strip of seventeen that contains it. The walk
+  stops at the first selector that yields anything, so the gallery selector has
+  to come first or every listing stores a single picture and calls it complete.
+
+Their robots.txt is PrestaShop's generated one: it disallows the facet and sort
+parameters — `?order=`, `?tag=`, `?search_query=`, `?limit=` — and says nothing
+about `?page=`, so pagination is permitted where filtering is not.
+
 ### DuPage Trading — **Shipped**
 
 Requested, and it was as cheap as the measurement suggested: a subclass of a
@@ -375,46 +456,7 @@ down, so only the parent is a source.
 Their robots.txt is the stock BigCommerce template — cart, checkout, account
 and their faceted-search parameters. Nothing in the way.
 
-### Police surplus — **Planned**
-
-Asked for directly, and it widens what this catalog is for. Departments
-re-equip on a cycle and their old duty guns are sold on in lots: Glock 17s,
-19s and 22s, S&W M&Ps, SIG P226s and P229s, Beretta 92s, and further back the
-S&W Model 10, 64, 65 and 686 revolvers that preceded them. They are traded,
-priced and watched much the way surplus military arms are — a department
-trade-in Glock has a known street price that moves — and they turn up at the
-same dealers, usually filed under a heading with the word "surplus" in it.
-
-**The boundary is the same one the parts rule already draws, one category
-over.** Police *gear* stays out: holsters, duty belts, vests, Tasers, radios.
-Those are the water bottle in the Arms Unlimited section and the field gear in
-a military surplus one — they turn over constantly, they swamp a listing count
-and nobody is watching this application for a price drop on a duty belt. What
-is wanted is the *firearms*.
-
-**Arms Unlimited is worth reopening on this.** It was written, run and backed
-out, and the note above says why: "their `/surplus/` section is police trade-in
-gear — Tasers, holsters, a water bottle — and `/rifles/` is modern Colt M4s."
-That judgment about the gear stands. Whether they also list trade-in *pistols*
-was never checked, because the section was condemned as a whole. Re-measure it
-before rebuilding: the scraper was a two-line BigCommerce subclass and restoring
-it is cheap if the handguns are there.
-
-**What has to change in the classifier, and it may be nothing.** A police
-trade-in Glock reads as a handgun already — that is not the problem. The
-problem is the opposite of the surplus rules' usual one: much of the existing
-vocabulary exists to *reject* modern stock, because "not a surplus dealer" has
-been the right call three times (Arms Unlimited, Legacy's Modern sections,
-Centerfire's AR-15 collections). Police surplus is modern by definition, so the
-distinction can no longer be "is it old" and has to become "is it *surplus*" —
-which is a fact about the vendor's section, not about the gun. Read the
-sections that say so and leave the rest, exactly as with parts kits.
-
-Worth deciding before building: whether these want their own Type in the browse
-filter, or simply sit among the handguns and rifles. They partition cleanly by
-vendor section, so either is available.
-
-#### Parts kits as a coverage push — **Mostly shipped**
+### Parts kits as a coverage push — **Mostly shipped**
 
 That rule had been in this document since the beginning and **no scraper had
 ever followed it.** Audited across the fourteen vendors read at the time: not
@@ -424,11 +466,9 @@ whole site rather than a list of categories, and 3 from `classify` recognizing
 the word "kit" in a title that happened to arrive through a firearms section.
 
 Both jobs below are now done for the vendors worth doing them for: two existing
-shops gained a parts-kit section, and three new shops were added for their kits.
-What remains is the long tail of candidate sites that each need their own build,
-and the browse-filter question at the end.
-
-So this is a real gap, and it is two jobs rather than one.
+shops gained a parts-kit section, and four new shops were added for their kits.
+What remains is the long tail of candidate sites that each need their own
+build, and the browse-filter question at the end.
 
 **1. Add the section to the vendors already read — done for two of the four,
 and the other two were measured and refused.** Every section below was fetched
@@ -447,17 +487,14 @@ of the caution that follows:
 everything for a few minutes and the conclusion drawn was that their site was
 down; it was a wobble behind their Cloudflare cache and the site was up in a
 browser throughout. And their category list pages: reading the first 100 of 224
-categories and concluding there was no parts-kit section was the same mistake
-in a different shape. A negative from one request is not a negative.
+categories and concluding there was no parts-kit section was the same mistake in
+a different shape. A negative from one request is not a negative.
 
 Note the CO Gun Sales URL. The obvious `/product-category/parts-kits/` answers
 200 with a page of sub-category *tiles* — "FAL Parts (23)", "Luger Parts (1)" —
 and a dozen products among them; the full path under `parts-accessories` is the
-real section. That is the MCT Defense trap in a shop that otherwise works.
-
-The remaining ten answered 404 to the obvious URL, which is **not** evidence
-they have no parts kits — it is evidence the guess was wrong. Their sections
-have to be found from each site's own navigation before anything is concluded.
+real section. That is the MCT Defense trap in a shop that otherwise works, and
+the same trap that later hid five sections at Collectors Firearms.
 
 **The caution, and it is the whole difficulty — now enforced in code.** "Parts
 kits" as a *vendor category name* is not the same thing as a parts kit. SARCO's
@@ -466,12 +503,12 @@ doing the work.
 
 `classify._is_a_parts_kit` no longer believes a section heading on its own: it
 proposes, and the listing has to corroborate by saying "kit" somewhere of its
-own. That is what separates a Royal Tiger ZB37 parts kit — which says so only
-in its description — from the **M3 Tripod Mount** and the **Zeiss periscope**
-filed beside it, both of which were parts kits until this existed. A cleaning,
-service, repair or conversion kit is disqualified by name.
+own. That is what separates a Royal Tiger ZB37 parts kit — which says so only in
+its description — from the **M3 Tripod Mount** and the **Zeiss periscope** filed
+beside it, both of which were parts kits until this existed. A cleaning,
+service, repair, maintenance or conversion kit is disqualified by name.
 
-**2. Thirteen candidate sites, measured — and three of them are now shipped.**
+**2. Thirteen candidate sites, measured — and four of them are now shipped.**
 Every URL below was fetched. The platform column is from response headers and
 markup, not from the URL shape:
 
@@ -480,61 +517,100 @@ markup, not from the URL shape:
 | Apex Gun Parts | `/parts-kits.html` | Magento | **Shipped** (`apex-gun-parts`). A live run over five of their six pages: 98 listings, no warnings, 93 reading as kits and **a price on every one**. The five that miss are titled "Parts Set" or "Parts Selection" rather than "kit", which is the corroboration rule doing its job — Beretta M38/49 SMG, BGS FAL, Brazilian 1908 Mauser, Hotchkiss M1909 LMG, STEN Mk 3, C93, CETME C and L. Their "Rifles" and "Handguns" menus are *parts* sections, so there is nothing else here to take |
 | Arms of America | `/all-products/parts-kits/` | BigCommerce | **Shipped** (`arms-of-america`). 47 listings on a full run, and every one lands where it should: 43 kits and the 4 Swiss C&R rifles, nothing miscategorized. PPSh-41 with drum, IWI UZI, Yugo M72B1 RPK, Polish Radom DPM and RPD, Sig STG 57, VZ61, G3/HK91. 25 of the 47 carry no price, which is BigCommerce hiding it on an out-of-stock product. Their modern AK builds are left alone |
 | Bowman Arms | `/parts-kits/` | BigCommerce | **Shipped** (`bowman-arms`). 17 listings, all 17 reading as kits and all 17 priced — the only shop on this list where both are true. One product page (their Colt 653) answers 403 to every retry, so the run is PARTIAL with the catalog entry kept — Polish PM63 RAK, WZ.43/52, Yugoslav M56, Israeli FAL, Colt 653, G36 Schnittmodell, 1928 Thompson. No firearms section to leave out |
+| Atlantic Firearms | `/parts-kits` | PrestaShop | **Shipped** (`atlantic-firearms`), with two other sections. 77 listings, 38 reading as kits; see its own section above for why the other four candidate sections were refused |
 | Every Gun Part | `/parts-kits/` | BigCommerce | **Refused.** 177 listings and only nine name anything milsurp — and those nine are modern production (Springfield Armory 1911A1, ArmaLite AR10, Walther PPK). The rest is Del-Ton, Charter Arms, Röhm, Rock Island, Taurus, Ruger, Glock, SCCY, Bryco Jennings. A parts-kit section is not automatically a *surplus* parts-kit section |
 | Centerfire Systems | `/collections/parts-kits-surplus-parts-kits` | Shopify | **Already a shipped vendor** — this is job 1 above, not a new site |
-| Robert RTG | `/parts-kits` | Not identified | 200, 33 prices, 32 blocks. Renders server-side; needs its markup read |
-| Proteus Armaments | `/partskits` | Not identified | 200, 18 prices, 18 blocks. Small |
-| Atlantic Firearms | `/parts-kits` | PrestaShop | 200, 36 prices, 12 cards. Already queued in Group D as the most-visited site on the whole list; the parts-kit section is another reason to build it |
-| Max Arms | `/product-category/parts-kits/` | WooCommerce | 200, 16 cards and **zero prices** — either client-side rendering or no prices published. Check the Store API first, the way J&G was settled |
-| MCT Defense | `/product/military-surplus-parts-kits/` | WooCommerce | 200, 2 cards, zero prices. Note the URL is `/product/`, not `/product-category/` — this is one product page, not a section. Already in Group A as "needs an entry URL", and this does not supply one |
-| Numrich (gunpartscorp) | `/category/gun-parts-kits` | Not identified | 200 but 2 prices and no cards — client-side. Look for the endpoint before concluding it needs a browser; that reading has now been wrong twice |
-| What A Country | `/parts-kits.aspx` | ASP.NET | 200, 64 prices, no recognizable cards. A bespoke build, like eBayonet |
-| APP Arms Co | `/product-category/parts-kits/` | — | **403 from nginx** to a plain request, 75KB of body. Not Cloudflare; some other block. Bottom of the list with DK Firearms |
 
-**Suggested order**, cheapest first: the four existing vendors (job 1) — done —
-then the three BigCommerce sites and Apex Gun Parts — done, less Every Gun Part,
-which was refused on measurement — then Atlantic Firearms as part of building
-that vendor properly. Robert RTG, Proteus, What A Country and Numrich are each
-their own build. Max Arms and MCT need a question answered before they are worth
-starting, and APP Arms Co is blocked.
+**The long tail, re-measured, and it is mostly gone.** Every remaining candidate
+was fetched again rather than trusted from the notes above, which was the right
+call — half of them have changed since:
 
-**What the first Apex scan actually put in the database, and what it cost to
-find.** 85 of their 102 listings arrived with a Magento Page Builder stylesheet
-where their description should be. Two separate faults, both in shared code and
-both older than this vendor:
+| Site | Then | Now | Verdict |
+| --- | --- | --- | --- |
+| Max Arms | WooCommerce, 16 cards, no prices | `maxarms.com` is now the personal site of an AI product manager | **Dropped.** The shop is gone |
+| Robert RTG | 200, 33 prices | **Connection reset** at TCP level, on the root as well as the section | **Blocked** |
+| Proteus Armaments | 200, 18 prices | **403** from Cloudflare | **Blocked** |
+| APP Arms Co | 403 from nginx | 403 from nginx, unchanged | **Blocked** |
+| Numrich | client-side | 200, 170KB, 2 prices, no cards — Miva (`mm5-GPC-basket-id`) | Needs its endpoint found before it is worth starting |
+| What A Country | bespoke ASP.NET | 200, 64 prices, product links like `/colt-m16a1-parts-kit.aspx` — a Colt M16A1 kit, an M1 Carbine kit, a Hungarian AK63D underfolder | Real stock behind bespoke markup; its own build, and the pick of what remains |
+| MCT Defense | one product page | unchanged — `/product/` is a product, not a section | Still needs an entry URL |
 
-- `get_text()` reads the text inside a `<style>` element out like any other
-  text, and every platform here flattened descriptions that way. Fixed once,
-  in `scrapers.base.flatten_html()`.
-- That was not Apex's fault at all. Their schema.org `description` is Magento's
-  *meta* description, generated from the Page Builder layout and truncated at
-  120 characters, so it is the stylesheet with no `<style>` element anywhere
-  near it — on every product they sell. The base class now tests the field with
-  `is_prose()` and falls back to the markup selectors when it fails, keeping the
-  price, availability, SKU and gallery the structured data gave. Apex's real
-  description sits in an id with dots in it that no stock selector matches, so
-  their scraper names it.
+So of the thirteen: **four shipped**, **one refused on measurement**, **one
+dropped** (domain gone), **three blocked**, **three needing their own build**,
+and one that was already a vendor.
 
-Fixing how a page is read does not fix the pages already read, because a scan
-skips a product page it has already fetched. `make refetch-details` clears that
-mark for the damaged listings; see the README.
-
-**Two figures in the table above were wrong before they were measured
-properly, both in the same direction.** Apex was recorded as "837 product
-blocks in one 722KB page" from a loose grep of the markup; their own toolbar
-says "Items 1 - 20 of 102", which is six pages of twenty, and
-`product_list_limit=all` is a query string their robots.txt happens not to
-forbid but which the ordinary "next" link makes unnecessary. Arms of America
-was recorded at 86 cards and 82 prices; the section is one page of exactly 43
+**Two figures in the tables above were wrong before they were measured
+properly, both in the same direction.** Apex was recorded as "837 product blocks
+in one 722KB page" from a loose grep of the markup; their own toolbar says
+"Items 1 - 20 of 102", which is six pages of twenty. Arms of America was
+recorded at 86 cards and 82 prices; the section is one page of exactly 43
 `article.card` elements with 43 distinct product links, and 25 of the 43 carry
-no price at all. A grep over markup counts markup, not products; the only
-honest count comes from running the scraper.
+no price at all. A grep over markup counts markup, not products; the only honest
+count comes from running the scraper.
 
-**One thing to settle before writing any of it**: the browse page currently
-treats "Parts kits" as one of five Types. Thirteen dealers' worth of kits is a
-different proposition from 25 — it is plausibly the largest category in the
-application — and it is worth deciding whether a kit should be filterable by
-the model it builds before there are thousands of them.
+**One thing to settle before the rest of it**: the browse page currently treats
+"Parts kits" as one of five Types. Several dealers' worth of kits is a different
+proposition from 25 — it is plausibly the largest category in the application —
+and it is worth deciding whether a kit should be filterable by the model it
+builds before there are thousands of them.
+
+### Police surplus — **Planned**, ten sites measured
+
+Departments trade in their duty weapons in lots, and a dealer sells them as a
+named section: Glock 22s and 17s, M&P 40s, 870s, and increasingly AR-15
+patrol rifles. It is not milsurp and it is squarely the same *question* —
+somebody's service weapon, sold on, in quantity, at a price worth watching.
+
+**The boundary, and it has already caught this list out once.** Arms Unlimited
+was written, run and backed out because their `/surplus/` section is police
+trade-in *gear* — Tasers, holsters, a water bottle — and their `/rifles/` is
+modern Colt M4s. That judgment about the gear stands. What was never checked
+is whether they also list trade-in *pistols*, because the section was condemned
+whole; the scraper was a two-line BigCommerce subclass and restoring it is
+cheap if the handguns are there.
+
+**What has to change in the classifier, and it may be nothing.** A police
+trade-in Glock reads as a handgun already. The problem is the opposite of the
+surplus rules' usual one: much of the vocabulary exists to *reject* modern
+stock, because "not a surplus dealer" has been the right call four times now
+(Arms Unlimited, Legacy's Modern sections, Centerfire's AR-15 collections,
+Atlantic's "Classic Military Arms"). Police surplus is modern by definition, so
+the distinction can no longer be "is it old" and has to become "is it
+*surplus*" — a fact about the vendor's section, not about the gun. Read the
+sections that say so and leave the rest, exactly as with parts kits.
+
+#### The ten sites, as they answer today
+
+| Site | Section | Platform | What the fetch showed |
+| --- | --- | --- | --- |
+| **Recoil Gun Works** | `/police-trade-in/firearms/pd-trade-rifles/` | **BigCommerce** | 200, **12 cards, 54 prices**. Stock Stencil — `article.card`, `SF-CSRF-TOKEN`, `fornax_anonymousId`. A four-line subclass, and the readiest of the ten |
+| **Officer Store** | `/firearms/used-firearms` | **BigCommerce** | 200, **9 cards, 31 prices**. Same shape, same cost |
+| **Impact Guns** | `/police-trade-in-guns/` | BigCommerce + **Searchanise** | 200 but **zero cards and zero prices** — the grid is drawn client-side. Their init script carries the key in plain sight: `api_key=4u8N0h9r5t`. The API answers: 12,340 items in all, and a **"Used Guns" category of 117**. "Police Trade In Guns" is not an askable category name, so the useful ask is "Used Guns" plus the classifier. `SearchaniseScraper` already exists — this is the SARCO trick a second time |
+| **USA Gun Shop** | `/used-guns/` | Cloudflare, not identified | 200, 328KB, **80 prices** and no recognizable cards. Renders server-side; needs its markup read, like eBayonet |
+| **GunPrime** | `/tags/police-trade-in` | Rails (Passenger) | 200, 46KB, 25 prices, no standard cards. Its own build |
+| **AIM Surplus** | `/categories/firearm/police-trade-ins` | **Laravel** (`laravel_session`) | 200 but only 38KB and **zero prices** — client-side. Already in this document as "a bespoke application, not BigCommerce". Look for the endpoint before concluding it needs a browser; that reading has now been wrong three times |
+| **Southern Tactical** | `/firearms/police-trade-in-firearms` | nginx, not identified | 200, 36KB, 3 prices. Likely client-side too |
+| **GovDeals** | `/en/firearms-live-ammunition` | Akamai bot management | 200 but `_abck`/`bm_sz` cookies and no prices. A government *auction* site, not a shop — the price model is bids, which this application has no idea about. Bottom of the list, and arguably out of scope |
+| **Clyde Armory** | `/agency-trade-in/` | — | **TLS handshake fails** from here. Retry later; it may be transient |
+| **Palmetto State Armory** | `/guns/used-guns-surplus-firearms-trade-ins.html` | Magento, Cloudflare | **403** to a plain request. Blocked, like APP Arms Co |
+
+**Suggested order**, cheapest first: Recoil Gun Works and Officer Store, which
+are two BigCommerce subclasses and nothing more; then Impact Guns, which is one
+Searchanise subclass; then re-open Arms Unlimited's handguns. USA Gun Shop,
+GunPrime and Southern Tactical are each their own build. AIM Surplus needs an
+endpoint found. GovDeals is an auction and Palmetto is blocked.
+
+**And take their milsurp while there.** Several of these are general dealers
+with surplus and parts-kit sections of their own — Impact Guns' catalog is
+12,340 items and Palmetto's is larger still — so each build should read the
+site's own navigation for C&R, military-surplus and parts-kit sections at the
+same time, on the same rules that govern every other vendor here. That is one
+visit rather than two, and the section-by-section measurement is the same work
+either way.
+
+**Worth deciding before building**: whether police trade-ins want their own
+Type in the browse filter, or simply sit among the handguns and rifles. They
+partition cleanly by vendor section, so either is available.
 
 ### The build order
 
@@ -651,7 +727,7 @@ OpenCart.
 | **Wix** | Surplus Defense, The Mosin Crate, Pasadena Pawn | Three, not one-offs. Wix renders client-side, so expect the browser path |
 | **Magento** | Classic Firearms, Apex Gun Parts, ~~Century Arms~~ | **Base class shipped** (`app/scrapers/magento.py`), and two sites of the three kept. Classic Firearms was listed as Unknown until its markup was read: 59 `mage.` markers and a `/media/catalog/product/cache/` image path. It is the most-visited site on the list. Apex Gun Parts arrived later, from the parts-kit push, and is the one shop here that runs on the base class's **stock selectors unchanged** — the theme is plain `li.product-item`. Century Arms is dealer-only and was dropped |
 | **Laravel (custom)** | AIM Surplus | `laravel_session`; a bespoke application, not BigCommerce |
-| **PrestaShop** | Atlantic Firearms | The most-visited site on the list, and its own build |
+| **PrestaShop** | Atlantic Firearms | **Base class shipped** (`app/scrapers/prestashop.py`). The most-visited site on the list, and still a class of one — which is the arithmetic the BigCommerce group got wrong, so it is worth saying plainly. The class is small and the shop is worth reading; a second PrestaShop vendor would be nearly free |
 | **OpenCart** | Joe Salter | `OCSESSID`; not Shift4Shop |
 | **WooCommerce (blocked)** | DK Firearms, MCT Defense | See Group A. J&G Sales was here and shipped through the Store API |
 | **Unknown** | Simpson Ltd | No marker in headers or cookies, and the home page answers with 2.8 KB — a splash or a client-side shell rather than a catalog. Needs a real entry URL before anything else can be said |
@@ -964,12 +1040,12 @@ Platform work this needed, all of it now in place:
 
 **Measured accuracy, honestly.** Against the real July 2026 flyer this recovers
 22 listings with names and prices. That is most of the page but not all of it,
-and a few listings take a neighbouring panel's price. Every listing carries the
+and a few listings take a neighboring panel's price. Every listing carries the
 crop it was read from and keeps the raw OCR text as its description, so the
 source is always one click away.
 
 - [x] **Panel-bounded listings.** Side-by-side panels within one half of the
-      page were read interleaved, so a product quoted its neighbour's price —
+      page were read interleaved, so a product quoted its neighbor's price —
       the CZ 50/70 pistol kit came out at the Turkish Mauser's $322.88. The
       page is now cut recursively on its own rules and a panel boundary ends a
       listing, while still letting a heading cross the single rule the flyer
@@ -992,7 +1068,7 @@ source is always one click away.
          header it sits under, so "OLE ZEKE'S TREASURES" was taking the title
          of the first item beneath it.
       4. Every product here is named in capitals, so lower-case words in front
-         of the first capitalised one leaked in from a neighbour: "Swedish
+         of the first capitalized one leaked in from a neighbor: "Swedish
          steel. GAHENDRA MARTINI RIFLE".
 - [x] **Content-versioned photo URLs.** `/items/<id>/photos/<id>` is built from
       two reused database ids, so the same URL could come to hold different
@@ -1002,13 +1078,13 @@ source is always one click away.
 - [x] **Bulleted lists survive OCR losing the bullet**, and the price is taken
       as the first amount in a listing rather than the largest — the order the
       page is written in. 26 to 30 listings, and the prices that were borrowed
-      from a neighbour are the item's own.
+      from a neighbor are the item's own.
 - [ ] **The last three.** "1903 TURKISH CONTRACT MAUSERS", "WW2 ENFIELD NO1 MK2
       PARTS KITS" and "CZ 52 SEMI AUTO ASSAULT RIFLES" still take their title
       from their own prose. In each case the heading is on the far side of a
       *column* boundary from its body, which is the one boundary nothing is
       allowed to cross — and for good reason, since crossing it is what made a
-      product quote its neighbour's price. Worth revisiting only with a way to
+      product quote its neighbor's price. Worth revisiting only with a way to
       tell the two cases apart.
 - [ ] **Confidence handling.** OCR misreads prices. Tesseract reports a
       per-word confidence that is currently used only as a filter; a listing
@@ -1448,8 +1524,8 @@ fact.
 
 ## 4. Platform and operations
 
-- **Planned** — PostgreSQL as an alternative backend. SQLite is right for one
-  machine; it stops being right the moment scans need to run on more than one.
+- **Shipped** — PostgreSQL as an alternative backend, and the rule that keeps
+  it working. See the section below.
 - **Planned** — Move scans to a real queue (Celery/RQ or `arq`) so the scheduler
   and the workers can be separate processes.
 - **Planned** — Prometheus metrics endpoint: scan durations, item counts, error
@@ -1475,6 +1551,71 @@ fact.
   a CLI command but is not yet automatic).
 - **Planned** — Docker Compose deployment as an alternative to the bare-metal
   installer.
+
+### PostgreSQL, and the rule that keeps both engines working — **Shipped**
+
+SQLite is right for one machine and stops being right the moment more than one
+process wants to write. It is not being retired: it is what a development
+checkout uses, what the test suite builds on every run, and what a small
+deployment should keep. So the engine is one block in `config.yaml`, and above
+the ORM there is no second code path.
+
+**The rule, which is the part that matters more than the port:** every schema
+change works on both engines, and every migration is idempotent. Written up in
+README.md under "Two engines, one schema", and checked rather than
+remembered — `backend/tests/test_database_portability.py` scans
+every migration file for the dialect-specific mistake, round-trips the whole
+chain up/down/up on SQLite everywhere and on a real PostgreSQL when
+`MILSURP_TEST_POSTGRES_URL` names one, and CI's **Migrations** job is now a
+matrix over both.
+
+Writing that test found four things that were already wrong, three of which
+only PostgreSQL would ever have complained about:
+
+* `server_default=sa.text("0")` on three boolean columns (`0008`, `0011`,
+  `0014`). SQLite has no boolean and takes it; PostgreSQL answers *column is of
+  type boolean but default expression is of type integer* and the chain stops
+  at revision 8.
+* `Item.title.like(...)` in the browse search. SQLite's `LIKE` ignores ASCII
+  case and PostgreSQL's does not, so a search for "enfield" would have silently
+  stopped matching "ENFIELD SMLE" — which is how most of these vendors write a
+  title. Now `ilike`, which means the same thing on both.
+* `price_changed_at.desc()` for the "Price reduced" sort. The two engines
+  disagree about where a NULL goes in a descending sort — SQLite last,
+  PostgreSQL first — so that sort would have led with every listing whose price
+  has never moved. Now `.nulls_last()`.
+* And one that was broken on **SQLite**, found only because the test runs both
+  ways: `0011`'s downgrade dropped `manufacturers.status` and
+  `merged_into_id` without dropping their indexes, and Alembic's batch mode
+  rebuilds a table from what it reflects — so it recreated an index over a
+  column that had just gone and the downgrade failed. A down-then-up of the
+  chain could not complete.
+
+Also fixed while in there: `alembic/env.py` unconditionally overwrote
+`sqlalchemy.url` with the application's own, so anything trying to point the
+chain at a throwaway database went to the real one instead. It did exactly that
+once, to the development database, while this work was being written. A URL set
+by the caller now wins.
+
+**The move itself is two steps, because a migration cannot be one.** Nothing in
+`alembic/versions/` can carry rows from one server to another — a migration only
+ever changes the database it is connected to. So `scripts/dbupdate.py` builds
+the PostgreSQL schema from the same chain that built the SQLite one, and
+`scripts/sqlite-to-postgres.py` (`make db-import`) copies the rows. It reads
+both databases through the same SQLAlchemy table definitions, which is what
+makes the conversions right, refuses to run unless both are at the same
+revision and the target is empty, compares every table's count afterwards, and
+winds each sequence past the ids it carried over.
+
+Measured on the development database: **39,299 rows in 1.1 seconds**, every
+count matching. The application then ran on it — browse, facets, keyword
+search, item detail with photos and price history, the armory with its merges,
+saved searches, `cli.py sites`, `cli.py passwd` — and `pg_dump` produced a
+4.1 MB snapshot.
+
+One thing the move does not fix on its own: the scheduler still runs scans
+in-process. PostgreSQL removes the single-writer ceiling, but running scans on
+more than one machine still wants the queue below.
 
 ---
 

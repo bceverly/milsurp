@@ -331,8 +331,11 @@ def reprocess(session: Session, spellings: list[str]) -> int:
     clauses = []
     for text in wanted:
         pattern = f"%{_escape_like(text)}%"
-        clauses.append(Item.title.like(pattern, escape="!"))
-        clauses.append(Item.description.like(pattern, escape="!"))
+        # ilike: the spellings are matched case-insensitively everywhere else
+        # in this module, and SQLite's LIKE gave that for free where
+        # PostgreSQL's does not.
+        clauses.append(Item.title.ilike(pattern, escape="!"))
+        clauses.append(Item.description.ilike(pattern, escape="!"))
 
     candidates = session.execute(select(Item).where(or_(*clauses))).scalars().all()
     rules = registry(session)

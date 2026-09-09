@@ -145,10 +145,6 @@ exclude = ["\\.venv", "node_modules", "frontend", "backend/alembic"]
 
 # The test suite is not type-checked: fixtures and monkeypatching make strict
 # typing more noise than signal there.
-[[tool.mypy.overrides]]
-module = ["tests.*", "conftest"]
-ignore_errors = true
-
 [tool.bandit]
 exclude_dirs = [".venv", "node_modules", "frontend", "backend/tests", "backend/alembic"]
 # B101 assert_used: asserts are used for invariants, not for validation.
