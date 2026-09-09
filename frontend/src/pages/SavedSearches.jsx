@@ -9,7 +9,7 @@
  * alone**: running a search shows everything it matches, which is why the card
  * reports the full match count beside a limit that is usually smaller.
  */
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api.js";
 import { useTitle } from "../hooks.js";
@@ -205,12 +205,35 @@ export default function SavedSearches() {
   const [searches, setSearches] = useState(null);
   const [error, setError] = useState(null);
 
+  /**
+   * The newest `load()` wins, and a local change retires whatever is in
+   * flight.
+   *
+   * Every card here edits the list without a round trip — a delete filters a
+   * row out, a toggle replaces one — and a `load()` that started *before* the
+   * change knows nothing about it. Let its answer land last and the row comes
+   * back: deleting the final saved search left the list still showing it, and
+   * the empty state never appeared. Only reliably on a slow machine, which is
+   * where CI found it.
+   *
+   * The page's mount fires that `load()`, so the window is exactly as long as
+   * the first request takes. Same fix as the armory page, for the same reason.
+   */
+  const loadSeq = useRef(0);
+
+  /** A local edit is newer than any fetch already outstanding. */
+  const supersedeLoad = () => {
+    loadSeq.current += 1;
+  };
+
   const load = useCallback(async () => {
+    const ticket = ++loadSeq.current;
     setError(null);
     try {
-      setSearches(await api.savedSearches());
+      const rows = await api.savedSearches();
+      if (ticket === loadSeq.current) setSearches(rows);
     } catch (problem) {
-      setError(problem.message);
+      if (ticket === loadSeq.current) setError(problem.message);
     }
   }, []);
 
@@ -220,11 +243,15 @@ export default function SavedSearches() {
 
   async function remove(search) {
     await api.deleteSavedSearch(search.id);
-    setSearches((rows) => rows.filter((row) => row.id !== search.id));
+    supersedeLoad();
+    setSearches((rows) => (rows || []).filter((row) => row.id !== search.id));
   }
 
   function replace(updated) {
-    setSearches((rows) => rows.map((row) => (row.id === updated.id ? updated : row)));
+    supersedeLoad();
+    setSearches((rows) =>
+      (rows || []).map((row) => (row.id === updated.id ? updated : row)),
+    );
   }
 
   return (

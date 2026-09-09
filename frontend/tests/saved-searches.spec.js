@@ -130,13 +130,20 @@ test.describe("the saved searches page", () => {
     // Whatever earlier tests left behind, clear it. Re-queried each time
     // rather than iterating `.all()`: deleting one re-renders the list, so
     // handles taken up front go stale.
+    // Deleted until the list is empty rather than a fixed number of times:
+    // this file shares one database with the tests above it, and a retry runs
+    // this test alone against whatever they left behind.
     const remove = signedIn.getByRole("button", { name: /^Delete / });
-    for (let gone = 0; gone < 20; gone += 1) {
+    while ((await remove.count()) > 0) {
       const left = await remove.count();
-      if (!left) break;
       await remove.first().click();
       await expect(remove).toHaveCount(left - 1);
     }
+    await expect(signedIn.locator(".empty")).toContainText("No saved searches yet");
+
+    // And it survives a reload, which is the difference between the list being
+    // empty and the *server* agreeing that it is.
+    await signedIn.reload();
     await expect(signedIn.locator(".empty")).toContainText("No saved searches yet");
   });
 });
