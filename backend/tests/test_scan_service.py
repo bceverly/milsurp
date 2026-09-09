@@ -41,6 +41,9 @@ class FakeScraper(SiteScraper):
 
     #: Set by the fixture before each run.
     payload: list[ScrapedItem] = []
+    #: Categories to declare unread, as a scraper does for a section it never
+    #: opened.
+    unread: list[str] = []
     raise_error: str | None = None
     warn_with: str | None = None
     #: Yield this many listings, then raise, to model a scan that is cut off
@@ -55,6 +58,8 @@ class FakeScraper(SiteScraper):
             raise ScrapeError(self.raise_error)
         if self.warn_with:
             ctx.warn(self.warn_with)
+        for category in self.unread:
+            ctx.not_read(category)
         ctx.log(f"Returning {len(self.payload)} listing(s).")
         return self._stream(ctx)
 
@@ -222,6 +227,107 @@ class TestDelisting:
         assert item.delisted_at is None
         # "New" must stay honest across a de-list/re-list cycle.
         assert item.first_seen_at == original
+
+
+class TestAnUnreadableCatalogIsNotAnEmptyOne:
+    """A run that read nothing and warned must not de-list the site.
+
+    J&G Sales lost all 64 of their listings to this. One Cloudflare 403 on
+    robots.txt denied every section for the cache's hour, each section warned
+    and yielded nothing, the stream ended politely with an empty result, and
+    the reconcile read that silence as "the shop is empty".
+    """
+
+    def active(self, session):
+        return session.execute(
+            select(func.count(Item.id)).where(Item.is_active.is_(True))
+        ).scalar_one()
+
+    def test_nothing_read_and_a_warning_de_lists_nothing(self, clean_db, fake_site):
+        FakeScraper.payload = [listing("a"), listing("b")]
+        scan_service.run_scan(fake_site.id, trigger="test")
+        assert self.active(clean_db) == 2
+
+        FakeScraper.payload = []
+        FakeScraper.warn_with = "robots.txt disallows everything; stopping there."
+        try:
+            scan_service.run_scan(fake_site.id, trigger="test")
+        finally:
+            FakeScraper.warn_with = None
+
+        assert self.active(clean_db) == 2
+
+    def test_but_a_clean_empty_read_still_de_lists(self, clean_db, fake_site):
+        """A vendor really can sell out. Without a warning, nothing went wrong
+        and an empty catalog is the honest reading."""
+        FakeScraper.payload = [listing("a")]
+        scan_service.run_scan(fake_site.id, trigger="test")
+        assert self.active(clean_db) == 1
+
+        FakeScraper.payload = []
+        scan_service.run_scan(fake_site.id, trigger="test")
+        assert self.active(clean_db) == 0
+
+    def test_and_a_partial_read_still_de_lists_what_it_did_not_see(self, clean_db, fake_site):
+        """Deliberately narrow, and worth pinning so the narrowness is a choice
+        rather than an oversight: a run that read *some* of the catalog goes on
+        trusting what it read."""
+        FakeScraper.payload = [listing("a"), listing("b")]
+        scan_service.run_scan(fake_site.id, trigger="test")
+
+        FakeScraper.payload = [listing("a")]
+        FakeScraper.warn_with = "one section could not be read"
+        try:
+            scan_service.run_scan(fake_site.id, trigger="test")
+        finally:
+            FakeScraper.warn_with = None
+
+        assert self.active(clean_db) == 1
+
+
+class TestASectionThatWasNotReadIsNotDeListed:
+    """The smaller, sneakier half of the J&G failure.
+
+    A run that reads *some* of a catalog looks successful, and quietly de-lists
+    every listing in the sections it never opened. `ctx.not_read(category)` is
+    a scraper saying "this was a gap, not an omission".
+    """
+
+    def active(self, session):
+        return session.execute(
+            select(func.count(Item.id)).where(Item.is_active.is_(True))
+        ).scalar_one()
+
+    def test_its_listings_survive(self, clean_db, fake_site):
+        FakeScraper.payload = [
+            listing("a", category="Rifles"),
+            listing("b", category="Handguns"),
+        ]
+        scan_service.run_scan(fake_site.id, trigger="test")
+        assert self.active(clean_db) == 2
+
+        # Next run reads the rifles and never opens the handguns.
+        FakeScraper.payload = [listing("a", category="Rifles")]
+        FakeScraper.unread = ["Handguns"]
+        try:
+            scan_service.run_scan(fake_site.id, trigger="test")
+        finally:
+            FakeScraper.unread = []
+
+        assert self.active(clean_db) == 2
+
+    def test_but_a_section_that_was_read_still_de_lists(self, clean_db, fake_site):
+        FakeScraper.payload = [
+            listing("a", category="Rifles"),
+            listing("b", category="Handguns"),
+        ]
+        scan_service.run_scan(fake_site.id, trigger="test")
+
+        # Both opened; the handgun is genuinely gone.
+        FakeScraper.payload = [listing("a", category="Rifles")]
+        scan_service.run_scan(fake_site.id, trigger="test")
+
+        assert self.active(clean_db) == 1
 
 
 class TestPhotos:

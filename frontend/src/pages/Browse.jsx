@@ -160,16 +160,22 @@ const VIEWS = [
   { value: "list", label: "List" },
 ];
 
-/** Multi-select facets, keyed by the query parameter the API expects. */
+/** Multi-select facets, keyed by the query parameter the API expects.
+ *
+ *  Ordered the way somebody narrows a search out loud: the maker, then which
+ *  of its models, then the cartridge. Category and country are the coarse ones
+ *  and sit at the bottom, where they are a second thought rather than the
+ *  first thing in the way.
+ */
 const FACETS = [
-  // First, because it is the only one of these backed by a fact somebody
-  // vouched for rather than a string a vendor happened to type.
+  { param: "manufacturer", facet: "manufacturers", title: "Manufacturer" },
+  // Backed by a fact somebody vouched for in the armory, rather than a string
+  // a vendor happened to type — which is why it filters by id.
   { param: "model", facet: "models", title: "Model" },
+  { param: "caliber", facet: "calibers", title: "Caliber" },
   { param: "site_id", facet: "sites", title: "Site" },
   { param: "category", facet: "categories", title: "Category" },
-  { param: "caliber", facet: "calibers", title: "Caliber" },
   { param: "country", facet: "countries", title: "Country" },
-  { param: "manufacturer", facet: "manufacturers", title: "Manufacturer" },
 ];
 
 function FacetGroup({ title, options, selected, onToggle }) {

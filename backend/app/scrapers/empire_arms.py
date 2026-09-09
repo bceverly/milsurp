@@ -49,6 +49,27 @@ CALIBER_QUALIFIES = re.compile(
 PAREN_RE = re.compile(r"\(([^)]{1,28})\)")
 
 
+def _price(fragment: str) -> float | None:
+    """The asking price, read across the markup it may be split by.
+
+    This is a hand-authored page whose styling is applied by wrapping runs of
+    characters, and it does that *inside* numbers. One pistol is priced
+
+        . . . $7</span></span></font><font ...><span ...>50.&nbsp;</span>
+
+    which reads "$750." on the page and was stored as **$7**. Searching the raw
+    HTML stopped at the tag; searching :func:`_clean_text` would not have
+    helped, because that replaces a tag with a space and gives "$7 50."
+
+    So the tags are removed with **no separator at all**, which is right here
+    and only here: two digits with nothing but markup between them were
+    adjacent on the page. Done before unescaping, so a ``&nbsp;`` still
+    separates -- it is text, and on the page it is a space.
+    """
+    found = PRICE_RE.search(TAG_RE.sub("", fragment))
+    return float(found.group(1).replace(",", "")) if found else None
+
+
 def _clean_text(fragment: str) -> str:
     return normalize_whitespace(html_lib.unescape(TAG_RE.sub(" ", fragment)))
 
@@ -104,8 +125,7 @@ def parse_page(html_text: str, category: str, source_url: str) -> list[ScrapedIt
         if not text:
             continue
 
-        price_match = PRICE_RE.search(block)
-        price = float(price_match.group(1).replace(",", "")) if price_match else None
+        price = _price(block)
         sold = bool(SOLD_RE.search(text))
 
         # Page furniture (headers, FFL notices) has neither a price nor a SOLD

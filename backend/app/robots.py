@@ -261,12 +261,22 @@ class RobotsCache:
             return Robots.denying_everything(reachable=False)
 
         status = getattr(response, "status_code", 0)
-        if status in (401, 403):
-            # The rules themselves are behind a login, which is not an
-            # invitation to crawl what they might have covered.
-            return Robots.denying_everything()
-        if 500 <= status < 600:
-            return Robots.denying_everything()
+        if status in (401, 403) or 500 <= status < 600:
+            # Refused or broken, which is not an answer either -- so it is
+            # handled exactly like a dropped connection: the request that
+            # provoked it is still refused, and the refusal is not remembered.
+            #
+            # It used to be remembered, on the reading that a 401 or 403 means
+            # the rules are behind a login and that is no invitation to crawl.
+            # That reading is fine for a genuinely auth-walled file and quite
+            # wrong for the common case: J&G Sales sit behind Cloudflare, whose
+            # bot management answered one /robots.txt with a 403 -- and that
+            # single response denied the whole site for the cache's full hour.
+            # Every section of their scan warned "robots.txt disallows", the
+            # scrape returned nothing, and 64 listings were de-listed. Their
+            # robots.txt allows all of it.
+            log.warning("%s answered %s; treating the site as off limits for now.", url, status)
+            return Robots.denying_everything(reachable=False)
         if status != 200:
             # 404 and friends: no robots.txt, so nothing is restricted.
             return Robots.allowing_everything()

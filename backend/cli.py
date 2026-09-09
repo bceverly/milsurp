@@ -501,14 +501,14 @@ def cmd_reclassify(args: argparse.Namespace) -> int:
                     # no country at all.
                     "country": derived["country"] or found.country or item.country,
                     "condition": derived["condition"] or item.condition,
-                    "manufacturer": found.manufacturer or maker,
+                    "manufacturer": manufacturers.canonical(session, found.manufacturer or maker),
                 }
             else:
                 filled = {
                     "caliber": caliber,
                     "country": item.country or derived["country"] or found.country,
                     "condition": item.condition or derived["condition"],
-                    "manufacturer": maker or found.manufacturer,
+                    "manufacturer": manufacturers.canonical(session, maker or found.manufacturer),
                 }
             flags = {
                 "firearm_model_id": found.model_id,

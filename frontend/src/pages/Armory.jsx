@@ -21,7 +21,7 @@
  *   "7.65mm Browning" are one cartridge written two ways, and until they are
  *   one row a filter on either shows half the listings.
  */
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api.js";
 import { useTitle } from "../hooks.js";
 import Modal from "../components/Modal.jsx";
@@ -818,7 +818,24 @@ export default function Armory() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unsorted, sort, tab, allModels, kinds]);
 
+  /**
+   * The newest `load()` wins, whatever order the responses come back in.
+   *
+   * `load()` fires nine requests and applies all nine results, and nothing was
+   * stopping a *stale* one from landing last. That cost a real failure: adding
+   * a caliber from inside the model dialog puts the new row straight into
+   * `allCalibers` without a round trip — and a `load()` already in flight,
+   * whose caliber list was fetched before the POST, then overwrote it and the
+   * cartridge vanished from the list it had just been added to.
+   *
+   * A counter rather than the effect's `cancelled` flag: that only guards the
+   * two setters in the effect itself, not the eight inside `load()`, and
+   * `load()` is also called directly after every write.
+   */
+  const loadSeq = useRef(0);
+
   const load = useCallback(async () => {
+    const ticket = ++loadSeq.current;
     const filters = {};
     if (statusFilter) filters.status = statusFilter;
     if (search.trim()) filters.search = search.trim();
@@ -848,6 +865,8 @@ export default function Armory() {
       api.armoryCountries(),
       api.armorySummary(),
     ]);
+    // Anything newer has already been asked for; this answer is out of date.
+    if (ticket !== loadSeq.current) return;
     setAllModels(everyModel);
     setModels(modelRows);
     setCalibers(caliberRows);
@@ -953,8 +972,18 @@ export default function Armory() {
   const addCaliber = async (name) => {
     try {
       const created = await api.createArmoryRow("calibers", { name });
+      // Any `load()` still in flight fetched its caliber list *before* this
+      // row existed, so its answer is already out of date: retiring the
+      // ticket makes it land on the floor instead of on top of this.
+      //
+      // Without that, the cartridge you just added disappeared from the list
+      // you added it to. The page navigation fires a nine-request load and
+      // only waits for the heading, so on a slow machine the dialog is open
+      // and the POST is done while that load is still outstanding — which is
+      // how this reached CI as a test that failed on one runner in four.
+      loadSeq.current += 1;
       setAllCalibers((prev) =>
-        [...prev, created].sort((a, b) => a.name.localeCompare(b.name)),
+        [...prev, created].sort((a, b) => compareCalibers(a.name, b.name)),
       );
       return created;
     } catch (failure) {

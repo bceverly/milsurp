@@ -35,11 +35,13 @@ publishes an empty firearms leaf.
 * ``Disallow: /*?*`` rules out the WooCommerce Store API, which would otherwise
   be the obvious way to read this catalog: its category filter and its
   pagination are both query strings. So the category pages are read as HTML.
-* ``Crawl-delay: 10`` — which turned out to be optimistic. A first scan kept to
-  it exactly and was refused with a 429 after sixteen minutes, so this scraper
-  asks for twenty. A pass is a few hundred requests, almost no bandwidth, and
-  something over an hour of wall clock; the detail pages are fetched once per
-  listing ever, so it is the *first* scan that is long and later ones are short.
+* ``Crawl-delay: 10`` — which turned out to be optimistic twice over. A first
+  scan kept to it exactly and was refused with a 429 after sixteen minutes, so
+  this scraper asked for twenty; twenty was refused too once it grew to nine
+  sections, so it now asks for thirty. A pass is a few hundred requests, almost
+  no bandwidth, and a couple of hours of wall clock; the detail pages are
+  fetched once per listing ever, so it is the *first* scan that is long and
+  later ones are short.
 
 Their robots.txt also disallows about a dozen individual pages deep inside
 categories we do not read. If one ever appears in a section we do, the walk
@@ -48,6 +50,11 @@ stops there with a warning rather than failing the scan.
 
 from __future__ import annotations
 
+import re
+from collections.abc import Iterator
+from datetime import datetime
+
+from .base import ScrapeContext, ScrapedItem
 from .woocommerce import WooCommerceScraper
 
 SITE_BASE = "https://collectorsfirearms.com/"
@@ -66,25 +73,38 @@ class CollectorsFirearmsScraper(WooCommerceScraper):
     #:
     #: This was daily, and daily was defensible when it read two sections. It
     #: reads nine now, and their crawl delay is the real cost: they ask for ten
-    #: seconds and refuse at ten, so this asks for twenty, and a first pass over
-    #: 691 listings is a couple of hours of somebody else's bandwidth. Their
+    #: seconds and refuse at ten *and* at twenty, so this asks for thirty, and a
+    #: first pass over 691 listings is hours of somebody else's bandwidth. Their
     #: stock is antique and collector guns that sit for months; nothing about it
     #: turns over in a day.
     #:
     #: Later passes are much shorter — a product page is fetched once per
     #: listing ever — but the catalog pages alone are still ~70 requests at
-    #: twenty seconds each, so the cadence is set for the work, not the diff.
+    #: thirty seconds each, so the cadence is set for the work, not the diff.
     default_interval_minutes = 20_160
 
-    #: Twenty seconds, not the ten their robots.txt asks for. The first scan
+    #: Thirty seconds, not the ten their robots.txt asks for. The first scan
     #: kept to ten exactly and was refused with a 429 after sixteen minutes and
     #: ninety listings: their limiter counts over a window that ten seconds a
     #: request eventually fills. Obeying the stated delay and being refused
     #: anyway means the stated delay is not the real one, and the honest
     #: response is to go slower rather than to keep walking into it.
     #:
+    #: Twenty was still not enough once this scraper grew from two sections to
+    #: nine: a run on 8 Sep was refused again and backed off to forty, so the
+    #: pace that works is somewhere above twenty and the back-off was finding it
+    #: one 429 at a time. Starting at thirty pays the same wall clock without
+    #: the refusal -- the run is long either way, and a scan that provokes a
+    #: 429 and recovers is a scan that annoyed somebody's server first.
+    #:
     #: A 429 still slows the scan further on its own; this is where it starts.
-    min_request_delay = 20.0
+    #:
+    #: **A browser would not help**, which is worth writing down because it is
+    #: the obvious next idea: this is rate limiting rather than bot detection,
+    #: they answer plain requests perfectly well, and headless Chrome makes
+    #: *more* requests per page -- stylesheets, scripts, fonts, images -- so it
+    #: would reach the limit sooner and cost Chrome's overhead to do it.
+    min_request_delay = 30.0
 
     #: Seven leaf categories, with the counts each held when they were added.
     #:
@@ -139,6 +159,80 @@ class CollectorsFirearmsScraper(WooCommerceScraper):
             "url": f"{SITE_BASE}product-category/modern-handguns/mausers/",
         },
     )
+
+    #: One file listing all 227 of their product categories with a ``lastmod``.
+    #:
+    #: Their robots.txt declares a sitemap index, and almost all of it is no
+    #: use here: 208 ``product-sitemap*.xml`` files carrying about 208,000
+    #: product URLs -- their whole catalog, ammunition and scopes and swords
+    #: included -- with nothing to say which category any of them is in.
+    #: Reading 208 files to save 70 category pages, and then being unable to
+    #: tell the 691 listings that matter from the rest without opening every
+    #: one, is worse than walking the categories.
+    #:
+    #: The category sitemap is the useful part, and it is one request.
+    CATEGORY_SITEMAP = f"{SITE_BASE}product_cat-sitemap.xml"
+
+    _LASTMOD = re.compile(r"<loc>([^<]+)</loc>\s*<lastmod>([^<]*)</lastmod>")
+
+    def _stream(self, ctx: ScrapeContext) -> Iterator[ScrapedItem]:
+        """Walk the sections, skipping any the shop says have not changed.
+
+        **Measured before it was built, and the saving is modest**: on the
+        fortnightly cadence this site runs at, two of the nine sections are
+        typically untouched -- Foreign Military Antique Handguns and Mausers,
+        the latter unedited since June -- which is about five of some seventy
+        catalog pages. At thirty seconds a request that is a couple of minutes
+        off a three-hour pass. It costs one request to find out, so it is worth
+        having, and it is not the answer to a slow scan.
+
+        The safety is the part that matters. A skipped section is declared
+        unread, so the reconcile does not treat its listings as withdrawn --
+        without that this would de-list every Mauser on the first run.
+        """
+        if self.min_request_delay:
+            ctx.keep_at_least(self.base_url, self.min_request_delay)
+        self._detail_failures = 0
+        self._gave_up_on_details = False
+
+        changed_since = self._changed_since(ctx)
+        seen: set[str] = set()
+        for source in self.sources:
+            if changed_since is not None and source["url"] in changed_since:
+                ctx.log(f"{source['category']}: unchanged since the last scan; skipping it.")
+                ctx.not_read(source.get("category"))
+                continue
+            yield from self._walk(ctx, source, seen)
+
+    def _changed_since(self, ctx: ScrapeContext) -> set[str] | None:
+        """The sources whose category has *not* changed since we last succeeded.
+
+        None when the question cannot be answered -- no previous scan, or the
+        sitemap did not load -- and then every section is walked, which is the
+        behavior this replaced and the right thing to fall back to.
+        """
+        since = ctx.last_success_at
+        if since is None:
+            return None
+        try:
+            body = ctx.get_text(self.CATEGORY_SITEMAP)
+        except Exception as exc:
+            ctx.log(f"Could not read the category sitemap ({exc}); walking every section.")
+            return None
+
+        stamps: dict[str, datetime] = {}
+        for url, stamp in self._LASTMOD.findall(body):
+            try:
+                stamps[url.rstrip("/") + "/"] = datetime.fromisoformat(stamp)
+            except ValueError:
+                continue
+
+        unchanged = set()
+        for source in self.sources:
+            stamp = stamps.get(source["url"].rstrip("/") + "/")
+            if stamp is not None and stamp <= since:
+                unchanged.add(source["url"])
+        return unchanged
 
     # Their theme renames two things and keeps the rest of the WooCommerce
     # markup, so these go in front of the stock selectors rather than replacing

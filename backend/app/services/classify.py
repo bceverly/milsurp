@@ -773,6 +773,19 @@ PISTOL_PATTERNS = (
     r"\bmakarov\b",
     r"\bwalther\s+p\w*\b",
     r"\bberetta\s+(?:model\s+)?m?19\d{2}\b",
+    # Colt's own name for their pocket automatics, and the thing that settles
+    # a title like "Boxed 1921 Colt Model 1903 Pocket Hammerless". Without it
+    # that reads as a *rifle*: "model 1903" is on the rifle list because the
+    # Springfield is, no handgun word appears, and the vote is one-nil. The
+    # armory then discards its own correct Colt match as contradicted and the
+    # pistol is filed under Rifles.
+    #
+    # Listed as a designation rather than a noun, which is what it is -- so it
+    # ties with the rifle reading rather than beating it, and a tie is
+    # `stated_kind` returning None. That is the honest answer for a title
+    # naming two things, and it is enough: an undecided title no longer
+    # overrules the armory.
+    r"\bpocket\s+hammer(?:less)?\b",
     r"\b(?:vz|cz)\s*[57]0\b",
     r"\btokarev\b",
     r"\btt-?33\b",

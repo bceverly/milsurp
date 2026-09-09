@@ -209,6 +209,11 @@ class WooCommerceScraper(SiteScraper):
                 # the right response is to stop walking that section, not to
                 # fail a scan over a page the shop asked us to skip.
                 ctx.warn(f"robots.txt disallows {url}; stopping this section there.")
+                # Only the *whole* section counts as unread. Stopping at page
+                # four has still read pages one to three, and the listings on
+                # them were genuinely observed.
+                if pages == 0:
+                    ctx.not_read(category)
                 return
 
             try:

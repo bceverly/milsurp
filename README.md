@@ -681,7 +681,7 @@ unknown sort, a price that is not a number. That check runs when a search is
 
 ### If the vendor sells parts kits
 
-Three of the seventeen vendors are here for their **parts kits** rather than
+Three of the eighteen vendors are here for their **parts kits** rather than
 their guns — Apex Gun Parts, Arms of America and Bowman Arms — and they are the
 first ones where the interesting decision was not the platform but the scope.
 
@@ -1514,7 +1514,7 @@ having walked 24 listings and saved 5, reporting nothing found. Both rules
 together turn that same hour into a PARTIAL run with the listings it managed to
 read. It is still a bad site to scan, and it may yet need the browser path.
 
-Seventeen vendors are read today; thirteen more are queued in
+Eighteen vendors are read today; thirteen more are queued in
 [ROADMAP.md](ROADMAP.md), grouped by the platform they run on because one base
 class unlocks a whole group.
 

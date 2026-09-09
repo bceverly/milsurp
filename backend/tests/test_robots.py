@@ -175,14 +175,28 @@ class TestFetching:
 
 
 class TestAFailedFetchIsNotAnAnswer:
-    """A dropped connection must not stand as a host's rules for the next hour.
+    """A response that is not the file must not stand as a host's rules.
 
-    Both a 403 and a timeout refuse the request, and only one of them is a
-    decision. Caching the timeout as though it were cost a whole SARCO scan:
-    every section of that catalog is served by one third-party host, so the
-    first failed robots.txt fetch denied all six sections, and the run finished
-    PARTIAL with zero listings and six warnings reading "robots.txt disallows"
-    about a file that had never been read.
+    Both a 403 and a timeout refuse the request, and **neither is a decision**.
+    Caching either cost a whole scan. First SARCO: every section of that
+    catalog is served by one third-party host, so the first *dropped* robots.txt
+    fetch denied all six sections, and the run finished PARTIAL with zero
+    listings and six warnings reading "robots.txt disallows" about a file that
+    had never been read.
+
+    Then J&G Sales, which is why a 401, 403 or 5xx is now treated the same way.
+    They sit behind Cloudflare, whose bot management answered one /robots.txt
+    with a 403 -- and that single response denied the whole site for the
+    cache's full hour: nine sections warned, the scrape returned nothing, and
+    **64 listings were de-listed**. Their robots.txt allows every one of those
+    URLs.
+
+    The reading that was reversed is worth stating, because it is not silly: a
+    401 or 403 can mean the rules are behind a login, and that is no invitation
+    to crawl what they might have covered. It holds for a genuinely auth-walled
+    file and not for the common case, where an edge refused a request that
+    looked automated. Either way the safety property is kept -- the request
+    that provoked it is still refused -- and only the *remembering* is dropped.
     """
 
     class Response:
@@ -217,22 +231,41 @@ class TestAFailedFetchIsNotAnAnswer:
         assert cache.for_url("https://shop.test/b").allows("/anything", UA)
         assert len(calls) == 2
 
-    def test_a_real_answer_is_still_remembered(self):
-        """Only the failure is re-asked; a site that answered is asked once."""
-        cache, calls = self.cache(self.Response(403))
-        cache.for_url("https://shop.test/a")
+    @pytest.mark.parametrize("status", [401, 403, 500, 503])
+    def test_a_refusal_also_refuses_the_request(self, status):
+        cache, _ = self.cache(self.Response(status))
+        assert not cache.for_url("https://shop.test/a").allows("/anything", UA)
+
+    @pytest.mark.parametrize("status", [401, 403, 500, 503])
+    def test_but_it_is_not_remembered_either(self, status):
+        """The J&G case: one Cloudflare 403 must not be this host's rules for
+        the next hour."""
+        cache, calls = self.cache(
+            self.Response(status), self.Response(200, "User-agent: *\nDisallow:\n")
+        )
+        assert not cache.for_url("https://shop.test/a").allows("/anything", UA)
+        assert cache.for_url("https://shop.test/b").allows("/anything", UA)
+        assert len(calls) == 2
+
+    @pytest.mark.parametrize("status", [401, 403, 500, 503])
+    def test_and_it_reads_as_unreadable_rather_than_as_a_rule(self, status):
+        """Which is what makes the warning say "could not read robots.txt"
+        instead of "robots.txt disallows" -- a difference that sent somebody
+        looking for a rule that was not there."""
+        cache, _ = self.cache(self.Response(status))
+        assert cache.for_url("https://shop.test/a").reachable is False
+
+    def test_a_file_that_was_actually_read_is_remembered(self):
+        """The cache still exists, and one fetch per host per scan is the point
+        of it."""
+        cache, calls = self.cache(self.Response(200, "User-agent: *\nDisallow: /admin\n"))
+        assert cache.for_url("https://shop.test/a").allows("/anything", UA)
         cache.for_url("https://shop.test/b")
         assert len(calls) == 1
 
-    def test_a_server_error_is_an_answer_and_is_remembered(self):
-        """A 500 came from the host. A timeout came from nowhere."""
-        cache, calls = self.cache(self.Response(503))
-        assert not cache.for_url("https://shop.test/a").allows("/x", UA)
+    def test_a_missing_file_is_an_answer_and_is_remembered(self):
+        """404 is the host saying it has no rules, which is a real answer."""
+        cache, calls = self.cache(self.Response(404))
+        assert cache.for_url("https://shop.test/a").allows("/anything", UA)
         cache.for_url("https://shop.test/b")
         assert len(calls) == 1
-
-    def test_the_two_are_told_apart(self):
-        unreachable, _ = self.cache(OSError("no route to host"))
-        refused, _ = self.cache(self.Response(403))
-        assert unreachable.for_url("https://shop.test/a").reachable is False
-        assert refused.for_url("https://shop.test/a").reachable is True

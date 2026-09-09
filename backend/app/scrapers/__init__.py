@@ -29,6 +29,7 @@ from .classic_firearms import ClassicFirearmsScraper
 from .co_gun_sales import CoGunSalesScraper
 from .collectors_firearms import CollectorsFirearmsScraper
 from .demo import DemoScraper
+from .dupage_trading import DupageTradingScraper
 from .empire_arms import EmpireArmsScraper
 from .hunters_lodge import HuntersLodgeScraper
 from .ima_usa import ImaUsaScraper
@@ -73,6 +74,7 @@ SCRAPER_CLASSES: tuple[type[SiteScraper], ...] = (
     ApexGunPartsScraper,
     ArmsOfAmericaScraper,
     BowmanArmsScraper,
+    DupageTradingScraper,
     *((DemoScraper,) if _demo_site_enabled() else ()),
 )
 

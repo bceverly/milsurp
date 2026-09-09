@@ -107,6 +107,7 @@ class ScrapeContext:
         should_stop: Callable[[], bool] | None = None,
         needs_detail: Callable[[str], bool] | None = None,
         already_seen: Callable[[str], bool] | None = None,
+        last_success_at: datetime | None = None,
     ) -> None:
         self.config = config
         self.scraping: ScrapingConfig = config.scraping
@@ -132,6 +133,13 @@ class ScrapeContext:
         # scraper whose keys are not predictable one at a time. Defaults to
         # False, so a scraper used standalone does the full job.
         self._already_seen = already_seen or (lambda _prefix: False)
+        #: When this site last finished a scan successfully, or None if it
+        #: never has. A scraper that can ask a vendor "what changed since?"
+        #: needs a since; nothing else does.
+        self.last_success_at = last_success_at
+        #: Sections this run did not read, by the category name they would
+        #: have been filed under. See not_read().
+        self.unread_categories: set[str] = set()
         self.warnings: list[str] = []
         #: Set by report_unchanged(); read by the scan service.
         self.unchanged = False
@@ -154,6 +162,27 @@ class ScrapeContext:
         """Record a non-fatal problem; marks the run PARTIAL rather than FAILED."""
         self.warnings.append(message)
         self._progress(f"WARNING: {message}")
+
+    def not_read(self, category: str | None) -> None:
+        """Declare that a section was not read this run, and why it matters.
+
+        A scraper must return the *complete* current inventory, because
+        anything it omits is treated as de-listed. A section it never opened is
+        not an omission in that sense -- it is a gap -- and the difference is
+        the whole of what this says.
+
+        J&G Sales is why it exists. One refused robots.txt denied every section
+        of their catalog; the stream ended politely with nothing in it, and 64
+        listings were de-listed as though the shop had emptied. The reconcile
+        now skips a run that read nothing at all, and this covers the smaller
+        and sneakier version: five sections refused out of nine, where the run
+        looks successful and quietly de-lists the five.
+
+        Passing None does nothing, because a listing with no category cannot be
+        protected by naming one.
+        """
+        if category:
+            self.unread_categories.add(category)
 
     def report_unchanged(self, reason: str) -> None:
         """Declare that the vendor has published nothing new since last time.

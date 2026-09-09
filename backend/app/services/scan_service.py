@@ -311,6 +311,12 @@ def _upsert_item(
         item.description if trusted else None,
         item.caliber,
     )
+    # Whichever way it arrived, written the way the table writes it. A vendor
+    # who states "S&W" is not being argued with -- they are being spelled --
+    # and without this the Manufacturer filter offered "S&W" and
+    # "Smith & Wesson" as two firms, 25 listings under one and 53 under the
+    # other, with no way to ask for both.
+    item.manufacturer = manufacturers.canonical(session, item.manufacturer)
 
     _apply_catalog(session, item, trusted)
 
@@ -426,8 +432,22 @@ def _reconcile_photos(session: Session, item: Item, scraped: ScrapedItem) -> Non
             session.delete(stale_photo)
 
 
-def _mark_delisted(session: Session, site: Site, seen_keys: set[str], seen_at: datetime) -> int:
-    """De-list active items the scraper did not return this run."""
+def _mark_delisted(
+    session: Session,
+    site: Site,
+    seen_keys: set[str],
+    seen_at: datetime,
+    unread_categories: set[str] | None = None,
+) -> int:
+    """De-list active items the scraper did not return this run.
+
+    ``unread_categories`` names sections the scraper says it never opened --
+    refused by robots.txt, skipped as unchanged, cut short by an error. A
+    listing filed under one of those was not *omitted* from the inventory; it
+    simply was not looked at, and reading the two the same way is how a partly
+    refused scan quietly empties half a catalog.
+    """
+    skip = unread_categories or set()
     stale = (
         session.execute(select(Item).where(Item.site_id == site.id, Item.is_active.is_(True)))
         .scalars()
@@ -435,10 +455,11 @@ def _mark_delisted(session: Session, site: Site, seen_keys: set[str], seen_at: d
     )
     count = 0
     for item in stale:
-        if item.external_key not in seen_keys:
-            item.is_active = False
-            item.delisted_at = seen_at
-            count += 1
+        if item.external_key in seen_keys or item.category in skip:
+            continue
+        item.is_active = False
+        item.delisted_at = seen_at
+        count += 1
     return count
 
 
@@ -886,6 +907,7 @@ def run_scan(  # noqa: PLR0912,PLR0915 - one linear scan lifecycle; see ROADMAP
                 should_stop=cancel.is_set,
                 needs_detail=needs_detail,
                 already_seen=holds_key_prefix,
+                last_success_at=as_utc(site.last_success_at),
             )
             seen_at = utcnow()
 
@@ -959,7 +981,37 @@ def run_scan(  # noqa: PLR0912,PLR0915 - one linear scan lifecycle; see ROADMAP
                 # A scraper that reported "nothing has changed" deliberately
                 # returned no listings, which is not the same as saying the
                 # catalog is empty. De-listing on that would wipe the site.
-                delisted = 0 if ctx.unchanged else _mark_delisted(session, site, seen_keys, seen_at)
+                #
+                # Nor is "I could not read any of it". A run that returned
+                # *nothing* and warned while doing so has not observed an empty
+                # catalog; it has failed to observe one. J&G Sales lost all 64
+                # of their listings to that: one Cloudflare 403 on robots.txt
+                # denied every section, the stream ended politely with nothing
+                # in it, and this read the silence as "the shop is empty".
+                #
+                # Deliberately narrow. A run that read *some* of the catalog
+                # still de-lists what it did not see, which is wrong in the
+                # same way and in smaller print -- five sections refused out of
+                # nine would de-list those five. Fixing that properly needs a
+                # scraper to distinguish "this section was refused" from "this
+                # product page was refused", which it cannot yet say.
+                held_back = bool(ctx.warnings) and not seen_keys
+                if held_back:
+                    log(
+                        "Nothing was read and the run warned, so no listing is "
+                        "being de-listed: an unreadable catalog is not an empty one."
+                    )
+                if ctx.unread_categories:
+                    log(
+                        "Not de-listing anything filed under "
+                        + ", ".join(sorted(ctx.unread_categories))
+                        + ": those sections were not read this run."
+                    )
+                delisted = (
+                    0
+                    if ctx.unchanged or held_back
+                    else _mark_delisted(session, site, seen_keys, seen_at, ctx.unread_categories)
+                )
                 session.commit()
                 log(
                     f"Reconciled: {created} new, {updated} updated, "

@@ -9,6 +9,8 @@ which is the thing the base class is written against.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 import responses
 from bs4 import BeautifulSoup
@@ -314,11 +316,68 @@ class TestCollectorsFirearms:
 
     def test_it_scans_fortnightly_rather_than_daily(self):
         """Their crawl delay is the cost: they ask for ten seconds, refuse at
-        ten, and get twenty here — so a pass over 691 listings is hours of
+        ten, and get thirty here — so a pass over 691 listings is hours of
         their bandwidth. Antique and collector stock does not turn over in a
-        day, and 20,160 minutes is the longest cadence the site list offers."""
+        day, and 20,160 minutes is the longest cadence the site list offers.
+
+        Thirty rather than twenty because twenty was refused too once this
+        scraper grew to nine sections. The back-off would find the working pace
+        on its own, one 429 at a time; starting above it means not provoking
+        one."""
         assert CollectorsFirearmsScraper.default_interval_minutes == 20_160
-        assert CollectorsFirearmsScraper.min_request_delay == 20.0
+        assert CollectorsFirearmsScraper.min_request_delay == 30.0
+
+    CF = "https://collectorsfirearms.com/"
+
+    @pytest.fixture
+    def sitemap_ctx(self, app_config):
+        """A context whose sitemap says Mausers is old and Lugers is fresh."""
+        context = ScrapeContext(app_config)
+        context.last_success_at = datetime(2026, 9, 6, tzinfo=UTC)
+        body = (
+            "<urlset>"
+            f"<url><loc>{self.CF}product-category/modern-handguns/mausers/</loc>"
+            "<lastmod>2026-06-20T14:45:22+00:00</lastmod></url>"
+            f"<url><loc>{self.CF}product-category/modern-handguns/lugers/</loc>"
+            "<lastmod>2026-09-08T19:19:05+00:00</lastmod></url>"
+            "</urlset>"
+        )
+        context.get_text = lambda url: body
+        yield context
+        context.close()
+
+    def test_it_asks_the_category_sitemap_what_changed(self):
+        """One request, and it is the only part of their sitemap index worth
+        reading: the other 208 files carry ~208,000 product URLs with nothing
+        to say which category any of them is in."""
+        assert CollectorsFirearmsScraper.CATEGORY_SITEMAP.endswith("/product_cat-sitemap.xml")
+
+    def test_a_section_the_shop_says_is_unchanged_is_skipped(self, sitemap_ctx):
+        skipped = CollectorsFirearmsScraper()._changed_since(sitemap_ctx)
+        assert f"{self.CF}product-category/modern-handguns/mausers/" in skipped
+
+    def test_and_one_that_changed_is_not(self, sitemap_ctx):
+        skipped = CollectorsFirearmsScraper()._changed_since(sitemap_ctx)
+        assert f"{self.CF}product-category/modern-handguns/lugers/" not in skipped
+
+    def test_a_section_the_sitemap_does_not_mention_is_walked(self, sitemap_ctx):
+        """Silence is not "unchanged"."""
+        skipped = CollectorsFirearmsScraper()._changed_since(sitemap_ctx)
+        assert f"{self.CF}product-category/rifles/u-s-military-rifles/" not in skipped
+
+    def test_with_no_previous_scan_every_section_is_walked(self, sitemap_ctx):
+        """Nothing to compare against, so nothing is skipped."""
+        sitemap_ctx.last_success_at = None
+        assert CollectorsFirearmsScraper()._changed_since(sitemap_ctx) is None
+
+    def test_a_sitemap_that_will_not_load_walks_everything(self, sitemap_ctx):
+        """The behavior this replaced, and the right thing to fall back to."""
+
+        def boom(url):
+            raise ScrapeError("502 from the sitemap")
+
+        sitemap_ctx.get_text = boom
+        assert CollectorsFirearmsScraper()._changed_since(sitemap_ctx) is None
 
     def test_it_keeps_the_stock_selectors_behind_its_own(self):
         """If the theme reverts, the WooCommerce defaults still answer."""

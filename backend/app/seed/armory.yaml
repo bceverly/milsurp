@@ -394,11 +394,11 @@ calibers:
 - name: '.41'
   status: approved
 - name: .410 bore
-  aliases:
-  - .410 Gauge
-  status: approved
-- name: .410 Gauge
   status: merged
+- name: .410 Gauge
+  aliases:
+  - .410 bore
+  status: approved
 - name: '.44'
   status: approved
 - name: .44 Magnum
@@ -849,6 +849,18 @@ models:
   status: approved
 - name: CG63
   status: approved
+- name: Colt 1903
+  aliases:
+  - Colt M1903
+  - Colt Model 1903
+  kind: pistol
+  country: United States
+  calibers:
+  - .32 ACP
+  manufacturers:
+  - Colt
+  status: approved
+  position: 900
 - name: Colt Model 1851 Navy
   aliases:
   - 1851 Navy
@@ -1272,9 +1284,10 @@ models:
   status: approved
 - name: M1903 Springfield
   aliases:
-  - M1903
-  - 1903 Springfield
+  - \1903 Springfield
   - US Rifle M1903
+  - Model 1903
+  - Springfield M1903
   kind: rifle
   country: United States
   calibers:
@@ -1820,9 +1833,8 @@ models:
 - name: Model 1903
   kind: rifle
   country: United States
-  calibers:
-  - .30-06 Springfield
-  status: approved
+  status: merged
+  enabled: false
 - name: Model 1905
   status: approved
 - name: Model 1906

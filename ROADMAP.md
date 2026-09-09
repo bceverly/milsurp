@@ -14,7 +14,7 @@ The whole point of the application is breadth. Each new vendor is one subclass
 of `SiteScraper` in `backend/app/scrapers/` plus one line in `SCRAPER_CLASSES`;
 scheduling, admin controls, price history, images and digests all come for free.
 
-**Where this stands: seventeen vendors read, thirteen queued, two dropped.**
+**Where this stands: eighteen vendors read, thirteen queued, two dropped.**
 Eight of the thirteen are blocked on something no base class can fix — a
 Cloudflare challenge, two missing entry URLs, a shop that publishes no prices,
 two that refuse a plain request, and two Wix pages that turn out to be photo
@@ -55,6 +55,7 @@ Cloudflare challenge rather than a rendering problem.
 | [Apex Gun Parts](https://www.apexgunparts.com/) | `apex-gun-parts` | Magento — ordinary pagination, because their robots.txt is empty. **Parts kits only; they sell no complete firearms** |
 | [Arms of America](https://armsofamerica.com/) | `arms-of-america` | BigCommerce — their parts kits and their four Swiss C&R rifles; their modern AK builds are left alone |
 | [Bowman Arms](https://bowmanarms.com/) | `bowman-arms` | BigCommerce — parts kits, which is all they list |
+| [DuPage Trading](https://dupagetrading.com/) | `dupage-trading` | BigCommerce — 20 bayonets and 3 WWII rifles; their grid renders each product twice |
 
 ### Planned
 
@@ -134,10 +135,19 @@ whether sections overlap before assuming one contains another, and do not
 mistake a filter for a catalog.*
 
 **What it costs.** Collectors Firearms ask for a 10-second crawl delay and get
-20 (their limiter refuses 10), so their 473 new listings are about two and a
-half hours of first-scan wall clock, paid once. The others are minutes —
+**30** — their limiter refuses 10, and refused 20 as well once this scraper grew
+from two sections to nine — so their 473 new listings are something over three
+hours of first-scan wall clock, paid once. The others are minutes —
 Checkpoint Charlie's especially, whose product pages refuse every request
 anyway, so a section there costs its category pages and nothing more.
+
+**A browser would not help here, and it is the obvious next idea.** This is
+rate limiting rather than bot detection: they answer plain requests perfectly
+well, they just will not answer that many. Headless Chrome makes *more*
+requests per page — stylesheets, scripts, fonts, images — so it would reach the
+limit sooner and pay Chrome's overhead to do it. What would genuinely reduce
+the count is their sitemap, which robots.txt declares and which would replace
+the ~70 category-page fetches; that is worth doing and is not done.
 
 **Collectors Firearms moved to a fortnightly scan** because of it. Their
 default was daily, which was defensible for two sections and is not for nine:
@@ -317,6 +327,53 @@ One thing left open: `condition` now holds two vocabularies. It is shown as
 "Bore condition" and is not filtered on, so their "9/10" and "Like New" sit
 happily beside the seven grades `BORE_GRADES` derives — but that has to be
 settled before anything filters on it.
+
+### DuPage Trading — **Shipped**
+
+Requested, and it was as cheap as the measurement suggested: a subclass of a
+slug, a name, two URLs and one selector override.
+
+| Section | Listings | Priced |
+| --- | --- | --- |
+| `/bayonets/` | **20** | 20 |
+| `/firearms/` | **3** | 3 |
+
+A live run returns 23 listings, no warnings, and a price on every one.
+**Nineteen of the twenty bayonets read as bayonets** — M1905s with M3
+scabbards, AFH- and ENS-marked M1s, an M5A1 with its M8A1 scabbard — and the
+one that does not is a USMC K-Bar, which is a fighting knife and is right to
+sit outside the bucket.
+
+Their two bare M8A1 scabbards are worth a note, because on the title alone the
+classifier calls them neither: a scabbard is only a bayonet if the listing says
+so, which is the rule `classify._is_a_bayonet` was written around. Their
+*descriptions* say so, so the detail fetch settles it — which is the corroboration
+rule doing exactly what it is for rather than an exception to it.
+
+**Twenty bayonets nearly doubles that bucket**, which held 24 across the whole
+catalog before them.
+
+The three firearms are WWII rifles and all read as such: a Springfield Armory
+M1 Garand, a Winchester M1 Garand, and an M14 rebuilt on a Criterion barrel.
+
+**Their grid renders each product twice**, and the count nearly went into this
+document wrong because of it: the base class's `li.product article` alternative
+matches a second `article` inside every product, so 20 listings arrive as 40
+and 3 as 6. The `seen` set collapses them by key, so nothing would have been
+stored twice — but the scan log would report double what the shop sells, and a
+count that is wrong in the logs is one somebody later trusts. `card_selector`
+is narrowed to `article.card`.
+
+**Most of the shop is left alone**, on the standing rule: `/parts/` is broken
+down to the barrel, receiver, stock and trigger groups of an M1 Garand and an
+M14, `/rifle-stocks/` is USGI and reproduction stocks and handguards, and
+`/militaria/` is gear. There is no parts-*kit* section, so this is one of the
+shops where "parts, not parts kits" is the whole of the decision and costs
+nothing. `/firearms/us-military-firearms/` is the same three guns one level
+down, so only the parent is a source.
+
+Their robots.txt is the stock BigCommerce template — cart, checkout, account
+and their faceted-search parameters. Nothing in the way.
 
 ### Police surplus — **Planned**
 

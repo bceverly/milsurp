@@ -352,3 +352,46 @@ class TestModelsBelongToAMaker:
         service.invalidate()
 
         assert service.registry(clean_db).extract("RUSSIAN M44 CARBINES") is None
+
+
+class TestCanonicalSpelling:
+    """A stated maker is the vendor's; how it is *written* is the table's.
+
+    Legacy Collectibles publish "Maker: S&W" in a field of their own, which the
+    scan keeps because a stated value outranks a derived one. Kept verbatim it
+    put "S&W" and "Smith & Wesson" side by side in the Manufacturer filter --
+    25 listings under one, 53 under the other, and no way to ask for both.
+
+    The same argument the armory already makes about calibers, where ".32 ACP"
+    and "7.65mm Browning" are one cartridge and a filter has to choose one.
+    """
+
+    @pytest.fixture
+    def wesson(self, session):
+        make(session, name="Smith & Wesson", aliases="S&W", status=ArmoryStatus.APPROVED)
+        return session
+
+    def test_an_alias_is_written_the_table_way(self, wesson):
+        assert service.canonical(wesson, "S&W") == "Smith & Wesson"
+
+    def test_the_canonical_name_is_left_as_it_is(self, wesson):
+        assert service.canonical(wesson, "Smith & Wesson") == "Smith & Wesson"
+
+    def test_a_firm_the_table_does_not_know_is_handed_back(self, wesson):
+        """It is still what the vendor said, and inventing a correction would
+        be worse than leaving their spelling alone."""
+        assert service.canonical(wesson, "Obscure Gunworks") == "Obscure Gunworks"
+
+    def test_nothing_stays_nothing(self, wesson):
+        assert service.canonical(wesson, None) is None
+        assert service.canonical(wesson, "   ") is None
+
+    def test_whitespace_is_tidied(self, wesson):
+        assert service.canonical(wesson, "  Smith &  Wesson ") == "Smith & Wesson"
+
+    def test_a_maker_named_inside_a_longer_string_is_not_rewritten(self, wesson):
+        """Asked about a *field*, not about prose. Matching the whole value
+        keeps this from quietly deciding that a longer firm name is this one."""
+        assert service.canonical(wesson, "Not Smith & Wesson At All") == (
+            "Not Smith & Wesson At All"
+        )

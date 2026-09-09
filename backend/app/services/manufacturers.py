@@ -200,6 +200,35 @@ def extract(
     return rules.extract_from(title, description, caliber)
 
 
+def canonical(session: Session, name: str | None) -> str | None:
+    """The table's own spelling of a maker a vendor stated, or the name back.
+
+    A stated maker is the vendor's, and this does not argue with it -- it only
+    settles *how it is written*. "S&W" and "Smith & Wesson" are the same firm
+    written twice, and the browse page can only offer one of them: without this
+    the Manufacturer filter listed both, 25 listings under one and 53 under the
+    other, and picking either hid the rest.
+
+    The same argument the armory already makes about calibers, where ".32 ACP"
+    and "7.65mm Browning" are one cartridge and a filter has to choose. It
+    collapses exactly what somebody has declared to be an alias and nothing
+    else: "Springfield" and "Springfield Armory" stay apart until the armory
+    says they are one firm, which is a curation question and not this
+    function's to answer.
+
+    Matched whole rather than by search, so a maker named inside a longer
+    string is not silently rewritten -- this is asked about a *field*, not
+    about prose.
+    """
+    stated = " ".join((name or "").split())
+    if not stated:
+        return None
+    for canonical_name, pattern in registry(session).rules:
+        if pattern.fullmatch(stated):
+            return str(canonical_name)
+    return stated
+
+
 # ---------------------------------------------------------------------------
 # Seeding
 # ---------------------------------------------------------------------------

@@ -1763,6 +1763,31 @@ class TestTheFourthPassOfReports:
         accessories on the strength of a word in the title."""
         assert self.kind(title, category="Hand Guns") == "handgun"
 
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "Boxed 1921 Colt Model 1903 Pocket Hammerless - .32 ACP",
+            "Colt Model 1903 Pocket Hammerless",
+            "Model 1903 Pocket Hammer",
+        ],
+    )
+    def test_a_designation_shared_with_a_rifle_is_not_settled_by_the_rifle(self, title):
+        """ "Model 1903" is on the rifle list because the Springfield is, and
+        Colt's pocket automatic wears the same number. With no handgun word in
+        the title the vote used to be one-nil for rifle, `stated_kind` said so,
+        and the armory then **discarded its own correct Colt match** as
+        contradicted — filing a .32 ACP pocket pistol under Rifles.
+
+        "Pocket Hammerless" is Colt's own name for these and is now on the
+        handgun list, so the vote ties and `stated_kind` returns None. An
+        undecided title is the honest answer and it no longer overrules the
+        armory, which knows which 1903 this is.
+        """
+        assert classify.stated_kind(title) is None
+
+    def test_and_the_springfield_still_reads_as_a_rifle(self):
+        assert classify.stated_kind("U.S.A. Model 1903 Springfield") == "rifle"
+
     def test_but_a_collection_named_after_a_model_still_does_not(self):
         assert (
             self.kind(
