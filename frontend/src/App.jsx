@@ -11,6 +11,7 @@ import ScanDetail from "./pages/ScanDetail.jsx";
 import UsersPage from "./pages/Users.jsx";
 import ArmoryPage from "./pages/Armory.jsx";
 import SettingsPage from "./pages/Settings.jsx";
+import SavedSearches from "./pages/SavedSearches.jsx";
 
 function FullPageSpinner() {
   return (
@@ -57,6 +58,7 @@ export default function App() {
         <Route index element={<Browse />} />
         <Route path="items/:itemId" element={<ItemDetail />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="saved-searches" element={<SavedSearches />} />
         <Route
           path="sites"
           element={

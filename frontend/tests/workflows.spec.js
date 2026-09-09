@@ -17,7 +17,8 @@ test.describe("scan drill-down", () => {
     await expect(signedIn.getByRole("heading", { name: "Scan history" })).toBeVisible();
 
     const rows = signedIn.locator("table tbody tr");
-    expect(await rows.count()).toBeGreaterThan(0);
+    // `.count()` does not auto-wait; the heading arrives before the table does.
+    await expect(rows.first()).toBeVisible();
 
     await rows.first().getByRole("link", { name: "Details" }).click();
     await expect(signedIn).toHaveURL(/\/scans\/\d+/);

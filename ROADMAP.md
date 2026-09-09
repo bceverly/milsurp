@@ -139,6 +139,14 @@ half hours of first-scan wall clock, paid once. The others are minutes —
 Checkpoint Charlie's especially, whose product pages refuse every request
 anyway, so a section there costs its category pages and nothing more.
 
+**Collectors Firearms moved to a fortnightly scan** because of it. Their
+default was daily, which was defensible for two sections and is not for nine:
+even a later pass, where every product page has already been read, is ~70
+catalog pages at twenty seconds each. Antique and collector stock does not turn
+over in a day. That needed a new cadence on the site list, which stopped at
+weekly — it is spelled **"Every 2 weeks"** and not "biweekly", because that
+word means both "every two weeks" and "twice a week".
+
 
 ### Legacy Collectibles: read the catalog, not three corners of it — **Shipped**
 
@@ -1021,81 +1029,71 @@ application and publish it as a snap.
 
 ### Search and discovery
 
-#### Saved searches, and a daily email per search — **Planned**
+#### Saved searches, and a per-search email — **Shipped**
 
-Requested. The browse page already takes a rich query — keyword, site,
-category, caliber, country, manufacturer, armory model, kind, availability,
-price range, "new since", price-drops-only, and one of six sort orders — and
-every one of those already lives in the URL. **A saved search is a name and
-that query**, so the hard part is not the searching; it is the email and the
-lifecycle around it.
+Name a set of browse filters, see them listed, run one, and have its results
+mailed with your digest. Requested, specced here, and built.
 
-**What the user asked for, in their order:**
+**A saved search is the browse page's own query string under a name.** Not a
+column per filter: the filter set has grown four times already and a column
+each means a migration each time. So `saved_searches` is `(user_id, name,
+query, sort, email_enabled, email_item_limit)` and "run this search" is a link
+to `/?<query>` — there is no second search implementation to drift from the
+first.
 
-1. Set up a search on the browse page and **save it under a name**.
-2. **See the saved searches** as a list.
-3. **Run one** from that list, landing back on browse with every filter set.
-4. **Turn a daily email on or off per search**, delivering that search's
-   results with a photograph, a truncated title and a truncated description.
-5. Click an item in the email and land on **our** item page for it — from
-   which the existing "View on vendor site" button does the rest.
-6. **The sort order is part of the saved search, and the email is in that same
-   order.** Explicitly asked for, and the thing most easily lost: an email
-   assembled by a digest job naturally comes out in whatever order the query
-   planner returned, which is not the order the user saved.
+**The query is validated when it is saved, not when it is sent.** A saved
+search runs unattended every morning, so a row that has rotted into an unknown
+parameter would otherwise mail an empty result with nobody there to see the
+error. `services.search.parse_query` refuses an unknown parameter, an unknown
+sort, a non-numeric price or an unknown type at save time, with a 400 in front
+of the person who can fix it. It is also what canonicalizes the stored form —
+sorted, with the paging parameters dropped — so two searches built by the same
+clicks in a different order are one search, and so an email is never silently
+capped at whatever page size the user happened to be on.
 
-**The shape.**
+**"Send now", per search.** Each card has a button that mails that one search
+immediately. It is **out of band**: it touches neither `next_send_at` nor
+`last_digest_cutoff`, because pressing it is not the daily digest arriving
+early and must not make the next real one skip what it covered. It ignores
+`email_enabled` too — "send this every day" and "send it to me now" are
+different questions, and seeing what a search would mail before committing to
+the daily one is most of why the button is there. A search matching nothing
+sends nothing and says so on the page; an empty email is worse than a line of
+text on the screen the button is on.
 
-**Storage.** One table, `saved_searches`: `user_id`, `name`, the query, `sort`,
-`email_enabled`, and the usual timestamps. Store the query as the **query
-string the browse page already produces**, not as a column per filter — the
-filter set has grown four times already, and a column per filter means a
-migration each time. It also makes "run this search" a redirect and nothing
-more. Validate on save by parsing it through the same code
-`GET /api/items` uses, so a saved search cannot outlive a parameter it names.
+**The email is capped and the run is not.** The cap is a per-search dropdown
+(5, 10, 20, 30, 50, 100) on the saved-searches page; opening a search shows
+everything it matches. It sends **the whole result set, capped** — not "what is
+new since last time". A saved search is a standing question and its answer is
+what matches today; the digest's other two sections are about change and this
+one deliberately is not. Where the cap bites, the section says so — "Showing 5
+of 12 matches — see them all" — and links to the search.
 
-**Sort belongs in the same row and in the email's own query.** The digest must
-re-run the search rather than re-filter a list it already has, or the order is
-whatever the second query returned.
+**The sort is part of the search and the email is in it.** `search.run` applies
+the saved sort and the rows are rendered in the order it returned them. An
+email assembled by grouping or re-filtering a list it already had would come
+out in whatever order the second query chose, which is the failure this was
+most likely to have.
 
-**The email.** The existing digest (`services/digest.py`) already renders
-listings with photographs and knows how to link back to an item page, so this
-is a third section beside "new items" and "price drops" rather than a new
-mailer. What it does not have and this needs:
+**Its rows link to our own item page, not to the vendor.** That is what was
+asked for and it is the better link: the item page carries the price history,
+the full gallery and a "View on vendor site" button, so the vendor is one more
+click rather than the only destination. Titles are truncated at 80 characters
+and descriptions at 160, on a word boundary, with a real "…".
 
-- **Truncation with an ellipsis**, on both the title and the description, to a
-  fixed length. Truncate on a word boundary and append "…"; the character
-  budget belongs next to the existing per-site caps so both are tuned in one
-  place.
-- **A per-search cap**, for the same reason the digest already caps per site: a
-  saved search matching four hundred listings must not send a four-hundred-row
-  email. Cap it, and say in the email how many more there were.
-- **A link to the search itself** at the foot of the section, so "see the rest"
-  is one click.
+**What it cost elsewhere.** `SORTS`, `apply_filters` and the search-term parsing
+moved out of `api/items.py` into `services/search.py`. They had one caller and
+now have two, and the two have to agree exactly — a saved search that returned
+one set of listings in the browser and another in the email would be worse than
+no saved search at all.
 
-**Questions worth settling before building:**
-
-- **Daily, or the user's existing digest frequency?** They said daily. The
-  digest already has a `frequency_hours` per user, and two schedules for one
-  user is two emails a day. Simplest that honors the request: saved-search
-  results ride in the *existing* digest email as their own section, and
-  "daily" is what the digest is already set to for most people.
-- **Everything, or only what changed?** A search for "Mosin under $400" that
-  matches sixty listings will match the same sixty tomorrow. The digest's other
-  two sections are both about *change*, and an unchanged sixty-row email every
-  morning is the fastest way to get a digest filtered into a folder. Strongly
-  recommend the email carry **what is new to that search since it last sent**,
-  with the total as context: "7 new, 60 matching in all". That is a change to
-  what the user asked for and should be their call.
-- **Whose photograph?** The item's first stored photo, at thumbnail size, which
-  is what the digest already embeds.
-
-**Where it touches:** a migration and one model; `api/items.py`'s query parsing
-extracted so the saved search and the browse page cannot drift; a small
-`api/saved_searches.py`; `services/digest.py` for the section; and on the
-front end a "Save this search" control on the browse page plus a Saved
-Searches page. The armory's approval pattern is not wanted here — a saved
-search is the user's own and needs no review.
+**Two things deliberately not done.** There is no sharing and no approval step:
+a saved search is the user's own, every route is scoped to the current user,
+and somebody else's id answers 404 rather than 403. And a saved search is *not*
+scoped by the digest's site selection — one that names its sites says so in its
+query, and one that does not is asking about the whole catalog on purpose. A
+user with no sites selected but a mailing saved search now gets a digest, where
+before they got nothing.
 
 #### The rest of the search work
 

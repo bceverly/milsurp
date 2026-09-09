@@ -197,6 +197,15 @@ export const api = {
   clearResting: (siteId) =>
     request(`/api/sites/${siteId}/resting/clear`, { method: "POST" }),
 
+  // --- saved searches ---
+  savedSearches: () => request("/api/saved-searches"),
+  createSavedSearch: (payload) =>
+    request("/api/saved-searches", { method: "POST", body: payload }),
+  updateSavedSearch: (id, patch) =>
+    request(`/api/saved-searches/${id}`, { method: "PATCH", body: patch }),
+  deleteSavedSearch: (id) => request(`/api/saved-searches/${id}`, { method: "DELETE" }),
+  sendSavedSearch: (id) => request(`/api/saved-searches/${id}/send`, { method: "POST" }),
+
   // --- admin ---
   status: () => request("/api/admin/status"),
   allEmailHistory: (params) => request(`/api/admin/email/history${qs(params)}`),

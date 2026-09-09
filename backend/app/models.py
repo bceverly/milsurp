@@ -105,6 +105,9 @@ class User(Base, TimestampMixin):
     email_logs: Mapped[list["EmailLog"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    saved_searches: Mapped[list["SavedSearch"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
     @property
     def is_admin(self) -> bool:
@@ -784,6 +787,44 @@ class PriceHistory(Base):
 # ---------------------------------------------------------------------------
 # Email digests
 # ---------------------------------------------------------------------------
+class SavedSearch(Base, TimestampMixin):
+    """A named set of browse filters, optionally mailed every digest.
+
+    **The query is stored as the browse page's own query string**, not as a
+    column per filter. The filter set has grown four times already and a column
+    each would mean a migration each time; this way "run this search" is a
+    redirect and nothing more. It is canonicalized on the way in -- sorted,
+    with the paging parameters dropped -- so two searches built by the same
+    clicks in a different order are one search.
+
+    It is *validated* on the way in too, by the same code the browse endpoint
+    uses. A saved search is run unattended, and a row that has rotted into an
+    unknown parameter would otherwise mail an empty result with nobody to see
+    the error.
+    """
+
+    __tablename__ = "saved_searches"
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_saved_search_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(80), nullable=False)
+    query: Mapped[str] = mapped_column(String(2000), nullable=False, default="")
+    #: Also inside ``query``; kept here so the list page can show it and the
+    #: digest can order by it without re-parsing.
+    sort: Mapped[str] = mapped_column(String(32), nullable=False, default="newest")
+
+    email_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
+    #: How many listings the email carries. The cap is on the *email* only:
+    #: running the search from its own page returns everything it matches.
+    email_item_limit: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
+    last_emailed_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    user: Mapped["User"] = relationship(back_populates="saved_searches")
+
+
 class EmailPreference(Base, TimestampMixin):
     """Per-user digest settings."""
 

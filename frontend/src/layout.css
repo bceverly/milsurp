@@ -316,6 +316,95 @@
 }
 
 /* ---------------------------------------------------------------------------
+   Saved searches
+   --------------------------------------------------------------------------- */
+.saved-search-list {
+  display: grid;
+  gap: 14px;
+}
+
+.saved-search {
+  background: var(--surface);
+  border: 1px solid var(--silver-200);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+
+.saved-search__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.saved-search__name {
+  font-size: 16px;
+  margin: 0;
+}
+
+.saved-search__count {
+  color: var(--ink-500);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.saved-search__filters {
+  margin: 6px 0 0;
+  font-size: 13.5px;
+  color: var(--ink-700);
+}
+
+.saved-search__sort,
+.saved-search__note {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  color: var(--ink-400);
+}
+
+.saved-search__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.saved-search__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+/* The "Save this search" control on the browse toolbar. The form drops below
+   the toolbar rather than sitting in it: a name field wide enough to type a
+   name into would push the sort and layout controls onto their own row. */
+.save-search {
+  position: relative;
+}
+
+.save-search__form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+  position: absolute;
+  z-index: 5;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--silver-200);
+  border-radius: var(--radius);
+  padding: 10px;
+  box-shadow: 0 6px 20px rgb(10 34 64 / 12%);
+}
+
+.save-search__form .input {
+  width: 220px;
+}
+
+/* ---------------------------------------------------------------------------
    Inventory browser
    --------------------------------------------------------------------------- */
 .browse {

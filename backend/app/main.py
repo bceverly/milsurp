@@ -28,6 +28,7 @@ from .api import (
     items,
     manufacturers,
     preferences,
+    saved_searches,
     scans,
     sites,
     system,
@@ -290,6 +291,7 @@ def create_app() -> FastAPI:
     api.include_router(scans.router)
     api.include_router(items.router)
     api.include_router(preferences.router)
+    api.include_router(saved_searches.router)
     app.include_router(api)
 
     _mount_frontend(app)

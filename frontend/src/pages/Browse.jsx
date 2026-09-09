@@ -11,6 +11,7 @@ import { useDebounced, useOptimisticSearchParams, useTitle } from "../hooks.js";
 import { formatMoney, formatRelative, timeTitle } from "../format.js";
 import AuthImage from "../components/AuthImage.jsx";
 import {
+  Bookmark,
   ChevronLeft,
   ChevronRight,
   Filter as FilterIcon,
@@ -21,6 +22,99 @@ import {
   TrendDown,
   X,
 } from "../components/Icons.jsx";
+
+/**
+ * "Save this search" — a name, and the filters currently in the URL.
+ *
+ * The query it saves is the URL's, minus paging: `page` and `per_page` say how
+ * much is shown at a time, not which listings match, so two searches that
+ * differ only in those are one search. The API canonicalizes and validates
+ * what arrives here, so this does not have to.
+ */
+function SaveSearch({ params }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [state, setState] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  const query = useMemo(() => {
+    const next = new URLSearchParams(params);
+    for (const drop of ["page", "per_page", "view"]) next.delete(drop);
+    return next.toString();
+  }, [params]);
+
+  async function save(event) {
+    event.preventDefault();
+    if (!name.trim() || busy) return;
+    setBusy(true);
+    setState(null);
+    try {
+      await api.createSavedSearch({ name: name.trim(), query });
+      setState({ ok: true, message: `Saved as “${name.trim()}”.` });
+      setName("");
+      setOpen(false);
+    } catch (error) {
+      setState({ ok: false, message: error.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="save-search">
+      <button
+        type="button"
+        className="btn btn--secondary"
+        onClick={() => {
+          setOpen((was) => !was);
+          setState(null);
+        }}
+        aria-expanded={open}
+      >
+        <Bookmark size={15} /> Save this search
+      </button>
+
+      {open && (
+        <form className="save-search__form" onSubmit={save}>
+          <label className="visually-hidden" htmlFor="save-search-name">
+            Name for this search
+          </label>
+          <input
+            id="save-search-name"
+            className="input"
+            placeholder="Mosins under $400"
+            value={name}
+            maxLength={80}
+            autoFocus
+            onChange={(event) => setName(event.target.value)}
+          />
+          <button
+            type="submit"
+            className="btn btn--primary"
+            disabled={!name.trim() || busy}
+          >
+            {busy ? "Saving…" : "Save"}
+          </button>
+        </form>
+      )}
+
+      {state && (
+        <p
+          className={state.ok ? "alert alert--success" : "alert alert--error"}
+          role="status"
+        >
+          {state.message}
+          {state.ok && (
+            <>
+              {" "}
+              <Link to="/saved-searches">Manage saved searches</Link>
+            </>
+          )}
+        </p>
+      )}
+    </div>
+  );
+}
 
 const SORTS = [
   { value: "newest", label: "Newest first" },
@@ -463,6 +557,8 @@ export default function Browse() {
             </option>
           ))}
         </select>
+
+        <SaveSearch params={params} />
 
         <div className="view-switch" role="group" aria-label="Layout">
           {VIEWS.map((option) => (

@@ -525,6 +525,54 @@ class EmailPreferenceUpdate(BaseModel):
     site_ids: list[int] | None = None
 
 
+#: What the email-limit dropdown offers, and the only values accepted.
+#:
+#: A fixed set rather than any number in a range: the control that sets it is a
+#: select box, and a value it does not offer is one it cannot then show back --
+#: it would render blank, which reads as "unset" for something that is very
+#: much set. Nothing else in the application can write this field, so closing
+#: the set here closes it everywhere.
+#:
+#: Mirrored by LIMITS in frontend/src/pages/SavedSearches.jsx.
+SAVED_SEARCH_LIMITS = (5, 10, 20, 30, 50, 100)
+SavedSearchLimit = Literal[5, 10, 20, 30, 50, 100]
+
+
+class SavedSearchOut(UTCModel):
+    id: int
+    name: str
+    #: The browse page's own query string, canonical. The UI navigates to
+    #: ``/?<query>`` to run it, which is why nothing here needs to describe
+    #: the filters themselves.
+    query: str
+    sort: str
+    email_enabled: bool
+    email_item_limit: int
+    last_emailed_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+    #: How many listings it matches right now — the whole result set, not the
+    #: email's capped view of it.
+    match_count: int = 0
+
+
+class SavedSearchCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    query: str = Field(default="", max_length=2000)
+    email_enabled: bool = False
+    email_item_limit: SavedSearchLimit = 10
+
+
+class SavedSearchUpdate(BaseModel):
+    """Every field optional: the list page toggles email without resending the
+    query, and the browse page re-saves a query without touching the email."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=80)
+    query: str | None = Field(default=None, max_length=2000)
+    email_enabled: bool | None = None
+    email_item_limit: SavedSearchLimit | None = None
+
+
 class EmailLogOut(UTCModel):
     id: int
     user_id: int

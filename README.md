@@ -97,7 +97,8 @@ changed — filtered to the sites you care about and capped so it stays readable
   revokes every issued session token.
 - **Per-user email digests**: choose the frequency, which sites, whether to
   include new listings and/or price reductions, and a **required per-site cap**
-  so one big scan cannot produce a hundred-item email.
+  so one big scan cannot produce a hundred-item email. Saved searches ride in
+  the same email, each with its own cap.
 
 ### Browsing
 
@@ -106,6 +107,13 @@ changed — filtered to the sites you care about and capped so it stays readable
 - Faceted filters: site, category, caliber, country, manufacturer, type,
   availability, price range, "reduced only".
 - Filter state lives in the URL, so a view can be bookmarked and shared.
+- **Saved searches.** Name the filters you have set, run them again from a list,
+  and optionally have their results mailed with your digest — capped at a number
+  you choose per search, in the sort order the search was saved with, linking to
+  the item page rather than straight out to the vendor. The saved query *is* the
+  browse URL, so running one is a link and there is no second search
+  implementation to drift. **Send now** mails one search on demand, without
+  disturbing the daily digest's schedule or its watermark.
 - **Responsive**: a two-column grid and a slide-in drawer on a phone, a fixed
   sidebar and multi-column grid on a desktop.
 - **All times stored UTC**, rendered in the viewer's own timezone.
@@ -652,6 +660,24 @@ differ from WooCommerce and are worth knowing:
   on forty of their listings, naming the fields gained 17 calibers, 13 makers
   and 40 bore grades, and corrected 13 calibers and 13 makers, with nothing
   reclassified and nothing lost.
+
+### One query, two callers
+
+`services/search.py` owns the filters, the six sort orders, and the parsing of
+a stored query string. It came out of `api/items.py`, which owned all of it and
+was the only caller until saved searches arrived.
+
+The move was not tidying. A saved search is stored as **the browse page's own
+query string**, and it is run in two places — by the browse endpoint when
+somebody opens it, and by the digest when it is mailed. Those two have to agree
+exactly: a saved search that returned one set of listings in the browser and a
+different set in the email would be worse than no saved search at all. One
+implementation is the only way to be sure.
+
+`parse_query()` also *refuses* what it cannot run — an unknown parameter, an
+unknown sort, a price that is not a number. That check runs when a search is
+**saved**, not when it is sent, because a saved search runs unattended and a
+400 is only useful in front of the person who can fix it.
 
 ### If the vendor sells parts kits
 
@@ -1648,7 +1674,7 @@ backend/
   app/
     api/            HTTP routers (auth, users, sites, scans, items, …)
     scrapers/       registry, base class, browser helper, one file per vendor
-    services/       scan engine, image store, classification, digests, mail
+    services/       scan engine, image store, classification, search, digests, mail
     models.py       ORM — every datetime is UTC
     config.py       YAML loading and defaults
     security.py     Argon2id hashing and JWTs

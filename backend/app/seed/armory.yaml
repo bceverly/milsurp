@@ -61,8 +61,11 @@ manufacturers:
   - Erfurt Arsenal
   status: approved
 - name: Fabrique Nationale
-  status: approved
+  status: merged
+  enabled: false
 - name: FN
+  aliases:
+  - Fabrique Nationale
   status: approved
   position: 320
 - name: Franchi
@@ -183,10 +186,13 @@ manufacturers:
 - name: Schmidt Rubin
   aliases:
   - Schmidt
-  status: approved
+  status: merged
+  enabled: false
 - name: Schmidt-Rubin
   aliases:
   - SchmidtRubin
+  - Schmidt Rubin
+  - Schmidt
   status: approved
   position: 220
 - name: Sharps Hankins
@@ -274,7 +280,7 @@ calibers:
   - 30 Carbine
   status: approved
 - name: .30 Luger
-  status: pending
+  status: approved
 - name: .30-06 Springfield
   aliases:
   - .30-06
@@ -286,8 +292,10 @@ calibers:
 - name: .30-30 Winchester
   status: approved
 - name: .30-40
-  status: pending
+  status: merged
 - name: .30-40 Krag
+  aliases:
+  - .30-40
   status: approved
 - name: .303 British
   aliases:
@@ -301,11 +309,13 @@ calibers:
   - 7.62 NATO
   - 7.62x51mm
   - .308 Win
+  - 7.62x51
+  - 7.62x51 NATO
   status: approved
 - name: '.31'
   status: approved
 - name: '.32'
-  status: pending
+  status: approved
 - name: .32 ACP
   aliases:
   - 7.65mm Browning
@@ -315,13 +325,15 @@ calibers:
   - .32ACP
   status: approved
 - name: .32 Cal
-  status: pending
+  status: merged
 - name: .32 Caliber
-  status: pending
+  aliases:
+  - .32 Cal
+  status: approved
 - name: .32 Rimfire
-  status: pending
+  status: approved
 - name: .32 S&W Long
-  status: pending
+  status: approved
 - name: .32-20 Winchester
   aliases:
   - .32-20
@@ -338,11 +350,11 @@ calibers:
 - name: '.36'
   status: approved
 - name: '.360'
-  status: pending
+  status: approved
 - name: .38 ACP
   status: approved
 - name: .38 CF
-  status: pending
+  status: approved
 - name: .38 S&W
   status: approved
 - name: .38 Special
@@ -359,8 +371,10 @@ calibers:
   - 9x23mmSR
   status: approved
 - name: .38-40
-  status: pending
+  status: merged
 - name: .38-40 Winchester
+  aliases:
+  - .38-40
   status: approved
 - name: .38-55 Winchester
   status: approved
@@ -380,9 +394,11 @@ calibers:
 - name: '.41'
   status: approved
 - name: .410 bore
+  aliases:
+  - .410 Gauge
   status: approved
 - name: .410 Gauge
-  status: pending
+  status: merged
 - name: '.44'
   status: approved
 - name: .44 Magnum
@@ -394,7 +410,7 @@ calibers:
   - 44-40 Win
   status: approved
 - name: '.45'
-  status: pending
+  status: approved
 - name: .45 ACP
   aliases:
   - 11.43x23mm
@@ -432,11 +448,11 @@ calibers:
 - name: '.58'
   status: approved
 - name: '.69'
-  status: pending
+  status: approved
 - name: '.71'
-  status: pending
+  status: approved
 - name: .71 to .78
-  status: pending
+  status: approved
 - name: 10.15x61R
   status: approved
 - name: 10.35x22mm
@@ -496,13 +512,13 @@ calibers:
 - name: 4.5mm
   status: approved
 - name: 5.45x39
-  status: pending
+  status: approved
 - name: 5.45x39mm
   status: approved
 - name: 5.56mm
   status: merged
 - name: 5.56x45 NATO
-  status: pending
+  status: merged
 - name: 5.56x45mm NATO
   aliases:
   - .223 Remington
@@ -510,11 +526,12 @@ calibers:
   - .223 Rem
   - 5.56x45mm
   - 5.56mm
+  - 5.56x45 NATO
   status: approved
 - name: 5.7x28mm
   status: approved
 - name: 6.35mm
-  status: pending
+  status: approved
 - name: 6.5mm
   status: approved
 - name: 6.5x50mm Arisaka
@@ -528,7 +545,7 @@ calibers:
 - name: 6.5x53.5SR Deaudetau
   status: approved
 - name: 6.5x55
-  status: pending
+  status: approved
 - name: 6.5x55 Swedish
   status: merged
 - name: 6.5x55mm Swedish
@@ -589,9 +606,9 @@ calibers:
 - name: 7.62x45mm
   status: approved
 - name: 7.62x51
-  status: pending
+  status: merged
 - name: 7.62x51 NATO
-  status: approved
+  status: merged
 - name: 7.62x54mmR
   aliases:
   - 7.62x54R
@@ -600,9 +617,9 @@ calibers:
   - 7,62x54R
   status: approved
 - name: 7.63mm
-  status: pending
+  status: approved
 - name: 7.63mm Mauser
-  status: pending
+  status: approved
 - name: 7.63x25mm
   status: approved
 - name: 7.65 Luger
@@ -625,7 +642,7 @@ calibers:
   - 7.7 Arisaka
   status: approved
 - name: 7.x65R
-  status: pending
+  status: approved
 - name: 7mm
   status: approved
 - name: 7x57mm Mauser
@@ -664,24 +681,26 @@ calibers:
   - 8mm Mannlicher
   status: approved
 - name: 8x50r
-  status: pending
+  status: approved
 - name: 8x56mm
-  status: approved
+  status: merged
 - name: 8x56mmR
-  status: approved
+  status: merged
 - name: 8x56mmR Hungarian
   aliases:
   - 8x56R
   - 8mm Hungarian
   - 8x56mmR Mannlicher
   - 8x56mmR Steyr
+  - 8x56mm
+  - 8x56mmR
   status: approved
 - name: 8x57
   status: approved
 - name: 9.3x74R
   status: approved
 - name: 9mm
-  status: approved
+  status: merged
 - name: 9mm Luger
   aliases:
   - 9x19mm
@@ -689,6 +708,7 @@ calibers:
   - 9mm NATO
   - 9x19
   - 9mm Para
+  - 9mm
   status: approved
 - name: 9x18mm Makarov
   aliases:
@@ -696,9 +716,13 @@ calibers:
   - 9x18
   - 9mm Mak
   status: approved
-- name: 9x23
+- name: 9x22R
   status: approved
+- name: 9x23
+  status: merged
 - name: 9x23 Largo
+  aliases:
+  - 9x23
   status: approved
 models:
 - name: 91/30
@@ -727,7 +751,7 @@ models:
   kind: pistol
   country: Turkey
   calibers:
-  - 9mm
+  - 9mm Luger
   status: approved
 - name: AP51
   status: approved
@@ -793,7 +817,7 @@ models:
   status: merged
   enabled: false
 - name: BRN-10
-  status: pending
+  status: approved
 - name: BWK-92
   status: approved
 - name: CA-3
@@ -935,7 +959,7 @@ models:
   kind: pistol
   country: Czech Republic
   calibers:
-  - 9mm
+  - 9mm Luger
   status: approved
 - name: CZ75B
   status: merged
@@ -947,7 +971,7 @@ models:
   kind: pistol
   country: Czech Republic
   calibers:
-  - 9mm
+  - 9mm Luger
   status: approved
 - name: DC8
   status: approved
@@ -1341,13 +1365,13 @@ models:
   kind: pistol
   country: France
   calibers:
-  - 9mm
+  - 9mm Luger
   status: approved
 - name: M1951
   kind: pistol
   country: Italy
   calibers:
-  - 9mm
+  - 9mm Luger
   status: approved
 - name: M1A
   kind: rifle
@@ -1483,7 +1507,7 @@ models:
   kind: pistol
   country: Yugoslavia
   calibers:
-  - 9mm
+  - 9mm Luger
   status: approved
 - name: M9
   status: approved
@@ -1575,7 +1599,7 @@ models:
   kind: pistol
   country: France
   calibers:
-  - 9mm
+  - 9mm Luger
   status: approved
 - name: MC9
   status: approved
@@ -1833,6 +1857,8 @@ models:
   status: approved
   enabled: false
   notes: 'Disabled: identifies nothing on its own -- the Colt automatic and the Schmidt-Rubin rifle.'
+- name: Model 1912
+  status: approved
 - name: Model 1913
   status: approved
 - name: Model 1917
@@ -1860,6 +1886,8 @@ models:
 - name: Model 1935
   status: merged
   enabled: false
+- name: Model 1935S
+  status: approved
 - name: Model 1936
   kind: rifle
   country: France
@@ -1940,6 +1968,8 @@ models:
   status: approved
 - name: Model 520
   status: approved
+- name: Model 59
+  status: approved
 - name: Model 60
   status: approved
   enabled: false
@@ -1949,7 +1979,7 @@ models:
   kind: pistol
   country: Spain
   calibers:
-  - 9mm
+  - 9mm Luger
   status: approved
 - name: Model 70
   status: approved
@@ -1986,7 +2016,7 @@ models:
   - 6.5x52mm Carcano
   status: approved
 - name: Model 9410
-  status: pending
+  status: approved
 - name: Model 98
   kind: rifle
   country: Germany
@@ -2124,7 +2154,7 @@ models:
   kind: pistol
   country: Switzerland
   calibers:
-  - 9mm
+  - 9mm Luger
   status: approved
 - name: P64
   kind: pistol
@@ -2144,7 +2174,7 @@ models:
   kind: pistol
   country: Germany
   calibers:
-  - 9mm
+  - 9mm Luger
   status: approved
 - name: P89
   status: approved
@@ -2382,6 +2412,8 @@ models:
   status: approved
   enabled: false
   notes: 'Disabled: identifies nothing on its own -- a Japanese paratroop rifle and unrelated Type 2s.'
+- name: Type 26
+  status: approved
 - name: Type 3
   status: approved
 - name: Type 30

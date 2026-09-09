@@ -9,6 +9,7 @@ import React, { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth.jsx";
 import {
+  Bookmark,
   Logout,
   Mail,
   Menu,
@@ -22,6 +23,10 @@ import Insignia from "./Insignia.jsx";
 
 const NAV = [
   { to: "/", label: "Inventory", icon: Rifle, end: true },
+  // Directly under Inventory, because a saved search *is* the inventory with
+  // filters on it and belongs beside the page it came from — not down with
+  // the email settings, which is only one of the things it can do.
+  { to: "/saved-searches", label: "Saved searches", icon: Bookmark },
   { to: "/sites", label: "Sites", icon: SitesIcon, adminOnly: true },
   // One entry, not two. Makers, models and calibers are three views of one
   // body of knowledge, and having "Makers" beside "Armory" invited exactly

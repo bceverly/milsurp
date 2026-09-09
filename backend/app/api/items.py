@@ -3,17 +3,14 @@
 from __future__ import annotations
 
 import hashlib
-import re
-from datetime import timedelta
-from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
 from fastapi.responses import FileResponse
-from sqlalchemy import Select, case, func, or_, select, true
+from sqlalchemy import Select, case, func, or_, select
 from sqlalchemy.orm import selectinload
 
 from ..deps import AppConfig, CurrentUser, DbSession
-from ..models import FirearmModel, Item, ItemPhoto, PriceHistory, Site, utcnow
+from ..models import FirearmModel, Item, ItemPhoto, PriceHistory, Site
 from ..schemas import (
     FacetValue,
     ItemDetail,
@@ -24,38 +21,14 @@ from ..schemas import (
     PricePointOut,
 )
 from ..services.image_store import ImageStore, ImageStoreError
+from ..services.search import (
+    KINDS,
+    SORTS,
+    UNKNOWN,
+    apply_filters,
+)
 
 router = APIRouter(prefix="/items", tags=["items"])
-
-SORTS: dict[str, tuple[Any, ...]] = {
-    "newest": (Item.first_seen_at.desc(), Item.id.desc()),
-    "oldest": (Item.first_seen_at.asc(), Item.id.asc()),
-    "price_asc": (Item.current_price.is_(None).asc(), Item.current_price.asc()),
-    "price_desc": (Item.current_price.is_(None).asc(), Item.current_price.desc()),
-    "title": (Item.title.asc(),),
-    "price_drop": (Item.price_changed_at.desc(),),
-}
-
-
-#: Terms shorter than this match too much to be useful.
-MIN_SEARCH_TERM = 2
-#: Cap the term count so a pathological query cannot build a huge WHERE clause.
-MAX_SEARCH_TERMS = 8
-
-_PHRASE_RE = re.compile(r'"([^"]+)"')
-
-
-def _search_terms(search: str) -> list[str]:
-    """Split a query into terms, honoring double-quoted phrases."""
-    remainder = search.strip()
-    terms: list[str] = []
-    for phrase in _PHRASE_RE.findall(remainder):
-        cleaned = phrase.strip()
-        if cleaned:
-            terms.append(cleaned)
-    remainder = _PHRASE_RE.sub(" ", remainder)
-    terms.extend(word for word in remainder.split() if len(word) >= MIN_SEARCH_TERM)
-    return terms[:MAX_SEARCH_TERMS]
 
 
 def _photo_version(photo: ItemPhoto) -> str:
@@ -135,126 +108,6 @@ def _to_out(item: Item, site_names: dict[int, str]) -> ItemOut:
 #: as both. "other" is defined as the absence of all four, so "Other parts &
 #: accessories" stops meaning "including the bayonets and kits listed above
 #: it", and so that the five counts add up to the whole.
-KINDS: dict[str, Any] = {
-    "rifle": Item.is_rifle.is_(True),
-    "pistol": Item.is_pistol.is_(True),
-    "bayonet": Item.is_bayonet.is_(True),
-    "parts_kit": Item.is_parts_kit.is_(True),
-    "other": (
-        Item.is_rifle.is_(False)
-        & Item.is_pistol.is_(False)
-        & Item.is_bayonet.is_(False)
-        & Item.is_parts_kit.is_(False)
-    ),
-}
-
-
-def _kind_clause(kind: str) -> Any:
-    return KINDS[kind]
-
-
-def _apply_filters(  # noqa: PLR0912 - one branch per filter; splitting it
-    #                                      would only scatter the same logic
-    stmt: Select,
-    *,
-    site_ids: list[int] | None,
-    categories: list[str] | None,
-    calibers: list[str] | None,
-    countries: list[str] | None,
-    manufacturers: list[str] | None,
-    models: list[str] | None,
-    kinds: list[str] | None,
-    availability: str,
-    search: str | None,
-    min_price: float | None,
-    max_price: float | None,
-    new_since_hours: int | None,
-    price_drops_only: bool,
-) -> Select:
-    if site_ids:
-        stmt = stmt.where(Item.site_id.in_(site_ids))
-    if categories:
-        stmt = stmt.where(Item.category.in_(categories))
-    if calibers:
-        stmt = stmt.where(_matching(Item.caliber, calibers))
-    if countries:
-        stmt = stmt.where(_matching(Item.country, countries))
-    if manufacturers:
-        stmt = stmt.where(_matching(Item.manufacturer, manufacturers))
-    if models:
-        # By id, not by name. This one is a foreign key to a row somebody
-        # vouched for, so there is an id to filter on and no reason to match
-        # text -- and a model renamed in the armory keeps its listings.
-        stmt = stmt.where(Item.firearm_model_id.in_([int(value) for value in models]))
-
-    if kinds:
-        clauses = [_kind_clause(k) for k in kinds if k in KINDS]
-        if clauses:
-            stmt = stmt.where(or_(*clauses))
-
-    if availability == "available":
-        stmt = stmt.where(Item.is_active.is_(True), Item.is_sold.is_(False))
-    elif availability == "sold":
-        stmt = stmt.where(Item.is_sold.is_(True))
-    elif availability == "delisted":
-        stmt = stmt.where(Item.is_active.is_(False))
-    elif availability == "active":
-        stmt = stmt.where(Item.is_active.is_(True))
-    # "all" applies no availability filter at all.
-
-    if search:
-        # Every term must appear somewhere in the listing, but they may land in
-        # different fields -- so "enfield 303" matches a rifle whose title says
-        # Enfield and whose caliber says .303 British. A phrase in double
-        # quotes is kept together.
-        for term in _search_terms(search):
-            escaped = term.replace("!", "!!").replace("%", "!%").replace("_", "!_")
-            pattern = f"%{escaped}%"
-            stmt = stmt.where(
-                or_(
-                    Item.title.like(pattern, escape="!"),
-                    Item.description.like(pattern, escape="!"),
-                    Item.caliber.like(pattern, escape="!"),
-                    Item.manufacturer.like(pattern, escape="!"),
-                    Item.country.like(pattern, escape="!"),
-                    Item.category.like(pattern, escape="!"),
-                )
-            )
-
-    if min_price is not None:
-        stmt = stmt.where(Item.current_price.is_not(None), Item.current_price >= min_price)
-    if max_price is not None:
-        stmt = stmt.where(Item.current_price.is_not(None), Item.current_price <= max_price)
-
-    if new_since_hours:
-        stmt = stmt.where(Item.first_seen_at >= utcnow() - timedelta(hours=new_since_hours))
-
-    if price_drops_only:
-        stmt = stmt.where(
-            Item.previous_price.is_not(None),
-            Item.current_price.is_not(None),
-            Item.current_price < Item.previous_price,
-        )
-    return stmt
-
-
-#: What the filter calls a field nothing could be worked out for. Chosen to be
-#: a word no vendor would use as a name; if one ever does, it will share the
-#: bucket, which is a smaller problem than storing this in the column.
-UNKNOWN = "Unknown"
-
-
-def _matching(column, wanted: list[str]):
-    """A filter clause where "Unknown" means "this field is empty"."""
-    chosen = [value for value in wanted if value != UNKNOWN]
-    clauses = []
-    if chosen:
-        clauses.append(column.in_(chosen))
-    if UNKNOWN in wanted:
-        clauses.append(or_(column.is_(None), column == ""))
-    return or_(*clauses) if clauses else true()
-
-
 def _kind_counts(session: DbSession, base: Select) -> list[FacetValue]:
     """How many listings each Type would show, over everything else chosen.
 
@@ -374,7 +227,7 @@ def list_items(
             detail=f"Unknown sort {sort!r}. Valid: {', '.join(SORTS)}.",
         )
 
-    without_kind = _apply_filters(
+    without_kind = apply_filters(
         select(Item),
         site_ids=site_id,
         categories=category,
@@ -390,7 +243,7 @@ def list_items(
         new_since_hours=new_since_hours,
         price_drops_only=price_drops_only,
     )
-    base = _apply_filters(
+    base = apply_filters(
         select(Item),
         site_ids=site_id,
         categories=category,

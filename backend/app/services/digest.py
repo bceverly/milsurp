@@ -24,7 +24,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from PIL import Image, ImageOps
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..config import Config, get_config
@@ -33,12 +33,13 @@ from ..models import (
     EmailPreference,
     EmailStatus,
     Item,
+    SavedSearch,
     Site,
     User,
     as_utc,
     utcnow,
 )
-from . import mailer
+from . import mailer, search
 from .image_store import ImageStore, ImageStoreError
 
 log = logging.getLogger("milsurp.digest")
@@ -252,6 +253,89 @@ def collect_price_drops(
 # ---------------------------------------------------------------------------
 # Rendering
 # ---------------------------------------------------------------------------
+#: How much of a title and a description an email row carries.
+#:
+#: A digest is read in a preview pane on a phone, and a vendor's title can run
+#: to a hundred and forty characters of grading notes. Truncated on a word
+#: boundary with an ellipsis, so a cut is visibly a cut.
+TITLE_CHARS = 80
+BLURB_CHARS = 160
+
+
+def truncate(text: str | None, limit: int) -> str:
+    """``text`` shortened to ``limit`` characters, cut at a word boundary.
+
+    Returns "" for nothing, so a caller can treat it as a plain string. The
+    ellipsis is a real "…" rather than three dots: it is one character of the
+    budget instead of three, and it is what a reader expects to mean "there is
+    more".
+    """
+    clean = " ".join((text or "").split())
+    if len(clean) <= limit:
+        return clean
+    cut = clean[:limit].rsplit(" ", 1)[0]
+    # A single word longer than the whole budget has no boundary to cut on.
+    return (cut or clean[:limit]).rstrip(" ,;:.-") + "…"
+
+
+def collect_saved_searches(
+    session: Session, user: User
+) -> list[tuple[SavedSearch, list[Item], int]]:
+    """Each of the user's mailing saved searches, its rows, and its true total.
+
+    **The whole result set, capped** -- not "what is new since last time". A
+    saved search is a standing question and its answer is the listings that
+    match it today; the two sections above this one are about change, and this
+    one deliberately is not.
+
+    The cap is per search and set by its owner. The total is carried alongside
+    so the email can say what it left out rather than quietly showing ten of
+    four hundred.
+
+    A search whose stored query has rotted is skipped rather than raised: one
+    bad row must not cost the user their whole digest. It is validated when
+    saved, so this should not happen -- but "should not" is not "cannot", and
+    the failure mode of a nightly job is the one worth choosing deliberately.
+    """
+    rows = (
+        session.execute(
+            select(SavedSearch)
+            .where(SavedSearch.user_id == user.id, SavedSearch.email_enabled.is_(True))
+            .order_by(func.lower(SavedSearch.name))
+        )
+        .scalars()
+        .all()
+    )
+    found = [collect_one_saved_search(session, row) for row in rows]
+    return [one for one in found if one is not None]
+
+
+def collect_one_saved_search(
+    session: Session, row: SavedSearch
+) -> tuple[SavedSearch, list[Item], int] | None:
+    """One saved search's rows and its true total, or ``None``.
+
+    ``None`` for a search that matches nothing, and for one whose stored query
+    will not parse. The second is why this returns rather than raises: a
+    nightly job runs every search a user has, and one bad row must not cost
+    them the whole digest.
+    """
+    try:
+        query = search.parse_query(row.query)
+    except search.BadQuery:
+        log.warning("Saved search %s has an unreadable query; skipping it.", row.id)
+        return None
+    items = search.run(session, query, limit=max(1, row.email_item_limit))
+    if not items:
+        return None
+    total = int(
+        session.execute(
+            search.apply_filters(select(func.count(Item.id)), **query.filters)
+        ).scalar_one()
+    )
+    return row, items, total
+
+
 def _e(value: str | None) -> str:
     return html.escape(value or "", quote=True)
 
@@ -301,6 +385,107 @@ def _item_row(item: Item, zone, show_drop: bool, photo_cid: str | None = None) -
       </tr>"""
 
 
+def _saved_row(item: Item, base_url: str, site_name: str, photo_cid: str | None) -> str:
+    """One listing in a saved-search section.
+
+    **Linked to our own item page, not to the vendor.** That is what was asked
+    for and it is the better link anyway: the item page carries the price
+    history, every photograph, and a "View on vendor site" button — so the
+    vendor is one more click away rather than unreachable, and the reader keeps
+    the context the email is summarizing.
+    """
+    price = _money(item.current_price, item.currency)
+    blurb = truncate(item.description, BLURB_CHARS)
+    facts = " · ".join(_e(value) for value in (site_name, item.caliber, item.country) if value)
+    here = f"{base_url}/items/{item.id}"
+
+    picture = (
+        f"""
+        <td width="84" valign="top"
+            style="padding:14px 12px 14px 0;border-bottom:1px solid #E3E8F0;">
+          <a href="{_e(here)}" style="text-decoration:none;">
+            <img src="cid:{photo_cid}" width="72" height="72" alt=""
+                 style="display:block;width:72px;height:72px;object-fit:cover;
+                        border-radius:6px;border:1px solid #E3E8F0;" />
+          </a>
+        </td>"""
+        if photo_cid
+        else ""
+    )
+    description = (
+        f'<div style="color:{INK};font-size:13px;line-height:1.45;margin:6px 0 8px;">'
+        f"{_e(blurb)}</div>"
+        if blurb
+        else ""
+    )
+
+    return f"""
+      <tr>{picture}
+        <td valign="top" style="padding:14px 0;border-bottom:1px solid #E3E8F0;">
+          <a href="{_e(here)}" style="color:{NAVY};font-weight:600;font-size:15px;
+             text-decoration:none;line-height:1.35;">{_e(truncate(item.title, TITLE_CHARS))}</a>
+          <div style="color:{MUTED};font-size:12px;margin:5px 0 0;">{facts or '&nbsp;'}</div>
+          {description}
+          <span style="color:{NAVY};font-weight:700;font-size:16px;">{price}</span>
+        </td>
+      </tr>"""
+
+
+def _site_name(sites: dict[int, Site], item: Item) -> str:
+    site = sites.get(item.site_id)
+    return site.name if site is not None else ""
+
+
+def _saved_sections(
+    searches: list[tuple[SavedSearch, list[Item], int]],
+    sites: dict[int, Site],
+    base_url: str,
+    photos: dict[int, str] | None = None,
+) -> str:
+    """One block per saved search, in the order that search was saved with.
+
+    The order is the point: ``search.run`` applies the saved sort, and the rows
+    are rendered in the order it returned them. An email assembled by grouping
+    or re-filtering would come out in whatever order the second query chose,
+    which is not the order the reader asked for.
+    """
+    if not searches:
+        return ""
+    blocks = []
+    for row, items, total in searches:
+        rows = "".join(
+            _saved_row(item, base_url, _site_name(sites, item), (photos or {}).get(item.id))
+            for item in items
+        )
+        # Say what was left out rather than quietly showing ten of four
+        # hundred, and make "the rest" one click.
+        more = (
+            f"""
+          <div style="margin-top:10px;font-size:12px;">
+            <a href="{_e(f'{base_url}/?{row.query}')}" style="color:{BLUE};">
+              Showing {len(items)} of {total} matches — see them all
+            </a>
+          </div>"""
+            if total > len(items)
+            else f"""
+          <div style="margin-top:10px;font-size:12px;">
+            <a href="{_e(f'{base_url}/?{row.query}')}" style="color:{BLUE};">Open this search</a>
+          </div>"""
+        )
+        blocks.append(f"""
+        <tr><td style="padding:18px 24px 0;">
+          <div style="font-size:12px;font-weight:700;letter-spacing:.10em;
+               text-transform:uppercase;color:{BLUE};">{_e(row.name)}</div>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                 style="border-collapse:collapse;">{rows}</table>{more}
+        </td></tr>""")
+    return f"""
+      <tr><td style="padding:26px 24px 0;">
+        <h2 style="margin:0;font-size:17px;color:{INK};font-weight:700;
+            border-left:4px solid {BLUE};padding-left:10px;">Your saved searches</h2>
+      </td></tr>{''.join(blocks)}"""
+
+
 def _section(
     heading: str,
     grouped: dict[int, list[Item]],
@@ -339,6 +524,7 @@ def render_digest(
     sites: dict[int, Site],
     since: datetime,
     config: Config,
+    saved: list[tuple[SavedSearch, list[Item], int]] | None = None,
 ) -> tuple[str, str, dict[str, bytes]]:
     """Return ``(subject, html_body, inline_images)``.
 
@@ -354,11 +540,18 @@ def render_digest(
     new_count = sum(len(v) for v in new_items.values())
     drop_count = sum(len(v) for v in price_drops.values())
 
+    saved = saved or []
+    saved_count = sum(len(items) for _row, items, _total in saved)
+
     parts = []
     if new_count:
         parts.append(f"{new_count} new listing{'s' if new_count != 1 else ''}")
     if drop_count:
         parts.append(f"{drop_count} price drop{'s' if drop_count != 1 else ''}")
+    if saved_count:
+        # Named rather than counted where there is one: "Mosins under $400" is
+        # a better subject line than "12 saved-search matches".
+        parts.append(f"{saved[0][0].name}" if len(saved) == 1 else f"{len(saved)} saved searches")
     subject = f"{BRAND}: {' and '.join(parts)}" if parts else f"{BRAND}: nothing new"
 
     # One picture per listing, attached and referenced by Content-ID, until the
@@ -369,7 +562,8 @@ def render_digest(
     photo_cids: dict[int, str] = {}
     store = ImageStore(config)
     budget = MAX_EMAIL_PHOTO_BYTES
-    for group in (new_items, price_drops):
+    saved_groups = [{0: items} for _row, items, _total in saved]
+    for group in (new_items, price_drops, *saved_groups):
         for items in group.values():
             for item in items:
                 if len(photo_cids) >= MAX_EMAIL_PHOTOS or budget <= 0:
@@ -426,6 +620,7 @@ def render_digest(
 
   {_section('New listings', new_items, sites, zone, False, photo_cids)}
   {_section('Price reductions', price_drops, sites, zone, True, photo_cids)}
+  {_saved_sections(saved, sites, base_url, photo_cids)}
 
   {'' if (new_count or drop_count) else f'''
   <tr><td style="padding:24px;color:{MUTED};font-size:14px;">
@@ -470,8 +665,16 @@ def build_digest(
     if preference is None:
         return None
 
+    # Saved searches are the user's own and are not scoped by the site
+    # selection: a search that names its sites already says so in its query,
+    # and one that does not is asking about the whole catalog on purpose.
+    saved = collect_saved_searches(session, user)
+
     site_ids = selected_site_ids(session, preference)
-    if not site_ids:
+    # No sites chosen means no new-listing or price-drop sections. It used to
+    # mean no digest at all, and that is still right when there is nothing else
+    # to send -- but a saved search is a reason to send one.
+    if not site_ids and not saved:
         return None
 
     # First run has no watermark: look back one interval rather than emailing
@@ -484,11 +687,15 @@ def build_digest(
     new_items = collect_new_items(session, preference, site_ids, since)
     price_drops = collect_price_drops(session, preference, site_ids, since)
 
+    # Every site a row in this email mentions, not only the selected ones: a
+    # saved search can match a vendor the digest's site filter leaves out, and
+    # its rows still have to say where they came from.
+    wanted = set(site_ids) | {item.site_id for _row, items, _total in saved for item in items}
     sites = {
         site.id: site
-        for site in session.execute(select(Site).where(Site.id.in_(site_ids))).scalars().all()
+        for site in session.execute(select(Site).where(Site.id.in_(wanted))).scalars().all()
     }
-    subject, body, images = render_digest(user, new_items, price_drops, sites, since, config)
+    subject, body, images = render_digest(user, new_items, price_drops, sites, since, config, saved)
     new_count = sum(len(v) for v in new_items.values())
     drop_count = sum(len(v) for v in price_drops.values())
     return subject, body, images, new_count, drop_count, cutoff
@@ -579,6 +786,81 @@ def send_digest_for_user(
     session.add(log)
     session.commit()
     return log
+
+
+def send_saved_search(
+    session: Session, user: User, row: SavedSearch, config: Config | None = None
+) -> EmailLog:
+    """Mail one saved search's results now, on demand.
+
+    **Out of band, and deliberately so.** This touches neither
+    ``next_send_at`` nor ``last_digest_cutoff``: pressing "Send now" on one
+    search is not the daily digest arriving early, and it must not move the
+    watermark that decides what counts as new in the next real one.
+
+    It ignores ``email_enabled`` too. That flag answers "send this every day";
+    the button answers "send this to me now", and they are different questions
+    -- being able to see what a search would mail before turning the daily one
+    on is most of the point.
+
+    A search matching nothing sends nothing. An empty email is worse than a
+    line of text on the screen the button is on, and the caller reports it.
+    """
+    config = config or get_config()
+    now = utcnow()
+    collected = collect_one_saved_search(session, row)
+
+    if collected is None:
+        entry = EmailLog(
+            user_id=user.id,
+            status=EmailStatus.SKIPPED,
+            subject=f"{BRAND}: {row.name}",
+            error_message=f"{row.name!r} matches nothing right now.",
+        )
+        session.add(entry)
+        session.commit()
+        return entry
+
+    _row, items, _total = collected
+    sites = {
+        site.id: site
+        for site in session.execute(
+            select(Site).where(Site.id.in_({item.site_id for item in items}))
+        )
+        .scalars()
+        .all()
+    }
+    subject, body, images = render_digest(user, {}, {}, sites, now, config, [collected])
+
+    try:
+        mailer.send_html(user.email, subject, body, config=config, inline_images=images)
+    except mailer.MailError as exc:
+        entry = EmailLog(
+            user_id=user.id,
+            status=EmailStatus.FAILED,
+            subject=subject,
+            error_message=str(exc),
+            body_html=body,
+            body_text=mailer.html_to_text(body),
+        )
+        session.add(entry)
+        session.commit()
+        return entry
+
+    row.last_emailed_at = now
+    entry = EmailLog(
+        user_id=user.id,
+        status=EmailStatus.SENT,
+        subject=subject,
+        # Neither a new listing nor a price drop: those two counts are what the
+        # digest history reports per section, and this message has no such
+        # section. Left at zero rather than borrowed.
+        body_html=body,
+        body_text=mailer.html_to_text(body),
+    )
+    session.add(entry)
+    session.commit()
+    return entry
 
 
 def due_user_ids(session: Session) -> list[int]:

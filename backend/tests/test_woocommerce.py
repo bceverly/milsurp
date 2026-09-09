@@ -312,6 +312,14 @@ class TestCollectorsFirearms:
         )
         assert not any(url.endswith(parent) for url in urls for parent in parents)
 
+    def test_it_scans_fortnightly_rather_than_daily(self):
+        """Their crawl delay is the cost: they ask for ten seconds, refuse at
+        ten, and get twenty here — so a pass over 691 listings is hours of
+        their bandwidth. Antique and collector stock does not turn over in a
+        day, and 20,160 minutes is the longest cadence the site list offers."""
+        assert CollectorsFirearmsScraper.default_interval_minutes == 20_160
+        assert CollectorsFirearmsScraper.min_request_delay == 20.0
+
     def test_it_keeps_the_stock_selectors_behind_its_own(self):
         """If the theme reverts, the WooCommerce defaults still answer."""
         selectors = CollectorsFirearmsScraper.detail_description_selectors

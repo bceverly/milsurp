@@ -169,6 +169,12 @@ export const Sparkle = (p) => (
   </Svg>
 );
 
+export const Bookmark = (p) => (
+  <Svg {...p}>
+    <path d="M6 4.5h12a1 1 0 0 1 1 1V20l-7-4-7 4V5.5a1 1 0 0 1 1-1z" />
+  </Svg>
+);
+
 export const External = (p) => (
   <Svg {...p}>
     <path d="M14 4h6v6" />

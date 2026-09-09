@@ -7,7 +7,9 @@ test.describe("sites", () => {
     await expect(signedIn.getByRole("heading", { name: "Sites" })).toBeVisible();
 
     const cards = signedIn.locator(".site-card");
-    expect(await cards.count()).toBeGreaterThan(0);
+    // `.count()` does not auto-wait, so this read zero on the first test of a
+    // run — the heading renders before the site list has arrived.
+    await expect(cards.first()).toBeVisible();
     await expect(cards.first().locator(".site-card__name")).not.toBeEmpty();
     // The at-a-glance roll-up: active, total seen, last scan, scan time.
     await expect(cards.first().locator(".site-card__stat")).toHaveCount(4);
@@ -41,6 +43,25 @@ test.describe("sites", () => {
     await signedIn.reload();
     await expect(signedIn.locator(".site-card").first().locator("select")).toHaveValue(
       "360",
+    );
+  });
+
+  test("a fortnightly cadence is offered and sticks", async ({ signedIn }) => {
+    /**
+     * Added for Collectors Firearms, whose crawl delay makes a pass cost
+     * hours: weekly was the longest the list offered and it was not long
+     * enough. Labelled "Every 2 weeks" rather than "biweekly", which means
+     * both "every two weeks" and "twice a week".
+     */
+    await signedIn.goto("/sites");
+    const select = signedIn.locator(".site-card").first().locator("select");
+
+    await expect(select.locator("option", { hasText: "Every 2 weeks" })).toHaveCount(1);
+    await select.selectOption("20160");
+
+    await signedIn.reload();
+    await expect(signedIn.locator(".site-card").first().locator("select")).toHaveValue(
+      "20160",
     );
   });
 
