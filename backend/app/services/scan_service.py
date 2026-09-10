@@ -370,7 +370,17 @@ def _apply_catalog(session: Session, item: Item, trusted: bool) -> None:
     # this particular gun is said to be from, and those genuinely differ -- a
     # K98k assembled in Brno after the war is a German pattern made in
     # Czechoslovakia. Whoever wrote the listing was looking at the gun.
-    item.country = item.country or found.country
+    #
+    # Three answers, weakest last, and the listing's own always wins. The
+    # model states the pattern's origin and is right. The *maker's* country is
+    # only a proxy for it -- a Yugoslav-built M24/47 is a German pattern, an
+    # Egyptian Hakim a Swedish one -- so it is asked last and only of a listing
+    # that still has nothing. It is worth asking at all because it is where the
+    # blanks are: of 1,407 active listings with no country, 1,247 already
+    # carried a maker.
+    item.country = (
+        item.country or found.country or manufacturers.country_for(session, item.manufacturer)
+    )
     # The kind *refines*, it never promotes. The armory knows what a model is;
     # it does not know whether this listing is selling one. "Early style band
     # bolt handle Berthier 1907/15 and M16 bolt assembly" names a rifle and is

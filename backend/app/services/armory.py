@@ -33,9 +33,10 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import yaml
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.orm import Session, selectinload
 
 from ..models import (
@@ -105,7 +106,17 @@ class CaliberRegistry:
 def _caliber_rules(session: Session) -> list[tuple[str, re.Pattern[str]]]:
     rows = (
         session.execute(
-            select(Caliber).where(Caliber.status == ArmoryStatus.APPROVED).order_by(Caliber.name)
+            select(Caliber)
+            .where(
+                Caliber.status == ArmoryStatus.APPROVED,
+                # Added with the column in migration 0018, and the reason the
+                # column exists: a cartridge switched off is one somebody has
+                # ruled on, and it must stop matching without being deleted --
+                # deleting is not a rejection here, because a surviving row is
+                # what stops a scan proposing the name again.
+                Caliber.enabled.is_(True),
+            )
+            .order_by(Caliber.name)
         )
         .scalars()
         .all()
@@ -454,8 +465,8 @@ def pending_counts(session: Session) -> dict[str, int]:
 # ---------------------------------------------------------------------------
 # Promotion
 # ---------------------------------------------------------------------------
-def promote(session: Session, table: str, ids: Iterable[int]) -> int:
-    """Move rows from awaiting-approval into production. Returns how many.
+def promote(session: Session, table: str, ids: Iterable[int]) -> tuple[int, int]:
+    """Move rows into production. Returns ``(rows moved, listings re-matched)``.
 
     The one gate between a name somebody typed -- or a scan guessed -- and a
     table the application treats as true. Everything on the pending side is
@@ -467,30 +478,46 @@ def promote(session: Session, table: str, ids: Iterable[int]) -> int:
     and "I no longer trust this" are different statements and collapsing them
     into a toggle invites the second by accident.
     """
-    model = CURATED[table]
-    rows = session.execute(select(model).where(model.id.in_(list(ids)))).scalars().all()
-    moved = 0
-    for row in rows:
-        if row.status == ArmoryStatus.PENDING:
-            row.status = ArmoryStatus.APPROVED
-            moved += 1
-    if moved:
-        invalidate()
-    return moved
+    return _restatus(session, table, ids, ArmoryStatus.PENDING, ArmoryStatus.APPROVED)
 
 
-def send_back(session: Session, table: str, ids: Iterable[int]) -> int:
-    """Return production rows to awaiting-approval, and stop them deciding."""
+def send_back(session: Session, table: str, ids: Iterable[int]) -> tuple[int, int]:
+    """Return production rows to awaiting-approval, and stop them deciding.
+
+    Returns ``(rows moved, listings re-matched)``, like :func:`promote`.
+    """
+    return _restatus(session, table, ids, ArmoryStatus.APPROVED, ArmoryStatus.PENDING)
+
+
+def _restatus(
+    session: Session,
+    table: str,
+    ids: Iterable[int],
+    was: ArmoryStatus,
+    now: ArmoryStatus,
+) -> tuple[int, int]:
+    """Move rows between two statuses and re-match what that changes.
+
+    Returns ``(rows moved, listings re-matched)``. The second number is the
+    point: this used to write a status and stop, so approving a model left
+    every listing it now explains still saying it matched nothing until the
+    next scan. An admin had no way to tell a working change from a no-op.
+    """
     model = CURATED[table]
     rows = session.execute(select(model).where(model.id.in_(list(ids)))).scalars().all()
-    moved = 0
-    for row in rows:
-        if row.status == ArmoryStatus.APPROVED:
-            row.status = ArmoryStatus.PENDING
-            moved += 1
-    if moved:
-        invalidate()
-    return moved
+    moved = [row for row in rows if row.status == was]
+    spellings = [text for row in moved for text in row.spellings]
+    for row in moved:
+        row.status = now
+    if not moved:
+        return 0, 0
+    invalidate()
+    # Manufacturers have re-derived their listings since they existed; models
+    # and calibers are what this brings into line. The maker path is left
+    # alone rather than duplicated -- see api/manufacturers.py.
+    session.flush()
+    touched = reprocess(session, spellings) if table != "manufacturers" else 0
+    return len(moved), touched
 
 
 # ---------------------------------------------------------------------------
@@ -512,10 +539,13 @@ class SeedReport:
     calibers: int = 0
     models: int = 0
     links: int = 0
+    #: Blanks filled on rows that were already here. The one thing this seeder
+    #: does to an existing row, and only ever to a field holding nothing.
+    countries_filled: int = 0
 
     @property
     def total(self) -> int:
-        return self.manufacturers + self.calibers + self.models
+        return self.manufacturers + self.calibers + self.models + self.countries_filled
 
 
 def _lines(values: Iterable[object] | None) -> str | None:
@@ -557,6 +587,7 @@ def seed(session: Session, path: Path | None = None) -> SeedReport:
             name=name,
             aliases=_lines(entry.get("aliases")),
             status=ArmoryStatus.PENDING,
+            enabled=bool(entry.get("enabled", True)),
         )
         session.add(cartridge)
         calibers[name.lower()] = cartridge
@@ -568,12 +599,23 @@ def seed(session: Session, path: Path | None = None) -> SeedReport:
     for entry in data.get("manufacturers") or []:
         name = str(entry["name"]).strip()
         if name.lower() in makers:
+            # The one exception to "an existing row is left exactly as it is",
+            # and it is the same one-directional fill the rest of the armory
+            # uses: a column holding nothing is not an answer somebody gave,
+            # so writing one into it overrules nobody. Without this the country
+            # column would have reached every new installation and none of the
+            # running ones, where all ninety-four makers already existed.
+            existing = makers[name.lower()]
+            if entry.get("country") and not existing.country:
+                existing.country = str(entry["country"]).strip()
+                report.countries_filled += 1
             continue
         firm = Manufacturer(
             name=name,
             aliases=_lines(entry.get("aliases")),
             status=ArmoryStatus.PENDING,
             position=int(entry.get("position") or 1000),
+            country=entry.get("country"),
         )
         session.add(firm)
         makers[name.lower()] = firm
@@ -681,6 +723,13 @@ def export_armory(session: Session) -> dict[str, Any]:
                 {
                     "name": row.name,
                     "aliases": row.spellings[1:],
+                    # Missed when the column was added, which is the same
+                    # mistake as the makers themselves being missed above and
+                    # cost the same thing: an export carried a curated armory
+                    # out with every firm's country stripped, so the fill that
+                    # took country coverage from 69% to 91% would have done
+                    # nothing at all on the far end.
+                    "country": row.country,
                     "status": row.status.value,
                     "position": row.position if row.position != 1000 else None,
                     "enabled": None if row.enabled else False,
@@ -695,6 +744,7 @@ def export_armory(session: Session) -> dict[str, Any]:
                     "name": row.name,
                     "aliases": row.spellings[1:],
                     "status": row.status.value,
+                    "enabled": None if row.enabled else False,
                     "notes": row.notes,
                 }
             )
@@ -1063,6 +1113,60 @@ def _restamp(session: Session, statement) -> int:
     return int(session.execute(statement).rowcount or 0)  # type: ignore[attr-defined]
 
 
+def _escape_like(text: str) -> str:
+    """Make a literal safe inside a LIKE pattern, with ! as the escape."""
+    return text.replace("!", "!!").replace("%", "!%").replace("_", "!_")
+
+
+def reprocess(session: Session, spellings: Iterable[str]) -> int:
+    """Re-match every listing whose text mentions one of ``spellings``.
+
+    **The armory's edits used to write nothing.** Promoting a model set a
+    status and stopped: the listings it now explains kept saying they matched
+    nothing until the next scan or a hand-run ``reclassify``, so an admin who
+    approved a row and looked at a listing saw no effect and had no way to tell
+    a working change from a no-op. Approving a model is the most consequential
+    edit here -- it is what creates the ``firearm_model_id`` links that drive
+    the model filter, the armory panel and the price spectrum -- and it was the
+    one that wrote nothing at all.
+
+    Scoped rather than exhaustive, exactly as the maker version is: an edit can
+    only change the answer for a listing whose text contains one of the strings
+    involved, so those are the only rows fetched. Both directions are handled,
+    because disabling a row has to *remove* the links it used to make.
+
+    Only the model link and the caliber are touched. A listing's country, maker
+    and kind are settled by rules that live elsewhere, and re-deriving them
+    from here would quietly duplicate ``_apply_catalog`` in a second place --
+    which is the mistake this codebase has already made twice. ``reclassify``
+    remains the way to rebuild everything.
+    """
+    wanted = [text.strip() for text in spellings if text and text.strip()]
+    if not wanted:
+        return 0
+
+    clauses = []
+    for text in wanted:
+        pattern = f"%{_escape_like(text)}%"
+        # ilike, because every spelling in this module is matched
+        # case-insensitively and SQLite's LIKE gives that for free where
+        # PostgreSQL's does not.
+        clauses.append(Item.title.ilike(pattern, escape="!"))
+        clauses.append(Item.description.ilike(pattern, escape="!"))
+
+    candidates = session.execute(select(Item).where(or_(*clauses))).scalars().all()
+    changed = 0
+    for item in candidates:
+        found = match(session, item.title)
+        stated = canonical_caliber(session, item.caliber) or item.caliber
+        caliber = stated or found.caliber
+        if item.firearm_model_id != found.model_id or item.caliber != caliber:
+            item.firearm_model_id = found.model_id
+            item.caliber = caliber
+            changed += 1
+    return changed
+
+
 def merge_manufacturers(session: Session, source_id: int, target_id: int) -> int:
     """Fold one maker into another: "Mosin" into "Mosin-Nagant".
 
@@ -1150,6 +1254,109 @@ def merge_models(session: Session, source_id: int, target_id: int) -> int:
     source.enabled = False
     invalidate()
     return 0
+
+
+class PrimaryNameError(ValueError):
+    """A primary-name change that would lose a spelling or invent one."""
+
+
+#: Which column on a listing carries this table's canonical name, so a change
+#: of primary can restamp it. A model has none: a listing points at the row by
+#: id (``items.firearm_model_id``), which is exactly why renaming one is safe
+#: and renaming the other two is not.
+_LABEL_COLUMN = {Caliber: Item.caliber, Manufacturer: Item.manufacturer}
+
+
+def set_primary(session: Session, table, row_id: int, name: str) -> int:
+    """Promote one of a row's own spellings to be its name. Returns listings moved.
+
+    "IWI" and "Israel Weapon Industries" are the same firm, and which of them
+    is the *name* decides what gets written onto every listing the row matches.
+    Changing it by hand is two edits that have to happen together -- rename the
+    row, then swap the alias -- and in between the row either claims a spelling
+    twice or has stopped recognizing one. Doing it in one step is the whole
+    point of this function.
+
+    Three things happen and none of them is optional:
+
+    * the chosen spelling becomes the name;
+    * the old name becomes an alias, because it is what dealers wrote and what
+      the row was recognizing listings by -- dropping it would silently stop
+      matching the very text the row exists for;
+    * every listing stamped with the old name is restamped with the new one,
+      so the browse filter does not end up offering both as separate answers.
+      That is the same restamp a merge does, for the same reason.
+
+    Only a spelling the row already has may be chosen. Inventing a new name
+    here would be a rename wearing a disguise, and a rename has to go through
+    the duplicate check that stops two rows claiming one string.
+    """
+    row = session.get(table, row_id)
+    if row is None:
+        raise PrimaryNameError("No such row.")
+
+    wanted = (name or "").strip()
+    if not wanted:
+        raise PrimaryNameError("Pick a spelling.")
+
+    match = next((s for s in row.spellings if s.lower() == wanted.lower()), None)
+    if match is None:
+        raise PrimaryNameError(
+            f"{wanted!r} is not one of this row's spellings. Add it as an alias first."
+        )
+    if match == row.name:
+        return 0
+
+    previous = row.name
+
+    # The chosen spelling is very often *also a row* -- a tombstone left by the
+    # merge that put it here in the first place. Five of ".308 Winchester"'s
+    # nine aliases are merged rows pointing back at it, which makes this the
+    # common case rather than an edge: aliases mostly arrive by merging. Taking
+    # the name without dealing with that violates the unique index on `name`,
+    # which is an unexplained 500 in the middle of a rename.
+    clash = session.execute(
+        select(table).where(func.lower(table.name) == match.lower(), table.id != row.id)
+    ).scalar_one_or_none()
+    if clash is not None and clash.merged_into_id != row.id:
+        raise PrimaryNameError(
+            f"{match!r} is also a row of its own, and not one that was merged into this "
+            f"one. Merge it in or delete it first, then this can take its name."
+        )
+
+    if clash is not None:
+        # Swap, rather than delete: the tombstone is the record that these two
+        # spellings were ever unified, and afterwards it reads "the old name was
+        # merged into the new one" -- which is exactly what happened, told in
+        # the naming that now applies.
+        #
+        # Through a parking name, because both engines check the unique index
+        # per statement: the two rows may not hold one name even for an instant.
+        clash.name = f"__primary-swap-{row.id}-{uuid4().hex}"
+        session.flush()
+
+    row.name = match
+    # The old name first: it is the spelling with the most history behind it,
+    # and the order of this list is the order the rules are built in.
+    keep: list[str] = [previous]
+    for spelling in row.spellings[1:]:
+        if spelling.lower() not in {match.lower(), *(k.lower() for k in keep)}:
+            keep.append(spelling)
+    row.aliases = "\n".join(keep) or None
+
+    if clash is not None:
+        session.flush()
+        clash.name = previous
+        session.flush()
+
+    column = _LABEL_COLUMN.get(table)
+    restamped = (
+        _restamp(session, update(Item).where(column == previous).values(**{column.key: match}))
+        if column is not None
+        else 0
+    )
+    invalidate()
+    return restamped
 
 
 def _merge_pair(session: Session, table, source_id: int, target_id: int):

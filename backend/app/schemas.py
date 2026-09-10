@@ -180,6 +180,9 @@ class CaliberOut(UTCModel):
     #: name it -- both are what a merge is about to move.
     item_count: int = 0
     model_count: int = 0
+    #: Off takes it out of matching without deleting it. See migration 0018:
+    #: deleting is not how a row gets rejected here.
+    enabled: bool = True
 
 
 class CaliberCreate(BaseModel):
@@ -187,6 +190,7 @@ class CaliberCreate(BaseModel):
     aliases: str | None = Field(default=None, max_length=4000)
     status: ArmoryStatus = ArmoryStatus.PENDING
     notes: str | None = Field(default=None, max_length=4000)
+    enabled: bool = True
 
 
 class CaliberUpdate(BaseModel):
@@ -194,6 +198,7 @@ class CaliberUpdate(BaseModel):
     aliases: str | None = Field(default=None, max_length=4000)
     status: ArmoryStatus | None = None
     notes: str | None = Field(default=None, max_length=4000)
+    enabled: bool | None = None
 
 
 class FirearmModelOut(UTCModel):
@@ -264,6 +269,17 @@ class ArmoryMerge(BaseModel):
     target_id: int
 
 
+class ArmoryPrimaryName(BaseModel):
+    """Which of a row's own spellings should be its name.
+
+    Only a spelling it already has. Inventing one here would be a rename in
+    disguise, and a rename has to go through the duplicate check that stops two
+    rows claiming one string.
+    """
+
+    name: str = Field(min_length=1, max_length=128)
+
+
 class ArmoryAction(UTCModel):
     """What an action did, in the terms the admin page reports it."""
 
@@ -323,6 +339,9 @@ class ManufacturerOut(UTCModel):
     #: How many listings currently carry this name, so the admin page can show
     #: what an edit is about to affect.
     item_count: int = 0
+    #: Where the firm is. The last and weakest answer to a listing with no
+    #: country of its own -- see :attr:`app.models.Manufacturer.country`.
+    country: str | None = None
 
 
 class ManufacturerCreate(BaseModel):
@@ -345,6 +364,7 @@ class ManufacturerCreate(BaseModel):
     position: int = Field(default=1000, ge=0, le=100_000)
     enabled: bool = True
     notes: str | None = Field(default=None, max_length=4000)
+    country: str | None = Field(default=None, max_length=64)
 
 
 class ManufacturerUpdate(BaseModel):
@@ -354,6 +374,7 @@ class ManufacturerUpdate(BaseModel):
     position: int | None = Field(default=None, ge=0, le=100_000)
     enabled: bool | None = None
     notes: str | None = Field(default=None, max_length=4000)
+    country: str | None = Field(default=None, max_length=64)
 
 
 class ManufacturerWrite(UTCModel):
@@ -472,6 +493,47 @@ class ItemDetail(ItemOut):
     model_makers: list[str] = Field(default_factory=list)
     model_calibers: list[str] = Field(default_factory=list)
     model_reference_url: str | None = None
+    #: Where the pattern is from, as the armory row states it. Not the same
+    #: question as the listing's own ``country`` beside it, which is where
+    #: this particular gun is said to be from -- so both are shown, and a
+    #: disagreement between them is information rather than a bug.
+    model_country: str | None = None
+    #: Whether a person has vouched for the row. A pending row decided nothing
+    #: about this listing, and saying so is the difference between "the armory
+    #: thinks" and "the armory has been asked and not answered".
+    model_status: str | None = None
+    #: What the row says it chambers, separately from what this listing does.
+    #: A model with several says nothing about which this one is, and the
+    #: panel showing both is how that stops looking like a contradiction.
+    model_notes: str | None = None
+
+
+class PricePositionOut(BaseModel):
+    """Where one listing sits among the others of the same gun.
+
+    The bar this draws is scaled by *rank*, not by price: surplus prices are
+    skewed hard enough that a dollar axis puts nine listings in ten in its
+    leftmost tenth. See services/pricing.py for the measurements.
+    """
+
+    count: int
+    vendors: int
+    low: float
+    high: float
+    q1: float
+    median: float
+    q3: float
+    price: float
+    #: How many peers this listing undercuts, as a percentage -- the ones
+    #: dearer than it. A statistic, for the sentence; not where the marker
+    #: goes. See services/pricing.py.
+    cheaper_than: int
+    #: Where the marker goes, 0 to 100: the rank across the whole bar, so the
+    #: cheapest sits hard left and the dearest hard right.
+    position: float
+    model: str | None = None
+    manufacturer: str | None = None
+    caliber: str | None = None
 
 
 class FacetValue(BaseModel):

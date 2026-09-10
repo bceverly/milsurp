@@ -22,7 +22,7 @@
  *   one row a filter on either shows half the listings.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api.js";
 import { useTitle } from "../hooks.js";
 import Modal from "../components/Modal.jsx";
@@ -34,6 +34,38 @@ const TABS = [
   { key: "models", label: "Models" },
   { key: "calibers", label: "Calibers" },
 ];
+
+const DEFAULT_TAB = "models";
+
+/**
+ * The tab lives in the URL fragment, and the fragment is the only copy of it.
+ *
+ * Held in component state it was invisible to the browser, so Back from the
+ * armory did not go to the tab you came from — it left the page entirely, and
+ * which page it landed on depended on how you had got here. A fragment is the
+ * right shape for it: it names a section of one document, it costs no request,
+ * and every tab click becomes a history entry that Back and Forward walk.
+ *
+ * Written singular, because it names *the* section. Read either way, so a
+ * hand-typed or older plural link still lands where it means to.
+ */
+const TAB_HASH = { manufacturers: "manufacturer", models: "model", calibers: "caliber" };
+const TAB_FROM_HASH = {
+  manufacturer: "manufacturers",
+  manufacturers: "manufacturers",
+  model: "models",
+  models: "models",
+  caliber: "calibers",
+  calibers: "calibers",
+};
+
+/** Which tab a URL fragment asks for, falling back to the default. */
+export function tabFromHash(hash) {
+  const wanted = decodeURIComponent(String(hash || "").replace(/^#/, ""))
+    .trim()
+    .toLowerCase();
+  return TAB_FROM_HASH[wanted] || DEFAULT_TAB;
+}
 
 /**
  * The inventory, filtered to the listings one armory row accounts for.
@@ -70,6 +102,35 @@ function listingsHref(tab, row) {
   return `/?${params.toString()}`;
 }
 
+//: What the Showing box starts on, and the only value left out of the URL.
+//: A page with no query string is the pending queue, which is what somebody
+//: opening the armory has come to work through.
+const DEFAULT_STATUS = "pending";
+
+/**
+ * Whether deleting this row will actually get rid of it.
+ *
+ * Usually not, and that is the thing the trashcan never said. Every
+ * ``propose_*`` in services/armory.py looks a name up **regardless of status
+ * or enabled**, so any surviving row — disabled, pending, merged — permanently
+ * stops that name being proposed again, and a deleted one comes back the next
+ * time a scan meets it. The row is the tombstone.
+ *
+ * Two signals answer it, and both are already on the row:
+ *
+ * - `first_seen_in` is set, so a scan proposed this name and will again;
+ * - it is in the shipped armory file, so `armory seed` re-adds it — which the
+ *   page cannot see from here, so `status` standing in is the honest
+ *   approximation: everything the file carries arrives pending.
+ *
+ * Delete is still right for a row somebody created by mistake, or a duplicate.
+ * What this changes is that it stops being the gesture that *looks* decisive
+ * while quietly meaning "ask me again next week".
+ */
+function comesBack(row) {
+  return Boolean((row.first_seen_in || "").trim());
+}
+
 const STATUSES = [
   { value: "pending", label: "Awaiting approval" },
   { value: "approved", label: "Production" },
@@ -90,7 +151,7 @@ const EMPTY_MODEL = {
   notes: "",
 };
 
-const EMPTY_CALIBER = { name: "", aliases: "", notes: "" };
+const EMPTY_CALIBER = { name: "", aliases: "", notes: "", enabled: true };
 
 //: How many ids one promote or send-back request carries. The endpoint caps a
 //: single call, and select-all on a grown armory would sail past it.
@@ -530,11 +591,21 @@ function CaliberForm({ caliber, onSubmit, error }) {
   const editing = Boolean(caliber);
   const [form, setForm] = useState(() =>
     editing
-      ? { name: caliber.name, aliases: caliber.aliases || "", notes: caliber.notes || "" }
+      ? {
+          name: caliber.name,
+          aliases: caliber.aliases || "",
+          notes: caliber.notes || "",
+          enabled: caliber.enabled !== false,
+        }
       : EMPTY_CALIBER,
   );
-  const set = (key) => (event) =>
-    setForm((prev) => ({ ...prev, [key]: event.target.value }));
+  const set = (key) => (event) => {
+    const target = event.target;
+    setForm((prev) => ({
+      ...prev,
+      [key]: target.type === "checkbox" ? target.checked : target.value,
+    }));
+  };
 
   return (
     <form
@@ -571,6 +642,25 @@ function CaliberForm({ caliber, onSubmit, error }) {
           />
         )}
       </Field>
+      {/*
+        The same switch models and makers have had. It is how a cartridge gets
+        *rejected*: deleting is not, because a surviving row is what stops a
+        scan proposing the name again — see migration 0018.
+      */}
+      <Field label="Enabled" hint="Off takes it out of matching without deleting it.">
+        {(id, describedBy) => (
+          <label className="checkbox">
+            <input
+              id={id}
+              aria-describedby={describedBy}
+              type="checkbox"
+              checked={form.enabled}
+              onChange={set("enabled")}
+            />
+            <span>In use</span>
+          </label>
+        )}
+      </Field>
       <Field label="Notes">
         {(id, describedBy) => (
           <textarea
@@ -593,9 +683,140 @@ function CaliberForm({ caliber, onSubmit, error }) {
   );
 }
 
-const EMPTY_MAKER = { name: "", aliases: "", position: 1000, enabled: true, notes: "" };
+const EMPTY_MAKER = {
+  name: "",
+  aliases: "",
+  position: 1000,
+  enabled: true,
+  notes: "",
+  country: "",
+};
 
-function MakerForm({ maker, onSubmit, error }) {
+/**
+ * What deleting this row will and will not do.
+ *
+ * Offered instead of doing it, when the row is one a scan will simply propose
+ * again. See :func:`comesBack`.
+ */
+function DeleteForm({ row, table, canDisable, error, onDelete, onDisable }) {
+  const returning = comesBack(row);
+  const seen = (row.first_seen_in || "").split("\n").filter(Boolean);
+
+  return (
+    <div>
+      {returning ? (
+        <p className="field__hint" style={{ marginTop: 0 }}>
+          <strong>{row.name}</strong> was proposed by a scan, and will be proposed again
+          the next time a listing’s title names it. Deleting it removes it until then.
+          {canDisable
+            ? " Disabling keeps the row, takes it out of matching, and stops it being proposed."
+            : " Sending it back for approval does the same: a pending row matches nothing and stops it being proposed."}
+        </p>
+      ) : (
+        <p className="field__hint" style={{ marginTop: 0 }}>
+          Delete <strong>{row.name}</strong>? Nothing has proposed this name, so it should
+          stay gone.
+        </p>
+      )}
+
+      {seen.length > 0 && (
+        <p className="field__hint">
+          First seen in: <em>{seen[0]}</em>
+        </p>
+      )}
+
+      {Boolean(row.item_count) && (
+        <p className="field__hint">
+          {row.item_count} listing{row.item_count === 1 ? "" : "s"} carry this name and
+          will be re-derived.
+        </p>
+      )}
+
+      {error && <p className="alert alert--error">{error}</p>}
+
+      <div className="page-head__actions">
+        {returning && (
+          <button type="button" className="btn btn--primary" onClick={onDisable}>
+            {canDisable ? "Disable instead" : "Send back for approval"}
+          </button>
+        )}
+        <button type="button" className="btn btn--danger" onClick={onDelete}>
+          {returning ? "Delete anyway" : "Delete"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Choose which of a row's spellings is its name.
+ *
+ * Not the Name field on the edit form, and deliberately not reachable from it
+ * by typing. Renaming a row leaves its old spelling behind — the row stops
+ * recognizing the text it was built to recognize — and leaves every listing
+ * already stamped with the old name pointing at a name nothing has any more.
+ * This keeps the old name as an alias and restamps the listings, in one step,
+ * and it will only ever choose between spellings the row already has.
+ */
+function PrimaryNameForm({ row, table, error, onSubmit }) {
+  const spellings = [row.name, ...(row.aliases || "").split("\n")]
+    .map((text) => text.trim())
+    .filter(Boolean);
+  const [choice, setChoice] = useState(row.name);
+  const unchanged = choice === row.name;
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (!unchanged) onSubmit(choice);
+      }}
+    >
+      <p className="field__hint" style={{ marginTop: 0 }}>
+        The name is what gets written onto every listing this row matches. Whichever
+        spelling you pick becomes it; <strong>{row.name}</strong> stays on as an alias, so
+        nothing this row recognizes today stops being recognized.
+      </p>
+      <Field label="Primary name" hint="Only a spelling this row already has.">
+        {(id, describedBy) => (
+          <select
+            id={id}
+            aria-describedby={describedBy}
+            className="select"
+            value={choice}
+            onChange={(event) => setChoice(event.target.value)}
+          >
+            {spellings.map((text) => (
+              <option key={text} value={text}>
+                {text}
+                {text === row.name ? " — current" : ""}
+              </option>
+            ))}
+          </select>
+        )}
+      </Field>
+      {table !== "models" && Boolean(row.item_count) && !unchanged && (
+        <p className="field__hint">
+          {row.item_count} listing{row.item_count === 1 ? "" : "s"} carry “{row.name}” and
+          will be restamped “{choice}”.
+        </p>
+      )}
+      {spellings.length < 2 && (
+        <p className="field__hint">
+          This row has no other spelling yet. Add one under “Also written as” first.
+        </p>
+      )}
+      {error && <p className="alert alert--error">{error}</p>}
+      <div className="page-head__actions">
+        <button type="submit" className="btn btn--primary" disabled={unchanged}>
+          Make it the primary
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function MakerForm({ maker, countries, onSubmit, error }) {
   const editing = Boolean(maker);
   const [form, setForm] = useState(() =>
     editing
@@ -605,6 +826,7 @@ function MakerForm({ maker, onSubmit, error }) {
           position: maker.position,
           enabled: maker.enabled,
           notes: maker.notes || "",
+          country: maker.country || "",
         }
       : EMPTY_MAKER,
   );
@@ -687,6 +909,35 @@ function MakerForm({ maker, onSubmit, error }) {
           )}
         </Field>
       </div>
+      <Field
+        label="Country"
+        hint={
+          "Where the firm is. The last and weakest answer to “where is this from”: a " +
+          "listing that states one keeps it, then the model’s pattern origin, then this. " +
+          "A proxy rather than a statement — a Yugoslav-built M24/47 is a German pattern."
+        }
+      >
+        {(id, describedBy) => (
+          <input
+            id={id}
+            aria-describedby={describedBy}
+            className="input"
+            list="armory-countries"
+            value={form.country}
+            onChange={set("country")}
+            maxLength={64}
+            placeholder="United States"
+          />
+        )}
+      </Field>
+      {/* The same list the model form offers, and it has to be in the DOM of
+          whichever form is open — a datalist declared in the other one is not
+          rendered at all while this modal is up. */}
+      <datalist id="armory-countries">
+        {(countries || []).map((name) => (
+          <option key={name} value={name} />
+        ))}
+      </datalist>
       <Field label="Notes">
         {(id, describedBy) => (
           <textarea
@@ -765,8 +1016,62 @@ function MergeForm({ row, rows, compare, onSubmit, error }) {
 
 export default function Armory() {
   useTitle("Armory");
-  const [tab, setTab] = useState("models");
-  const [statusFilter, setStatusFilter] = useState("pending");
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  /**
+   * Move one part of the URL and carry the rest.
+   *
+   * Both halves matter here and they are stored in different places — the tab
+   * in the fragment, the Showing filter in the query — so anything that writes
+   * one has to preserve the other. Neither `navigate({ hash })` nor
+   * `setSearchParams()` does: each resolves against the current *path* and
+   * drops the part it was not given, which would have made changing the filter
+   * silently throw you back to the Models tab.
+   */
+  const go = useCallback(
+    ({ search, hash }) => {
+      // Read the address bar, not the last render's `location`. Two of these
+      // can happen before React has re-rendered — click a tab, then change the
+      // filter — and the second would carry a stale copy of the other half and
+      // silently undo the first: choosing "Everything" right after switching
+      // to Calibers threw the page back to Models. `navigate` has already run
+      // pushState by then, so window.location is current where a captured
+      // `location` is a render behind.
+      const now = window.location;
+      navigate({ search: search ?? now.search, hash: hash ?? now.hash });
+    },
+    [navigate],
+  );
+
+  // Derived, not mirrored. A useState kept alongside would have two sources of
+  // truth for one fact, and Back would move the URL while the page stayed put.
+  const tab = tabFromHash(location.hash);
+  const setTab = useCallback(
+    (key) => {
+      // window.location for the same reason as `go`: this is a writer, and
+      // writers have to see what the address bar says now.
+      if (key !== tabFromHash(window.location.hash)) go({ hash: `#${TAB_HASH[key]}` });
+    },
+    [go],
+  );
+
+  // The same treatment for Showing, and for the same reason: it decides what
+  // the page is showing, so Back should undo it. Absent means the default;
+  // present-but-empty is "Everything", which is a real answer and not the
+  // same thing as not having been asked.
+  const query = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const statusFilter = query.has("status") ? query.get("status") : DEFAULT_STATUS;
+  const setStatusFilter = useCallback(
+    (value) => {
+      const next = new URLSearchParams(window.location.search);
+      if (value === DEFAULT_STATUS) next.delete("status");
+      else next.set("status", value);
+      const query = next.toString();
+      go({ search: query ? `?${query}` : "" });
+    },
+    [go],
+  );
   const [search, setSearch] = useState("");
 
   const [models, setModels] = useState([]);
@@ -793,6 +1098,13 @@ export default function Armory() {
   const [selected, setSelected] = useState(() => new Set());
   const [editing, setEditing] = useState(null);
   const [merging, setMerging] = useState(null);
+  // The row whose primary name is being chosen. Its own state rather than a
+  // panel inside the edit dialog: it is a write with side effects of its own
+  // (listings get restamped) and must not ride along with Save.
+  const [renaming, setRenaming] = useState(null);
+  // The row the trashcan was pressed on. Confirmed rather than done, because
+  // for most rows deleting is not what the operator means — see comesBack().
+  const [deleting, setDeleting] = useState(null);
   const [formError, setFormError] = useState("");
   const [message, setMessage] = useState("");
   const [failure, setFailure] = useState("");
@@ -914,6 +1226,15 @@ export default function Armory() {
     setSummary(counts);
     setSelected(new Set());
   }, [statusFilter, search]);
+
+  // Whatever moved the tab — a click, Back, Forward, or a pasted link. These
+  // used to hang off the button's onClick, which meant arriving by Back left a
+  // selection and a sort belonging to the tab you had left. The tabs do not
+  // share their columns, so a sort on "Chambered in" means nothing on makers.
+  useEffect(() => {
+    setSelected(new Set());
+    setSort(DEFAULT_SORT);
+  }, [tab]);
 
   useEffect(() => {
     let canceled = false;
@@ -1121,13 +1442,7 @@ export default function Armory() {
             role="tab"
             aria-selected={tab === entry.key}
             className={`btn ${tab === entry.key ? "btn--primary" : "btn--ghost"} btn--sm`}
-            onClick={() => {
-              setTab(entry.key);
-              setSelected(new Set());
-              // Back to the name. The tabs do not share their columns, so a
-              // sort on "Chambered in" means nothing on the makers tab.
-              setSort(DEFAULT_SORT);
-            }}
+            onClick={() => setTab(entry.key)}
           >
             {entry.label}
           </button>
@@ -1288,6 +1603,27 @@ export default function Armory() {
                           >
                             <Eye />
                           </Link>
+                          {/*
+                            This tab had no delete at all, while models and
+                            calibers have had one throughout — so a maker
+                            proposed by a scan and plainly wrong could only be
+                            merged into something or left in the queue forever.
+                            Merging is the wrong tool for that: it moves the
+                            junk spelling onto the target as a live matching
+                            rule, and "PD Trade" is in 228 titles.
+                          */}
+                          <button
+                            type="button"
+                            className="btn btn--ghost btn--sm"
+                            aria-label={`Delete ${maker.name}`}
+                            title="Delete, or disable — deleting a name a scan proposed brings it back"
+                            onClick={() => {
+                              setFormError("");
+                              setDeleting(maker);
+                            }}
+                          >
+                            <Trash />
+                          </button>
                         </td>
                       </tr>
                       {open && (
@@ -1396,6 +1732,20 @@ export default function Armory() {
                     onSort={sortBy}
                   />
                 )}
+                {/*
+                  The makers tab has had this since it existed and the models
+                  tab was the one place it was missing, which made "is this row
+                  worth filling in?" the question the page could not answer.
+                  Calibers carry theirs in the second column already.
+                */}
+                {tab === "models" && (
+                  <SortHeader
+                    label="Listings"
+                    sortKey="listings"
+                    sort={sort}
+                    onSort={sortBy}
+                  />
+                )}
                 <SortHeader
                   label="Also written as"
                   sortKey="aliases"
@@ -1409,7 +1759,7 @@ export default function Armory() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={tab === "models" ? 9 : 7} className="loading-row">
+                  <td colSpan={tab === "models" ? 10 : 7} className="loading-row">
                     <span className="spinner" /> Loading…
                   </td>
                 </tr>
@@ -1449,6 +1799,12 @@ export default function Armory() {
                       {row.merged_into && (
                         <span className="chip chip--neutral">→ {row.merged_into}</span>
                       )}
+                      {/* Calibers got this switch in migration 0018; models
+                          always had it. Shown here for both, the way the
+                          makers tab has always shown it. */}
+                      {row.enabled === false && (
+                        <span className="chip chip--neutral">disabled</span>
+                      )}
                     </td>
                     <td>
                       {tab === "models"
@@ -1468,6 +1824,7 @@ export default function Armory() {
                         {row.manufacturers.length ? row.manufacturers.join(", ") : "—"}
                       </td>
                     )}
+                    {tab === "models" && <td>{row.item_count}</td>}
                     <td title={row.first_seen_in || undefined}>
                       {(row.aliases || "").split("\n").filter(Boolean).join(" · ") || "—"}
                     </td>
@@ -1497,12 +1854,10 @@ export default function Armory() {
                         type="button"
                         className="btn btn--ghost btn--sm"
                         aria-label={`Delete ${row.name}`}
-                        onClick={() =>
-                          act(async () => {
-                            await api.deleteArmoryRow(tab, row.id);
-                            return { message: `Deleted ${row.name}.` };
-                          })
-                        }
+                        onClick={() => {
+                          setFormError("");
+                          setDeleting(row);
+                        }}
                       >
                         <Trash />
                       </button>
@@ -1511,7 +1866,7 @@ export default function Armory() {
                 ))}
               {!loading && rows.length === 0 && (
                 <tr>
-                  <td colSpan={tab === "models" ? 9 : 7} className="loading-row">
+                  <td colSpan={tab === "models" ? 10 : 7} className="loading-row">
                     Nothing here. “Load shipped armory” brings in the starting list, and
                     scans add what they meet.
                   </td>
@@ -1530,6 +1885,34 @@ export default function Armory() {
             setFormError("");
           }}
         >
+          {/*
+            Above the form, not inside it, because it is not one of the fields
+            and must not ride along with Save: it renames the row, keeps the
+            old name as an alias and restamps every listing carrying it. One
+            button here covers all three tabs, which is the other reason it is
+            not repeated in each of the three forms.
+
+            Shown only when there is something to choose between. The Name
+            field below is still the way to correct a spelling; this is the way
+            to change which spelling is the answer.
+          */}
+          {editing.id && (editing.aliases || "").trim() && (
+            <div className="armory-primary-swap">
+              <div>
+                <strong>Primary name:</strong> {editing.name}
+              </div>
+              <button
+                type="button"
+                className="btn btn--secondary btn--sm"
+                onClick={() => {
+                  setFormError("");
+                  setRenaming(editing);
+                }}
+              >
+                Change…
+              </button>
+            </div>
+          )}
           {tab === "models" && (
             <ModelForm
               model={editing.id ? editing : null}
@@ -1556,6 +1939,7 @@ export default function Armory() {
           {tab === "manufacturers" && (
             <MakerForm
               maker={editing.id ? editing : null}
+              countries={countries}
               onSubmit={save}
               error={formError}
             />
@@ -1588,6 +1972,98 @@ export default function Armory() {
               try {
                 const result = await api.mergeArmoryRows(tab, merging.id, targetId);
                 setMerging(null);
+                setMessage(result.message);
+                await load();
+              } catch (error) {
+                setFormError(error.message);
+              }
+            }}
+          />
+        </Modal>
+      )}
+
+      {deleting && (
+        <Modal
+          title={`Delete ${deleting.name}?`}
+          onClose={() => {
+            setDeleting(null);
+            setFormError("");
+          }}
+        >
+          <DeleteForm
+            row={deleting}
+            table={tab}
+            // Calibers gained this switch in migration 0018; before that,
+            // sending the row back for approval was the only durable "no".
+            canDisable={"enabled" in deleting}
+            error={formError}
+            onDelete={async () => {
+              setFormError("");
+              try {
+                const removed = deleting;
+                if (tab === "manufacturers") {
+                  const result = await api.deleteManufacturer(removed.id);
+                  const moved = result?.listings_changed ?? 0;
+                  setMessage(
+                    `Deleted ${removed.name}.` +
+                      (moved ? ` ${moved} listing(s) re-derived.` : ""),
+                  );
+                } else {
+                  await api.deleteArmoryRow(tab, removed.id);
+                  setMessage(`Deleted ${removed.name}.`);
+                }
+                setDeleting(null);
+                await load();
+              } catch (error) {
+                setFormError(error.message);
+              }
+            }}
+            onDisable={async () => {
+              setFormError("");
+              try {
+                const row = deleting;
+                if ("enabled" in row) {
+                  await (tab === "manufacturers"
+                    ? api.updateManufacturer(row.id, { enabled: false })
+                    : api.updateArmoryRow(tab, row.id, { enabled: false }));
+                  setMessage(
+                    `${row.name} is off. It matches nothing and will not be proposed.`,
+                  );
+                } else {
+                  await api.sendArmoryRowsBack(tab, [row.id]);
+                  setMessage(
+                    `${row.name} is back to awaiting approval. It matches nothing ` +
+                      `and will not be proposed.`,
+                  );
+                }
+                setDeleting(null);
+                await load();
+              } catch (error) {
+                setFormError(error.message);
+              }
+            }}
+          />
+        </Modal>
+      )}
+
+      {renaming && (
+        <Modal
+          title={`Primary name for ${renaming.name}`}
+          onClose={() => {
+            setRenaming(null);
+            setFormError("");
+          }}
+        >
+          <PrimaryNameForm
+            row={renaming}
+            table={tab}
+            error={formError}
+            onSubmit={async (name) => {
+              setFormError("");
+              try {
+                const result = await api.setArmoryPrimary(tab, renaming.id, name);
+                setRenaming(null);
+                setEditing(null);
                 setMessage(result.message);
                 await load();
               } catch (error) {

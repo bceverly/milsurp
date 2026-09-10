@@ -19,7 +19,9 @@ from ..schemas import (
     ItemPage,
     PhotoOut,
     PricePointOut,
+    PricePositionOut,
 )
+from ..services import pricing
 from ..services.image_store import ImageStore, ImageStoreError
 from ..services.search import (
     KINDS,
@@ -317,6 +319,9 @@ def get_item(item_id: int, _user: CurrentUser, session: DbSession) -> ItemDetail
         detail.model_makers = found.manufacturer_names
         detail.model_calibers = found.caliber_names
         detail.model_reference_url = found.wikipedia_url
+        detail.model_country = found.country
+        detail.model_status = found.status.value
+        detail.model_notes = found.notes
     detail.photos = [
         PhotoOut(
             id=photo.id,
@@ -348,6 +353,39 @@ def price_history(item_id: int, _user: CurrentUser, session: DbSession) -> list[
         .all()
     )
     return [PricePointOut.model_validate(point) for point in points]
+
+
+@router.get("/{item_id}/price-position", response_model=PricePositionOut | None)
+def price_position(item_id: int, _user: CurrentUser, session: DbSession) -> PricePositionOut | None:
+    """Where this listing sits among the others of the same gun.
+
+    Null when it has too few peers to sit among, which is most listings: it
+    needs a matched model, a maker, a cartridge and a price, and at least two
+    others with all four the same. Its own endpoint rather than a field on the
+    item, so the detail page renders without waiting for a query that answers
+    "nothing to say" for the majority of listings.
+    """
+    item = session.get(Item, item_id)
+    if item is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such item.")
+    found = pricing.position(session, item)
+    if found is None:
+        return None
+    return PricePositionOut(
+        count=found.count,
+        vendors=found.vendors,
+        low=found.low,
+        high=found.high,
+        q1=found.q1,
+        median=found.median,
+        q3=found.q3,
+        price=found.price,
+        cheaper_than=found.cheaper_than,
+        position=found.position,
+        model=found.model,
+        manufacturer=found.manufacturer,
+        caliber=found.caliber,
+    )
 
 
 @router.get("/{item_id}/photos/{photo_id}")

@@ -8,6 +8,7 @@ from sqlalchemy import select
 from app.models import ArmoryStatus, FirearmModel, Item, Manufacturer, Site
 from app.services import classify
 from app.services import manufacturers as service
+from app.services.manufacturers import Registry, pattern_for, without_cartridges
 
 
 def make(session, **fields):
@@ -394,4 +395,56 @@ class TestCanonicalSpelling:
         keeps this from quietly deciding that a longer firm name is this one."""
         assert service.canonical(wesson, "Not Smith & Wesson At All") == (
             "Not Smith & Wesson At All"
+        )
+
+
+class TestACartridgeIsNotAMaker:
+    """The eponymous-cartridge bug, measured over 4,562 active listings.
+
+    A great many surplus cartridges are named after the firm that designed
+    them, and a title carrying one names that firm without being about it.
+    The rules are tried in the admin's order and the first to match wins, so
+    it was not even a question of which appeared earlier in the title: ".40
+    S&W" on a Glock filed 34 Glocks under Smith & Wesson, and "7.65mm
+    Browning" on a Walther filed 46 Walthers under Browning.
+
+    Stripping them corrected 133 listings and cost one its maker, and the
+    difficulty is entirely in telling a cartridge from a pattern number.
+    """
+
+    def test_a_cartridge_does_not_outrank_the_firm_in_the_title(self):
+        assert "S&W" not in without_cartridges("PD Trade | Glock 22 RTF | 40 S&W")
+        assert "Glock" in without_cartridges("PD Trade | Glock 22 RTF | 40 S&W")
+
+    def test_nor_one_written_with_millimetres(self):
+        stripped = without_cartridges("Walther PP 7.65mm Browning Pistol")
+        assert "Browning" not in stripped
+        assert "Walther" in stripped
+
+    def test_a_year_is_left_alone(self):
+        """ "ARGENTINE Model 1909 Mauser" is a rifle whose maker really is
+        Mauser. A bare four digits is a year, never a cartridge."""
+        assert without_cartridges("ARGENTINE Model 1909 Mauser").strip() == (
+            "ARGENTINE Model 1909 Mauser"
+        )
+
+    def test_and_so_is_a_pattern_number_however_short(self):
+        """ "TURKISH Model 38 Mauser" -- the 38 is the pattern, not a .38.
+        Introduced by "Model", which nothing about a cartridge ever is."""
+        assert "Mauser" in without_cartridges("TURKISH Model 38 Mauser")
+
+    def test_and_so_is_the_second_half_of_a_slashed_designation(self):
+        """ "Model 1909/47 Mauser" and "Model 1910/22 Browning": the half after
+        the slash has exactly a short cartridge's shape, and stripping it cost
+        thirteen listings their maker on the first measurement."""
+        assert "Mauser" in without_cartridges("ARGENTINE Model 1909/47 Mauser")
+        assert "Browning" in without_cartridges("BELGIAN Model 1910/22 Browning")
+
+    def test_the_caliber_is_still_asked_last(self, session):
+        """The behavior this must not break. "SPANISH 1916 SHORT RIFLES" is a
+        Mauser and says so nowhere -- the caliber names the firm, and that is
+        a real answer. It is only barred from outranking a title."""
+        registry = Registry([("Mauser", pattern_for(["Mauser"]))])
+        assert registry.extract_from("SPANISH 1916 SHORT RIFLES", None, "7x57mm Mauser") == (
+            "Mauser"
         )

@@ -1741,3 +1741,157 @@
   font-size: 12.5px;
   line-height: 1.55;
 }
+
+/* --- What the armory knows ---------------------------------------------- */
+/* Opened from the Model line on a listing. See ArmoryPanel in ItemDetail.jsx
+   for why this is a panel of its own rather than more lines in the facts
+   list: these describe the pattern, those describe this listing, and the two
+   are allowed to disagree. */
+.detail__armory-open {
+  vertical-align: baseline;
+}
+
+.armory-panel__lead {
+  margin: 0 0 14px;
+  color: var(--ink-500);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.armory-panel__notes {
+  margin: 14px 0 0;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.armory-panel__pending {
+  margin: 14px 0 0;
+  padding: 9px 11px;
+  border: 1px solid var(--amber-100);
+  border-left: 3px solid var(--amber-600);
+  border-radius: 7px;
+  background: var(--amber-100);
+  color: var(--amber-600);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.armory-panel__actions {
+  margin-top: 18px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* --- Changing which spelling is the name -------------------------------- */
+/* Above the edit form rather than in it: see the comment in Armory.jsx. It
+   renames the row, keeps the old name as an alias and restamps every listing
+   carrying it, so it must not ride along with Save. */
+.armory-primary-swap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+  padding: 10px 12px;
+  border: 1px solid var(--silver-200);
+  border-radius: var(--radius-sm);
+  background: var(--silver-100);
+  font-size: 13px;
+}
+
+/* --- Where this listing sits among the others of the same gun ----------- */
+/* The bar is scaled by RANK, not by dollars — see PriceSpectrum in
+   ItemDetail.jsx. Surplus prices are skewed hard enough that a dollar axis
+   puts nine listings in ten inside its leftmost tenth. */
+.spectrum {
+  margin: 18px 0 20px;
+  padding: 14px 16px 12px;
+  border: 1px solid var(--silver-200);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.spectrum__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.spectrum__peers {
+  color: var(--ink-500);
+  font-size: 12.5px;
+}
+
+.spectrum__rail {
+  position: relative;
+  height: 10px;
+  border-radius: 5px;
+  /* Cheap on the left, dear on the right. */
+  background: linear-gradient(90deg, var(--green-100), var(--amber-100));
+  border: 1px solid var(--silver-200);
+}
+
+.spectrum__tick {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 1px;
+  background: var(--silver-300);
+}
+
+.spectrum__tick--median {
+  background: var(--ink-500);
+  width: 2px;
+}
+
+/* The triangle, pointing up at where this one falls. */
+.spectrum__marker {
+  position: absolute;
+  top: 13px;
+  width: 0;
+  height: 0;
+  margin-left: -6px;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 8px solid var(--navy-700);
+}
+
+.spectrum__scale {
+  position: relative;
+  height: 30px;
+  margin-top: 12px;
+}
+
+.spectrum__label {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 11.5px;
+  color: var(--ink-500);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.spectrum__ends {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  margin-top: -8px;
+}
+
+.spectrum__verdict {
+  margin: 12px 0 0;
+  font-size: 13px;
+}
+
+.spectrum__note {
+  color: var(--ink-400);
+  font-size: 11.5px;
+}

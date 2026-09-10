@@ -1558,6 +1558,146 @@ before they got nothing.
 
 ### Data quality
 
+#### How effective the armory actually is — **measured**, and acted on
+
+Measured over 4,562 active listings by re-deriving every field twice: the text
+alone, then the armory on top, exactly as `_apply_catalog` does. The gap between
+the two is the armory's contribution.
+
+**What it was doing well, and what it was not.**
+
+| contribution | listings | share |
+| --- | --- | --- |
+| caliber spellings normalized | 1,453 | 31.9% |
+| blank country filled from the model | 474 | 10.4% |
+| rifle/handgun settled by the model | 1,432 | 31.4% |
+| …where that *changed* the text's answer | **1** | 0.0% |
+| blank manufacturer filled | 83 | 1.8% |
+| blank caliber filled | 64 | 1.4% |
+| dealer's caliber kept over the model's | 141 | 3.1% |
+
+Normalization is the real value and always was — it is what makes the browse
+filter work. **Filling in blanks, the thing it is named for, was 1.5%.** The
+kind refinement corrected the text exactly once in 1,432 opportunities: cheap
+insurance, not a feature to invest in.
+
+**The cause was not matching, it was content.** Of 359 approved and enabled
+model rows, 240 have no caliber, 308 no maker, 200 no kind, 195 no country —
+and **194 (54%) say nothing at all**. Over half the approved armory matches a
+title and then contributes zero. Model coverage itself is 41.3% of listings
+(51.0% of firearms), and a further 46 rows are approved but switched off.
+
+**What shipped from it.**
+
+- **The maker's country** (migration `0017`), the largest single lever: 1,247 of
+  the 1,407 country-blank listings already carried a maker. Country coverage
+  69.2% → **91.5%**. Weakest of the three answers and asked last — see
+  README.md → "The armory".
+- **A cartridge no longer supplies the maker** ahead of a firm the title names.
+  133 corrected, 8 lost, 7 of those 8 also corrections.
+- **Vendor shelf labels out of the discovery queue.** "LEO", "PD", "Trade-in"
+  and friends were being read as part of a maker's name: five of eleven pending
+  maker proposals were `LEO Trade-in Armalite`, `PD Trade Bushmaster`,
+  `Trade-In Daniel Defense`, `Trade Rock River` and `River Arms LAR-15`. A
+  designation now stops the walk too, which was proposing `Armalite M15`
+  alongside `Armalite` from the same title.
+- **The item page shows the match**, with the pattern's facts, the reference
+  link and whether the row is actually approved.
+
+**Not done, deliberately.** Family-level rows — a bare `Mosin-Nagant` beside the
+M91/30, M44 and M38, and the same for Glock, Colt, Mauser and Smith & Wesson —
+would have reached 1,057 of the 1,992 unmatched firearm listings and taken model
+coverage to ~64%. Considered and declined: a family row cannot state a caliber,
+and the fields it would fill are better filled by the maker's country above.
+
+#### Where a price sits among the same gun — **Shipped**
+
+The first thing in this application that answers "is this a good deal?", and it
+is the armory's payoff rather than more of the armory: a listing matched to a
+model and carrying a maker and a cartridge has peers, and **123 such groups
+cover 1,220 active listings**. The item page draws where this one sits among
+them. See README.md → "Is this a good deal?" for the design and the measured
+reason the bar is scaled by rank rather than by dollars.
+
+**And a correction to the section above.** It said filling in the 194 silent
+model rows was "the largest remaining lever". Measured afterwards, it is not:
+those rows match **275 listings between them**, and the fillable payoff is 57
+listings gaining a caliber and 32 gaining a country. The number was asserted
+without being checked, against this document's own rule. The largest remaining
+lever is promoting the pending models — **+436 listings matched, 0
+regressions** — which is one bulk action and no data entry at all.
+
+Two more things that measurement turned up, both worth knowing before spending
+an afternoon on model rows:
+
+- Several "missing" calibers are not missing. Walther PP (98 listings), PPK
+  (54), M1911A1 (33) and Colt SAA (28) each state *two* cartridges and so
+  correctly say nothing. That is the armory working.
+- The 46 approved-but-disabled rows are disabled on purpose — `Model 1911`,
+  `M14`, `M16`, `P14` — and the silent rows are the same shape. For an
+  ambiguous bare designation, disabling or merging is more correct than filling
+  in, because one answer would be wrong for half the matches.
+
+**Still open.**
+
+- **Promote the 104 pending models.** +436 listings, one action.
+- **Fill in the silent rows if convenient**, worth ~89 listings, top twenty
+  worth 98 of the 275. The eye on each armory row opens the listings it accounts for,
+  which is the check to make while doing it.
+- **Fill in the 194 rows that say nothing.** The largest remaining lever and no
+  code at all.
+
+#### The modern shelf — **Shipped**, and the armory is no longer milsurp-only
+
+The question this raised was whether a *milsurp* catalog should name a Glock at
+all. It should: four vendors here sell a police trade-in shelf beside the
+surplus, and the armory was blind to all of it — Officer Store 0 of 14, Recoil
+Gun Works 8 of 229, AIM Surplus 11 of 180.
+
+**56 models and 12 makers**, measured against the stored catalog before being
+believed: Glock 17 through 48 one row per number, the Sig P-series, S&W's M&P
+line and service revolvers, the Remington 870 and 700, Mossberg 500/590,
+Beretta's 92FS/PX4/APX/96, Benelli M4, IWI Zion, Ruger Mini-14, and the AR-15
+and AR-10 platforms. Makers: Mossberg, Bushmaster, Daniel Defense, Armalite,
+Stag Arms, LMT, JP Enterprises, IWI, DPMS, Windham Weaponry, Benelli, Kimber.
+
+**+341 listings matched, 0 regressions.** Model coverage 41.3% → 48.8%; country
+91.6% → 93.3%; caliber 89.2% → 90.2%.
+
+| site | before | after |
+| --- | --- | --- |
+| Recoil Gun Works | 8/229 | **165/229** |
+| AIM Surplus | 11/180 | **129/180** |
+| Officer Store | 0/14 | **14/14** |
+| Legacy Collectibles | 504/992 | 523/992 |
+| Centerfire Systems | 414/914 | 425/914 |
+
+**What makes a modern row dangerous here, and it is not what it looks like.**
+The risk is not that a Glock is out of scope — it is that modern designations
+collide with real service rifles. A bare `G43` alias matched a **Walther Gewehr
+43** ("WWII German Walther 'ac 44' G43 Semi-Auto Rifle 8mm Mauser") and a bare
+`G36` matched a **Heckler & Koch G36**, both of which are in this catalog.
+Neither was caught by reading; both were caught by measuring what each alias
+hit that was *not* a Glock. Every bare `G<number>` is now qualified as
+`Glock G<number>`, which still catches "Glock G23 Gen 4" — the shape the bare
+form existed for. `backend/tests/test_modern_shelf.py` fails if one comes back,
+and also fails if two rows that can both match claim one spelling.
+
+**A row states a caliber only where the designation settles it.** A Glock's
+number encodes its cartridge, so those state one; a P229 was sold in three and
+an AR-15 in more than this catalog has rows for, so those state none rather
+than picking. The same rule the rest of the armory runs on, and the reason the
+blank-filling is worth anything.
+
+**Israel became a country the classifier can name**, because 27 active listings
+say Israel or Israeli and the armory had nowhere to put an IWI row's origin. 15
+listings gain a country and 27 more are corrected off Germany — an IMI Uzi, a
+Jericho 941 and a Desert Eagle are not German.
+
+**Everything arrived pending**, as everything in the seed file does: nothing in
+it has been checked by the person running the site, so nothing decides anything
+until they promote it. The numbers above are what promoting them does.
+
 - **Shipped** — The maker list is a table, not code, with an admin page at
   `/manufacturers`. Aliases are literal text rather than patterns, order is part
   of the data because it decides ties ("Mosin-Nagant" before "Nagant"), and an

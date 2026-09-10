@@ -231,6 +231,123 @@ test.describe("digest settings", () => {
 });
 
 test.describe("item detail extras", () => {
+  test("a listing shows where its price sits among the same gun", async ({
+    signedIn,
+  }) => {
+    /**
+     * The question the catalog exists for — "is this a good deal?" — and the
+     * first thing in it that answers. The bar is scaled by *rank*, not by
+     * dollars: surplus prices are skewed hard enough that a dollar axis puts
+     * nine listings in ten inside its leftmost tenth.
+     */
+    await signedIn.goto("/?search=Mosin&availability=all");
+    const card = signedIn.locator(".item-card").first();
+    await expect(card).toBeVisible();
+    await card.click();
+    await expect(signedIn.locator(".detail__facts")).toBeVisible();
+
+    const spectrum = signedIn.locator(".spectrum");
+    await expect(spectrum).toBeVisible();
+    await expect(spectrum).toContainText("listings of this model");
+    await expect(spectrum).toContainText(
+      /cheapest one listed|dearest one listed|Cheaper than/,
+    );
+
+    // Three graduations and one marker, and the marker is somewhere on the bar.
+    await expect(spectrum.locator(".spectrum__tick")).toHaveCount(3);
+    const marker = spectrum.locator(".spectrum__marker");
+    await expect(marker).toHaveCount(1);
+    const left = await marker.evaluate((node) => node.style.left);
+    expect(Number.parseFloat(left)).toBeGreaterThanOrEqual(0);
+    expect(Number.parseFloat(left)).toBeLessThanOrEqual(100);
+  });
+
+  test("the dearest listing puts its marker at the far end", async ({ signedIn }) => {
+    /**
+     * Reported from the running site. The marker was placed by the *statistic*
+     * — how many peers this one undercuts — and the dearest of five undercuts
+     * four of them, which is 80%. A marker at 80% of a bar whose right end is
+     * labeled with this listing's own price is simply wrong, and the two
+     * numbers are now separate.
+     */
+    await signedIn.goto("/?search=Mosin&availability=all&sort=price_desc");
+    const card = signedIn.locator(".item-card").first();
+    await expect(card).toBeVisible();
+    await card.click();
+
+    const spectrum = signedIn.locator(".spectrum");
+    await expect(spectrum).toBeVisible();
+    // The dearest of its group: hard right, and the sentence says so rather
+    // than quoting a percentage.
+    const left = await spectrum
+      .locator(".spectrum__marker")
+      .evaluate((node) => node.style.left);
+    expect(Number.parseFloat(left)).toBe(100);
+    await expect(spectrum).toContainText("The dearest one listed");
+  });
+
+  test("a listing with nothing to compare against shows no spectrum", async ({
+    signedIn,
+  }) => {
+    /** It needs a matched model, a maker, a cartridge and three peers, which
+     *  most listings do not have — so the widget has to be absent rather than
+     *  empty. */
+    await signedIn.goto("/?search=Arisaka&availability=all");
+
+    // Asserted on the grid before touching a card, so a fixture that has gone
+    // missing says so instead of timing out on "element not found" — which is
+    // what this reported when it failed, and it took a while to work out that
+    // the complaint was about the search, not about the widget.
+    const cards = signedIn.locator(".item-card");
+    await expect
+      .poll(() => cards.count(), {
+        message: 'no listing matched "Arisaka" — check scripts/seed_demo_data.py',
+      })
+      .toBeGreaterThan(0);
+
+    await cards.first().click();
+    await expect(signedIn.locator(".detail__facts")).toBeVisible();
+    // Not "has no model": a listing can be matched and still have no spectrum,
+    // and since promoting a row now writes the link straight onto the listings,
+    // the armory tests earlier in the run give this one a model. What it does
+    // not have is three peers sharing its model and cartridge.
+    await expect(signedIn.locator(".spectrum")).toHaveCount(0);
+  });
+
+  test("the armory panel opens from the model line", async ({ signedIn }) => {
+    /**
+     * What the armory knows was reachable only from the admin page before
+     * this, by searching for the row by name. The panel is separate from the
+     * facts beside it because it answers a different question: those describe
+     * this listing, these describe the pattern, and the two are allowed to
+     * disagree.
+     */
+    // Searched for rather than "whichever card sorts first": only a listing
+    // the armory matched carries the panel, and the seeder gives a model to
+    // exactly one of them.
+    await signedIn.goto("/?search=Mosin&availability=all");
+    // The card *is* the link — `.item-card` is a <Link>, not a wrapper round
+    // one, so there is no anchor inside it to click.
+    const card = signedIn.locator(".item-card").first();
+    await expect(card).toBeVisible();
+    await card.click();
+    await expect(signedIn.locator(".detail__facts")).toBeVisible();
+
+    const open = signedIn.getByRole("button", { name: "What the armory knows" });
+    await open.click();
+    const dialog = signedIn.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText("Country of the pattern");
+    await expect(dialog).toContainText("Chambered in");
+    await expect(
+      dialog.getByRole("link", { name: "Every listing of this model" }),
+    ).toBeVisible();
+
+    // Escape closes it, like every other modal in the application.
+    await signedIn.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+  });
+
   test("a reduced listing shows the previous price struck through", async ({
     signedIn,
   }) => {

@@ -134,6 +134,23 @@ _TRADE_WORDS = frozenset(
         "surplus",
         "military",
         "police",
+        # How a dealer labels the *shelf*, not the gun. These are capitalized,
+        # they sit immediately before the maker, and nothing above stopped
+        # them: five of eleven pending maker proposals were "LEO Trade-in
+        # Armalite", "PD Trade Bushmaster", "Trade-In Daniel Defense", "Trade
+        # Rock River" and "River Arms LAR-15". A police trade-in section is
+        # the fastest-growing kind of vendor on this list, so the queue was
+        # filling with names no firm has ever had.
+        "leo",
+        "pd",
+        "trade",
+        "trade-in",
+        "trade-ins",
+        "tradein",
+        "used",
+        "unissued",
+        "refurbished",
+        "midlength",
         "contract",
         "commercial",
         "semi",
@@ -184,6 +201,7 @@ _TRADE_WORDS = frozenset(
         "matching",
         "mismatched",
         "refurbished",
+        "midlength",
         "arsenal",
         "refinished",
         "import",
@@ -344,6 +362,15 @@ def maker_candidates(title: str) -> list[str]:
             # pattern-matched, so "Yugoslavian" and "Czechoslovakian" are
             # caught by the same list the classifier uses on titles.
             if classify.extract_country(word):
+                break
+            # Neither is a model number. A title naming two designations makes
+            # this run twice, and the second run walks back over the first
+            # one: "LEO Trade-In Armalite M15 16in ... AR15 Rifle" proposed
+            # "Armalite" from the M15 and then "Armalite M15" from the AR15.
+            # A firm's name does not contain a model designation, and the
+            # existing fullmatch guard only caught a candidate that was
+            # nothing else.
+            if DESIGNATION.fullmatch(word):
                 break
             take.append(word)
             if len(take) == 3:

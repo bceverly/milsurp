@@ -101,15 +101,60 @@ FIREARM_WORDS = (
 )
 
 # Model or family names that imply a caliber outright.
-MODEL_CALIBERS: tuple[tuple[str, str], ...] = (
-    (r"ar-?15", "5.56x45mm NATO"),
-    (r"ak-?74|ak\s*74", "5.45x39mm"),
-    (r"\bak\b(?!\d)", "7.62x39mm"),
+#: Cartridges the *text names outright*, contributed by what used to be one
+#: table of "model calibers". These are spellings, not inferences: "7.62x39"
+#: and "8mm Lebel" are the cartridge written down, and they belong with
+#: CALIBER_NORMALIZATIONS rather than with the designations below.
+#:
+#: The split is what makes the ordering in extract_caliber mean anything. With
+#: both kinds in one table consulted before anything else, a rule inferring a
+#: cartridge from a *model* outranked one the vendor had written in the title:
+#: a Walther PP was stored as .32 ACP over the ".22 LR" in its own title, and a
+#: Colt AR-15 9mm Carbine as 5.56x45mm NATO. 295 listings were in that state.
+MODEL_CARTRIDGES: tuple[tuple[str, str], ...] = (
     (r"5\.45\s*[x×]\s*39", "5.45x39mm"),
     (r"7\.62\s*[x×]\s*39", "7.62x39mm"),
     (r"7[.,]62\s*[x×]\s*54\s*r", "7.62x54R"),
     (r"7\.62\s*[x×]\s*45", "7.62x45mm"),
     (r"7\.62\s*[x×]\s*51", "7.62x51mm NATO"),
+    (r"8\s*mm\s*lebel", "8mm Lebel"),
+    (r"9\s*mm\s*mak(?:arov)?\b", "9x18 Makarov"),
+    (r"8\s*mm\s*nambu\b", "8mm Nambu"),
+    # Written out, this is a cartridge rather than the bare diameter that
+    # names four of them -- so it belongs here and not among the weak bores.
+    (r"8\s*mm\s*mauser\b", "8mm Mauser"),
+    (r"9\s*mm\s*(?:luger|parabellum|para\b)", "9mm Luger"),
+    # 7.65 is a diameter shared by two cartridges: the .32 ACP (7.65mm
+    # Browning) and the 7.65 Parabellum a Luger takes. Next to "Luger" or
+    # "Parabellum" it is the latter, and the two words need not be adjacent --
+    # "DWM 1906 Luger 7.65mm Pistol" has them either side of a date. The gap is
+    # bounded and made of non-word characters, so it adds nothing to the score.
+    # The gap is measured in *words*, not characters: "Swiss Luger Model
+    # 1906/1924 Waffenfabrik Bern, 7.65mm" puts four of them between the two,
+    # and a character bound tight enough to be safe was too tight to match it.
+    # Width costs nothing here because _longest_match scores letters and
+    # digits, so a rule cannot win by reaching further.
+    (
+        (
+            r"(?:luger|parabellum)(?:\W+\w+){0,6}\W+7\.65"
+            r"|7\.65(?:\W+\w+){0,6}\W+(?:luger|parabellum)"
+        ),
+        "7.65 Luger",
+    ),
+)
+
+#: What a *designation* implies, which is weaker evidence than a cartridge the
+#: listing states and is tried after it. A K98 is 8mm Mauser unless the seller
+#: says otherwise -- and when they say otherwise, they are the one holding it.
+#:
+#: Every rule with an unbounded gap lives here rather than above, and not only
+#: because it is an inference: :func:`_longest_match` scores on how much text a
+#: pattern matched, and ``trainer.*\.22`` can span half a description and win
+#: on nothing but distance.
+DESIGNATION_CALIBERS: tuple[tuple[str, str], ...] = (
+    (r"ar-?15", "5.56x45mm NATO"),
+    (r"ak-?74|ak\s*74", "5.45x39mm"),
+    (r"\bak\b(?!\d)", "7.62x39mm"),
     (r"\bpsl\b", "7.62x54R"),
     (r"m1919", "7.62x51mm NATO"),
     (r"m1\s+carbine", ".30 Carbine"),
@@ -123,38 +168,39 @@ MODEL_CALIBERS: tuple[tuple[str, str], ...] = (
     (r"zb\s*(?:26|37)", "8mm Mauser"),
     (r"lee\s*-?\s*enfield|lee\s*-?\s*speed", ".303 British"),
     (r"\bberthier\b", "8mm Lebel"),
-    (r"8\s*mm\s*lebel", "8mm Lebel"),
-    (r"\bnambu\b|8\s*mm\s*nambu", "8mm Nambu"),
     (r"st\.?\s*etienne\s*19(?:07|15)", "8mm Lebel"),
+    # A P.38 is 9mm, and now that ".38" cannot match inside the designation
+    # this is what says so.
+    (r"\bp\.?\s*38\b", "9mm Luger"),
     (r"\bmakarov\b", "9x18 Makarov"),
     (r"\bskorpion\b", ".32 ACP"),
     (r"\bvigneron\b", "9mm"),
-    (r"7\.65.*luger|luger.*7\.65", "7.65 Luger"),
     (r"walther\s+pp", ".32 ACP"),
     (r"(?:vz|cz)\s*[57]0", ".32 ACP"),
     (r"beretta\s+m1935", ".32 ACP"),
     (r"beretta\s+m1934", ".380 ACP"),
-    (r"\bbreda\b", "6.5x52mm Carcano"),
     (r"mas\s*49|aa\s*52", "7.5x54mm French"),
-    (r"mannlicher.*8\s*[x×]\s*56|8\s*[x×]\s*56.*mannlicher", "8x56mmR"),
     (r"\bmannlicher\b", "8x50mmR"),
     (r"force\s+publique.*mauser|mauser.*force\s+publique", ".30-06"),
     (r"\bkropatschek\b", "11.15x58mmR Kropatschek"),
-    (r"m17-38.*flare|flare.*m17-38|34\s*mm.*flare|flare.*34\s*mm", "34mm Flare"),
-    (r"26\.5\s*mm.*flare|flare.*26\.5\s*mm", "26.5mm Flare"),
     (r"fusil\s+gras|mle.*1874.*gras|1874.*gras|st\.?\s*etienne", "11mm Gras"),
-    (r"vetterli.*6\.5|6\.5.*vetterli", "6.5x52mm Carcano"),
     (r"\bvetterli\b", "10.4x47mmR"),
     (r"\bsks\b", "7.62x39mm"),
-    (r"swiss.*7\.5\s*[x×]\s*55|7\.5\s*[x×]\s*55.*swiss", "7.5x55 Swiss"),
     (r"\bg1911\b|swiss.*rifle", "7.5x55 Swiss"),
     (r"\barisaka\b|\btype\s*99\b", "7.7x58mm Arisaka"),
     (r"\btype\s*38\b", "6.5x50mm Arisaka"),
     (r"\bmosin\b", "7.62x54R"),
     (r"\btokarev\b|\btt-?33\b", "7.62x25mm Tokarev"),
     (r"schmidt-?rubin", "7.5x55 Swiss"),
+    (r"7\.65.*luger|luger.*7\.65", "7.65 Luger"),
+    (r"mannlicher.*8\s*[x×]\s*56|8\s*[x×]\s*56.*mannlicher", "8x56mmR"),
+    (r"m17-38.*flare|flare.*m17-38|34\s*mm.*flare|flare.*34\s*mm", "34mm Flare"),
+    (r"26\.5\s*mm.*flare|flare.*26\.5\s*mm", "26.5mm Flare"),
+    (r"vetterli.*6\.5|6\.5.*vetterli", "6.5x52mm Carcano"),
+    (r"swiss.*7\.5\s*[x×]\s*55|7\.5\s*[x×]\s*55.*swiss", "7.5x55 Swiss"),
     (r"mauser.*8mm|mauser\s+rifle", "8mm Mauser"),
     (r"\.22\s*long\s*rifle|trainer.*\.22|\.22.*trainer", ".22 LR"),
+    (r"\bnambu\b", "8mm Nambu"),
 )
 
 #: A maker's name and nothing else. Tried last, and not at all for a handgun.
@@ -243,7 +289,10 @@ CALIBER_NORMALIZATIONS: tuple[tuple[str, str], ...] = (
     (
         (
             r"\.38\s*(?:special|spl)\b"
-            r"|\.38\b(?!\s*(?:super|s\s*&\s*w|smith|acp|auto|colt|long|short|-))"
+            # Not after a letter: "P.38" is a designation and its ".38" is not
+            # a bore. Twelve Walther and Spreewerk P.38s -- 9mm pistols --
+            # were stored as .38 Special because this matched inside the name.
+            r"|(?<![a-z])\.38\b(?!\s*(?:super|s\s*&\s*w|smith|acp|auto|colt|long|short|-))"
         ),
         ".38 Special",
     ),
@@ -298,14 +347,112 @@ def _looks_like_accessory(title_lower: str) -> bool:
     return bool(_ACCESSORY_WORDS.search(title_lower))
 
 
-def extract_caliber(  # noqa: PLR0911,PLR0912 - each branch is one rule class,
+#: A percentage, which in a gun listing is a *condition* and never a cartridge.
+#: "Condition: ~30-40%." was read as .30-40 Krag on a Luger whose description
+#: said "Caliber: 9mm" two clauses earlier: the pattern for .30-40 accepts the
+#: bare form and `\b` is satisfied by the "%" that follows. The trade writes
+#: these constantly -- "90% blue", "30-40% original finish", "98%+" -- so they
+#: come out of the text before any cartridge rule sees it.
+_PERCENTAGE = re.compile(r"~?\d{1,3}(?:\.\d+)?\s*(?:[-\u2013]\s*\d{1,3}(?:\.\d+)?)?\s*%\+?")
+
+
+def without_percentages(text: str) -> str:
+    """The text with condition percentages taken out. See :data:`_PERCENTAGE`."""
+    return _PERCENTAGE.sub(" ", text or "")
+
+
+#: A bare metric bore is a *diameter*, not a cartridge. "8mm" is 8mm Mauser,
+#: Lebel, Nambu or 8x56R; "9mm" is Luger, Makarov, Browning or Largo. Filed
+#: with the spellings they outranked every designation that could have said
+#: which -- "Japanese Type 14 Nambu Pistol 8mm" read as 8mm Mauser -- so they
+#: are held back and weighed against the designation instead.
+_AMBIGUOUS_BORES = {r"\b8\s*mm\b", r"\b9\s*mm\b"}
+
+#: Every way a listing can *spell* a cartridge, in one table so the longest
+#: match across all of them wins. Order within it no longer decides anything.
+SPELLED_CARTRIDGES: tuple[tuple[str, str], ...] = tuple(
+    entry for entry in CALIBER_NORMALIZATIONS + MODEL_CARTRIDGES if entry[0] not in _AMBIGUOUS_BORES
+)
+
+WEAK_BORES: tuple[tuple[str, str], ...] = tuple(
+    entry for entry in CALIBER_NORMALIZATIONS if entry[0] in _AMBIGUOUS_BORES
+)
+
+_LEADING_NUMBER = re.compile(r"\d+(?:\.\d+)?")
+
+
+def _same_bore(left: str | None, right: str | None) -> bool:
+    """Whether two calibers start from the same diameter.
+
+    "8mm" and "8mm Nambu" do; "9mm" and "5.56x45mm NATO" do not. This is what
+    tells a designation that *refines* a bare bore from one that contradicts
+    it -- and a designation may refine, never contradict. A Nambu pistol
+    described as 8mm is an 8mm Nambu; a Colt AR-15 described as a 9mm carbine
+    is a 9mm, whatever an AR-15 usually is.
+    """
+    if not left or not right:
+        return False
+    first, second = _LEADING_NUMBER.search(left), _LEADING_NUMBER.search(right)
+    return bool(first and second and first.group(0) == second.group(0))
+
+
+def _first_match(table: tuple[tuple[str, str], ...], text: str) -> str | None:
+    """The first caliber in the table whose pattern matches, or None.
+
+    The designations keep their hand-written order rather than competing on
+    length, because many of them are "these two words co-occur" rules with an
+    unbounded gap -- ``swiss.*rifle``, ``mauser.*8mm`` -- and a rule like that
+    matches most of a description. Scored on what it matched, ``swiss.*rifle``
+    beat ``\bvetterli\b`` and relabeled five Vetterli and Peabody rifles, which
+    state .41 Swiss and 10.4mm in their own titles, as 7.5x55 Swiss.
+
+    So: length decides among the *spellings*, where every pattern is a literal
+    cartridge and none can reach; order decides among the designations, where
+    the author's sequence is the only thing that can express "try the specific
+    firm before the general country".
+    """
+    for pattern, caliber in table:
+        if re.search(pattern, text):
+            return caliber
+    return None
+
+
+def _longest_match(table: tuple[tuple[str, str], ...], text: str) -> str | None:
+    """The caliber whose pattern matches the *most text*, or None.
+
+    Not the first that matches. These patterns overlap heavily and the shorter
+    one is the less specific: a bare ``8mm`` inside "8mm Lebel", a bare ``9mm``
+    inside "9mm Mak", ``7.62`` inside "7.62x54R". Taking the first match made
+    the table's own order the tie-break, which is how "French Berthier M
+    1907/15 - 8mm Lebel" came to be stored as 8mm Mauser.
+
+    The armory's caliber registry has always done this, by sorting its rules
+    longest-spelling-first; here the rules are regular expressions rather than
+    literals, so the comparison is on what each one actually matched.
+    """
+    best: tuple[int, str] | None = None
+    for pattern, caliber in table:
+        match = re.search(pattern, text)
+        if match is None:
+            continue
+        # Counted in letters and digits, not characters, so that a rule
+        # allowing a gap between two words -- "Luger ... 7.65" -- scores on the
+        # two words rather than on how far apart they happened to be. Scoring
+        # the raw span would let a loose rule win on distance alone.
+        weight = sum(character.isalnum() for character in match.group(0))
+        if best is None or weight > best[0]:
+            best = (weight, caliber)
+    return best[1] if best else None
+
+
+def extract_caliber(  # noqa: PLR0911 - each branch is one rule class,
     #                     tried in order of how much it is trusted
     title: str,
     description: str | None = None,
 ) -> str | None:
     """Best-effort caliber for a listing, or ``None`` when there isn't one."""
-    title_lower = (title or "").lower()
-    haystack = f"{title or ''} {description or ''}".lower()
+    title_lower = without_percentages((title or "").lower())
+    haystack = without_percentages(f"{title or ''} {description or ''}".lower())
     if not haystack.strip():
         return None
 
@@ -318,29 +465,39 @@ def extract_caliber(  # noqa: PLR0911,PLR0912 - each branch is one rule class,
     if "carcano" in haystack:
         return _carcano(haystack)
 
-    for pattern, caliber in MODEL_CALIBERS:
-        if re.search(pattern, haystack):
-            return caliber
-
-    # The title first, on its own, and only then the description.
+    # Three passes over two kinds of evidence, weakest last.
     #
-    # Both used to be pooled into one haystack, which made the *order of the
-    # table* decide rather than what the vendor called the thing. A Zastava M83
-    # is titled ".357 Magnum Revolver" and its description says it also
-    # chambers .38 Special -- and ".38 Special" sits at index 20 of the table
-    # against ".357 Magnum" at 44, so all six of them were stored as .38
-    # Specials. Every one had the right answer in its title.
+    # **The title first, on its own, and only then the description.** Both used
+    # to be pooled into one haystack, which made the order of the table decide
+    # rather than what the vendor called the thing. A Zastava M83 is titled
+    # ".357 Magnum Revolver" and its description says it also chambers .38
+    # Special, so all six were stored as .38 Specials with the right answer in
+    # every title. A title is where a vendor says what they are selling; a
+    # description is where they talk about it.
     #
-    # The same rule the accessory test and the model matcher already follow: a
-    # title is where a vendor says what they are selling, a description is
-    # where they talk about it.
-    for pattern, caliber in CALIBER_NORMALIZATIONS:
-        if re.search(pattern, title_lower):
-            return caliber
+    # **And a cartridge the listing states beats one a designation implies.**
+    # That was the other half, and it was missing: the designation table was
+    # consulted before either pass, so "Walther PP" outranked the ".22 LR" in
+    # its own title and "AR-15" outranked "9mm Carbine". See MODEL_CARTRIDGES.
+    # The title, then the description -- and the whole contest runs inside each
+    # of them rather than across both. A bare "9mm" in a title still beats a
+    # ".40 S&W" the description mentions in passing, which is the rule this
+    # function has followed since the Zastava M83s were found filed under .38
+    # Special with ".357 Magnum" in every title.
+    named = _first_match(DESIGNATION_CALIBERS, haystack)
+    for text in (title_lower, haystack):
+        found = _longest_match(SPELLED_CARTRIDGES, text)
+        if found:
+            return found
+        # A bare metric bore is a diameter, not a cartridge. A designation may
+        # *refine* it -- 8mm on a Nambu is 8mm Nambu -- but never contradict
+        # it: a Colt AR-15 sold as a 9mm carbine is a 9mm.
+        bore = _longest_match(WEAK_BORES, text)
+        if bore:
+            return named if _same_bore(bore, named) else bore
 
-    for pattern, caliber in CALIBER_NORMALIZATIONS:
-        if re.search(pattern, haystack):
-            return caliber
+    if named:
+        return named
 
     # An unrecognized but well-formed metric caliber.
     #
@@ -373,9 +530,26 @@ def extract_caliber(  # noqa: PLR0911,PLR0912 - each branch is one rule class,
     return None
 
 
+#: A Model 38 that is not a 91/38. The **Mod. 38** was introduced in 7.35x51mm
+#: and the **M91/38** is a shortened 91 in the older 6.5x52mm, so the bare "38"
+#: means different cartridges either side of that "91/". Many 7.35 rifles were
+#: put back to 6.5 during the war, which is why a cartridge the listing states
+#: still wins over the designation.
+_CARCANO_M38 = re.compile(r"(?<!91/)(?<!91 / )\b(?:m\.?\s*38|mod(?:el|\.)?\s*38)\b")
+
+
 def _carcano(haystack: str) -> str:
-    """Which of the two Carcano cartridges a listing means."""
-    return "7.35x51mm Carcano" if "7.35" in haystack else "6.5x52mm Carcano"
+    """Which of the two Carcano cartridges a listing means.
+
+    A stated cartridge first, either way. Then the designation: a Mod. 38 left
+    the factory in 7.35x51mm, and reading it as 6.5x52mm because that is the
+    commoner Carcano round is the kind of default that is wrong quietly.
+    """
+    if "7.35" in haystack:
+        return "7.35x51mm Carcano"
+    if "6.5" in haystack:
+        return "6.5x52mm Carcano"
+    return "7.35x51mm Carcano" if _CARCANO_M38.search(haystack) else "6.5x52mm Carcano"
 
 
 def _bare_bore(haystack: str) -> str | None:
@@ -2029,6 +2203,12 @@ COUNTRY_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"\bEgyptian?\b", "Egypt"),
     (r"\bEthiopian?\b", "Ethiopia"),
     (r"\bBulgarian?\b", "Bulgaria"),
+    # Added with the modern shelf: 27 active listings say Israel or Israeli
+    # and the armory could not spell the country at all, so an IWI or IMI row
+    # had nowhere to put it. IMI and IWI are the firm's two names either side
+    # of its 2005 split and are distinctive enough to read as the country, the
+    # same way Tula and Izhevsk do for Russia.
+    (r"\bIsraeli?\b|\bIMI\b|\bIWI\b", "Israel"),
 )
 
 MANUFACTURER_PATTERNS: tuple[tuple[str, str], ...] = (

@@ -306,6 +306,14 @@ class Manufacturer(Base, TimestampMixin):
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
     #: A note for whoever edits this next.
     notes: Mapped[str | None] = mapped_column(Text)
+    #: Where this firm is, and the *last* answer offered to a listing with no
+    #: country of its own. It is a proxy for the origin of the pattern rather
+    #: than a statement of it -- a Yugoslav-built M24/47 is a German pattern --
+    #: so the listing's own country wins, then the model's, then this. Spelled
+    #: the way the classifier spells one, for the reason a model's is: both
+    #: land in the same ``items.country`` column, and "USSR" against listings
+    #: read as "Russia" splits one country into two filters.
+    country: Mapped[str | None] = mapped_column(String(64))
 
     #: A maker a scan proposed, which nobody has confirmed yet, is pending and
     #: takes no part in matching. See :class:`ArmoryStatus`.
@@ -407,6 +415,12 @@ class Caliber(Base, TimestampMixin):
         nullable=False,
         index=True,
     )
+    #: Off takes it out of matching without deleting it, exactly as for a model
+    #: or a maker. This is how a cartridge gets *rejected*: deleting is not,
+    #: because every ``propose_*`` looks a name up regardless of status, so a
+    #: surviving row suppresses re-proposal and a deleted one comes back the
+    #: next time a title names it. See migration 0018.
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
     #: Set when this row was merged into another: ".30-06 Sprg" into ".30-06".
     #: The row stays so that a listing already carrying the old spelling can be
     #: followed to the new one, and so an admin can see what became of it.

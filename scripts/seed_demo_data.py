@@ -29,6 +29,9 @@ from sqlalchemy.orm import Session  # noqa: E402
 from app.config import get_config  # noqa: E402
 from app.database import session_scope  # noqa: E402
 from app.models import (  # noqa: E402
+    ArmoryStatus,
+    FirearmKind,
+    FirearmModel,
     Item,
     ItemPhoto,
     PriceHistory,
@@ -46,6 +49,15 @@ from app.services.image_store import ImageStore  # noqa: E402
 LISTINGS: tuple[tuple[str, float | None, str, int, bool, float | None], ...] = (
     ("GERMAN K98 Mauser rifle, matching numbers", 1450.0, "Rifle", 1, False, None),
     ("RUSSIAN Mosin Nagant M91/30, Izhevsk 1943", 425.0, "Rifle", 2, False, 525.0),
+    # Four more of the same gun, so the price spectrum on the item page has a
+    # spectrum to draw. They have to agree on model, maker *and* cartridge to
+    # count as peers, which is why each spells the cartridge out: the seeder
+    # derives those fields from the title and a title naming no cartridge
+    # leaves the listing with none.
+    ("RUSSIAN Mosin Nagant M91/30 7.62x54R, Tula 1942", 380.0, "Rifle", 7, False, None),
+    ("RUSSIAN Mosin Nagant M91/30 7.62x54R, hex receiver", 610.0, "Rifle", 9, False, None),
+    ("RUSSIAN Mosin Nagant M91/30 7.62x54R, refurbished", 349.0, "Rifle", 11, False, None),
+    ("RUSSIAN Mosin Nagant M91/30 7.62x54R, sniper repro", 1450.0, "Rifle", 13, False, None),
     ("FINNISH M39 rifle, VKT, excellent bore", 1195.0, "Rifle", 3, False, None),
     ("BRITISH Lee-Enfield No.4 Mk I, 1943", 675.0, "Rifle", 4, False, 750.0),
     ("SWISS Schmidt-Rubin K31, matching", 895.0, "Rifle", 5, False, None),
@@ -247,6 +259,34 @@ def _make_placeholder_photos(store: ImageStore, item: Item, count: int) -> list[
     return written
 
 
+def _demo_model(session) -> FirearmModel:
+    """One approved armory row, so the item page has a model to open.
+
+    Everything else the seeder makes goes through classify.enrich(), which
+    never consults the armory -- so without this the "What the armory knows"
+    panel is unreachable in a demo database and the test covering it skips
+    itself, which is not a test.
+    """
+    model = session.execute(
+        select(FirearmModel).where(FirearmModel.name == "Mosin-Nagant M91/30")
+    ).scalar_one_or_none()
+    if model is None:
+        model = FirearmModel(
+            name="Mosin-Nagant M91/30",
+            aliases="M91/30\n91/30",
+            kind=FirearmKind.RIFLE,
+            country="Russia",
+            wikipedia_url="https://en.wikipedia.org/wiki/Mosin%E2%80%93Nagant",
+            status=ArmoryStatus.APPROVED,
+        )
+        session.add(model)
+        session.flush()
+    elif model.status is not ArmoryStatus.APPROVED:
+        model.status = ArmoryStatus.APPROVED
+    session.commit()
+    return model
+
+
 def seed(  # noqa: PLR0912 - a linear fixture builder; branches are per-field
     reset: bool = False, quiet: bool = False
 ) -> int:
@@ -266,6 +306,8 @@ def seed(  # noqa: PLR0912 - a linear fixture builder; branches are per-field
             session.commit()
             if not quiet:
                 print("  Cleared existing listings.")
+
+        model = _demo_model(session)
 
         created = 0
         for index, (title, price, category, age_days, sold, previous) in enumerate(ALL_LISTINGS):
@@ -324,6 +366,9 @@ def seed(  # noqa: PLR0912 - a linear fixture builder; branches are per-field
                 lowest_price=min(p for p in (price, previous) if p is not None) if price else None,
                 highest_price=max(p for p in (price, previous) if p is not None) if price else None,
                 price_changed_at=(now - timedelta(hours=index + 1)) if previous else None,
+                # Matched the way a scan would match it, so the item page has
+                # a model to open the armory panel from.
+                firearm_model_id=(model.id if "Mosin Nagant M91/30" in title else None),
             )
             session.add(item)
             session.flush()

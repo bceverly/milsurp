@@ -17,7 +17,15 @@ function kindLabel(kind) {
   const words = kind.replace(/_/g, " ");
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
-import { ChevronLeft, External, Sparkle, TrendDown, X } from "../components/Icons.jsx";
+import Modal from "../components/Modal.jsx";
+import {
+  ChevronLeft,
+  External,
+  Eye,
+  Sparkle,
+  TrendDown,
+  X,
+} from "../components/Icons.jsx";
 
 /**
  * One labeled value.
@@ -38,6 +46,165 @@ function Fact({ label, children, always = false }) {
       <div className={`fact__value ${empty ? "fact__value--unknown" : ""}`}>
         {empty ? "Unknown" : children}
       </div>
+    </div>
+  );
+}
+
+/**
+ * What the armory knows about the model this listing was matched to.
+ *
+ * A panel rather than more lines in the facts list, because it answers a
+ * different question. The facts beside it describe *this listing*: the caliber
+ * this rifle is, the country this one is said to be from. These describe the
+ * **pattern** — what the row states about every gun of that design, whoever
+ * is selling one — and the two genuinely disagree sometimes. A Steyr M95 in
+ * 8x56mmR sold by a dealer who wrote 8x50mmR is not a bug in either place, and
+ * putting both in one list would read as one.
+ *
+ * It also shows whether a person has vouched for the row. A pending model
+ * decided nothing about this listing, and "awaiting approval" is the
+ * difference between an answer and an unanswered question.
+ */
+function ArmoryPanel({ item, onClose }) {
+  const rows = [
+    ["Kind", item.model_kind ? kindLabel(item.model_kind) : null],
+    ["Country of the pattern", item.model_country],
+    ["Chambered in", item.model_calibers?.join(" · ")],
+    ["Built by", item.model_makers?.join(" · ")],
+  ];
+  return (
+    <Modal title={item.model} onClose={onClose}>
+      <p className="armory-panel__lead">
+        What the armory states about this pattern — not about this particular listing.
+        Where the two disagree, the listing keeps its own answer.
+      </p>
+      <div className="detail__facts">
+        {rows.map(([label, value]) => (
+          <Fact key={label} label={label} always>
+            {value || null}
+          </Fact>
+        ))}
+      </div>
+      {item.model_notes && <p className="armory-panel__notes">{item.model_notes}</p>}
+      {item.model_status && item.model_status !== "approved" && (
+        <p className="armory-panel__pending">
+          This row is <strong>awaiting approval</strong>, so it filled nothing in on this
+          listing. Nothing pending decides anything until somebody says yes.
+        </p>
+      )}
+      <div className="armory-panel__actions">
+        {item.model_reference_url && (
+          <a
+            className="btn btn--secondary btn--sm"
+            href={item.model_reference_url}
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            <External size={14} />
+            Reference
+          </a>
+        )}
+        <Link
+          className="btn btn--secondary btn--sm"
+          to={`/?model=${item.firearm_model_id ?? ""}&availability=all`}
+        >
+          Every listing of this model
+        </Link>
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * Where this listing sits among the others of the same gun.
+ *
+ * **The bar is scaled by rank, not by dollars**, and that is the whole design.
+ * Surplus prices are skewed hard enough to make a dollar axis useless: the 95
+ * Walther PPs in this catalog run $280 to $11,995 with a median of $600, so a
+ * dollar-scaled bar puts nine of them in ten inside its leftmost tenth. Scaled
+ * by rank, every distribution draws legibly, the median is always the middle
+ * of the bar — one reading to learn — and the marker's position *is* the
+ * sentence underneath it: cheaper than N% of them.
+ *
+ * The ends carry the true cheapest and dearest, so nothing about the range is
+ * hidden by the choice; the graduations carry the dollar values a quarter,
+ * half and three-quarters of the way along.
+ */
+function PriceSpectrum({ position, currency }) {
+  if (!position) return null;
+  // Two different numbers, and mixing them up caused both of this widget's
+  // bugs. `position` is where the marker goes — rank across the whole bar, so
+  // the extremes reach the ends. `cheaper_than` is the statistic the sentence
+  // quotes, and it counts the peers this one *undercuts*: naming it
+  // "percentile" and filling it with the fraction below the price made a $350
+  // pistol with 24 dearer peers read "cheaper than 7%".
+  const {
+    count,
+    vendors,
+    low,
+    high,
+    q1,
+    median,
+    q3,
+    cheaper_than: cheaperThan,
+  } = position;
+  const at = position.position;
+  const marks = [
+    { at: 25, value: q1 },
+    { at: 50, value: median },
+    { at: 75, value: q3 },
+  ];
+
+  return (
+    <div className="spectrum">
+      <div className="spectrum__head">
+        <strong>Where this sits</strong>
+        <span className="spectrum__peers">
+          {count} listing{count === 1 ? "" : "s"} of this model
+          {vendors > 1 ? ` across ${vendors} vendors` : ""}
+        </span>
+      </div>
+
+      <div className="spectrum__rail">
+        {marks.map((mark) => (
+          <span
+            key={mark.at}
+            className={`spectrum__tick ${mark.at === 50 ? "spectrum__tick--median" : ""}`}
+            style={{ left: `${mark.at}%` }}
+          />
+        ))}
+        {/* aria-hidden: the sentence below says the same thing in words, and
+            a screen reader reading a decorative bar adds nothing. */}
+        <span
+          className="spectrum__marker"
+          style={{ left: `${at}%` }}
+          aria-hidden="true"
+        />
+      </div>
+
+      <div className="spectrum__scale">
+        {marks.map((mark) => (
+          <span key={mark.at} className="spectrum__label" style={{ left: `${mark.at}%` }}>
+            {formatMoney(mark.value, currency)}
+          </span>
+        ))}
+      </div>
+
+      <div className="spectrum__ends">
+        <span>{formatMoney(low, currency)}</span>
+        <span>{formatMoney(high, currency)}</span>
+      </div>
+
+      <p className="spectrum__verdict">
+        {at <= 0
+          ? "The cheapest one listed."
+          : at >= 100
+            ? "The dearest one listed."
+            : `Cheaper than ${cheaperThan}% of them.`}{" "}
+        <span className="spectrum__note">
+          Spaced by rank, not by price — the middle of the bar is the median.
+        </span>
+      </p>
     </div>
   );
 }
@@ -104,6 +271,8 @@ export default function ItemDetail() {
   const [error, setError] = useState(null);
   const [activePhoto, setActivePhoto] = useState(0);
   const [lightbox, setLightbox] = useState(false);
+  const [armoryOpen, setArmoryOpen] = useState(false);
+  const [spectrum, setSpectrum] = useState(null);
 
   useTitle(item?.title);
 
@@ -119,6 +288,21 @@ export default function ItemDetail() {
       .catch((err) => {
         if (!canceled) setError(err.message);
       });
+    return () => {
+      canceled = true;
+    };
+  }, [itemId]);
+
+  // Fetched separately, and allowed to fail quietly. It answers "nothing to
+  // say" for most listings — it needs a matched model, a maker, a cartridge
+  // and three peers — so the page must not wait on it or complain about it.
+  useEffect(() => {
+    let canceled = false;
+    setSpectrum(null);
+    api
+      .itemPricePosition(itemId)
+      .then((result) => !canceled && setSpectrum(result))
+      .catch(() => !canceled && setSpectrum(null));
     return () => {
       canceled = true;
     };
@@ -269,19 +453,20 @@ export default function ItemDetail() {
                 </Link>
                 {item.model_kind && (
                   <span className="detail__model-kind">{kindLabel(item.model_kind)}</span>
-                )}
-                {item.model_reference_url && (
-                  <>
-                    {" "}
-                    <a
-                      href={item.model_reference_url}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                    >
-                      reference
-                    </a>
-                  </>
-                )}
+                )}{" "}
+                {/* The reference link used to sit here on its own, which put
+                    the least of what the armory knows on the page and left
+                    the rest — the pattern's country, what it chambers, who
+                    built it — reachable only by going to the admin page and
+                    searching for the row by name. */}
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--sm detail__armory-open"
+                  onClick={() => setArmoryOpen(true)}
+                >
+                  <Eye size={13} />
+                  What the armory knows
+                </button>
               </Fact>
             )}
             <Fact label="Manufacturer" always>
@@ -311,6 +496,11 @@ export default function ItemDetail() {
             </Fact>
             <Fact label="Photos">{photos.length || null}</Fact>
           </div>
+
+          {/* Directly under the facts and above the buy button, because it is
+              the thing somebody is about to act on: it answers "is this a good
+              deal?", which is the question the catalog exists for. */}
+          <PriceSpectrum position={spectrum} currency={item.currency} />
 
           <a
             className="btn btn--primary"
@@ -375,6 +565,10 @@ export default function ItemDetail() {
           </div>
         </div>
       </div>
+
+      {armoryOpen && item.model && (
+        <ArmoryPanel item={item} onClose={() => setArmoryOpen(false)} />
+      )}
 
       {lightbox && current && (
         <div

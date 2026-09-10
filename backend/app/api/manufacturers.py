@@ -56,6 +56,7 @@ def _to_out(row: Manufacturer, counts: dict[str, int]) -> ManufacturerOut:
         merged_into=row.merged_into.name if row.merged_into else None,
         first_seen_in=row.first_seen_in,
         item_count=counts.get(row.name, 0),
+        country=row.country,
     )
 
 
@@ -128,6 +129,7 @@ def create_manufacturer(
         position=payload.position,
         enabled=payload.enabled,
         notes=payload.notes,
+        country=(payload.country or None),
     )
     session.add(row)
     session.flush()
@@ -168,6 +170,10 @@ def update_manufacturer(
         row.enabled = payload.enabled
     if payload.notes is not None:
         row.notes = payload.notes
+    if payload.country is not None:
+        # Blank clears it: "we have not been told" is a real state, and there
+        # has to be a way back to it from a country entered by mistake.
+        row.country = payload.country.strip() or None
     touched: list[str] = [name for model in row.firearm_models for name in model.spellings]
     session.flush()
 

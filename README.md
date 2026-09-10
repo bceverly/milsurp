@@ -1351,6 +1351,97 @@ own is not a backup.** The copy silently lacks everything not yet folded in,
 which is exactly how a copy of this database turned up missing its newest
 tables. Take `-wal` and `-shm` with it, or use `make backup`.
 
+#### Three kinds of caliber evidence, and the order they are trusted in
+
+A listing can say what it chambers three ways, and they are not equally good.
+Reported from the running catalog: a Luger stored as `.30-40 Krag` (its
+description read `Condition: ~30-40%`), twelve Italian shotguns as
+`6.5x52mm Carcano`, twelve Walther P.38s — 9mm pistols — as `.38 Special`.
+Each was one table outranking another for no reason but where it sat.
+
+1. **A cartridge the listing spells.** The *longest literal match* wins, so a
+   bare `8mm` cannot beat `8mm Lebel` by sitting earlier in a table. Scored in
+   letters and digits rather than characters, which lets a rule allow a gap
+   between two words — "Swiss Luger Model 1906/1924 Waffenfabrik Bern, 7.65mm"
+   puts four words between the two that matter — without letting it win by
+   reaching further.
+2. **A bare metric bore**, which is a *diameter* and not a cartridge: `8mm` is
+   Mauser, Lebel, Nambu or 8x56R. A designation may **refine** one — 8mm on a
+   Nambu is 8mm Nambu — but never contradict it: a Colt AR-15 sold as a 9mm
+   carbine is a 9mm, whatever an AR-15 usually is.
+3. **What a designation implies**, in hand-written order rather than by length,
+   because many of those rules are "these two words co-occur" with an unbounded
+   gap. Scored on what it matched, `swiss.*rifle` beat `\bvetterli\b` and
+   relabeled five Vetterli and Peabody rifles — which state .41 Swiss and
+   10.4mm in their own titles — as 7.5x55 Swiss.
+
+The title is exhausted before the description at every step. **Percentages come
+out of the text first**: the trade writes "90% blue" and "30-40% original
+finish" constantly, and `\b` is satisfied by the `%` that follows.
+
+Measured over 4,566 active listings, 140 change. This reversed a precedence
+this file had deliberately deferred: the note on it said flipping it was a wash
+until two pattern bugs were fixed — the Berthiers, where `8mm Lebel` was misread
+by a bare `8mm`, and the Lugers, where 7.65mm means 7.65 Parabellum and not the
+.32 ACP that shares the number. Both are fixed, so the decision was taken.
+
+### Is this a good deal?
+
+The question the catalog exists to ask, and the armory is what makes it
+answerable. A listing matched to a model and carrying a maker and a cartridge
+has **peers** — 123 such groups cover 1,220 active listings, the largest being
+169 Karabiner 98ks across eight vendors — and the item page draws where this
+one sits among them: a bar from cheapest to dearest, graduations at the
+quarter, half and three-quarter marks, a marker under it, and a sentence.
+
+**Peers are the same model and cartridge — and the same maker only where the
+maker tells two guns apart.** The armory already knows which that is: a model
+row names every firm known to have built it, and the same rule the rest of the
+catalog runs on applies. `M1 Carbine` names nine firms and an Inland is not a
+Winchester, so those are different groups. `Karabiner 98k` names one, so the
+maker is settled by the model and asking the listings to agree adds nothing.
+`M57` names none, so the maker on a listing is a *derivation* — and requiring
+agreement compares derivations instead of guns. That last case is what the rule
+is for: seven Yugoslav M57 Tokarevs, all in 7.62x25mm across six vendors, split
+into groups of two and three because three vendors' titles read as Zastava (who
+built them) and two as Tokarev (who designed the pattern), so the page showed
+nothing at all for a gun six dealers were selling.
+
+The cartridge is always required, because a model built in two of them is two
+guns to a buyer: an 8x50mmR Steyr M95 is not an 8x56mmR one. Below three peers
+nothing is drawn — a marker halfway between two listings says nothing.
+
+**Where the marker goes is not the same number as the statistic beneath it.**
+The dearest of five listings undercuts four of them, which is 80%, and a marker
+at 80% of a bar whose right end carries this listing's own price is simply
+wrong. So the marker is placed by rank across the whole bar — cheapest hard
+left, dearest hard right, ties sharing the middle of their own block — and
+"cheaper than 80% of them" is left to the sentence.
+
+**The bar is scaled by rank, not by dollars, and that is the whole design.**
+Surplus prices are skewed hard, and not in one shape:
+
+| | n | min | Q1 | median | Q3 | max |
+| --- | --- | --- | --- | --- | --- | --- |
+| Walther PP | 95 | $280 | $375 | $600 | $2,245 | $11,995 |
+| Karabiner 98k | 169 | $125 | $750 | $850 | $950 | $6,995 |
+| M1 Garand | 48 | $6 | $74 | $1,800 | $3,070 | $6,000 |
+
+A dollar axis from cheapest to dearest puts nine listings in ten inside its
+leftmost tenth: one collector-grade rifle decides the scale. Clipping to the
+5th and 95th percentiles was tried and measured and does not rescue it either —
+the Walther PP's 95th is $4,788 against a median of $600, so a $350 pistol
+still lands one percent along. Scaled by rank, every distribution above draws
+legibly, the median is always the middle of the bar (one reading to learn), and
+the marker's position *is* the sentence beneath it. The ends still carry the
+true cheapest and dearest, so nothing about the range is hidden by the choice,
+and the page says the spacing is by rank.
+
+What it does **not** do is adjust for condition, and on antiques condition and
+rarity dominate price. A $6,995 K98k is not the same object as a $125 one. The
+spectrum says where a price sits among listings of the same pattern; it does
+not say the guns are interchangeable.
+
 ### The armory
 
 Everything above reads a listing and *guesses*. The catalog is the opposite: a
@@ -1416,6 +1507,107 @@ pistol and revolver, each also in flintlock and percussion. A **carbine is not
 a short rifle** — a Trapdoor Carbine and a Trapdoor Rifle are different guns,
 priced and collected separately. Variants within a model, the years and the
 arsenals and the marks, are aliases rather than kinds.
+
+**It is not a milsurp-only table.** Four vendors here sell a police trade-in
+shelf beside the surplus, so the armory carries the modern service guns too:
+Glock 17 through 48 one row per number, the Sig P-series, S&W's M&P line and
+service revolvers, the Remington 870 and 700, Mossberg 500/590, Beretta's
+92FS/PX4/APX, the AR-15 and AR-10 platforms. Before those rows the armory could
+name none of that shelf — Officer Store 0 of 14 listings, Recoil Gun Works 8 of
+229, AIM Surplus 11 of 180.
+
+The hazard in a mixed catalog is not scope, it is **collision**: a bare `G43`
+alias on the Glock 43 matches a Walther Gewehr 43 and a bare `G36` matches a
+Heckler & Koch G36, both of which are on these shelves. So every bare
+`G<number>` is qualified as `Glock G<number>`, which still catches
+"Glock G23 Gen 4". Both collisions were found by measuring what each alias hit
+that was not a Glock, and neither would have been caught by reading the list.
+
+**What the page is showing is in the URL** — the tab as a fragment
+(`/armory#manufacturer`, `#model`, `#caliber`) and the Showing filter as a
+query (`?status=approved`), so `/armory?status=approved#caliber` is a link
+somebody can send. Held in component state they were invisible to the browser,
+so Back from the armory did not return to the tab you came from — it left the
+page entirely, and which page it landed on depended on how you had arrived. The
+URL is the only copy of both, not a mirror of a `useState`, so Back and Forward
+walk them. The tab is written singular because it names *the* section, and read
+either way so a plural link still works; the default filter is left out
+entirely, because a page with no query string should be the pending queue.
+
+The trap, if you touch this: **the two halves live in different parts of the URL
+and every writer has to carry the other.** Neither `navigate({ hash })` nor
+`setSearchParams()` does — each resolves against the current path and drops what
+it was not given. And a writer must read `window.location` rather than the
+`location` from the last render, because two of these can happen before React
+re-renders: choosing a filter straight after switching tabs sent the page back
+to Models, because the filter's navigation carried a copy of the hash from
+before the tab moved.
+
+**Models say how many listings they account for**, the way makers always have.
+It was the one place the number was missing, which made "is this row worth
+filling in?" the question the page could not answer.
+
+**Which spelling is the *name* is itself editable.** "IWI" and "Israel Weapon
+Industries" are one firm, and the name is what gets written onto every listing
+the row matches — so which of them holds that job is a real decision, and it
+was one you could not make. Editing the Name field is not the same operation:
+a rename drops the old spelling, so the row stops recognizing the text it was
+built to recognize, and it strands every listing already stamped with the old
+name under a name nothing has any more. Both halves have to happen together.
+
+So each of the three tabs has **Primary name … Change…** at the top of its edit
+dialog, offering the row's own spellings — never a new one, because inventing a
+name there would be a rename in disguise and a rename has to go through the
+duplicate check. Picking one promotes it, demotes the old name to an alias, and
+restamps the listings carrying it, in a single step. A model has nothing to
+restamp: a listing points at it by id (`items.firearm_model_id`), which is
+exactly why renaming a model was always safe and renaming the other two was not.
+
+**The spelling being promoted is very often also a row.** Aliases mostly arrive
+by *merging*, and a merge leaves the source behind as a tombstone pointing at
+the target — five of `.308 Winchester`'s nine spellings are merged rows of their
+own. Taking such a name violates the unique index on `name`, which reached the
+page as an unexplained HTTP 500 in the middle of a rename. Now the live row and
+its own tombstone **swap** names: both survive, the merge pointer survives, and
+afterwards the tombstone reads "`.308 Winchester` was merged into
+`7.62x51 NATO`", which is what happened told in the naming that now applies. A
+collision with a row that is *not* this row's tombstone is refused with a
+sentence saying so — two live rows exchanging names is a merge, and that is a
+different decision.
+
+**Deleting is not how a row gets rejected, and the page now says so.** Every
+`propose_*` in `services/armory.py` looks a name up **regardless of status or
+enabled**, so any surviving row — disabled, pending, merged — permanently stops
+that name being proposed again, and a deleted one comes back the next time a
+scan meets it. *The row is the tombstone.* So the trashcan confirms first, and
+when the row is one a scan proposed it offers **Disable instead** as the
+primary action; delete stays for the case it is right for, which is a row
+somebody created by mistake.
+
+Calibers gained an `enabled` switch (migration 0018) so all three tables answer
+that the same way. Before it, a caliber's only durable "no" was *Send back for
+approval* — the same mechanism wearing a name that reads like an undo rather
+than a decision.
+
+**An armory edit writes through to the listings.** Promoting a row used to set
+a status and stop, so the listings it now explained kept saying they matched
+nothing until the next scan or a hand-run `reclassify` — which is how a
+Smith & Wesson M&P40 came to be approved while the M&P40 listing beside it
+still showed no model. Promote, send back, edit and delete now re-match, and
+report how many listings moved, so a change that did nothing is visible as
+nothing. Scoped rather than exhaustive: an edit can only change the answer for
+a listing whose text contains one of the spellings involved, which is the same
+approach the maker path has used since it existed. `make reclassify` remains
+the way to force a full rebuild.
+
+**Every row can be deleted, makers included.** That tab had only *Merge…* for
+a long time, which made merging the only way to get rid of a proposal that was
+simply wrong — and merging is the wrong tool for that, because it moves the
+source's spelling onto the target *as a live matching rule*. Folding a
+scan-proposed `PD Trade` into a real firm would have made a vendor's shelf
+label match 228 titles and stamp every one of them with that firm. Merge is for
+two names for one thing; delete is for a name that was never a thing. Deleting
+a maker re-derives every listing that carried it, and says how many moved.
 
 **A manufacturer is a tab here, not a page of its own.** Opening one expands to
 the models the armory says that firm built, with **+ Add model** offering a new
@@ -1572,10 +1764,64 @@ link are deliberate, because each changes what comes back:
   a listing that has since sold, and defaulting to available would answer "no
   listings" for precisely the rows most in need of a decision.
 
+**Where a listing is from: three answers, weakest last.** The listing's own
+always wins — whoever wrote it was looking at the gun. Then the model, which
+states where the *pattern* comes from and is right about it. Then, and only for
+a listing that still has nothing, **the maker's own country**.
+
+That last one is a proxy rather than a statement, and it is wrong for exactly
+the cases surplus is full of: a Yugoslav-built M24/47 is a German pattern, an
+Egyptian Hakim a Swedish one. It is asked anyway because it is where the blanks
+were. Measured over 4,562 active listings: 1,407 had no country at all, and
+**1,247 of those already carried a maker** — Glock on 143, Smith & Wesson on
+132, Colt on 126, Mauser on 100. Filling from the firm took country coverage
+from 69.2% to 91.5%. The order is enforced in one line of `_apply_catalog` and
+pinned by `backend/tests/test_country_precedence.py`, which uses Zastava and
+the M24/47 deliberately: a fixture where the model and the maker agree would
+pass whatever order they were asked in.
+
+**A cartridge named after a firm is not that firm.** A great many surplus
+rounds are called after whoever designed them, and a title carrying one names
+the firm without being about it. The maker rules are tried in the admin's
+order and the first to match wins, so this was not even a question of which
+appeared earlier in the title: `.40 S&W` on a Glock filed **34 Glocks under
+Smith & Wesson**, and `7.65mm Browning` on a Walther filed **46 Walthers under
+Browning**. Cartridge spellings now come out of the title and the description
+before the maker rules run — and the caliber is still asked *last*, on its own,
+because "7x57mm Mauser" naming a maker the listing never mentions is a real
+answer and stays one. Over the stored catalog: 133 listings corrected, 8 lost a
+maker, and seven of those eight were also corrections (a Hammerli, a CETME and
+a Škorpion are not Remington, S&W or Browning either).
+
+The difficulty is entirely in telling a cartridge from a pattern number, and
+three rules do it: a bare four digits is a year (`Model 1909 Mauser` keeps its
+maker), a number introduced by "Model"/"Type"/"Pattern" is a designation
+(`TURKISH Model 38 Mauser`), and a number after a slash is the second half of
+one (`Model 1909/47 Mauser`, `Model 1910/22 Browning` — missing that cost
+thirteen listings their maker on the first measurement).
+
 **What the catalog will not do is argue with a dealer.** It normalizes a
 stated caliber — the two spellings are one answer — and fills in a blank one,
 and stops there. Sixty years of surplus is full of rebarreled and rechambered
 guns, and the vendor has the thing in their hand.
+
+**A listing's armory match is redone on every scan**, not decided once when it
+was first met. Approve a model today and tonight's scan links every listing it
+reaches; rename it, disable it or send it back for approval and they let go
+again. That rests on `_upsert_item` calling `_apply_catalog` for *every*
+listing a scraper yields rather than only the ones whose price or text changed
+— which is pinned by a test, because a scan that quietly stopped re-matching
+anything unchanged would look exactly like the armory not working, on the
+listings least likely to be looked at.
+
+**And the item page shows its working.** A matched listing carries a **What the
+armory knows** button on its Model line, opening a panel with the pattern's
+country, what it chambers, who built it, the reference link and whether the row
+has actually been approved. It is a panel rather than four more lines in the
+facts list because it answers a different question: those facts describe *this
+listing*, these describe the pattern, and the two are allowed to disagree. A
+Steyr M95 in 8x56mmR sold by a dealer who wrote 8x50mmR is not a bug in either
+place, and one list would read as though it were.
 
 #### Getting it in and out
 

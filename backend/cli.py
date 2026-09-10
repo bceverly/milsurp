@@ -491,24 +491,37 @@ def cmd_reclassify(args: argparse.Namespace) -> int:
             # that needed it -- ".38 Super" stayed filed as ".38 Special" long
             # after the rule that did it was corrected, because the wrong
             # answer looked like something to preserve.
+            # Settled before the country, because the last thing asked about
+            # the country is where *this firm* is. _apply_catalog does the
+            # same in the same order; the two are separate code paths over one
+            # decision, and every field either forgets has to be found by
+            # noticing it is missing. is_police_surplus was added to one and
+            # not the other once already.
+            if args.recompute:
+                chosen_maker = manufacturers.canonical(session, found.manufacturer or maker)
+            else:
+                chosen_maker = manufacturers.canonical(session, maker or found.manufacturer)
+            from_maker = manufacturers.country_for(session, chosen_maker)
+
             if args.recompute:
                 filled = {
                     "caliber": caliber or item.caliber,
-                    # The title first, then the armory. A listing that names a
-                    # country is talking about the gun in front of them; the
-                    # model is talking about where the pattern comes from, and
-                    # it answers the far commoner case of a title that names
-                    # no country at all.
-                    "country": derived["country"] or found.country or item.country,
+                    # The title first, then the armory, then the firm. A
+                    # listing that names a country is talking about the gun in
+                    # front of them; the model is talking about where the
+                    # pattern comes from, and it answers the far commoner case
+                    # of a title that names no country at all. The maker is a
+                    # proxy for the model's answer and goes last.
+                    "country": derived["country"] or found.country or from_maker or item.country,
                     "condition": derived["condition"] or item.condition,
-                    "manufacturer": manufacturers.canonical(session, found.manufacturer or maker),
+                    "manufacturer": chosen_maker,
                 }
             else:
                 filled = {
                     "caliber": caliber,
-                    "country": item.country or derived["country"] or found.country,
+                    "country": item.country or derived["country"] or found.country or from_maker,
                     "condition": item.condition or derived["condition"],
-                    "manufacturer": manufacturers.canonical(session, maker or found.manufacturer),
+                    "manufacturer": chosen_maker,
                 }
             flags = {
                 "firearm_model_id": found.model_id,

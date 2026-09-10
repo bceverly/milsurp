@@ -13,6 +13,7 @@ value is entirely in two properties, and most of what follows tests those:
 from __future__ import annotations
 
 import pytest
+import yaml
 
 from app.models import ArmoryStatus, Caliber, FirearmKind, FirearmModel, Manufacturer
 from app.services import armory, classify
@@ -119,17 +120,17 @@ class TestNothingPendingDecidesAnything:
         armory.invalidate()
         assert armory.match(seeded, "M1 Carbine").model is None
 
-        assert armory.promote(seeded, "models", [row.id]) == 1
+        assert armory.promote(seeded, "models", [row.id])[0] == 1
         seeded.commit()
         assert armory.match(seeded, "M1 Carbine").model == "M1 Carbine"
 
     def test_sending_it_back_turns_it_off_again(self, seeded, carbine):
-        assert armory.send_back(seeded, "models", [carbine.id]) == 1
+        assert armory.send_back(seeded, "models", [carbine.id])[0] == 1
         seeded.commit()
         assert armory.match(seeded, "M1 Carbine").model is None
 
     def test_promoting_what_is_already_promoted_changes_nothing(self, seeded, carbine):
-        assert armory.promote(seeded, "models", [carbine.id]) == 0
+        assert armory.promote(seeded, "models", [carbine.id])[0] == 0
 
 
 class TestAModelMayHaveSeveralCalibers:
@@ -420,6 +421,115 @@ class TestTheShippedCatalogFile:
         seeded.commit()
         back = seeded.query(FirearmModel).filter_by(name="M1 Carbine").one()
         assert back.status is ArmoryStatus.PENDING
+
+
+class TestTheExporterCarriesEveryColumn:
+    """Checked against the table definition, not against a list kept by hand.
+
+    `Manufacturer.country` was added and the exporter was not told about it, so
+    `armory export` wrote a curated armory out with every firm's country
+    stripped -- 81 of 99 rows -- and the round-trip test below passed anyway,
+    because it compares through `plan_sync` and a sync does not look at that
+    field either. The failure was silent in both directions: the file looked
+    fine, and so did the database it came from.
+
+    Enumerating the columns is what makes the next one fail here instead. A
+    column that genuinely should not travel goes in the skip list below, with
+    its reason -- a decision somebody writes down, rather than one that can
+    happen by forgetting.
+
+    The row is built with every field set to something *non-default*, because
+    the exporter drops blanks: a field left at its default never appears in the
+    file whether the exporter knows about it or not.
+    """
+
+    #: Columns that deliberately do not go into the file, and why.
+    NOT_EXPORTED = {
+        "id",  # a surrogate key; the name is the identity in the file
+        "created_at",
+        "updated_at",
+        "merged_into_id",  # a local row id, meaningless in another database
+        "first_seen_in",  # which listings *here* proposed it: provenance, not knowledge
+    }
+
+    #: What the file calls a column, where the two differ.
+    RENAMED = {"wikipedia_url": "wikipedia"}
+
+    def _assert_every_column_travels(self, table, row, exported, section):
+        written = next(entry for entry in exported[section] if entry["name"] == row.name)
+        for column in table.__table__.columns:
+            if column.name in self.NOT_EXPORTED:
+                continue
+            expected = self.RENAMED.get(column.name, column.name)
+            assert expected in written, (
+                f"{table.__name__}.{column.name} never reaches the file. Either export "
+                f"it, or add it to NOT_EXPORTED with the reason -- an export that drops "
+                f"a column strips it out of every armory that file is carried to."
+            )
+
+    def test_a_manufacturer(self, clean_db):
+        row = Manufacturer(
+            name="Everything Works",
+            aliases="EW",
+            country="Belgium",
+            notes="a note",
+            position=42,
+            enabled=False,
+            status=ArmoryStatus.APPROVED,
+        )
+        clean_db.add(row)
+        clean_db.commit()
+        self._assert_every_column_travels(
+            Manufacturer, row, armory.export_armory(clean_db), "manufacturers"
+        )
+
+    def test_a_caliber(self, clean_db):
+        row = Caliber(
+            name="9x99mm Everything",
+            aliases="9x99",
+            notes="a note",
+            enabled=False,
+            status=ArmoryStatus.APPROVED,
+        )
+        clean_db.add(row)
+        clean_db.commit()
+        self._assert_every_column_travels(Caliber, row, armory.export_armory(clean_db), "calibers")
+
+    def test_a_model(self, clean_db):
+        maker = Manufacturer(name="Everything Works", status=ArmoryStatus.APPROVED)
+        cartridge = Caliber(name="9x99mm Everything", status=ArmoryStatus.APPROVED)
+        clean_db.add_all([maker, cartridge])
+        clean_db.flush()
+        row = FirearmModel(
+            name="Everything Model 1",
+            aliases="EM1",
+            kind=FirearmKind.RIFLE,
+            country="Belgium",
+            wikipedia_url="https://example.invalid/em1",
+            notes="a note",
+            position=42,
+            enabled=False,
+            status=ArmoryStatus.APPROVED,
+        )
+        row.manufacturers = [maker]
+        row.calibers = [cartridge]
+        clean_db.add(row)
+        clean_db.commit()
+        self._assert_every_column_travels(
+            FirearmModel, row, armory.export_armory(clean_db), "models"
+        )
+
+    def test_a_maker_country_makes_the_trip_by_value(self, clean_db, tmp_path):
+        """The specific field that was lost, pinned by value rather than by the
+        presence of a key."""
+        clean_db.add(Manufacturer(name="Mauser", country="Germany"))
+        clean_db.commit()
+
+        path = tmp_path / "catalog.yaml"
+        armory.write_export(clean_db, path)
+        written = yaml.safe_load(path.read_text(encoding="utf-8"))
+        row = next(m for m in written["manufacturers"] if m["name"] == "Mauser")
+        assert row["country"] == "Germany"
 
 
 class TestTheRoundTripToAFlatFile:
@@ -970,3 +1080,172 @@ class TestTheShippedFileNamesItsCountries:
         seeded.commit()
         garand = seeded.query(FirearmModel).filter_by(name="M1 Garand").one()
         assert garand.country == "United States"
+
+
+class TestACaliberCanBeSwitchedOff:
+    """The column added in migration 0018, and why it exists.
+
+    Three tables behaved three ways. A model or a maker could be disabled --
+    kept, taken out of matching, and left where a scan will find it and stop
+    proposing the name again. A caliber could not, so its only durable "no" was
+    "send back for approval", which is the same mechanism wearing a name that
+    reads like an undo rather than a decision.
+
+    Deleting is not the answer for any of the three: every ``propose_*`` looks
+    a name up regardless of status, so a surviving row is what suppresses
+    re-proposal and a deleted one comes back the next time a title names it.
+    """
+
+    def test_a_disabled_caliber_stops_matching(self, clean_db):
+        row = Caliber(name="9x99mm Nonsense", status=ArmoryStatus.APPROVED)
+        clean_db.add(row)
+        clean_db.commit()
+        armory.invalidate()
+        assert armory.canonical_caliber(clean_db, "a 9x99mm Nonsense rifle") == "9x99mm Nonsense"
+
+        row.enabled = False
+        clean_db.commit()
+        armory.invalidate()
+        assert armory.canonical_caliber(clean_db, "a 9x99mm Nonsense rifle") is None
+
+    def test_but_it_still_stops_a_scan_proposing_the_name(self, clean_db):
+        """The whole point of disabling rather than deleting."""
+        row = Caliber(name="9x99mm Nonsense", status=ArmoryStatus.APPROVED, enabled=False)
+        clean_db.add(row)
+        clean_db.commit()
+        armory.invalidate()
+
+        assert armory.propose_caliber(clean_db, "9x99mm Nonsense") is row
+        assert (
+            clean_db.query(Caliber).filter_by(name="9x99mm Nonsense").count() == 1
+        ), "a second row was created, so the name is being asked about again"
+
+    def test_it_survives_the_trip_through_a_file(self, clean_db, tmp_path):
+        clean_db.add(Caliber(name="9x99mm Nonsense", status=ArmoryStatus.APPROVED, enabled=False))
+        clean_db.commit()
+
+        path = tmp_path / "catalog.yaml"
+        armory.write_export(clean_db, path)
+        written = yaml.safe_load(path.read_text(encoding="utf-8"))
+        row = next(c for c in written["calibers"] if c["name"] == "9x99mm Nonsense")
+        assert row["enabled"] is False
+
+    def test_and_comes_back_off_when_seeded_somewhere_else(self, clean_db, tmp_path):
+        clean_db.add(Caliber(name="9x99mm Nonsense", status=ArmoryStatus.APPROVED, enabled=False))
+        clean_db.commit()
+        path = tmp_path / "catalog.yaml"
+        armory.write_export(clean_db, path)
+
+        clean_db.query(Caliber).delete()
+        clean_db.commit()
+        armory.seed(clean_db, path)
+        clean_db.commit()
+
+        assert clean_db.query(Caliber).filter_by(name="9x99mm Nonsense").one().enabled is False
+
+
+class TestAnEditWritesThroughToTheListings:
+    """The armory used to change what it *would* say and nothing else.
+
+    Promoting a model set a status and stopped, so every listing it now
+    explained kept saying it matched nothing until the next scan or a hand-run
+    `reclassify`. An admin who approved a row and looked at a listing saw no
+    effect and had no way to tell a working change from a no-op -- which is
+    exactly how a Smith & Wesson M&P40 came to be approved while the M&P40
+    listing beside it still said it matched no model.
+
+    Manufacturers have re-derived their listings since they existed. This is
+    models and calibers catching up.
+    """
+
+    @pytest.fixture
+    def shelf(self, clean_db):
+        from app.models import Item, Site
+
+        site = Site(slug="s", name="S", base_url="https://s.test/")
+        clean_db.add(site)
+        clean_db.flush()
+        for n, title in enumerate(
+            ("A Glock 22 Gen 4 pistol", "Another Glock 22", "Something else entirely")
+        ):
+            clean_db.add(
+                Item(
+                    site_id=site.id,
+                    external_key=f"k{n}",
+                    url="https://s.test/x",
+                    title=title,
+                )
+            )
+        clean_db.commit()
+        return clean_db
+
+    def _model(self, session, status=ArmoryStatus.PENDING):
+        row = FirearmModel(name="Glock 22", status=status)
+        session.add(row)
+        session.commit()
+        armory.invalidate()
+        return row
+
+    def test_promoting_links_the_listings_it_now_explains(self, shelf):
+        from app.models import Item
+
+        row = self._model(shelf)
+        moved, touched = armory.promote(shelf, "models", [row.id])
+        shelf.commit()
+
+        assert (moved, touched) == (1, 2)
+        linked = shelf.query(Item).filter(Item.firearm_model_id == row.id).count()
+        assert linked == 2
+
+    def test_and_says_how_many_so_a_no_op_is_visible(self, shelf):
+        """The number is the point: without it, an admin cannot tell a change
+        that worked from one that did nothing."""
+        row = self._model(shelf, status=ArmoryStatus.APPROVED)
+        assert armory.promote(shelf, "models", [row.id]) == (0, 0)
+
+    def test_sending_one_back_lets_the_listings_go(self, shelf):
+        from app.models import Item
+
+        row = self._model(shelf)
+        armory.promote(shelf, "models", [row.id])
+        shelf.commit()
+
+        moved, touched = armory.send_back(shelf, "models", [row.id])
+        shelf.commit()
+
+        assert (moved, touched) == (1, 2)
+        assert shelf.query(Item).filter(Item.firearm_model_id.is_not(None)).count() == 0
+
+    def test_disabling_one_lets_them_go_too(self, shelf):
+        """The case that left twenty-nine listings pointing at four rows
+        somebody had switched off."""
+        from app.models import Item
+
+        row = self._model(shelf)
+        armory.promote(shelf, "models", [row.id])
+        shelf.commit()
+
+        row.enabled = False
+        shelf.flush()
+        armory.invalidate()
+        assert armory.reprocess(shelf, row.spellings) == 2
+        shelf.commit()
+        assert shelf.query(Item).filter(Item.firearm_model_id.is_not(None)).count() == 0
+
+    def test_it_only_visits_listings_the_change_could_reach(self, shelf):
+        """Scoped rather than exhaustive: re-running the whole catalog on every
+        edit would be correct and slow. A listing whose text contains none of
+        the spellings involved cannot have changed its answer."""
+        row = self._model(shelf)
+        _moved, touched = armory.promote(shelf, "models", [row.id])
+        # Two Glocks, not the third listing.
+        assert touched == 2
+
+    def test_a_maker_is_left_to_its_own_path(self, clean_db):
+        """Manufacturers already re-derive their listings, in
+        api/manufacturers.py. Doing it here as well would be a second copy of
+        one decision, which is the mistake this codebase has made twice."""
+        row = Manufacturer(name="Glock", status=ArmoryStatus.PENDING)
+        clean_db.add(row)
+        clean_db.commit()
+        assert armory.promote(clean_db, "manufacturers", [row.id]) == (1, 0)

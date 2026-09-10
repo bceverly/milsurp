@@ -140,6 +140,9 @@ export const api = {
   items: (params) => request(`/api/items${qs(params)}`),
   item: (id) => request(`/api/items/${id}`),
   itemPrices: (id) => request(`/api/items/${id}/prices`),
+  // Where this listing sits among the others of the same gun. Null for most
+  // of them — it needs a matched model, a maker, a cartridge and three peers.
+  itemPricePosition: (id) => request(`/api/items/${id}/price-position`),
 
   // --- sites ---
   sites: () => request("/api/sites"),
@@ -188,6 +191,11 @@ export const api = {
     request(`/api/armory/${table}/promote`, { method: "POST", body: { ids } }),
   sendArmoryRowsBack: (table, ids) =>
     request(`/api/armory/${table}/send-back`, { method: "POST", body: { ids } }),
+  // Promote one of a row's own spellings to be its name. Not a rename: the old
+  // name stays as an alias and the listings carrying it are restamped, which
+  // is why it is a call of its own rather than a field on the edit form.
+  setArmoryPrimary: (table, id, name) =>
+    request(`/api/armory/${table}/${id}/primary`, { method: "POST", body: { name } }),
   mergeArmoryRows: (table, source_id, target_id) =>
     request(`/api/armory/${table}/merge`, {
       method: "POST",

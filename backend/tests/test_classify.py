@@ -1945,24 +1945,168 @@ class TestTheTitleOutranksTheDescriptionOnCaliber:
     def test_the_title_wins_wherever_the_table_puts_them(self, title, description, wanted):
         assert classify.extract_caliber(title, description) == wanted
 
-    def test_a_model_the_table_knows_still_outranks_both(self):
-        """MODEL_CALIBERS runs first and is deliberately left there. Making a
-        title's stated caliber beat it was measured over the catalog and is a
-        wash: it fixes the 9mm AR-15s and the Ishapore 2As in .308, and breaks
-        the Berthiers -- where "8mm Lebel" is misread as "8mm Mauser" by a bare
-        8mm pattern -- and the Lugers, where 7.65mm means 7.65 Parabellum and
-        not the .32 ACP that shares the number. Those two pattern bugs are the
-        real fault and are worth fixing before this precedence is revisited.
+    def test_a_stated_cartridge_now_outranks_a_designation(self):
+        """The precedence this class deferred, taken once its conditions were met.
+
+        The old rule was that MODEL_CALIBERS ran first, and the note here said
+        reversing it was a wash: it fixed the 9mm AR-15s and the Ishapore 2As
+        in .308, and broke the Berthiers -- "8mm Lebel" misread as 8mm Mauser
+        by a bare 8mm pattern -- and the Lugers, where 7.65mm means 7.65
+        Parabellum and not the .32 ACP that shares the number. It said those
+        two pattern bugs were the real fault and worth fixing first.
+
+        Both are fixed. A bare metric bore is no longer treated as a cartridge
+        (see `_AMBIGUOUS_BORES`), matching is by how much *literal* text a rule
+        matched rather than by table order (`_longest_match`), and the table
+        itself is split into cartridges a listing spells and cartridges a
+        designation implies. So a Lee-Enfield sold as a .22 trainer conversion
+        is a .22, which is what it is: the conversion is the whole point of the
+        listing, and .303 British was the armory answering a question the
+        seller had already answered.
         """
         assert (
             classify.extract_caliber("Lee-Enfield No 1 Mark III .22lr Trainer - Conversion")
-            == ".303 British"
+            == ".22 LR"
+        )
+        # ...and with nothing stated, the designation still answers.
+        assert classify.extract_caliber("Lee-Enfield No 1 Mark III Rifle") == ".303 British"
+
+    def test_the_two_pattern_bugs_that_gated_it(self):
+        """Kept together, because they are the reason the precedence could not
+        be changed before and the reason it can be now."""
+        assert (
+            classify.extract_caliber("French Berthier M 1907/15 - 8mm Lebel - St Etienne")
+            == "8mm Lebel"
+        )
+        assert classify.extract_caliber("DWM 1906 Luger 7.65mm Pistol") == "7.65 Luger"
+
+    def test_and_the_cases_the_change_was_for(self):
+        assert classify.extract_caliber("Scarce, Minty Colt AR-15 - 9mm Carbine") == "9mm"
+        assert classify.extract_caliber("Ishapore 2A1 .308 Win Rifle") == ".308 Winchester"
+
+    def test_a_designation_may_refine_a_bare_bore_but_not_contradict_it(self):
+        """A bare "8mm" is a diameter naming four cartridges, so a Nambu in the
+        same title settles which. A "9mm" beside an AR-15 is not something the
+        AR-15 gets to overrule."""
+        assert classify.extract_caliber("Japanese Type 14 Nambu Pistol 8mm") == "8mm Nambu"
+        assert classify.extract_caliber("Colt AR-15 9mm Carbine") == "9mm"
+
+
+class TestAPercentageIsNotACaliber:
+    """Reported from the running site: a Luger stored as .30-40 Krag.
+
+    Its description read "Type: Luger. Caliber: 9mm. Condition: ~30-40%." and
+    the pattern for .30-40 accepts the bare form, with `\\b` satisfied by the
+    "%" that follows. The trade writes these constantly -- "90% blue", "30-40%
+    original finish", "98%+" -- so they come out of the text before any
+    cartridge rule sees it.
+    """
+
+    def test_a_condition_range_is_not_a_cartridge(self):
+        assert (
+            classify.extract_caliber(
+                "Rare Weimar-Era Simson Luger",
+                "Type: Luger. Caliber: 9mm. Condition: ~30-40%.",
+            )
+            == "9mm"
         )
 
-    def test_but_the_description_is_still_read_when_the_title_is_silent(self):
-        """It is a preference, not an exclusion. Plenty of titles name no
-        cartridge at all and the prose is the only source there is."""
+    def test_a_plain_percentage_is_not_either(self):
+        assert classify.extract_caliber("A Luger", "Caliber: 9mm. 30% finish.") == "9mm"
+
+    def test_but_a_real_cartridge_reads_through_one(self):
         assert (
-            classify.extract_caliber("Russian M44 Carbine, matching", "Chambered in 7.62x54R.")
-            == "7.62x54R"
+            classify.extract_caliber("US Krag Model 1898", "Original .30-40 Krag, 90% blue")
+            == ".30-40 Krag"
         )
+        assert classify.extract_caliber("M1 Garand", "98%+ finish. Caliber: .30-06") == ".30-06"
+
+
+class TestTheTwoCarcanoCartridges:
+    """The Mod. 38 left the factory in 7.35x51mm; the M91/38 is a shortened 91
+    in the older 6.5x52mm. Reading a bare "38" as 6.5 because that is the
+    commoner Carcano round is a default that is wrong quietly."""
+
+    def test_a_model_38_is_the_7_35(self):
+        assert classify.extract_caliber("Italian Carcano M38 Short Rifle") == ("7.35x51mm Carcano")
+        assert classify.extract_caliber("Carcano Model 38 carbine") == "7.35x51mm Carcano"
+
+    def test_a_91_38_is_the_6_5(self):
+        assert classify.extract_caliber("Italian Carcano M91/38 Short Rifle") == (
+            "6.5x52mm Carcano"
+        )
+
+    def test_a_stated_cartridge_wins_either_way(self):
+        """Many 7.35 rifles were put back to 6.5 during the war, so what the
+        listing says outranks what the designation implies."""
+        assert classify.extract_caliber("Carcano M38 rifle, 6.5 Carcano") == ("6.5x52mm Carcano")
+
+    def test_anything_else_carcano_stays_the_6_5(self):
+        assert classify.extract_caliber("Italian Carcano M91/41 Rifle") == "6.5x52mm Carcano"
+
+
+class TestAMakerIsNotAModel:
+    """Twelve Italian shotguns were stored as 6.5x52mm Carcano.
+
+    `\\bbreda\\b` sat in MODEL_CALIBERS, which is consulted before anything the
+    vendor said -- so a "BREDA ASTRO 12 GA" was labeled with the cartridge of
+    the rifles Breda built in the 1890s, over the gauge in its own title.
+    """
+
+    def test_a_breda_shotgun_keeps_its_gauge(self):
+        assert classify.extract_caliber("BREDA ASTRO 12 GA") == "12-gauge"
+        assert classify.extract_caliber("BREDA ALTAIR LUSSO 12 GA SEMI AUTO") == "12-gauge"
+
+
+class TestHowTheCaliberRulesAreWeighed:
+    """Three kinds of evidence, and the order they are trusted in.
+
+    Measured over 4,566 active listings: 140 change, and the four groups this
+    class pins are the four biggest.
+
+    1. A cartridge the listing **spells**, longest literal match winning, so a
+       bare "8mm" cannot beat "8mm Lebel" by sitting earlier in a table.
+    2. A bare metric bore, which is a *diameter* and not a cartridge -- a
+       designation may refine it but never contradict it.
+    3. What a **designation** implies, in the author's hand-written order,
+       because many of those rules are "these two words co-occur" and would win
+       a length contest by reaching across half a description.
+
+    The title is exhausted before the description at every step, which is the
+    rule this file's other caliber classes already establish.
+    """
+
+    def test_length_decides_among_spellings_not_table_order(self):
+        assert classify.extract_caliber("Berthier Carbine 8mm Lebel") == "8mm Lebel"
+        assert classify.extract_caliber("PM63 PARTS KIT + 9MM MAK BARREL") == "9x18 Makarov"
+
+    def test_order_decides_among_designations(self):
+        """`swiss.*rifle` scored on what it matched beat `\\bvetterli\\b` and
+        relabeled five Vetterli and Peabody rifles -- which state .41 Swiss and
+        10.4mm in their own titles -- as 7.5x55 Swiss."""
+        assert (
+            classify.extract_caliber("W+F Bern Vetterli Model 1878/81 Rifle M.78 .41 Swiss")
+            == "10.4x47mmR"
+        )
+
+    def test_a_designation_refines_a_bare_bore(self):
+        assert classify.extract_caliber("Japanese Type 14 Nambu Pistol 8mm") == "8mm Nambu"
+
+    def test_but_never_contradicts_one(self):
+        assert classify.extract_caliber("Scarce, Minty Colt AR-15 - 9mm Carbine") == "9mm"
+
+    def test_a_gap_costs_nothing_so_two_words_can_be_apart(self):
+        """ "Swiss Luger Model 1906/1924 Waffenfabrik Bern, 7.65mm" puts four
+        words between the two that matter. Scoring letters and digits rather
+        than characters is what makes a wide gap safe to allow."""
+        assert (
+            classify.extract_caliber("Swiss Luger Model 1906/1924 Waffenfabrik Bern, 7.65mm")
+            == "7.65 Luger"
+        )
+        # ...and 7.65 without a Luger beside it is still the Browning round.
+        assert classify.extract_caliber("Mauser HSc 7.65mm") == ".32 ACP"
+
+    def test_the_p38_that_started_it(self):
+        """A P.38 is 9mm. Twelve of them were stored as .38 Special, because
+        ".38" matched inside the designation."""
+        assert classify.extract_caliber("Rare Walther P.38 - 480 Code") == "9mm Luger"

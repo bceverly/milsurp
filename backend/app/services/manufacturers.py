@@ -61,14 +61,87 @@ def pattern_for(spellings: list[str]) -> re.Pattern[str]:
     return re.compile(rf"(?<!\w)(?:{body})(?!\w)", re.IGNORECASE)
 
 
+#: Firms that also have a cartridge named after them. A title carrying one of
+#: those cartridges names the firm without being about it: ".40 S&W" on a Glock
+#: filed 34 Glocks under Smith & Wesson, and "7.65mm Browning" on a Walther
+#: filed 46 Walthers under Browning. The rules are tried in the admin's order
+#: and whichever matches first wins, so it is not even a question of which
+#: appears earlier in the title.
+_EPONYM = (
+    r"S&W|Smith\s*&\s*Wesson|Browning|Win(?:chester)?|Rem(?:ington)?|Mauser|"
+    r"Luger|Colt|Sig|Springfield|Weatherby|Norma|Lapua|Creedmoor|Nagant"
+)
+
+#: What tells a cartridge from a model year, which is the whole difficulty:
+#: ".40 S&W" is a cartridge and "Model 1909 Mauser" is a rifle whose maker
+#: really is Mauser. A cartridge's number carries a decimal point, an "x", a
+#: leading dot or an "mm" -- or it is short. A year is a bare four digits.
+#: A slash in front rules it out entirely: "Model 1909/47 Mauser" and
+#: "Model 1910/22 Browning" are designations whose second half looks exactly
+#: like a short cartridge number, and stripping those cost thirteen listings
+#: their maker on the first measurement.
+_CARTRIDGE = re.compile(
+    rf"""(?<![\w/])
+    (?: \.\d[\d.]*                      # .40  .30-06  .45
+      | \d+\.\d+                        # 7.65
+      | \d+\s*[x×]\s*\d+               # 7.62x51
+      | \d{{1,3}}                         # 45, 380 -- but never 1909
+    )
+    \s*(?:-\d+)?\s*(?:mm|MM)?\s*
+    (?:{_EPONYM})(?!\w)""",
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
+#: A word that introduces a designation. Nothing after one of these is a
+#: cartridge: "TURKISH Model 38 Mauser" is a rifle, and the 38 is its pattern
+#: number rather than a .38. Checked as trailing context in the replacement
+#: rather than as a lookbehind, because these are not all the same length and
+#: Python requires a fixed-width one.
+_DESIGNATION_WORD = re.compile(
+    r"(?i)(?:^|\W)(?:model|mod\.?|type|pattern|mk\.?|kar\.?|gew\.?|no\.?)\s*$"
+)
+
+
+def without_cartridges(text: str) -> str:
+    """The text with eponymous cartridge names taken out.
+
+    Only where the number in front of the firm reads as a cartridge rather
+    than a pattern number -- see :data:`_CARTRIDGE` and :data:`_DESIGNATION_WORD`.
+    "ANIB Beretta Mod 96 - .40 S&W" loses the cartridge and keeps Beretta;
+    "ARGENTINE Model 1909 Mauser" and "TURKISH Model 38 Mauser" are left
+    entirely alone, because there the firm is the answer.
+    """
+
+    def keep_designations(match: re.Match[str]) -> str:
+        before = match.string[: match.start()]
+        return match.group(0) if _DESIGNATION_WORD.search(before) else " "
+
+    return _CARTRIDGE.sub(keep_designations, text or "")
+
+
 class Registry:
     """The rules, in order, with the text they match."""
 
-    def __init__(self, rules: list[Rule]) -> None:
+    def __init__(self, rules: list[Rule], countries: dict[str, str] | None = None) -> None:
         self.rules = rules
+        #: Canonical maker name -> where that firm is. Kept beside the rules
+        #: rather than inside them because it answers a different question:
+        #: the rules find the maker in a title, this is looked up afterwards
+        #: from a maker already known, whoever established it.
+        self.countries = countries or {}
 
     def __len__(self) -> int:
         return len(self.rules)
+
+    def country_of(self, name: str | None) -> str | None:
+        """Where this firm is, or None when nobody has said.
+
+        The last and weakest answer to "where is this from" -- see
+        :attr:`Manufacturer.country`. Looked up by canonical name, which is
+        what a listing carries once a maker has been matched onto it.
+        """
+        return self.countries.get(name) if name else None
 
     def extract(self, text: str) -> str | None:
         for name, pattern in self.rules:
@@ -93,9 +166,16 @@ class Registry:
         that the listing itself never mentions. "SPANISH 1916 SHORT RIFLES" is
         a Mauser and does not say so anywhere.
         """
+        # The cartridges come out of the title and the prose first, and the
+        # caliber is still asked *last*: "7x57mm Mauser" naming a maker the
+        # listing never mentions is a real and useful answer, and it stays
+        # one. What changes is that it can no longer outrank a firm the title
+        # names outright -- which is what put 34 Glocks under Smith & Wesson.
+        text = without_cartridges(title or "")
+        prose = without_cartridges(description or "")
         return (
-            self.extract(title or "")
-            or self.extract(f"{title or ''} {description or ''}")
+            self.extract(text)
+            or self.extract(f"{text} {prose}")
             or (self.extract(caliber) if caliber else None)
         )
 
@@ -138,6 +218,22 @@ def _rules_from(session: Session) -> list[Rule]:
     ]
 
 
+def _countries_from(session: Session) -> dict[str, str]:
+    """Each approved maker that has said where it is, by canonical name."""
+    rows = (
+        session.execute(
+            select(Manufacturer).where(
+                Manufacturer.enabled.is_(True),
+                Manufacturer.status == ArmoryStatus.APPROVED,
+                Manufacturer.country.is_not(None),
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return {row.name: row.country for row in rows if row.country}
+
+
 def _models_by_maker(session: Session) -> dict[int, list[str]]:
     """Every spelling of every model that exactly one firm is known to have made."""
     found: dict[int, list[str]] = {}
@@ -178,7 +274,7 @@ def registry(session: Session) -> Registry:
     global _cached
     with _lock:
         if _cached is None:
-            _cached = Registry(_rules_from(session))
+            _cached = Registry(_rules_from(session), _countries_from(session))
         return _cached
 
 
@@ -363,3 +459,17 @@ def reprocess_everything(session: Session) -> int:
             item.manufacturer = found
             changed += 1
     return changed
+
+
+def country_for(session: Session, name: str | None) -> str | None:
+    """Where a maker already matched onto a listing is from.
+
+    Separate from :func:`extract` because it answers a later question: the
+    maker is settled by then, whether the listing stated it, the heuristics
+    read it or a model supplied it, and all this does is look up a fact about
+    that firm.
+
+    The weakest of the three country answers and deliberately the last one
+    tried -- see :attr:`Manufacturer.country` and ``_apply_catalog``.
+    """
+    return registry(session).country_of(name)

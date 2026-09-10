@@ -43,6 +43,7 @@ from ..schemas import (
     ArmoryIds,
     ArmoryKind,
     ArmoryMerge,
+    ArmoryPrimaryName,
     ArmorySummary,
     CaliberCreate,
     CaliberOut,
@@ -87,6 +88,25 @@ def _caliber_counts(session: DbSession) -> dict[str, int]:
     return {name: count for name, count in rows if name}
 
 
+def _listings_per_model(session: DbSession) -> dict[int, int]:
+    """How many listings each model currently accounts for.
+
+    One grouped query rather than one per row: the makers tab has done this
+    since it existed and the models tab was the one place the number was
+    missing, which made "is this row worth filling in?" the question the page
+    could not answer.
+
+    Counted over *active* listings only, the way the maker tally is: a de-listed
+    gun is not something a decision about this row will affect today.
+    """
+    rows = session.execute(
+        select(Item.firearm_model_id, func.count(Item.id))
+        .where(Item.firearm_model_id.is_not(None), Item.is_active.is_(True))
+        .group_by(Item.firearm_model_id)
+    ).all()
+    return {model_id: count for model_id, count in rows if model_id}
+
+
 def _models_per_caliber(session: DbSession) -> dict[int, int]:
     rows = session.execute(
         select(
@@ -108,6 +128,7 @@ def _caliber_out(row: Caliber, items: dict[str, int], models: dict[int, int]) ->
         merged_into=row.merged_into.name if row.merged_into else None,
         item_count=items.get(row.name, 0),
         model_count=models.get(row.id, 0),
+        enabled=row.enabled,
     )
 
 
@@ -229,7 +250,8 @@ def list_models(
         stmt = stmt.where(
             FirearmModel.name.ilike(f"%{search}%") | FirearmModel.aliases.ilike(f"%{search}%")
         )
-    return [_model_out(row) for row in session.execute(stmt).scalars()]
+    counts = _listings_per_model(session)
+    return [_model_out(row, counts.get(row.id, 0)) for row in session.execute(stmt).scalars()]
 
 
 # ---------------------------------------------------------------------------
@@ -253,18 +275,28 @@ def update_caliber(
     changes = _emptied(payload.model_dump(exclude_unset=True))
     if "name" in changes and changes["name"] != row.name:
         _reject_duplicate(session, Caliber, changes["name"])
+    # Both sides of the edit: the spellings it used to answer to have to be
+    # re-matched as well as the ones it answers to now, or a removed alias
+    # leaves its listings pointing at a rule that no longer exists.
+    spellings = list(row.spellings)
     for field, value in changes.items():
         setattr(row, field, value)
-    session.commit()
+    session.flush()
     service.invalidate()
+    service.reprocess(session, [*spellings, *row.spellings])
+    session.commit()
     return _caliber_out(row, _caliber_counts(session), _models_per_caliber(session))
 
 
 @router.delete("/calibers/{caliber_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_caliber(caliber_id: int, _admin: AdminUser, session: DbSession) -> None:
-    session.delete(_row(session, Caliber, caliber_id))
-    session.commit()
+    row = _row(session, Caliber, caliber_id)
+    spellings = list(row.spellings)
+    session.delete(row)
+    session.flush()
     service.invalidate()
+    service.reprocess(session, spellings)
+    session.commit()
 
 
 @router.post("/models", response_model=FirearmModelOut, status_code=status.HTTP_201_CREATED)
@@ -296,18 +328,30 @@ def update_model(
         row.manufacturers = _makers(session, changes.pop("manufacturer_ids") or [])
     if "caliber_ids" in changes:
         row.calibers = _calibers(session, changes.pop("caliber_ids") or [])
+    # Both sides of the edit -- see update_caliber for why.
+    spellings = list(row.spellings)
     for field, value in changes.items():
         setattr(row, field, value)
-    session.commit()
+    session.flush()
     service.invalidate()
-    return _model_out(row)
+    service.reprocess(session, [*spellings, *row.spellings])
+    session.commit()
+    return _model_out(row, _listings_per_model(session).get(row.id, 0))
 
 
 @router.delete("/models/{model_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_model(model_id: int, _admin: AdminUser, session: DbSession) -> None:
-    session.delete(_row(session, FirearmModel, model_id))
-    session.commit()
+    row = _row(session, FirearmModel, model_id)
+    spellings = list(row.spellings)
+    session.delete(row)
+    session.flush()
     service.invalidate()
+    # Or the listings it matched keep pointing at a row that has gone. The FK
+    # is ON DELETE SET NULL, so they would not dangle -- but the ones it used
+    # to explain would silently stop being explained by anything, with nothing
+    # said about it.
+    service.reprocess(session, spellings)
+    session.commit()
 
 
 # ---------------------------------------------------------------------------
@@ -317,12 +361,14 @@ def delete_model(model_id: int, _admin: AdminUser, session: DbSession) -> None:
 def promote(table: str, payload: ArmoryIds, _admin: AdminUser, session: DbSession) -> ArmoryAction:
     """Move rows into production, where they start deciding things."""
     _known_table(table)
-    moved = service.promote(session, table, payload.ids)
+    moved, touched = service.promote(session, table, payload.ids)
     session.commit()
     return ArmoryAction(
         changed=moved,
+        items_restamped=touched,
         message=(
             f"{moved} moved into production."
+            + (f" {touched} listing(s) re-matched." if touched else "")
             if moved
             else "Nothing moved; those rows are already in production."
         ),
@@ -335,12 +381,14 @@ def send_back(
 ) -> ArmoryAction:
     """Return rows to awaiting-approval, and stop them deciding anything."""
     _known_table(table)
-    moved = service.send_back(session, table, payload.ids)
+    moved, touched = service.send_back(session, table, payload.ids)
     session.commit()
     return ArmoryAction(
         changed=moved,
+        items_restamped=touched,
         message=(
             f"{moved} sent back for approval."
+            + (f" {touched} listing(s) re-matched." if touched else "")
             if moved
             else "Nothing moved; those rows are already awaiting approval."
         ),
@@ -368,6 +416,39 @@ def merge(table: str, payload: ArmoryMerge, _admin: AdminUser, session: DbSessio
             f"Merged. {restamped} listing(s) restamped."
             if restamped
             else "Merged. No listings carried the old name."
+        ),
+    )
+
+
+@router.post("/{table}/{row_id}/primary", response_model=ArmoryAction)
+def set_primary(
+    table: str,
+    row_id: int,
+    payload: ArmoryPrimaryName,
+    _admin: AdminUser,
+    session: DbSession,
+) -> ArmoryAction:
+    """Promote one of a row's own spellings to be its name.
+
+    Not the same operation as editing the Name field, which is why it is not
+    that. A rename leaves the old spelling behind -- the row stops recognizing
+    the text it was built to recognize -- and it leaves every listing already
+    stamped with the old name pointing at a name nothing has any more. This
+    keeps the old name as an alias and restamps the listings, in one step.
+    """
+    _known_table(table)
+    try:
+        restamped = service.set_primary(session, service.CURATED[table], row_id, payload.name)
+    except service.PrimaryNameError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    session.commit()
+    return ArmoryAction(
+        changed=1,
+        items_restamped=restamped,
+        message=(
+            f"{payload.name} is now the primary name. {restamped} listing(s) restamped."
+            if restamped
+            else f"{payload.name} is now the primary name."
         ),
     )
 

@@ -31,6 +31,229 @@ test.describe("armory", () => {
     await expect(chips.first()).toHaveText("Awaiting approval");
   });
 
+  test("a maker can be deleted, not only merged away", async ({ signedIn }) => {
+    /**
+     * The Manufacturers tab had no delete at all while Models and Calibers
+     * have had one throughout, so a maker a scan proposed and got wrong could
+     * only be merged into something or left in the queue. Merging is the wrong
+     * tool for that: it moves the junk spelling onto the target as a live
+     * matching rule, and the worst of them — "PD Trade" — is in 228 titles.
+     *
+     * Placed early in this file on purpose: a later test promotes every maker
+     * to production, and the list shows the pending queue by default.
+     */
+    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await expect(signedIn.locator(".alert--success")).toBeVisible();
+    await signedIn.getByRole("tab", { name: "Manufacturers" }).click();
+
+    const deletes = signedIn.getByRole("button", { name: /^Delete / });
+    await expect(deletes.first()).toBeVisible();
+    const before = await deletes.count();
+
+    await deletes.first().click();
+
+    // Confirmed rather than done: for a row a scan proposed, deleting is not
+    // what it looks like — the name comes back the next time a title carries
+    // it, because a surviving row is what suppresses re-proposal.
+    const dialog = signedIn.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: /^Delete/ }).click();
+
+    await expect(signedIn.locator(".alert--success")).toContainText("Deleted");
+    await expect(deletes).toHaveCount(before - 1);
+  });
+
+  test("the models tab has a trashcan and it confirms", async ({ signedIn }) => {
+    /** The shared models/calibers table has had a delete since it existed; what
+     *  changed is that it asks first. Pinned per tab because the actions cell
+     *  is one block of JSX shared by two tabs with different columns. */
+    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await expect(signedIn.locator(".alert--success")).toBeVisible();
+
+    for (const tab of ["Models", "Calibers"]) {
+      await signedIn.getByRole("tab", { name: tab }).click();
+      const trash = signedIn.getByRole("button", { name: /^Delete / }).first();
+      await expect(trash).toBeVisible();
+      await trash.click();
+
+      const dialog = signedIn.getByRole("dialog");
+      await expect(dialog).toBeVisible();
+      await expect(dialog).toContainText(/Delete/);
+      // Nothing is deleted by opening it.
+      await signedIn.keyboard.press("Escape");
+      await expect(dialog).toHaveCount(0);
+    }
+  });
+
+  test("deleting a scan-proposed row offers to disable it instead", async ({
+    signedIn,
+  }) => {
+    /**
+     * The trashcan looked decisive and quietly meant "ask me again next week".
+     * Every propose_* in services/armory.py looks a name up regardless of
+     * status or enabled, so any surviving row stops the name being proposed
+     * and a deleted one comes back. The row is the tombstone.
+     */
+    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await expect(signedIn.locator(".alert--success")).toBeVisible();
+    await signedIn.getByRole("tab", { name: "Calibers" }).click();
+
+    // A caliber the shipped file carries, so it has no first_seen_in and
+    // deleting it really does get rid of it.
+    const plain = signedIn.getByRole("button", { name: /^Delete / }).first();
+    await plain.click();
+    const dialog = signedIn.getByRole("dialog");
+    await expect(dialog).toContainText("should stay gone");
+    await expect(dialog.getByRole("button", { name: "Disable instead" })).toHaveCount(0);
+    await signedIn.keyboard.press("Escape");
+
+    // And the switch itself, which is what "disable instead" would set.
+    await signedIn.getByRole("tab", { name: "Calibers" }).click();
+    await signedIn.locator("tbody tr td").nth(1).locator("button").first().click();
+    await expect(signedIn.getByLabel("Enabled")).toBeVisible();
+  });
+
+  test("the tab is in the URL and Back walks between tabs", async ({ signedIn }) => {
+    /**
+     * Reported from the running site: Back from the armory jumped to a
+     * different page than the one you came from, and which page depended on
+     * how you had arrived. The tab was component state, so the browser had no
+     * idea any of it had happened — every tab click was invisible to history.
+     */
+    await signedIn.getByRole("tab", { name: "Manufacturers" }).click();
+    await expect(signedIn).toHaveURL(/#manufacturer$/);
+    await signedIn.getByRole("tab", { name: "Calibers" }).click();
+    await expect(signedIn).toHaveURL(/#caliber$/);
+
+    // Back goes to the tab before it, not off the page.
+    await signedIn.goBack();
+    await expect(signedIn).toHaveURL(/#manufacturer$/);
+    await expect(signedIn.getByRole("tab", { name: "Manufacturers" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+
+    await signedIn.goForward();
+    await expect(signedIn.getByRole("tab", { name: "Calibers" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+  });
+
+  test("Showing is in the URL too, and survives Back", async ({ signedIn }) => {
+    /**
+     * The other half of "what is this page showing". Both parts are stored in
+     * different places — the tab in the fragment, this in the query — so the
+     * thing most likely to break is one wiping the other.
+     */
+    await signedIn.getByRole("tab", { name: "Calibers" }).click();
+    await signedIn.getByLabel("Showing").selectOption("approved");
+    await expect(signedIn).toHaveURL(/\?status=approved#caliber$/);
+
+    // Changing the filter must not throw the tab away...
+    await expect(signedIn.getByRole("tab", { name: "Calibers" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    // ...and changing the tab must not throw the filter away.
+    await signedIn.getByRole("tab", { name: "Manufacturers" }).click();
+    await expect(signedIn).toHaveURL(/\?status=approved#manufacturer$/);
+    await expect(signedIn.getByLabel("Showing")).toHaveValue("approved");
+
+    // Back undoes the tab, leaving the filter where it was.
+    await signedIn.goBack();
+    await expect(signedIn).toHaveURL(/\?status=approved#caliber$/);
+    // ...and again undoes the filter.
+    await signedIn.goBack();
+    await expect(signedIn.getByLabel("Showing")).toHaveValue("pending");
+  });
+
+  test("the default filter is left out of the URL", async ({ signedIn }) => {
+    /** A page with no query string is the pending queue, which is what
+     *  somebody opening the armory has come to work through. */
+    await signedIn.goto("/armory#model");
+    await expect(signedIn.getByLabel("Showing")).toHaveValue("pending");
+    await signedIn.getByLabel("Showing").selectOption("approved");
+    await signedIn.getByLabel("Showing").selectOption("pending");
+    await expect(signedIn).toHaveURL(/\/armory#model$/);
+  });
+
+  test("a tab can be linked to directly", async ({ signedIn }) => {
+    await signedIn.goto("/armory#caliber");
+    await expect(signedIn.getByRole("tab", { name: "Calibers" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    // Read either way, so an older or hand-typed plural link still lands.
+    await signedIn.goto("/armory#manufacturers");
+    await expect(signedIn.getByRole("tab", { name: "Manufacturers" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    // And anything else falls back rather than showing an empty page.
+    await signedIn.goto("/armory#nonsense");
+    await expect(signedIn.getByRole("tab", { name: "Models" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+  });
+
+  test("an alias can be made the primary name", async ({ signedIn }) => {
+    /**
+     * "IWI" and "Israel Weapon Industries" are one firm, and which of them is
+     * the *name* decides what gets written onto every listing the row matches.
+     * By hand that is two edits which have to happen together — rename the row,
+     * then swap the alias — and between them the row either claims a spelling
+     * twice or has stopped recognizing one.
+     */
+    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await expect(signedIn.locator(".alert--success")).toBeVisible();
+    await signedIn.getByRole("tab", { name: "Calibers" }).click();
+
+    // A row with at least one alias: the control is not offered without one,
+    // because there would be nothing to choose between.
+    const row = signedIn.locator("tbody tr", { hasText: ".32 ACP" }).first();
+    await expect(row).toBeVisible();
+    await row.getByRole("button", { name: ".32 ACP", exact: true }).click();
+
+    await expect(signedIn.locator(".armory-primary-swap")).toContainText(".32 ACP");
+    await signedIn.getByRole("button", { name: "Change…" }).click();
+
+    const picker = signedIn.getByLabel("Primary name");
+    await expect(picker).toBeVisible();
+    // The current name is in the list too, marked, so the dialog can be opened
+    // and closed without being a trap.
+    await expect(picker.locator("option", { hasText: "current" })).toHaveCount(1);
+
+    const alias = (await picker.locator("option").nth(1).getAttribute("value")) || "";
+    await picker.selectOption(alias);
+    await signedIn.getByRole("button", { name: "Make it the primary" }).click();
+
+    await expect(signedIn.locator(".alert--success")).toContainText("primary name");
+    // The old name is still there as a spelling, which is the half that keeps
+    // the row matching what it used to.
+    const moved = signedIn.locator("tbody tr", { hasText: alias }).first();
+    await expect(moved).toContainText(".32 ACP");
+
+    // Put it back. This file shares one database across its tests, and a later
+    // one searches for "7.65mm Browning" expecting to find the row still
+    // called ".32 ACP".
+    await moved.getByRole("button", { name: alias, exact: true }).click();
+    await signedIn.getByRole("button", { name: "Change…" }).click();
+    await signedIn.getByLabel("Primary name").selectOption(".32 ACP");
+    await signedIn.getByRole("button", { name: "Make it the primary" }).click();
+    await expect(signedIn.locator(".alert--success")).toContainText("primary name");
+
+    // Reported from the running site: the page could not be scrolled again
+    // afterwards. Two dialogs are open at that moment — the edit dialog and
+    // this one on top of it — and each was restoring its *own* idea of what
+    // the page scrolled like before, so the second put back the "hidden" the
+    // first had set. See the counter in components/Modal.jsx.
+    await expect
+      .poll(() => signedIn.evaluate(() => document.body.style.overflow))
+      .not.toBe("hidden");
+  });
+
   test("promoting a row moves it to production and it stops being pending", async ({
     signedIn,
   }) => {
@@ -292,13 +515,31 @@ test.describe("armory", () => {
     await expect(signedIn.locator(".alert--success")).toBeVisible();
     await signedIn.getByRole("tab", { name: "Calibers" }).click();
     await signedIn.getByLabel("Showing").selectOption("");
-    await expect(
-      signedIn.locator("tbody tr", { hasText: ".303 British" }).first(),
-    ).toBeVisible();
 
-    const names = await signedIn
-      .locator("tbody tr td:nth-child(2) button")
-      .allInnerTexts();
+    // Polled for the names themselves rather than waiting on some proxy for
+    // "the reload has finished". Waiting for the loading row to be *absent*
+    // races the reload starting — it is absent before it begins too — and
+    // waiting for one row to be visible is no better, because `hasText`
+    // matches anywhere in a row and a caliber name appears on the Models tab
+    // in a Chambered-in cell. Polling the actual assertion has neither hole.
+    const probes = [
+      ".30-06 Springfield",
+      ".303 British",
+      ".32 ACP",
+      ".45 ACP",
+      "7.62x54R",
+      "12 gauge",
+    ];
+    const readNames = () =>
+      signedIn.locator("tbody tr td:nth-child(2) button").allInnerTexts();
+    await expect
+      .poll(async () => {
+        const found = await readNames();
+        return probes.every((probe) => found.includes(probe));
+      })
+      .toBe(true);
+
+    const names = await readNames();
     const at = (name) => names.indexOf(name);
     expect(at(".30-06 Springfield")).toBeLessThan(at(".303 British"));
     expect(at(".303 British")).toBeLessThan(at(".32 ACP"));
@@ -380,6 +621,23 @@ test.describe("armory", () => {
 
     const row = signedIn.locator("tbody tr", { hasText: unique });
     await expect(row).toContainText("Sweden");
+  });
+
+  test("models show how many listings they account for", async ({ signedIn }) => {
+    /** The makers tab has had this since it existed, and models was the one
+     *  place it was missing — which made "is this row worth filling in?" the
+     *  question the page could not answer. */
+    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await expect(signedIn.locator(".alert--success")).toBeVisible();
+    await signedIn.getByRole("tab", { name: "Models" }).click();
+
+    await expect(signedIn.getByRole("columnheader", { name: /Listings/ })).toBeVisible();
+    const cells = signedIn.locator("tbody tr td").filter({ hasText: /^\d+$/ });
+    await expect(cells.first()).toBeVisible();
+
+    // ...and it sorts, like every other column here.
+    await signedIn.getByRole("columnheader", { name: /Listings/ }).click();
+    await expect(signedIn.locator("tbody tr").first()).toBeVisible();
   });
 
   test("each row links to the listings it accounts for", async ({ signedIn }) => {
