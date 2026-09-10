@@ -53,7 +53,7 @@ STAR_OUTLINE_HI = "#6E9BCE"
 # Construction, which is what makes this read as the real insignia:
 #
 #   * A dark circular HUB in the center, sitting at the TOP of the z-order.
-#   * Two wings, each a constant-width band whose CENTRE LINE runs through the
+#   * Two wings, each a constant-width band whose CENTER LINE runs through the
 #     hub center. The three stripes are centered on that line, so the band of
 #     stripes is slightly narrower than the hub's diameter and the stripes
 #     appear to run behind the hub and out the other side.

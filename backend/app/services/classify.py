@@ -884,10 +884,10 @@ PISTOL_CALIBERS = (
 MIN_FIREARM_PRICE = 70.0
 
 #: ...with one exception. A frame or a receiver *is* the firearm — it is the
-#: serialised part, and it is what the law regulates — so a cheap one is a
+#: serialized part, and it is what the law regulates — so a cheap one is a
 #: handgun or a rifle in a way that a cheap sling is not. Without this a
 #: dealer's "COLT PP .38 FRAMES" at $29 came back as neither.
-#: A barrelled receiver is the same thing again: the serialised part with a
+#: A barreled receiver is the same thing again: the serialized part with a
 #: barrel on it. Dealers write it "BBL REC", "bbl action" or in full.
 _FRAME_PATTERN = re.compile(
     r"\b(?:frames?|receivers?|bbl\.?\s*rec\.?|bbl\.?\s*action|barrell?ed\s+(?:receiver|action))\b",
@@ -1343,7 +1343,7 @@ def _accessory_leads(title_lower: str) -> bool:  # noqa: PLR0911 - each return i
     # cases order was protecting -- "Leather sling for a Mauser rifle" stops
     # being evidence at "for" -- and the right one on these.
     if _FRAME_PATTERN.search(title_lower):
-        # A frame, a receiver or a barrelled action is the serialized part, so
+        # A frame, a receiver or a barreled action is the serialized part, so
         # the listing is selling a firearm however it goes on to describe it.
         # "Berthier barreled action, shortened barrel" ends in an accessory
         # word and is not an accessory.
@@ -1609,7 +1609,7 @@ def _is_gun_shaped(stripped: str) -> bool:
 #: Measured before it was written: **no listing in the stored catalog of 4,121
 #: uses a pipe in its title**, so narrowing the head-noun question to the first
 #: segment cannot change what any existing vendor is filed as. It is one shop's
-#: house style, handled where the style is recognisable.
+#: house style, handled where the style is recognizable.
 _SPEC_LIST = re.compile(r"\s\|\s")
 
 
@@ -1936,7 +1936,7 @@ def classify_firearm(  # noqa: PLR0911 - one return per rule class; a single
     #
     # Only a keyword, though — never a title that names a pistol and nothing
     # else. The caliber is often extracted from the description, and on an
-    # OCR'd flyer the description carries whatever the neighbouring panel said:
+    # OCR'd flyer the description carries whatever the neighboring panel said:
     # "MAUSER C96 PISTOL KITS" picked up "8mm Mauser" from the column beside it
     # and stopped being a handgun on the strength of it. A title naming *both*
     # ("Mauser pistol carbine") is genuinely ambiguous, and there the caliber

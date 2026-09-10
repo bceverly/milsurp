@@ -35,7 +35,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
+    let canceled = false;
     if (!getToken()) {
       setLoading(false);
       return undefined;
@@ -43,19 +43,19 @@ export function AuthProvider({ children }) {
     api
       .me()
       .then((me) => {
-        if (!cancelled) setUser(me);
+        if (!canceled) setUser(me);
       })
       .catch(() => {
-        if (!cancelled) {
+        if (!canceled) {
           setToken(null);
           setUser(null);
         }
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!canceled) setLoading(false);
       });
     return () => {
-      cancelled = true;
+      canceled = true;
     };
   }, []);
 

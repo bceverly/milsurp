@@ -78,6 +78,22 @@ class TestReading:
         out at the moment you need a restore is the wrong time."""
         assert "sqlite3" in state()["restore_hint"] or "move the file" in state()["restore_hint"]
 
+    def test_each_snapshot_says_how_to_restore_itself(self, state, isolated):
+        """A backup directory outlives a move between engines, and afterwards
+        holds both kinds. One hint for the whole list is the configuration's
+        answer, not the file's — under PostgreSQL it told an operator to
+        pg_restore two SQLite snapshots left over from before the cutover."""
+        directory = isolated.backups.directory
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / "milsurp-20260907-183958.db").write_bytes(b"sqlite")
+        (directory / "milsurp-20260909-193649.dump").write_bytes(b"pgdump")
+
+        by_name = {s["name"]: s for s in state()["snapshots"]}
+        assert by_name["milsurp-20260907-183958.db"]["engine"] == "sqlite"
+        assert by_name["milsurp-20260909-193649.dump"]["engine"] == "postgresql"
+        assert "pg_restore" in by_name["milsurp-20260909-193649.dump"]["restore_hint"]
+        assert "pg_restore" not in by_name["milsurp-20260907-183958.db"]["restore_hint"]
+
     def test_a_normal_user_cannot_see_it(self, client, normal_user):
         response = client.get("/api/admin/backups", headers=normal_user["headers"])
         assert response.status_code == 403

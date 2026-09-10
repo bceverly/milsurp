@@ -39,7 +39,7 @@ one for a general dealer:
 
 Left alone: Handguns (392) and Long Guns (179) are a modern dealer's shelf --
 BCM RECCE-16s, Radical Firearms, Spike's Tactical -- with the occasional Yugo
-SKS among them; NFA Items (221) is suppressors and short-barrelled rifles; and
+SKS among them; NFA Items (221) is suppressors and short-barreled rifles; and
 Receivers (69) and Frames (30) are components, which the standing rule keeps
 out. The trade-ins that appear in Long Guns are cross-listings of the section
 already read, and the ``seen`` set collapses them.
@@ -239,10 +239,20 @@ def _images(images: Iterable[Any]) -> list[str]:
     ``master`` is the original; the ``x40``/``x200``/``x400``/``x1200`` keys
     beside it are resizes. Falling back through them means a record that only
     carries a thumbnail still yields something.
+
+    **A gallery is not all photographs.** A video sits in the same list as
+    ``{"embed": "zPvfPM28-SI", "master": "zPvfPM28-SI"}`` -- a YouTube id, with
+    ``master`` reused to carry it rather than naming a file. Read as a filename
+    it becomes a CloudFront key that does not exist, and the bucket answers 403
+    rather than 404, so it looks like a blocked download instead of a wrong
+    URL. Eight of those were queued across the police trade-ins, three of them
+    the one product video that several listings share.
     """
     urls: list[str] = []
     for entry in images:
         if not isinstance(entry, dict):
+            continue
+        if entry.get("embed"):
             continue
         for key in ("master", "x1200", "x400", "x200"):
             name = entry.get(key)

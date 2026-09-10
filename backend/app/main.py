@@ -96,7 +96,7 @@ class SecretHealth(str, Enum):
     secret itself into the function that logs about it, and while that function
     only ever logged the setting's name, "a function that was handed a secret
     logs something" is indistinguishable — to a reader and to a static
-    analyser — from one that logs the secret. So the secret is examined here
+    analyzer — from one that logs the secret. So the secret is examined here
     and only the verdict travels on.
     """
 

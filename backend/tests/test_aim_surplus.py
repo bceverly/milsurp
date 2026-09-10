@@ -95,6 +95,20 @@ class TestTheImagesAreOnCloudFront:
     def test_rubbish_in_the_array_is_skipped(self):
         assert _images([None, "nope", {}, {"master": "ok.png"}]) == [f"{IMAGE_BASE}ok.png"]
 
+    def test_a_video_in_the_gallery_is_not_a_photograph(self):
+        """Their gallery mixes the two, and a video reuses `master` to carry a
+        YouTube id rather than a filename. Read as a filename it becomes a
+        CloudFront key that does not exist, and the bucket answers 403 rather
+        than 404 — which reads as a blocked download instead of a wrong URL.
+        Eight photographs were stuck that way across the police trade-ins."""
+        urls = _images(
+            [
+                {"master": "371-66e9976e1a21c.png"},
+                {"embed": "zPvfPM28-SI", "master": "zPvfPM28-SI"},
+            ]
+        )
+        assert urls == [f"{IMAGE_BASE}371-66e9976e1a21c.png"]
+
 
 class TestTheirPropertiesAreReadNotParsed:
     """Manufacturer, Caliber and Capacity arrive as named fields rather than as

@@ -29,7 +29,7 @@ cd "$REPO_ROOT" || exit 1
 FIRST_VERSION="1.0.0.0"
 VERSION_PATTERN='^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'
 
-# Colours as variables: a heredoc does not interpret backslash escapes, but it
+# Colors as variables: a heredoc does not interpret backslash escapes, but it
 # does expand variables, and $'...' yields the real escape byte.
 GREEN=$'\033[1;92m'
 RESET=$'\033[0m'

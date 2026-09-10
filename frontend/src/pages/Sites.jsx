@@ -152,7 +152,11 @@ function SiteCard({ site, result, onChange, onError, onDismissResult }) {
       await api.clearResting(site.id);
       onChange({ ...site, resting_seconds: null, resting_reason: null });
     } catch (err) {
-      setError(err.message);
+      // onError, not setError: this is the card, and the page owns the alert.
+      // The wrong one was a ReferenceError sitting in the one branch nobody
+      // exercises — a failed request would have replaced the error message
+      // with a crash.
+      onError(err.message);
     } finally {
       setBusy(false);
     }
@@ -210,12 +214,24 @@ function SiteCard({ site, result, onChange, onError, onDismissResult }) {
             {site.base_url}
           </a>
           <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {/*
+              Two independent facts, so two chips. Resting is a property of the
+              *host* — it outlives the scan that provoked it — while the status
+              chip is what the last scan did. Showing resting instead of the
+              status hid the outcome exactly when it mattered: a scan stopped
+              by hand looked like a scan that had lost its Stop button.
+            */}
             {site.is_scanning ? (
               <span className="chip chip--info">
                 <span className="spinner spinner--sm" />
                 Scanning…
               </span>
-            ) : site.resting_seconds ? (
+            ) : site.last_run ? (
+              <ScanStatusChip status={site.last_run.status} />
+            ) : (
+              <span className="chip chip--neutral">Never scanned</span>
+            )}
+            {Boolean(site.resting_seconds) && (
               <span
                 className="chip chip--warning"
                 title={site.resting_reason || "This host refused our requests"}
@@ -223,10 +239,6 @@ function SiteCard({ site, result, onChange, onError, onDismissResult }) {
                 <Pause size={12} />
                 Resting {formatCountdown(site.resting_seconds)}
               </span>
-            ) : site.last_run ? (
-              <ScanStatusChip status={site.last_run.status} />
-            ) : (
-              <span className="chip chip--neutral">Never scanned</span>
             )}
             {/*
               Neutral, not a warning. This states how the site is scraped — it
@@ -322,30 +334,65 @@ function SiteCard({ site, result, onChange, onError, onDismissResult }) {
           ))}
         </select>
 
-        {site.is_scanning ? (
-          <button className="btn btn--secondary btn--sm" onClick={cancel} disabled={busy}>
-            <Stop size={14} />
-            Stop
-          </button>
-        ) : (
-          <button
-            className="btn btn--primary btn--sm"
-            onClick={scanNow}
-            disabled={busy || !site.is_available || Boolean(site.resting_seconds)}
-            title={
-              site.resting_seconds
+        {/*
+          Both, always, in the same order — disabled rather than absent when
+          they do not apply. They used to swap places, and a control that
+          exists only in one state is a control nobody can find in the other:
+          Stop vanished the moment a scan ended, which read as a scan that
+          could not be stopped, and whatever came next inherited its position
+          and its click.
+        */}
+        <button
+          className="btn btn--primary btn--sm"
+          onClick={scanNow}
+          disabled={
+            busy ||
+            !site.is_available ||
+            site.is_scanning ||
+            Boolean(site.resting_seconds)
+          }
+          title={
+            site.is_scanning
+              ? "A scan is already running."
+              : site.resting_seconds
                 ? "This host asked to be left alone. Scanning it now would ignore that."
                 : undefined
-            }
-          >
-            <Play size={14} />
-            Scan now
-          </button>
-        )}
+          }
+        >
+          <Play size={14} />
+          Scan now
+        </button>
 
+        <button
+          className="btn btn--secondary btn--sm"
+          onClick={cancel}
+          disabled={busy || !site.is_scanning}
+          title={
+            site.is_scanning
+              ? "Stop this scan at its next checkpoint. Everything already saved is kept."
+              : "No scan is running."
+          }
+        >
+          <Stop size={14} />
+          Stop
+        </button>
+
+        {/*
+          Named for the state it ends, not for what it permits. "Fetch anyway"
+          read as a third way to start a scan, which left the rest itself
+          looking like something with no control at all — the one visible
+          countdown on the card and no button admitting to it. Conditional
+          because the state is: it ends a pause, and there is usually no pause.
+        */}
         {Boolean(site.resting_seconds) && (
-          <button className="btn btn--secondary btn--sm" onClick={wakeUp} disabled={busy}>
-            Fetch anyway
+          <button
+            className="btn btn--secondary btn--sm"
+            onClick={wakeUp}
+            disabled={busy}
+            title="Clear the pause and let scans and photo downloads reach this host again"
+          >
+            <Pause size={14} />
+            Stop resting
           </button>
         )}
 
@@ -362,7 +409,7 @@ function SiteCard({ site, result, onChange, onError, onDismissResult }) {
           Every scan and photo download is leaving this host alone for another{" "}
           {formatCountdown(site.resting_seconds)}
           {site.resting_reason ? ` — ${site.resting_reason}.` : "."} It refused our
-          requests, so nothing will ask it again until then.
+          requests, so nothing will ask it again until then. “Stop resting” lifts it now.
         </div>
       )}
 
@@ -385,9 +432,43 @@ function SiteCard({ site, result, onChange, onError, onDismissResult }) {
 //: How long a finished scan's result stays on screen before clearing itself.
 const RESULT_TIMEOUT_MS = 45_000;
 
+/**
+ * A vendor the roadmap intends to read and nothing can scan yet.
+ *
+ * Deliberately not a disabled SiteCard. There is no row behind it — no id, no
+ * history, nothing to enable — and dressing it as one would offer controls
+ * that cannot work. What it does carry is the honest part: what is standing
+ * between here and there, which is different for every one of them.
+ */
+function PlannedCard({ site }) {
+  return (
+    <div className="panel site-card site-card--planned">
+      <div className="site-card__top">
+        <div style={{ minWidth: 0 }}>
+          <div className="site-card__name">{site.name}</div>
+          <a
+            className="site-card__url"
+            href={site.base_url}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {site.base_url}
+          </a>
+          <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <span className="chip chip--neutral">Coming soon</span>
+            <span className="chip chip--neutral">{site.platform}</span>
+          </div>
+        </div>
+      </div>
+      <div className="site-card__planned-blocker">{site.blocker}</div>
+    </div>
+  );
+}
+
 export default function Sites() {
   useTitle("Sites");
   const [sites, setSites] = useState(null);
+  const [planned, setPlanned] = useState([]);
   const [error, setError] = useState(null);
   // siteId -> the ScanRun that just finished, for the outcome banner.
   const [results, setResults] = useState({});
@@ -455,6 +536,15 @@ export default function Sites() {
   }, [dismissResult]);
 
   useEffect(load, [load]);
+
+  // Once. These come from a registry rather than a table, so there is nothing
+  // for the scan poll to pick up and no reason for it to keep asking.
+  useEffect(() => {
+    api
+      .plannedSites()
+      .then(setPlanned)
+      .catch(() => setPlanned([]));
+  }, []);
 
   // Drop any pending auto-dismiss timers when leaving the page.
   useEffect(() => {
@@ -534,6 +624,27 @@ export default function Sites() {
             />
           ))}
         </div>
+      )}
+
+      {planned.length > 0 && (
+        <>
+          <div className="page-head page-head--section">
+            <div>
+              <h2>Coming soon</h2>
+              <p>
+                Vendors this project intends to read. Nothing scans them yet, and each one
+                says what is standing in the way — a platform nothing here speaks, a
+                catalog with no entry URL, or a door that will not open. A vendor measured
+                and turned down is not on this list.
+              </p>
+            </div>
+          </div>
+          <div className="site-list">
+            {planned.map((site) => (
+              <PlannedCard key={site.slug} site={site} />
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

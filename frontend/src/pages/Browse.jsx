@@ -395,22 +395,22 @@ export default function Browse() {
   }, [params, page, sort, availability, kind, priceState, perPage]);
 
   useEffect(() => {
-    let cancelled = false;
+    let canceled = false;
     setLoading(true);
     setError(null);
     api
       .items(query)
       .then((result) => {
-        if (!cancelled) setData(result);
+        if (!canceled) setData(result);
       })
       .catch((err) => {
-        if (!cancelled) setError(err.message);
+        if (!canceled) setError(err.message);
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!canceled) setLoading(false);
       });
     return () => {
-      cancelled = true;
+      canceled = true;
     };
   }, [query]);
 

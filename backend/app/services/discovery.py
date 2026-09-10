@@ -13,7 +13,7 @@ guess.
 
 **The risk this module is designed around is not missing things. It is junk.**
 A queue nobody reads is worse than no queue, and the way to get one is to
-propose every capitalised word in a title. So each of the three has a rule
+propose every capitalized word in a title. So each of the three has a rule
 measured over the 2,014 stored listings before it was kept, and each rule is
 tighter than the obvious version:
 
@@ -29,7 +29,7 @@ Models        Designation *shapes* -- "Model 1873", "Type 99", "K98k",
               match. Measured at 293 candidates, nearly all real.
 Manufacturers The hardest by far, and the only one with a sightings
               threshold. A firm's name has no shape to recognize, so it is
-              read positionally: the capitalised words immediately before a
+              read positionally: the capitalized words immediately before a
               designation, which is how the trade writes it ("Bernardelli
               M1934", "Norinco Type 56"). Measured precision is around two
               in three even after the filters, so a candidate must appear
@@ -64,7 +64,7 @@ MIN_MAKER_SIGHTINGS = 2
 #:
 #: **Case-sensitive on purpose.** The first version of this was case-insensitive
 #: and the bare-initials branch immediately matched "with 4" out of "Pistol with
-#: 4 magazines". Designations are capitalised wherever they are written.
+#: 4 magazines". Designations are capitalized wherever they are written.
 DESIGNATION = re.compile(
     r"""(?<![\w/.-])(?:
         (?:Model|Mod\.|Type|Pattern|Gewehr|Gew\.|Karabiner|Kar\.)\s*\d{1,4}(?:/\d{1,2}){0,2}[A-Za-z]?
@@ -323,7 +323,7 @@ def model_candidates(session: Session, title: str, caliber: str | None) -> list[
 
 
 def maker_candidates(title: str) -> list[str]:
-    """Capitalised words immediately before a designation.
+    """Capitalized words immediately before a designation.
 
     "Bernardelli M1934", "Norinco Type 56", "Grendel P.30" -- maker then
     designation is how the trade names a gun, and it is the only positional

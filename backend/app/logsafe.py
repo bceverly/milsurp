@@ -57,7 +57,7 @@ USERNAME_PATTERN = re.compile(r"[A-Za-z0-9._\-]{1,64}")
 #: an address — but :func:`scrub` only escapes it, and an escape is string
 #: manipulation as far as a taint tracker is concerned, so CodeQL went on
 #: reporting log injection on a line that was already safe. An allowlist is a
-#: barrier it recognises, and it is the stronger claim to a reader as well.
+#: barrier it recognizes, and it is the stronger claim to a reader as well.
 ADDRESS_PATTERN = re.compile(r"unknown|[0-9.]{7,15}|[0-9A-Fa-f:.]{2,45}")
 
 #: Stands in for a value that failed the allowlist. Fixed text, so it can never

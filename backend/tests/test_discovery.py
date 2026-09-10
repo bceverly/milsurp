@@ -1,7 +1,7 @@
 """Reading candidate armory rows out of listings.
 
 The property that matters is not recall. It is that the queue stays worth
-reading: a scan that proposes every capitalised word in a title produces a
+reading: a scan that proposes every capitalized word in a title produces a
 pending list nobody opens, which is worse than the empty one this replaced.
 So most of what follows is about what must *not* be proposed.
 """

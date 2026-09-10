@@ -228,6 +228,16 @@ export const Plus = (p) => (
   </Svg>
 );
 
+// An eye: go and look at the listings this armory row accounts for. Next to
+// Trash on the same row, so the shape has to read as "look" at 14px and not as
+// another destructive thing — hence the open lens rather than a filled dot.
+export const Eye = (p) => (
+  <Svg {...p}>
+    <path d="M2 12s3.8-6.5 10-6.5S22 12 22 12s-3.8 6.5-10 6.5S2 12 2 12z" />
+    <circle cx="12" cy="12" r="2.75" />
+  </Svg>
+);
+
 export const Trash = (p) => (
   <Svg {...p}>
     <path d="M4 6.5h16M9.5 6.5V4.5h5v2" />

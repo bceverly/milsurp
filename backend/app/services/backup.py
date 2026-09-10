@@ -100,6 +100,25 @@ def existing(directory: Path) -> list[Path]:
     )
 
 
+def engine_of(name: str) -> str:
+    """Which engine wrote this snapshot, read from its own name.
+
+    From the suffix rather than from the configuration, because a backup
+    directory outlives a move between engines: after one it holds both kinds,
+    and the newest file is the only one the running configuration describes.
+    Getting this from ``config`` told an operator to ``pg_restore`` two SQLite
+    files, which is a wrong answer at the one moment it costs the most.
+    """
+    return "postgresql" if name.endswith(".dump") else "sqlite"
+
+
+def restore_command(engine: str, database: str) -> str:
+    """How to put one back, for the engine that wrote it."""
+    if engine == "postgresql":
+        return f"pg_restore --clean --if-exists -d {database} <file>"
+    return "stop the service and move the file into place"
+
+
 def age_hours(directory: Path, *, now: datetime | None = None) -> float | None:
     """How long since the most recent snapshot, or None if there is none."""
     snapshots = existing(directory)

@@ -290,7 +290,7 @@ class ScrapeContext:
         if self.stopped:
             raise ScrapeCanceled("Scan canceled")
 
-    #: How often a wait looks up to see whether it has been cancelled. Short
+    #: How often a wait looks up to see whether it has been canceled. Short
     #: enough that Stop feels immediate, long enough that a five-minute wait is
     #: not a thousand pointless checks.
     STOP_CHECK_SECONDS = 0.25
@@ -308,16 +308,21 @@ class ScrapeContext:
 
         Raises :class:`ScrapeCanceled` as soon as the flag is seen, which is
         the same thing every other cancellation point does, so the scan service
-        keeps the work already done and marks the run cancelled rather than
+        keeps the work already done and marks the run canceled rather than
         failed.
         """
-        deadline = time.monotonic() + seconds
-        while True:
+        # Counted down rather than measured against the clock. Both work in
+        # production; only this one works when `time.sleep` is replaced, which
+        # is how seven test modules keep retry backoffs instant. Reading the
+        # clock instead made those spin until the real wall time caught up --
+        # a suite that looked hung, and a core at 100%.
+        self.check_stop()
+        remaining = seconds
+        while remaining > 0:
+            nap = min(remaining, self.STOP_CHECK_SECONDS)
+            time.sleep(nap)
+            remaining -= nap
             self.check_stop()
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                return
-            time.sleep(min(remaining, self.STOP_CHECK_SECONDS))
 
     # -- HTTP ---------------------------------------------------------------
     def _throttle(self, url: str) -> None:

@@ -282,17 +282,18 @@ class ImageStore:
         self._slowed: dict[str, float] = {}
         self._last_request_at: dict[str, float] = {}
 
-    #: How often a wait looks up to see whether it has been cancelled.
+    #: How often a wait looks up to see whether it has been canceled.
     STOP_CHECK_SECONDS = 0.25
 
     def _sleep(self, seconds: float) -> None:
         """Wait, but notice being told to stop. See ScrapeContext.sleep."""
-        deadline = time.monotonic() + seconds
-        while not self._should_stop():
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                return
-            time.sleep(min(remaining, self.STOP_CHECK_SECONDS))
+        # Counted down, not measured against the clock -- see
+        # ScrapeContext.sleep for why that distinction matters.
+        remaining = seconds
+        while remaining > 0 and not self._should_stop():
+            nap = min(remaining, self.STOP_CHECK_SECONDS)
+            time.sleep(nap)
+            remaining -= nap
 
     # -- path handling ------------------------------------------------------
     def _relative_path(

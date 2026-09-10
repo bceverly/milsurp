@@ -384,7 +384,7 @@ class TestThingsSoldBesideFirearms:
     """A dealer's catalog is not only firearms, and prose bleeds between them."""
 
     def test_a_blanket_is_not_a_rifle(self):
-        # Reported from a real scan: the neighbouring panel's text bled into
+        # Reported from a real scan: the neighboring panel's text bled into
         # this listing's description and it was filed as a rifle.
         assert classify.classify_firearm(
             "HAND WOVEN EXTRA LARGE VAQUERO BLANKETS",
@@ -416,7 +416,7 @@ class TestACheapFrameIsStillAFirearm:
 
     Below $70 a listing is a part or an accessory, whatever it is called — a
     $25 "Mosin Nagant rifle" is a book or a toy. A frame or a receiver is
-    different in kind: it is the serialised part, it is what the law regulates,
+    different in kind: it is the serialized part, it is what the law regulates,
     and it is the firearm. A dealer's "COLT PP .38 FRAMES" at $29 came back as
     neither rifle nor pistol before this.
     """
@@ -459,7 +459,7 @@ class TestACheapFrameIsStillAFirearm:
 class TestTheTitleOutranksTheDescription:
     """When the two disagree, the heading is the claim.
 
-    This matters most for OCR'd flyers, where a neighbouring panel's prose
+    This matters most for OCR'd flyers, where a neighboring panel's prose
     bleeds into a listing's description: "COLT PP .38 FRAMES" arrived carrying
     a paragraph about Russian carbines and was filed as a rifle.
     """
@@ -489,7 +489,7 @@ class TestACaliberDoesNotOverrideANamedPistol:
     """The caliber rule is for prose, not for a title that says "pistol".
 
     A caliber is often extracted from the description, and on an OCR'd flyer
-    the description carries whatever the neighbouring panel said: "MAUSER C96
+    the description carries whatever the neighboring panel said: "MAUSER C96
     PISTOL KITS" picked up "8mm Mauser" from the column beside it and stopped
     being a handgun on the strength of it.
     """
@@ -561,7 +561,7 @@ class TestAccessoryOrBundle:
 
 
 class TestBarrelledReceivers:
-    """ "BBL REC" is a barrelled receiver: the serialised part with a barrel."""
+    """ "BBL REC" is a barreled receiver: the serialized part with a barrel."""
 
     @pytest.mark.parametrize(
         "title",
@@ -797,7 +797,7 @@ class TestDescriptionsThatAreNotAboutTheirListing:
         assert found["country"] == "Italy"
 
     def test_the_rifle_handgun_split_still_reads_the_description(self):
-        """A judgement about a whole block of text survives some contamination;
+        """A judgment about a whole block of text survives some contamination;
         a specific claim like a caliber does not."""
         found = classify.enrich("GAHENDRA MARTINI", "a fine old rifle", trust_description=False)
         assert found["is_rifle"] is True

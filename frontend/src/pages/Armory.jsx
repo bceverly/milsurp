@@ -22,17 +22,53 @@
  *   one row a filter on either shows half the listings.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api.js";
 import { useTitle } from "../hooks.js";
 import Modal from "../components/Modal.jsx";
 import Field from "../components/Field.jsx";
-import { Plus, Refresh, Trash } from "../components/Icons.jsx";
+import { Eye, Plus, Refresh, Trash } from "../components/Icons.jsx";
 
 const TABS = [
   { key: "manufacturers", label: "Manufacturers" },
   { key: "models", label: "Models" },
   { key: "calibers", label: "Calibers" },
 ];
+
+/**
+ * The inventory, filtered to the listings one armory row accounts for.
+ *
+ * Three deliberate choices, each of which changes what comes back:
+ *
+ * - **Models filter by id, calibers and makers by name.** That is not a
+ *   preference, it is what a listing stores: `Item.firearm_model_id` is a real
+ *   foreign key, while `Item.caliber` and `Item.manufacturer` are the text a
+ *   scan read off the shop. Filtering a model by name would miss every listing
+ *   matched to it under a different spelling.
+ * - **Aliases go in too.** ".32 ACP" and "7.65mm Browning" are one cartridge
+ *   written two ways, and the filter matches the stored string exactly — so a
+ *   row with aliases needs one value per spelling or it shows half its
+ *   listings. Which is the same half-answer that makes somebody think a merge
+ *   is unnecessary.
+ * - **Everything, not just what is in stock.** A pending row usually arrived
+ *   from a listing that has since sold, and defaulting to available would
+ *   answer "no listings" for exactly the rows most in need of a decision.
+ */
+function listingsHref(tab, row) {
+  const params = new URLSearchParams();
+  if (tab === "models") {
+    params.set("model", String(row.id));
+  } else {
+    const param = tab === "calibers" ? "caliber" : "manufacturer";
+    const names = [row.name, ...(row.aliases || "").split("\n")]
+      .map((name) => name.trim())
+      .filter(Boolean);
+    // A row whose alias repeats its own name would otherwise send it twice.
+    [...new Set(names)].forEach((name) => params.append(param, name));
+  }
+  params.set("availability", "all");
+  return `/?${params.toString()}`;
+}
 
 const STATUSES = [
   { value: "pending", label: "Awaiting approval" },
@@ -828,7 +864,7 @@ export default function Armory() {
    * whose caliber list was fetched before the POST, then overwrote it and the
    * cartridge vanished from the list it had just been added to.
    *
-   * A counter rather than the effect's `cancelled` flag: that only guards the
+   * A counter rather than the effect's `canceled` flag: that only guards the
    * two setters in the effect itself, not the eight inside `load()`, and
    * `load()` is also called directly after every write.
    */
@@ -880,13 +916,13 @@ export default function Armory() {
   }, [statusFilter, search]);
 
   useEffect(() => {
-    let cancelled = false;
+    let canceled = false;
     setLoading(true);
     load()
-      .catch((error) => !cancelled && setFailure(error.message))
-      .finally(() => !cancelled && setLoading(false));
+      .catch((error) => !canceled && setFailure(error.message))
+      .finally(() => !canceled && setLoading(false));
     return () => {
-      cancelled = true;
+      canceled = true;
     };
   }, [load]);
 
@@ -1244,6 +1280,14 @@ export default function Armory() {
                           >
                             Merge…
                           </button>
+                          <Link
+                            className="btn btn--ghost btn--sm"
+                            to={listingsHref("manufacturers", maker)}
+                            aria-label={`View listings for ${maker.name}`}
+                            title="Show every listing this maker accounts for"
+                          >
+                            <Eye />
+                          </Link>
                         </td>
                       </tr>
                       {open && (
@@ -1439,6 +1483,16 @@ export default function Armory() {
                       >
                         Merge…
                       </button>
+                      <Link
+                        className="btn btn--ghost btn--sm"
+                        to={listingsHref(tab, row)}
+                        aria-label={`View listings for ${row.name}`}
+                        title={`Show every listing this ${
+                          tab === "models" ? "model" : "caliber"
+                        } accounts for`}
+                      >
+                        <Eye />
+                      </Link>
                       <button
                         type="button"
                         className="btn btn--ghost btn--sm"

@@ -10,11 +10,13 @@ from sqlalchemy import case, func, select
 from ..deps import AdminUser, CurrentUser, DbSession
 from ..models import HostCooldown, Item, ScanRun, Site, as_utc, utcnow
 from ..schemas import (
+    PlannedSiteOut,
     ScanRunOut,
     ScanStartResponse,
     SiteOut,
     SiteUpdate,
 )
+from ..scrapers.planned import PLANNED
 from ..services import cooldown, scan_service
 
 router = APIRouter(prefix="/sites", tags=["sites"])
@@ -75,6 +77,18 @@ def list_sites(_user: CurrentUser, session: DbSession) -> list[SiteOut]:
     sites = session.execute(select(Site).order_by(Site.name)).scalars().all()
     resting = _resting_hosts()
     return [_site_out(session, site, resting) for site in sites]
+
+
+#: Before ``/{site_id}``, or "planned" is parsed as a site id and 422s.
+@router.get("/planned", response_model=list[PlannedSiteOut])
+def list_planned(_user: CurrentUser) -> list[PlannedSiteOut]:
+    """Vendors the roadmap intends to read, and what each is waiting on.
+
+    From the registry rather than the database: nothing here has a row, and
+    giving one to a site that cannot be scanned would put it in every count,
+    every scheduler pass and every digest that asks the database what exists.
+    """
+    return [PlannedSiteOut(**vars(site)) for site in PLANNED]
 
 
 @router.get("/{site_id}", response_model=SiteOut)

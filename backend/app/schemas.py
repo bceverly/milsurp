@@ -132,6 +132,21 @@ class SiteOut(UTCModel):
     resting_reason: str | None = None
 
 
+class PlannedSiteOut(BaseModel):
+    """A vendor the roadmap intends to read but nothing can scan yet.
+
+    Deliberately not a :class:`SiteOut` with the interesting fields blank: it
+    has no id, no history and nothing to enable, and giving it the shape of one
+    would invite the page to offer controls that cannot work.
+    """
+
+    slug: str
+    name: str
+    base_url: str
+    platform: str
+    blocker: str
+
+
 class SiteUpdate(BaseModel):
     enabled: bool | None = None
     # Five minutes is the floor: anything tighter is abusive to the vendor and
@@ -654,6 +669,10 @@ class BackupSnapshotOut(BaseModel):
     name: str
     bytes: int
     taken_at: str
+    #: Per file, not per configuration: a backup directory outlives a move
+    #: between engines and afterwards holds both kinds.
+    engine: str
+    restore_hint: str
 
 
 class BackupStateOut(BaseModel):

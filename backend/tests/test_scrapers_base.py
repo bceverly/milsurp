@@ -145,7 +145,7 @@ class TestCrawlDelay:
         finally:
             context.close()
 
-        assert slept and max(slept) > 9
+        assert slept and sum(slept) > 9
 
     @responses.activate
     def test_our_own_delay_wins_when_it_is_longer(self, app_config, monkeypatch):
@@ -165,7 +165,7 @@ class TestCrawlDelay:
         finally:
             context.close()
 
-        assert max(slept) > 29
+        assert sum(slept) > 29
 
 
 class TestBeingRateLimited:
@@ -180,6 +180,14 @@ class TestBeingRateLimited:
 
     @pytest.fixture
     def slept(self, monkeypatch):
+        """Every nap the context took, in order.
+
+        **Assert on the sum, not on any one entry.** A wait is served in short
+        slices so that Stop is noticed during it — see ScrapeContext.sleep —
+        so a thirty-second pause arrives here as a long run of 0.25s naps
+        rather than as a single 30.0. What these tests care about is how long
+        the context waited in total, which is what the sum says.
+        """
         recorded: list[float] = []
         monkeypatch.setattr("app.scrapers.base.time.sleep", recorded.append)
         return recorded
@@ -211,7 +219,7 @@ class TestBeingRateLimited:
         finally:
             context.close()
 
-        assert max(slept) >= 30
+        assert sum(slept) >= 30
 
     @responses.activate
     def test_retry_after_in_seconds_is_honored(self, obeying, slept):
@@ -224,7 +232,7 @@ class TestBeingRateLimited:
         finally:
             context.close()
 
-        assert max(slept) >= 90
+        assert sum(slept) >= 90
 
     @responses.activate
     def test_retry_after_as_a_date_is_honored(self, obeying, slept):
@@ -241,7 +249,7 @@ class TestBeingRateLimited:
         finally:
             context.close()
 
-        assert max(slept) >= 100
+        assert sum(slept) >= 100
 
     @responses.activate
     def test_a_second_refusal_slows_it_further(self, obeying, slept):

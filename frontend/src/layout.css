@@ -1097,7 +1097,7 @@
      It was --silver-100 (#eef1f6) on a white card on a --paper (#f4f6fa)
      page: a contrast ratio of 1.05 against the page, which is no edge at all,
      so the strip read as a gap between cards. The first attempt at fixing it
-     moved to --navy-50 (#eef3fb) — 1.016 against the colour it replaced, which
+     moved to --navy-50 (#eef3fb) — 1.016 against the color it replaced, which
      is to say invisible, and 1.03 against the page, which is worse. Measure
      these rather than eyeballing hex codes that look different in a diff.
      --silver-300 is 1.46 against the page and 1.58 against the card. */
@@ -1106,8 +1106,8 @@
 .site-card__stat {
   padding: 10px 12px;
   text-align: center;
-  /* White, because the dividers now sit *on* a filled band: a grey line on a
-     grey fill is the same mistake one level down. */
+  /* White, because the dividers now sit *on* a filled band: a gray line on a
+     gray fill is the same mistake one level down. */
   border-right: 1px solid var(--surface);
 }
 .site-card__stat:last-child {
@@ -1123,7 +1123,7 @@
   font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  /* Darker now there is real colour underneath: 8:1 on the filled band, where
+  /* Darker now there is real color underneath: 8:1 on the filled band, where
      --ink-400 would have been 3.4:1 on 10.5px uppercase text. */
   color: var(--ink-700);
   margin-top: 1px;
@@ -1180,7 +1180,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  /* Still show activity, without the travelling bar. */
+  /* Still show activity, without the traveling bar. */
   .site-card__progress-bar {
     animation: scan-pulse 1.6s ease-in-out infinite;
     left: 0;
@@ -1704,4 +1704,40 @@
 .detail__model-kind {
   margin-left: 0.5rem;
   opacity: 0.75;
+}
+
+/* --- Coming soon --------------------------------------------------------- */
+/* A vendor the roadmap intends to read. Quieter than a real site card on
+   purpose: it is a promise rather than a thing with a state, and it should not
+   compete for attention with the cards that can actually be acted on. */
+.page-head--section {
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid var(--silver-200);
+}
+
+.page-head--section h2 {
+  font-size: 17px;
+  margin: 0;
+}
+
+.site-card--planned {
+  border-style: dashed;
+  background: var(--silver-100);
+}
+
+.site-card--planned .site-card__top {
+  border-bottom: 0;
+}
+
+.site-card--planned .site-card__name {
+  color: var(--ink-500);
+}
+
+/* What is standing in the way, which is the whole point of the card. */
+.site-card__planned-blocker {
+  margin: 0 16px 14px;
+  color: var(--ink-500);
+  font-size: 12.5px;
+  line-height: 1.55;
 }

@@ -86,7 +86,7 @@ class TestHeadingDetection:
             assert not flyer.is_heading(self.line(text))
 
     def test_size_is_not_consulted_at_all(self):
-        """The signal is capitalisation, deliberately, not height.
+        """The signal is capitalization, deliberately, not height.
 
         An all-caps heading's bounding box is no taller than a line of prose
         with ascenders and descenders, so a height rule found five headings on
@@ -148,7 +148,7 @@ class TestGrouping:
         Anything after it is an option — "Add $25 for hand select." Treating
         each amount as its own listing, which an early version did, invented
         products called "and" and "Hand select while available". Taking the
-        largest instead held until a listing's text bled into its neighbour's,
+        largest instead held until a listing's text bled into its neighbor's,
         and then reached over and took the bigger number.
         """
         listings = flyer.listings_from_lines(
@@ -482,7 +482,7 @@ class TestHeadingAttachment:
 
     def test_prose_in_front_of_a_name_is_dropped(self):
         """Every product here is named in capitals, so lower case ahead of it
-        is something that leaked in from a neighbouring panel."""
+        is something that leaked in from a neighboring panel."""
         listings = flyer.listings_from_lines(
             [
                 self.line("Swedish steel. GAHENDRA MARTINI RIFLE", panel=1, y=0),
@@ -534,7 +534,7 @@ class TestListItemsWhoseBulletWasLost:
 
     The lists set each item's name in capitals and then continue in sentence
     case — "BRITISH NO4 MK1 RIFLES as is $88.00." — so the line is neither
-    bulleted nor capitalised enough to read as a heading, and it was being
+    bulleted nor capitalized enough to read as a heading, and it was being
     swallowed by the item above along with its price. On the real page that
     handed the bayonet grab bag the British No4's $88.
     """
@@ -600,7 +600,7 @@ class TestPriceIsNotBorrowedFromANeighbour:
     def test_the_first_amount_wins_over_a_larger_later_one(self):
         """Measured on the real page: hand-woven blankets came out at $99.00
         instead of $36.88, having taken the number from the panel beside them,
-        and a barrelled receiver at $47.88 instead of $45.00."""
+        and a barreled receiver at $47.88 instead of $45.00."""
         listings = flyer.listings_from_lines(
             [
                 flyer.TextLine(text=t, box=(0, i * 60, 400, i * 60 + 50), height=50, panel=1)
@@ -800,7 +800,7 @@ class TestPricesPrintedOverAPhotograph:
     """Recovering the prices tesseract files under "picture" and never reads.
 
     The second pass is faked here rather than driven through tesseract. The
-    behaviour worth pinning down is what gets merged and what does not: a real
+    behavior worth pinning down is what gets merged and what does not: a real
     scan proved the reading works and cost several products their text before
     the merge was narrowed to single words.
     """
@@ -1087,7 +1087,7 @@ class TestALicenseIsNotAProduct:
 
 
 class TestADescriptionBelongsToItsOwnListing:
-    """OCR reads lines; a line carries its neighbours.
+    """OCR reads lines; a line carries its neighbors.
 
     Grouping cuts a page into listings, but a line routinely holds the tail of
     the panel above or the head of the one below, so a description arrives with

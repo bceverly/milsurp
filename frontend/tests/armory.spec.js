@@ -382,6 +382,57 @@ test.describe("armory", () => {
     await expect(row).toContainText("Sweden");
   });
 
+  test("each row links to the listings it accounts for", async ({ signedIn }) => {
+    /**
+     * The question the page cannot answer on its own. Deciding whether two
+     * calibers should be merged means looking at what each one is actually
+     * holding, and before this the only route there was retyping the name
+     * into the inventory's search box.
+     */
+    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await signedIn.getByRole("tab", { name: "Calibers" }).click();
+
+    const row = signedIn.locator("tbody tr").first();
+    const view = row.getByRole("link", { name: /^View listings for/ });
+    await expect(view).toBeVisible();
+
+    const href = await view.getAttribute("href");
+    // The filter matches the stored string exactly, and everything rather
+    // than what is in stock: a pending row usually arrived from a listing
+    // that has since sold.
+    expect(href).toContain("caliber=");
+    expect(href).toContain("availability=all");
+
+    // The name comes off the link's own label rather than out of the name
+    // cell, which also carries a reference link and a status chip.
+    const label = await view.getAttribute("aria-label");
+    const caliber = label.replace("View listings for ", "");
+
+    await view.click();
+    await expect(signedIn.getByRole("heading", { name: "Inventory" })).toBeVisible();
+    await expect(signedIn.locator(".active-filters__chip").first()).toContainText(
+      caliber,
+    );
+  });
+
+  test("a model links by id rather than by name", async ({ signedIn }) => {
+    /**
+     * Because that is what a listing stores. `Item.firearm_model_id` is a real
+     * foreign key while caliber and manufacturer are the text a scan read off
+     * the shop, so filtering a model by name would miss every listing matched
+     * to it under a different spelling.
+     */
+    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await signedIn.getByRole("tab", { name: "Models" }).click();
+
+    const view = signedIn
+      .locator("tbody tr")
+      .first()
+      .getByRole("link", { name: /^View listings for/ });
+    await expect(view).toBeVisible();
+    expect(await view.getAttribute("href")).toMatch(/[?&]model=\d+/);
+  });
+
   test("the country box suggests the spellings the classifier uses", async ({
     signedIn,
   }) => {

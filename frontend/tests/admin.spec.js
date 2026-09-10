@@ -50,7 +50,7 @@ test.describe("sites", () => {
     /**
      * Added for Collectors Firearms, whose crawl delay makes a pass cost
      * hours: weekly was the longest the list offered and it was not long
-     * enough. Labelled "Every 2 weeks" rather than "biweekly", which means
+     * enough. Labeled "Every 2 weeks" rather than "biweekly", which means
      * both "every two weeks" and "twice a week".
      */
     await signedIn.goto("/sites");
@@ -63,6 +63,28 @@ test.describe("sites", () => {
     await expect(signedIn.locator(".site-card").first().locator("select")).toHaveValue(
       "20160",
     );
+  });
+
+  test("both scan controls are on the card whether or not one is running", async ({
+    signedIn,
+  }) => {
+    /**
+     * They used to swap places, and a control that exists only in one state is
+     * a control nobody can find in the other. Stop disappeared the moment a
+     * scan ended — which reads as a scan that cannot be stopped — and whatever
+     * was rendered next inherited its position and its click.
+     */
+    await signedIn.goto("/sites");
+    const card = signedIn.locator(".site-card", { hasText: "Demo Vendor" });
+    const scan = card.getByRole("button", { name: "Scan now" });
+    const stop = card.getByRole("button", { name: "Stop", exact: true });
+
+    await expect(scan).toBeVisible();
+    await expect(stop).toBeVisible();
+
+    // Idle: startable, and nothing to stop.
+    await expect(scan).toBeEnabled();
+    await expect(stop).toBeDisabled();
   });
 
   test("scan now shows progress, then the outcome", async ({ signedIn }) => {
@@ -110,6 +132,26 @@ test.describe("sites", () => {
     await expect(lastScan).toContainText(/second|minute|just now|ago/i);
     // ...and how long it took end to end, as seconds or m/s.
     await expect(scanTime).toContainText(/^\d+(\.\d+)?s|^\d+m \d+s/m);
+  });
+
+  test("vendors that are not built yet are listed as coming soon", async ({
+    signedIn,
+  }) => {
+    /**
+     * The question the page gets asked after "what is here?", which is "is
+     * that all of them?". Each card says what is standing in the way, because
+     * "not written yet" and "cannot get in" are different kinds of waiting.
+     */
+    await signedIn.goto("/sites");
+    await expect(signedIn.getByRole("heading", { name: "Coming soon" })).toBeVisible();
+
+    const planned = signedIn.locator(".site-card--planned");
+    await expect(planned.first()).toBeVisible();
+
+    // Nothing to operate: no row behind it, so no controls that could work.
+    await expect(planned.first().getByRole("button")).toHaveCount(0);
+    await expect(planned.first().locator("select")).toHaveCount(0);
+    await expect(planned.first()).toContainText("Coming soon");
   });
 
   test("scan history is reachable from a site", async ({ signedIn }) => {

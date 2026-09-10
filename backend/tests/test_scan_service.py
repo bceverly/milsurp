@@ -760,7 +760,7 @@ class TestDownloadPendingPhotos:
         calls: list[str] = []
 
         class FailingStore:
-            def __init__(self, _config):
+            def __init__(self, _config, should_stop=None):
                 pass
 
             def fetch(self, _session, _slug, url):
@@ -786,7 +786,7 @@ class TestDownloadPendingPhotos:
         self._always_fails(monkeypatch, reason="unsupported content type image/svg+xml")
 
         class Discarding:
-            def __init__(self, _config):
+            def __init__(self, _config, should_stop=None):
                 pass
 
             def fetch(self, _session, _slug, _url):
@@ -808,7 +808,7 @@ class TestDownloadPendingPhotos:
         item = self._seed_photos(clean_db, fake_site, 1)
 
         class Discarding:
-            def __init__(self, _config):
+            def __init__(self, _config, should_stop=None):
                 pass
 
             def fetch(self, _session, _slug, _url):
@@ -933,7 +933,7 @@ class TestDownloadPendingPhotos:
         clean_db.commit()
 
         class WorkingStore:
-            def __init__(self, _config):
+            def __init__(self, _config, should_stop=None):
                 pass
 
             def fetch(self, _session, _slug, _url):
@@ -957,7 +957,7 @@ class TestDownloadPendingPhotos:
         calls: list[str] = []
 
         class FakeStore:
-            def __init__(self, _config):
+            def __init__(self, _config, should_stop=None):
                 pass
 
             def fetch(self, _session, _slug, url):

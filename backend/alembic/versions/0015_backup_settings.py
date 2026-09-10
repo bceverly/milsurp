@@ -13,7 +13,7 @@ is a worse idea than a default nobody can change from a browser.
 what it had. After that the row is authoritative and the file is ignored, which
 is the only arrangement with one source of truth. Reading the config here rather
 than hard-coding the defaults is what makes the upgrade invisible to anyone who
-had customised it.
+had customized it.
 
 Revision ID: 0015
 Revises: 0014

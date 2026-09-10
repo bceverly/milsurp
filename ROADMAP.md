@@ -65,6 +65,15 @@ Cloudflare challenge rather than a rendering problem.
 
 ### Planned
 
+**This list is now also in the application.** `app/scrapers/planned.py` carries
+the seven vendors still queued, and the Sites page shows them under **Coming
+soon** with what each is waiting on. It is deliberately narrower than this
+section: only vendors that are still going to be built, never one that was
+measured and refused — Impact Guns, USA Gun Shop, Edelweiss Arms, The Mosin
+Crate, Century Arms — because listing a refusal as "coming soon" quietly
+reverses it. `backend/tests/test_planned_sites.py` fails if a planned vendor
+gains a scraper, so a shipped site cannot go on promising itself.
+
 Ordered by a rough guess at effort. The platform column matters more than the
 site, because the reusable base class is most of the work: two of them —
 WooCommerce and BigCommerce — are now shipped, and a site on either is a subclass
@@ -838,10 +847,19 @@ thumbnail to `'https://dvjr4l3xblvos.cloudfront.net/categories/' +
 category.image`. The products sibling of that path answers 200, and the
 `master` key is full resolution.
 
+**A gallery is not all photographs.** A video sits in the same array as
+`{"embed": "zPvfPM28-SI", "master": "zPvfPM28-SI"}` — a YouTube id, with
+`master` reused to carry it rather than naming a file. Read as a filename it
+becomes a CloudFront key that does not exist, and the bucket answers **403
+rather than 404**, so eight queued downloads looked like a host blocking us
+instead of eight URLs that were never pictures. Three of the eight were the one
+product video several trade-in listings share. Entries carrying `embed` are
+skipped.
+
 **Two of seven firearm sections read.** Handguns (392) and Long Guns (179) are
 a modern dealer's shelf — BCM RECCE-16s, Radical Firearms, Spike's Tactical —
 with the occasional Yugo SKS among them; NFA Items (221) is suppressors and
-short-barrelled rifles; Receivers (69) and Frames (30) are components. The
+short-barreled rifles; Receivers (69) and Frames (30) are components. The
 trade-ins cross-listed under Long Guns are collapsed by the `seen` set.
 
 #### Arms Unlimited — **Restored**, on a section nobody had opened
@@ -1760,7 +1778,7 @@ identity to key against as much as it needs a stable model identity.
 that has moved. It cannot say whether the price is *good*, which is the question
 somebody watching surplus actually has. The pieces:
 
-1. **A reference source for realised prices.** Asking prices are what this
+1. **A reference source for realized prices.** Asking prices are what this
    application already collects, and they are not evidence: a rifle listed at
    $900 for eight months is not a $900 rifle. What is wanted is what things
    *sold* for — completed auction results. Candidates, in rough order of how

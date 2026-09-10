@@ -1004,7 +1004,7 @@ def run_scan(  # noqa: PLR0912,PLR0915 - one linear scan lifecycle; see ROADMAP
                 #
                 # A Royal Tiger scan spends roughly sixteen minutes in the
                 # scraper — nine walking seven sections in a browser, seven
-                # fetching detail pages. Materialising the whole result before
+                # fetching detail pages. Materializing the whole result before
                 # the first INSERT meant that a restart at minute fifteen threw
                 # all of it away and the next run started from nothing.
                 #

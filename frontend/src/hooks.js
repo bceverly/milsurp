@@ -48,17 +48,17 @@ export function useInterval(callback, delayMs) {
 export function usePasswordPolicy() {
   const [policy, setPolicy] = useState(DEFAULT_PASSWORD_POLICY);
   useEffect(() => {
-    let cancelled = false;
+    let canceled = false;
     api
       .policy()
       .then((result) => {
-        if (!cancelled && result?.password_min_length) setPolicy(result);
+        if (!canceled && result?.password_min_length) setPolicy(result);
       })
       .catch(() => {
         /* keep the defaults */
       });
     return () => {
-      cancelled = true;
+      canceled = true;
     };
   }, []);
 

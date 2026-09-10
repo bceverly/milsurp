@@ -44,7 +44,7 @@ from PIL import Image
 # what "C&R" means is a fact about the trade, and it lives with the rest of them.
 from ..services import classify
 
-#: Grey values below this count as ink once the page is converted to greyscale.
+#: Gray values below this count as ink once the page is converted to grayscale.
 INK_THRESHOLD = 160
 
 #: Mean ink across a region's span, 0-255, at or above which a row or column is
@@ -538,7 +538,7 @@ def _is_capitalized(text: str) -> bool:
     return sum(1 for c in letters if c.isupper()) / len(letters) >= HEADING_UPPERCASE
 
 
-#: How many capitalised words a line must open with before it counts as
+#: How many capitalized words a line must open with before it counts as
 #: naming a product. One is not enough: "FFL or C&R required" opens with an
 #: abbreviation and continues the line above it.
 MIN_LEADING_NAME_WORDS = 2
@@ -559,7 +559,7 @@ def starts_with_a_name(text: str) -> bool:
 def is_heading(line: TextLine) -> bool:
     """Whether this line starts a new listing rather than continuing one.
 
-    Judged on capitalisation, not on size. Size is the obvious signal and it
+    Judged on capitalization, not on size. Size is the obvious signal and it
     does not work here: an all-caps heading's bounding box is no taller than a
     line of lowercase prose with ascenders and descenders, so measured on a
     real page a height rule found five headings where there were thirty. Every
@@ -604,8 +604,8 @@ def listings_from_lines(lines: list[TextLine]) -> list[FlyerListing]:
 
     Taking the largest instead was tried, on the reasoning that a firearm costs
     more than its add-ons. It holds right up until a listing's text bleeds into
-    its neighbour's, and then it reaches over and takes the bigger number:
-    hand-woven blankets came out at $99.00 instead of $36.88, and a barrelled
+    its neighbor's, and then it reaches over and takes the bigger number:
+    hand-woven blankets came out at $99.00 instead of $36.88, and a barreled
     receiver at $47.88 instead of $45.00, each having borrowed from the item
     beside it. Taking the first is both more faithful to how the page is
     written and harder to mislead.
@@ -706,7 +706,7 @@ def listings_from_lines(lines: list[TextLine]) -> list[FlyerListing]:
         #
         # The bulleted lists set each name in capitals and then continue in
         # sentence case — "BRITISH NO4 MK1 RIFLES as is $88.00." — so the line
-        # is not capitalised enough to read as a heading, and the bullet glyph
+        # is not capitalized enough to read as a heading, and the bullet glyph
         # is dropped often enough not to be relied on. Without this those items
         # were swallowed by the one above and their prices went with them: the
         # bayonet grab bag was priced at the British No4's $88.
@@ -763,7 +763,7 @@ def _from_the_first_capital(title: str) -> str:
     """Drop the prose in front of a name that begins in capitals.
 
     Every product on this page is named in capitals, so a lower-case word ahead
-    of the first capitalised one is something that leaked in from a neighbour —
+    of the first capitalized one is something that leaked in from a neighbor —
     "Swedish steel. GAHENDRA MARTINI RIFLE", or the masthead's "Loc 1" landing
     in front of "CZ 50/70 PISTOL KITS".
     """
@@ -846,7 +846,7 @@ def only_this_listing(text: str, title: str) -> str:
 
     Grouping cuts a page into listings, but OCR reads *lines*, and a line
     routinely carries the tail of the panel above or the head of the one below.
-    So a listing's description arrives with a neighbour attached at one end or
+    So a listing's description arrives with a neighbor attached at one end or
     the other, and anything derived from it — a caliber, a country, a maker —
     is then derived from the wrong product. Hand-woven Vaquero blankets came
     out chambered in 8mm Mauser, which is the cartridge of the Spanish M43
@@ -910,7 +910,7 @@ def _opens_with_a_shouted_name(text: str) -> bool:
         return False
     if not any(character.isalpha() for token in lead for character in token):
         return False
-    # Fully capitalised means it is a heading in its own right, not a product
+    # Fully capitalized means it is a heading in its own right, not a product
     # line with prose after it.
     return not _is_capitalized(text)
 
@@ -937,7 +937,7 @@ def _past_a_section_header(text_lines: list[str]) -> list[str]:
 
 
 def _title_from(lines: list[TextLine]) -> str:
-    """The product's name: the run of capitalised words a listing opens with.
+    """The product's name: the run of capitalized words a listing opens with.
 
     Read word by word rather than line by line. The flyer breaks a name over as
     many lines as it needs, hyphenating mid-word where the column runs out, and
@@ -1220,7 +1220,7 @@ def read_flyer(page: Image.Image) -> list[FlyerListing]:
 
     Each panel is read and grouped on its own. Pooling every line and grouping
     across the page was tried and is worse: with panels side by side the lines
-    interleave and a panel ends up quoting its neighbour's price — the CZ 50/70
+    interleave and a panel ends up quoting its neighbor's price — the CZ 50/70
     pistol kit came out at the Turkish Mauser's $322.88.
 
     The one thing that legitimately crosses a panel boundary is a heading,
@@ -1240,7 +1240,7 @@ def read_flyer(page: Image.Image) -> list[FlyerListing]:
 
     # The panels are used only to say where one listing stops and the next
     # begins. Without them a column is grouped as one run and a product quotes
-    # its neighbour's price — the CZ 50/70 pistol kit came out at the Turkish
+    # its neighbor's price — the CZ 50/70 pistol kit came out at the Turkish
     # Mauser's $322.88.
     boxes = [region.box for region in panels(page)]
     for line in lines:

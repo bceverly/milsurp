@@ -23,7 +23,7 @@ export MILSURP_ENV=dev
 VENV_PY=".venv/bin/python"
 PORT_FILE=".milsurp-dev-port"
 
-# Colours as variables: a heredoc does not interpret backslash escapes, but it
+# Colors as variables: a heredoc does not interpret backslash escapes, but it
 # does expand variables, and $'...' yields the real escape byte.
 GREEN=$'\033[1;92m'
 CYAN=$'\033[1;96m'

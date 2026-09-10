@@ -70,7 +70,18 @@ changed — filtered to the sites you care about and capped so it stays readable
   one — only the filter's bucket changes.
 - **A background scheduler** runs each site on its own cadence. An admin can
   disable a site, change its frequency, start a scan immediately, or cancel one
-  mid-flight.
+  mid-flight. **Scan now** and **Stop** are both on every site card at all
+  times, disabled rather than absent when they do not apply: they used to swap
+  places, which made Stop unfindable the moment a scan was not running and let
+  the next button along inherit its position.
+- **The Sites page also says what is *not* here yet.** Under the working
+  vendors is a **Coming soon** list, from `app/scrapers/planned.py`, and each
+  card names what is standing in the way — a platform nothing here speaks, a
+  catalog with no entry URL, a door that will not open. Registry rows, not
+  database rows: nothing on that list has an id, a history or a schedule, so it
+  cannot land in a count or a scheduler pass. A vendor that was measured and
+  turned down is not on it, because refusing one is a decision and listing it
+  as "coming soon" would quietly reverse it.
 - **Idempotent by design.** A re-scrape updates rows in place rather than
   duplicating them, keyed on a stable per-site identifier.
 
@@ -453,6 +464,12 @@ Two things change once you are on PostgreSQL:
   `.db`. Restore one with `pg_restore --clean --if-exists -d milsurp <file>`.
   `pg_dump` has to be on `PATH`: it ships in `postgresql-client`, not the server
   package.
+
+  The `.db` snapshots already in `backups/` stay exactly as they are, and they
+  are still SQLite files: `pg_restore` will refuse them. The backups page reads
+  each snapshot's engine from its own suffix and says so per row for this
+  reason — after a cutover the directory holds both kinds, and only the newest
+  is the sort the running configuration describes.
 - `make checkpoint` and everything else about the write-ahead log stop applying;
   they are SQLite's.
 
@@ -1503,14 +1520,14 @@ change to the rules below.
 
 **The risk it is designed around is not missing things. It is junk** — a queue
 nobody reads is worse than no queue, and the way to get one is to propose every
-capitalised word in a title. Each rule was measured over all 2,014 stored
+capitalized word in a title. Each rule was measured over all 2,014 stored
 listings before it was kept, and each is tighter than the obvious version:
 
 | | How a candidate is found | Measured |
 | --- | --- | --- |
 | **Calibers** | The classifier's own reading, which is either a name from a closed vocabulary or a well-formed cartridge like `10.35x22mm`. | 57 proposed, no junk — something already had to look like a cartridge |
 | **Models** | Designation *shapes*: `Model 1873`, `Type 99`, `K98k`, `No.4 Mk.I`, `vz.24`, `M91/30`, `CZ75B`. Only from a listing that is a firearm and that the armory cannot already match. | 287 proposed, nearly all real |
-| **Manufacturers** | The capitalised words immediately before a designation — `Bernardelli M1934`, `Norinco Type 56` — because a firm's name has no shape to recognize. | 20 proposed, ~4 junk |
+| **Manufacturers** | The capitalized words immediately before a designation — `Bernardelli M1934`, `Norinco Type 56` — because a firm's name has no shape to recognize. | 20 proposed, ~4 junk |
 
 Three things the extractors deliberately refuse, each of which reached the
 queue during development:
@@ -1537,6 +1554,23 @@ move to the target, so nothing it used to recognize stops being recognized,
 and every listing carrying the old name is restamped. The merged row stays,
 marked and pointing at its target, so a wrong merge is an undo rather than an
 archaeology exercise.
+
+**Deciding a merge means looking at what each row is holding**, so every row
+carries an eye alongside its merge and delete buttons: it opens the inventory
+filtered to exactly the listings that row accounts for. Three things about the
+link are deliberate, because each changes what comes back:
+
+- **A model filters by id; a caliber and a maker filter by name.** That is what
+  a listing stores — `items.firearm_model_id` is a real foreign key, while
+  `items.caliber` and `items.manufacturer` are the text a scan read off the
+  shop. Filtering a model by name would miss every listing matched to it under
+  a different spelling, which is most of the interesting ones.
+- **The aliases go in with the name.** The filter matches the stored string
+  exactly, so a row with aliases needs one value per spelling or it shows half
+  its listings — the same half-answer that makes a merge look unnecessary.
+- **Everything, not just what is in stock.** A pending row usually arrived from
+  a listing that has since sold, and defaulting to available would answer "no
+  listings" for precisely the rows most in need of a decision.
 
 **What the catalog will not do is argue with a dealer.** It normalizes a
 stated caliber — the two spellings are one answer — and fills in a blank one,
@@ -1677,7 +1711,7 @@ single request being made.
 **A pause ends by itself.** The wait doubles with each refusal up to an hour,
 and once it is up every fetcher resumes with no intervention — that is the
 "cooling off" the whole thing is for. The Sites page shows which hosts are
-resting and why, and an admin can lift one early with **Fetch anyway** once the
+resting and why, and an admin can lift one early with **Stop resting** once the
 cause is known and fixed; `cli.py resting` and `cli.py resting --clear` do the
 same from a terminal. Lifting it is deliberately a separate button rather than
 a confirmation on Scan now: the pause exists because the vendor's server
@@ -1907,7 +1941,7 @@ text*, while the only values they interpolate are a setting's name and a file
 path.
 
 Nothing is suppressed for CodeQL. In-source `# codeql[...]` comments turned out
-not to be honoured by GitHub code scanning, which was the right outcome: each
+not to be honored by GitHub code scanning, which was the right outcome: each
 alert was a real weakness once looked at properly rather than argued with.
 `make secrets` no longer prints secrets at all. Failed sign-ins put the
 submitted username through an **allowlist** rather than an escape, and read the

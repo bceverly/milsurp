@@ -143,6 +143,9 @@ export const api = {
 
   // --- sites ---
   sites: () => request("/api/sites"),
+  // Vendors the roadmap intends to read. No rows behind these, so they are
+  // fetched once and never polled with the real ones.
+  plannedSites: () => request("/api/sites/planned"),
   site: (id) => request(`/api/sites/${id}`),
   updateSite: (id, patch) =>
     request(`/api/sites/${id}`, { method: "PATCH", body: patch }),

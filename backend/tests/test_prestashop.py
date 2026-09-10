@@ -2,7 +2,7 @@
 
 Atlantic Firearms is a class of one so far, which is worth saying because
 "one platform, one shop" is exactly the arithmetic the BigCommerce group got
-wrong. The class is small; the judgement about which of their nine sections to
+wrong. The class is small; the judgment about which of their nine sections to
 read is the part that took measuring, and it lives in test_atlantic_firearms.py.
 """
 

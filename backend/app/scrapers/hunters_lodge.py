@@ -17,7 +17,7 @@ So this scraper does not crawl. It:
 magazine advertisement — the hardest kind of page to read automatically.
 Measured against a real July 2026 flyer this recovers around twenty listings
 with their names and prices, which is most but not all of the page, and a few
-of them take a neighbouring panel's price. That is worth having and it is not
+of them take a neighboring panel's price. That is worth having and it is not
 worth pretending otherwise: every listing carries the crop it was read from, so
 the flyer itself is always one click away, and the description keeps the raw
 OCR text rather than a tidied summary of it. Treat the prices as a prompt to go

@@ -38,6 +38,11 @@ def _state(session: DbSession, config: AppConfig) -> BackupStateOut:
             name=path.name,
             bytes=path.stat().st_size,
             taken_at=datetime.fromtimestamp(path.stat().st_mtime, UTC).isoformat(),
+            # From the file, not from the configuration. See below.
+            engine=backup_service.engine_of(path.name),
+            restore_hint=backup_service.restore_command(
+                backup_service.engine_of(path.name), config.database.name
+            ),
         )
         for path in backup_service.existing(directory)
     ]
@@ -45,13 +50,12 @@ def _state(session: DbSession, config: AppConfig) -> BackupStateOut:
         settings=BackupSettingsOut.model_validate(row, from_attributes=True),
         directory=str(directory),
         engine=config.database.engine,
-        # A .dump needs pg_restore and a .db opens with sqlite3; saying which
-        # here saves somebody finding out at the worst possible moment.
-        restore_hint=(
-            f"pg_restore --clean --if-exists -d {config.database.name} <file>"
-            if config.database.is_postgres
-            else "stop the service and move the file into place"
-        ),
+        # What the *next* snapshot will be, which is not what every file in the
+        # directory is. A .dump needs pg_restore and a .db opens with sqlite3,
+        # and a directory that spans a move between engines holds both -- so
+        # each row carries its own answer above, and this one describes the
+        # configuration rather than the list.
+        restore_hint=backup_service.restore_command(config.database.engine, config.database.name),
         snapshots=snapshots,
         total_bytes=sum(s.bytes for s in snapshots),
         interval_choices=list(ALLOWED_INTERVAL_HOURS),

@@ -23,7 +23,7 @@ PrestaShop hides the price of an out-of-stock product, and a surplus dealer's
 catalog is full of them. A listing with no price is still worth storing -- it
 is what "call for price" means on the item page -- but a shop where most of the
 catalog is unpriced is a poor subject for a price watcher, and that is a
-judgement to make from a measurement rather than from the platform.
+judgment to make from a measurement rather than from the platform.
 """
 
 from __future__ import annotations

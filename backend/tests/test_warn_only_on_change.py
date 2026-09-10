@@ -154,7 +154,7 @@ class TestStopIsHeardWhileAScanIsWaiting:
         assert time.monotonic() - began >= 0.35
 
     def test_it_checks_before_sleeping_at_all(self, ctx_factory):
-        """A run already cancelled must not serve out one more wait first."""
+        """A run already canceled must not serve out one more wait first."""
         import time
 
         from app.scrapers.base import ScrapeCanceled

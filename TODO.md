@@ -488,7 +488,7 @@ to re-run instead of read.
 
 Fixed by flipping a character in the **middle** of the signature, where all six
 bits are significant, to a value guaranteed to differ. Verified: 0 survivors in
-50,000, and 0 in 250,000 across the five parametrised positions.
+50,000, and 0 in 250,000 across the five parametrized positions.
 
 Writing it also exposed that the suite only ever tampered with the *signature*.
 Added the attacks that matter and confirmed the implementation already stops
@@ -512,7 +512,7 @@ changes.
       reap message named two possible causes without saying which; it now says
       which, with the elapsed minutes.
 - [x] **A sixteen-minute scan discarded everything on restart.** `run_scan` did
-      `list(scraper.scrape(ctx))` — the whole catalog materialised before the
+      `list(scraper.scrape(ctx))` — the whole catalog materialized before the
       first INSERT. It now consumes the scraper **lazily** and commits every
       `COMMIT_EVERY` listings, and `royal_tiger.scrape()` is a generator that
       yields each listing from the grid immediately and again once its detail
@@ -696,7 +696,7 @@ flyer machinery), and verified against the live site.
 ### Honest accuracy
 
 22 listings recovered from the real July 2026 flyer with names and prices —
-most of the page, not all of it, and a few take a neighbouring panel's price.
+most of the page, not all of it, and a few take a neighboring panel's price.
 Every listing carries the crop it was read from and keeps the raw OCR as its
 description. Two follow-ups are recorded unticked in ROADMAP.md: recursive
 in-column splitting for the boundary errors, and using Tesseract's per-word
@@ -751,7 +751,7 @@ the named products right.
       list sits under. "OLE ZEKE'S TREASURES" was taking the title of the first
       item beneath it.
 - [x] Everything on this page is named in capitals, so lower-case words ahead
-      of the first capitalised one leaked in from a neighbouring panel:
+      of the first capitalized one leaked in from a neighboring panel:
       "Swedish steel. GAHENDRA MARTINI RIFLE".
 
 Also removed `_attach_headings`, which had become dead code when panels stopped
@@ -761,7 +761,7 @@ being the unit of grouping and was still described in a docstring as if it ran.
 ENFIELD NO1 MK2 PARTS KITS" and "CZ 52 SEMI AUTO ASSAULT RIFLES" take their
 title from their own prose, because in each case the heading is across a
 *column* boundary from its body — the one boundary nothing may cross, since
-crossing it is exactly what made a product quote its neighbour's price.
+crossing it is exactly what made a product quote its neighbor's price.
 
 ## 18d. Listings shown under each other's photographs
 
@@ -794,7 +794,7 @@ one hard refresh is needed to clear what is already there.
 ## 18e. Bulleted lists, and where the price actually is
 
 Reported: British No4 Mk1 rifles at $88, Spanish M43 rifles, the Jap Arisaka
-barrelled receiver — all missing, and other listings holding their prices.
+barreled receiver — all missing, and other listings holding their prices.
 
 - [x] **OCR drops the bullet glyph, and the lines are not caps-heavy enough to
       read as headings.** A list sets each name in capitals and continues in
@@ -808,9 +808,9 @@ barrelled receiver — all missing, and other listings holding their prices.
 - [x] **The first price, not the largest.** The page states a price once, where
       the description ends, and anything after it is terms. Taking the largest
       was defensible — a firearm costs more than its options — right up until a
-      listing's text bleeds into its neighbour's, and then it reaches over and
+      listing's text bleeds into its neighbor's, and then it reaches over and
       takes the bigger number: blankets at $99.00 instead of $36.88, a
-      barrelled receiver at $47.88 instead of $45.00. Both variants were
+      barreled receiver at $47.88 instead of $45.00. Both variants were
       measured against the same page before choosing.
 
 **26 → 30 listings, 88% → 90% with a real product name**, and the prices that
@@ -827,7 +827,7 @@ Two observations from reading the page, both right and both acted on:
       together, so it reads "SWEDISH LEATHER AMMO BELT/BANDOLIER".
 - [x] **The name and the description meet mid-line**, so the boundary is
       between two words rather than two lines. The name is the leading run of
-      capitalised words; digits and punctuation carry through, because a name
+      capitalized words; digits and punctuation carry through, because a name
       is full of them — "6.5MM", ".303", "1940'S", "S&W", "K-FRAME,". This is
       what turned "COLT PP .38 FRAMES. Most have bbl& maybe few parts" into
       "COLT PP .38 FRAMES", and "BRITISH NO4 MK1 RIFLES as is" into the name
@@ -841,7 +841,7 @@ Two observations from reading the page, both right and both acted on:
 separate the bold names from the body — SWEDISH 57%, BRITISH 56% against
 variety 24%, cartridge 26% — but short words score high whatever their weight
 ("a" 54%, "can" 46%), because the measure is confounded with word shape.
-Capitalisation is a cleaner separator on this page and needs no calibration.
+Capitalization is a cleaner separator on this page and needs no calibration.
 
 ## 18f. Listings shown under each other's photographs
 
@@ -880,7 +880,7 @@ not support it.
 
 - [x] **A blanket is not a rifle, and Colt frames are pistols.** Three separate
       faults, all reported from looking at real listings:
-      1. Neighbouring prose bleeds into a listing's description on an OCR'd
+      1. Neighboring prose bleeds into a listing's description on an OCR'd
          page, and hand-woven Vaquero blankets were filed as a rifle. Goods
          sold beside firearms — blankets, helmets, patches, books — are now
          vetoed outright.
@@ -893,7 +893,7 @@ not support it.
 - [x] **A cheap frame is still a firearm.** The $70 price floor keeps slings
       and pouches out of the firearm filters, and it should: a $25 "Mosin
       Nagant rifle" is a book or a toy. But a frame or a receiver *is* the
-      firearm — it is the serialised part — so "COLT PP .38 FRAMES" at $29 is a
+      firearm — it is the serialized part — so "COLT PP .38 FRAMES" at $29 is a
       handgun. "Parts kit, no frame" is still nothing, which is the whole point
       of a dealer saying so. The existing test for the floor caught the first
       attempt at this, which had simply overruled it.
@@ -905,7 +905,7 @@ not support it.
       left alone, because nobody writes "SKSs". `make reclassify` repaired the
       stored rows.
 
-## 20. Roadmap reorganised by backend and audience
+## 20. Roadmap reorganized by backend and audience
 
 - [x] The 26 remaining vendors are grouped by **platform** — WooCommerce (10),
       BigCommerce (3), Shopify (4), Shift4Shop (2), one-offs (6) — because one
@@ -1227,7 +1227,7 @@ it was not applied here.
       by `classify.enrich(trust_description=...)`, `_upsert_item` and
       `reclassify`.
 - [x] Only the *derived* fields honor it. The description is still stored, still
-      shown, and still read by the rifle/handgun rules — a judgement about a
+      shown, and still read by the rifle/handgun rules — a judgment about a
       whole block of text survives some contamination; a specific claim like a
       caliber does not.
 - [x] Measured before choosing: a global "titles only" rule would have cost
@@ -1326,7 +1326,7 @@ earlier round and GitHub does not honor them.
 - [x] **Clear-text logging of sensitive information** ×6. The function that
       logs about a secret was being handed the secret. It only ever logged the
       setting's *name*, but "a function given a secret logs something" is
-      indistinguishable — to a reader as much as to an analyser — from one that
+      indistinguishable — to a reader as much as to an analyzer — from one that
       logs the secret. It now receives a verdict (`missing`/`sample`/`short`/
       `ok`) and never the value. In `cli.py`, everything printed now comes from
       the literal settings tuple; the config text decides *whether* to print,

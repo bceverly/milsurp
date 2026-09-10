@@ -20,7 +20,7 @@ function kindLabel(kind) {
 import { ChevronLeft, External, Sparkle, TrendDown, X } from "../components/Icons.jsx";
 
 /**
- * One labelled value.
+ * One labeled value.
  *
  * An empty one is normally left out entirely — a listing with no photograph
  * count should not say "Photos: none". The four fields describing the firearm
@@ -108,19 +108,19 @@ export default function ItemDetail() {
   useTitle(item?.title);
 
   useEffect(() => {
-    let cancelled = false;
+    let canceled = false;
     setItem(null);
     setActivePhoto(0);
     api
       .item(itemId)
       .then((result) => {
-        if (!cancelled) setItem(result);
+        if (!canceled) setItem(result);
       })
       .catch((err) => {
-        if (!cancelled) setError(err.message);
+        if (!canceled) setError(err.message);
       });
     return () => {
-      cancelled = true;
+      canceled = true;
     };
   }, [itemId]);
 

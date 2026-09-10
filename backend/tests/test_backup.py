@@ -185,6 +185,28 @@ class TestPruning:
 
         assert len(backup.existing(configured.backups.directory)) == 2
 
+    def test_the_previous_engine_s_snapshots_age_out_too(self, configured):
+        """A cutover leaves the other engine's files in the same directory, and
+        they are snapshots like any other: counted, ordered by their own
+        timestamp, and dropped off the end in turn. A prune that only saw the
+        current suffix would keep two SQLite files forever and quietly hold the
+        real retention at three."""
+        directory = configured.backups.directory
+        directory.mkdir(parents=True, exist_ok=True)
+        for name in ("milsurp-20260907-183958.db", "milsurp-20260908-180630.db"):
+            (directory / name).write_bytes(b"from before the cutover")
+        for name in ("milsurp-20260909-193649.dump", "milsurp-20260910-193649.dump"):
+            (directory / name).write_bytes(b"from after it")
+
+        removed = backup.prune(directory, keep=3)
+
+        assert [path.name for path in removed] == ["milsurp-20260907-183958.db"]
+        assert [path.name for path in backup.existing(directory)] == [
+            "milsurp-20260910-193649.dump",
+            "milsurp-20260909-193649.dump",
+            "milsurp-20260908-180630.db",
+        ]
+
     def test_files_that_are_not_snapshots_are_left_alone(self, configured):
         backup.take(configured)
         stray = configured.backups.directory / "notes.txt"

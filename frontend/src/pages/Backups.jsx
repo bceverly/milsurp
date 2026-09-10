@@ -221,6 +221,14 @@ export default function BackupsPage() {
                       <th>File</th>
                       <th>Taken</th>
                       <th>Size</th>
+                      {/*
+                        Per file, because this directory outlives a move
+                        between engines: after one it holds both kinds, and
+                        only the newest of them is the sort the running
+                        configuration describes. One hint for the whole list
+                        told an operator to pg_restore two SQLite files.
+                      */}
+                      <th>Restore with</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -231,6 +239,25 @@ export default function BackupsPage() {
                           {formatRelative(snapshot.taken_at)}
                         </td>
                         <td>{formatBytes(snapshot.bytes)}</td>
+                        <td>
+                          <span
+                            className={
+                              snapshot.engine === state.engine
+                                ? "chip chip--neutral"
+                                : "chip chip--warning"
+                            }
+                            title={
+                              snapshot.engine === state.engine
+                                ? snapshot.restore_hint
+                                : `Written by ${snapshot.engine}, which is not what this ` +
+                                  `application is running now. To restore: ${snapshot.restore_hint}`
+                            }
+                          >
+                            {snapshot.engine === "postgresql"
+                              ? "pg_restore"
+                              : "sqlite3 file"}
+                          </span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -238,7 +265,7 @@ export default function BackupsPage() {
               </div>
             )}
             <p className="field__hint">
-              Written to {state.directory} ({state.engine}). To restore:{" "}
+              Written to {state.directory}. The next snapshot is {state.engine}:{" "}
               {state.restore_hint}
             </p>
           </div>
