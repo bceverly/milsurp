@@ -38,6 +38,7 @@ from .base import (
     is_sold_out,
     product_json_ld,
     text_of,
+    vendors_answer,
 )
 from .storefront import image_sources, parse_price
 
@@ -430,7 +431,12 @@ class BigCommerceScraper(SiteScraper):
                     f"taking the rest of this scan from the catalog only. Last error: {exc}"
                 )
             else:
-                ctx.warn(f"Could not read {item.url}: {exc}. Keeping the catalog entry only.")
+                # Logged rather than warned when the shop is stating a policy: a
+                # single 403 or 404 on a product page is a standing decision, and
+                # warning about it every scan makes the site permanently PARTIAL.
+                # A run of them still warns, above. See base.vendors_answer.
+                say = ctx.log if vendors_answer(exc) else ctx.warn
+                say(f"Could not read {item.url}: {exc}. Keeping the catalog entry only.")
             return item
 
         self._detail_failures = 0

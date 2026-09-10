@@ -90,7 +90,40 @@ class ScrapedItem:
 
 
 class ScrapeError(RuntimeError):
-    """A scrape failed outright (as opposed to partially)."""
+    """A scrape failed outright (as opposed to partially).
+
+    ``status`` is the HTTP status of the last attempt, where there was one. It
+    is here so a caller can tell a shop *answering* from a shop *breaking*
+    without matching on the text of a message -- see :func:`vendors_answer`.
+    """
+
+    def __init__(self, *args: object, status: int | None = None) -> None:
+        super().__init__(*args)
+        self.status = status
+
+
+#: Statuses that are the shop stating a policy rather than something going
+#: wrong. 401 and 403 mean "not for you", 404 means "not here" -- and a
+#: product page that answers one of those will answer it again tomorrow.
+VENDOR_ANSWERS = frozenset({401, 403, 404, 410})
+
+
+def vendors_answer(exc: Exception) -> bool:
+    """Whether a failed fetch is the vendor's decision rather than a fault.
+
+    The distinction earns its keep on the *warning*, not on the fetch: both
+    kinds keep the catalog entry and both count towards the run-of-failures
+    guard, so a shop that refuses everything is still caught. What changes is
+    that a single one of these is *logged* rather than warned.
+
+    Bowman Arms is why. One of their parts kits sits in a category restricted
+    to signed-in customers, and their own server says so -- "You Do Not Have
+    Permission To Access This Page" -- so every scan warned about it and every
+    scan came back PARTIAL. That is a standing decision by a shop, not a fault
+    to be alerted about, and a site permanently PARTIAL teaches whoever reads
+    the scan list that PARTIAL means nothing.
+    """
+    return getattr(exc, "status", None) in VENDOR_ANSWERS
 
 
 class ScrapeContext:
@@ -257,6 +290,35 @@ class ScrapeContext:
         if self.stopped:
             raise ScrapeCanceled("Scan canceled")
 
+    #: How often a wait looks up to see whether it has been cancelled. Short
+    #: enough that Stop feels immediate, long enough that a five-minute wait is
+    #: not a thousand pointless checks.
+    STOP_CHECK_SECONDS = 0.25
+
+    def sleep(self, seconds: float) -> None:
+        """Wait, but notice being told to stop.
+
+        **Every wait in a scrape goes through here**, because the waits are
+        where a scan spends most of its life and a plain ``time.sleep`` is deaf.
+        Checkpoint Charlie's is why: they answer 429, the context slows to as
+        much as five minutes between requests, and each failed request sleeps
+        again between retries. Pressing Stop then did nothing visible for
+        several minutes -- the flag was set, the run was simply not looking at
+        it until the sleep ended, and by then it had started another request.
+
+        Raises :class:`ScrapeCanceled` as soon as the flag is seen, which is
+        the same thing every other cancellation point does, so the scan service
+        keeps the work already done and marks the run cancelled rather than
+        failed.
+        """
+        deadline = time.monotonic() + seconds
+        while True:
+            self.check_stop()
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return
+            time.sleep(min(remaining, self.STOP_CHECK_SECONDS))
+
     # -- HTTP ---------------------------------------------------------------
     def _throttle(self, url: str) -> None:
         """Wait out the politeness delay, or the site's own, whichever is longer.
@@ -271,7 +333,10 @@ class ScrapeContext:
             return
         elapsed = time.monotonic() - self._last_request_at
         if elapsed < delay:
-            time.sleep(delay - elapsed)
+            # Interruptible: this is the long one. A host that has asked us to
+            # slow to five minutes a request means a scan is asleep almost all
+            # of the time, and Stop has to work during it. See sleep().
+            self.sleep(delay - elapsed)
 
     def _delay_for(self, url: str) -> float:
         """The pace to keep with this host: ours, theirs, or the one a 429 set."""
@@ -362,7 +427,7 @@ class ScrapeContext:
                 last_error = exc
                 self._last_request_at = time.monotonic()
                 if attempt < self.scraping.max_retries - 1:
-                    time.sleep(self._backoff(url, exc, attempt))
+                    self.sleep(self._backoff(url, exc, attempt))
             else:
                 # It answered, so whatever it was refusing before, it is not
                 # refusing now. Without this the flag outlives the condition
@@ -373,7 +438,8 @@ class ScrapeContext:
                 cooldown.succeeded(url)
                 return response
         raise ScrapeError(
-            f"GET {url} failed after {self.scraping.max_retries} attempts: {last_error}"
+            f"GET {url} failed after {self.scraping.max_retries} attempts: {last_error}",
+            status=getattr(getattr(last_error, "response", None), "status_code", None),
         )
 
     def _backoff(self, url: str, error: Exception, attempt: int) -> float:

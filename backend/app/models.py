@@ -634,6 +634,13 @@ class Item(Base, TimestampMixin):
     #: "ENFIELD NO1 MK2 PARTS KITS" is a handgun and a parts kit both.
     is_bayonet: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_parts_kit: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    #: A department trade-in. Sits *alongside* is_rifle/is_pistol rather than
+    #: replacing them -- a PD Trade Glock is still a handgun, and everything
+    #: except the browse filter should keep getting that answer. Read off the
+    #: vendor's section; see classify._is_police_surplus.
+    is_police_surplus: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, index=True
+    )
 
     is_sold: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     # False once the listing stops appearing in a scan (de-listed).

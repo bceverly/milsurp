@@ -770,6 +770,74 @@ class TestDownloadPendingPhotos:
         monkeypatch.setattr(scan_service, "ImageStore", FailingStore)
         return calls
 
+    def test_a_url_that_is_not_a_picture_is_dropped_rather_than_queued(
+        self, fake_site, clean_db, monkeypatch, images_enabled
+    ):
+        """DuPage Trading is why.
+
+        Their theme lazy-loads behind a BigCommerce Stencil placeholder,
+        `…/img/loading.svg`, and 23 listings each carried a row pointing at that
+        one URL. Every scan re-counted them into "23 photo(s) have failed 3
+        times ... run 'make photos-retry'" — advice that cannot work, because
+        retrying re-queues the same dead URL for the same answer. A row that can
+        never become a photograph is not a queue entry, it is litter.
+        """
+        self._seed_photos(clean_db, fake_site, 2)
+        self._always_fails(monkeypatch, reason="unsupported content type image/svg+xml")
+
+        class Discarding:
+            def __init__(self, _config):
+                pass
+
+            def fetch(self, _session, _slug, _url):
+                return FetchResult(
+                    None, "unsupported content type image/svg+xml", permanent=True, discard=True
+                )
+
+        monkeypatch.setattr(scan_service, "ImageStore", Discarding)
+        assert scan_service.download_pending_photos() == 0
+
+        assert clean_db.execute(select(ItemPhoto)).scalars().all() == []
+
+    def test_and_it_is_not_reported_as_a_failure(
+        self, fake_site, clean_db, monkeypatch, images_enabled
+    ):
+        """Nothing is missing from the listing: there was never a photograph
+        there. Counting it would keep the scan PARTIAL forever over a URL the
+        shop never meant as a picture."""
+        item = self._seed_photos(clean_db, fake_site, 1)
+
+        class Discarding:
+            def __init__(self, _config):
+                pass
+
+            def fetch(self, _session, _slug, _url):
+                return FetchResult(None, "unsupported content type", permanent=True, discard=True)
+
+        monkeypatch.setattr(scan_service, "ImageStore", Discarding)
+        lines: list[str] = []
+        scan_service.download_pending_photos(progress=lines.append)
+
+        assert not any("could not be fetched" in line for line in lines)
+        # Said rather than warned — a row vanishing with no line explaining it
+        # is how a real bug hides.
+        assert any("do not serve a picture" in line for line in lines)
+        assert item.id is not None
+
+    def test_a_real_failure_still_counts(self, fake_site, clean_db, monkeypatch, images_enabled):
+        """The distinction is the point: a 404 may come back and an over-sized
+        image really is a photograph the shop published. Only "this is not a
+        picture" is dropped."""
+        self._seed_photos(clean_db, fake_site, 1)
+        self._always_fails(monkeypatch, reason="404 Not Found")
+
+        scan_service.download_pending_photos()
+
+        photos = clean_db.execute(select(ItemPhoto)).scalars().all()
+        assert len(photos) == 1
+        assert photos[0].attempts == 1
+        assert photos[0].last_error == "404 Not Found"
+
     def test_a_failure_is_counted_and_its_reason_kept(
         self, fake_site, clean_db, monkeypatch, images_enabled
     ):

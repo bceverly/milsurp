@@ -45,6 +45,7 @@ from .base import (
     offer_of,
     product_json_ld,
     text_of,
+    vendors_answer,
 )
 from .storefront import image_sources, parse_price
 
@@ -436,7 +437,12 @@ class MagentoScraper(SiteScraper):
             ctx.warn(f"robots.txt disallows {item.url}; keeping the catalog entry only.")
             return item
         except ScrapeError as exc:
-            ctx.warn(f"Could not read {item.url}: {exc}. Keeping the catalog entry only.")
+            # Logged rather than warned when the shop is stating a policy: a
+            # single 403 or 404 on a product page is a standing decision, and
+            # warning about it every scan makes the site permanently PARTIAL.
+            # A run of them still warns, above. See base.vendors_answer.
+            say = ctx.log if vendors_answer(exc) else ctx.warn
+            say(f"Could not read {item.url}: {exc}. Keeping the catalog entry only.")
             return item
 
         node = product_json_ld(soup)

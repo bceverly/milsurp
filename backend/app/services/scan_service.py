@@ -49,7 +49,7 @@ from ..scrapers import (
     get_scraper_class,
 )
 from . import armory, classify, discovery, manufacturers
-from .image_store import ImageStore
+from .image_store import ImageStore, StoredImage
 
 #: Progress lines kept per run. Enough to debug a scrape without unbounded growth.
 MAX_LOG_LINES = 500
@@ -291,6 +291,7 @@ def _upsert_item(
     item.is_pistol = derived["is_pistol"]
     item.is_bayonet = derived["is_bayonet"]
     item.is_parts_kit = derived["is_parts_kit"]
+    item.is_police_surplus = derived["is_police_surplus"]
 
     # And the descriptive fields, where the vendor gave none. Some catalogs
     # publish the caliber as its own field and some write it into the title;
@@ -519,6 +520,48 @@ def _same_bytes_on_disk(store: ImageStore, photo: ItemPhoto, data: bytes) -> boo
         return False
 
 
+def _record_stored_photo(photo: ItemPhoto, stored: StoredImage) -> None:
+    """Copy a fetched image's facts onto its row."""
+    photo.attempts += 1
+    photo.last_error = None
+    photo.filename = stored.filename
+    photo.thumb_filename = stored.thumb_filename
+    photo.content_type = stored.content_type
+    photo.bytes = stored.bytes
+    photo.thumb_bytes = stored.thumb_bytes
+    photo.width = stored.width
+    photo.height = stored.height
+    photo.downloaded_at = utcnow()
+
+
+def _report_photo_run(
+    ctx: ScrapeContext, attempted: int, downloaded: int, failed: int, discarded: int, exhausted: int
+) -> None:
+    """Say what happened, and warn only about what changed.
+
+    Two things are said rather than warned. A dropped URL is not a missing
+    photograph -- it was never one -- and a run that fetched fewer than it
+    tried is already reported by ``failed``. What warns is a failure this run,
+    and a photograph that has just run out of retries: both are new, and both
+    are things somebody could act on.
+    """
+    # "Stored 1 photo" out of twenty-three read as success for as long as the
+    # failures were silent, so the counts go in the log either way.
+    ctx.log(
+        f"Stored {downloaded} photo(s)."
+        + (f" {failed} could not be fetched; see the log for each." if failed else "")
+        # A row disappearing with no line explaining it is how a real bug hides.
+        + (f" Dropped {discarded} URL(s) that do not serve a picture." if discarded else "")
+    )
+    if failed:
+        ctx.warn(f"{failed} of {attempted} photo(s) could not be fetched.")
+    if exhausted:
+        ctx.warn(
+            f"{exhausted} photo(s) reached {MAX_PHOTO_ATTEMPTS} failed attempts in this scan "
+            f"and will not be retried. Run 'make photos-retry' once the cause is fixed."
+        )
+
+
 def _download_photos(
     session: Session,
     site: Site,
@@ -542,7 +585,10 @@ def _download_photos(
     if not config.scraping.download_images:
         return 0
     limit = limit if limit is not None else config.scraping.max_photo_downloads_per_scan
-    store = ImageStore(config)
+    # Stop is heard during a host's pacing wait, not only between
+    # photographs. A host that has asked for a minute between images
+    # means this loop is asleep almost all of the time.
+    store = ImageStore(config, should_stop=lambda: ctx.stopped)
     waiting = (Item.site_id == site.id, ItemPhoto.filename.is_(None))
     live = (*waiting, ItemPhoto.attempts < MAX_PHOTO_ATTEMPTS)
 
@@ -555,9 +601,23 @@ def _download_photos(
         .where(*waiting, ItemPhoto.attempts >= MAX_PHOTO_ATTEMPTS)
     ).scalar_one()
     if given_up:
-        ctx.warn(
-            f"{given_up} photo(s) have failed {MAX_PHOTO_ATTEMPTS} times and are no longer "
-            f"being retried. Run 'make photos-retry' once the cause is fixed."
+        # Said, not warned. **A warning is for something that changed.**
+        #
+        # This used to warn every scan for as long as the rows existed, and the
+        # effect was a site permanently PARTIAL over a condition nobody could
+        # act on: Classic Firearms' four recorded scans are four PARTIALs, all
+        # of them one photograph of a BM-59 whose file their own CDN has 404'd
+        # since 7 September, while their product page still links it. Eleven of
+        # its twelve photographs are here. Repeating that every scan does not
+        # make it more fixable; it teaches whoever reads the scan list that
+        # PARTIAL means nothing.
+        #
+        # A photo that gives up *during this run* is new information and still
+        # warns -- see below. The standing total stays visible here, and on the
+        # item, for anyone looking.
+        ctx.log(
+            f"{given_up} photo(s) previously failed {MAX_PHOTO_ATTEMPTS} times and are no "
+            f"longer retried. Run 'make photos-retry' if the cause has been fixed."
         )
     if not outstanding:
         return 0
@@ -590,6 +650,11 @@ def _download_photos(
     )
     downloaded = 0
     failed = 0
+    #: Rows dropped because their URL does not serve a picture at all.
+    discarded = 0
+    #: Photos that ran out of retries *during this run*, which is the only
+    #: state change worth a warning. See the note above `given_up`.
+    exhausted = 0
     for index, photo in enumerate(pending):
         if ctx.stopped:
             break
@@ -603,6 +668,16 @@ def _download_photos(
         photo.last_attempt_at = utcnow()
         stored = result.image
         if stored is None:
+            # A URL that does not serve a picture is not a photograph waiting
+            # to be fetched, so the row goes rather than joining the queue for
+            # good. Not counted as a failure either: nothing is missing from
+            # the listing, because there was never a photograph there. See
+            # FetchResult.discard.
+            if result.discard:
+                session.delete(photo)
+                session.commit()
+                discarded += 1
+                continue
             failed += 1
             photo.last_error = (result.reason or "unknown error")[:PHOTO_ERROR_CHARS]
             # Only a failure that will still be true tomorrow counts against
@@ -612,32 +687,18 @@ def _download_photos(
             # cooldown exists to prevent rather than cause.
             if result.permanent:
                 photo.attempts += 1
+                if photo.attempts >= MAX_PHOTO_ATTEMPTS:
+                    exhausted += 1
             session.commit()
             continue
-        photo.attempts += 1
-        photo.last_error = None
-        photo.filename = stored.filename
-        photo.thumb_filename = stored.thumb_filename
-        photo.content_type = stored.content_type
-        photo.bytes = stored.bytes
-        photo.thumb_bytes = stored.thumb_bytes
-        photo.width = stored.width
-        photo.height = stored.height
-        photo.downloaded_at = utcnow()
+        _record_stored_photo(photo, stored)
         downloaded += 1
         # Same rule: each iteration above went to the network for an image.
         session.commit()
         if (index + 1) % LOG_EVERY_PHOTO == 0:
             ctx.log(f"  …{index + 1}/{len(pending)} photos processed.")
     session.commit()
-    # Say what did not arrive as well as what did. "Stored 1 photo" out of
-    # twenty-three read as success for as long as the failures were silent.
-    ctx.log(
-        f"Stored {downloaded} photo(s)."
-        + (f" {failed} could not be fetched; see the log for each." if failed else "")
-    )
-    if failed:
-        ctx.warn(f"{failed} of {len(pending)} photo(s) could not be fetched.")
+    _report_photo_run(ctx, len(pending), downloaded, failed, discarded, exhausted)
     return downloaded
 
 

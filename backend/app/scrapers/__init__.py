@@ -10,9 +10,11 @@ from __future__ import annotations
 
 import os
 
+from .aim_surplus import AimSurplusScraper
 from .ancestry_guns import AncestryGunsScraper
 from .apex_gun_parts import ApexGunPartsScraper
 from .arms_of_america import ArmsOfAmericaScraper
+from .arms_unlimited import ArmsUnlimitedScraper
 from .atlantic_firearms import AtlanticFirearmsScraper
 from .axis_arms import AxisArmsScraper
 from .base import (
@@ -36,8 +38,11 @@ from .hunters_lodge import HuntersLodgeScraper
 from .ima_usa import ImaUsaScraper
 from .jg_sales import JgSalesScraper
 from .legacy_collectibles import LegacyCollectiblesScraper
+from .officer_store import OfficerStoreScraper
+from .recoil_gun_works import RecoilGunWorksScraper
 from .royal_tiger import RoyalTigerScraper
 from .sarco import SarcoScraper
+from .surplus_defense import SurplusDefenseScraper
 
 
 def _demo_site_enabled() -> bool:
@@ -78,6 +83,11 @@ SCRAPER_CLASSES: tuple[type[SiteScraper], ...] = (
     DupageTradingScraper,
     AtlanticFirearmsScraper,
     *((DemoScraper,) if _demo_site_enabled() else ()),
+    RecoilGunWorksScraper,
+    OfficerStoreScraper,
+    ArmsUnlimitedScraper,
+    AimSurplusScraper,
+    SurplusDefenseScraper,
 )
 
 _REGISTRY: dict[str, type[SiteScraper]] = {cls.slug: cls for cls in SCRAPER_CLASSES}

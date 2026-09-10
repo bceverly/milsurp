@@ -28,6 +28,20 @@ parts kits" is the whole of the decision.
 
 ``/firearms/us-military-firearms/`` is the same three guns as ``/firearms/``
 and is a sub-category of it, so only the parent is a source.
+
+**Their theme lazy-loads behind a placeholder, and it cost 23 warnings.** The
+BigCommerce Stencil theme puts `…/img/loading.svg` in `src` and the real
+photograph in `data-srcset`, so every listing here arrived with a second
+"photo" pointing at one shared SVG. It answers `image/svg+xml`, which is not a
+format this application stores, and each scan re-counted the 23 rows into
+"23 photo(s) have failed 3 times ... run 'make photos-retry'" -- advice that
+cannot work, because retrying re-queues the same dead URL for the same answer.
+
+Two fixes, and the second is the general one: `storefront.PLACEHOLDER` now
+matches `/loading[.-]` and `.svg`, so the URL is never collected; and a fetch
+that comes back "not a picture" now drops the row instead of leaving it in the
+queue. See `ImageStore.FetchResult.discard`. Every one of the 23 listings had
+its real photograph all along.
 """
 
 from __future__ import annotations

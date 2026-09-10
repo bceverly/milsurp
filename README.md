@@ -60,6 +60,14 @@ changed — filtered to the sites you care about and capped so it stays readable
   the listing has to corroborate it — because the alternative is 465 solenoids
   and feed trays arriving as collectible firearms. See
   [If the vendor sells parts kits](#if-the-vendor-sells-parts-kits).
+- **Police surplus is its own Type.** Departments trade their duty weapons in by
+  the lot and dealers sell them as a named section — Glock 22s, 870 Police
+  Magnums, AR-15 patrol rifles. It is not military surplus and it is the same
+  question, so it gets its own bucket rather than being scattered through
+  Rifles and Handguns. A listing earns it from the vendor's section and not
+  from its title: a PD Trade Glock 22 is mechanically the same object as any
+  other Glock 22. The underlying `is_pistol` still says handgun, because it is
+  one — only the filter's bucket changes.
 - **A background scheduler** runs each site on its own cadence. An admin can
   disable a site, change its frequency, start a scan immediately, or cancel one
   mid-flight.
@@ -775,10 +783,19 @@ is also mostly modern commercial stock — Antonio Zoli over-unders, an Armalite
 M15, a row of Arminius .38 revolvers — so the three genuinely old listings came
 at the cost of importing a gun shop's shelf.
 
-That is the third time this has come up (Arms Unlimited, Edelweiss Arms,
-Century Arms), so it is worth stating as a rule: **before writing the subclass,
-read twenty cards and count how many carry a price and how many are surplus.**
-"It is on a platform we already support" is a statement about cost, not value.
+That is the fourth time this has come up (Arms Unlimited, Edelweiss Arms,
+Century Arms, Impact Guns), so it is worth stating as a rule: **before writing
+the subclass, read twenty cards and count how many carry a price and how many
+are surplus.** "It is on a platform we already support" is a statement about
+cost, not value.
+
+**Count how many are in stock, too.** Edelweiss Arms was refused on a sample of
+nine products across three sections: every one `OutOfStock`, every one with no
+price anywhere, and their *New Arrivals* page twelve sold items. A catalog of
+past sales cannot answer either question this application exists to answer —
+what is it asking, and has that moved. And Recoil Gun Works, which *was* taken,
+has 222 of its 229 sold: worth having for the price record, but its catalog
+count is not its coverage. Availability is part of the twenty-card check.
 
 ### If the vendor runs BigCommerce
 
@@ -1268,12 +1285,12 @@ the filter calls it, so the fill-in-the-blanks rules keep working. It is there s
 the ones the heuristics fail on are the easiest to find rather than invisible.
 
 **Each Type carries the count it would show.** The numbers next to Rifles,
-Handguns, Bayonets, Parts kits and Other are counted over every other filter
-but deliberately *not* over the Type itself — with the Type applied, choosing
-Rifles would report zero handguns and the numbers would only ever restate the
-choice already made. "Anything" is the sum of the five rather than a sixth
-count, because the five partition the set by construction and computing it
-separately would let the two disagree on screen. They are also the fastest way
+Handguns, Bayonets, Parts kits, Police surplus and Other are counted over every
+other filter but deliberately *not* over the Type itself — with the Type
+applied, choosing Rifles would report zero handguns and the numbers would only
+ever restate the choice already made. "Anything" is the sum of the six rather
+than a separate count, because they partition the set by construction and
+computing it separately would let the two disagree on screen. They are also the fastest way
 to see a classification change land: a shift of forty in one column after
 `reclassify` is either the fix or the regression.
 

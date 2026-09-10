@@ -531,6 +531,39 @@ def _is_a_bayonet(title: str, description: str | None = None) -> bool:
     return _COMES_WITH.search(title[: found.start()]) is None
 
 
+#: A section that says its stock is a department trade-in.
+#:
+#: **Read off the vendor's section, and only off it.** Police surplus is a fact
+#: about where a gun came from, not about the gun: a PD Trade Glock 22 is
+#: mechanically the same object as any other Glock 22, and nothing in the title
+#: of one distinguishes it except the vendor saying so. That is the opposite of
+#: how parts kits work -- there the section over-claimed and the listing has to
+#: corroborate -- and it is why there is no title test here to go with it.
+#:
+#: Written to match how these sections are actually named: "Police Trade-In
+#: Pistols", "Law Enforcement Trade-Ins", "PD Trade Rifles", "Agency Trade-In".
+_POLICE_SURPLUS_CATEGORY = re.compile(
+    r"\b(?:police|law\s+enforcement|agency|department|duty|LE|PD)\b[\s\-]*"
+    r"(?:surplus|trade[\s\-]?ins?)|\btrade[\s\-]?ins?\b[\s\-]*(?:firearms?|pistols?|"
+    r"rifles?|shotguns?|guns?)",
+    re.I,
+)
+
+
+def _is_police_surplus(category: str | None, *, is_firearm: bool) -> bool:
+    """Whether this listing is a department trade-in.
+
+    Two conditions, and the second is what keeps the bucket useful. The section
+    has to say so -- see :data:`_POLICE_SURPLUS_CATEGORY` -- **and the listing
+    has to be a firearm**. These sections are not pure: Officer Store shelve
+    used Glock magazines among the pistols, and Recoil Gun Works file Federal
+    HST and Speer Gold Dot on the parent page above theirs. A magazine from a
+    police trade-in section is an accessory, and belongs where every other
+    accessory in this catalog goes.
+    """
+    return is_firearm and bool(_POLICE_SURPLUS_CATEGORY.search(category or ""))
+
+
 def _is_a_parts_kit(title: str, category: str | None, description: str | None = None) -> bool:
     """A whole firearm minus its serialized part -- and nothing else.
 
@@ -1563,6 +1596,34 @@ def _is_gun_shaped(stripped: str) -> bool:
     return not any(_is_the_head_noun(stripped, found) for found in candidates)
 
 
+#: A title written as a pipe-delimited specification list rather than a phrase.
+#:
+#: Recoil Gun Works write every listing this way -- "PD Trade | 870 Police
+#: Magnum | 12GA | Wood Stock" -- and the accessory test reads English word
+#: order: the thing being sold sits last, with nothing firearm-shaped after it.
+#: In a spec list that is exactly backwards. The product is the *first*
+#: segment and everything after it is a specification, so "Wood Stock" turned a
+#: shotgun into a stock, "Archangel Stock" turned a Mini-14 into one, and
+#: "Carbon Fiber Barrel" turned an LWRCI REPR into a barrel.
+#:
+#: Measured before it was written: **no listing in the stored catalog of 4,121
+#: uses a pipe in its title**, so narrowing the head-noun question to the first
+#: segment cannot change what any existing vendor is filed as. It is one shop's
+#: house style, handled where the style is recognisable.
+_SPEC_LIST = re.compile(r"\s\|\s")
+
+
+def _head_segment(title_lower: str) -> str:
+    """The part of the title the head noun can be in.
+
+    The whole title normally. For a pipe-delimited spec list, its first
+    segment -- because that is where such a list puts the product.
+    """
+    if _SPEC_LIST.search(title_lower):
+        return _SPEC_LIST.split(title_lower)[0].strip()
+    return title_lower
+
+
 def _definitely_not_a_firearm(title_lower: str) -> bool:
     """The half of the accessory test that outranks the vendor's category.
 
@@ -1585,6 +1646,9 @@ def _definitely_not_a_firearm(title_lower: str) -> bool:
     # Every accessory noun in the title, not just the first. "PSYOP Chieu Hoi
     # Magazine Bag" leads with "magazine", which is a specification here and
     # not the head -- and testing only that one missed the "bag" that is.
+    # Only where the head noun can actually be. For an ordinary title that is
+    # the whole of it; for a spec list, its first segment. See _SPEC_LIST.
+    stripped = _head_segment(stripped)
     candidates = list(_ACCESSORY_NOUN.finditer(stripped))
     candidates += list(_BUNDLED_ACCESSORY.finditer(stripped))
     return any(_is_the_head_noun(stripped, found) for found in candidates)
@@ -2093,6 +2157,9 @@ class EnrichedFields(TypedDict):
     is_pistol: bool
     is_bayonet: bool
     is_parts_kit: bool
+    #: A department trade-in. Not one of the mutually exclusive kinds above:
+    #: a police trade-in Glock is still a handgun and is_pistol still says so.
+    is_police_surplus: bool
 
 
 def enrich(
@@ -2153,4 +2220,11 @@ def enrich(
         # bayonet question get asked at all.
         "is_bayonet": not (is_rifle or is_pistol or is_kit) and _is_a_bayonet(title, evidence),
         "is_parts_kit": is_kit,
+        # Not one of the mutually exclusive kinds above, on purpose. A police
+        # trade-in Glock *is* a handgun, and the armory, the caliber work and
+        # every "what is this" question should keep saying so; what changes is
+        # only which bucket the browse filter counts it in. See KINDS in
+        # services/search.py, where police surplus is taken out of Rifles and
+        # Handguns so the five buckets still partition the catalog.
+        "is_police_surplus": _is_police_surplus(category, is_firearm=is_rifle or is_pistol),
     }

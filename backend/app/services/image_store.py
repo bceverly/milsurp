@@ -28,6 +28,7 @@ import mimetypes
 import os
 import socket
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from secrets import token_hex
@@ -166,6 +167,23 @@ class FetchResult:
     #: would otherwise burn a photograph's whole retry budget without a single
     #: request being made.
     resting: bool = False
+    #: True when the URL does not serve a picture and never will, so the row
+    #: pointing at it is not a photograph waiting to be fetched — it is litter,
+    #: and the caller should drop it rather than keep it in the queue.
+    #:
+    #: Distinct from ``permanent``, which is about the retry budget. A 404 and
+    #: an over-sized image are both permanent and both worth reporting: the
+    #: first may come back, and the second really is a photograph the shop
+    #: published. A URL that answers `image/svg+xml` is neither.
+    #:
+    #: DuPage Trading is why. Their theme lazy-loads with a Stencil
+    #: placeholder, `…/img/loading.svg`, and 23 listings each carried a row
+    #: pointing at that one URL. Every scan re-counted them into "23 photo(s)
+    #: have failed 3 times", advising `make photos-retry` — which re-queues the
+    #: same dead URL, gets the same answer, and reports the same warning. The
+    #: scrape-time filter now drops the placeholder, but a row already written
+    #: had no way to leave.
+    discard: bool = False
 
 
 class UrlVerdict(NamedTuple):
@@ -249,14 +267,32 @@ def _check_url(url: str) -> UrlVerdict:  # noqa: PLR0911 - one return per way a
 
 
 class ImageStore:
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: Config, should_stop: Callable[[], bool] | None = None) -> None:
         self.root = config.images_path
         self.config = config
+        #: Asked before and during every wait, so Stop is heard while this is
+        #: pacing a host rather than only between photographs. A host that has
+        #: asked for a minute between images means a batch is asleep almost all
+        #: of the time. Defaults to "never stop" for the callers that have no
+        #: run to cancel -- the CLI's one-shot fetches, and the size report.
+        self._should_stop = should_stop or (lambda: False)
         #: Hosts that have asked us to slow down, and the pace they asked for.
         #: Kept for the life of the store, so the photographs after the first
         #: refusal are paced rather than each discovering the limit again.
         self._slowed: dict[str, float] = {}
         self._last_request_at: dict[str, float] = {}
+
+    #: How often a wait looks up to see whether it has been cancelled.
+    STOP_CHECK_SECONDS = 0.25
+
+    def _sleep(self, seconds: float) -> None:
+        """Wait, but notice being told to stop. See ScrapeContext.sleep."""
+        deadline = time.monotonic() + seconds
+        while not self._should_stop():
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return
+            time.sleep(min(remaining, self.STOP_CHECK_SECONDS))
 
     # -- path handling ------------------------------------------------------
     def _relative_path(
@@ -343,7 +379,7 @@ class ImageStore:
                 log.info(
                     "%s asked us to slow down; waiting %.0fs before the next photo.", host, wait
                 )
-                time.sleep(wait)
+                self._sleep(wait)
 
         reason = f"{TOO_MANY_REQUESTS} after {PHOTO_ATTEMPTS} attempts"
         log.warning("Gave up on %s: the host kept answering %s.", scrub(source_url), reason)
@@ -360,7 +396,7 @@ class ImageStore:
             return
         since = time.monotonic() - self._last_request_at.get(host, 0.0)
         if since < pace:
-            time.sleep(pace - since)
+            self._sleep(pace - since)
 
     def download(
         self, session: requests.Session, site_slug: str, source_url: str
@@ -399,8 +435,10 @@ class ImageStore:
                 response.close()
                 reason = f"unsupported content type {content_type or 'none'}"
                 log.warning("Skipping %s: %s.", scrub(source_url), reason)
-                # What the server serves at this URL, not a passing condition.
-                return FetchResult(None, reason, permanent=True)
+                # What the server serves at this URL, not a passing condition —
+                # and not a photograph, so the row is dropped rather than left
+                # in the queue to be counted forever. See FetchResult.discard.
+                return FetchResult(None, reason, permanent=True, discard=True)
             content_type = guessed or "image/jpeg"
 
         declared = response.headers.get("Content-Length")

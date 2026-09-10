@@ -57,11 +57,23 @@ def _search_terms(search: str) -> list[str]:
     return terms[:MAX_SEARCH_TERMS]
 
 
+#: The browse filter's Types, which **partition the catalog**: every listing is
+#: in exactly one, and the counts beside them sum to the total.
+#:
+#: Police surplus is the reason rifle and pistol carry an exclusion. A police
+#: trade-in Glock is a handgun and ``is_pistol`` says so -- that is the true
+#: answer and the armory needs it -- but counting it under both Handguns and
+#: Police surplus would break the partition and show a listing twice. So the
+#: bucket is subtracted here, in the one place that cares, rather than by
+#: making the underlying column lie.
 KINDS: dict[str, Any] = {
-    "rifle": Item.is_rifle.is_(True),
-    "pistol": Item.is_pistol.is_(True),
+    "rifle": Item.is_rifle.is_(True) & Item.is_police_surplus.is_(False),
+    "pistol": Item.is_pistol.is_(True) & Item.is_police_surplus.is_(False),
     "bayonet": Item.is_bayonet.is_(True),
     "parts_kit": Item.is_parts_kit.is_(True),
+    "police_surplus": Item.is_police_surplus.is_(True),
+    # No police-surplus term needed: the column is only ever true for a listing
+    # that is already a rifle or a handgun, so this clause excludes it already.
     "other": (
         Item.is_rifle.is_(False)
         & Item.is_pistol.is_(False)

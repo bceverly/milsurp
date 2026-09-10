@@ -516,6 +516,7 @@ def cmd_reclassify(args: argparse.Namespace) -> int:
                 "is_pistol": derived["is_pistol"],
                 "is_bayonet": derived["is_bayonet"],
                 "is_parts_kit": derived["is_parts_kit"],
+                "is_police_surplus": derived["is_police_surplus"],
             }
             # Refines, never promotes -- see _apply_catalog in scan_service
             # for why. A model an admin has vouched for says which of the two

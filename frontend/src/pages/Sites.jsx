@@ -198,7 +198,17 @@ function SiteCard({ site, result, onChange, onError, onDismissResult }) {
       <div className="site-card__top">
         <div style={{ minWidth: 0 }}>
           <div className="site-card__name">{site.name}</div>
-          <div className="site-card__url">{site.base_url}</div>
+          <a
+            className="site-card__url"
+            href={site.base_url}
+            target="_blank"
+            // noreferrer as well as noopener: the vendor does not need to
+            // learn that the click came from here, which is the same rule the
+            // item page follows for its "View on ..." link.
+            rel="noopener noreferrer"
+          >
+            {site.base_url}
+          </a>
           <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
             {site.is_scanning ? (
               <span className="chip chip--info">

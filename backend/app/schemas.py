@@ -426,6 +426,7 @@ class ItemOut(UTCModel):
     is_pistol: bool
     is_bayonet: bool = False
     is_parts_kit: bool = False
+    is_police_surplus: bool = False
     is_sold: bool
     is_active: bool
     current_price: float | None = None

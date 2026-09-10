@@ -257,18 +257,25 @@ class TestTheTypeCounts:
         body = client.get(f"/api/items{query}", headers=headers).json()
         return {k["value"]: k["count"] for k in body["facets"]["kinds"]}
 
+    #: Every Type the filter offers, which is what the sum below has to cover.
+    TYPES = ("rifle", "pistol", "bayonet", "parts_kit", "police_surplus", "other")
+
     def test_one_per_type_plus_anything(self, client, admin_headers, inventory):
         counts = self.counts(client, admin_headers)
-        assert set(counts) == {"", "rifle", "pistol", "bayonet", "parts_kit", "other"}
+        assert set(counts) == {"", *self.TYPES}
         assert counts["rifle"] == 3
         assert counts["pistol"] == 1
 
     def test_anything_is_the_whole_set(self, client, admin_headers, inventory):
-        """The five partition it, so the sum is the total and not a sixth count
-        that could drift away from the rows on the page."""
+        """They partition it, so the sum is the total and not a separate count
+        that could drift away from the rows on the page.
+
+        Read from TYPES rather than a list written out here: adding a Type and
+        forgetting to add it to this sum would leave the partition broken and
+        this test still green, which is the failure it exists to catch.
+        """
         counts = self.counts(client, admin_headers)
-        named = sum(counts[k] for k in ("rifle", "pistol", "bayonet", "parts_kit", "other"))
-        assert counts[""] == named
+        assert counts[""] == sum(counts[k] for k in self.TYPES)
         assert counts[""] == client.get("/api/items", headers=admin_headers).json()["total"]
 
     def test_choosing_a_type_does_not_change_them(self, client, admin_headers, inventory):

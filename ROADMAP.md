@@ -57,6 +57,11 @@ Cloudflare challenge rather than a rendering problem.
 | [Bowman Arms](https://bowmanarms.com/) | `bowman-arms` | BigCommerce — parts kits, which is all they list |
 | [DuPage Trading](https://dupagetrading.com/) | `dupage-trading` | BigCommerce — 20 bayonets and 3 WWII rifles; their grid renders each product twice |
 | [Atlantic Firearms](https://www.atlanticfirearms.com/) | `atlantic-firearms` | PrestaShop base class — three of their nine sections; the other six are gear and modern builds |
+| [Recoil Gun Works](https://www.recoilgunworks.com/) | `recoil-gun-works` | BigCommerce — 229 police trade-ins across pistols, rifles and shotguns, every one priced |
+| [Officer Store](https://officerstore.com/) | `officer-store` | BigCommerce — 13 LE trade-in Glocks, graded by condition |
+| [Arms Unlimited](https://armsunlimited.com/) | `arms-unlimited` | BigCommerce — 20 used and collectible, twelve of them military; their gear and current-production sections are not read |
+| [AIM Surplus](https://aimsurplus.com/) | `aim-surplus` | Its own JSON API — 162 police trade-ins and 18 curio-and-relic, all priced; the largest *live* police catalog here |
+| [Surplus Defense](https://www.surplusdefense.com/) | `surplus-defense` | **Wix Stores base class** — 45 listings and every one collector milsurp |
 
 ### Planned
 
@@ -554,7 +559,7 @@ proposition from 25 — it is plausibly the largest category in the application 
 and it is worth deciding whether a kit should be filterable by the model it
 builds before there are thousands of them.
 
-### Police surplus — **Planned**, ten sites measured
+### Police surplus — **Four shipped, two refused** of ten measured
 
 Departments trade in their duty weapons in lots, and a dealer sells them as a
 named section: Glock 22s and 17s, M&P 40s, 870s, and increasingly AR-15
@@ -585,18 +590,18 @@ sections that say so and leave the rest, exactly as with parts kits.
 | --- | --- | --- | --- |
 | **Recoil Gun Works** | `/police-trade-in/firearms/pd-trade-rifles/` | **BigCommerce** | 200, **12 cards, 54 prices**. Stock Stencil — `article.card`, `SF-CSRF-TOKEN`, `fornax_anonymousId`. A four-line subclass, and the readiest of the ten |
 | **Officer Store** | `/firearms/used-firearms` | **BigCommerce** | 200, **9 cards, 31 prices**. Same shape, same cost |
-| **Impact Guns** | `/police-trade-in-guns/` | BigCommerce + **Searchanise** | 200 but **zero cards and zero prices** — the grid is drawn client-side. Their init script carries the key in plain sight: `api_key=4u8N0h9r5t`. The API answers: 12,340 items in all, and a **"Used Guns" category of 117**. "Police Trade In Guns" is not an askable category name, so the useful ask is "Used Guns" plus the classifier. `SearchaniseScraper` already exists — this is the SARCO trick a second time |
-| **USA Gun Shop** | `/used-guns/` | Cloudflare, not identified | 200, 328KB, **80 prices** and no recognizable cards. Renders server-side; needs its markup read, like eBayonet |
+| **Impact Guns** | `/police-trade-in-guns/` | BigCommerce + **Searchanise** | **Refused** — measured and empty. See below |
+| **USA Gun Shop** | `/used-guns/` | WordPress | **Refused — not a dealer.** It is an affiliate price-comparison site: 89 of its product links go to `classic.avantlink.com`, with Bass Pro affiliate links beside them, and the cards say "Compare price" and "sold by". Its listings are other shops' stock and its prices are other shops' prices, so following it would duplicate catalog that belongs to the dealers themselves. Its robots.txt also asks crawlers off the pricing API in as many words — *"every bot fetch counts as an AvantLink click with no real buyer"* — which is a request worth honoring whatever else were true. The platform note was wrong too: `wp-content` throughout, but no WooCommerce Store API (404) |
 | **GunPrime** | `/tags/police-trade-in` | Rails (Passenger) | 200, 46KB, 25 prices, no standard cards. Its own build |
-| **AIM Surplus** | `/categories/firearm/police-trade-ins` | **Laravel** (`laravel_session`) | 200 but only 38KB and **zero prices** — client-side. Already in this document as "a bespoke application, not BigCommerce". Look for the endpoint before concluding it needs a browser; that reading has now been wrong three times |
+| **AIM Surplus** | `/categories/firearm/police-trade-ins` | **Laravel + Vue 3** | **It has an endpoint, and the browser reading would have been wrong a fourth time.** The page is 39KB with zero prices, and `/js/store.js` (507KB) names the routes: `/data/search`, `/data/search/suggestions`, `/data/products/`, `/items/`. `/data/search` answers with JSON — a 500 for a guessed parameter shape, which is an endpoint refusing a bad query rather than a route that is not there. Its robots.txt is `Disallow:` with nothing after it: everything is permitted. **The next one to build**, once the query shape is worked out |
 | **Southern Tactical** | `/firearms/police-trade-in-firearms` | nginx, not identified | 200, 36KB, 3 prices. Likely client-side too |
 | **GovDeals** | `/en/firearms-live-ammunition` | Akamai bot management | 200 but `_abck`/`bm_sz` cookies and no prices. A government *auction* site, not a shop — the price model is bids, which this application has no idea about. Bottom of the list, and arguably out of scope |
 | **Clyde Armory** | `/agency-trade-in/` | — | **TLS handshake fails** from here. Retry later; it may be transient |
 | **Palmetto State Armory** | `/guns/used-guns-surplus-firearms-trade-ins.html` | Magento, Cloudflare | **403** to a plain request. Blocked, like APP Arms Co |
 
-**Suggested order**, cheapest first: Recoil Gun Works and Officer Store, which
-are two BigCommerce subclasses and nothing more; then Impact Guns, which is one
-Searchanise subclass; then re-open Arms Unlimited's handguns. USA Gun Shop,
+**Suggested order**, cheapest first: ~~Recoil Gun Works and Officer Store~~
+(both shipped); ~~then Impact Guns~~ (refused — its police section is empty and
+its "Used Guns" is 8% surplus); ~~then re-open Arms Unlimited's handguns~~ (restored). USA Gun Shop,
 GunPrime and Southern Tactical are each their own build. AIM Surplus needs an
 endpoint found. GovDeals is an auction and Palmetto is blocked.
 
@@ -607,6 +612,290 @@ site's own navigation for C&R, military-surplus and parts-kit sections at the
 same time, on the same rules that govern every other vendor here. That is one
 visit rather than two, and the section-by-section measurement is the same work
 either way.
+
+**Decided, and it is their own Type.** "Police surplus" now sits in the browse
+filter between Parts kits and Other. The column is `items.is_police_surplus`
+(migration 0016) and it sits **alongside** `is_rifle`/`is_pistol` rather than
+replacing them: a PD Trade Glock is a handgun and everything except the browse
+filter should keep getting that answer, so `KINDS` in `services/search.py`
+subtracts police surplus from Rifles and Handguns in the one place that cares.
+Making the column lie would have been cheaper and wrong.
+
+A listing earns the flag from **the vendor's section and nothing else** — a PD
+Trade Glock 22 is mechanically the same object as any other Glock 22 and no
+title distinguishes it — with one condition measurement forced: it must also be
+a firearm. Those sections are not pure. Officer Store shelve used Glock
+magazines among the pistols, and Recoil file Federal HST and Speer Gold Dot on
+the parent page above theirs.
+
+#### The first two — **Shipped**
+
+**Recoil Gun Works** (`recoil-gun-works`): **229 listings, 0 warnings, every
+one priced** — 161 pistols, 39 rifles, 29 shotguns. **222 of the 229 are sold**:
+this shop leaves sold stock up, and on the grid it is indistinguishable from
+stock they have, so the browse page's default "Available" filter shows seven of
+them. Not a reason to skip the shop — a trade-in that sold is a price somebody
+paid for a department Glock on a day that has passed — but the catalog count is
+not coverage here. Glock 17/19/21/22/23/26 in
+Gen 4 and 5, Sig P226s on German frames and P220s, CMMG, Windham, Rock River,
+Bushmaster and S&W M&P-15 patrol rifles, Remington 870 Police Magnums and
+Mossberg 590A1s. The survey's "12 cards" was page one of fourteen.
+
+Three sections read, four refused, and the refusals are the judgment worth
+keeping. `/police-trade-in/` looks like *the* section and is a mixed shelf —
+its first page holds ammunition and a $10.99 magazine — so the firearms are
+taken one level down as three leaves. `equipment` and `magazines` are gear.
+And `/surplus/` is the trap of the four, because the name is exactly right and
+the contents are not: Scott M98 respirators, UTM and Simunition marking
+cartridges, a P226 UTM conversion kit, an AR-15 conversion bolt carrier.
+Sampled and rejected, the same call as Arms Unlimited's `/surplus/`.
+
+**Officer Store** (`officer-store`): **13 listings, 0 warnings, every one
+priced** — 11 pistols, and the two "other" are Glock magazines shelved among
+them. Their titles carry a condition grade, which almost nothing else in this
+catalog does: "LE Trade-In Glock 21 Gen 4, .45 ACP, 3 Mags, Grade 2" at $339.99
+against a Grade 3 at $329.99. That is a vendor stating plainly what surplus
+listings usually leave to a photograph.
+
+Both are four-line BigCommerce subclasses. The base class needed no changes at
+all, which is the one prediction in this section that held exactly.
+
+#### Impact Guns — **Refused**, and the shelf is empty
+
+The largest catalog on the list and the one that looked readiest after the two
+BigCommerce shops: the Searchanise key `4u8N0h9r5t` still works, the base class
+needed no changes, and the subclass would have been four lines. The build was
+never the obstacle.
+
+**Their police trade-in section holds nothing.** The page exists, declares
+itself (`categoryId 1631`, `category":"Police Trade In Guns"`) and says in its
+own markup: *No products. 0 items.* The API agrees --
+`restrictBy[categories]=Police Trade In Guns` returns `totalItems: 0`. This
+document listed them for the URL, and the URL is a shelf with nothing on it.
+
+**Their "Used Guns" (117) is not this catalog's subject.** All 117 titles were
+pulled and sorted:
+
+| | Count | What they are |
+| --- | --- | --- |
+| Modern used | **106** | Colt King Cobra *Factory Blemished*, Stag 15 Tactical SBR *Demo*, Glock 43 Rebuilt, Glock 21 Gen3 Used, Detonics Pocket-9, Bushmaster Hunter 450 |
+| Milsurp-ish | 11 | Mosin M91/30 Ex-Dragoon, three Russian SKS-45s, a Century SKS, a Norinco SKS |
+| Police trade-in | **0** | — |
+
+And the eleven thin out on inspection: an Auto-Ordnance M1 Carbine is current
+production and a High Standard Supermatic Trophy matched only on the words
+"Military Grip". Nine genuine in 117, or **8%** -- which is Every Gun Part's
+ratio almost exactly (177 listings, 9 milsurp), and that was refused. Taking it
+would import 106 modern used handguns and ARs to gain nine surplus rifles.
+
+**"Military Guns" (228) is the same trap with a better name**: Springfield M1A,
+HK MK23, Colt AR6951, Auto-Ordnance M1 Carbine, a Traditions mini cannon.
+Current production in military patterns. That is the "not a surplus dealer"
+call for the fifth time, after Arms Unlimited, Legacy's Modern sections,
+Centerfire's AR-15 collections and Atlantic's "Classic Military Arms".
+
+One measuring note worth keeping, because it would mislead the next person:
+**the Searchanise facet counts do not match the category counts.** The
+`categories` facet reports `Used Guns: 1`; asking for the category directly
+returns 117. Trust `restrictBy`, not the facet bucket.
+
+#### Wix Stores — **Base class shipped**, and Wix does not need a browser
+
+This document has said *"Wix renders client-side, so expect the browser path"*
+since the platform table was first written. It is wrong. The catalog grid and
+the product page both arrive as HTML with the store's data already in them;
+what renders client-side is the interactivity, not the content. That is the
+**fifth** "needs a browser" reading to be wrong here, after J&G Sales,
+Centerfire, SARCO and AIM Surplus, and at this point the inference should be
+treated as evidence of nothing at all.
+
+**Wix is the easiest platform on this list to read**, which was not expected
+either. It marks its own furniture with stable `data-hook` attributes —
+`product-item-root`, `product-item-product-details-link`, `product-item-name`,
+`product-item-price-to-pay`, `product-item-out-of-stock`, and `description`,
+`sku`, `product-price` on the product page. Those are Wix's, not a theme's, so
+they survive a shop restyling itself. The BigCommerce and WooCommerce classes
+both had to start from CSS selectors chosen out of one vendor's markup, and
+both have since needed per-shop overrides; this one may not.
+
+Two things the class had to learn:
+
+* **Paging is `?page=N`.** Wix hides an SEO pagination list beside its
+  "Load More" button (`product-list-pagination-seo`), so the pages a person
+  reaches by scrolling are reachable by asking. Guarded by robots.txt —
+  Surplus Defense disallows only `*?lightbox=`, but Collectors Firearms'
+  `Disallow: /*?*` is the standing reminder that a query string is not always
+  available.
+* **Strip the image transform.** Wix serves everything through
+  `…~mv2.jpg/v1/fill/w_1000,h_750,…/file.jpg` and the page never references
+  the original. Cutting from `/v1/` gives it: **1.7MB against 53KB** for one
+  M1 carbine photograph. Hunter's Lodge taught this on the same CDN, where the
+  difference was OCR that worked against OCR that returned nothing.
+
+**It did not unlock The Mosin Crate, and the reason took two goes to get
+right.** The first reading was "no products": their `/shop-1` answers 200 with
+625KB of Wix scaffolding and zero product hooks, zero `/product-page/` links
+and zero prices, and Wix generates a `store-products-sitemap.xml` only for a
+store with stock — Surplus Defense has one, The Mosin Crate's index lists
+`pages-sitemap.xml` and nothing else. Every one of those observations is true
+and the conclusion drawn from them was wrong.
+
+**They do not use the store app they have installed.** The stock is *prose*, on
+the page, beside group photographs of numbered items — the same shape as
+Hunter's Lodge's scanned flyer, one technology up. And it is strikingly
+regular:
+
+```
+#1  - RIA 1903 12th Cav C&R 30.06 - G   - $1599**SOLD**
+#5  - Lahti L-35 C&R 9mm          - G   - $2099**SOLD**
+#3  - Maynard Cav Carbine ATQ     - F/G - $1199**SOLD**
+#DC - SMKH Tungsten 15rd Box 8mm  - B   - $259
+```
+
+`#<number> - <description> - <grade> - $<price>[**SOLD**]`, with grades from a
+fixed set (N, V, G, G/V, F/G, B) and a sold marker that varies only in its
+asterisks. A pattern written in five minutes matched **43 of 43** lines on the
+one page.
+
+**And 41 of the 43 are sold.** What is actually for sale is an AR lower pack
+and a box of 8mm ammunition — no firearms at all. So this is a shop that sells
+out a crate at a time and leaves the record up, and the two live items are
+things this catalog does not take anyway.
+
+**Refused, and worth re-checking rather than re-deciding** — emphatically so
+here, because the format is parseable and the stock when it lands is exactly
+the subject: a French Lebel 1888, an RIA 1903 12th Cavalry, a Steyr M95, a
+Maynard cavalry carbine, a Lahti L-35, a Romanian TTC, and a run of USMC 1903s.
+Catch a crate drop and this is worth a bespoke text scraper of perhaps fifty
+lines. Their newsletter announces the drops.
+
+Pasadena Pawn, the third, now answers 114 bytes and is gone. So the Wix group
+is one live site of three — which is an argument for the base class having been
+worth writing anyway, since it is what made the other two cheap to dismiss.
+
+#### Surplus Defense — **Shipped**
+
+Forty-five listings across three sections and **every one of them collector
+milsurp**, which is a combination this list does not offer often: an IBM Corp.
+M1 Carbine of 1943, a Spanish Oviedo Mauser 1917, a matching Russian 91/30 Tula
+1939, an M41 Carcano, a Turkish M1938 Mauser, a WW1 German DWM 1916 Artillery
+Luger matching with its holster, two T-Series Browning High Powers, an 1895
+Nagant revolver, a chromed 1941 Mauser Luger, an SS dagger, an SA dagger by
+J.P. Sauer und Sohn, and a Japanese Imperial Type 98 sword.
+
+**Their edged weapons are read, unlike most shops'.** The standing rule keeps
+gear and components out, and an SS dagger, an SA dagger by J.P. Sauer und Sohn
+and a Japanese Imperial Type 98 sword are neither — they are the collectible
+objects this catalog is about, at $550 to $1,500 apiece. `/accessories`,
+`/ammunition`, `/field-gear` and `/flags-and-armbands` are left alone on the
+usual grounds.
+
+**They file under "Other", and that is a gap rather than a decision** — worth
+recording because the first draft of this section claimed the opposite. The
+classifier has a bayonet bucket and these are not bayonets, so all five land
+with the accessories; measured, not assumed. Whether daggers and swords should
+join bayonets, or whether the browse filter wants an edged-weapons Type of its
+own, is a question for whoever next touches those buckets, and it wants asking
+against more than five listings.
+
+**Eighteen of the forty-five are out of stock**, and on this platform that is
+how a shop says sold: the price is removed along with the availability, so a
+card with no price here is gone rather than "call for price". Their
+`/sold-items` page is deliberately not read — what it holds is already in the
+three sections above, marked out of stock, and reading it too would file each
+sold rifle twice.
+
+#### AIM Surplus — **Shipped**, and the fourth "needs a browser" that did not
+
+**180 listings, 0 warnings, every one priced** — 162 Police Trade-Ins and 18
+Curio and Relics, 123 handguns and 53 long guns. The largest *live* police
+catalog of the four: Recoil has 229 but only seven in stock.
+
+This document said it was "a bespoke application, not BigCommerce" and told
+whoever picked it up to look for the endpoint first, because that reading had
+been wrong three times. It was wrong a fourth. Two routes, both named in
+`/js/store.js`:
+
+```
+/data/search?q=&g=&category=<id>&filter=&sort_by=&pagesize=<n>&page=<n>&mode=category
+/data/products/<id>
+```
+
+**Send every parameter, including the empty ones.** `/data/search?q=glock`
+answers 500 and so does `?category=firearm/police-trade-ins`, which is what
+made this look like a route that was not there. The full form is a 200. And a
+category is a *numeric id* — the page carries its own in `data-category-id`.
+
+**Their `properties` list is better than parsing**: Manufacturer, Caliber and
+Capacity arrive as named fields, so the caliber and the maker are read rather
+than inferred from a title. Almost nothing else on this list does that.
+
+**Where the images live, because nothing on the site will tell you.** The API
+returns bare filenames and no page anywhere carries a product image — the whole
+site renders client-side, and fourteen guessed paths returned 404. The bucket
+is named in exactly one place: an inline Vue template binding a *category*
+thumbnail to `'https://dvjr4l3xblvos.cloudfront.net/categories/' +
+category.image`. The products sibling of that path answers 200, and the
+`master` key is full resolution.
+
+**Two of seven firearm sections read.** Handguns (392) and Long Guns (179) are
+a modern dealer's shelf — BCM RECCE-16s, Radical Firearms, Spike's Tactical —
+with the occasional Yugo SKS among them; NFA Items (221) is suppressors and
+short-barrelled rifles; Receivers (69) and Frames (30) are components. The
+trade-ins cross-listed under Long Guns are collapsed by the `seen` set.
+
+#### Arms Unlimited — **Restored**, on a section nobody had opened
+
+Written, backed out, and restored. **The original refusal was right about what
+it examined**, and both halves were re-checked before this shipped:
+`/surplus/` really is police trade-in *gear* — Tasers, Taser batteries, a
+Magpul rear sight, a stainless water bottle — and `/firearms/` really is
+current production: Beretta A300s and 92FSs, B&T suppressors, a Colt M4A1
+SOCOM. Both still refused.
+
+What the call got wrong is that it condemned the shop whole. There is a third
+section, `/used-collectible-firearms/`, and it is the trade-in stock this
+document wondered about:
+
+**20 listings, one page, 0 warnings, every one priced.** Twelve are military —
+Zastava M57 7.62x25, M88A 9mm and two M83 revolvers, a Beretta 70 .32 ACP, an
+M79 Thumper 40mm, a French FRF2 sniper rifle with scope, a SIG PE57 in 7.5x55
+Swiss, HK AG36 37mm and HK69A1/MZP1 40mm launchers, and an 1881 Colt Gatling
+gun. Five are modern used (a Remington 870, a Glock G44, a DPMS A15, two Colt
+carbines) and two are collectible rather than surplus, including Benny Binion's
+personal Colt Single Action Armys.
+
+**Sixty per cent on subject**, against the 8% that got Impact Guns refused on
+the same page. That is the number the two decisions turn on, and it is why one
+shipped and the other did not.
+
+`/department-trade-program/` turned out to be a page describing how a
+department trades its duty weapons in. It holds no products; what comes out of
+it is shelved under used and collectible with everything else.
+
+**One known gap, measured and left alone.** A Gemtech SeaHunter suppressor in
+that section reads as a rifle. The classifier's own judgment is correct —
+without a category it says accessory — and it is the section name *"…
+Firearms"* that promotes it, which is the deliberate rule that a vendor's
+category outranks the heuristics. One listing in twenty, against a heuristic
+with a history of regressions: recorded rather than fixed. The four listings in
+the stored catalog that mention a suppressor are all guns *with* one, and all
+classified correctly.
+
+#### A spec list puts the product first — **Fixed**
+
+Recoil write every title as `PD Trade | 870 Police Magnum | 12GA | Wood Stock`,
+and the accessory test reads English word order: the thing being sold sits
+last, with nothing firearm-shaped after it. In a specification list that is
+exactly backwards, and it cost seven firearms — two Mini-14s and an LWRCI REPR
+read as a stock and a barrel, four 870s and a 590A1 as stocks.
+
+The head-noun question is now asked of the first pipe-delimited segment.
+**Measured before it was written: no listing in the stored catalog of 4,121
+uses a pipe in its title**, so the narrowing provably cannot change what any
+existing vendor is filed as — re-classifying the whole catalog moved exactly
+one listing, a Steyr Model 1909 that is a pocket pistol and was stored as a
+rifle, which is unrelated drift and a `make reclassify` away.
 
 **Worth deciding before building**: whether police trade-ins want their own
 Type in the browse filter, or simply sit among the handguns and rifles. They
@@ -722,9 +1011,9 @@ OpenCart.
 
 | Platform | Sites | Notes |
 | --- | --- | --- |
-| **BigCommerce** | Legacy Collectibles, Arms of America, Bowman Arms, Arms Unlimited, Edelweiss Arms, SARCO | **Base class shipped** (`app/scrapers/bigcommerce.py`). Six sites, one platform, and the markup is close to WooCommerce's: `article.card`, an entity id per card, a "next" link. Two of these were in Group A on the URL guess. Of the six, four shipped — Arms of America and Bowman Arms arriving later from the parts-kit push, and each of them a subclass of four lines — one was dropped as out of scope, and one publishes no prices. SARCO is on the platform and is *not* read by this class: its grid is drawn by Searchanise, so it goes through `searchanise.py` instead — but the external keys are deliberately the same `bc-<id>`, so it could move here without arriving as a duplicate catalog |
+| **BigCommerce** | Legacy Collectibles, Arms of America, Bowman Arms, Arms Unlimited, Edelweiss Arms, SARCO | **Base class shipped** (`app/scrapers/bigcommerce.py`). Six sites, one platform, and the markup is close to WooCommerce's: `article.card`, an entity id per card, a "next" link. Two of these were in Group A on the URL guess. Of the six, **five shipped** — Arms of America and Bowman Arms arriving from the parts-kit push and Arms Unlimited from the police one, each a subclass of four lines. Arms Unlimited had been dropped as out of scope and was restored on a section nobody had opened; Edelweiss Arms is the one refusal, and not for the reason recorded for years — it is stock-less rather than price-less. SARCO is on the platform and is *not* read by this class: its grid is drawn by Searchanise, so it goes through `searchanise.py` instead — but the external keys are deliberately the same `bc-<id>`, so it could move here without arriving as a duplicate catalog |
 | **Shopify** | IMA-USA, Centerfire Systems | **Both shipped** (`app/scrapers/shopify.py`). Cheapest per site, and the estimate held: structured JSON, no browser, no detail fetch. Centerfire had been filed as a one-off build on the URL guess |
-| **Wix** | Surplus Defense, The Mosin Crate, Pasadena Pawn | Three, not one-offs. Wix renders client-side, so expect the browser path |
+| **Wix** | Surplus Defense, ~~The Mosin Crate~~, ~~Pasadena Pawn~~ | **Base class shipped** (`app/scrapers/wix_stores.py`), and **no browser needed** — see the section above. Only one of the three is a Wix *store*: Surplus Defense shipped. The Mosin Crate has the app installed and sells in prose beside group photographs, with 41 of its 43 numbered items sold; Pasadena Pawn answers 114 bytes and is gone |
 | **Magento** | Classic Firearms, Apex Gun Parts, ~~Century Arms~~ | **Base class shipped** (`app/scrapers/magento.py`), and two sites of the three kept. Classic Firearms was listed as Unknown until its markup was read: 59 `mage.` markers and a `/media/catalog/product/cache/` image path. It is the most-visited site on the list. Apex Gun Parts arrived later, from the parts-kit push, and is the one shop here that runs on the base class's **stock selectors unchanged** — the theme is plain `li.product-item`. Century Arms is dealer-only and was dropped |
 | **Laravel (custom)** | AIM Surplus | `laravel_session`; a bespoke application, not BigCommerce |
 | **PrestaShop** | Atlantic Firearms | **Base class shipped** (`app/scrapers/prestashop.py`). The most-visited site on the list, and still a class of one — which is the arithmetic the BigCommerce group got wrong, so it is worth saying plainly. The class is small and the shop is worth reading; a second PrestaShop vendor would be nearly free |
@@ -771,7 +1060,7 @@ walk asks before each page rather than assuming.
 | --- | --- | --- | --- |
 | — | **Legacy Collectibles** | `/new-firearms/`, `/antique-handguns/`, `/antique-long-guns/` | **Shipped.** `data-entity-id` on every card, so a listing keeps its identity through a rename. Their two "Modern" sections were dropped after the first run: Glocks, Sigs, Kimber 2011s and FN SCARs, 43 listings and not one of them surplus — the Arms Unlimited call again. `/new-firearms/` is a new-arrivals feed rather than a category and carries some of the same, but it is also the only place a Portuguese-contract Mauser Luger appears |
 | — | **SARCO, Inc.** | Searchanise — Pistols, Shotgun, Shop All Firearms | **Shipped, and not on the base class this group is about.** The measurement that filed it here was right — zero cards and zero prices in 236 KB — and so was the platform: it *is* BigCommerce, and the product pages are ordinary Stencil. Only the catalog grid is client-side, drawn by a Searchanise widget from a public JSON API whose key the page carries in plain sight. 429 listings kept of 512 offered: 83 bare frames and stripped receivers are skipped as components, and the sections are read specific-first because the vendor's section name outranks the classifier — under the parent category 200 of their 283 pistols read as handguns, under "Pistols" 281 do. Their rifles live in a category called "Rifles \| Military Surplus Guns" and the pipe makes it unaskable, so those 75 come through the catch-all and are left to the classifier and the armory. See `scrapers/searchanise.py`, and the second finding under Group A about what an empty page does and does not prove |
-| 1 | Edelweiss Arms | https://edelweissarms.com/antiques/long-guns/ | **Prices are not published.** Cards and titles parse; the price element is empty site-wide. Worth having for new-stock alerts, worth nothing for price tracking — decide before building |
+| — | ~~Edelweiss Arms~~ | https://edelweissarms.com/ | **Refused. Not price-less — stock-less.** Re-measured properly: nine products sampled across `long-guns/switzerland`, `handguns/lugers` and `handguns/semi-automatic`, and **all nine are `OutOfStock` with no price on the grid or the product page**. Even their *New Arrivals* page is twelve sold items. The earlier note said "worth having for new-stock alerts, worth nothing for price tracking" — the first half is wrong too, because there is no new stock to alert on. This is a gallery of past sales. The stock is superb and entirely beside the point: a ZFK 31/42 sniper rifle, DWM Artillery Lugers with stock and holster, a SIG Vetterli 1868 prototype — all sold, none priced. Nothing here can be tracked |
 | — | ~~Arms Unlimited~~ | — | **Dropped: not a surplus dealer.** Written, run against the live site, and backed out. Their `/surplus/` section is police trade-in gear — Tasers, holsters, a water bottle — and `/rifles/` is modern Colt M4s. 97 listings landed correctly and none of them belonged in this catalog. The scraper was a two-line subclass; restoring it is easy if modern stock is ever wanted |
 
 #### Group C — Shopify · base class **shipped**
@@ -908,9 +1197,13 @@ survived contact:
   scanned once, and then the scraper and its 31 listings were deleted.
 
   Being on a platform already supported is a statement about cost, not value.
-  This is the third time — Arms Unlimited, Edelweiss Arms, Century Arms — so
-  the check is now written into the README: read twenty cards and count how
-  many carry a price and how many are surplus, *before* writing the subclass.
+  This is the fourth time — Arms Unlimited, Edelweiss Arms, Century Arms,
+  Impact Guns — so the check is now written into the README: read twenty cards
+  and count how many carry a price, how many are surplus and **how many are in
+  stock**, *before* writing the subclass. The third of those was added when
+  Edelweiss was finally measured rather than assumed: it is not price-less, it
+  is stock-less, and a scraper would have imported a hundred sold listings that
+  never change again.
 
 **Three things the build cost, worth not repeating.**
 
@@ -1554,6 +1847,42 @@ fact.
   development mode, PostgreSQL, real price history, and no backups at all. The
   upgrade seeds the switch off in development so nothing starts writing files
   nobody asked for.
+- **Shipped** — **Stop is heard while a scan is waiting.** Pressing Stop on
+  Checkpoint Charlie's appeared to do nothing for minutes at a time. The flag
+  was set the moment the button was pressed; the run was not looking at it. A
+  scan spends most of its life asleep — the politeness delay between requests,
+  which reaches five minutes on a host that has refused at every slower pace,
+  and the backoff between retries of a failed request — and both were a plain
+  `time.sleep`, which is deaf. Every wait in a scrape now goes through
+  `ScrapeContext.sleep`, which wakes four times a second to look at the flag
+  and raises `ScrapeCanceled` as soon as it is set. The photo loop had the same
+  shape and got the same treatment: a host pacing photographs a minute apart
+  leaves that batch asleep almost all of the time.
+- **Shipped** — **A warning is for something that changed.** Two conditions
+  were making sites permanently PARTIAL over facts nobody could act on, and a
+  site that is always PARTIAL teaches whoever reads the scan list that PARTIAL
+  means nothing. A photograph that had already run out of retries was re-warned
+  every scan: Classic Firearms' four recorded runs were four PARTIALs, all of
+  them one BM-59 photograph whose file their own CDN has 404'd since 7
+  September while their product page still links it — the other eleven are
+  here. And a product page a shop refuses was warned about every scan: one
+  Bowman Arms parts kit sits in a category restricted to signed-in customers,
+  and their server says so in as many words. Both are now *said* rather than
+  warned; both still warn on the run where they first happen, a run of refusals
+  still stops a walk, and a 500 or a 429 is still a fault worth reporting.
+  `ScrapeError` carries the HTTP status so the distinction is made on a number
+  rather than on the text of a message.
+- **Shipped** — A photo URL that does not serve a picture is dropped rather
+  than queued forever. DuPage Trading's theme lazy-loads behind a BigCommerce
+  Stencil placeholder, `…/img/loading.svg`, so 23 listings each carried a row
+  pointing at that one URL; it answers `image/svg+xml`, and every scan
+  re-counted them into "23 photo(s) have failed 3 times — run
+  `make photos-retry`", which cannot work: retrying re-queues the same dead URL
+  for the same answer. The scrape-time filter now drops the placeholder, and
+  `FetchResult.discard` drops a row whose URL is provably not a photograph.
+  Distinct from `permanent`, which is about the retry budget — a 404 may come
+  back and an over-sized image really is a photograph the shop published, so
+  both keep warning. All 23 listings had their real photograph throughout.
 - **Shipped** — The photo SSRF guard tells a private address from a resolver
   that gave up. Both used to be reported as "not a public HTTP(S) URL" and both
   counted against a photograph's retry budget; one SARCO scan refused 151

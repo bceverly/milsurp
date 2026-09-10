@@ -21,8 +21,16 @@ own structured data while still showing a price. See
 ``bigcommerce.sold_out()``.
 
 One product page answers 403 to every request, including retries: their
-Colt 653. The base class keeps the catalog entry and warns, so the run is
-PARTIAL with seventeen listings rather than a failure with none.
+Colt 653. It is not a block on us -- the shop's own server says "You Do Not
+Have Permission To Access This Page", and its navigation renders around the
+message -- it is a product filed in a category restricted to signed-in
+customers. The base class keeps the catalog entry, so seventeen listings
+arrive rather than a failure with none.
+
+**It is logged rather than warned**, because a shop's standing access policy
+is not a fault and a site permanently PARTIAL over one teaches whoever reads
+the scan list that PARTIAL means nothing. A *run* of refusals still warns and
+still stops the walk -- see `base.vendors_answer`.
 """
 
 from __future__ import annotations

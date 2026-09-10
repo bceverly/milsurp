@@ -141,6 +141,10 @@ const KINDS = [
   { value: "pistol", label: "Handguns" },
   { value: "bayonet", label: "Bayonets" },
   { value: "parts_kit", label: "Parts kits" },
+  //: Its own Type rather than scattered through Rifles and Handguns. A
+  //: department trade-in is a different thing to be looking for, and the
+  //: vendors sell them as their own named sections, so the catalog can say so.
+  { value: "police_surplus", label: "Police surplus" },
   { value: "other", label: "Other parts & accessories" },
 ];
 
@@ -352,7 +356,7 @@ export default function Browse() {
   const kind = params.get("kind") || "";
   // How many each Type would show. Counted by the API over every other filter
   // but not over the Type itself, so switching between them does not change
-  // the numbers -- and so "Anything" is the sum of the five below it.
+  // the numbers -- and so "Anything" is the sum of the ones below it.
   const kindCounts = useMemo(
     () => new Map((data?.facets?.kinds || []).map((k) => [k.value, k.count])),
     [data],
