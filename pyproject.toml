@@ -4,7 +4,7 @@
 
 [project]
 name = "milsurp-monitor"
-version = "2.0.0.5"
+version = "2.1.0.0"
 description = "Track military surplus firearm listings and price history across vendor sites."
 requires-python = ">=3.12"
 license = { text = "BSD-3-Clause" }
