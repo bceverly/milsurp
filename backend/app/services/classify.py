@@ -281,7 +281,9 @@ CALIBER_NORMALIZATIONS: tuple[tuple[str, str], ...] = (
     # reason the generic metric rule now does: there is no boundary between the
     # 35 and the mm of "6.35mm".
     (r"\.25\s*acp|\b6\.35\s*mm\b|\b6\.35\b|\.25\b", ".25 ACP"),
-    (r"\.380\s*acp|\.380\b", ".380 ACP"),
+    # The dot is optional: "Rock Island BBR Standard 380acp" carries none, and
+    # without a caliber _kind_from_caliber falls back to *rifle*.
+    (r"\.?380\s*(?:acp|auto)|\.380\b", ".380 ACP"),
     # After .380, so the longer number is read first.
     # The bare-bore fallback, which must not answer for a cartridge that
     # merely starts with the same number. The named ones above are tried
@@ -298,6 +300,28 @@ CALIBER_NORMALIZATIONS: tuple[tuple[str, str], ...] = (
     ),
     (r"\.32\s*acp|\.\s*32\s*acp|\.32\b", ".32 ACP"),
     (r"7\.65\s*mm\b", ".32 ACP"),
+    # The .22 rimfires, which are *not* all .22 LR. The bare ".22" rule below
+    # used to take every one of them: five .22 WMRs, a .22 WRF and six .22
+    # Shorts were stored as Long Rifle, and a ".22 Long" would have been too.
+    #
+    # These sit above it and win on their own merits -- this table is scored by
+    # how much of the text a pattern matched, so ".22 WMR" beats ".22" without
+    # needing the order. They are written out anyway, because the order is what
+    # a reader checks first.
+    (
+        r"\.?22\s*(?:w\.?m\.?r|win(?:chester)?\s*mag(?:num)?|mag(?:num)?)\b",
+        ".22 WMR",
+    ),
+    # A real cartridge of 1890 and not a misspelling of WMR: it chambers in a
+    # .22 WMR rifle, but not the other way round.
+    (r"\.?22\s*(?:wrf|win(?:chester)?\s*rim\s*fire)\b", ".22 WRF"),
+    (r"\.?22\s*short\b", ".22 Short"),
+    # ".22 Long" is its own cartridge, older and shorter than the Long Rifle.
+    # The negative lookahead is the whole point of the rule.
+    (r"\.?22\s*long\b(?!\s*rifle)", ".22 Long"),
+    (r"\.?22\s*hornet\b", ".22 Hornet"),
+    # Left last and left broad: most bare ".22" really is Long Rifle, and a
+    # chamber marked "S/L/LR" takes all three.
     (r"\.22\s*lr|\.22(?!\s*\d)", ".22 LR"),
     (r"\.30-06|\b30-06\b|cal\.?\s*30-06", ".30-06"),
     (r"\.30\s*carbine", ".30 Carbine"),
@@ -708,7 +732,7 @@ _KIT_OF_SOMETHING_ELSE = re.compile(
 )
 
 
-def _is_a_bayonet(title: str, description: str | None = None) -> bool:
+def _is_a_bayonet(title: str, description: str | None = None, filed_as_edged: bool = False) -> bool:
     found = _BAYONET.search(title or "")
     if found is None:
         # A scabbard is the bayonet's sheath and belongs with them -- but the
@@ -723,6 +747,12 @@ def _is_a_bayonet(title: str, description: str | None = None) -> bool:
         return bool(_SCABBARD.search(title or "") and _BAYONET.search(description or ""))
     if _lacks(title, _BAYONET):
         return False
+    if filed_as_edged:
+        # The _COMES_WITH guard exists to stop "rifle w/ bayonet" being read as
+        # a bayonet. Inside a section that sells bayonets it reads the other
+        # way round: "GERMANY K98 W/BAYONET&SHEATH" at $200 is a K98 bayonet
+        # with its sheath, not a rifle.
+        return True
     return _COMES_WITH.search(title[: found.start()]) is None
 
 
@@ -1016,6 +1046,28 @@ PISTOL_PATTERNS = (
     r"\bpocket\s+hammer(?:less)?\b",
     r"\b(?:vz|cz)\s*[57]0\b",
     r"\btokarev\b",
+    # The revolver and pocket-pistol cartridges, which were missing entirely --
+    # and _kind_from_caliber falls back to *rifle*, so every one of them was
+    # read as a long gun when nothing else in the title settled it. An H&R
+    # Safety Hammerless in .38 S&W has no noun a pattern can use.
+    r"\b\.?38\s*s&w\b",
+    r"\b\.?38-200\b",
+    r"\b\.?38\s*(?:long\s*)?colt\b",
+    r"\b\.?32\s*s&w\b",
+    r"\b\.?32\s*colt\b",
+    r"\b\.?320\b",
+    r"\b\.?25\s*acp\b",
+    r"\b\.?30\s*(?:luger|mauser)\b",
+    r"\b\.?44\s*(?:russian|colt)\b",
+    r"\b\.?45[25]?\s*(?:webley|colt)\b",
+    r"\b\.?45[0-9]\b",
+    r"\b\.?442\b",
+    r"\b\.?476\b",
+    r"\b\.?41\s*(?:rf|colt)\b",
+    r"\b7\.6[35]\s*mm\s*mauser\b",
+    r"\bnambu\b",
+    r"\bpinfire\b",
+    r"\bteat-?fire\b",
     r"\btt-?33\b",
     r"\bcolt\s+1911\b",
     # Colt's Police Positive, written "Colt PP" on a dealer's flyer. Without
@@ -1059,7 +1111,7 @@ PISTOL_PATTERNS = (
 # inside "7.62x39mm".
 PISTOL_CALIBERS = (
     r"\b\.?32\s*acp\b",
-    r"\b\.?380\b",
+    r"\b\.?380\b|\b\.?380\s*(?:acp|auto)",
     r"\b9\s*mm\b",
     r"\b9x18\b",
     r"\b9x19\b",
@@ -1260,6 +1312,8 @@ _HEAD_NOUN_ACCESSORIES = re.compile(
     r"|tools?|keepers?|buckles?|frogs?|straps?|cases?|belts?|grips?|cartridges?"
     r"|barrels?|stocks?|handguards?"
     r"|cleaning\s+kits?|stripper\s+clips?|handguards?"
+    r"|swords?|sabers?|sabres?|cutlass(?:es)?|bayonet\s+swords?"
+    r"|suppressors?|silencers?"
     # A lot of parts, matched as the whole phrase _PART_ASSORTMENT found.
     r"|(?:spare\s+)?(?:parts?|fire\s+control|rear\s+sight|front\s+end|trigger"
     r"|hardware|furniture|small\s+parts?)\s+"
@@ -2473,13 +2527,16 @@ def enrich(
     # -- but not a kit, which outranks both. Arms of America sell a "Polish
     # Radom Military Collectors Package - Circle 11 AKM Parts Kit ... + Circle
     # 11 Bayonet", and the thing being sold is the kit.
-    in_bayonet_section = (
-        not is_kit
-        and _BAYONET_SECTION.search(category or "") is not None
-        # Corroborated, not taken on trust. See _BAYONET_SECTION.
-        and _is_a_bayonet(title, evidence)
-    )
-    if is_kit or in_bayonet_section:
+    # A section that says bayonets means "this is not a firearm" even when it
+    # does not establish *which* edged thing it is. "FRENCH M 1866 SWORD" is a
+    # Chassepot sword bayonet and was read as a Chassepot **rifle**, because
+    # the model matched and the word "bayonet" never appears. Suppressing the
+    # firearm is safe on its own evidence; calling it a bayonet still needs
+    # corroboration, because DuPage file bare scabbards and a K-BAR under
+    # theirs.
+    filed_as_edged = not is_kit and _BAYONET_SECTION.search(category or "") is not None
+    in_bayonet_section = filed_as_edged and _is_a_bayonet(title, evidence, filed_as_edged)
+    if is_kit or filed_as_edged:
         is_rifle = is_pistol = False
     return {
         "caliber": caliber,

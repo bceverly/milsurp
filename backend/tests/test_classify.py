@@ -2110,3 +2110,54 @@ class TestHowTheCaliberRulesAreWeighed:
         """A P.38 is 9mm. Twelve of them were stored as .38 Special, because
         ".38" matched inside the designation."""
         assert classify.extract_caliber("Rare Walther P.38 - 480 Code") == "9mm Luger"
+
+
+class TestTheOtherTwentyTwos:
+    """Not every .22 is a Long Rifle, and the bare rule used to say otherwise.
+
+    ``\\.22(?!\\s*\\d)`` mapped anything starting ".22" to .22 LR, so five .22
+    WMRs, a .22 WRF and six .22 Shorts were stored as Long Rifle. The armory
+    made the same mistake from the other side: ".22 LR" carried ".22", "22 CAL"
+    and "22 Long" as aliases, and the caliber registry tries whole rows in
+    order of their longest spelling -- so the Long Rifle row was reached first
+    and its ".22" matched everything.
+
+    ``.22 WRF`` is worth stating outright because it looks like a typo and is
+    not: the .22 Winchester Rimfire of 1890 chambers in a .22 WMR rifle, but
+    not the other way round.
+    """
+
+    @pytest.mark.parametrize(
+        ("title", "expected"),
+        [
+            ("Excellent Marlin Model 25MN - .22 WMR", ".22 WMR"),
+            ("MOSSBERG 640 KD .22 MAGNUM", ".22 WMR"),
+            ("Minty, Boxed Grendel P.30 - .22 WMR", ".22 WMR"),
+            ("Colt Police Positive Target Revolver - .22 WRF", ".22 WRF"),
+            ("Minty, Boxed Beretta 950B - .22 Short", ".22 Short"),
+            ("Colt Open Top Pocket Model .22 Short Revolver", ".22 Short"),
+            ("Winchester Model 1890 in .22 Long", ".22 Long"),
+            ("Winchester 1885 Low Wall .22 Hornet", ".22 Hornet"),
+        ],
+    )
+    def test_each_is_read_as_itself(self, title, expected):
+        assert classify.extract_caliber(title) == expected
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "Anschutz Model 525 .22 LR",
+            "Savage 4C .22LR",
+            "Ruger 10/22 .22 Long Rifle",
+            # A chamber marked S/L/LR takes all three, and the rifle is sold as
+            # a Long Rifle.
+            "Remington Model 512 .22 S/L/LR",
+        ],
+    )
+    def test_and_a_long_rifle_still_is_one(self, title):
+        assert classify.extract_caliber(title) == ".22 LR"
+
+    def test_the_bare_twenty_two_still_defaults_to_long_rifle(self):
+        """Most of them are, and the rule is kept broad on purpose -- it is
+        just no longer the *first* thing tried."""
+        assert classify.extract_caliber("Winchester Model 69 .22 bolt action") == ".22 LR"

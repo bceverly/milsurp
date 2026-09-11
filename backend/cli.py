@@ -471,6 +471,11 @@ def cmd_reclassify(args: argparse.Namespace) -> int:
                 # the flag changed nothing at all.
                 caliber=None if args.recompute else item.caliber,
                 category=item.category,
+                # Not optional. The whole reason stated_kind is a column and
+                # not something worked out during a scan is that reclassify
+                # rebuilds from the row -- and leaving it out here threw the
+                # vendor's own answer away on every run.
+                stated_kind=item.stated_kind,
                 trust_description=trusted.get(item.site_id, True),
             )
             # The caliber first: it is one of the things that names a maker,
