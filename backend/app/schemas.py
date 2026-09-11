@@ -556,6 +556,10 @@ class ItemFacets(BaseModel):
     #: over every other filter but not over the Type itself, so each says what
     #: choosing it would show rather than what the current choice already did.
     kinds: list[FacetValue] = Field(default_factory=list)
+    #: The finer kind — revolver, carbine, percussion pistol. A second question
+    #: from ``kinds``: that one picks which of the five buckets a listing is in,
+    #: this one narrows within it. See Item.kind.
+    forms: list[FacetValue] = Field(default_factory=list)
     total: int = 0
 
 

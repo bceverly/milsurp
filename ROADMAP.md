@@ -1972,9 +1972,26 @@ until they promote it. The numbers above are what promoting them does.
   classifier's own spellings, because both answers land in the same column and
   a model recorded as "USSR" against listings read as "Russia" would split one
   country into two half-empty filters.
-- **Planned** — Filter the browse page by the finer kinds (flintlock pistol,
-  percussion carbine). The data is there through the model link; only the
-  reading of it is missing.
+- **Shipped** — Filter the browse page by the finer kinds. A **Form** facet
+  beside Caliber, holding revolver, carbine, shotgun, percussion revolver and
+  the rest of `FirearmKind`. It is a *second* question from the five Types,
+  which partition the catalog and cannot express "show me the revolvers" — a
+  flintlock pistol and a percussion revolver are both Handguns there — so the
+  two compose: `?kind=pistol&form=revolver`.
+
+  The note above said "the data is there through the model link; only the
+  reading of it is missing", and that was half right. Reading it through the
+  join would have worked and would have thrown away the better source on the
+  shelves the armory does not reach: Simpson Ltd. state a type per listing.
+  So it is resolved once and stored on `items.kind` (migration 0021) — the
+  model's kind first, because it is curated and the finer of the two, then the
+  vendor's word — and facets then tally a column like every other one.
+
+  **6,623 of 10,964 listings carry one**: 2,769 pistols, 2,416 rifles, 994
+  carbines, 276 revolvers, 78 shotguns, 42 percussion revolvers, 40 percussion
+  rifles, 8 flintlock rifles. The 4,341 with none are a state rather than a
+  gap, and nothing sweeps them into a bucket. Labelled server-side from the
+  armory page's own `KIND_LABELS`, so the two pages cannot drift.
 - **Shipped** — The armory fills its own queue. Every scan ends by reading the
   listings it just stored and proposing the cartridges, firms and designations
   the table cannot explain (`services/discovery.py`); `make armory-discover`
@@ -2046,50 +2063,52 @@ until they promote it. The numbers above are what promoting them does.
 - **Parked** — Optical character recognition of proof marks from photos. Fun,
   but a long way from paying for itself.
 
-### Calibers as a managed list, like makers
+### Calibers as a managed list, like makers — **Shipped**
 
-**Planned.** Calibers are still a tuple of regular expressions in
-`app/services/classify.py`, which is where the maker list started before it
-became a table with an admin page. The same argument applies, and more sharply:
-a cartridge has one name that collectors use and several that vendors write, and
-which one is the "real" one is a judgment about the market rather than about
-code.
+Built as specified. `calibers` is a table with a display name, aliases one per
+line, a position, an `enabled` switch and the same approval gate the makers have,
+and it is edited from the **Calibers** tab of the armory. An edit re-files every
+listing it reaches and reports how many moved, through the same `reprocess`
+machinery the manufacturers page uses. It was seeded from
+`CALIBER_NORMALIZATIONS`, so nothing was lost.
 
-The shape is the one `manufacturers` and `manufacturer_models` already have:
+**The bare-bore case is what it turned out to be for.** The plan guessed this,
+and a day of curation proved it: the percussion end of the catalog is written as
+a number and nothing more. A Colt Dragoon is `.44`, a Colt 1849 Pocket is `.31`,
+a Colt 1851 Navy is `.36` — 137 listings between those three — and each is an
+honest answer rather than a gap, because a ball is a diameter and not a
+cartridge. What the table adds is the ability to say *which* of them is a
+diameter and which is a cartridge wearing one as a name.
 
-- A **display name** — what the filter shows and what a listing is filed under.
-  "7.62 NATO", or "6.5 Swedish".
-- **Aliases** underneath it, one per line, for what vendors actually write:
-  "7.62x51mm", "7.62x51", ".308 Winchester" under the first; "6.5x55mm",
-  "6.5x55 Swedish", "6.5x55 Mauser" under the second. Matched as literal text
-  on word boundaries, never as patterns, because they come from a form.
-- Editable from the admin pages, with the edit **re-filing every listing it
-  reaches** and saying how many moved — the manufacturers page already works
-  this way and the machinery is shared.
-- Seeded from `CALIBER_NORMALIZATIONS`, exactly as the maker table was seeded
-  from `MANUFACTURER_PATTERNS`, so nothing is lost and the first edit can be
-  made from the UI.
+**What curating it actually found.** 44 merges, 26 renames and roughly 1,100
+listings re-filed, and the interesting part was not the tidying:
 
-**What this fixes beyond tidiness.** The catalog currently files the same
-cartridge under whatever each vendor calls it, so "7.62x51mm" and "7.62 NATO"
-are two filter entries for one round, and neither shows the other's listings.
-Today's caliber audit found the same thing at a smaller scale — `.25ACP` and
-`6.35` are one cartridge, and only a rule in code could say so.
+- **Two condition grades were live matching rules.** `.30 Luger` carried the
+  alias `8/10` and `.30 Mauser` carried `1/10`, so a vendor writing "bore rated
+  8/10" got a cartridge out of it. Nothing had been hit yet.
+- **`7.62x25mm Tokarev` claimed `7.63x25mm Mauser` as an alias**, and they are
+  different cartridges — the Mauser round is safe in a Tokarev chamber and not
+  the reverse. Every C96 spelled that way was mis-filed.
+- **One row held two cartridges more often than expected.** `8x50mmR` was Steyr
+  Mannlichers *and* a Lebel; `7mm` was 7×57 Mausers, 7mm pinfires, four Baby
+  Nambus and seven Arisaka Type 99s that are 7.7; `.30 Caliber` was twenty-one
+  Lugers, a C96, an M1 Carbine and a Brazilian Mauser. None of these is
+  reachable by pattern-writing — each listing had to be read.
+- **A vendor's own word beats every heuristic.** Simpson Ltd. state a type per
+  listing and leave it blank on accessories, which is what `Item.stated_kind`
+  now carries. It cut their untyped listings from 1,051 to 284.
 
-The bare-bore rules added since — a listing that says `.31` or `4.25mm` and
-nothing more, which is how the whole percussion end of the catalog is written —
-make this sharper still. Those produce an honest *number* because that is all
-the listing gives, and a number is exactly what wants an alias: whoever runs the
-site knows that a Colt M1877 Thunderer marked ".41" is .41 Colt, and no amount
-of pattern-writing will.
+**Both lessons from the maker work held.** Position decides ties and is used —
+`Steyr M95/30` sits at 999 so it is tried before the ambiguous `Steyr M95`,
+which carries both its cartridges and therefore fills neither. And a name
+claimed by two rows identifies neither: `.22 LR` carried `.22`, `22 CAL` and
+`22 Long` as aliases and swallowed every other .22 rimfire, including a
+cartridge — `.22 Long` — that is not it.
 
-**Two lessons from the maker work that carry over.** Order decides ties, so the
-list needs a position column: a rule for ".38" must not be reached before
-".380". And a caliber claimed by two display names identifies neither — the
-manufacturers table already refuses to guess in that case, and this should too.
-
-Worth doing before the market-pricing work below, which needs a stable caliber
-identity to key against as much as it needs a stable model identity.
+**What is left is judgment, not machinery.** Roughly twenty listings name a bore
+and nothing else (`7mm`, `11mm`, `14mm`, `10.3MM`, `16x42`), and no rule will
+settle whether a "MONDRAGON FSLK 15" is 7×57 or 7.5×55. Those want somebody who
+knows the guns, which is exactly what the table exists to let them express.
 
 ### Market pricing — "is this a good deal?"
 

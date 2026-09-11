@@ -2293,6 +2293,36 @@ def classify_firearm(  # noqa: PLR0911 - one return per rule class; a single
     return (is_rifle, is_pistol)
 
 
+def finer_kind(model_kind: object | None, stated_kind: str | None) -> str | None:
+    """The finer kind of a firearm, from the two sources that can say.
+
+    The armory model first: it is curated, and it is the finer of the two --
+    it knows ``percussion_revolver`` where a vendor writing per listing says
+    only "Revolver". The vendor's own word second, because it reaches
+    thousands of listings no model does.
+
+    Returns one of :class:`FirearmKind`'s values, or None when neither source
+    had an answer. See Item.kind.
+    """
+    if model_kind is not None:
+        return getattr(model_kind, "value", str(model_kind))
+    word = (stated_kind or "").strip().lower().replace("-", " ")
+    return _STATED_TO_KIND.get(word)
+
+
+#: What a vendor's own word maps to. Deliberately small: a word that names no
+#: form -- Simpson's "Combination", "Gun Deal" -- is left unanswered rather
+#: than forced into the nearest bucket.
+_STATED_TO_KIND = {
+    "rifle": "rifle",
+    "carbine": "carbine",
+    "shotgun": "shotgun",
+    "pistol": "pistol",
+    "revolver": "revolver",
+    "musket": "rifle",
+}
+
+
 def _kind_from_caliber(caliber: str | None) -> tuple[bool, bool]:
     """Long gun or handgun, on the cartridge alone. Used only as a last resort."""
     if caliber and any(re.search(p, caliber.lower()) for p in PISTOL_CALIBERS):

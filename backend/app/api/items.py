@@ -128,6 +128,21 @@ def _kind_counts(session: DbSession, base: Select) -> list[FacetValue]:
     return [FacetValue(value="", count=sum(c.count for c in counts)), *counts]
 
 
+def _labelled(values: list[FacetValue]) -> list[FacetValue]:
+    """Put a readable name on the finer-kind facet.
+
+    The column stores FirearmKind's own values -- "percussion_revolver" -- and
+    the armory page already has the words for them. Labelled here rather than
+    in the browser so the two pages cannot drift apart.
+    """
+    from .armory import KIND_LABELS
+
+    words = {kind.value: label for kind, label in KIND_LABELS.items()}
+    for entry in values:
+        entry.label = words.get(entry.value, entry.value.replace("_", " ").capitalize())
+    return values
+
+
 def _facets(session: DbSession, base: Select) -> ItemFacets:
     """Counts for the filter sidebar, computed over the current result set."""
 
@@ -189,6 +204,7 @@ def _facets(session: DbSession, base: Select) -> ItemFacets:
         calibers=tally(Item.caliber),
         countries=tally(Item.country),
         manufacturers=tally(Item.manufacturer),
+        forms=_labelled(tally(Item.kind)),
         total=int(total),
     )
 
@@ -211,6 +227,10 @@ def list_items(
     model: list[str] | None = Query(default=None, description="Armory model ids."),
     kind: list[str] | None = Query(
         default=None, description="rifle | pistol | bayonet | parts_kit | other"
+    ),
+    form: list[str] | None = Query(
+        default=None,
+        description="The finer kind: revolver | carbine | shotgun | percussion_pistol | …",
     ),
     availability: str = Query(default="available"),
     search: str | None = Query(default=None, max_length=200),
@@ -237,6 +257,7 @@ def list_items(
         countries=country,
         manufacturers=manufacturer,
         models=model,
+        forms=form,
         kinds=None,
         availability=availability,
         search=search,
@@ -253,6 +274,7 @@ def list_items(
         countries=country,
         manufacturers=manufacturer,
         models=model,
+        forms=form,
         kinds=kind,
         availability=availability,
         search=search,

@@ -561,6 +561,13 @@ def cmd_reclassify(args: argparse.Namespace) -> int:
             if found.kind is not None and (flags["is_rifle"] or flags["is_pistol"]):
                 flags["is_rifle"] = found.kind.is_long_gun
                 flags["is_pistol"] = found.kind.is_handgun
+            # The finer kind, rebuilt here as it is during a scan. Only on a
+            # firearm: a bayonet has no form. See Item.kind.
+            flags["kind"] = (
+                classify.finer_kind(found.kind, item.stated_kind)
+                if (flags["is_rifle"] or flags["is_pistol"])
+                else None
+            )
             # --recompute overwrites; --fields says which of them it may
             # overwrite. A field left out keeps the fill-blanks-only behavior,
             # so a caliber fix need not cost every listing its maker.

@@ -97,6 +97,7 @@ def apply_filters(  # noqa: PLR0912 - one branch per filter; splitting it
     countries: list[str] | None,
     manufacturers: list[str] | None,
     models: list[str] | None,
+    forms: list[str] | None,
     kinds: list[str] | None,
     availability: str,
     search: str | None,
@@ -121,6 +122,8 @@ def apply_filters(  # noqa: PLR0912 - one branch per filter; splitting it
         # text -- and a model renamed in the armory keeps its listings.
         stmt = stmt.where(Item.firearm_model_id.in_([int(value) for value in models]))
 
+    if forms:
+        stmt = stmt.where(Item.kind.in_(forms))
     if kinds:
         clauses = [_kind_clause(k) for k in kinds if k in KINDS]
         if clauses:
@@ -208,6 +211,10 @@ QUERY_PARAMS: dict[str, bool] = {
     "manufacturer": True,
     "model": True,
     "kind": True,
+    # The finer kind -- revolver, carbine, percussion pistol. A *second*
+    # question from "kind": that one picks which of the five buckets a listing
+    # is in, this one narrows within it. See Item.kind.
+    "form": True,
     "availability": False,
     "search": False,
     "min_price": False,
@@ -275,6 +282,7 @@ _FILTER_NAMES = {
     "manufacturer": "manufacturers",
     "model": "models",
     "kind": "kinds",
+    "form": "forms",
 }
 
 
@@ -306,6 +314,7 @@ def parse_query(query_string: str) -> SearchQuery:  # noqa: PLR0912 - one branch
         "countries": None,
         "manufacturers": None,
         "models": None,
+        "forms": None,
         "kinds": None,
         "availability": DEFAULT_AVAILABILITY,
         "search": None,

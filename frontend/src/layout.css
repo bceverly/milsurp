@@ -510,6 +510,28 @@
   margin-top: 6px;
 }
 
+/* A facet with forty values needs a way in. Shown only from eight up -- below
+   that the list is shorter than the box asking about it. */
+.facet__search {
+  width: 100%;
+  margin-bottom: 6px;
+  font-size: 13px;
+  padding: 5px 8px;
+  /* 16px on touch, or iOS zooms the page when it takes focus. The same rule
+     the other inputs follow. */
+}
+@media (max-width: 768px) {
+  .facet__search {
+    font-size: 16px;
+  }
+}
+
+.facet__empty {
+  margin: 4px 2px 6px;
+  font-size: 13px;
+  color: var(--ink-500, #667);
+}
+
 .facet__option {
   display: flex;
   align-items: center;

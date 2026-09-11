@@ -166,28 +166,92 @@ const VIEWS = [
 
 /** Multi-select facets, keyed by the query parameter the API expects.
  *
- *  Ordered the way somebody narrows a search out loud: the maker, then which
- *  of its models, then the cartridge. Category and country are the coarse ones
- *  and sit at the bottom, where they are a second thought rather than the
- *  first thing in the way.
+ *  Ordered the way somebody narrows a search out loud: what kind of thing,
+ *  then whose, then which of their models, then the cartridge. Site and
+ *  country are the coarse ones and sit at the bottom, where they are a second
+ *  thought rather than the first thing in the way.
  */
 const FACETS = [
+  // First, because it is the coarsest cut and the shortest list: a dozen
+  // values against several hundred makers. The five Type buttons cannot
+  // express it — a flintlock pistol and a percussion revolver are both
+  // "Handguns" up there — so this is where a search that starts "show me the
+  // revolvers" begins.
+  { param: "form", facet: "forms", title: "Form" },
   { param: "manufacturer", facet: "manufacturers", title: "Manufacturer" },
   // Backed by a fact somebody vouched for in the armory, rather than a string
   // a vendor happened to type — which is why it filters by id.
   { param: "model", facet: "models", title: "Model" },
   { param: "caliber", facet: "calibers", title: "Caliber" },
   { param: "site_id", facet: "sites", title: "Site" },
-  { param: "category", facet: "categories", title: "Category" },
   { param: "country", facet: "countries", title: "Country" },
 ];
 
+/** Category, retired from the rail.
+ *
+ *  It is the vendor's own section name, which means it answers "where on their
+ *  site was this?" rather than anything about the gun — and with 28 vendors it
+ *  had grown to a list of near-duplicates ("Rifles", "Military Longarms",
+ *  "Curio & Relic") that says less than Form or Caliber does.
+ *
+ *  The parameter still works: the API accepts it, a saved search may carry it,
+ *  and a link with `?category=` still filters. It is kept in the chip list so
+ *  such a filter stays visible and removable rather than narrowing the results
+ *  from somewhere nobody can see.
+ */
+const RETIRED_FACETS = [{ param: "category", facet: "categories", title: "Category" }];
+
+/** A facet that remembers whether you closed it.
+ *
+ *  Availability and Type were written as `<details open>` with the attribute
+ *  hard-coded, which makes React the owner of it: closing one is a DOM change
+ *  React does not know about, and the next render can put it back. Holding the
+ *  state here means a collapse sticks, and the rail can be shortened to the
+ *  two or three filters somebody is actually using.
+ *
+ *  Folded by default, like every other facet, which open only when something
+ *  in them is chosen. A rail of eight facets all standing open is a page of
+ *  scrolling before the first listing.
+ */
+function Collapsible({ title, defaultOpen = false, children }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <details
+      className="facet"
+      open={open}
+      onToggle={(e) => setOpen(e.currentTarget.open)}
+    >
+      <summary className="facet__summary">{title}</summary>
+      <div className="facet__options">{children}</div>
+    </details>
+  );
+}
+
+//: Below this a facet is short enough to read, and a search box in front of it
+//: is furniture. Above it, "Show all 40" is a wall of names.
+const FACET_SEARCH_FROM = 8;
+
 function FacetGroup({ title, options, selected, onToggle }) {
   const [expanded, setExpanded] = useState(false);
+  const [needle, setNeedle] = useState("");
   if (!options?.length) return null;
+
+  // Filtering happens here rather than on the server: the facet list is
+  // already in hand, and a round trip per keystroke to narrow a list of forty
+  // names would be slower than reading them.
+  const term = needle.trim().toLowerCase();
+  const matching = term
+    ? options.filter((option) =>
+        `${option.label || ""} ${option.value}`.toLowerCase().includes(term),
+      )
+    : options;
+
   // Show the top eight; the long tail is behind "Show all" so the rail stays
-  // scannable when a facet has fifty values.
-  const visible = expanded ? options : options.slice(0, 8);
+  // scannable when a facet has fifty values. A search shows everything it
+  // matched -- hiding results behind "Show all" is the opposite of what
+  // somebody typing a name wants.
+  const visible = expanded || term ? matching : matching.slice(0, 8);
+  const searchable = options.length >= FACET_SEARCH_FROM;
 
   return (
     <details className="facet" open={selected.length > 0}>
@@ -196,6 +260,19 @@ function FacetGroup({ title, options, selected, onToggle }) {
         {selected.length > 0 && <span className="facet__count">{selected.length}</span>}
       </summary>
       <div className="facet__options">
+        {searchable && (
+          <input
+            type="search"
+            className="input facet__search"
+            placeholder={`Search ${title.toLowerCase()}…`}
+            aria-label={`Search ${title}`}
+            value={needle}
+            onChange={(event) => setNeedle(event.target.value)}
+          />
+        )}
+        {term && matching.length === 0 && (
+          <p className="facet__empty">Nothing matches “{needle.trim()}”.</p>
+        )}
         {visible.map((option) => (
           <label className="facet__option" key={option.value}>
             <input
@@ -209,13 +286,13 @@ function FacetGroup({ title, options, selected, onToggle }) {
             <span className="facet__option-count">{option.count}</span>
           </label>
         ))}
-        {options.length > 8 && (
+        {!term && matching.length > 8 && (
           <button
             type="button"
             className="btn btn--ghost btn--sm"
             onClick={() => setExpanded((value) => !value)}
           >
-            {expanded ? "Show fewer" : `Show all ${options.length}`}
+            {expanded ? "Show fewer" : `Show all ${matching.length}`}
           </button>
         )}
       </div>
@@ -463,7 +540,7 @@ export default function Browse() {
 
   const activeChips = useMemo(() => {
     const chips = [];
-    for (const { param, facet, title } of FACETS) {
+    for (const { param, facet, title } of [...FACETS, ...RETIRED_FACETS]) {
       for (const value of params.getAll(param)) {
         const match = data?.facets?.[facet]?.find((o) => o.value === value);
         chips.push({
@@ -623,68 +700,67 @@ export default function Browse() {
 
       <div className="browse__layout">
         <aside className="filters" hidden={!showFilters}>
-          <details className="facet" open>
-            <summary className="facet__summary">Availability</summary>
-            <div className="facet__options">
-              {AVAILABILITY.map((option) => (
-                <label className="facet__option" key={option.value}>
-                  <input
-                    type="radio"
-                    name="availability"
-                    checked={availability === option.value}
-                    onChange={() =>
-                      update((next) => next.set("availability", option.value))
-                    }
-                  />
-                  <span className="facet__option-label">{option.label}</span>
-                </label>
-              ))}
-              <hr className="facet__rule" />
-              {PRICE_STATE.map((option) => (
-                <label className="facet__option" key={option.value || "any"}>
-                  <input
-                    type="radio"
-                    name="price_state"
-                    checked={priceState === option.value}
-                    onChange={() =>
-                      update((next) => {
-                        if (option.value) next.set("price_drops_only", "true");
-                        else next.delete("price_drops_only");
-                      })
-                    }
-                  />
-                  <span className="facet__option-label">{option.label}</span>
-                </label>
-              ))}
-            </div>
-          </details>
+          <Collapsible
+            title="Availability"
+            // Availability always has a value, so "chosen" here means a value
+            // other than the default rather than any value at all.
+            defaultOpen={availability !== "available" || priceState === "true"}
+          >
+            {AVAILABILITY.map((option) => (
+              <label className="facet__option" key={option.value}>
+                <input
+                  type="radio"
+                  name="availability"
+                  checked={availability === option.value}
+                  onChange={() =>
+                    update((next) => next.set("availability", option.value))
+                  }
+                />
+                <span className="facet__option-label">{option.label}</span>
+              </label>
+            ))}
+            <hr className="facet__rule" />
+            {PRICE_STATE.map((option) => (
+              <label className="facet__option" key={option.value || "any"}>
+                <input
+                  type="radio"
+                  name="price_state"
+                  checked={priceState === option.value}
+                  onChange={() =>
+                    update((next) => {
+                      if (option.value) next.set("price_drops_only", "true");
+                      else next.delete("price_drops_only");
+                    })
+                  }
+                />
+                <span className="facet__option-label">{option.label}</span>
+              </label>
+            ))}
+          </Collapsible>
 
-          <details className="facet" open>
-            <summary className="facet__summary">Type</summary>
-            <div className="facet__options">
-              {KINDS.map((option) => (
-                <label className="facet__option" key={option.value || "any"}>
-                  <input
-                    type="radio"
-                    name="kind"
-                    checked={kind === option.value}
-                    onChange={() =>
-                      update((next) => {
-                        if (option.value) next.set("kind", option.value);
-                        else next.delete("kind");
-                      })
-                    }
-                  />
-                  <span className="facet__option-label">{option.label}</span>
-                  {kindCounts.has(option.value) && (
-                    <span className="facet__option-count">
-                      {kindCounts.get(option.value).toLocaleString()}
-                    </span>
-                  )}
-                </label>
-              ))}
-            </div>
-          </details>
+          <Collapsible title="Type" defaultOpen={Boolean(kind)}>
+            {KINDS.map((option) => (
+              <label className="facet__option" key={option.value || "any"}>
+                <input
+                  type="radio"
+                  name="kind"
+                  checked={kind === option.value}
+                  onChange={() =>
+                    update((next) => {
+                      if (option.value) next.set("kind", option.value);
+                      else next.delete("kind");
+                    })
+                  }
+                />
+                <span className="facet__option-label">{option.label}</span>
+                {kindCounts.has(option.value) && (
+                  <span className="facet__option-count">
+                    {kindCounts.get(option.value).toLocaleString()}
+                  </span>
+                )}
+              </label>
+            ))}
+          </Collapsible>
 
           {FACETS.map(({ param, facet, title }) => (
             <FacetGroup

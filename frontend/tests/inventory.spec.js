@@ -1,6 +1,22 @@
 /** The inventory browser: search, filters, sorting, pagination, detail view. */
 import { test, expect } from "./fixtures.js";
 
+/**
+ * Open the Type and Availability folds.
+ *
+ * Both used to stand open and their radios were reachable straight from the
+ * page. They fold by default now, like every other facet, so a test that wants
+ * one has to open it first — the same click a person makes.
+ */
+async function openTypeAndAvailability(page) {
+  for (const title of ["Availability", "Type"]) {
+    const facet = page.locator(".facet", { hasText: title }).first();
+    if (!(await facet.evaluate((node) => node.open))) {
+      await facet.locator("summary").first().click();
+    }
+  }
+}
+
 test.describe("inventory", () => {
   test("shows listings with prices and photos", async ({ signedIn }) => {
     const cards = signedIn.locator(".item-card");
@@ -67,6 +83,7 @@ test.describe("inventory", () => {
   });
 
   test("a facet filter applies and can be removed again", async ({ signedIn }) => {
+    await openTypeAndAvailability(signedIn);
     // The filter rail is always visible at desktop widths. Type is a radio,
     // not a checkbox: it reads as one question — "what am I looking for?" —
     // and checkboxes invited the answer "rifles and handguns and parts", which
@@ -82,6 +99,107 @@ test.describe("inventory", () => {
     await expect(signedIn).not.toHaveURL(/kind=rifle/);
   });
 
+  test("Availability and Type collapse and stay collapsed", async ({ signedIn }) => {
+    /**
+     * Both were `<details open>` with the attribute hard-coded, which makes
+     * React the owner of it: closing one is a DOM change React does not know
+     * about and the next render can undo. They hold their own state now, so
+     * the rail can be shortened to the filters somebody is actually using.
+     */
+    await signedIn.goto("/");
+    // Folded on arrival, like every other facet.
+    for (const title of ["Availability", "Type"]) {
+      const facet = signedIn.locator(".facet", { hasText: title }).first();
+      await expect(facet).not.toHaveAttribute("open", "");
+      await facet.locator("summary").first().click();
+      await expect(facet).toHaveAttribute("open", "");
+      await facet.locator("summary").first().click();
+      await expect(facet).not.toHaveAttribute("open", "");
+    }
+
+    // ...but open when a choice in them is already in the URL, so a filter is
+    // never narrowing the results from behind a closed fold.
+    await signedIn.goto("/?kind=pistol&availability=sold");
+    for (const title of ["Availability", "Type"]) {
+      await expect(
+        signedIn.locator(".facet", { hasText: title }).first(),
+      ).toHaveAttribute("open", "");
+    }
+    await signedIn.goto("/");
+
+    // A re-render — changing a filter — must not put them back. The exact
+    // label matters: every long facet now carries a "Search <facet>" box too.
+    const search = signedIn.getByRole("searchbox", { name: "Search listings" });
+    await search.fill("mauser");
+    await search.press("Enter");
+    await expect(signedIn.locator(".item-card").first()).toBeVisible();
+    for (const title of ["Availability", "Type"]) {
+      const facet = signedIn.locator(".facet", { hasText: title }).first();
+      await expect(facet).not.toHaveAttribute("open", "");
+    }
+  });
+
+  test("a long facet has a search box and a short one does not", async ({ signedIn }) => {
+    /**
+     * Twenty-eight vendors' worth of makers and calibers is a wall of names,
+     * and "Show all 40" only makes it taller. Below eight values the list is
+     * shorter than the box asking about it, so the box is not shown.
+     */
+    await signedIn.goto("/");
+    const maker = signedIn.locator(".facet", { hasText: "Manufacturer" });
+    await maker.locator("summary").click();
+    const box = maker.getByRole("searchbox", { name: "Search Manufacturer" });
+    await expect(box).toBeVisible();
+
+    const before = await maker.locator(".facet__option").count();
+    await box.fill("zz-nothing-matches-this");
+    await expect(maker.locator(".facet__option")).toHaveCount(0);
+    await expect(maker.locator(".facet__empty")).toBeVisible();
+
+    // And it narrows rather than hiding matches behind "Show all".
+    await box.fill("");
+    await expect(maker.locator(".facet__option")).toHaveCount(before);
+  });
+
+  test("the Category facet is gone from the rail", async ({ signedIn }) => {
+    /**
+     * It named the vendor's own section rather than anything about the gun,
+     * and across 28 vendors had become a list of near-duplicates. The
+     * parameter still works, so a link or a saved search carrying it keeps
+     * filtering — and keeps showing a chip that can clear it.
+     */
+    await signedIn.goto("/");
+    await expect(signedIn.locator(".facet", { hasText: "Category" })).toHaveCount(0);
+
+    await signedIn.goto("/?category=Bayonets");
+    await expect(
+      signedIn.locator(".active-filters__chip", { hasText: "Category" }).first(),
+    ).toBeVisible();
+  });
+
+  test("the Form facet narrows within a Type rather than replacing it", async ({
+    signedIn,
+  }) => {
+    /**
+     * The five Type buttons partition the catalog and cannot express "show me
+     * the revolvers" — a flintlock pistol and a percussion revolver are both
+     * Handguns up there. Form is the second question, and the two compose.
+     */
+    await signedIn.goto("/");
+    const form = signedIn.locator(".facet", { hasText: "Form" });
+    await expect(form).toBeVisible();
+
+    // Labelled in words, not in the column's own spelling.
+    await form.locator("summary").click();
+    const first = form.locator(".facet__option").first();
+    const label = (await first.locator(".facet__option-label").innerText()).trim();
+    expect(label).not.toContain("_");
+
+    await first.locator("input[type=checkbox]").check();
+    await expect(signedIn).toHaveURL(/[?&]form=/);
+    await expect(signedIn.locator(".item-card").first()).toBeVisible();
+  });
+
   test("clear all removes every filter at once", async ({ signedIn }) => {
     await signedIn.goto("/?kind=rifle&search=mauser");
     await signedIn.getByRole("button", { name: "Clear all" }).click();
@@ -89,6 +207,7 @@ test.describe("inventory", () => {
   });
 
   test("availability is a single choice", async ({ signedIn }) => {
+    await openTypeAndAvailability(signedIn);
     await signedIn.getByRole("radio", { name: "Sold" }).check();
     await expect(signedIn).toHaveURL(/availability=sold/);
   });
@@ -96,6 +215,7 @@ test.describe("inventory", () => {
   test("choosing a type replaces the last one rather than adding to it", async ({
     signedIn,
   }) => {
+    await openTypeAndAvailability(signedIn);
     await signedIn.getByRole("radio", { name: "Rifles" }).check();
     await expect(signedIn).toHaveURL(/kind=rifle/);
     await signedIn.getByRole("radio", { name: "Handguns" }).check();
@@ -104,6 +224,7 @@ test.describe("inventory", () => {
   });
 
   test("each type carries the count it would show", async ({ signedIn }) => {
+    await openTypeAndAvailability(signedIn);
     // The point of the numbers is to be steady: they are counted over every
     // other filter but not over Type, so they answer "what would I get if I
     // picked this" rather than restating the choice already made.
@@ -134,6 +255,7 @@ test.describe("inventory", () => {
   });
 
   test("anything clears the type again", async ({ signedIn }) => {
+    await openTypeAndAvailability(signedIn);
     await signedIn.getByRole("radio", { name: "Bayonets" }).check();
     await expect(signedIn).toHaveURL(/kind=bayonet/);
     await signedIn.getByRole("radio", { name: "Anything" }).check();
@@ -143,6 +265,7 @@ test.describe("inventory", () => {
   test("price reduced sits with availability and is a single choice", async ({
     signedIn,
   }) => {
+    await openTypeAndAvailability(signedIn);
     await signedIn.getByRole("radio", { name: "Price reduced" }).check();
     await expect(signedIn).toHaveURL(/price_drops_only=true/);
     await signedIn.getByRole("radio", { name: "Any price" }).check();
@@ -287,6 +410,7 @@ test.describe("pagination", () => {
   });
 
   test("changing a filter resets to page one", async ({ signedIn }) => {
+    await openTypeAndAvailability(signedIn);
     await signedIn.getByRole("button", { name: "Next" }).click();
     await expect(signedIn).toHaveURL(/page=2/);
 

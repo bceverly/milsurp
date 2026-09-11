@@ -668,6 +668,18 @@ class Item(Base, TimestampMixin):
     #: Null means the vendor said nothing, which Simpson also use for their
     #: accessories -- so a blank here is an answer, not a gap.
     stated_kind: Mapped[str | None] = mapped_column(String(32))
+    #: The finer kind, resolved once and stored: "revolver", "carbine",
+    #: "percussion_pistol". One of :class:`FirearmKind`'s values.
+    #:
+    #: The browse filter's five buckets partition the catalog and answer "what
+    #: am I looking at"; this answers "show me the revolvers", which they
+    #: cannot -- a flintlock pistol and a percussion revolver are both
+    #: "handgun" there. Resolved from the linked model's kind first, because it
+    #: is curated and the finer of the two, then from :attr:`stated_kind`.
+    #:
+    #: Null means neither source had an answer, which is a state rather than a
+    #: gap: 24% of the firearms in this catalog are in it.
+    kind: Mapped[str | None] = mapped_column(String(32), index=True)
     #: Which armory model this listing matched, when one did.
     #:
     #: A foreign key rather than the name in text, unlike the maker and the

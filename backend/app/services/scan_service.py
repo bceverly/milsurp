@@ -383,6 +383,15 @@ def _apply_catalog(session: Session, item: Item, trusted: bool) -> None:
     # M91/30s, no link to what is known about the gun, and no way to look at a
     # questionable caliber and see where it came from.
     item.firearm_model_id = found.model_id
+    # The finer kind, for the browse filter's second question -- "show me the
+    # revolvers" -- which the five buckets cannot answer: a flintlock pistol
+    # and a percussion revolver are both "handgun" there. Only ever set on a
+    # firearm, because a bayonet has no form. See Item.kind.
+    item.kind = (
+        classify.finer_kind(found.kind, item.stated_kind)
+        if (item.is_rifle or item.is_pistol)
+        else None
+    )
     if found.caliber:
         item.caliber = found.caliber
     item.manufacturer = item.manufacturer or found.manufacturer
