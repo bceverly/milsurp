@@ -143,9 +143,18 @@ test.describe("sites", () => {
      * "not written yet" and "cannot get in" are different kinds of waiting.
      */
     await signedIn.goto("/sites");
-    await expect(signedIn.getByRole("heading", { name: "Coming soon" })).toBeVisible();
-
     const planned = signedIn.locator(".site-card--planned");
+    const heading = signedIn.getByRole("heading", { name: "Coming soon" });
+
+    if ((await planned.count()) === 0) {
+      // The queue emptied for the first time when Simpson Ltd. shipped and the
+      // last three were dropped. An empty list must render *nothing* rather
+      // than a heading over a gap, which is the only thing left to check here.
+      await expect(heading).toHaveCount(0);
+      return;
+    }
+
+    await expect(heading).toBeVisible();
     await expect(planned.first()).toBeVisible();
 
     // Nothing to operate: no row behind it, so no controls that could work.

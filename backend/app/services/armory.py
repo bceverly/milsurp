@@ -28,6 +28,7 @@ answered, rather than being asked on every scan and answered by nobody.
 from __future__ import annotations
 
 import enum
+import json
 import re
 import threading
 from collections.abc import Iterable
@@ -141,7 +142,12 @@ class ModelRegistry:
     def __len__(self) -> int:
         return len(self.rules)
 
-    def match(self, title: str, description: str | None = None) -> Match:  # noqa: ARG002
+    def match(
+        self,
+        title: str,
+        description: str | None = None,  # noqa: ARG002
+        stated_kind: str | None = None,
+    ) -> Match:
         """The model named in a listing's *title*. The description is not read.
 
         This is stricter than the maker lookup beside it, which does fall back
@@ -161,12 +167,12 @@ class ModelRegistry:
         that the reason it is ignored has somewhere to live.
         """
         for pattern, found in self.rules:
-            if pattern.search(title or "") and not _contradicted(title, found):
+            if pattern.search(title or "") and not _contradicted(title, found, stated_kind):
                 return found
         return Match()
 
 
-def _contradicted(title: str, found: Match) -> bool:
+def _contradicted(title: str, found: Match, stated_kind: str | None = None) -> bool:
     """Whether the listing plainly says something else than this model does.
 
     A designation is not unique. "Model 1911" is a Colt automatic and a
@@ -179,13 +185,32 @@ def _contradicted(title: str, found: Match) -> bool:
     that is wrong about what kind of gun this is was not this gun: its caliber
     and its maker are wrong too. Matching continues down the list, so a
     genuinely better row further along still gets its turn.
+
+    **Two sources, and the vendor's is the better one.** The title is read
+    first because every listing has one, but it only helps when the seller
+    wrote a type word: "Swiss K1911 Carbine Straight Pull *Rifle*" was caught
+    this way and a bare "SWISS M1911" was not, so 28 Swiss straight-pulls were
+    filed as Colt automatics. ``stated_kind`` is what the vendor said about
+    *this* listing -- see Item.stated_kind -- and all 28 carried "Rifle".
     """
     if found.kind is None:
         return False
+    wanted = "handgun" if found.kind.is_long_gun else "rifle"
+    if _says(stated_kind) == wanted:
+        return True
     stated = classify.stated_kind(title)
-    if stated is None:
-        return False
-    return stated == ("handgun" if found.kind.is_long_gun else "rifle")
+    return stated is not None and stated == wanted
+
+
+def _says(stated_kind: str | None) -> str | None:
+    """A vendor's own word for the type, in the two terms _contradicted uses."""
+    if not stated_kind:
+        return None
+    kind = classify.kind_from_category(stated_kind)
+    if kind is None:
+        return None
+    is_rifle, _is_pistol = kind
+    return "rifle" if is_rifle else "handgun"
 
 
 def _facts_known(row: FirearmModel) -> int:
@@ -300,9 +325,14 @@ def canonical_caliber(session: Session, text: str | None) -> str | None:
     return caliber_registry(session).canonical(text)
 
 
-def match(session: Session, title: str, description: str | None = None) -> Match:
+def match(
+    session: Session,
+    title: str,
+    description: str | None = None,
+    stated_kind: str | None = None,
+) -> Match:
     """Everything the table can say about this listing."""
-    return model_registry(session).match(title, description)
+    return model_registry(session).match(title, description, stated_kind)
 
 
 def fill_in(
@@ -310,6 +340,7 @@ def fill_in(
     title: str,
     description: str | None = None,
     caliber: str | None = None,
+    stated_kind: str | None = None,
 ) -> Match:
     """The model's facts, with the listing's own caliber normalized and kept.
 
@@ -322,7 +353,7 @@ def fill_in(
     ACP" and "7.65mm Browning" are the same answer written twice, and the
     filter can only offer one of them.
     """
-    found = match(session, title, description)
+    found = match(session, title, description, stated_kind)
     stated = canonical_caliber(session, caliber) or (caliber.strip() if caliber else None)
     return Match(
         model=found.model,
@@ -1208,7 +1239,7 @@ def reprocess(session: Session, spellings: Iterable[str]) -> int:
     candidates = session.execute(select(Item).where(or_(*clauses))).scalars().all()
     changed = 0
     for item in candidates:
-        found = match(session, item.title)
+        found = match(session, item.title, stated_kind=item.stated_kind)
         stated = canonical_caliber(session, item.caliber) or item.caliber
         caliber = stated or found.caliber
         if item.firearm_model_id != found.model_id or item.caliber != caliber:
@@ -1231,6 +1262,7 @@ def merge_manufacturers(session: Session, source_id: int, target_id: int) -> int
     undo and an archaeology exercise.
     """
     source, target = _merge_pair(session, Manufacturer, source_id, target_id)
+    _record_undo(source, target, firearm_model_ids=[m.id for m in source.firearm_models])
 
     target.aliases = _merged_aliases(target, source)
     for model in list(source.firearm_models):
@@ -1256,6 +1288,7 @@ def merge_manufacturers(session: Session, source_id: int, target_id: int) -> int
 def merge_calibers(session: Session, source_id: int, target_id: int) -> int:
     """Fold one cartridge into another: "7.65mm Browning" into ".32 ACP"."""
     source, target = _merge_pair(session, Caliber, source_id, target_id)
+    _record_undo(source, target)
 
     target.aliases = _merged_aliases(target, source)
     # Every model that named the old cartridge names the new one instead,
@@ -1280,6 +1313,12 @@ def merge_calibers(session: Session, source_id: int, target_id: int) -> int:
 def merge_models(session: Session, source_id: int, target_id: int) -> int:
     """Fold one model into another: "M1 Garand Rifle" into "M1 Garand"."""
     source, target = _merge_pair(session, FirearmModel, source_id, target_id)
+    _record_undo(
+        source,
+        target,
+        manufacturer_ids=[m.id for m in source.manufacturers],
+        caliber_ids=[c.id for c in source.calibers],
+    )
 
     target.aliases = _merged_aliases(target, source)
     for maker in list(source.manufacturers):
@@ -1305,6 +1344,131 @@ def merge_models(session: Session, source_id: int, target_id: int) -> int:
     source.enabled = False
     invalidate()
     return 0
+
+
+class UnmergeError(ValueError):
+    """A row that cannot be un-merged, with the reason a person can act on."""
+
+
+def _record_undo(source, target, **extra: Any) -> None:
+    """Write down what this merge is about to take.
+
+    Called before the mutation, because afterwards the answers are gone: the
+    source's links have been moved onto the target and cleared, and the
+    target's aliases already contain the source's spellings.
+    """
+    undo: dict[str, Any] = {
+        "status": source.status.value,
+        "enabled": bool(source.enabled),
+        "target_id": target.id,
+        "target_aliases": target.aliases,
+        **extra,
+    }
+    source.merge_undo = json.dumps(undo)
+
+
+def _undo_of(row) -> dict[str, Any] | None:
+    raw = getattr(row, "merge_undo", None)
+    if not raw:
+        return None
+    try:
+        found = json.loads(raw)
+    except ValueError:  # pragma: no cover - only a hand-edited row gets here
+        return None
+    return found if isinstance(found, dict) else None
+
+
+def _without_spellings(aliases: str | None, unwanted: Iterable[str]) -> str | None:
+    """The target's aliases with the source's spellings taken back out.
+
+    The fallback for a row merged before ``merge_undo`` existed. It is the half
+    of an un-merge that matters most: while the target still answers to the
+    source's name, bringing the source back changes nothing -- both rows match
+    the same text and the target keeps winning.
+    """
+    drop = {text.strip().lower() for text in unwanted if text and text.strip()}
+    keep = [
+        line
+        for line in (aliases or "").splitlines()
+        if line.strip() and line.strip().lower() not in drop
+    ]
+    return "\n".join(keep) or None
+
+
+def unmerge(session: Session, table: str, row_id: int) -> tuple[str, int]:
+    """Bring a merged-away row back. Returns ``(what was restored, listings)``.
+
+    Exact where the merge recorded what it took, best-effort where it did not.
+    The best-effort path restores the row's status and switch, clears the
+    pointer, and takes the row's own spellings back out of the target's
+    aliases; it cannot restore the model and caliber links the merge moved,
+    because nothing left behind says which of the target's links came from
+    here. Those are re-tickable on the row's own form, which is the same
+    mechanism as linking any model to a maker.
+    """
+    model = CURATED.get(table)
+    if model is None:
+        raise UnmergeError(f"there is no armory table called {table!r}")
+    row = session.get(model, row_id)
+    if row is None:
+        raise UnmergeError("no such row")
+    if row.status is not ArmoryStatus.MERGED:
+        raise UnmergeError(f"{row.name} has not been merged into anything")
+
+    undo = _undo_of(row)
+    target = session.get(model, (undo or {}).get("target_id") or row.merged_into_id)
+
+    # The target gives back the spellings it took. Exactly, where the merge
+    # wrote down what the target's aliases were before it; otherwise by
+    # removing this row's own spellings, which is what the merge added.
+    if target is not None:
+        if undo is not None and "target_aliases" in undo:
+            target.aliases = undo["target_aliases"]
+        else:
+            target.aliases = _without_spellings(target.aliases, row.spellings)
+
+    restored: list[str] = []
+    if undo is not None:
+        row.status = ArmoryStatus(undo.get("status", ArmoryStatus.PENDING.value))
+        row.enabled = bool(undo.get("enabled", True))
+        restored.extend(_restore_links(session, row, undo))
+    else:
+        # Pending, not approved: the row is coming back from a decision that
+        # turned out to be wrong, and the safe landing place is the queue where
+        # somebody looks at it again. An approved row starts matching listings
+        # the moment it is saved.
+        row.status = ArmoryStatus.PENDING
+        row.enabled = True
+
+    row.merged_into_id = None
+    row.merge_undo = None
+    session.flush()
+
+    invalidate()
+    spellings = [*row.spellings, *(target.spellings if target is not None else [])]
+    changed = reprocess(session, spellings)
+    note = "exactly" if undo is not None else "as far as the record allows"
+    if restored:
+        note = f"{note} ({', '.join(restored)})"
+    return note, changed
+
+
+def _restore_links(session: Session, row, undo: dict[str, Any]) -> list[str]:
+    """Put back the many-to-many links the merge moved onto the target."""
+    restored: list[str] = []
+    for key, model, attribute, noun in (
+        ("manufacturer_ids", Manufacturer, "manufacturers", "maker"),
+        ("caliber_ids", Caliber, "calibers", "caliber"),
+        ("firearm_model_ids", FirearmModel, "firearm_models", "model"),
+    ):
+        wanted = undo.get(key)
+        if wanted is None or not hasattr(row, attribute):
+            continue
+        found = [session.get(model, identifier) for identifier in wanted]
+        kept = [one for one in found if one is not None]
+        setattr(row, attribute, kept)
+        restored.append(f"{len(kept)} {noun}(s)")
+    return restored
 
 
 class PrimaryNameError(ValueError):

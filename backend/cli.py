@@ -488,7 +488,9 @@ def cmd_reclassify(args: argparse.Namespace) -> int:
             # straight back, so passing the stale value in made the armory
             # vouch for it and --recompute changed nothing at all.
             stated = derived["caliber"] if args.recompute else item.caliber
-            found = armory.fill_in(session, item.title, evidence, stated)
+            found = armory.fill_in(
+                session, item.title, evidence, stated, stated_kind=item.stated_kind
+            )
             caliber = found.caliber or stated or derived["caliber"]
             maker = (
                 manufacturers.extract(session, item.title, evidence, caliber)

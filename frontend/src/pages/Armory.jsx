@@ -1362,6 +1362,20 @@ export default function Armory() {
     setEditing({ _makerId: maker.id });
   };
 
+  // Undo a merge. Only ever offered on a row that has one: the button is
+  // hidden otherwise, because "un-merge" on a row that was never merged reads
+  // as a second kind of delete.
+  async function runUnmerge(table, row) {
+    setFormError("");
+    try {
+      const result = await api.unmergeArmoryRow(table, row.id);
+      setMessage(result.message);
+      await load();
+    } catch (error) {
+      setMessage(`Could not un-merge ${row.name}: ${error.message}`);
+    }
+  }
+
   const pending = summary ? summary.models + summary.calibers + summary.manufacturers : 0;
 
   return (
@@ -1601,6 +1615,16 @@ export default function Armory() {
                           >
                             Merge…
                           </button>
+                          {maker.merged_into && (
+                            <button
+                              type="button"
+                              className="btn btn--ghost btn--sm"
+                              title={`Bring ${maker.name} back and make ${maker.merged_into} give its spellings back`}
+                              onClick={() => runUnmerge("manufacturers", maker)}
+                            >
+                              Un-merge
+                            </button>
+                          )}
                           <Link
                             className="btn btn--ghost btn--sm"
                             to={listingsHref("manufacturers", maker)}
@@ -1846,6 +1870,16 @@ export default function Armory() {
                       >
                         Merge…
                       </button>
+                      {row.merged_into && (
+                        <button
+                          type="button"
+                          className="btn btn--ghost btn--sm"
+                          title={`Bring ${row.name} back and make ${row.merged_into} give its spellings back`}
+                          onClick={() => runUnmerge(tab, row)}
+                        >
+                          Un-merge
+                        </button>
+                      )}
                       <Link
                         className="btn btn--ghost btn--sm"
                         to={listingsHref(tab, row)}

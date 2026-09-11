@@ -7,6 +7,19 @@
  */
 import { test, expect } from "./fixtures.js";
 
+/**
+ * Wait until the *manufacturers* table is the one on screen.
+ *
+ * Clicking a tab does not clear the previous tab's rows while the new ones
+ * load, so a count taken straight after the click can be the Models tab's:
+ * "a maker can be deleted" read 553 delete buttons that way and then compared
+ * them against 63 makers. The expander is in the makers table and nowhere
+ * else, which makes it the signal that the swap has happened.
+ */
+async function makersAreShowing(page) {
+  await expect(page.getByRole("button", { name: /^Expand / }).first()).toBeVisible();
+}
+
 test.describe("armory", () => {
   test.beforeEach(async ({ signedIn }) => {
     // Exact: a listing card reading "US M1 Garand, Springfield Armory" is
@@ -45,6 +58,7 @@ test.describe("armory", () => {
     await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
     await expect(signedIn.locator(".alert--success")).toBeVisible();
     await signedIn.getByRole("tab", { name: "Manufacturers" }).click();
+    await makersAreShowing(signedIn);
 
     const deletes = signedIn.getByRole("button", { name: /^Delete / });
     await expect(deletes.first()).toBeVisible();
@@ -190,6 +204,7 @@ test.describe("armory", () => {
     await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
     await expect(signedIn.locator(".alert--success")).toBeVisible();
     await signedIn.getByRole("tab", { name: "Manufacturers" }).click();
+    await makersAreShowing(signedIn);
 
     // Column 0 selects the row and column 1 expands it; the name is column 2,
     // and its button is what opens the edit form.
@@ -207,6 +222,50 @@ test.describe("armory", () => {
     // ...and findable where the decision put it.
     await signedIn.getByLabel("Showing").selectOption("disabled");
     await expect(signedIn.locator("tbody")).toContainText(name);
+  });
+
+  test("a merge can be undone from the row it left behind", async ({ signedIn }) => {
+    /**
+     * The armory kept the merged row deliberately — "an admin who merges the
+     * wrong pair should have something to look at rather than an archaeology
+     * exercise" — and then offered nothing to do about it.
+     */
+    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await expect(signedIn.locator(".alert--success")).toBeVisible();
+    await signedIn.getByRole("tab", { name: "Manufacturers" }).click();
+    await makersAreShowing(signedIn);
+
+    // Merge the first maker into the second.
+    const rows = signedIn.locator("tbody tr");
+    const source = (
+      await rows.nth(0).locator("td").nth(2).locator("button").innerText()
+    ).trim();
+    await rows.nth(0).getByRole("button", { name: "Merge…" }).click();
+    const dialog = signedIn.getByRole("dialog");
+    await dialog.getByRole("combobox").selectOption({ index: 1 });
+    await dialog.getByRole("button", { name: /Merge/ }).click();
+    await expect(signedIn.getByRole("dialog")).toHaveCount(0);
+
+    // It is gone from the queue and sitting under Merged away.
+    await signedIn.getByLabel("Showing").selectOption("merged");
+    await expect(signedIn.locator("tbody")).toContainText(source);
+
+    // Undo it, and it stops being merged.
+    await signedIn
+      .locator("tbody tr", { hasText: source })
+      .first()
+      .getByRole("button", { name: "Un-merge" })
+      .click();
+    await expect(signedIn.locator(".alert--success")).toContainText("Un-merged");
+    await expect(signedIn.locator("tbody")).not.toContainText(source);
+  });
+
+  test("un-merge is not offered on a row that was never merged", async ({ signedIn }) => {
+    /** On an ordinary row it would read as a second kind of delete. */
+    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await expect(signedIn.locator(".alert--success")).toBeVisible();
+    await signedIn.getByRole("tab", { name: "Manufacturers" }).click();
+    await expect(signedIn.getByRole("button", { name: "Un-merge" })).toHaveCount(0);
   });
 
   test("a tab can be linked to directly", async ({ signedIn }) => {

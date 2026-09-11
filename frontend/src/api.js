@@ -196,6 +196,12 @@ export const api = {
   // is why it is a call of its own rather than a field on the edit form.
   setArmoryPrimary: (table, id, name) =>
     request(`/api/armory/${table}/${id}/primary`, { method: "POST", body: { name } }),
+  // The other half of merging. A merge records what it took before it takes
+  // it, so this gives back the links and the aliases rather than only
+  // un-hiding the row; a row merged before that recording existed comes back
+  // on a best-effort basis and says so.
+  unmergeArmoryRow: (table, id) =>
+    request(`/api/armory/${table}/${id}/unmerge`, { method: "POST" }),
   mergeArmoryRows: (table, source_id, target_id) =>
     request(`/api/armory/${table}/merge`, {
       method: "POST",

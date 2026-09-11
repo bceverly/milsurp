@@ -14,7 +14,7 @@ The whole point of the application is breadth. Each new vendor is one subclass
 of `SiteScraper` in `backend/app/scrapers/` plus one line in `SCRAPER_CLASSES`;
 scheduling, admin controls, price history, images and digests all come for free.
 
-**Where this stands: twenty-six vendors read, four queued, four dropped.**
+**Where this stands: twenty-eight vendors read, none queued, six dropped.**
 Eight of the thirteen are blocked on something no base class can fix — a
 Cloudflare challenge, two missing entry URLs, a shop that publishes no prices,
 two that refuse a plain request, and two Wix pages that turn out to be photo
@@ -64,11 +64,13 @@ Cloudflare challenge rather than a rendering problem.
 | [eBayonet](https://www.ebayonet.com/) | `ebayonet` | **No platform at all** — five Word-exported pages, prices and photographs typed into the prose |
 | [Surplus Defense](https://www.surplusdefense.com/) | `surplus-defense` | **Wix Stores base class** — 45 listings and every one collector milsurp |
 | [Joe Salter](https://shop.joesalter.com/) | `joe-salter` | **OpenCart** — 320 collector listings, every one priced; **no photographs, because their robots.txt disallows `/image`** |
+| [GunPrime](https://gunprime.com/) | `gunprime` | **Spree on Rails** — the collector and police trade-in shelves; their six firearm categories are a modern gun shop and are left alone |
+| [Simpson Ltd.](https://www.simpsonltd.com/) | `simpson-ltd` | **Firebase Cloud Functions** — the Luger, military rifle, antique, German trainer and bayonet shelves of a 19,201-item shop |
 
 ### Planned
 
 **This list is now also in the application.** `app/scrapers/planned.py` carries
-the four vendors still queued, and the Sites page shows them under **Coming
+the one vendor still queued, and the Sites page shows it under **Coming
 soon** with what each is waiting on. It is deliberately narrower than this
 section: only vendors that are still going to be built, never one that was
 measured and refused — Impact Guns, USA Gun Shop, Edelweiss Arms, The Mosin
@@ -603,7 +605,7 @@ sections that say so and leave the rest, exactly as with parts kits.
 | **Officer Store** | `/firearms/used-firearms` | **BigCommerce** | 200, **9 cards, 31 prices**. Same shape, same cost |
 | **Impact Guns** | `/police-trade-in-guns/` | BigCommerce + **Searchanise** | **Refused** — measured and empty. See below |
 | **USA Gun Shop** | `/used-guns/` | WordPress | **Refused — not a dealer.** It is an affiliate price-comparison site: 89 of its product links go to `classic.avantlink.com`, with Bass Pro affiliate links beside them, and the cards say "Compare price" and "sold by". Its listings are other shops' stock and its prices are other shops' prices, so following it would duplicate catalog that belongs to the dealers themselves. Its robots.txt also asks crawlers off the pricing API in as many words — *"every bot fetch counts as an AvantLink click with no real buyer"* — which is a request worth honoring whatever else were true. The platform note was wrong too: `wp-content` throughout, but no WooCommerce Store API (404) |
-| **GunPrime** | `/tags/police-trade-in` | Rails (Passenger) | 200, 46KB, 25 prices, no standard cards. Its own build |
+| ~~**GunPrime**~~ | `/tags/police-trade-in` | **Spree on Rails** (Passenger) | **Shipped.** "No standard cards" was wrong — it is Spree's own markup, `data-hook='products_list_item'` with `id='product_N'` and the price in a `content` attribute. Read from the tags rather than the categories; see the section below |
 | **AIM Surplus** | `/categories/firearm/police-trade-ins` | **Laravel + Vue 3** | **It has an endpoint, and the browser reading would have been wrong a fourth time.** The page is 39KB with zero prices, and `/js/store.js` (507KB) names the routes: `/data/search`, `/data/search/suggestions`, `/data/products/`, `/items/`. `/data/search` answers with JSON — a 500 for a guessed parameter shape, which is an endpoint refusing a bad query rather than a route that is not there. Its robots.txt is `Disallow:` with nothing after it: everything is permitted. **The next one to build**, once the query shape is worked out |
 | ~~**Southern Tactical**~~ | `/firearms/police-trade-in-firearms` | nginx, not identified | 200, 36KB, 3 prices. **Dropped: not viable.** Three prices in 36 KB, no endpoint found, and no evidence the catalog is worth the build |
 | **GovDeals** | `/en/firearms-live-ammunition` | Akamai bot management | 200 but `_abck`/`bm_sz` cookies and no prices. A government *auction* site, not a shop — the price model is bids, which this application has no idea about. Bottom of the list, and arguably out of scope |
@@ -1007,8 +1009,8 @@ its theme is customized — a couple of selectors in front of the defaults.
 | — | **CO Gun Sales** | `/product-category/curio-relics-cr/` | **Shipped** | Stock WooCommerce for titles and prices, and nothing like it for pictures: the page carries no `<img>` at all. The card's photo is a CSS `background-image` and the product gallery is JSON in a `data-wcsvi` attribute, so all 144 listings arrived with no photograph until both fallbacks existed. The old entry URL here said `/page/6/`, which was somebody's browsing position; pagination follows the shop's own "next" link |
 | — | **Checkpoint Charlie's** | `/product-tag/cr/` | **Shipped, but barely** | A product *tag*, which renders the same loop and paginates the same way. Their `/product/` pages answer 429 to any pace and any headers, and after an hour of that they stop answering the category pages too: a full run took 56 minutes to walk 24 listings and save 5. The scan now survives it — catalog-only entries, and a section that stops at the page it got to — but this site is a candidate for the browser path, or for dropping. See "When a shop refuses a page" in the README |
 | ~~1~~ | ~~J&G Sales~~ | — | **Shipped** | The HTML observation was right and the conclusion drawn from it was wrong. The catalog is rendered client-side, but the same WordPress install publishes the WooCommerce **Store API** — the whole catalog as JSON, with prices, stock, galleries and descriptions, and no browser. See `scrapers/woo_store_api.py`. The lesson is the one this section already draws about platform inference: what the HTML looks like is not what a site *is* |
-| 2 | MCT Defense | `/product-category/firearms/` | **Needs an entry URL** | That page is thirty *category* tiles, not products — no price element anywhere on it. Their actual product pages have to be found before this is worth writing |
-| **last** | DK Firearms | `/product-category/surplus/surplus-firearms/` | **Parked — Cloudflare** | Moved to the bottom of the list deliberately. Not a rendering problem and not a scraping problem: the site answers plain HTTP with a `cf-mitigated: challenge` interstitial, so what is being asked for is a way *around* a bot check the operator switched on. Everything else in the queue is a site that will simply answer. Revisit if they ever turn it off |
+| — | ~~MCT Defense~~ | `/product-category/firearms/` | **Dropped: wholesale only.** The entry URL was found and the Store API answers; see below |
+| — | ~~DK Firearms~~ | `/product-category/surplus/surplus-firearms/` | **Parked — Cloudflare** | Moved to the bottom of the list deliberately. Not a rendering problem and not a scraping problem: the site answers plain HTTP with a `cf-mitigated: challenge` interstitial, so what is being asked for is a way *around* a bot check the operator switched on. Everything else in the queue is a site that will simply answer. **Dropped** on review: asking for a way around a bot check the operator deliberately switched on is not work this project wants to do |
 
 **Moved out of this group.** Legacy Collectibles and Arms Unlimited were listed
 here on the URL-shape inference this section warned about, and they are not
@@ -1036,9 +1038,10 @@ OpenCart.
 | **Wix** | Surplus Defense, ~~The Mosin Crate~~, ~~Pasadena Pawn~~ | **Base class shipped** (`app/scrapers/wix_stores.py`), and **no browser needed** — see the section above. Only one of the three is a Wix *store*: Surplus Defense shipped. The Mosin Crate has the app installed and sells in prose beside group photographs, with 41 of its 43 numbered items sold; Pasadena Pawn answers 114 bytes and is gone |
 | **Magento** | Classic Firearms, Apex Gun Parts, ~~Century Arms~~ | **Base class shipped** (`app/scrapers/magento.py`), and two sites of the three kept. Classic Firearms was listed as Unknown until its markup was read: 59 `mage.` markers and a `/media/catalog/product/cache/` image path. It is the most-visited site on the list. Apex Gun Parts arrived later, from the parts-kit push, and is the one shop here that runs on the base class's **stock selectors unchanged** — the theme is plain `li.product-item`. Century Arms is dealer-only and was dropped |
 | **Laravel (custom)** | AIM Surplus | `laravel_session`; a bespoke application, not BigCommerce |
+| **Spree (Rails)** | GunPrime | `data-hook` attributes throughout, `SpreePaths` in a script tag; behind Phusion Passenger. Its taxon block states each product's own categories, which is what does the filtering |
 | **PrestaShop** | Atlantic Firearms | **Base class shipped** (`app/scrapers/prestashop.py`). The most-visited site on the list, and still a class of one — which is the arithmetic the BigCommerce group got wrong, so it is worth saying plainly. The class is small and the shop is worth reading; a second PrestaShop vendor would be nearly free |
 | **OpenCart** | Joe Salter | `OCSESSID`; not Shift4Shop |
-| **WooCommerce (blocked)** | DK Firearms, MCT Defense | See Group A. J&G Sales was here and shipped through the Store API |
+| **WooCommerce (blocked)** | ~~DK Firearms~~, ~~MCT Defense~~ | See Group A. J&G Sales was here and shipped through the Store API; MCT Defense is dropped — wholesale only |
 | **Unknown** | Simpson Ltd | No marker in headers or cookies, and the home page answers with 2.8 KB — a splash or a client-side shell rather than a catalog. Needs a real entry URL before anything else can be said |
 | **No platform at all** | eBayonet | Apache, hand-written pages saved from Microsoft Word, no `robots.txt`. Static HTML parsing, like Empire Arms |
 | **Refused a plain request** | Liberty Tree (403), Fernwood Armory (403 + Cloudflare) | Not identified; both need the browser before anything else can be said |
@@ -1273,7 +1276,7 @@ quietly editing away.
 | --- | --- | --- |
 | J&G Sales | Catalog rendered client-side | It is. The same WordPress install publishes the WooCommerce Store API — the whole catalog as JSON. **Shipped** |
 | SARCO, Inc. | Catalog rendered client-side | It is. The Searchanise widget that draws the grid reads a public JSON API, key in the page source. 429 of its 512 firearms, in nine requests. **Shipped** |
-| DK Firearms | Cloudflare answers plain HTTP with 403 | Still true, and still the last item on the list |
+| ~~DK Firearms~~ | Cloudflare answers plain HTTP with 403 | Still true. **Dropped** — see above |
 
 **The finding: "the catalog is not in the HTML" says nothing about whether a
 browser is needed.** A client-side grid has to get its products from
@@ -1699,15 +1702,129 @@ total is now read only to report the shortfall, and an empty page is the end.
 truncated description — so the detail fetch only replaces the truncation, and a
 product page that fails costs a description and nothing else.
 
-#### What the other four measured, before anything was written
+#### GunPrime — **Shipped**, and the vendor's own taxonomy does the filtering
+
+**Spree on Rails, the eighth platform**, behind Phusion Passenger. No browser,
+no endpoint hunting: `id='product_N'` is a stable key and the price is in a
+`content` attribute rather than only in the rendered "$349.00".
+
+**The scope is the two tags, not the six categories, and that is the decision
+worth recording.** `/categories/firearms/*` is about 1,300 listings of Del-Ton
+AR pistols, Kahr P9s, Mossberg Shockwaves and suppressors. Reading it would
+repeat exactly what Arms Unlimited and Century Arms were backed out for — 97
+listings that landed correctly and none of which belonged here.
+`/tags/collectible` is a Colt Python, a matching Mauser P.08 Luger and a
+Waffenamt Browning Hi-Power; `/tags/police-trade-in` is the shelf four other
+vendors here are already read for.
+
+**The police tag is 35% not-a-firearm** — ammunition, magazines, duty holsters,
+a weapon light — and none of that had to be guessed from a title, which is how
+bayonets ended up under Rifles elsewhere. Every product page states its own
+taxons, in a block Spree hooks separately from the site navigation:
+
+| taxon | what it is |
+| --- | --- |
+| `categories/firearms/pistols/semi-auto-pistols` | a gun |
+| `categories/ammunition` | a box of cartridges |
+| `categories/accessories/firearm` | a duty holster |
+
+A listing is kept when its own categories put it under firearms, and the same
+block hands over `manufacturer/glock` for the maker at no extra cost.
+
+**The photographs need a configured exception, like Joe Salter's.** robots.txt
+disallows `/rails/active_storage/*`, which is where every product image is
+served from. The page also carries a presigned
+`gunprime.s3.us-east-2.amazonaws.com` URL for each photo, on a host with no
+robots.txt of its own — it answers 403, which this crawler reads as *off
+limits*, not as permission. Taking those to sidestep the rule on the vendor's
+own domain would be circumventing it, so the scraper reads the
+`/rails/active_storage/` form and asks `ctx.allowed()`. Those URLs redirect to
+the same S3 object and reissue the signature, which is the other reason to
+prefer them: the S3 signature expires after seven days and a queued photo would
+not survive a weekend.
+
+#### MCT Defense — **Dropped: wholesale only**, and a note here was wrong
+
+This sat in the queue as *"Unblocked: the WooCommerce Store API answers, 139
+products with prices and stock as JSON, the same route J&G Sales shipped on."*
+Half of that was right and the important half was never checked.
+
+The Store API does answer. **But 257 product rows across all five categories
+carry 0 prices between them** — every `prices.price` is the string `"0"`,
+`is_purchasable` is false throughout, `price_html` is empty, and the product
+pages carry no dollar figure anywhere. The rows are not individual guns either;
+they are model groups: "Beretta 84 Model Pistols", "Israeli Surplus/Used
+Pistols", "Zastava Yugo M72 RPK Rifles".
+
+The reason is on every product page, in their own words:
+
+> MCT Defense provides services to governments, militaries and law enforcement
+> agencies, government contractors and sub-contractors, defense and homeland
+> security companies, civilian wholesale importers and distributor gun dealers.
+> **No sale to individuals.**
+
+Same call as Century Arms and Arms Unlimited, and reached before anything was
+written rather than after. **The lesson is narrower than "measure first", which
+the roadmap already says: an endpoint answering is not the same as an endpoint
+carrying what you need, and `200 OK` with a well-formed body is exactly what a
+priceless catalog looks like.** Read the values, not the shape.
+
+#### Simpson Ltd. — **Shipped**, and the "needs a browser" note was wrong
+
+The recorded blocker was: *"the catalog is in Firestore (project
+`simpsonltd-bfd2b`) and its rules refuse an unauthenticated read; anonymous
+sign-in is disabled too. Needs the browser path."* Every word of that is true
+and it is **the wrong door**. The React bundle does not read Firestore
+directly — it calls Cloud Functions on the same project, and those answer a
+plain unauthenticated GET:
+
+```
+https://us-central1-simpsonltd-bfd2b.cloudfunctions.net/fetchDataByCategory_v3
+https://us-central1-simpsonltd-bfd2b.cloudfunctions.net/fetchSKU_Inventory
+https://us-central1-simpsonltd-bfd2b.cloudfunctions.net/searchWebItems_v3
+```
+
+**Seventh vendor filed as unreachable that had an endpoint**, and the second
+this month whose roadmap note was written from the shape of a response rather
+than from reading it — see the MCT Defense entry for the other. Their
+robots.txt is `Disallow:` with nothing after it, and both the function host and
+the image host 404 on robots.txt, so nothing here needs an exception.
+
+**One request is very nearly a whole listing**: title, full description, asking
+price, caliber, action, bore *and stock* condition graded separately, FFL
+class. The gallery is the exception — the catalog gives two thumbnails
+(`C75280AT.webp`) of the six to ten photographs a listing has, so
+`fetchSKU_Inventory?sku=` fills it in. Note the lower-case parameter: `SKU=` is
+answered with *"SKU parameter is required"*, which reads as a broken endpoint
+rather than a misspelling.
+
+**The scope is the decision worth recording.** Simpson list **19,201 items,
+every one priced, pictured and in stock** — sold stock is simply not returned.
+That is three times everything this application holds, and most of it is a
+sporting catalog: 3,057 shotguns, with Winchester, Remington, Ruger, Savage,
+Marlin and Anschutz beside them. What is read is about 5,200 listings across
+nineteen shelves — Lugers (1,157) whole, German .22 Trainers (355) whole,
+Antiques (371) whole, Military Rifles (1,658), Mauser, Walther, Swiss, P-38,
+Webley, Star, Czech, Hi Power, FN, and Bayonets (280). `SOURCES` holds what is
+taken and `NOT_READ` holds what is not, so widening it is an edit to one tuple.
+
+**The category endpoint takes `page` and `limit`, not `currentPage` and
+`itemsPerPage`.** Those are what `searchWebItems_v3` beside it takes, and this
+one *accepts* them, echoes `currentPage` back unchanged and serves page one
+every time. The first version of this scraper used them and collected ten
+listings per shelf — 190 against 5,200 — while making 116 requests per shelf to
+do it, because nothing in the response says the parameter was ignored: the row
+count and `totalPages` both look right. The names came out of the React bundle
+in the end (`&page=…&limit=…`), which is where they should have come from
+first. `limit` caps at 100.
+
+#### What the other two measured, before anything was written
 
 | vendor | finding |
 | --- | --- |
-| **MCT Defense** | **Unblocked.** Its WooCommerce **Store API** answers: 139 products with prices and stock as JSON. The category page really is priceless — no price is in the HTML at all — which is what made it look like a dead end. Sixth vendor filed as unreachable that had an endpoint |
-| **GunPrime** | Rails behind Phusion Passenger. `/tags/police-trade-in` is 46 KB with 27 prices **in the HTML**, so it needs no endpoint. robots.txt disallows only `/api`, `/cart`, `/checkout` and friends |
 | **Simpson Ltd.** | The way in is the shop-by-category links — `/products/category/<Category>/page/N?subcategory=<Sub>` — but those are 2.8 KB React shells. The catalog is in **Firestore** (project `simpsonltd-bfd2b`); its rules refuse an unauthenticated read and anonymous sign-in is disabled. Still needs the browser |
 | ~~**Southern Tactical**~~ | **Dropped**, on review: 36 KB of page carrying three prices, no endpoint found behind it, and nothing to suggest the catalog repays the work |
-| **DK Firearms** | Held back deliberately, pending a decision on whether it is worth building |
+| ~~**DK Firearms**~~ | **Dropped** on review. The blocker was never technical: the site answers plain HTTP with a `cf-mitigated: challenge`, so building it would mean working around a bot check its operator switched on deliberately |
 
 #### The modern shelf — **Shipped**, and the armory is no longer milsurp-only
 

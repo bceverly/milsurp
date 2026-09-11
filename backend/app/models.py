@@ -329,6 +329,16 @@ class Manufacturer(Base, TimestampMixin):
     merged_into_id: Mapped[int | None] = mapped_column(
         ForeignKey("manufacturers.id", ondelete="SET NULL"), index=True
     )
+    #: What the merge that folded this row away took from it, as JSON, so the
+    #: undo can put it back exactly. A merge is lossy in ways nothing else
+    #: records: it moves this row's model and caliber links onto the target and
+    #: clears its own, and it copies this row's spellings into the target's
+    #: aliases. Without this, un-merging could restore the row but not what the
+    #: row used to know, and the target would go on answering to a name it
+    #: should have given back. Null on a row that has never been merged, and on
+    #: one merged before this column existed -- see ``unmerge``, which falls
+    #: back to what can be worked out from the two rows themselves.
+    merge_undo: Mapped[str | None] = mapped_column(Text)
     first_seen_in: Mapped[str | None] = mapped_column(Text)
 
     merged_into: Mapped["Manufacturer | None"] = relationship(remote_side="Manufacturer.id")
@@ -427,6 +437,16 @@ class Caliber(Base, TimestampMixin):
     merged_into_id: Mapped[int | None] = mapped_column(
         ForeignKey("calibers.id", ondelete="SET NULL"), index=True
     )
+    #: What the merge that folded this row away took from it, as JSON, so the
+    #: undo can put it back exactly. A merge is lossy in ways nothing else
+    #: records: it moves this row's model and caliber links onto the target and
+    #: clears its own, and it copies this row's spellings into the target's
+    #: aliases. Without this, un-merging could restore the row but not what the
+    #: row used to know, and the target would go on answering to a name it
+    #: should have given back. Null on a row that has never been merged, and on
+    #: one merged before this column existed -- see ``unmerge``, which falls
+    #: back to what can be worked out from the two rows themselves.
+    merge_undo: Mapped[str | None] = mapped_column(Text)
     #: Where the name was first seen, for a pending row an admin has to judge.
     first_seen_in: Mapped[str | None] = mapped_column(Text)
     notes: Mapped[str | None] = mapped_column(Text)
@@ -495,6 +515,16 @@ class FirearmModel(Base, TimestampMixin):
     merged_into_id: Mapped[int | None] = mapped_column(
         ForeignKey("firearm_models.id", ondelete="SET NULL"), index=True
     )
+    #: What the merge that folded this row away took from it, as JSON, so the
+    #: undo can put it back exactly. A merge is lossy in ways nothing else
+    #: records: it moves this row's model and caliber links onto the target and
+    #: clears its own, and it copies this row's spellings into the target's
+    #: aliases. Without this, un-merging could restore the row but not what the
+    #: row used to know, and the target would go on answering to a name it
+    #: should have given back. Null on a row that has never been merged, and on
+    #: one merged before this column existed -- see ``unmerge``, which falls
+    #: back to what can be worked out from the two rows themselves.
+    merge_undo: Mapped[str | None] = mapped_column(Text)
     #: Lower is tried first, for the same reason it is on Manufacturer:
     #: "Mosin-Nagant M44" has to be tried before "M44".
     position: Mapped[int] = mapped_column(Integer, default=1000, nullable=False, index=True)
@@ -628,6 +658,16 @@ class Item(Base, TimestampMixin):
     country: Mapped[str | None] = mapped_column(String(64), index=True)
     manufacturer: Mapped[str | None] = mapped_column(String(128), index=True)
     condition: Mapped[str | None] = mapped_column(String(64))
+    #: What *the vendor* says this is -- "Pistol", "Rifle", "Revolver",
+    #: "Shotgun" -- where they say it per listing rather than only by section.
+    #: Read by ``classify.enrich`` and outranking its heuristics, because a
+    #: dealer looking at the gun beats a pattern reading its title: 1,051
+    #: Simpson listings typed as neither rifle nor handgun on titles like
+    #: "ERFURT 1918 MILITARY", every one of them marked Pistol.
+    #:
+    #: Null means the vendor said nothing, which Simpson also use for their
+    #: accessories -- so a blank here is an answer, not a gap.
+    stated_kind: Mapped[str | None] = mapped_column(String(32))
     #: Which armory model this listing matched, when one did.
     #:
     #: A foreign key rather than the name in text, unlike the maker and the

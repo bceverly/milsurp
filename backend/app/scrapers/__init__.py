@@ -35,6 +35,7 @@ from .demo import DemoScraper
 from .dupage_trading import DupageTradingScraper
 from .ebayonet import EBayonetScraper
 from .empire_arms import EmpireArmsScraper
+from .gunprime import GunPrimeScraper
 from .hunters_lodge import HuntersLodgeScraper
 from .ima_usa import ImaUsaScraper
 from .jg_sales import JgSalesScraper
@@ -44,6 +45,7 @@ from .officer_store import OfficerStoreScraper
 from .recoil_gun_works import RecoilGunWorksScraper
 from .royal_tiger import RoyalTigerScraper
 from .sarco import SarcoScraper
+from .simpson_ltd import SimpsonLtdScraper
 from .surplus_defense import SurplusDefenseScraper
 
 
@@ -91,7 +93,9 @@ SCRAPER_CLASSES: tuple[type[SiteScraper], ...] = (
     AimSurplusScraper,
     SurplusDefenseScraper,
     EBayonetScraper,
+    GunPrimeScraper,
     JoeSalterScraper,
+    SimpsonLtdScraper,
 )
 
 _REGISTRY: dict[str, type[SiteScraper]] = {cls.slug: cls for cls in SCRAPER_CLASSES}

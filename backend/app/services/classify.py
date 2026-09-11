@@ -2129,6 +2129,7 @@ def classify_firearm(  # noqa: PLR0911 - one return per rule class; a single
     caliber: str | None = None,
     price: float | None = None,
     category: str | None = None,
+    stated_kind: str | None = None,
 ) -> tuple[bool, bool]:
     """Return ``(is_rifle, is_pistol)``. Both false means "not a firearm"."""
     title_lower = (title or "").lower()
@@ -2154,6 +2155,17 @@ def classify_firearm(  # noqa: PLR0911 - one return per rule class; a single
     # Only the confident half. The rest of that test fires on "Winchester Model
     # 1873 - Octagonal Barrel" and "Swiss K31 Carbine Rifle w/ Matching
     # Bayonet", and the category is what has been quietly rescuing those.
+    # What the vendor said about *this listing*, which beats what their section
+    # says about hundreds and beats anything a pattern reads off a title.
+    # Simpson Ltd. state it per listing and leave it blank on accessories, so
+    # a value here is a positive claim rather than a default -- see
+    # Item.stated_kind. Placed above the accessory test for the same reason a
+    # type-only category is: "LUGER P.08 1941 RIG" is a pistol, and "rig" is
+    # in the accessory vocabulary.
+    said = kind_from_category(stated_kind)
+    if said is not None:
+        return said
+
     stated = kind_from_category(category)
     if stated is not None and _CATEGORY_IS_ONLY_A_TYPE.match(category or ""):
         # A section named for nothing but a type outranks even the confident
@@ -2425,13 +2437,16 @@ def enrich(
     country: str | None = None,
     manufacturer: str | None = None,
     category: str | None = None,
+    stated_kind: str | None = None,
     trust_description: bool = True,
 ) -> EnrichedFields:
     """Derive every structured field at once.
 
     Values a scraper already parsed off the page are trusted and passed through;
     only the gaps are filled by the heuristics. ``category`` is the vendor's own
-    section name, which outranks the heuristics when it names a firearm type.
+    section name, which outranks the heuristics when it names a firearm type,
+    and ``stated_kind`` is what they said about *this* listing, which outranks
+    both.
 
     ``trust_description`` is false for a source whose prose is not about the
     listing it is attached to — a flyer read by OCR, where the text beside a
@@ -2443,7 +2458,9 @@ def enrich(
     """
     evidence = description if trust_description else None
     caliber = caliber or extract_caliber(title, evidence)
-    is_rifle, is_pistol = classify_firearm(title, description, caliber, price, category)
+    is_rifle, is_pistol = classify_firearm(
+        title, description, caliber, price, category, stated_kind=stated_kind
+    )
 
     # A parts kit is not a complete firearm, so it does not also count as one.
     # The same deference is_bayonet has always shown, and for the same reason:

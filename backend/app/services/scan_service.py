@@ -187,6 +187,23 @@ def _price_changed(previous: float | None, current: float | None) -> bool:
     return round(previous * 100) != round(current * 100)
 
 
+def _fill_from_vendor(item: Item, scraped: ScrapedItem) -> None:
+    """Copy the values the vendor stated, without clearing what we hold.
+
+    Pulled out of _upsert_item so the "only if stated" rule lives in one place
+    and reads as one decision. The comment above the call explains why the
+    direction is this way round; this is the list it applies to.
+    """
+    item.caliber = scraped.caliber or item.caliber
+    item.country = scraped.country or item.country
+    item.manufacturer = scraped.manufacturer or item.manufacturer
+    item.condition = scraped.condition or item.condition
+    # Stored so `reclassify` can still see it: a type applied during a scan and
+    # not written down is thrown away by the next rebuild. See
+    # Item.stated_kind.
+    item.stated_kind = scraped.stated_kind or item.stated_kind
+
+
 def _upsert_item(
     session: Session,
     site: Site,
@@ -227,11 +244,8 @@ def _upsert_item(
     # The cost of this direction is that a vendor who *removes* a value does
     # not clear ours. That is the same trade the description has always made,
     # and `reclassify --recompute` is the way to force a rebuild.
-    item.caliber = scraped.caliber or item.caliber
-    item.country = scraped.country or item.country
+    _fill_from_vendor(item, scraped)
     trusted = descriptions_are_reliable(site.slug)
-    item.manufacturer = scraped.manufacturer or item.manufacturer
-    item.condition = scraped.condition or item.condition
     item.is_sold = scraped.is_sold
     item.currency = scraped.currency
     if scraped.posted_at:
@@ -285,6 +299,7 @@ def _upsert_item(
         item.current_price,
         caliber=item.caliber,
         category=item.category,
+        stated_kind=item.stated_kind,
         trust_description=trusted,
     )
     item.is_rifle = derived["is_rifle"]
@@ -356,7 +371,13 @@ def _apply_catalog(session: Session, item: Item, trusted: bool) -> None:
     Only rows an admin has promoted take part. A pending row is a question
     nobody has answered yet, and a question must not rewrite the armory.
     """
-    found = armory.fill_in(session, item.title, item.description if trusted else None, item.caliber)
+    found = armory.fill_in(
+        session,
+        item.title,
+        item.description if trusted else None,
+        item.caliber,
+        stated_kind=item.stated_kind,
+    )
     # Which model, recorded rather than merely used. Without it the armory
     # shaped a listing and left nothing to say it had: no way to browse the
     # M91/30s, no link to what is known about the gun, and no way to look at a

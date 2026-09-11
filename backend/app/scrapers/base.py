@@ -52,6 +52,9 @@ class ScrapedItem:
     country: str | None = None
     manufacturer: str | None = None
     condition: str | None = None
+    #: The vendor's own word for what this is, where they state one per
+    #: listing. See Item.stated_kind: it outranks the classifier's heuristics.
+    stated_kind: str | None = None
     is_sold: bool = False
     posted_at: datetime | None = None
     image_urls: list[str] = field(default_factory=list)

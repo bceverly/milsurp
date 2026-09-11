@@ -450,6 +450,10 @@ class TestTheExporterCarriesEveryColumn:
         "updated_at",
         "merged_into_id",  # a local row id, meaningless in another database
         "first_seen_in",  # which listings *here* proposed it: provenance, not knowledge
+        # What a merge in *this* database took, so its undo can give it back.
+        # It holds local row ids and is a record of edits made here rather than
+        # anything the armory knows about guns.
+        "merge_undo",
     }
 
     #: What the file calls a column, where the two differ.

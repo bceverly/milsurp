@@ -17,7 +17,10 @@ Mosin-Nagant, "7.65mm Browning" for .32 ACP -- and a merge folds one row into
 another, moving its spellings across so nothing stops being recognized, and
 restamping the listings that carried the old name. The merged row stays,
 marked and pointing at its target, because an admin who merges the wrong pair
-should have something to look at rather than an archaeology exercise.
+should have something to look at rather than an archaeology exercise -- and,
+since ``unmerge``, something to act on. A merge now writes down what it took
+before it takes it, so the undo can give back the links and the aliases rather
+than only un-hiding the row.
 """
 
 from __future__ import annotations
@@ -413,6 +416,31 @@ def merge(table: str, payload: ArmoryMerge, _admin: AdminUser, session: DbSessio
             f"Merged. {restamped} listing(s) restamped."
             if restamped
             else "Merged. No listings carried the old name."
+        ),
+    )
+
+
+@router.post("/{table}/{row_id}/unmerge", response_model=ArmoryAction)
+def unmerge(table: str, row_id: int, _admin: AdminUser, session: DbSession) -> ArmoryAction:
+    """Bring a merged-away row back, and make the target give its name back.
+
+    The other half of the promise the merged row was kept for. Until this
+    existed, an admin who merged the wrong pair had "something to look at" and
+    no way to act on it.
+    """
+    _known_table(table)
+    try:
+        note, changed = service.unmerge(session, table, row_id)
+    except service.UnmergeError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    session.commit()
+    return ArmoryAction(
+        changed=1,
+        items_restamped=changed,
+        message=(
+            f"Un-merged {note}. {changed} listing(s) re-matched."
+            if changed
+            else f"Un-merged {note}. No listings changed."
         ),
     )
 
