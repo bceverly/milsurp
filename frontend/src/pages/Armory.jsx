@@ -131,9 +131,15 @@ function comesBack(row) {
   return Boolean((row.first_seen_in || "").trim());
 }
 
+//: The Showing filter. Not the same list as the row's status, and the
+//: difference is "Disabled": a row somebody switched off has been ruled on, so
+//: it leaves Awaiting approval rather than sitting in the queue forever, and it
+//: leaves Production rather than showing there greyed out. Merging away also
+//: switches a row off, but those have their own entry and stay out of this one.
 const STATUSES = [
   { value: "pending", label: "Awaiting approval" },
   { value: "approved", label: "Production" },
+  { value: "disabled", label: "Disabled" },
   { value: "merged", label: "Merged away" },
   { value: "", label: "Everything" },
 ];

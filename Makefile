@@ -218,8 +218,8 @@ photos-retry: $(VENV_PY) ## Try photos that were given up on after repeated fail
 	@$(VENV_PY) backend/cli.py fetch-photos --retry-failed $(if $(limit),--limit "$(limit)",)
 
 .PHONY: reclassify
-reclassify: $(VENV_PY) ## Re-derive kind/caliber/country/maker for stored listings (recompute=1 to overwrite, not just fill)
-	@$(VENV_PY) backend/cli.py reclassify $(if $(recompute),--recompute,)
+reclassify: $(VENV_PY) ## Re-derive kind/caliber/country/maker for stored listings (recompute=1 to overwrite, not just fill; fields=caliber to scope that)
+	@$(VENV_PY) backend/cli.py reclassify $(if $(recompute),--recompute,) $(if $(fields),--fields "$(fields)",)
 
 .PHONY: refetch-details
 refetch-details: $(VENV_PY) ## Re-read product pages next scan (default: descriptions that are markup; site=SLUG, all=1, dry=1)

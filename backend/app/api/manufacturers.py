@@ -14,13 +14,14 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from ..deps import AdminUser, DbSession
-from ..models import ArmoryStatus, Item, Manufacturer
+from ..models import Item, Manufacturer
 from ..schemas import (
     ManufacturerCreate,
     ManufacturerOut,
     ManufacturerUpdate,
     ManufacturerWrite,
 )
+from ..services import armory
 from ..services import manufacturers as service
 
 router = APIRouter(prefix="/manufacturers", tags=["manufacturers"])
@@ -92,7 +93,7 @@ def _reject_duplicate(session: DbSession, name: str, *, exclude_id: int | None =
 def list_manufacturers(
     _admin: AdminUser,
     session: DbSession,
-    status_filter: ArmoryStatus | None = Query(default=None, alias="status"),
+    view: armory.ArmoryView | None = Query(default=None, alias="status"),
     search: str | None = Query(default=None, max_length=100),
 ) -> list[ManufacturerOut]:
     """The maker list, filtered the same way the armory's other two tabs are.
@@ -106,8 +107,7 @@ def list_manufacturers(
         .options(selectinload(Manufacturer.merged_into))
         .order_by(Manufacturer.position, Manufacturer.name)
     )
-    if status_filter is not None:
-        stmt = stmt.where(Manufacturer.status == status_filter)
+    stmt = armory.filter_by_view(stmt, Manufacturer, view)
     if search:
         stmt = stmt.where(
             Manufacturer.name.ilike(f"%{search}%") | Manufacturer.aliases.ilike(f"%{search}%")

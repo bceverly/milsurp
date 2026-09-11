@@ -14,7 +14,7 @@ The whole point of the application is breadth. Each new vendor is one subclass
 of `SiteScraper` in `backend/app/scrapers/` plus one line in `SCRAPER_CLASSES`;
 scheduling, admin controls, price history, images and digests all come for free.
 
-**Where this stands: nineteen vendors read, eleven queued, three dropped.**
+**Where this stands: twenty-six vendors read, four queued, four dropped.**
 Eight of the thirteen are blocked on something no base class can fix — a
 Cloudflare challenge, two missing entry URLs, a shop that publishes no prices,
 two that refuse a plain request, and two Wix pages that turn out to be photo
@@ -61,12 +61,14 @@ Cloudflare challenge rather than a rendering problem.
 | [Officer Store](https://officerstore.com/) | `officer-store` | BigCommerce — 13 LE trade-in Glocks, graded by condition |
 | [Arms Unlimited](https://armsunlimited.com/) | `arms-unlimited` | BigCommerce — 20 used and collectible, twelve of them military; their gear and current-production sections are not read |
 | [AIM Surplus](https://aimsurplus.com/) | `aim-surplus` | Its own JSON API — 162 police trade-ins and 18 curio-and-relic, all priced; the largest *live* police catalog here |
+| [eBayonet](https://www.ebayonet.com/) | `ebayonet` | **No platform at all** — five Word-exported pages, prices and photographs typed into the prose |
 | [Surplus Defense](https://www.surplusdefense.com/) | `surplus-defense` | **Wix Stores base class** — 45 listings and every one collector milsurp |
+| [Joe Salter](https://shop.joesalter.com/) | `joe-salter` | **OpenCart** — 320 collector listings, every one priced; **no photographs, because their robots.txt disallows `/image`** |
 
 ### Planned
 
 **This list is now also in the application.** `app/scrapers/planned.py` carries
-the seven vendors still queued, and the Sites page shows them under **Coming
+the four vendors still queued, and the Sites page shows them under **Coming
 soon** with what each is waiting on. It is deliberately narrower than this
 section: only vendors that are still going to be built, never one that was
 measured and refused — Impact Guns, USA Gun Shop, Edelweiss Arms, The Mosin
@@ -603,7 +605,7 @@ sections that say so and leave the rest, exactly as with parts kits.
 | **USA Gun Shop** | `/used-guns/` | WordPress | **Refused — not a dealer.** It is an affiliate price-comparison site: 89 of its product links go to `classic.avantlink.com`, with Bass Pro affiliate links beside them, and the cards say "Compare price" and "sold by". Its listings are other shops' stock and its prices are other shops' prices, so following it would duplicate catalog that belongs to the dealers themselves. Its robots.txt also asks crawlers off the pricing API in as many words — *"every bot fetch counts as an AvantLink click with no real buyer"* — which is a request worth honoring whatever else were true. The platform note was wrong too: `wp-content` throughout, but no WooCommerce Store API (404) |
 | **GunPrime** | `/tags/police-trade-in` | Rails (Passenger) | 200, 46KB, 25 prices, no standard cards. Its own build |
 | **AIM Surplus** | `/categories/firearm/police-trade-ins` | **Laravel + Vue 3** | **It has an endpoint, and the browser reading would have been wrong a fourth time.** The page is 39KB with zero prices, and `/js/store.js` (507KB) names the routes: `/data/search`, `/data/search/suggestions`, `/data/products/`, `/items/`. `/data/search` answers with JSON — a 500 for a guessed parameter shape, which is an endpoint refusing a bad query rather than a route that is not there. Its robots.txt is `Disallow:` with nothing after it: everything is permitted. **The next one to build**, once the query shape is worked out |
-| **Southern Tactical** | `/firearms/police-trade-in-firearms` | nginx, not identified | 200, 36KB, 3 prices. Likely client-side too |
+| ~~**Southern Tactical**~~ | `/firearms/police-trade-in-firearms` | nginx, not identified | 200, 36KB, 3 prices. **Dropped: not viable.** Three prices in 36 KB, no endpoint found, and no evidence the catalog is worth the build |
 | **GovDeals** | `/en/firearms-live-ammunition` | Akamai bot management | 200 but `_abck`/`bm_sz` cookies and no prices. A government *auction* site, not a shop — the price model is bids, which this application has no idea about. Bottom of the list, and arguably out of scope |
 | **Clyde Armory** | `/agency-trade-in/` | — | **TLS handshake fails** from here. Retry later; it may be transient |
 | **Palmetto State Armory** | `/guns/used-guns-surplus-firearms-trade-ins.html` | Magento, Cloudflare | **403** to a plain request. Blocked, like APP Arms Co |
@@ -611,7 +613,7 @@ sections that say so and leave the rest, exactly as with parts kits.
 **Suggested order**, cheapest first: ~~Recoil Gun Works and Officer Store~~
 (both shipped); ~~then Impact Guns~~ (refused — its police section is empty and
 its "Used Guns" is 8% surplus); ~~then re-open Arms Unlimited's handguns~~ (restored). USA Gun Shop,
-GunPrime and Southern Tactical are each their own build. AIM Surplus needs an
+GunPrime is its own build. AIM Surplus needs an
 endpoint found. GovDeals is an auction and Palmetto is blocked.
 
 **And take their milsurp while there.** Several of these are general dealers
@@ -1646,6 +1648,66 @@ an afternoon on model rows:
   which is the check to make while doing it.
 - **Fill in the 194 rows that say nothing.** The largest remaining lever and no
   code at all.
+
+#### eBayonet — **Shipped**, and the first vendor with no storefront at all
+
+**724 listings, every one priced, 721 with photographs**, $5–$3,800, median
+$150. Bigger than all four police-surplus vendors put together, from five
+hand-maintained files.
+
+**A listing is a run of paragraphs, not one paragraph**, and that is the whole
+site. The stock number and description open it, the photographs follow as their
+own paragraphs, and the price is a paragraph of its own at the end. Reading only
+the paragraph that opens a listing finds a price on **11%** of them — which was
+the first measurement taken here, and it was wrong. Walking to the next stock
+number finds one on **100%**.
+
+**The photographs are text, not markup.** There is not one `<img>` tag in a
+megabyte of HTML: the pictures are bare URLs typed into the prose. A count of
+image tags says this site has no photographs; it has 3,099.
+
+**Eleven stock numbers are duplicated on purpose.** A bayonet carried by two
+countries is written out on both of their pages — once in full, once as
+"15450 Mukden Mauser bayonet. SEE LISTING UNDER MANCHUKUO." The stock number is
+the external key, so keeping both means one overwrites the other and which one
+depends on the order the pages were read in. The marked ones are dropped, and
+where there is no marker the row with a price and photographs wins over the
+stub.
+
+#### Joe Salter — **Shipped**, and the first vendor with no pictures on purpose
+
+**320 listings across four sections, and every single one is priced** — which
+no other vendor here manages. $10–$54,995, median $795. OpenCart, the seventh
+platform, reached with nothing but `?limit=` and `?page=`.
+
+**It ships without photographs, and that is the vendor's decision.** Their
+robots.txt is four lines and two of them are `Disallow: /files` and
+`Disallow: /image`. Every product photograph OpenCart serves lives under
+`/image/cache/catalog/…`, so the whole gallery is out of bounds. This crawler
+obeys robots.txt, so the listings arrive with prices, descriptions and calibers
+and no pictures. The alternative was not building it.
+
+**The shop's own count is larger than the shop's own pages.** "Showing 1 to 15
+of 116" sits above a page carrying **fourteen**, and reading all eight pages of
+that section yields **102**. Asking for `?limit=100` yields the same 102 — so
+the missing fourteen are not lost in pagination, they are counted by the
+storefront and not rendered by it. The first version of this scraper used the
+stated total as its stopping condition and lost a page per section to it. The
+total is now read only to report the shortfall, and an empty page is the end.
+
+**The catalog tile is already a whole listing** — stock number, title, price,
+truncated description — so the detail fetch only replaces the truncation, and a
+product page that fails costs a description and nothing else.
+
+#### What the other four measured, before anything was written
+
+| vendor | finding |
+| --- | --- |
+| **MCT Defense** | **Unblocked.** Its WooCommerce **Store API** answers: 139 products with prices and stock as JSON. The category page really is priceless — no price is in the HTML at all — which is what made it look like a dead end. Sixth vendor filed as unreachable that had an endpoint |
+| **GunPrime** | Rails behind Phusion Passenger. `/tags/police-trade-in` is 46 KB with 27 prices **in the HTML**, so it needs no endpoint. robots.txt disallows only `/api`, `/cart`, `/checkout` and friends |
+| **Simpson Ltd.** | The way in is the shop-by-category links — `/products/category/<Category>/page/N?subcategory=<Sub>` — but those are 2.8 KB React shells. The catalog is in **Firestore** (project `simpsonltd-bfd2b`); its rules refuse an unauthenticated read and anonymous sign-in is disabled. Still needs the browser |
+| ~~**Southern Tactical**~~ | **Dropped**, on review: 36 KB of page carrying three prices, no endpoint found behind it, and nothing to suggest the catalog repays the work |
+| **DK Firearms** | Held back deliberately, pending a decision on whether it is worth building |
 
 #### The modern shelf — **Shipped**, and the armory is no longer milsurp-only
 

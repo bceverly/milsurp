@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import abc
 import json
+import logging
 import re
 import time
 from collections.abc import Callable, Iterable
@@ -30,6 +31,8 @@ from bs4 import BeautifulSoup, Tag
 from ..config import Config, ScrapingConfig
 from ..robots import RobotsCache
 from ..services import cooldown
+
+log = logging.getLogger("milsurp.scrapers")
 
 
 @dataclass
@@ -178,6 +181,9 @@ class ScrapeContext:
         #: Sections this run did not read, by the category name they would
         #: have been filed under. See not_read().
         self.unread_categories: set[str] = set()
+        #: Exceptions already announced this scan, so the notice appears once
+        #: per exception rather than once per photograph.
+        self._announced_exceptions: set[tuple[str, tuple[str, ...]]] = set()
         self.warnings: list[str] = []
         #: Set by report_unchanged(); read by the scan service.
         self.unchanged = False
@@ -374,7 +380,34 @@ class ScrapeContext:
         """
         if not self.scraping.obey_robots:
             return True
-        return self.robots.for_url(url).allows(url, self.scraping.user_agent)
+        if self.robots.for_url(url).allows(url, self.scraping.user_agent):
+            return True
+        return self._excepted(url)
+
+    def _excepted(self, url: str) -> bool:
+        """Whether a configured exception covers a URL robots.txt refuses.
+
+        Announced the first time each exception is used in a scan, through the
+        progress log as well as the server log, so it appears in the scan the
+        operator is actually reading rather than only in a file nobody opens.
+        It is deliberately not a warning: a warning makes the site PARTIAL, and
+        this is a decision somebody made on purpose, not a fault.
+        """
+        for exception in self.scraping.robots_exceptions:
+            if not exception.covers(url):
+                continue
+            token = (exception.host, exception.prefixes)
+            if token not in self._announced_exceptions:
+                self._announced_exceptions.add(token)
+                message = (
+                    f"robots.txt disallows {'/'.join(exception.prefixes)} on "
+                    f"{exception.host}; a configured exception overrides it. "
+                    f"Reason: {exception.reason}"
+                )
+                log.info(message)
+                self._progress(message)
+            return True
+        return False
 
     def _fetch_robots(self, url: str) -> requests.Response:
         """Fetch a robots.txt, without consulting robots.txt about it."""

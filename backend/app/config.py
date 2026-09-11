@@ -21,7 +21,7 @@ import secrets
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 import yaml
 
@@ -316,6 +316,41 @@ class BackupConfig:
 
 
 @dataclass(frozen=True)
+class RobotsException:
+    """One narrow, deliberate exception to a host's robots.txt.
+
+    ``obey_robots`` already exists and is all-or-nothing: switching it off
+    turns every restriction off everywhere, which is a far bigger decision than
+    the one anybody actually wants to make. This is the small version -- one
+    host, named paths, and a reason that has to be written down.
+
+    **The reason is required, and it is the point of the dataclass.** An
+    exception with no stated reason is indistinguishable next year from a
+    mistake, so a blank one is refused at load time rather than accepted
+    quietly. Every use is logged, once per scan, with that reason attached.
+
+    Joe Salter is the case this was built for: their robots.txt disallows
+    ``/image``, and every product photograph OpenCart serves lives under it, so
+    the choice was pictures or nothing.
+    """
+
+    #: Exact host, matched case-insensitively. No wildcards: an exception that
+    #: can spread to hosts nobody listed is not a narrow one.
+    host: str
+    #: Path prefixes this exception covers, e.g. ``("/image/",)``. Never "/".
+    prefixes: tuple[str, ...]
+    #: Why this exists and who decided. Required.
+    reason: str
+
+    def covers(self, url: str) -> bool:
+        parts = urlparse(url)
+        if parts.netloc.lower() != self.host.lower():
+            return False
+        path = parts.path or "/"
+        return any(path.startswith(prefix) for prefix in self.prefixes)
+
+
+@dataclass(frozen=True)
 class ScrapingConfig:
     user_agent: str = (
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -342,6 +377,9 @@ class ScrapingConfig:
     # the remainder is carried to the next scan. Raise it to drain a backlog
     # faster, at the cost of a longer run and more traffic in one burst.
     max_photo_downloads_per_scan: int = 400
+    # Narrow, deliberate exceptions to individual hosts' robots.txt. Empty by
+    # default and meant to stay that way; see RobotsException.
+    robots_exceptions: tuple[RobotsException, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -473,6 +511,51 @@ def _database(section: dict[str, Any], state_dir: Path) -> DatabaseConfig:
     )
 
 
+def _robots_exceptions(raw: Any) -> tuple[RobotsException, ...]:
+    """Parse ``scraping.robots_exceptions`` from the config file.
+
+    Strict on purpose. Every failure here is refused rather than skipped,
+    because the quiet failure mode -- an exception that silently does not apply
+    -- is the one that gets debugged by turning ``obey_robots`` off.
+    """
+    if not raw:
+        return ()
+    if not isinstance(raw, list):
+        raise ConfigError("scraping.robots_exceptions must be a list")
+    found: list[RobotsException] = []
+    for index, entry in enumerate(raw):
+        where = f"scraping.robots_exceptions[{index}]"
+        if not isinstance(entry, dict):
+            raise ConfigError(f"{where} must be a mapping")
+        host = str(entry.get("host", "")).strip()
+        reason = str(entry.get("reason", "")).strip()
+        prefixes = entry.get("prefixes") or []
+        if not host or "/" in host:
+            raise ConfigError(f"{where}.host must be a bare hostname")
+        if not reason:
+            # The whole design rests on this. An exception nobody explained is
+            # indistinguishable from a mistake once the person who made it has
+            # moved on.
+            raise ConfigError(f"{where}.reason is required: say why this exception exists")
+        if not isinstance(prefixes, list) or not prefixes:
+            raise ConfigError(f"{where}.prefixes must be a non-empty list of path prefixes")
+        clean: list[str] = []
+        for prefix in prefixes:
+            text = str(prefix).strip()
+            if not text.startswith("/"):
+                raise ConfigError(f"{where}.prefixes entries must start with '/': {text!r}")
+            if text == "/":
+                # "/" is not an exception, it is obey_robots: false wearing a
+                # disguise -- and one that would not be obvious in a review.
+                raise ConfigError(
+                    f"{where}.prefixes may not be '/': that is the whole site, "
+                    "which is scraping.obey_robots, not an exception"
+                )
+            clean.append(text)
+        found.append(RobotsException(host=host, prefixes=tuple(clean), reason=reason))
+    return tuple(found)
+
+
 def _size_the_pool(
     database: DatabaseConfig, section: dict[str, Any], scheduler: SchedulerConfig
 ) -> DatabaseConfig:
@@ -597,6 +680,7 @@ def load_config(path: Path | None = None, mode: str | None = None) -> Config:
         chrome_binary=(sel.get("chrome_binary") or None),
         chromedriver_path=(sel.get("chromedriver_path") or None),
         max_pages=int(scr.get("max_pages", 60)),
+        robots_exceptions=_robots_exceptions(scr.get("robots_exceptions")),
     )
 
     bak = _section(data, "backups")

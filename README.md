@@ -906,7 +906,7 @@ unknown sort, a price that is not a number. That check runs when a search is
 
 ### If the vendor sells parts kits
 
-Four of the nineteen vendors are here for their **parts kits** rather than
+Four of the twenty-six vendors are here for their **parts kits** rather than
 their guns — Apex Gun Parts, Arms of America and Bowman Arms — and they are the
 first ones where the interesting decision was not the platform but the scope.
 
@@ -1379,6 +1379,22 @@ The title is exhausted before the description at every step. **Percentages come
 out of the text first**: the trade writes "90% blue" and "30-40% original
 finish" constantly, and `\b` is satisfied by the `%` that follows.
 
+**Getting a rule change onto the stored rows.** `make reclassify` fills blanks
+only — a value the vendor stated is theirs — so it corrects nothing that is
+already wrong. `recompute=1` overwrites, and used to overwrite *everything*:
+correcting 172 calibers cost 138 listings their manufacturer, because a maker
+the vendor supplied cannot be re-derived from the text and returns only on that
+site's next scan. So `fields=` scopes it:
+
+```
+make reclassify                          # fill blanks only
+make reclassify recompute=1              # overwrite caliber, country, condition, maker
+make reclassify recompute=1 fields=caliber   # overwrite just the one a fix affected
+```
+
+A field left out of `fields=` keeps the fill-blanks behavior rather than being
+skipped: a blank is not a value somebody stated, so filling it overrules nobody.
+
 Measured over 4,566 active listings, 140 change. This reversed a precedence
 this file had deliberately deferred: the note on it said flipping it was a wash
 until two pattern bugs were fixed — the Berthiers, where `8mm Lebel` was misread
@@ -1522,6 +1538,26 @@ Heckler & Koch G36, both of which are on these shelves. So every bare
 `G<number>` is qualified as `Glock G<number>`, which still catches
 "Glock G23 Gen 4". Both collisions were found by measuring what each alias hit
 that was not a Glock, and neither would have been caught by reading the list.
+
+**Showing is not the row's status, and "Disabled" is why.** Three of the four
+settings do name a status, so for a long time the filter simply compared one —
+and two manufacturers switched off by hand went on appearing under *Awaiting
+approval* forever, keeping the nav badge lit at 2. Turning a row off **is**
+ruling on it: it matches nothing afterwards, exactly like a pending row. So
+*Awaiting approval* means `PENDING and enabled` — nobody has looked at this yet
+— *Production* means `APPROVED and enabled`, and **Disabled** is its own bucket
+that gathers the ruled-out rows from both sides. They had been split across two
+tabs depending on what their status happened to be, which is also why
+auto-approving on disable is the wrong fix: "Production" would then mean both
+"yes, use this" and "no, never".
+
+The trap is that **merging a row away already switches it off**
+(`merge_manufacturers` sets `enabled = False`), so a Disabled bucket defined as
+plain "not enabled" fills with every merge ever made. It excludes them; they
+have *Merged away*. One definition, `_view_clause` in `services/armory.py`,
+serves the three list routes and the badge — a badge counting rows the tab it
+links to does not show sends somebody hunting for manufacturers that are not
+there.
 
 **What the page is showing is in the URL** — the tab as a fragment
 (`/armory#manufacturer`, `#model`, `#caliber`) and the Showing filter as a
@@ -1888,8 +1924,35 @@ if ctx.allowed(url):
 An unguarded fetch of a disallowed URL raises `Disallowed`. If robots.txt cannot
 be read at all — a 5xx, a 403, a connection failure — the site is treated as off
 limits rather than open, so a blip cannot quietly switch off a vendor's rules.
-Set `scraping.obey_robots: false` only for a vendor who has given explicit
-permission.
+**`scraping.obey_robots: false` is almost never the right tool.** It turns
+every restriction off on every site, which is a far bigger decision than the one
+anybody actually wants to make. For a single vendor who has given explicit
+permission there is a narrow form — one host, named path prefixes, and a stated
+reason:
+
+```yaml
+scraping:
+  robots_exceptions:
+    - host: shop.joesalter.com
+      prefixes: ["/image/"]
+      reason: "vendor confirmed by email, 2026-09-11"
+```
+
+That is the whole feature. **The reason is required and a blank one is refused
+at load time**, because an exception nobody explained is indistinguishable from
+a mistake once the person who made it has moved on. `prefixes: ["/"]` is refused
+too — that is `obey_robots: false` wearing a disguise, and one that would not be
+obvious in a review. Every use is announced once per scan, in the progress log
+the operator actually reads, with the reason attached; it is deliberately *not*
+a warning, because doing what somebody configured on purpose is not a fault and
+must not make the site PARTIAL.
+
+Joe Salter is the case it exists for: their robots.txt disallows `/image` and
+every product photograph OpenCart serves lives under it, so the choice was
+pictures or nothing. **Out of the box that vendor still ships without
+pictures** — the scraper asks `ctx.allowed()` and believes the answer, so a
+config file is the only thing that changes it. See `RobotsException` in
+`app/config.py`.
 
 **Check a real vendor's rules with the real call**, not a scratch script:
 
@@ -2004,7 +2067,7 @@ having walked 24 listings and saved 5, reporting nothing found. Both rules
 together turn that same hour into a PARTIAL run with the listings it managed to
 read. It is still a bad site to scan, and it may yet need the browser path.
 
-Nineteen vendors are read today; eleven more are queued in
+Twenty-six vendors are read today; four more are queued in
 [ROADMAP.md](ROADMAP.md), grouped by the platform they run on because one base
 class unlocks a whole group.
 

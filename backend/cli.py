@@ -426,6 +426,12 @@ def _duration(seconds: float) -> str:
     return f"{seconds // 60}m{seconds % 60:02d}s"
 
 
+#: What --recompute is able to overwrite, and therefore what --fields may name.
+#: Not the flags: rifle/handgun and its siblings are derived from the text every
+#: time and have no vendor-supplied version to protect.
+RECOMPUTABLE = ("caliber", "country", "condition", "manufacturer")
+
+
 def cmd_reclassify(args: argparse.Namespace) -> int:
     """Re-derive rifle/pistol and the other inferred fields from stored text.
 
@@ -434,6 +440,16 @@ def cmd_reclassify(args: argparse.Namespace) -> int:
     a change that needs no network at all. This re-runs the heuristics over
     what is already in the database.
     """
+    wanted = {name.strip().lower() for name in (args.fields or "").split(",") if name.strip()}
+    unknown = wanted - set(RECOMPUTABLE)
+    if unknown:
+        print(
+            f"Unknown field(s): {', '.join(sorted(unknown))}. "
+            f"Valid: {', '.join(RECOMPUTABLE)}.",
+            file=sys.stderr,
+        )
+        return 1
+
     changed = 0
     with session_scope() as session:
         # Whether a site's prose is about the listing it is attached to. Looked
@@ -538,6 +554,15 @@ def cmd_reclassify(args: argparse.Namespace) -> int:
             if found.kind is not None and (flags["is_rifle"] or flags["is_pistol"]):
                 flags["is_rifle"] = found.kind.is_long_gun
                 flags["is_pistol"] = found.kind.is_handgun
+            # --recompute overwrites; --fields says which of them it may
+            # overwrite. A field left out keeps the fill-blanks-only behavior,
+            # so a caliber fix need not cost every listing its maker.
+            if args.recompute:
+                filled = {
+                    name: (value if name in wanted else (getattr(item, name) or value))
+                    for name, value in filled.items()
+                }
+
             if any(getattr(item, name) != value for name, value in (flags | filled).items()):
                 for name, value in flags.items():
                     setattr(item, name, value)
@@ -914,6 +939,17 @@ def _add_reclassify_command(sub) -> None:
         "stored values were derived here, not stated by a vendor, so a fix "
         "otherwise never reaches the listings that need it. A vendor-supplied "
         "value comes back on the next scan of that site.",
+    )
+    command.add_argument(
+        "--fields",
+        default=",".join(RECOMPUTABLE),
+        metavar="caliber,country,...",
+        help="Which of them --recompute is allowed to overwrite. Defaults to all "
+        f"of {', '.join(RECOMPUTABLE)}. Narrow it when a rule change affects one "
+        "field and the others would pay for it: correcting 172 calibers after a "
+        "caliber fix costs 138 listings their manufacturer, because a maker the "
+        "vendor supplied cannot be re-derived from the text and comes back only "
+        "on that site's next scan.",
     )
     command.set_defaults(func=cmd_reclassify)
 

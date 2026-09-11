@@ -43,17 +43,6 @@ class PlannedSite:
 #: what needs a way in after that, and what is blocked at the door last.
 PLANNED: tuple[PlannedSite, ...] = (
     PlannedSite(
-        slug="joe-salter",
-        name="Joe Salter",
-        base_url="https://shop.joesalter.com/",
-        platform="OpenCart",
-        blocker=(
-            "Needs an OpenCart base class -- the seventh platform. A "
-            "long-established collector dealer, and the C&R sections are the "
-            "catalog worth having."
-        ),
-    ),
-    PlannedSite(
         slug="gunprime",
         name="GunPrime",
         base_url="https://gunprime.com/",
@@ -64,35 +53,16 @@ PLANNED: tuple[PlannedSite, ...] = (
         ),
     ),
     PlannedSite(
-        slug="southern-tactical",
-        name="Southern Tactical",
-        base_url="https://southerntactical.com/",
-        platform="Not identified",
-        blocker=(
-            "36 KB and three prices, which reads as a client-side catalog. "
-            "Needs the endpoint found before it is worth writing -- four "
-            "vendors filed as needing a browser turned out to have one."
-        ),
-    ),
-    PlannedSite(
-        slug="ebayonet",
-        name="eBayonet",
-        base_url="https://www.ebayonet.com/",
-        platform="Static HTML",
-        blocker=(
-            "Bayonets only, and no e-commerce platform at all: five "
-            "hand-maintained pages saved out of Microsoft Word, split by "
-            "country initial. Measured and mapped; nothing else is in the way."
-        ),
-    ),
-    PlannedSite(
         slug="simpson-ltd",
         name="Simpson Ltd.",
         base_url="https://www.simpsonltd.com/",
         platform="Unknown",
         blocker=(
-            "Needs an entry URL. Trading since 1962, but the home page is "
-            "2.8 KB with no platform marker and no catalog behind it."
+            "The way in is known -- the shop-by-category links, "
+            "/products/category/<Category>/page/N?subcategory=<Sub> -- but "
+            "those pages are 2.8 KB React shells. The catalog is in Firestore "
+            "(project simpsonltd-bfd2b) and its rules refuse an unauthenticated "
+            "read; anonymous sign-in is disabled too. Needs the browser path."
         ),
     ),
     PlannedSite(
@@ -101,8 +71,10 @@ PLANNED: tuple[PlannedSite, ...] = (
         base_url="https://mctdefense.com/",
         platform="WooCommerce",
         blocker=(
-            "Needs an entry URL. Their firearms page is thirty category "
-            "tiles rather than products, with no price element anywhere on it."
+            "Unblocked: the WooCommerce Store API answers, 139 products with "
+            "prices and stock as JSON, the same route J&G Sales shipped on. "
+            "The category page really is priceless -- the prices are not in "
+            "the HTML at all -- which is what made this look like a dead end."
         ),
     ),
     PlannedSite(

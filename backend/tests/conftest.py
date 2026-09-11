@@ -178,8 +178,10 @@ def ctx_factory(app_config):
 
     made = []
 
-    def build(**kwargs):
-        context = ScrapeContext(app_config, **kwargs)
+    def build(config=None, **kwargs):
+        # `config` is overridable so a test can vary a scraping setting -- a
+        # robots exception, say -- without reaching into the frozen default.
+        context = ScrapeContext(config or app_config, **kwargs)
         made.append(context)
         return context
 

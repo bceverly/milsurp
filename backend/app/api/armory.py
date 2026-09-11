@@ -30,7 +30,6 @@ from sqlalchemy.orm import selectinload
 
 from ..deps import AdminUser, DbSession
 from ..models import (
-    ArmoryStatus,
     Caliber,
     FirearmKind,
     FirearmModel,
@@ -216,12 +215,11 @@ def countries(_admin: AdminUser) -> list[str]:
 def list_calibers(
     _admin: AdminUser,
     session: DbSession,
-    status_filter: ArmoryStatus | None = Query(default=None, alias="status"),
+    view: service.ArmoryView | None = Query(default=None, alias="status"),
     search: str | None = Query(default=None, max_length=100),
 ) -> list[CaliberOut]:
     stmt = select(Caliber).options(selectinload(Caliber.merged_into)).order_by(Caliber.name)
-    if status_filter is not None:
-        stmt = stmt.where(Caliber.status == status_filter)
+    stmt = service.filter_by_view(stmt, Caliber, view)
     if search:
         stmt = stmt.where(Caliber.name.ilike(f"%{search}%") | Caliber.aliases.ilike(f"%{search}%"))
     items, models = _caliber_counts(session), _models_per_caliber(session)
@@ -232,7 +230,7 @@ def list_calibers(
 def list_models(
     _admin: AdminUser,
     session: DbSession,
-    status_filter: ArmoryStatus | None = Query(default=None, alias="status"),
+    view: service.ArmoryView | None = Query(default=None, alias="status"),
     search: str | None = Query(default=None, max_length=100),
 ) -> list[FirearmModelOut]:
     stmt = (
@@ -244,8 +242,7 @@ def list_models(
         )
         .order_by(FirearmModel.name)
     )
-    if status_filter is not None:
-        stmt = stmt.where(FirearmModel.status == status_filter)
+    stmt = service.filter_by_view(stmt, FirearmModel, view)
     if search:
         stmt = stmt.where(
             FirearmModel.name.ilike(f"%{search}%") | FirearmModel.aliases.ilike(f"%{search}%")

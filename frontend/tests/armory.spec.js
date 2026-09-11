@@ -178,6 +178,37 @@ test.describe("armory", () => {
     await expect(signedIn).toHaveURL(/\/armory#model$/);
   });
 
+  test("a row switched off leaves the queue and lands under Disabled", async ({
+    signedIn,
+  }) => {
+    /**
+     * Reported from the running site: two manufacturers switched off by hand
+     * went on showing under "Awaiting approval" and kept the nav badge lit.
+     * Turning a row off is ruling on it — it matches nothing afterwards,
+     * exactly like a pending row — but the filter asked only about status.
+     */
+    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await expect(signedIn.locator(".alert--success")).toBeVisible();
+    await signedIn.getByRole("tab", { name: "Manufacturers" }).click();
+
+    // Column 0 selects the row and column 1 expands it; the name is column 2,
+    // and its button is what opens the edit form.
+    const nameCell = signedIn.locator("tbody tr").first().locator("td").nth(2);
+    const name = (await nameCell.locator("button").innerText()).trim();
+
+    // Switch it off through the form, the way an admin would.
+    await nameCell.locator("button").click();
+    await signedIn.getByLabel("Enabled").uncheck();
+    await signedIn.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(signedIn.getByRole("dialog")).toHaveCount(0);
+
+    // Gone from the queue it had been stuck in...
+    await expect(signedIn.locator("tbody")).not.toContainText(name);
+    // ...and findable where the decision put it.
+    await signedIn.getByLabel("Showing").selectOption("disabled");
+    await expect(signedIn.locator("tbody")).toContainText(name);
+  });
+
   test("a tab can be linked to directly", async ({ signedIn }) => {
     await signedIn.goto("/armory#caliber");
     await expect(signedIn.getByRole("tab", { name: "Calibers" })).toHaveAttribute(
@@ -532,14 +563,22 @@ test.describe("armory", () => {
     ];
     const readNames = () =>
       signedIn.locator("tbody tr td:nth-child(2) button").allInnerTexts();
+
+    // Keep the snapshot that satisfied the poll rather than reading again.
+    // Two reloads are in flight here — the tab click starts one and the filter
+    // starts another — so a second read can land after the poll passed and
+    // catch the table mid-replace, with every probe back to index -1. Asserting
+    // on the array that *was* complete has no such gap.
+    let names = [];
     await expect
       .poll(async () => {
         const found = await readNames();
-        return probes.every((probe) => found.includes(probe));
+        if (!probes.every((probe) => found.includes(probe))) return false;
+        names = found;
+        return true;
       })
       .toBe(true);
 
-    const names = await readNames();
     const at = (name) => names.indexOf(name);
     expect(at(".30-06 Springfield")).toBeLessThan(at(".303 British"));
     expect(at(".303 British")).toBeLessThan(at(".32 ACP"));

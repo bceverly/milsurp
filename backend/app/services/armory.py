@@ -27,6 +27,7 @@ answered, rather than being asked on every scan and answered by nobody.
 
 from __future__ import annotations
 
+import enum
 import re
 import threading
 from collections.abc import Iterable
@@ -36,7 +37,7 @@ from typing import Any
 from uuid import uuid4
 
 import yaml
-from sqlalchemy import delete, func, or_, select, update
+from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.orm import Session, selectinload
 
 from ..models import (
@@ -450,12 +451,62 @@ CURATED: dict[str, Any] = {
 }
 
 
+class ArmoryView(str, enum.Enum):
+    """What the Showing filter on the armory can be set to.
+
+    Deliberately *not* ``ArmoryStatus``. Status answers "has a person ruled on
+    this row", and for three of the four answers that is the whole story --
+    but "switched off" is a ruling that status has no value for, and reading
+    the queue as "everything not yet approved" put rows somebody had already
+    decided about back in front of them forever.
+    """
+
+    PENDING = "pending"
+    APPROVED = "approved"
+    MERGED = "merged"
+    #: Ruled out. See _view_clause for why this is not simply "not enabled".
+    DISABLED = "disabled"
+
+
+def _view_clause(table: Any, view: ArmoryView) -> Any:
+    """The rows one Showing setting means.
+
+    Two things are worth saying out loud here.
+
+    **Disabled is a bucket, not an overlay.** A row that is switched off is
+    gone from Awaiting approval and from Production, rather than appearing in
+    one of them greyed out. Somebody who turned a row off has finished with
+    it, and leaving it in the queue is what this exists to stop.
+
+    **Merging away already switches a row off** (see ``merge_manufacturers``),
+    so Disabled has to exclude merged rows or it fills up with every merge
+    that has ever been made -- which are not decisions about this row's own
+    usefulness and already have a bucket of their own.
+    """
+    if view is ArmoryView.MERGED:
+        return table.status == ArmoryStatus.MERGED
+    if view is ArmoryView.DISABLED:
+        return and_(table.enabled.is_(False), table.status != ArmoryStatus.MERGED)
+    status = ArmoryStatus.PENDING if view is ArmoryView.PENDING else ArmoryStatus.APPROVED
+    return and_(table.status == status, table.enabled.is_(True))
+
+
+def filter_by_view(stmt: Any, table: Any, view: ArmoryView | None) -> Any:
+    """Apply a Showing setting to a query, or leave it alone for "Everything"."""
+    return stmt if view is None else stmt.where(_view_clause(table, view))
+
+
 def pending_counts(session: Session) -> dict[str, int]:
-    """How many rows of each kind are waiting on somebody, for the nav badge."""
+    """How many rows of each kind are waiting on somebody, for the nav badge.
+
+    The same definition the Awaiting approval filter uses, which is the point:
+    a badge that counts rows the tab it links to does not show sends somebody
+    looking for two manufacturers that are not there.
+    """
     return {
         name: int(
             session.execute(
-                select(func.count(table.id)).where(table.status == ArmoryStatus.PENDING)
+                select(func.count(table.id)).where(_view_clause(table, ArmoryView.PENDING))
             ).scalar_one()
         )
         for name, table in CURATED.items()

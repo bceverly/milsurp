@@ -582,6 +582,19 @@ def _bare_bore(haystack: str) -> str | None:
 #: "BM-59 Paratrooper ... Bipod, Bayonet Lug" are both rifles.
 _BAYONET = re.compile(r"\bbayonets?\b(?!\s+lugs?\b)", re.I)
 
+#: A vendor section that is bayonets. Like the parts-kit heading, it *proposes*
+#: and the listing has to corroborate -- DuPage Trading file bare M8A1
+#: scabbards and a fighting knife under theirs, and none of those is a bayonet.
+#:
+#: What it buys is precedence, not a verdict. ``enrich`` only ever asked the
+#: bayonet question about a listing that was already neither a rifle nor a
+#: handgun, so a blade whose prose named the gun it fits had been made a rifle
+#: before the question came up: "16003 M4 bayonet with M8A1 scabbard ... made
+#: to supply to our allies using the M1 and M2 carbines" was filed under
+#: Rifles, and 30 more like it. A section that says bayonets is enough to ask
+#: the question first instead.
+_BAYONET_SECTION = re.compile(r"(?i)\bbayonets?\b")
+
 #: The sheath. On its own it says nothing -- see _is_a_bayonet().
 _SCABBARD = re.compile(r"\bscabbards?\b", re.I)
 
@@ -621,6 +634,14 @@ def _lacks(title: str, thing: re.Pattern[str]) -> bool:
 #: it also matches the W of "W+F Bern" — Waffenfabrik Bern — and their K31
 #: Pioneer Sawback Bayonet stopped being a bayonet.
 _COMES_WITH = re.compile(r"\bw/|\bw(?=\s)|\b(?:with|and|plus|incl(?:udes|uding)?)\b", re.I)
+
+#: More things thrown in, written the way a listing page writes it. A part with
+#: this after it is one line of a bundle, and the bundle is the firearm.
+_BUNDLED_WITH_MORE = re.compile(r"[+&]|\b(?:with|plus|incl(?:udes|uding)?|free)\b", re.I)
+
+#: Passed to _is_the_head_noun by the magazine rule alone. See the `also`
+#: parameter there for why it is not in the shared vocabulary.
+_MAGAZINE = re.compile(r"magazines?", re.I)
 
 #: A parts kit, which is the one non-firearm category worth carrying: it is a
 #: whole firearm minus the serialized part, and people watch for them the way
@@ -1238,7 +1259,11 @@ _HEAD_NOUN_ACCESSORIES = re.compile(
     r"|bags?|covers?|pads?|hangers?|oilers?|handbooks?|manuals?"
     r"|tools?|keepers?|buckles?|frogs?|straps?|cases?|belts?|grips?|cartridges?"
     r"|barrels?|stocks?|handguards?"
-    r"|cleaning\s+kits?|stripper\s+clips?|handguards?)\b",
+    r"|cleaning\s+kits?|stripper\s+clips?|handguards?"
+    # A lot of parts, matched as the whole phrase _PART_ASSORTMENT found.
+    r"|(?:spare\s+)?(?:parts?|fire\s+control|rear\s+sight|front\s+end|trigger"
+    r"|hardware|furniture|small\s+parts?)\s+"
+    r"(?:package|set|selection|assortment|group|lot))\b",
     re.I,
 )
 
@@ -1404,7 +1429,9 @@ def _spaced_dashes(text: str) -> int:
     return sum(text.count(dash) for dash in _DASHES)
 
 
-def _is_the_head_noun(title_lower: str, found: re.Match[str]) -> bool:
+def _is_the_head_noun(
+    title_lower: str, found: re.Match[str], *, also: re.Pattern[str] | None = None
+) -> bool:
     """Whether this accessory word is what the listing is actually selling.
 
     English puts the head noun last: "M1 Garand Rifle 1907 Pattern Leather
@@ -1422,8 +1449,15 @@ def _is_the_head_noun(title_lower: str, found: re.Match[str]) -> bool:
     """
     word = found.group(0)
     fitted = _FITS.search(title_lower[found.end() :]) is not None
-    if not _HEAD_NOUN_ACCESSORIES.fullmatch(word) and not (
-        fitted and _HEAD_NOUN_IF_FITTED.fullmatch(word)
+    # `also` lets one caller widen the vocabulary for its own match without
+    # widening it for every other caller. "magazine" is the case: _ACCESSORY_NOUN
+    # matches the word and several paths feed that match in here, so putting it
+    # in the shared list turned "CZ82 9x18 Makarov - 12RD Magazine + Free
+    # Accessories" -- a pistol whose title dropped the word -- into an accessory.
+    if (
+        not _HEAD_NOUN_ACCESSORIES.fullmatch(word)
+        and not (fitted and _HEAD_NOUN_IF_FITTED.fullmatch(word))
+        and not (also is not None and also.fullmatch(word))
     ):
         return False
     # One entry in a list of a rifle's features — "Bolt Action, Bayonet, Exc
@@ -1859,6 +1893,25 @@ def _is_not_a_firearm(title_lower: str) -> bool:
     return _looks_like_accessory(title_lower)
 
 
+#: A collection of parts sold as one lot: "AK-100 Series Fire Control Package",
+#: "Dominican Republic San Cristobal Carbine Spare Parts Set", "French MAS 36
+#: Rifle Parts Selection, NO Barrel".
+#:
+#: **Parts, not a parts kit.** A kit is a whole firearm minus its serialized
+#: part and belongs in the Parts kit bucket; a selection of fire-control bits
+#: is neither that nor a rifle, and every one of these was arriving under
+#: Rifles because the title names the gun they fit.
+#:
+#: The collective noun has to be last, which is what keeps "Parts Kit" itself
+#: out of here -- that is a kit and _is_a_parts_kit has already said so.
+_PART_ASSORTMENT = re.compile(
+    r"\b(?:spare\s+)?(?:parts?|fire\s+control|rear\s+sight|front\s+end|trigger|"
+    r"hardware|furniture|small\s+parts?)\s+"
+    r"(?:package|set|selection|assortment|group|lot)\b",
+    re.I,
+)
+
+
 def _is_a_standalone_part(title_lower: str) -> bool:
     """Bayonets, magazines and bolts, sold on their own rather than fitted.
 
@@ -1870,16 +1923,38 @@ def _is_a_standalone_part(title_lower: str) -> bool:
     blade = _BAYONET.search(title_lower)
     if blade is not None and _is_the_head_noun(title_lower, blade):
         return True
+    # A lot of parts, whatever gun the title names first -- unless the gun is
+    # the product and the parts merely come with it. "Ishapore Enfield No.1
+    # MK.III 410 Musket w/ Complete Trigger Group, Rear Sight, and Frontsight"
+    # is a musket, and the same _COMES_WITH guard _is_a_bayonet has always used
+    # is what tells it from a fire-control package.
+    lot = _PART_ASSORTMENT.search(title_lower)
+    if (
+        lot is not None
+        and _COMES_WITH.search(title_lower[: lot.start()]) is None
+        and _is_the_head_noun(title_lower, lot)
+    ):
+        return True
     # The model vocabulary, not the FIREARM_WORDS list, which does not know
     # "CZ82 9x18 Makarov - 12RD Magazine". A magazine sold on its own is
     # still caught: "East German Luger Magazine" puts the part flush against
     # the name, which _accessory_leads reads as the part being the product.
-    if (
-        re.search(r"\bmagazine\b", title_lower)
-        and not re.search(r"\bwith\s+magazine\b", title_lower)
-        and not _NAMES_A_FIREARM_OR_MODEL.search(title_lower)
-    ):
-        return True
+    clip = re.search(r"\bmagazines?\b", title_lower)
+    if clip is not None and not re.search(r"\bwith\s+magazine\b", title_lower):
+        if not _NAMES_A_FIREARM_OR_MODEL.search(title_lower):
+            return True
+        # ...and when it does name one, the head noun settles it -- unless the
+        # title goes on to bundle something else with it. "East German Galil /
+        # Valmet Bakelite 5.56/223 30rd Magazine, Collector New, Sealed in
+        # Wrapper" is a magazine and what follows is its condition; "CZ82 9x18
+        # Makarov - 12RD Magazine + Free Accessories" is a pistol whose title
+        # dropped the word, which the vendor's own URL slug confirms
+        # (/cz82-pistol-9x18-makarov-12-round-magazine-free-accessories/).
+        after = title_lower[clip.end() :]
+        if _BUNDLED_WITH_MORE.search(after) is None and _is_the_head_noun(
+            title_lower, clip, also=_MAGAZINE
+        ):
+            return True
     # _lacks rather than a bespoke "without bolt": a rifle described by what is
     # missing is still a rifle, and the dealer writes that half a dozen ways.
     # "Romanian UMC Cugir - No Bolt" was filed under accessories because this
@@ -2377,7 +2452,17 @@ def enrich(
     # filter happens to ask about first. A Czech ZB37 heavy machine gun sold as
     # a kit was showing under Rifles.
     is_kit = _is_a_parts_kit(title, category, evidence)
-    if is_kit:
+    # A section that says bayonets outranks whatever the title's prose suggested
+    # -- but not a kit, which outranks both. Arms of America sell a "Polish
+    # Radom Military Collectors Package - Circle 11 AKM Parts Kit ... + Circle
+    # 11 Bayonet", and the thing being sold is the kit.
+    in_bayonet_section = (
+        not is_kit
+        and _BAYONET_SECTION.search(category or "") is not None
+        # Corroborated, not taken on trust. See _BAYONET_SECTION.
+        and _is_a_bayonet(title, evidence)
+    )
+    if is_kit or in_bayonet_section:
         is_rifle = is_pistol = False
     return {
         "caliber": caliber,
@@ -2398,7 +2483,8 @@ def enrich(
         # word appears -- rather than under the thing being sold. Clearing the
         # firearm flags above is not enough on its own: it is what makes the
         # bayonet question get asked at all.
-        "is_bayonet": not (is_rifle or is_pistol or is_kit) and _is_a_bayonet(title, evidence),
+        "is_bayonet": not (is_rifle or is_pistol or is_kit)
+        and (in_bayonet_section or _is_a_bayonet(title, evidence)),
         "is_parts_kit": is_kit,
         # Not one of the mutually exclusive kinds above, on purpose. A police
         # trade-in Glock *is* a handgun, and the armory, the caliber work and
