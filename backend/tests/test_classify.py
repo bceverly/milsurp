@@ -240,6 +240,43 @@ class TestCountryAndManufacturer:
     def test_leading_nationality_wins(self, title, expected):
         assert extract_country(title) == expected
 
+    @pytest.mark.parametrize(
+        ("title", "description"),
+        [
+            ("Beautiful, High Polish Police Eagle/C Walther", None),
+            ("Excellent, High Polish, Police Eagle/L Mauser Luger Rig", None),
+            ("SIG P210 BASEL POLICE", "Original high polish blued finish and walnut grips."),
+            ("STEYR DAIMLER MANNLICHER MOD L", "THE HIGH POLISH BLUING IS EVEN."),
+        ],
+    )
+    def test_polish_the_finish_is_not_the_nationality(self, title, description):
+        """A gun in "High Polish blued" is not from Warsaw.
+
+        116 of the 247 listings filed under Poland were German Lugers and
+        Walthers in high polish, and an Austrian Steyr whose description reads
+        "THE HIGH POLISH BLUING IS EVEN" -- nearly half the country, and the
+        largest single wrong answer the country rules were giving. 28 of them
+        were SIG P210s, which is how it was found: the model row could not take
+        a country from its own listings because they voted Poland 28,
+        Switzerland 27.
+        """
+        assert extract_country(title, description) != "Poland"
+
+    @pytest.mark.parametrize(
+        ("title", "description"),
+        [
+            ("Polish P-64 9X18 Model M Makarov", None),
+            ("POLISH Model P-64", None),
+            ("Polish Tokarev Stripped Frame", None),
+            ("Radom VIS wz.35", "Polish army contract, Eagle over 11."),
+            ("Cutaway WZ-88 Tantal AK-74 Parts Kit", "a fine addition to any Polish collection."),
+        ],
+    )
+    def test_but_the_nationality_still_reads(self, title, description):
+        """Capitalization cannot settle it -- half these vendors type in
+        capitals, so "POLISH" is both words. The neighbours settle it."""
+        assert extract_country(title, description) == "Poland"
+
     def test_title_beats_description(self):
         """The vendors lead with the country; the body mentions others."""
         assert extract_country("FINNISH M39 rifle", "Built on a Russian receiver.") == "Finland"
@@ -998,6 +1035,31 @@ class TestBayonetsAndPartsKits:
 
     def test_a_bayonet_keeps_its_own_scabbard(self):
         assert self.flags("German S84/98 Bayonet w/ Scabbard")[2] is True
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "1891 Carcano Bayonet",
+            "NORWEGIAN M1 GARAND BAYONET & SCABBARD",
+            "CZECH VZ24 MAUSER BAYONET",
+            "ENFIELD P1907 SMLE BAYONET",
+        ],
+    )
+    def test_a_bayonet_has_no_caliber_of_its_own(self, title):
+        """The cartridge in a bayonet's title is the rifle's. Reading it put 89
+        blades into the browse filter's caliber list."""
+        found = classify.enrich(title)
+        assert found["is_bayonet"] is True
+        assert found["caliber"] is None
+
+    def test_but_a_caliber_the_vendor_stated_is_still_theirs(self):
+        found = classify.enrich("1891 Carcano Bayonet", caliber="6.5x52mm Carcano")
+        assert found["caliber"] == "6.5x52mm Carcano"
+
+    def test_and_a_parts_kit_keeps_the_one_it_is_chambered_for(self):
+        found = classify.enrich("British STEN Mk 3 SMG Parts Kit, 9mm Luger")
+        assert found["is_parts_kit"] is True
+        assert found["caliber"] == "9mm Luger"
 
     def test_a_rifle_sold_without_one_is_not_a_bayonet(self):
         """The listing that prompted all of this. Every rule involved saw the
@@ -1787,6 +1849,50 @@ class TestTheFourthPassOfReports:
 
     def test_and_the_springfield_still_reads_as_a_rifle(self):
         assert classify.stated_kind("U.S.A. Model 1903 Springfield") == "rifle"
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "Beautiful, Boxed, Transitional Mauser Model 1914/34",
+            "Scarce Army Mauser Model 1934",
+            "Excellent Mauser Bolo Model 1921 Rig - Matching Stock",
+            "MAUSER P.08 BYF 41 BLACK WIDOW",
+            "1942 Commercial Mauser HSC Rig",
+        ],
+    )
+    def test_a_maker_who_built_both_settles_nothing_either(self, title):
+        """The same bug wearing a maker's name instead of a model's.
+
+        RIFLE_PATTERNS carries a bare "mauser" because on a surplus catalog the
+        name usually *is* a rifle -- a fair bias when the question is what to
+        call something, and the wrong one when the question is whether the
+        seller contradicted the armory. 787 titles were decided by that word
+        alone with no type noun in them, and 230 of those are handguns.
+
+        Each one made `_contradicted` throw away a correct model match, so
+        Mauser pocket pistols came back carrying no model at all.
+        """
+        assert classify.stated_kind(title) is None
+
+    def test_but_the_word_beside_a_noun_still_decides(self):
+        """Only the *bare* maker is toothless. Nothing here weakens a title
+        that says outright what it is."""
+        assert classify.stated_kind("German K98 Mauser Rifle 8mm") == "rifle"
+        assert classify.stated_kind("Mauser C96 Broomhandle Pistol") == "handgun"
+
+    def test_nor_does_it_weaken_a_maker_that_only_made_long_guns(self):
+        assert classify.stated_kind("Swiss Schmidt-Rubin 1911") == "rifle"
+        assert classify.stated_kind("Finnish Mosin 91/30") == "rifle"
+
+    def test_enfield_is_deliberately_not_on_that_list(self):
+        """Tried and backed out -- see _AMBIGUOUS_MAKERS.
+
+        Enfield built the No.2 Mk I revolver, so the word really is ambiguous;
+        adding it changed not one model match, because the unmatched Enfield
+        revolvers have no armory row to match at all. And it cost something:
+        "enfield" is the only rifle signal in this title.
+        """
+        assert classify.stated_kind("British Enfield No.4 Mk.I .303") == "rifle"
 
     def test_but_a_collection_named_after_a_model_still_does_not(self):
         assert (

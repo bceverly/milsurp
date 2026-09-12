@@ -55,6 +55,14 @@ def catalog(clean_db):
 
 
 def _item(session, site: Site, **kwargs) -> Item:
+    """A stored listing, already classified as a rifle unless told otherwise.
+
+    _apply_catalog runs *after* the classification in a real scan and now
+    depends on it: nothing a model says is offered to a listing that is not a
+    firearm, so a fixture leaving is_rifle unset was testing the accessory
+    path by accident. See armory.fill_in.
+    """
+    kwargs.setdefault("is_rifle", True)
     item = Item(
         site_id=site.id,
         external_key=f"k-{kwargs.get('title', 'x')}",
@@ -241,8 +249,12 @@ class TestBothCodePathsAgree:
         assert "manufacturers.country_for(session, chosen_maker)" in source
         # In both branches, and last in both: the default fills blanks, and
         # --recompute overwrites, but neither may put the firm above the model.
-        assert "found.country or from_maker or item.country" in source
+        assert 'item.country or derived["country"] or found.country or from_maker' in source
         assert 'derived["country"] or found.country or from_maker' in source
+        # And --recompute ends there. A trailing "or item.country" would mean
+        # the rebuild could change a country but never clear one, which is the
+        # thing that kept a bayonet wearing the caliber of the rifle it fits.
+        assert "found.country or from_maker or item.country" not in source
 
     def test_and_the_scan_path_does(self):
         import inspect

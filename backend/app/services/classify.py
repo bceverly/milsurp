@@ -371,6 +371,47 @@ def _looks_like_accessory(title_lower: str) -> bool:
     return bool(_ACCESSORY_WORDS.search(title_lower))
 
 
+#: What turns "4x32" from a cartridge into a telescopic sight. Read from the
+#: few characters *after* the number, which is where it always sits.
+_SCOPE_WORD = re.compile(r"\b(?:scope|sight|optic|telescop|magnif)", re.I)
+
+#: A well-formed metric cartridge nothing else recognized. The trailing "mm" is
+#: optional and *inside* the match, because it was the word boundary that broke
+#: this: "10.35x22mm" has no boundary between the 22 and the mm, so a pattern
+#: ending in \b matched nothing at all. Three calibers in the catalog were being
+#: missed for that reason alone.
+_METRIC_CALIBER = re.compile(r"\b\d{1,2}(?:\.\d+)?\s*[x×]\s*\d{2,3}\s*(?:r\b|mm\b|\b)")
+
+
+def _metric_caliber(haystack: str) -> str | None:
+    """The first metric cartridge in the text that is not a telescopic sight.
+
+    A scope is written exactly like a metric cartridge -- magnification by
+    objective -- and the descriptions are full of them: "a bushmaster 4x32
+    scope mounted", "ajack 4x90 m/43 scope", "a nightforce nxs 2.5-10x32
+    scope". 29 listings took one as their caliber and showed up in the browse
+    filter as a cartridge nobody has ever loaded.
+
+    Nothing in the number tells them apart -- 4x32 is the shape of a real
+    cartridge, and objective diameters sit squarely in the range of case
+    lengths -- so the word beside it is the evidence, and it is always right
+    there. The real ones say "8x52r *cartridge*" and "7.92x94 *cartridge*".
+
+    **The window is 12 characters and deliberately not wider.** At 20 it would
+    catch two more scopes and also throw away the Siamese Mauser's 8x52mm,
+    whose description reads "cartridge, rear *sight* base".
+    """
+    for match in _METRIC_CALIBER.finditer(haystack):
+        if _SCOPE_WORD.search(haystack[match.end() : match.end() + 12]):
+            continue
+        # Upper-cased for the "R" of a rimmed cartridge (7.62x54R), then the
+        # two letters that are conventionally lower put back: "10.35x22MM" is
+        # not how anybody writes it.
+        normalized = re.sub(r"\s+", "", match.group(0)).replace("×", "x").upper()
+        return normalized.replace("X", "x").replace("MM", "mm")
+    return None
+
+
 #: A percentage, which in a gun listing is a *condition* and never a cartridge.
 #: "Condition: ~30-40%." was read as .30-40 Krag on a Luger whose description
 #: said "Caliber: 9mm" two clauses earlier: the pattern for .30-40 accepts the
@@ -523,19 +564,11 @@ def extract_caliber(  # noqa: PLR0911 - each branch is one rule class,
     if named:
         return named
 
-    # An unrecognized but well-formed metric caliber.
-    #
-    # The trailing "mm" is optional and *inside* the match, because it was the
-    # word boundary that broke this: "10.35x22mm" has no boundary between the
-    # 22 and the mm, so a pattern ending in \b matched nothing at all. Three
-    # calibers in the catalog were being missed for that reason alone.
-    match = re.search(r"\b\d{1,2}(?:\.\d+)?\s*[x×]\s*\d{2,3}\s*(?:r\b|mm\b|\b)", haystack)
-    if match:
-        # Upper-cased for the "R" of a rimmed cartridge (7.62x54R), then the
-        # two letters that are conventionally lower put back: "10.35x22MM" is
-        # not how anybody writes it.
-        normalized = re.sub(r"\s+", "", match.group(0)).replace("×", "x").upper()
-        return normalized.replace("X", "x").replace("MM", "mm")
+    # An unrecognized but well-formed metric caliber -- which is also how a
+    # telescopic sight is written, so see _metric_caliber.
+    metric = _metric_caliber(haystack)
+    if metric:
+        return metric
 
     # A bore written on its own. Weaker than a named cartridge, so it is tried
     # only once every cartridge rule has declined — but it is still something
@@ -876,8 +909,27 @@ def stated_kind(title: str) -> str | None:
     # No noun, or both. Fall back to the full vocabulary, which still answers
     # for a title that names only a model: "Schmidt Rubin Model 1911 with
     # Matching Bayonet" says rifle by way of Schmidt-Rubin and nothing else.
-    rifle = any(re.search(pattern, title_lower) for pattern in RIFLE_PATTERNS)
+    rifle_hits = [pattern for pattern in RIFLE_PATTERNS if re.search(pattern, title_lower)]
     pistol = any(re.search(pattern, title_lower) for pattern in PISTOL_PATTERNS)
+
+    # ...but a maker who built both has not said anything, and here that
+    # matters more than anywhere else. RIFLE_PATTERNS carries `\bmauser\b`
+    # because on a surplus catalog the name usually is a rifle -- a useful bias
+    # when the question is "what shall we call this", and the wrong one when
+    # the question is "did the seller contradict the armory". 787 titles were
+    # decided by that word alone with no type noun anywhere in them, and 230 of
+    # those are handguns: Model 1914s, HScs, M1910s. Each one made
+    # _contradicted throw away a correct model match -- not just its kind but
+    # its caliber and its maker too -- so Mauser pocket pistols came back
+    # carrying no model at all, or a looser row that happened to state nothing.
+    #
+    # _break_the_tie already refuses to let these outvote a model designation.
+    # This is the same rule at the other end: unopposed is not the same as
+    # decisive, and "the title does not say" is the honest answer.
+    if rifle_hits and all(hit in _AMBIGUOUS_MAKERS for hit in rifle_hits):
+        rifle_hits = []
+
+    rifle = bool(rifle_hits)
     if rifle == pistol:
         return None
     return "rifle" if rifle else "handgun"
@@ -1154,6 +1206,28 @@ _RIFLE_NOUN = re.compile(r"\b(?:rifles?|carbines?|muskets?|shotguns?)\b", re.I)
 #: Makers who built both, so their name alone settles nothing. A C96 is a
 #: Mauser and a handgun; without this the maker outvoted the model and the
 #: broomhandle came back a rifle.
+#:
+#: Each was measured over the catalog before being added: the count is titles
+#: this word decides on its own, with no type noun anywhere and nothing on the
+#: pistol list, and the handguns among them.
+#:
+#: ===============  ======  ========
+#: word             decides handguns
+#: ===============  ======  ========
+#: mauser              787       230
+#: enfield              61        10
+#: mannlicher           27         2
+#: ===============  ======  ========
+#:
+#: **Only Mauser is here, and Enfield and Mannlicher were tried and backed
+#: out.** Both are genuinely ambiguous -- the No.2 Mk I is the British service
+#: revolver, the Mannlicher M1894 a blow-forward pistol -- but adding them
+#: changed not one model match in the whole catalog, because the eight
+#: unmatched Enfield revolvers have no armory row to match in the first place.
+#: The cost was real: `\benfield\b` is the only rifle signal in "British
+#: Enfield No.4 Mk.I .303", so 51 Lee-Enfield titles stopped saying "rifle"
+#: and `_contradicted` lost its guard on them. Zero benefit for a real cost is
+#: not a trade. Those revolvers want a model row, not a classifier change.
 _AMBIGUOUS_MAKERS = (r"\bmauser\b",)
 
 #: "gun" on its own is deliberately absent -- a prop gun, a gun cleaning kit
@@ -2438,13 +2512,34 @@ def _match_first(patterns: tuple[tuple[str, str], ...], text: str) -> str | None
     return None
 
 
+#: "Polish" the finish, which is not the nationality.
+#:
+#: A gun described as "High Polish blued" or whose bluing is "even though
+#: showing wear" is not from Warsaw. 116 of the 247 listings filed under Poland
+#: were German Lugers and Walthers in high polish, an Austrian Steyr whose
+#: description reads "THE HIGH POLISH BLUING IS EVEN", and their like -- nearly
+#: half the country's listings, and the single largest wrong answer the country
+#: rules were giving.
+#:
+#: Capitalization cannot settle it: half these vendors type in capitals, so
+#: "POLISH" is both. The words on either side can, and they are consistent --
+#: the finish is always graded or always applied to something.
+_POLISH_THE_FINISH = re.compile(
+    r"\b(?:high|mirror|bright|deep|gloss|glossy|even|full|factory|original|beautiful"
+    r"|nice|fine|excellent|good|superb|rust)\s+polish(?:ed|ing)?\b"
+    r"|\bpolish(?:ed|ing)?\s+(?:blu\w+|finish\w*|surface\w*|steel|metal|job|work)\b",
+    re.I,
+)
+
+
 def extract_country(title: str, description: str | None = None) -> str | None:
     """Country of origin, preferring the nationality that leads the title."""
-    lead = (title or "")[:48]
+    lead = _POLISH_THE_FINISH.sub(" ", (title or "")[:48])
     country = _match_first(COUNTRY_PATTERNS, lead)
     if country:
         return country
-    return _match_first(COUNTRY_PATTERNS, f"{title or ''} {description or ''}")
+    haystack = _POLISH_THE_FINISH.sub(" ", f"{title or ''} {description or ''}")
+    return _match_first(COUNTRY_PATTERNS, haystack)
 
 
 def extract_manufacturer(title: str, description: str | None = None) -> str | None:
@@ -2541,6 +2636,7 @@ def enrich(
     do not.
     """
     evidence = description if trust_description else None
+    stated_caliber = caliber
     caliber = caliber or extract_caliber(title, evidence)
     is_rifle, is_pistol = classify_firearm(
         title, description, caliber, price, category, stated_kind=stated_kind
@@ -2568,27 +2664,44 @@ def enrich(
     in_bayonet_section = filed_as_edged and _is_a_bayonet(title, evidence, filed_as_edged)
     if is_kit or filed_as_edged:
         is_rifle = is_pistol = False
+    # Settled here rather than in the dict below, because the caliber now
+    # depends on it.
+    #
+    # Bayonet and kit are both kinds of "neither a rifle nor a handgun", so
+    # they are only ever asked about a listing that is already neither.
+    # "Springfield Trapdoor Rifle w/ Ramrod Bayonet" says bayonet and is a
+    # rifle.
+    #
+    # And a kit outranks a bayonet for the same reason it outranks a rifle: the
+    # buckets partition the catalog. Arms of America sell a "Polish Radom
+    # Military Collectors Package - Circle 11 AKM Parts Kit ... + Circle 11
+    # Bayonet & Circle 11 Magazine", which is a kit that happens to include a
+    # bayonet, and it was filed under Bayonets -- where the word appears --
+    # rather than under the thing being sold. Clearing the firearm flags above
+    # is not enough on its own: it is what makes the bayonet question get asked
+    # at all.
+    is_bayonet = not (is_rifle or is_pistol or is_kit) and (
+        in_bayonet_section or _is_a_bayonet(title, evidence)
+    )
     return {
-        "caliber": caliber,
+        # A bayonet is a blade. The cartridge in its title is the *rifle's* --
+        # "1891 Carcano Bayonet", "NORWEGIAN M1 GARAND BAYONET", "CZECH VZ24
+        # MAUSER BAYONET" -- and reading it put 89 bayonets into the browse
+        # filter's caliber list, where somebody asking for .32 found blades.
+        # Same rule the armory follows in fill_in: a designation on an
+        # accessory names what it fits.
+        #
+        # A caliber the *vendor* put in a field of their own is still kept.
+        # They had the thing in their hand, and this is a judgment about a
+        # title rather than about them. A parts kit keeps its caliber either
+        # way: a 9mm Sten kit really is 9mm.
+        "caliber": stated_caliber if is_bayonet else caliber,
         "country": country or extract_country(title, evidence),
         "manufacturer": manufacturer or extract_manufacturer(title, evidence),
         "condition": extract_bore_condition(evidence),
         "is_rifle": is_rifle,
         "is_pistol": is_pistol,
-        # Both are kinds of "neither a rifle nor a handgun", so they are only
-        # ever asked about a listing that is already neither. "Springfield
-        # Trapdoor Rifle w/ Ramrod Bayonet" says bayonet and is a rifle.
-        #
-        # And a kit outranks a bayonet for the same reason it outranks a rifle:
-        # the buckets partition the catalog. Arms of America sell a "Polish
-        # Radom Military Collectors Package - Circle 11 AKM Parts Kit ... +
-        # Circle 11 Bayonet & Circle 11 Magazine", which is a kit that happens
-        # to include a bayonet, and it was filed under Bayonets -- where the
-        # word appears -- rather than under the thing being sold. Clearing the
-        # firearm flags above is not enough on its own: it is what makes the
-        # bayonet question get asked at all.
-        "is_bayonet": not (is_rifle or is_pistol or is_kit)
-        and (in_bayonet_section or _is_a_bayonet(title, evidence)),
+        "is_bayonet": is_bayonet,
         "is_parts_kit": is_kit,
         # Not one of the mutually exclusive kinds above, on purpose. A police
         # trade-in Glock *is* a handgun, and the armory, the caliber work and

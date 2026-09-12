@@ -494,7 +494,14 @@ def cmd_reclassify(args: argparse.Namespace) -> int:
             # vouch for it and --recompute changed nothing at all.
             stated = derived["caliber"] if args.recompute else item.caliber
             found = armory.fill_in(
-                session, item.title, evidence, stated, stated_kind=item.stated_kind
+                session,
+                item.title,
+                evidence,
+                stated,
+                stated_kind=item.stated_kind,
+                # See fill_in: a bayonet naming the model it fits must not take
+                # that model's caliber, maker or country.
+                is_firearm=derived["is_rifle"] or derived["is_pistol"],
             )
             caliber = found.caliber or stated or derived["caliber"]
             maker = (
@@ -527,16 +534,24 @@ def cmd_reclassify(args: argparse.Namespace) -> int:
             from_maker = manufacturers.country_for(session, chosen_maker)
 
             if args.recompute:
+                # No "or item.<field>" on any of these, which is the whole
+                # point of the flag: --recompute must be able to *clear* a
+                # value and not only change one. A bayonet that took ".32 ACP"
+                # from the Beretta M1935 it fits has no caliber at all now, and
+                # with the old fallback the wrong answer was the one thing the
+                # rebuild could never reach. The fields nobody named are still
+                # protected -- see the --fields filter below, which puts the
+                # stored value back for every field outside `wanted`.
                 filled = {
-                    "caliber": caliber or item.caliber,
+                    "caliber": caliber,
                     # The title first, then the armory, then the firm. A
                     # listing that names a country is talking about the gun in
                     # front of them; the model is talking about where the
                     # pattern comes from, and it answers the far commoner case
                     # of a title that names no country at all. The maker is a
                     # proxy for the model's answer and goes last.
-                    "country": derived["country"] or found.country or from_maker or item.country,
-                    "condition": derived["condition"] or item.condition,
+                    "country": derived["country"] or found.country or from_maker,
+                    "condition": derived["condition"],
                     "manufacturer": chosen_maker,
                 }
             else:

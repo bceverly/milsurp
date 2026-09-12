@@ -107,7 +107,22 @@ class TestTheModernRowsSayEnoughToBeWorthHaving:
     )
 
     def _modern(self, models):
-        return [r for r in models if str(r["name"]).startswith(self.MODERN)]
+        """The modern rows that are still in play.
+
+        A merged row is a redirect rather than a model -- its listings belong to
+        whatever it points at, which is where the facts live. "Remington 1903"
+        was proposed from a title the M1903 Springfield's aliases could not
+        catch ("1943 Remington 1903 A3 Rifle"), and folding it into that row is
+        what put the kind and country right; asking the husk to state them
+        would ask for the fact to be written down twice.
+        """
+        return [
+            r
+            for r in models
+            if str(r["name"]).startswith(self.MODERN)
+            and r.get("status") != "merged"
+            and r.get("enabled") is not False
+        ]
 
     def test_they_exist(self, models):
         assert len(self._modern(models)) >= 40

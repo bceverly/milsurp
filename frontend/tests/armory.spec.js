@@ -595,6 +595,80 @@ test.describe("armory", () => {
     expect(await firstName.innerText()).toBe(ascending);
   });
 
+  test("the whole view survives a round trip through the listings", async ({
+    signedIn,
+  }) => {
+    /**
+     * The eye navigates in the current tab, because the bearer token lives in
+     * sessionStorage and a new tab would not have it -- see listingsHref. So
+     * Back has to bring the page back exactly as it was, which means the tab,
+     * the Showing filter, the sort and the search all have to be in the URL.
+     * Before this the sort and the search were React state and Back dropped
+     * both, landing you on the Models tab sorted by name with an empty box.
+     */
+    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await expect(signedIn.locator(".alert--success")).toBeVisible();
+
+    await signedIn.getByRole("tab", { name: "Calibers" }).click();
+    // "Everything" is spelled ?status= -- present but empty, which is a real
+    // answer and not the same as not having been asked.
+    await signedIn.getByRole("combobox", { name: /Showing/i }).selectOption("");
+    await signedIn
+      .locator("thead")
+      .getByRole("button", { name: "Name", exact: true })
+      .click();
+    await expect(signedIn.locator('th[aria-sort="descending"]')).toHaveCount(1);
+
+    // The needle comes out of the table rather than being invented, so the
+    // test does not depend on what the shipped armory happens to contain.
+    const firstName = await signedIn
+      .locator("tbody tr td:nth-child(2) button")
+      .first()
+      .innerText();
+    const needle = firstName.slice(0, 3);
+    await signedIn.getByRole("searchbox").fill(needle);
+    await expect(signedIn.locator("tbody tr").first()).toBeVisible();
+
+    const before = signedIn.url();
+    expect(before).toContain("sort=-name");
+    expect(before).toContain(`q=${encodeURIComponent(needle)}`);
+    expect(before).toContain("status=");
+
+    // Out to the listings and straight back.
+    const view = signedIn
+      .locator("tbody tr")
+      .first()
+      .getByRole("link", { name: /^View listings for/ });
+    await view.click();
+    await expect(signedIn.getByRole("heading", { name: "Inventory" })).toBeVisible();
+    await signedIn.goBack();
+
+    await expect(signedIn.getByRole("tab", { name: "Calibers" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(signedIn.getByRole("searchbox")).toHaveValue(needle);
+    await expect(signedIn.locator('th[aria-sort="descending"]')).toHaveCount(1);
+    await expect(signedIn.getByRole("combobox", { name: /Showing/i })).toHaveValue("");
+    expect(signedIn.url()).toBe(before);
+  });
+
+  test("typing in the search box does not fill the history", async ({ signedIn }) => {
+    /**
+     * The search replaces rather than pushes. A history entry per keystroke
+     * would make Back walk the word backwards a letter at a time instead of
+     * leaving the page you came from.
+     */
+    await signedIn.getByRole("searchbox").fill("mauser");
+    await expect(signedIn.getByRole("searchbox")).toHaveValue("mauser");
+    expect(signedIn.url()).toContain("q=mauser");
+
+    // Six keystrokes, zero history entries: one Back leaves the armory
+    // altogether rather than spelling "mause", "maus", "mau"...
+    await signedIn.goBack();
+    await expect(signedIn.getByRole("heading", { name: "Inventory" })).toBeVisible();
+  });
+
   test("calibers sort by bore, not by the digits in their names", async ({
     signedIn,
   }) => {

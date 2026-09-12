@@ -341,6 +341,7 @@ def fill_in(
     description: str | None = None,
     caliber: str | None = None,
     stated_kind: str | None = None,
+    is_firearm: bool = True,
 ) -> Match:
     """The model's facts, with the listing's own caliber normalized and kept.
 
@@ -352,9 +353,23 @@ def fill_in(
     It does get normalized either way. That is not overruling anybody: ".32
     ACP" and "7.65mm Browning" are the same answer written twice, and the
     filter can only offer one of them.
+
+    **A model's facts describe a gun, so pass is_firearm=False for a listing
+    that is not one and none of them are offered.** A bayonet, a parts kit or a
+    magazine names the designation it *fits*: "TURKISH M1935 BAYONET" and
+    "18437 M1935 bayonet with scabbard" both name the Beretta M1935, and 34
+    such listings took that pistol's .32 ACP and appeared under it in the
+    browse filter. This is the same rule the kind has always followed at the
+    end of _apply_catalog -- the armory knows what a model is, it does not know
+    whether this listing is selling one -- applied to the other four fields.
+    The listing's own caliber still comes back normalized, because that is
+    spelling rather than knowledge and a box of .32 ACP ammunition really is
+    in .32 ACP.
     """
-    found = match(session, title, description, stated_kind)
     stated = canonical_caliber(session, caliber) or (caliber.strip() if caliber else None)
+    if not is_firearm:
+        return Match(caliber=stated)
+    found = match(session, title, description, stated_kind)
     return Match(
         model=found.model,
         model_id=found.model_id,

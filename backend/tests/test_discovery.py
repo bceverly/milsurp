@@ -102,6 +102,147 @@ class TestModelDesignations:
         assert self.shapes(seeded, "Luger Pistol with 4 magazines") == []
 
 
+class TestTheCollectorShorthands:
+    """Widened after measuring: DESIGNATION was built for "M91/30" and "K31"
+    and a pass over 5,002 unlinked firearms proposed ten models. These are the
+    forms it could not see."""
+
+    def shapes(self, session, title, caliber=None):
+        return discovery.model_candidates(session, title, caliber)
+
+    @pytest.mark.parametrize(
+        ("title", "wanted"),
+        [
+            # One letter and two or three digits. 98 C96s sat unlinked because
+            # the letters branch wants two.
+            ("MAUSER C96 Broomhandle 7.63mm", "C96"),
+            ("Walther P38 9mm Pistol", "P38"),
+            # Three digits after a P: the SIG P210 is 48 listings here.
+            ("SIG P210 Swiss Service Pistol", "P210"),
+            # The space is the point -- "DSM-34" was the only form that matched.
+            ("WALTHER DSM 34 Training Rifle", "DSM 34"),
+            # A pattern year carrying its update. The slash is what makes it a
+            # designation rather than a date.
+            ("Swiss 1896/11 Straight Pull Rifle", "1896/11"),
+            ("W+F BERN 06/24 Luger", "06/24"),
+            # The prefix vocabulary, read case-insensitively for the vendors
+            # who write a whole title in capitals.
+            ("COLT MODEL 1917 REVOLVER", "MODEL 1917"),
+            ("Remington U.S. MODEL OF 1917 Rifle", "MODEL OF 1917"),
+            ("MAC MODELE 1950 Pistol", "MODELE 1950"),
+            ("MAS MLE 1936 Rifle", "MLE 1936"),
+            ("ASTRA MODELO 1921 Semi Auto Pistol", "MODELO 1921"),
+            ("Polish Wz.48 Training Rifle", "Wz.48"),
+        ],
+    )
+    def test_the_shapes_the_collectors_write(self, seeded, title, wanted):
+        assert wanted in self.shapes(seeded, title)
+
+    def test_a_match_that_stops_at_a_slash_stopped_too_early(self, seeded):
+        """The letters-and-digits branch starts further left than the year
+        branch and so wins: "WF BERN 96/11" gave "BERN 96"."""
+        assert self.shapes(seeded, "WF BERN 96/11") == ["96/11"]
+
+    @pytest.mark.parametrize(
+        ("title", "junk"),
+        [
+            ("COLT COMMANDER GOLD EDITION WITH FACTORY CASE 45 ACP", "CASE 45"),
+            ("FN (HERSTAL) AUTO 22 Rifle", "AUTO 22"),
+            ("Luger Pistol WITH 2 Magazines", "WITH 2"),
+            ("COLT NEW LINE 32 Revolver", "LINE 32"),
+        ],
+    )
+    def test_an_english_word_before_a_number_is_not_one(self, seeded, title, junk):
+        """Allowing the space for "DSM 34" turned every short capitalized word
+        before a number into a designation."""
+        assert junk not in self.shapes(seeded, title)
+
+    def test_but_the_enfield_still_gets_its_number(self, seeded):
+        """ "No" sits one word away from that stop list and must stay out of it:
+        the head of "No.4 Mk.I" is "No"."""
+        assert "No.4 Mk.I" in self.shapes(seeded, "WWI British No.4 Mk.I Bolt Action")
+
+
+class TestAPatternYearIsNotADate:
+    """The Swiss, Swedish and Luger trades name a gun by the year its pattern
+    was adopted and nothing else -- "WF BERN 1911", "CARL GUSTAFS 1896", "DWM
+    1906", 944 listings of it. A bare four-digit number has no shape that tells
+    it from a date, so this rule is context instead."""
+
+    @pytest.mark.parametrize(
+        ("title", "wanted"),
+        [
+            ("WF BERN 1911", "WF BERN 1911"),
+            ("CARL GUSTAFS 1896 MAUSER FSR", "CARL GUSTAFS 1896"),
+            ("DWM 1906 BRAZILIAN", "DWM 1906"),
+            ("FN 1935 HI POWER", "FN 1935"),
+            ("BOFORS CARL GUSTAV AB 1896", "CARL GUSTAV AB 1896"),
+        ],
+    )
+    def test_a_maker_and_a_pattern_year(self, seeded, title, wanted):
+        assert discovery.year_candidates(title, None) == [wanted]
+
+    def test_the_maker_stays_in_the_name(self, seeded):
+        """A bare "1911" would match every Colt automatic in the catalog and a
+        bare "1896" would match a serial number."""
+        assert discovery.year_candidates("WF BERN 1911", None) == ["WF BERN 1911"]
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            # No maker in front of it at all.
+            "1944 Izhevsk Tula PU Mosin Nagant Sniper",
+            # A date word stops the walk-back dead.
+            "Original Circa 1850 Belgian Percussion Naval Pistol",
+            "Colt Civilian New Army Revolver 41 Colt Built 1904",
+            # ...or follows the year.
+            "BROWNING HI POWER MADE IN BELGIUM 9MM PISTOL, 1971 MFR",
+            # Too late to be a pattern year: ordnance had stopped naming guns
+            # for the year of adoption long before.
+            "Awesome Ruger Blackhawk Revolver Rare 3 Screw 30 Carbine 1970",
+            "CHINESE NORINCO PISTOL, 1966 MFR",
+        ],
+    )
+    def test_a_date_is_not_a_designation(self, seeded, title):
+        assert discovery.year_candidates(title, None) == []
+
+    def test_one_sighting_is_not_enough(self, clean_db, site):
+        """A positional guess has to corroborate, exactly as a maker does."""
+        listing(clean_db, site, "WF BERN 1911")
+        found = discovery.discover(clean_db, clean_db.query(Item).all())
+        clean_db.commit()
+        assert "WF BERN 1911" not in found.models
+
+    def test_two_listings_write_it_down(self, clean_db, site):
+        listing(clean_db, site, "WF BERN 1911")
+        listing(clean_db, site, "WF BERN 1911 PRIVATE SERIES")
+        found = discovery.discover(clean_db, clean_db.query(Item).all())
+        clean_db.commit()
+        assert "WF BERN 1911" in found.models
+        row = clean_db.query(FirearmModel).filter(FirearmModel.name == "WF BERN 1911").one_or_none()
+        assert row is not None
+        assert row.status is ArmoryStatus.PENDING
+
+    def test_a_title_that_already_names_a_designation_is_left_alone(self, clean_db, site):
+        """It has answered the question. Reading a year out of it as well would
+        propose the date it was made alongside the name it goes by."""
+        listing(clean_db, site, "1943 Remington M1903A3 Rifle")
+        listing(clean_db, site, "1944 Remington M1903A3 Rifle")
+        found = discovery.discover(clean_db, clean_db.query(Item).all())
+        clean_db.commit()
+        assert "M1903A3" in found.models
+        assert not [name for name in found.models if name.endswith(("1943", "1944"))]
+
+    def test_and_a_bayonet_proposes_nothing(self, clean_db, site):
+        """Same rule the whole module runs on: a designation on something that
+        is not a gun names what it fits."""
+        listing(clean_db, site, "WF BERN 1911 BAYONET", is_rifle=False)
+        listing(clean_db, site, "WF BERN 1911 BAYONET w/ scabbard", is_rifle=False)
+        found = discovery.discover(clean_db, clean_db.query(Item).all())
+        clean_db.commit()
+        assert found.models == set()
+
+
 class TestMakerCandidates:
     def test_the_words_before_a_designation(self, seeded):
         assert "Bernardelli" in discovery.maker_candidates("Bernardelli M1934 .32 ACP Pistol")

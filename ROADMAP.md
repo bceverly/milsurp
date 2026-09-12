@@ -1615,6 +1615,275 @@ would have reached 1,057 of the 1,992 unmatched firearm listings and taken model
 coverage to ~64%. Considered and declined: a family row cannot state a caliber,
 and the fields it would fill are better filled by the maker's country above.
 
+#### Designations the queue could not see — **Shipped**
+
+The catalog has grown past 10,900 listings and 8,774 firearms, of which **3,775
+(43%) match an armory model**. Running the discovery pass over the other 4,999
+proposed **ten**. Not because the armory is complete — because `DESIGNATION` was
+written for `M91/30`, `K31` and `No.4 Mk.I` and is blind to how the collector
+trade actually writes a gun. Four shapes were added after measuring each against
+the live catalog:
+
+- **One letter and two or three digits** — `C96`, `P38`, `G43`, `P210`. 98
+  Mauser C96s sat unlinked because the letters branch wants two letters and the
+  `P\.?\d{2}` branch could not reach three digits.
+- **Letters, a space, digits** — `DSM 34`, `KKW 34`, `AB 63`, `ZFK 55`. The
+  space is the whole point; `DSM-34` was the only form that matched. This one
+  cost something: allowing the space turns any short capitalized word before a
+  number into a designation, so `CASE 45`, `AUTO 22`, `LINE 32` and `WITH 2`
+  joined the stop list.
+- **A pattern year carrying its update** — `1896/11`, `96/11`, `06/24`. The
+  slash is what makes it a designation rather than a date. A trailing-slash
+  guard came with it: `WF BERN 96/11` was yielding `BERN 96`, because the
+  letters branch starts further left and so wins.
+- **The prefix vocabulary read case-insensitively**, plus `Modele`, `Modelo`,
+  `Mle`, `wz.` and the American ordnance `Model *of* 1917`. 106 listings gained
+  a designation, and the vendors who write a whole title in capitals are exactly
+  the ones whose titles are terse enough to need it.
+
+**And the bare year, which is not a shape at all.** The Swiss, Swedish and Luger
+trades name a gun by the year its pattern was adopted and nothing else — `WF
+BERN 1911`, `CARL GUSTAFS 1896`, `DWM 1906` — and 944 listings here are written
+that way. A four-digit number has no shape that tells it from a date, so
+`year_candidates` is context instead: the year must be one a gun could be
+*named* for (1800–1945; everything later in this catalog is a date of
+manufacture), a firm's name must sit immediately to its left by the same
+walk-back the maker rule uses, no date word may follow it, and — as with a
+maker — the same name must turn up in two different listings. That threshold
+drops 207 one-off candidates and keeps 92. The maker stays in the proposed name
+on purpose: a bare `1911` would match every Colt automatic in the catalog and a
+bare `1896` would match a serial number.
+
+Of the 4,999 unlinked firearms, **1,375 now offer a designation shape and
+another 949 a corroborated maker-and-year**. One pass proposed 307 models, 27
+makers and 2 calibers, all pending. See `services/discovery.py`.
+
+#### Which firms build which model — **Shipped**
+
+857 approved models and **743 with no maker at all**, because the table had
+never been populated past the seed. The rule for what to attach was already
+written, in `_model_rules`:
+
+```python
+manufacturer=(row.manufacturers[0].name if len(row.manufacturers) == 1 else None),
+```
+
+One firm fills the blank; several state nothing. So a Ruger 10/22 gets one row
+and an AR-15 gets eight — Colt, DPMS, Rock River, Bushmaster, Ruger, Delaware
+Machinery, Armalite, Wolf — and correctly declines to guess which built the one
+in front of you. Populating it was the work, not designing it.
+
+**The catalog answers it.** For each model, the maker is re-read from its
+listings' own text — never the stored column, which may have been filled *from*
+the model. Three rules, in order of confidence: the model's own name says it
+(96 models); one firm is named in 60% of the listings that name anything and a
+fifth of all of them (194); otherwise every firm named twice is a builder (22).
+That leaves 292 for a human, all of them under eight listings — a long tail
+rather than the main event.
+
+**Three things in the manufacturer table had to go first**, or the pass would
+have cemented them:
+
+- **`Luger`, `Tokarev` and `SKS` were approved firms.** Luger's spellings
+  included `P08`, Tokarev's `TT-33` — so the cartridge "9mm Luger" was naming a
+  maker, which is how `CZ75` came out as `Luger 19, CZ 10`. SKS is a model. All
+  three disabled rather than deleted, and **779 listings** stopped being
+  attributed to Luger. DWM, Mauser and W+F Bern built those pistols.
+- **`WF BERN` and `Bern` were two rows for one Swiss arsenal**, both with no
+  country, which is why the K11 looked like it had two makers. Merged, renamed
+  `W+F Bern`, country Switzerland.
+- **The year rule made duplicate rows**, not aliases: four separate models for
+  one 1929 W+F Bern, three for the Swedish m/96, and `Remington 1903` beside the
+  M1903 Springfield that already knew everything. Merged by hand.
+
+**By hand, and that is the finding.** The automatic version of the last one
+grouped by (firm in the name, trailing year) and wanted to fold the Swiss
+Vetterli M1878 into a Colt revolver, the Springfield Trapdoor into a Winchester
+1873, and J.P. Sauer & Sohn into SIG Sauer. Same year is not the same gun, and a
+merge is the one armory edit whose undo is an archaeology exercise.
+
+Firearms now carrying each fact: **maker 8,027 of 8,781 (91%)**, caliber 95%,
+country 93%, model 5,898 (67%).
+
+#### Zero-listing models, and why most of them stayed — **Shipped**
+
+66 approved models accounted for no listing at all. The split decided what to
+do with them: **17 came from the shipped seed and state three or four facts
+each** — Glock 29/32/33, S&W Model 19 and 36, Benelli M4, ZB26 — and are simply
+guns nobody stocks this month, which is what a reference table is for. The other
+**47 came from discovery and state nothing at all**.
+
+37 of those are now disabled, under a rule worth stating because it is what
+makes it safe: **every listing they match is already won by a better row**, so
+switching them off changes no listing's answer. `M13` loses to `P7`, `RED 9` to
+`C96`, `Model 49` to `FN-49`. Five more are named only by bayonets and
+scabbards (`M8A1`, 21 accessories), and four are mangled names of the year
+rule's own making — `Taylor's Company 1860` and `J.P Sauer Sohn 1913` match
+nothing because the maker walk-back drops an ampersand.
+
+Disabled rather than deleted, and the safety property was measured rather than
+assumed: a disabled row spawns no duplicate on the next pass, adds nothing to
+the pending queue, and still blocks the name being proposed again, because
+`propose_model` looks a name up regardless of status.
+
+**Ten were deliberately left alone**, because switching them off would have
+cemented a wrong answer rather than a harmless one. Each is a *conversion* of
+the pattern it was losing to — an 1871/84 is the repeating Mauser and an 1871
+the single-shot, a 1909/47 is the Argentine rebuild, a VZ52/57 is the 7.62x39
+conversion — and a conversion's designation always contains its base, so the
+base matches too and wins the tie. They have their kind, country and cartridge
+now, read off their own listings, and a `position` ahead of the base. Eleven
+designations that resolved to the wrong row now resolve to the right one, and
+the bases still win their own listings.
+
+`Zastava M59/66` was the same shape without the slash: it and the generic `SKS`
+both knew four things and both sat at position 1000, so the tie fell through to
+the row id and the older, Russian `SKS` won — filing 14 Yugoslav carbines as
+Russian.
+
+**A maker who built both settles nothing** — fixed. `classify.stated_kind` read
+the bare word "Mauser" as saying *rifle*, because the maker is in
+`RIFLE_PATTERNS` and the fallback runs whenever a title carries no type noun.
+787 titles were decided that way and **230 of them are handguns**. The cost was
+not the flag but `_contradicted`: a Mauser pistol whose model row states a
+handgun kind had the whole match discarded — caliber and maker with it — so
+Model 1914s, HScs and M1910s came back carrying no model at all.
+
+`_break_the_tie` already refused to let `_AMBIGUOUS_MAKERS` outvote a model
+designation; `stated_kind` now applies the same rule at the other end, where
+*unopposed* is not the same as *decisive*. It has one caller, `_contradicted`,
+so the blast radius is exactly the bug. 58 listings gained a model they had
+none for and 14 moved to a better one — `Mauser Model 1934` to `M1934`,
+`MAUSER P.08 BYF 41` to `Luger P08`, `Model 1914/34` to its own row — and
+nothing regressed.
+
+#### The armory's three properties, re-measured and then pushed — **Shipped**
+
+Re-running the measurement above over 10,886 active listings, then acting on
+each of the three things the armory actually does.
+
+| contribution | first measured | before this pass | after |
+| --- | --- | --- | --- |
+| caliber spellings normalized | 31.9% | 16.2% | 16.3% |
+| blank country filled from the model | 10.4% | 13.1% | **22.1%** |
+| rifle/handgun settled by the model | 31.4% | 28.9% | **46.7%** |
+| …where that *changed* the text's answer | 1 | 3 | 4 |
+| blank manufacturer filled | 1.8% | 0% | 0% |
+| blank caliber filled | 1.4% | 7.5% | **11.6%** |
+| model rows that say nothing at all | 54% | 44% | **3%** |
+
+**Filling blanks, which the first measurement found at 1.5%, is now 33.7%** —
+and the whole of that came from filling model rows rather than from matching
+more of them. Model coverage barely moved (54.3% → 54.2%); what changed is that
+a match now tells you something. 405 rows were given a kind, 402 a country and
+435 a caliber, every fact read off the listings the row already accounts for and
+only where they were unanimous. Form coverage went 76.2% → 79.9%.
+
+**Two of the fills were overreach, and the repo's own tests caught both.**
+
+- A caliber read off the listings is not the same claim as a caliber the
+  *designation* settles, and for a modern civilian design the two come apart.
+  Every AR-15 in this catalog happens to be 5.56; an AR-15 is 5.56, .223 Wylde
+  or .300 Blackout depending on the upper. Nine such rows say nothing again.
+- The shipped file requires that a row carrying a kind carries a country, on
+  the reasoning that a kind cannot be guessed from a title and so marks a row
+  somebody judged. 105 rows had gained a kind and no country. 60 found one —
+  from their listings, or failing that from their maker, which is the weakest
+  answer and asked last everywhere else — and **45 gave the kind back** rather
+  than ship half-curated.
+
+**The manufacturer fill is 0 and structurally so.** All 4,475 listings matched
+to a single-maker model already name that maker in their own text, because the
+model→maker links were derived from exactly the text `manufacturers.extract`
+reads. The links earn their place in the armory UI and on listings yet to
+arrive; they will never show up in this column, and reporting them as a
+contribution would be taking credit for a circle.
+
+**Normalizing was the property with the least headroom and still had some.**
+310 active listings carried a caliber the table could not spell — and the cause
+was not missing aliases but unfinished bookkeeping: `22 Caliber` and `22 CAL`
+were marked merged into `.22 LR` without their spellings ever reaching it, so
+272 Simpson listings sat in the browse filter as their own entry. Merging them
+into `.22 LR` would also have been wrong: 213 of the 272 name nothing finer
+than the bore. They are now `.22 Caliber`, a bore row with the bare forms as
+aliases, which is what the "N Caliber" rule says to do when there is no dotted
+base to merge into. With that, two duplicate rows folded away, a pending
+`6.5x53mm Daudeteau` approved, `7.92x94mm Patronen` added and 34 alternate
+spellings filled in, **310 unnormalized listings became 37** — and all 37 are
+the cases previously ruled ambiguous on purpose (`30 Caliber`, `32`/`38
+Centerfire`, `577/45`).
+
+**A telescopic sight is written exactly like a metric cartridge.** "a bushmaster
+4x32 scope mounted", "ajack 4x90 m/43 scope", "a nightforce nxs 2.5-10x32
+scope" — 29 listings took one as their caliber. Nothing in the number separates
+them, so `_metric_caliber` reads the word beside it: the real ones say "8x52r
+*cartridge*". The window is twelve characters and deliberately not wider, because
+at twenty it catches two more scopes and also throws away the Siamese Mauser's
+8x52mm, whose description reads "cartridge, rear *sight* base". 29 down to 7,
+and four of those seven were real cartridges the table simply did not know.
+
+**Enfield and Mannlicher were tried on `_AMBIGUOUS_MAKERS` and backed out.**
+Both are genuinely ambiguous — the No.2 Mk I is the British service revolver,
+the Mannlicher M1894 a blow-forward pistol — but adding them changed **not one
+model match**, because the eight unmatched Enfield revolvers have no armory row
+to match in the first place. The cost was real: `\benfield\b` is the only rifle
+signal in "British Enfield No.4 Mk.I .303", so 51 Lee-Enfield titles would have
+stopped saying "rifle" and `_contradicted` would have lost its guard on them.
+Zero benefit for a real cost is not a trade. Those revolvers want a model row.
+
+#### The armory page keeps its place — **Shipped**
+
+The eye on each armory row leaves the page, and the armory holds a tab, a
+Showing filter, a sort, a search box and often a half-finished edit. Opening the
+listings in a new tab was the obvious fix and does not work here: the bearer
+token lives in `sessionStorage` — deliberately, so a forgotten session on a
+shared machine dies with the tab — `sessionStorage` is per-tab, and a browser
+copies it into neither a plain `target="_blank"` tab nor one opened with
+`rel="noopener"`. Both were measured; both came back `null`, and the new tab
+landed on the sign-in screen.
+
+So the state went into the URL instead, where the tab and the Showing filter
+already lived. The sort is now `?sort=key` or `?sort=-key` and the search
+`?q=`, both derived from the address bar rather than mirrored into React state
+— the property this page already insisted on, because a `useState` beside the
+URL gives one fact two sources of truth and Back moves one of them. Two
+consequences fell out for free: switching tabs drops the sort in the *same*
+navigation, so one Back undoes the whole move, and each history entry now
+carries the sort belonging to it, which is what an effect resetting the sort on
+every tab change used to paper over. The search replaces rather than pushes, so
+six keystrokes do not become six history entries.
+
+#### A model's facts describe a gun — **Shipped**
+
+`M1935` is a Beretta pistol in .32 ACP. It is also the Turkish and the Austrian
+M1935 bayonet, and asking for .32 ACP in the browse filter returned blades. The
+listings were typed correctly — not a rifle, not a handgun — and took the
+pistol's caliber, maker, country and model link anyway.
+
+**704 non-firearm listings were carrying an armory model**: 103 under the AK-47,
+62 under the Luger P08, 41 under the M1917 Enfield. 240 of them had taken a
+caliber from it, 189 a country and 105 a maker — a `GERMAN K98K BAYONET` filed
+as a Mauser, a `TURKISH M1935 BAYONET` filed as a Beretta in Italy.
+
+The rule already existed for the *kind* and is now the whole of `fill_in`: the
+armory knows what a model is, it does not know whether this listing is selling
+one. A listing that is not a firearm is offered nothing from the row it matches.
+Its own caliber still comes back normalized, because that is spelling rather
+than knowledge and a box of .32 ACP ammunition really is in .32 ACP.
+
+Two things followed:
+
+- **A bayonet has no caliber of its own.** The cartridge in its title is the
+  rifle's — `1891 Carcano Bayonet`, `NORWEGIAN M1 GARAND BAYONET`, `CZECH VZ24
+  MAUSER BAYONET` — and the classifier was reading it, which put 89 blades into
+  the caliber list independently of the armory. A caliber the *vendor* put in a
+  field of their own is still kept; a parts kit keeps its caliber either way,
+  because a 9mm Sten kit really is 9mm.
+- **`reclassify --recompute` can now clear a field, not only change one.** Every
+  recomputed field but the maker ended in `or item.<field>`, so the wrong answer
+  was the one thing a rebuild could never reach. The fields nobody names in
+  `--fields` are still protected by the filter that puts the stored value back.
+
 #### Where a price sits among the same gun — **Shipped**
 
 The first thing in this application that answers "is this a good deal?", and it

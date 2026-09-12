@@ -194,6 +194,36 @@ class TestFillingInWhatAListingDoesNotSay:
         assert armory.fill_in(seeded, "US M1 Carbine").kind is FirearmKind.CARBINE
 
 
+class TestAModelOnlyDescribesAGun:
+    """A bayonet names the designation it *fits*, and took that gun's facts.
+
+    "TURKISH M1935 BAYONET" and "18437 M1935 bayonet with scabbard" both name
+    the Beretta M1935, and 34 such listings -- bayonets, parts kits, a barrel
+    and a magazine -- appeared under that pistol's .32 ACP in the browse
+    filter's caliber list.
+    """
+
+    def test_a_bayonet_takes_nothing_from_the_model_it_names(self, seeded, carbine):
+        found = armory.fill_in(seeded, "TURKISH M1 Carbine BAYONET", is_firearm=False)
+        assert found.caliber is None
+        assert found.model_id is None
+        assert found.model is None
+        assert found.kind is None
+        assert found.manufacturer is None
+        assert found.country is None
+
+    def test_but_its_own_caliber_is_still_spelled_the_armorys_way(self, seeded, carbine):
+        """Ammunition in .32 ACP really is in .32 ACP; that is not the model
+        talking."""
+        found = armory.fill_in(
+            seeded, "Czech 7.65 Browning 73gr FMJ Ammo", caliber="7.65mm Browning", is_firearm=False
+        )
+        assert found.caliber == ".32 ACP"
+
+    def test_a_firearm_is_unaffected(self, seeded, carbine):
+        assert armory.fill_in(seeded, "US M1 Carbine").caliber == ".32 ACP"
+
+
 class TestTheKindsMapOntoTheBrowseFilter:
     @pytest.mark.parametrize(
         "kind",
@@ -798,6 +828,43 @@ class TestAModelDesignationIsNotUnique:
     def test_a_title_that_says_nothing_either_way_still_matches(self, seeded, enfield):
         """Silence is not disagreement."""
         assert armory.match(seeded, "US M1917, 1918 production").model == "M1917 Enfield"
+
+    def test_nor_is_a_makers_name_disagreement(self, seeded):
+        """Mauser built the C96, the HSc and the 1914 pocket pistol as well as
+        the rifles the name usually means.
+
+        "mauser" is on the rifle list, so a Mauser pistol whose title carries
+        no type noun read as *stating* rifle, and this check then threw the
+        pistol's own row away -- its caliber and maker with it. 230 listings.
+        """
+        row = FirearmModel(
+            name="Mauser M1934",
+            aliases="Model 1934",
+            kind=FirearmKind.PISTOL,
+            status=ArmoryStatus.APPROVED,
+        )
+        cartridge = Caliber(name=".32 ACP", status=ArmoryStatus.APPROVED)
+        seeded.add_all([row, cartridge])
+        row.calibers = [cartridge]
+        seeded.commit()
+        armory.invalidate()
+
+        found = armory.match(seeded, "Scarce Army Mauser Model 1934")
+        assert found.model == "Mauser M1934"
+        assert found.caliber == ".32 ACP"
+
+    def test_but_a_title_that_does_say_rifle_still_discards_it(self, seeded):
+        """The maker going quiet must not take the noun with it."""
+        row = FirearmModel(
+            name="Mauser M1934",
+            aliases="Model 1934",
+            kind=FirearmKind.PISTOL,
+            status=ArmoryStatus.APPROVED,
+        )
+        seeded.add(row)
+        seeded.commit()
+        armory.invalidate()
+        assert armory.match(seeded, "German Mauser Model 1934 Rifle 8mm").model is None
 
 
 class TestTheNounsOutrankTheDesignations:

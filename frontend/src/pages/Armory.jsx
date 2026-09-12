@@ -85,6 +85,13 @@ export function tabFromHash(hash) {
  * - **Everything, not just what is in stock.** A pending row usually arrived
  *   from a listing that has since sold, and defaulting to available would
  *   answer "no listings" for exactly the rows most in need of a decision.
+ *
+ * These navigate in the current tab, which is not the obvious choice -- looking
+ * at the listings is something you do *while* deciding about a row. A new tab
+ * was tried and backed out: the bearer token lives in sessionStorage (see
+ * api.js, and the reason there), sessionStorage is per-tab, and a browser will
+ * not copy it into a tab opened with target="_blank" -- so every eye landed on
+ * the sign-in screen. Measured, not assumed.
  */
 function listingsHref(tab, row) {
   const params = new URLSearchParams();
@@ -1036,7 +1043,7 @@ export default function Armory() {
    * silently throw you back to the Models tab.
    */
   const go = useCallback(
-    ({ search, hash }) => {
+    ({ search, hash, replace = false }) => {
       // Read the address bar, not the last render's `location`. Two of these
       // can happen before React has re-rendered — click a tab, then change the
       // filter — and the second would carry a stale copy of the other half and
@@ -1045,9 +1052,30 @@ export default function Armory() {
       // pushState by then, so window.location is current where a captured
       // `location` is a render behind.
       const now = window.location;
-      navigate({ search: search ?? now.search, hash: hash ?? now.hash });
+      navigate({ search: search ?? now.search, hash: hash ?? now.hash }, { replace });
     },
     [navigate],
+  );
+
+  /**
+   * Write query parameters, `null` meaning "leave it out".
+   *
+   * Only null. An empty string is a value here and not an absence: the Showing
+   * filter spells "Everything" as `?status=`, and absent means the default of
+   * Awaiting approval, so deleting on "" quietly turned Everything back into
+   * the pending queue.
+   */
+  const setParam = useCallback(
+    (entries, { replace = false } = {}) => {
+      const next = new URLSearchParams(window.location.search);
+      for (const [key, value] of Object.entries(entries)) {
+        if (value === null) next.delete(key);
+        else next.set(key, value);
+      }
+      const query = next.toString();
+      go({ search: query ? `?${query}` : "", replace });
+    },
+    [go],
   );
 
   // Derived, not mirrored. A useState kept alongside would have two sources of
@@ -1057,9 +1085,17 @@ export default function Armory() {
     (key) => {
       // window.location for the same reason as `go`: this is a writer, and
       // writers have to see what the address bar says now.
-      if (key !== tabFromHash(window.location.hash)) go({ hash: `#${TAB_HASH[key]}` });
+      if (key === tabFromHash(window.location.hash)) return;
+      // The sort goes with it, in the one navigation. The tabs do not share
+      // their columns, so a sort on "Chambered in" means nothing on makers --
+      // and doing it here rather than in an effect keeps it to a single history
+      // entry, so one Back undoes the whole move.
+      const next = new URLSearchParams(window.location.search);
+      next.delete("sort");
+      const query = next.toString();
+      navigate({ search: query ? `?${query}` : "", hash: `#${TAB_HASH[key]}` });
     },
-    [go],
+    [navigate],
   );
 
   // The same treatment for Showing, and for the same reason: it decides what
@@ -1069,16 +1105,30 @@ export default function Armory() {
   const query = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const statusFilter = query.has("status") ? query.get("status") : DEFAULT_STATUS;
   const setStatusFilter = useCallback(
-    (value) => {
-      const next = new URLSearchParams(window.location.search);
-      if (value === DEFAULT_STATUS) next.delete("status");
-      else next.set("status", value);
-      const query = next.toString();
-      go({ search: query ? `?${query}` : "" });
-    },
-    [go],
+    (value) => setParam({ status: value === DEFAULT_STATUS ? null : value }),
+    [setParam],
   );
-  const [search, setSearch] = useState("");
+
+  // And the search box, for the same reason again. Replaces rather than pushes:
+  // a history entry per keystroke would make Back walk the word backwards a
+  // letter at a time instead of leaving the page you came from.
+  const search = query.get("q") || "";
+  const setSearch = useCallback(
+    (value) => setParam({ q: value || null }, { replace: true }),
+    [setParam],
+  );
+
+  // The sort, written as "key" or "-key". A sort is a deliberate act, so it
+  // pushes -- and because each history entry now carries its own, arriving by
+  // Back restores the sort that entry had rather than whatever the last click
+  // left behind. That is what the [tab] effect below used to paper over.
+  const sort = useMemo(() => {
+    const raw = query.get("sort");
+    if (!raw) return DEFAULT_SORT;
+    return raw.startsWith("-")
+      ? { key: raw.slice(1), direction: "desc" }
+      : { key: raw, direction: "asc" };
+  }, [query]);
 
   const [models, setModels] = useState([]);
   // Every model regardless of the status filter, so the drill-down under a
@@ -1092,7 +1142,6 @@ export default function Armory() {
   // any one of them edits the single record.
   const [opened, setOpened] = useState(() => new Set());
   const [allMakers, setAllMakers] = useState([]);
-  const [sort, setSort] = useState(DEFAULT_SORT);
   const [kinds, setKinds] = useState([]);
   //: Suggestions for the model form's country box, from the same list the
   //: classifier reads titles with -- so a model and a title that mean the same
@@ -1146,12 +1195,14 @@ export default function Armory() {
   };
 
   /** Click a column to sort by it; click the one already sorted to reverse. */
-  const sortBy = (key) =>
-    setSort((prev) =>
-      prev.key === key
-        ? { key, direction: prev.direction === "asc" ? "desc" : "asc" }
-        : { key, direction: "asc" },
-    );
+  const sortBy = (key) => {
+    const direction = sort.key === key && sort.direction === "asc" ? "desc" : "asc";
+    // The default is spelled by leaving the parameter out, so the plain
+    // /armory URL is the plain one and does not grow a ?sort=name on the way
+    // back to where it started.
+    const isDefault = key === DEFAULT_SORT.key && direction === DEFAULT_SORT.direction;
+    setParam({ sort: isDefault ? null : direction === "desc" ? `-${key}` : key });
+  };
 
   const rows = useMemo(() => {
     const read = sortValues[sort.key] || sortValues.name;
@@ -1233,13 +1284,13 @@ export default function Armory() {
     setSelected(new Set());
   }, [statusFilter, search]);
 
-  // Whatever moved the tab — a click, Back, Forward, or a pasted link. These
-  // used to hang off the button's onClick, which meant arriving by Back left a
-  // selection and a sort belonging to the tab you had left. The tabs do not
-  // share their columns, so a sort on "Chambered in" means nothing on makers.
+  // Whatever moved the tab — a click, Back, Forward, or a pasted link. The
+  // sort is no longer reset here: it lives in the URL, so each history entry
+  // carries the one that belongs to it and Back restores that rather than
+  // whatever the last click left. The selection is not URL state and does
+  // still have to be dropped.
   useEffect(() => {
     setSelected(new Set());
-    setSort(DEFAULT_SORT);
   }, [tab]);
 
   useEffect(() => {

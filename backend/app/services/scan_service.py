@@ -377,6 +377,9 @@ def _apply_catalog(session: Session, item: Item, trusted: bool) -> None:
         item.description if trusted else None,
         item.caliber,
         stated_kind=item.stated_kind,
+        # Nothing a model says is offered to a listing that is not a gun --
+        # see fill_in. The classification above has already settled that.
+        is_firearm=item.is_rifle or item.is_pistol,
     )
     # Which model, recorded rather than merely used. Without it the armory
     # shaped a listing and left nothing to say it had: no way to browse the
