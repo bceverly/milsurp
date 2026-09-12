@@ -35,14 +35,94 @@ concurrency:
 
 permissions:
   contents: read
+  # To read the CI and Security runs for this commit -- see the gate job.
+  actions: read
 
 env:
   NODE_VERSION: "22"
 
 jobs:
   # ==========================================================================
+  # The gate.
+  #
+  # A tag push runs neither CI nor the security scans -- both are wired to main
+  # and pull requests -- so without this the release would build from whatever
+  # the tag pointed at, tested or not.
+  #
+  # It *waits* for the runs that already happened rather than starting its own.
+  # `make release` commits the version bump to main and then tags that same
+  # commit, so CI and Security are already running against this exact SHA by
+  # the time the tag lands. Re-running them would duplicate the whole matrix
+  # for an answer that is already being computed.
+  #
+  # Polled with `gh api` rather than a third-party action: this is the step
+  # that decides whether unreviewed code reaches a public archive, and it
+  # should not depend on a marketplace action that could change under it.
+  gate:
+    name: Wait for CI and Security
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for the checks on this commit to pass
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          # Long enough for the slowest leg (the Python matrix plus CodeQL),
+          # short enough that a stuck run does not hold a runner all day.
+          TIMEOUT_MINUTES: "60"
+        run: |
+          set -euo pipefail
+          WANTED="CI Security"
+          DEADLINE=$(( $(date +%s) + TIMEOUT_MINUTES * 60 ))
+
+          echo "Waiting for [$WANTED] on $SHA"
+          while :; do
+            PENDING=""
+            FAILED=""
+            MISSING=""
+            for NAME in $WANTED; do
+              # The most recent run of that workflow for this exact commit.
+              READ=$(gh api "repos/$REPO/actions/runs?head_sha=$SHA&per_page=100" \
+                     --jq ".workflow_runs[] | select(.name==\"$NAME\") |
+                           [.status, (.conclusion // \"pending\")] | @tsv" \
+                     | head -1 || true)
+              if [ -z "$READ" ]; then MISSING="$MISSING $NAME"; continue; fi
+              STATUS=$(printf '%s' "$READ" | cut -f1)
+              CONCLUSION=$(printf '%s' "$READ" | cut -f2)
+              if [ "$STATUS" != completed ]; then
+                PENDING="$PENDING $NAME($STATUS)"
+              elif [ "$CONCLUSION" != success ] && [ "$CONCLUSION" != skipped ]; then
+                FAILED="$FAILED $NAME($CONCLUSION)"
+              fi
+            done
+
+            if [ -n "$FAILED" ]; then
+              echo "::error::Refusing to release --$FAILED did not pass on $SHA"
+              exit 1
+            fi
+            # A tag on a commit that never reached main has no runs at all, and
+            # waiting an hour to say so helps nobody.
+            if [ -n "$MISSING" ] && [ $(date +%s) -gt $(( DEADLINE - (TIMEOUT_MINUTES - 5) * 60 )) ]; then
+              echo "::error::No run found for$MISSING on $SHA after 5 minutes."
+              echo "::error::Was this commit pushed to a branch before it was tagged?"
+              exit 1
+            fi
+            if [ -z "$PENDING" ] && [ -z "$MISSING" ]; then
+              echo "All required checks passed on $SHA."
+              break
+            fi
+            if [ "$(date +%s)" -ge "$DEADLINE" ]; then
+              echo "::error::Timed out after ${TIMEOUT_MINUTES}m waiting for$PENDING$MISSING"
+              exit 1
+            fi
+            echo "  still waiting:$PENDING$MISSING"
+            sleep 30
+          done
+
+  # ==========================================================================
   build:
     name: Build package
+    needs: gate
     runs-on: ubuntu-latest
     # The build runs inside the release it targets. The package vendors its
     # dependencies as wheels, and a wheel carries the Python ABI in its name --
@@ -67,7 +147,7 @@ jobs:
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -148,9 +228,20 @@ jobs:
           mkdir -p artifacts
           cp ../milsurp_*.deb ../milsurp_*.dsc ../milsurp_*.tar.xz \
              ../milsurp_*.changes ../milsurp_*.buildinfo artifacts/ 2>/dev/null || true
+          # The PUBLIC half of the signing key travels with the package.
+          #
+          # publish runs on a different runner with an empty keyring, and dput
+          # verifies the .changes signature before uploading -- so without this
+          # it fails with "No public key" for a signature that is perfectly
+          # valid. Carrying it in the artifact rather than fetching it from a
+          # keyserver keeps the upload from depending on a service we have
+          # already watched return 404 for a key that was demonstrably there.
+          #
+          # Public key material, so there is nothing here to protect.
+          gpg --armor --export "$DEBSIGN_KEYID" > artifacts/signing-key.pub.asc
           ls -lh artifacts/
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: package
           path: artifacts/
@@ -166,7 +257,7 @@ jobs:
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: package
           path: artifacts
@@ -193,7 +284,7 @@ jobs:
     # unprotected and it is automatic.
     environment: launchpad
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: package
           path: artifacts
@@ -203,6 +294,20 @@ jobs:
           set -eux
           sudo apt-get update -qq
           sudo apt-get install -y -qq --no-install-recommends dput
+
+      - name: Trust the signing key well enough to verify the upload
+        run: |
+          set -eu
+          # Only the public key: nothing is signed in this job, and the private
+          # half has no business on this runner.
+          gpg --batch --quiet --import artifacts/signing-key.pub.asc
+          KEYID="$(gpg --list-keys --with-colons \
+                   | awk -F: '/^fpr:/ {print $10; exit}')"
+          # Ownertrust as well as presence. A key that is merely present gives
+          # gpgme a valid signature of unknown validity, and dput's check is
+          # not guaranteed to be satisfied by that.
+          echo "$KEYID:6:" | gpg --batch --import-ownertrust
+          echo "Imported $KEYID for verification"
 
       - name: Upload the source package
         env:

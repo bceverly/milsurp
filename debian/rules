@@ -137,6 +137,12 @@ override_dh_auto_install:
 	  debian/milsurp/usr/share/milsurp/nginx/milsurp-bootstrap.conf
 
 override_dh_installsystemd:
+	# The unit has ONE definition, in deploy/systemd/, which is also what
+	# install-production.sh and the README point at. dh_installsystemd insists
+	# on finding it at debian/<package>.service, so it is copied into place
+	# here rather than kept as a second checked-in copy that can drift out of
+	# step with the one everything else uses.
+	cp deploy/systemd/milsurp.service debian/milsurp.service
 	# Enabled at boot, but deliberately not started: a fresh install has no
 	# admin account and an unedited config, so starting it would only produce a
 	# service that fails and a journal full of it. The postinst says what to do.

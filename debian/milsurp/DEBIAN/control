@@ -2,7 +2,7 @@ Package: milsurp
 Version: 2.1.0.3~resolute1
 Architecture: amd64
 Maintainer: Milsurp Monitor Package Signing <bryan@theeverlys.com>
-Installed-Size: 121235
+Installed-Size: 121236
 Depends: python3 (>= 3.14), libc6, adduser, nginx, sqlite3
 Recommends: tesseract-ocr, chromium-browser | google-chrome-stable
 Suggests: certbot, python3-certbot-nginx, postgresql-client

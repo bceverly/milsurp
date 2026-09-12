@@ -176,3 +176,24 @@ desktop.ini
 # --- Database snapshots (see app/services/backup.py) ---
 backups/
 vendor/
+
+# --- Debian packaging ---------------------------------------------------
+#
+# debian/ itself IS committed -- it is the packaging source, and Launchpad
+# builds from it. Only the generated parts are ignored:
+#
+#   changelog          written by scripts/build-deb.sh from the project
+#                      version, so the version lives in one place rather than
+#                      three
+#   milsurp.service    copied from deploy/systemd/ at build time, so the unit
+#                      has a single definition
+#   everything else    debhelper's own leavings and the staging tree
+debian/changelog
+debian/milsurp.service
+debian/milsurp/
+debian/.debhelper/
+debian/files
+debian/debhelper-build-stamp
+debian/*.substvars
+debian/*.debhelper
+debian/*.debhelper.log

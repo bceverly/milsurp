@@ -2732,7 +2732,7 @@ f978f204675eb7d5d9e6ee3683395984  opt/milsurp/backend/alembic/versions/0015_back
 3a4666135146db139b52cbeb4d20d618  opt/milsurp/backend/alembic/versions/0019_merge_undo.py
 05053701cb8a6ed2bf478f06a89b470f  opt/milsurp/backend/alembic/versions/0020_stated_kind.py
 ffc5cf06c40247f9e5187fd03dd84592  opt/milsurp/backend/alembic/versions/0021_item_kind.py
-6637cc9287ba6b34a13ab9acb7e32d69  opt/milsurp/backend/app/__init__.py
+9c1895ad5f197316854d4a4a8c9c768f  opt/milsurp/backend/app/__init__.py
 9c180c092c9d61c1c6f52161fd66ecf0  opt/milsurp/backend/app/api/__init__.py
 0214e858253318c0e06d4931acfa84a7  opt/milsurp/backend/app/api/access.py
 fa11e1d2d46ff44ab9a2ba6f6ececd2e  opt/milsurp/backend/app/api/armory.py
@@ -2841,7 +2841,7 @@ e8acfeb62a1bb8d6c2fa322876f4b769  opt/milsurp/scripts/generate-secrets.py
 92b669de6a2414e4a7bbf4a204b95ade  opt/milsurp/scripts/install-hooks.sh
 03335b2166a8613d4cef5f3cacab7add  opt/milsurp/scripts/install-production.sh
 2cbc80c378a57ee0b5aa0b642ad54bc4  opt/milsurp/scripts/lint.sh
-ca7263457a02e72248da60a13d2c27d3  opt/milsurp/scripts/release.sh
+c64ab5a98fd0e7e3715f138363dfabd5  opt/milsurp/scripts/release.sh
 1ad979c090ea538422803dd3d5825c54  opt/milsurp/scripts/screenshots.sh
 6f8a398760b8210c961c53a9c09b46f5  opt/milsurp/scripts/security.sh
 c714b3fc3bef8b0e4d66af9a0b5888f3  opt/milsurp/scripts/seed_demo_data.py
@@ -2854,7 +2854,7 @@ c4ecf99ab59ff8c024c19fc894429cf3  opt/milsurp/scripts/test-installer.sh
 f52f7578a1d78b5fbdb3577b371da99c  opt/milsurp/scripts/tool-versions.env
 8f2a7bae44458be9aa00149cc6a2243d  opt/milsurp/scripts/vendor-wheels.sh
 d5fab3a51fa867d239197148ed2fef43  usr/lib/systemd/system/milsurp.service
-573ae5b5a1248987ae60c65b7708e3d0  usr/share/doc/milsurp/changelog.gz
+2401f55f361a4277c87b88dbe19f0c9f  usr/share/doc/milsurp/changelog.gz
 b6943c5b5f70e43f87678a36140d6bb4  usr/share/doc/milsurp/copyright
 c01e53bf94d7ca00e06be16a134e79a2  usr/share/milsurp/nginx/milsurp-bootstrap.conf
 aa8155e0069a133f5457b7ff44651347  usr/share/milsurp/nginx/milsurp.conf

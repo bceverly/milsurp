@@ -343,6 +343,7 @@ deb-sbuild: vendor build-frontend ## Build in a clean offline chroot, as Launchp
 .PHONY: deb-clean
 deb-clean: ## Remove packaging build output
 	@rm -rf debian/milsurp debian/.debhelper debian/files debian/changelog
+	@rm -f debian/milsurp.service
 	@rm -f debian/*.substvars debian/*.debhelper.log debian/debhelper-build-stamp
 	@rm -rf vendor
 	@rm -f ../milsurp_*.deb ../milsurp_*.changes ../milsurp_*.buildinfo \
