@@ -261,6 +261,15 @@ const nameOrder = (tab) => (tab === "calibers" ? compareCalibers : COLLATOR.comp
 //: to read fifty firms in.
 const DEFAULT_SORT = { key: "name", direction: "asc" };
 
+/** The sort a query string asks for. "name" ascending, "-name" descending. */
+function parseSort(search) {
+  const raw = new URLSearchParams(search).get("sort");
+  if (!raw) return DEFAULT_SORT;
+  return raw.startsWith("-")
+    ? { key: raw.slice(1), direction: "desc" }
+    : { key: raw, direction: "asc" };
+}
+
 /** A column header that sorts. Clicking the active one reverses it. */
 function SortHeader({ label, sortKey, sort, onSort, className }) {
   const active = sort.key === sortKey;
@@ -1122,13 +1131,7 @@ export default function Armory() {
   // pushes -- and because each history entry now carries its own, arriving by
   // Back restores the sort that entry had rather than whatever the last click
   // left behind. That is what the [tab] effect below used to paper over.
-  const sort = useMemo(() => {
-    const raw = query.get("sort");
-    if (!raw) return DEFAULT_SORT;
-    return raw.startsWith("-")
-      ? { key: raw.slice(1), direction: "desc" }
-      : { key: raw, direction: "asc" };
-  }, [query]);
+  const sort = useMemo(() => parseSort(location.search), [location.search]);
 
   const [models, setModels] = useState([]);
   // Every model regardless of the status filter, so the drill-down under a
@@ -1196,7 +1199,14 @@ export default function Armory() {
 
   /** Click a column to sort by it; click the one already sorted to reverse. */
   const sortBy = (key) => {
-    const direction = sort.key === key && sort.direction === "asc" ? "desc" : "asc";
+    // The address bar, not `sort` from the last render -- the same rule `go`
+    // and `setTab` follow, and for the same reason. Clicking a header twice
+    // reverses and then restores the sort, and if the second click reads a
+    // render that has not caught up it computes "descending" again and the
+    // sort never comes back. CI caught exactly that: the caliber list stayed
+    // on "410 Gauge" when the test expected ".17 HMR" back.
+    const current = parseSort(window.location.search);
+    const direction = current.key === key && current.direction === "asc" ? "desc" : "asc";
     // The default is spelled by leaving the parameter out, so the plain
     // /armory URL is the plain one and does not grow a ?sort=name on the way
     // back to where it started.
