@@ -310,6 +310,45 @@ security: ## Run the same security scanners CI runs, locally
 install-hooks: ## Install the git pre-commit / pre-push hooks
 	@scripts/install-hooks.sh
 
+##@ Packaging
+
+# The Debian package is built offline, because a Launchpad builder has no
+# network. That makes `vendor` and `build-frontend` prerequisites rather than
+# conveniences: whatever is not in the source package cannot be fetched.
+
+.PHONY: installer
+installer: vendor build-frontend ## Build the installable .deb from scratch (vendor + build)
+	@scripts/build-deb.sh
+
+.PHONY: vendor
+vendor: ## Download runtime dependencies as wheels for the offline package build
+	@scripts/vendor-wheels.sh
+
+.PHONY: deb
+deb: vendor build-frontend ## Alias for `installer`
+	@scripts/build-deb.sh
+
+.PHONY: installer-test
+installer-test: ## Install the built .deb in a throwaway container and check it works
+	@scripts/test-installer.sh
+
+.PHONY: deb-source
+deb-source: vendor build-frontend ## Build the signed source package for a Launchpad upload
+	@scripts/build-deb.sh --source
+
+.PHONY: deb-sbuild
+deb-sbuild: vendor build-frontend ## Build in a clean offline chroot, as Launchpad does
+	@scripts/build-deb.sh --sbuild
+
+.PHONY: deb-clean
+deb-clean: ## Remove packaging build output
+	@rm -rf debian/milsurp debian/.debhelper debian/files debian/changelog
+	@rm -f debian/*.substvars debian/*.debhelper.log debian/debhelper-build-stamp
+	@rm -rf vendor
+	@rm -f ../milsurp_*.deb ../milsurp_*.changes ../milsurp_*.buildinfo \
+	      ../milsurp_*.dsc ../milsurp_*.tar.* 2>/dev/null || true
+	@echo "Packaging artifacts removed."
+
 ##@ Release
 
 .PHONY: release

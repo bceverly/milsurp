@@ -1,0 +1,80 @@
+# =============================================================================
+# Milsurp Monitor — systemd unit
+#
+#   sudo install -m 0644 deploy/systemd/milsurp.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now milsurp
+# =============================================================================
+
+[Unit]
+Description=Milsurp Monitor — military surplus listing tracker
+Documentation=https://github.com/bceverly/milsurp
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=milsurp
+Group=milsurp
+WorkingDirectory=/opt/milsurp
+
+Environment=MILSURP_ENV=production
+Environment=MILSURP_CONFIG=/etc/milsurp/config.yaml
+Environment=PYTHONUNBUFFERED=1
+Environment=MILSURP_LOG_LEVEL=info
+
+# The port comes from config.yaml (server.production.app_port); nginx proxies
+# to it. A single worker is required: scan progress and the login throttle are
+# in-process state, and SQLite serializes writes regardless.
+ExecStart=/opt/milsurp/.venv/bin/python /opt/milsurp/backend/run.py
+
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+# A scan in flight should be allowed to notice the stop before being killed.
+KillSignal=SIGTERM
+KillMode=mixed
+
+# --- Hardening -------------------------------------------------------------
+# The service reads and writes exactly two trees: its install directory and its
+# state directory. Everything else on the filesystem is read-only or invisible,
+# so a compromised scraper cannot reach the rest of the machine.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+ProtectProc=invisible
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+RemoveIPC=true
+# The database and the photo store.
+ReadWritePaths=/etc/milsurp /var/log/milsurp
+# Outbound HTTP for scraping and SMTP for digests; nothing else.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+# Chrome needs to fork and to write to /tmp (PrivateTmp keeps that isolated).
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+# --- Limits ----------------------------------------------------------------
+# Chrome opens a lot of descriptors.
+LimitNOFILE=8192
+# A runaway scrape must not take the machine down with it.
+MemoryMax=3G
+TasksMax=512
+
+# --- Logging ---------------------------------------------------------------
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=milsurp
+
+[Install]
+WantedBy=multi-user.target

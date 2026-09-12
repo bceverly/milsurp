@@ -1,0 +1,65 @@
+Source: milsurp
+Section: web
+Priority: optional
+Maintainer: Milsurp Monitor Package Signing <bryan@theeverlys.com>
+# Deliberately short. A Launchpad builder has no network, so everything the
+# build needs is either here or inside the source package -- see debian/rules
+# and the `vendor/wheels` tree it installs from.
+Build-Depends:
+ debhelper-compat (= 13),
+ python3 (>= 3.14),
+# python3-venv is in universe, which a Launchpad PPA builder has and a
+# main-only chroot does not -- see scripts/build-deb.sh, which creates the
+# local sbuild image with universe enabled so the two agree.
+#
+# It pulls in python3-pip-whl, the bundled wheel that `python3 -m venv` uses to
+# put pip *inside* the venv. The system python3-pip is deliberately not a
+# build dependency: nothing here uses it, and the venv's own pip is what
+# installs the vendored wheels.
+ python3-venv,
+Standards-Version: 4.7.0
+Homepage: https://github.com/bceverly/milsurp
+Rules-Requires-Root: no
+
+Package: milsurp
+# Not "all": the vendored wheels include compiled extensions (Pillow, lxml,
+# psycopg, argon2-cffi), so the package is tied to an architecture.
+Architecture: amd64
+Depends:
+ ${misc:Depends},
+ python3 (>= 3.14),
+# Named explicitly because dh_shlibdeps is excluded from the venv (see
+# debian/rules), so the compiled extensions in the vendored wheels contribute
+# nothing to ${shlibs:Depends}. python3 pulls libc6 in anyway; stating it means
+# the package declares what it actually links against rather than relying on
+# that.
+ libc6,
+ adduser,
+ nginx,
+ sqlite3,
+Recommends:
+# The OCR binding in the venv is only the Python half. Hunter's Lodge publishes
+# a scanned flyer instead of a catalog and its scraper checks for this before
+# using it, so a machine without it runs everything else normally.
+ tesseract-ocr,
+# Selenium drives a real browser for the handful of vendors whose catalog is
+# drawn client-side.
+ chromium-browser | google-chrome-stable,
+Suggests:
+ certbot,
+ python3-certbot-nginx,
+ postgresql-client,
+Description: Military surplus firearm listing and price tracker
+ Milsurp Monitor scans military-surplus firearm dealers on a schedule, stores
+ what they list and tracks how the prices move, so a collector can watch a
+ market that is spread across dozens of small shops with no common catalog.
+ .
+ It reads each vendor's own storefront -- WooCommerce, Shopify, BigCommerce,
+ Magento and several one-off platforms -- and normalises what it finds against
+ a curated armory of models, manufacturers and cartridges, so that ".32 ACP"
+ and "7.65mm Browning" are one filter rather than two.
+ .
+ This package installs the application into /opt/milsurp with its own Python
+ environment, registers a systemd service and ships an nginx site template.
+ Configuration lives in /etc/milsurp/config.yaml, which is created on first
+ install with generated secrets and never overwritten afterwards.

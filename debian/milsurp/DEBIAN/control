@@ -1,0 +1,25 @@
+Package: milsurp
+Version: 2.1.0.3~resolute1
+Architecture: amd64
+Maintainer: Milsurp Monitor Package Signing <bryan@theeverlys.com>
+Installed-Size: 121235
+Depends: python3 (>= 3.14), libc6, adduser, nginx, sqlite3
+Recommends: tesseract-ocr, chromium-browser | google-chrome-stable
+Suggests: certbot, python3-certbot-nginx, postgresql-client
+Section: web
+Priority: optional
+Homepage: https://github.com/bceverly/milsurp
+Description: Military surplus firearm listing and price tracker
+ Milsurp Monitor scans military-surplus firearm dealers on a schedule, stores
+ what they list and tracks how the prices move, so a collector can watch a
+ market that is spread across dozens of small shops with no common catalog.
+ .
+ It reads each vendor's own storefront -- WooCommerce, Shopify, BigCommerce,
+ Magento and several one-off platforms -- and normalises what it finds against
+ a curated armory of models, manufacturers and cartridges, so that ".32 ACP"
+ and "7.65mm Browning" are one filter rather than two.
+ .
+ This package installs the application into /opt/milsurp with its own Python
+ environment, registers a systemd service and ships an nginx site template.
+ Configuration lives in /etc/milsurp/config.yaml, which is created on first
+ install with generated secrets and never overwritten afterwards.

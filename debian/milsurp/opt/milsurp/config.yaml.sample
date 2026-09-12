@@ -1,0 +1,223 @@
+# ---------------------------------------------------------------------------
+# Milsurp Monitor configuration
+#
+# This file is searched for in the following order; the first hit wins:
+#
+#   1. $MILSURP_CONFIG                (explicit override, any path)
+#   2. <repo root>/config.yaml        (development)
+#   3. /etc/milsurp/config.yaml       (production)
+#
+# Copy this file to one of those locations and edit it:
+#
+#   cp config.yaml.sample config.yaml                   # development
+#   sudo install -D -m 600 config.yaml.sample /etc/milsurp/config.yaml
+#
+# It holds SMTP credentials, signing secrets and -- under PostgreSQL -- the
+# database password, so keep it mode 600 and owned
+# by the account that runs the service. The repo-root copy is gitignored.
+#
+# Every setting below is optional: anything you omit falls back to the default
+# shown in the comment. Times are always stored in UTC.
+# ---------------------------------------------------------------------------
+
+# --- Where state lives -----------------------------------------------------
+# Omit these and the location follows the run mode: in dev the database and
+# images sit in the repository root, in production they sit in /etc/milsurp.
+# A relative path is resolved against the repository root.
+# Two engines are supported: SQLite (the default, and what development and the
+# test suite use) and PostgreSQL. A block with only a "path" means SQLite, so
+# this file keeps its meaning unchanged if you never touch it.
+database:
+  # Development default: <repo root>/milsurp.db
+  # Production default:  /etc/milsurp/milsurp.db
+  path: /etc/milsurp/milsurp.db
+
+  # --- PostgreSQL ----------------------------------------------------------
+  # Uncomment these to move. Naming host/name/user is enough on its own;
+  # "engine" is here to be explicit. See README.md, "Running on PostgreSQL",
+  # for the CREATE ROLE / CREATE DATABASE to run first (they need a superuser,
+  # and the role below deliberately is not one), and for the one command that
+  # copies the existing rows across.
+  #
+  # Leave "path" above in place: it is what the importer reads from.
+  #
+  # engine: postgresql
+  # host: localhost
+  # port: 5432
+  # name: milsurp
+  # user: milsurp
+  # password: "a long random password"
+  # sslmode: require        # for a connection that crosses a network
+  # pool_size: 5
+  # max_overflow: 10
+
+images:
+  # Downloaded listing photos. Created mode 0700 and never served as static
+  # files -- every photo goes through an authenticated API endpoint.
+  # Development default: <repo root>/images
+  # Production default:  /etc/milsurp/images
+  path: /etc/milsurp/images
+
+# --- Backups ---------------------------------------------------------------
+# Snapshots of the database: through SQLite's online backup API, so each one is
+# a complete .db that opens on its own, or through "pg_dump -Fc" under
+# PostgreSQL, which writes a .dump for pg_restore.
+#
+# The database is the one part of this application that cannot be rebuilt. The
+# code is in version control and the photos can be fetched again, but the price
+# history is a record of what a vendor was asking on a day that has passed.
+#
+# **Whether, how often and how many to keep are no longer set here.** They are
+# on the Backups page in the admin navigation, because they are policy and an
+# administrator should not have to edit a file on the server and restart to
+# change a retention window. The values below seed those settings the first
+# time the database is upgraded, and are ignored afterwards.
+#
+# What stays here is the directory: where files land is a fact about the
+# machine, and a text box that can point the writer at any path is a worse idea
+# than a default nobody can change from a browser.
+backups:
+  # Development default: <repo root>/backups
+  # Production default:  /etc/milsurp/backups
+  directory: /etc/milsurp/backups
+
+  # Seed values only — the Backups page owns these after the first upgrade.
+  enabled: true                      # seeded off in development
+  keep: 10                           # snapshots to keep
+  interval_hours: 24                 # hours between snapshots
+
+# --- Security --------------------------------------------------------------
+# Generate real values with:  make secrets
+security:
+  # Server-side secret mixed into every password before hashing. Argon2 already
+  # adds a unique random salt per password; this pepper is the extra secret that
+  # is NOT in the database, so a stolen database alone cannot be cracked offline.
+  # CHANGING THIS INVALIDATES EVERY EXISTING PASSWORD.
+  password_pepper: "CHANGE-ME-run-make-secrets"
+
+  # Signs session tokens. Changing it signs everyone out.
+  jwt_secret: "CHANGE-ME-run-make-secrets"
+
+  jwt_algorithm: HS256          # default: HS256
+  access_token_minutes: 720     # default: 720 (12 hours)
+
+  # Minimum accepted password length, applied whenever a password is set or
+  # changed. Length matters far more than character-class rules, so this is the
+  # policy's main lever. Re-read on every start, so raising it takes effect at
+  # the next restart. Existing passwords are not re-checked.
+  min_password_length: 12       # default: 12
+
+  # Character-class requirements. The complexity rules in force are derived
+  # from whichever of these are true, so the rules and the message shown to the
+  # user can never disagree. Each defaults to false when omitted.
+  require_uppercase: true
+  require_lowercase: true
+  require_numeric: true
+  require_special: true
+
+  # Argon2id cost. The defaults are the OWASP recommendation (19 MiB, 2 passes).
+  # Raise memory_cost on a beefy server; every increase slows offline attacks.
+  argon2_time_cost: 2           # default: 2
+  argon2_memory_cost: 19456     # default: 19456 (KiB, = 19 MiB)
+  argon2_parallelism: 1         # default: 1
+
+# --- Initial administrator -------------------------------------------------
+# Used ONCE, on first start, when no administrator exists yet. After you sign
+# in and change the password, clear the password line below.
+admin:
+  username: admin
+  email: you@example.com
+  password: "set-a-long-passphrase-here"   # 12+ characters
+
+# --- Outbound email --------------------------------------------------------
+# For Gmail this must be a 16-character App Password, not the account password.
+# Create one at https://myaccount.google.com/apppasswords (requires 2-Step
+# Verification). It can be revoked on its own without touching the account.
+email:
+  enabled: false                     # default: false
+  smtp_host: smtp.gmail.com          # default: smtp.gmail.com
+  smtp_port: 587                     # 587 for starttls, 465 for ssl
+  smtp_security: starttls            # starttls | ssl | none
+  username: you@gmail.com
+  password: "abcd efgh ijkl mnop"    # the app password
+  from_address: you@gmail.com
+  from_name: "Milsurp Monitor"
+  timeout_seconds: 30                # default: 30
+
+# --- Server ----------------------------------------------------------------
+server:
+  dev:
+    host: 127.0.0.1                  # default: 127.0.0.1
+    # `make start` uses this port if free, otherwise the first free port in
+    # port_range, so a busy port never blocks a start.
+    preferred_port: 8730             # default: 8730
+    port_range: [8730, 8799]         # default: [8730, 8799]
+
+  production:
+    # The address the Python app binds. Keep it on loopback: nginx is the only
+    # thing that should reach it directly.
+    host: 127.0.0.1                  # default: 127.0.0.1
+    app_port: 8730                   # default: 8730
+
+    # The public HTTPS port nginx terminates TLS on.
+    port: 443                        # default: 443
+    # Plain HTTP here is 301-redirected to the HTTPS port above.
+    http_redirect_port: 80           # default: 80
+
+    # Used to build links inside digest emails.
+    public_url: https://milsurpmonitor.com
+
+# --- Scheduler -------------------------------------------------------------
+# NOTE: scanning is OFF by default. A fresh install would otherwise start
+# crawling vendor sites the moment it boots, before you have looked at the site
+# list or set a polite cadence. Turn this on once you are ready, and use the
+# admin UI (or `make scan`) to control what runs.
+scheduler:
+  enabled: false                     # default when this file is absent: true
+  tick_seconds: 60                   # how often to look for due sites
+  digest_tick_seconds: 300           # how often to look for due digests
+  # How often to work through the photo download queue between scans, so a
+  # backlog drains in the background instead of one batch per scan.
+  photo_tick_seconds: 180            # default: 180
+  # How many sites are scanned at once. Left commented out, the default
+  # follows the database engine, because that is what actually constrains it:
+  #
+  #   sqlite       2   one writer; more scan threads just contend for it
+  #   postgresql   6   writers do not block each other, so the ceiling is the
+  #                    connection pool, and a scan holds one for its whole run
+  #
+  # Uncomment to pin it either way. On PostgreSQL, database.pool_size follows
+  # this number unless you set that too -- and the app warns at startup if the
+  # pool cannot seat the scans and still answer the web application.
+  #
+  # A browser-driven scan is heavy, whichever engine is underneath.
+  # max_concurrent_scans: 6
+  scan_timeout_minutes: 120          # a longer run is treated as crashed
+
+# --- Scraping --------------------------------------------------------------
+scraping:
+  # Honor robots.txt: its Disallow rules and its Crawl-delay. Meant to stay on.
+  # It is a setting because a vendor may give a deployment explicit permission
+  # to ignore their rules -- not because it is optional by default.
+  #
+  # It changes how long a scan takes. Collectors Firearms asks for ten seconds
+  # between requests, which makes their scan half an hour of wall clock.
+  obey_robots: true                  # default: true
+  user_agent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+  request_timeout: 30                # seconds, default: 30
+  request_delay: 1.0                 # politeness delay between requests
+  max_retries: 4                     # default: 4
+  download_images: true              # default: true
+  # Ceiling on pages / scroll iterations / Load More clicks per section, so a
+  # misbehaving site cannot make a scan run forever.
+  max_pages: 60                      # default: 60
+  # Photos downloaded per scan. A first scan of a large catalog queues
+  # thousands; the remainder carries to the next run rather than
+  # stretching one scan into hours. Raise it to drain a backlog faster.
+  max_photo_downloads_per_scan: 400  # default: 400
+
+  selenium:
+    headless: true                   # default: true
+    # Leave null to let Selenium find them on PATH.
+    chrome_binary: null              # e.g. /usr/bin/google-chrome
+    chromedriver_path: null          # e.g. /usr/local/bin/chromedriver

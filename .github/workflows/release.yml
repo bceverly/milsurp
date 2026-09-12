@@ -1,0 +1,222 @@
+# Build the Debian package and publish it to the Launchpad PPA.
+#
+# Runs on a version tag and nothing else. `make release` writes the version
+# into the project, commits, tags and pushes -- and the tag push is what lands
+# here. Pushing to main does not build a package; there is no such thing as an
+# untagged release.
+#
+# The three jobs are deliberately separate so that the upload cannot happen
+# until the package has been proved installable:
+#
+#   build    produce the .deb and the signed source package
+#   verify   install the .deb in a clean container and check it works
+#   publish  dput the source package to Launchpad
+#
+# `publish` needs `verify`, so a package that builds but does not install never
+# reaches the PPA. That ordering is the whole point: a bad upload to a PPA
+# cannot be withdrawn, only superseded by a higher version.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  # For re-running a failed publish without cutting a new version.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build (e.g. v2.1.0.4)"
+        required: true
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  # ==========================================================================
+  build:
+    name: Build package
+    runs-on: ubuntu-latest
+    # The build runs inside the release it targets. The package vendors its
+    # dependencies as wheels, and a wheel carries the Python ABI in its name --
+    # a cp313 wheel built on a GitHub runner will not install on a 26.04 box.
+    # Building in the same image the package is for is what keeps that honest.
+    container:
+      image: ubuntu:26.04
+    steps:
+      # Before checkout: actions/checkout needs git, and a bare Ubuntu image
+      # has none.
+      - name: Install build tooling
+        run: |
+          set -eux
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends \
+            git ca-certificates curl xz-utils \
+            build-essential debhelper devscripts dput lintian \
+            python3 python3-venv python3-pip file
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # The tag and the version in the tree must agree. release.sh writes the
+      # version, commits and then tags, so they always should -- but a tag
+      # pushed by hand is exactly the case where they do not, and a package
+      # whose version does not match its tag is unfixable once uploaded.
+      - name: Check the tag matches the version in the tree
+        run: |
+          set -eu
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml)"
+          if [ "$TAG" != "v$VERSION" ]; then
+            echo "::error::Tag $TAG does not match pyproject.toml version $VERSION"
+            exit 1
+          fi
+          echo "Building $TAG (version $VERSION)"
+
+      - name: Build the frontend bundle
+        run: |
+          set -eux
+          cd frontend
+          npm ci --no-audit --no-fund
+          npm run build
+
+      # This is the step that needs the network, and the reason it happens here
+      # rather than on a Launchpad builder.
+      - name: Vendor the Python dependencies
+        run: make vendor
+
+      - name: Import the signing key
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.LAUNCHPAD_GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.LAUNCHPAD_GPG_PASSPHRASE }}
+        run: |
+          set -eu
+          mkdir -p ~/.gnupg && chmod 700 ~/.gnupg
+          # Loopback pinentry, because there is no tty to prompt on. The long
+          # cache TTL is so the passphrase entered once below is still there
+          # when debsign asks for it.
+          {
+            echo "allow-loopback-pinentry"
+            echo "default-cache-ttl 3600"
+            echo "max-cache-ttl 3600"
+          } > ~/.gnupg/gpg-agent.conf
+          echo "pinentry-mode loopback" > ~/.gnupg/gpg.conf
+          printf '%s' "$GPG_PRIVATE_KEY" | gpg --batch --quiet --import
+          gpgconf --kill gpg-agent || true
+          KEYID="$(gpg --list-secret-keys --with-colons \
+                   | awk -F: '/^fpr:/ {print $10; exit}')"
+          echo "DEBSIGN_KEYID=$KEYID" >> "$GITHUB_ENV"
+          # Trust it ultimately, or debsign refuses to use it unattended.
+          echo "$KEYID:6:" | gpg --batch --import-ownertrust
+          # Sign something once so the agent caches the passphrase; debsign
+          # then runs without a prompt.
+          echo test | gpg --batch --yes --pinentry-mode loopback \
+            --passphrase "$GPG_PASSPHRASE" --local-user "$KEYID" \
+            --armor --detach-sign --output /dev/null
+          echo "Imported $KEYID"
+
+      - name: Build the binary package and lint it
+        env:
+          DEBFULLNAME: ${{ vars.DEBFULLNAME || 'Milsurp Monitor Package Signing' }}
+          DEBEMAIL: ${{ vars.DEBEMAIL || 'bryan@theeverlys.com' }}
+        run: scripts/build-deb.sh
+
+      - name: Build the signed source package
+        env:
+          DEBFULLNAME: ${{ vars.DEBFULLNAME || 'Milsurp Monitor Package Signing' }}
+          DEBEMAIL: ${{ vars.DEBEMAIL || 'bryan@theeverlys.com' }}
+        run: scripts/build-deb.sh --source
+
+      # The artifacts live one level above the checkout, which is where
+      # dpkg-buildpackage puts them.
+      - name: Collect the artifacts
+        run: |
+          set -eux
+          mkdir -p artifacts
+          cp ../milsurp_*.deb ../milsurp_*.dsc ../milsurp_*.tar.xz \
+             ../milsurp_*.changes ../milsurp_*.buildinfo artifacts/ 2>/dev/null || true
+          ls -lh artifacts/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package
+          path: artifacts/
+          retention-days: 14
+
+  # ==========================================================================
+  verify:
+    name: Verify it installs
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: package
+          path: artifacts
+
+      # scripts/test-installer.sh looks one level above the checkout, which is
+      # where a local build leaves things.
+      - name: Put the package where the test expects it
+        run: cp artifacts/milsurp_*_amd64.deb ..
+
+      # Docker is present on the runner, so the same test that runs locally
+      # runs here -- 21 checks covering the service account, the generated
+      # secrets, the Alembic schema, that an upgrade does not rotate the
+      # secrets, and that a removal keeps the database.
+      - name: Install it in a clean container and check it
+        run: scripts/test-installer.sh
+
+  # ==========================================================================
+  publish:
+    name: Publish to Launchpad
+    needs: verify
+    runs-on: ubuntu-latest
+    # A PPA upload cannot be taken back, only superseded. An environment gives
+    # the option of requiring a manual approval before that happens; leave it
+    # unprotected and it is automatic.
+    environment: launchpad
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: package
+          path: artifacts
+
+      - name: Install dput
+        run: |
+          set -eux
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends dput
+
+      - name: Upload the source package
+        env:
+          PPA: ${{ vars.LAUNCHPAD_PPA || 'ppa:bceverly/milsurp' }}
+        run: |
+          set -eu
+          CHANGES="$(ls artifacts/milsurp_*_source.changes)"
+          echo "Uploading $(basename "$CHANGES") to $PPA"
+          # The .changes file is already signed; dput authenticates by that
+          # signature alone. There is no password or token in this step.
+          #
+          # Deliberately NOT --unchecked: that skips dput's verification of the
+          # signature, which is the one thing standing between a corrupted
+          # upload and a rejection twenty minutes later with no explanation.
+          dput "$PPA" "$CHANGES"
+          echo "Uploaded. Launchpad builds asynchronously -- watch it at"
+          echo "  https://launchpad.net/~${PPA#ppa:}/+packages"

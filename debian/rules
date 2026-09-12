@@ -1,0 +1,174 @@
+#!/usr/bin/make -f
+# =============================================================================
+# Milsurp Monitor — Debian packaging
+#
+# The one constraint that shapes all of this: **a Launchpad builder has no
+# network access.** Neither `pip install` nor `npm install` can run here, so
+# both of their outputs have to arrive inside the source package:
+#
+#   vendor/wheels/    every runtime dependency as a wheel  (make vendor)
+#   frontend/dist/    the built Vite bundle                (make build-frontend)
+#
+# `make deb` refuses to start if either is missing, because the failure
+# otherwise happens minutes later inside dh_auto_build with a pip error about
+# name resolution, which reads like a broken network rather than a missing
+# build step.
+# =============================================================================
+
+export DH_VERBOSE = 1
+
+APP        := /opt/milsurp
+VENV       := debian/milsurp$(APP)/.venv
+BUILD_PY   := $(CURDIR)/$(VENV)/bin/python
+
+%:
+	dh $@
+
+# There is nothing to configure, and nothing to test at package-build time --
+# the suite runs in CI against the source tree, not against a staged package.
+override_dh_auto_configure:
+override_dh_auto_test:
+
+# **Emphatically nothing.** dh_auto_clean finds the project Makefile and runs
+# its `clean` target, which is a *developer's* clean: it stops the dev server,
+# deletes .venv, node_modules and frontend/dist. Building a package would then
+# destroy the very bundle the build is about to look for, which is exactly how
+# this was discovered. Packaging artifacts are removed by `make deb-clean`.
+override_dh_auto_clean:
+
+override_dh_auto_build:
+	@test -d vendor/wheels || { \
+	  echo "ERROR: vendor/wheels is missing. Run 'make vendor' first." >&2; exit 1; }
+	@test -f frontend/dist/index.html || { \
+	  echo "ERROR: frontend/dist is missing. Run 'make build-frontend' first." >&2; exit 1; }
+
+override_dh_auto_install:
+	# --- the application tree ------------------------------------------------
+	install -d debian/milsurp$(APP)
+	cp -a backend scripts debian/milsurp$(APP)/
+	install -d debian/milsurp$(APP)/frontend
+	cp -a frontend/dist debian/milsurp$(APP)/frontend/
+	install -m 0644 config.yaml.sample debian/milsurp$(APP)/config.yaml.sample
+	# State that belongs to a developer's checkout, not to a deployment.
+	rm -rf debian/milsurp$(APP)/backend/tests
+	rm -f  debian/milsurp$(APP)/backend/milsurp.db
+	rm -f  debian/milsurp$(APP)/backend/requirements-dev.txt
+	rm -f  debian/milsurp$(APP)/backend/requirements-security.txt
+	rm -f  debian/milsurp$(APP)/backend/pytest.ini
+	# Developer state, stripped generically rather than by name. The blocklist
+	# version of this leaked .pytest_cache, then .mypy_cache, then .coverage --
+	# a copy of a working tree accumulates whatever the last command left
+	# behind, so the rule is "no caches and no dotfiles", not a list.
+	find debian/milsurp$(APP) -type d \
+	     \( -name '__pycache__' -o -name '.*_cache' -o -name '.git' \) \
+	     -prune -exec rm -rf {} +
+	find debian/milsurp$(APP) -maxdepth 3 -name '.*' -type f -delete
+	find debian/milsurp$(APP) -name '*.pyc' -o -name '*.pyo' -delete
+
+	# --- the Python environment, built offline from the vendored wheels ------
+	#
+	# Built here rather than in postinst so that an install is a file copy and
+	# cannot fail halfway with a half-built venv. The cost is that the venv is
+	# created under debian/milsurp/ and has to be taught its final home, which
+	# is what the shebang and pyvenv.cfg rewrites below do. --without-pip keeps
+	# ~15 MB of pip out of the shipped package; nothing at runtime installs
+	# anything.
+	python3 -m venv $(VENV)
+	# The pip that ensurepip bundles is used as-is. Upgrading it first would
+	# mean vendoring a pip wheel to upgrade the pip we already have, offline,
+	# to install wheels the bundled one installs perfectly well.
+	# --no-index is what makes this offline: pip resolves the whole dependency
+	# tree, but only against vendor/wheels. If a transitive dependency is
+	# missing it fails here with a clear "no matching distribution" rather
+	# than reaching for PyPI.
+	$(BUILD_PY) -m pip install --quiet --no-index --find-links=vendor/wheels \
+	  -r backend/requirements.txt
+	# Nothing at runtime installs anything, and leaving pip in a service's
+	# environment is a way for a compromised scraper to fetch its next stage.
+	$(BUILD_PY) -m pip uninstall --quiet --yes pip setuptools wheel || true
+	# Every console script the venv generated points at the build directory.
+	# Without this the service starts with a shebang naming a path that only
+	# existed on the builder.
+	grep -rlI "$(CURDIR)/$(VENV)" $(VENV)/bin | xargs -r \
+	  sed -i "s|$(CURDIR)/$(VENV)|$(APP)/.venv|g"
+	sed -i "s|$(CURDIR)/$(VENV)|$(APP)/.venv|g" $(VENV)/pyvenv.cfg
+	# Byte-compiled during the build, against the build path. Stale .pyc files
+	# whose embedded filenames are wrong make every traceback a lie.
+	find $(VENV) -type d -name __pycache__ -prune -exec rm -rf {} +
+
+	# --- things the wheels ship that this machine cannot run ----------------
+	#
+	# Selenium bundles its driver manager for every platform it supports.
+	# On an amd64 package that is 15.2 MB of arm64, macOS and Windows
+	# binaries -- nearly half the installed size -- and lintian is right to
+	# call binary-from-other-architecture an error.
+	rm -rf $(VENV)/lib/python*/site-packages/selenium/webdriver/common/linux-arm64
+	rm -rf $(VENV)/lib/python*/site-packages/selenium/webdriver/common/macos
+	rm -rf $(VENV)/lib/python*/site-packages/selenium/webdriver/common/windows
+	# greenlet ships its own test suite, including two more shared objects.
+	rm -rf $(VENV)/lib/python*/site-packages/greenlet/tests
+	# CPython's venv module creates a U+1D70B easter-egg alias for python3.
+	# Harmless, but a non-ASCII filename in a package is a needless surprise
+	# for anything walking the file list.
+	rm -f $(VENV)/bin/$$(printf '\xf0\x9d\x9c\x8b')thon
+	# The venv module drops a .gitignore in its own root.
+	rm -f $(VENV)/.gitignore
+
+	# Several wheels set the executable bit on things that are not executable
+	# -- selenium marks its whole tree +x, including py.typed, its LICENSE and
+	# its .dist-info metadata. Anything that is neither ELF nor a script gets
+	# the bit taken off, which is what dh_fixperms would do if it understood
+	# that a venv is not a library directory.
+	# `find -exec sh -c` rather than a `while read -d ''` pipeline: debian/rules
+	# runs under dash, whose read has no -d, so the loop silently did nothing
+	# and the bit stayed set.
+	find $(VENV)/lib -type f -perm /111 -exec sh -c \
+	  'for f in "$$@"; do \
+	     head -c2 "$$f" | grep -q "^#!" && continue; \
+	     file -b "$$f" | grep -q "^ELF" && continue; \
+	     chmod a-x "$$f"; \
+	   done' sh {} +
+
+	# --- everything the administrator, not the service, touches -------------
+	install -d debian/milsurp/usr/share/milsurp/nginx
+	install -m 0644 deploy/nginx/milsurp.conf \
+	  debian/milsurp/usr/share/milsurp/nginx/milsurp.conf
+	install -m 0644 deploy/nginx/milsurp-bootstrap.conf \
+	  debian/milsurp/usr/share/milsurp/nginx/milsurp-bootstrap.conf
+
+override_dh_installsystemd:
+	# Enabled at boot, but deliberately not started: a fresh install has no
+	# admin account and an unedited config, so starting it would only produce a
+	# service that fails and a journal full of it. The postinst says what to do.
+	dh_installsystemd --name=milsurp --no-start
+
+# =============================================================================
+# Keep debhelper's ELF machinery out of the venv.
+#
+# A manylinux wheel is a self-contained bundle: it ships its own copies of
+# libjpeg, libpq, libfreetype and so on, already stripped, with no debug
+# sections and with mangled sonames. Every helper that walks ELF objects has
+# something to say about that and none of it is useful:
+#
+#   dh_dwz        aborts outright -- "no .debug_info section", and for uvloop
+#                 "DWARF compression not beneficial". This is what stopped the
+#                 first build.
+#   dh_strip      would try to split debug symbols that are not there.
+#   dh_shlibdeps  would resolve pillow.libs/libjpeg-31e2ca52.so.62 against the
+#                 archive, find nothing, and turn it into a broken dependency.
+#   dh_makeshlibs would advertise the bundled libraries as system ones.
+#
+# The exclusion is by path rather than by disabling the helpers, so anything
+# the package ships *outside* the venv is still checked normally.
+VENV_PATH := debian/milsurp$(APP)/.venv
+
+override_dh_dwz:
+	dh_dwz -X$(VENV_PATH)
+override_dh_strip:
+	dh_strip -X$(VENV_PATH)
+override_dh_shlibdeps:
+	dh_shlibdeps -X$(VENV_PATH)
+override_dh_makeshlibs:
+	dh_makeshlibs -X$(VENV_PATH)
+override_dh_strip_nondeterminism:
+	dh_strip_nondeterminism -X.venv

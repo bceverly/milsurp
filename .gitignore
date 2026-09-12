@@ -175,3 +175,4 @@ desktop.ini
 
 # --- Database snapshots (see app/services/backup.py) ---
 backups/
+vendor/

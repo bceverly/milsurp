@@ -217,16 +217,9 @@ cat <<NEXT_STEPS
   ────────────────────────────────────────────────────────────────
    ${GREEN}Released ${TAG}${RESET}
 
-   Pushing the tag triggers the Release workflow, which builds the Debian
-   package, installs it in a clean container to prove it works, and only
-   then uploads it to the Launchpad PPA. Watch it with:
+   Pushing the tag triggers the release build. Watch it with:
 
        gh run watch
-
-   Launchpad builds asynchronously after the upload, so a green workflow
-   means "accepted", not "published". The PPA's own page is the last word:
-
-       https://launchpad.net/~bceverly/+archive/ubuntu/milsurp
 
    To undo, before anything consumes the tag:
 

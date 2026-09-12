@@ -1,0 +1,38 @@
+# Web framework and server
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.34,<1.0
+python-multipart>=0.0.32
+email-validator>=2.2
+
+# Database
+SQLAlchemy>=2.0.36,<3.0
+alembic>=1.14,<2.0
+# The PostgreSQL driver. Installed unconditionally because the engine is a
+# config.yaml setting rather than a build-time choice: a deployment that starts
+# on SQLite and moves later should not need a different set of packages, and
+# the test suite exercises both. Unused, it costs a few megabytes and nothing
+# at runtime. [binary] ships the libpq wheels, so there is no build step and no
+# libpq-dev to install.
+psycopg[binary]>=3.2
+
+# Configuration
+PyYAML>=6.0.2
+
+# Security: Argon2id password hashing and JWT sessions
+argon2-cffi>=25.1.0
+PyJWT>=2.10
+
+# Image processing (thumbnail generation during scans)
+Pillow>=11.0
+
+# Scraping
+requests>=2.32
+beautifulsoup4>=4.12
+lxml>=5.3
+selenium>=4.48.0
+
+# OCR, for vendors that publish a scanned flyer instead of a catalog
+# (Hunter's Lodge). This is only the Python binding: it needs the `tesseract`
+# binary, which `make install-dev` installs and which a site's scraper checks
+# for before using. A machine without it runs everything else normally.
+pytesseract>=0.3.13

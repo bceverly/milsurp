@@ -1,0 +1,186 @@
+#!/bin/sh
+# =============================================================================
+# Milsurp Monitor — post-installation
+#
+# Runs on every install AND every upgrade, so everything here is idempotent:
+# each step checks for what it is about to create. The three things it will not
+# do are the three an administrator has to decide -- the admin password, the
+# SMTP details and the domain -- and it prints those at the end.
+# =============================================================================
+set -e
+
+APP_USER=milsurp
+APP_GROUP=milsurp
+INSTALL_DIR=/opt/milsurp
+CONFIG_DIR=/etc/milsurp
+CONFIG=$CONFIG_DIR/config.yaml
+VENV_PY=$INSTALL_DIR/.venv/bin/python
+
+case "$1" in
+  configure)
+    # --- service account ---------------------------------------------------
+    # A system account with no login shell: the service never needs one, and it
+    # limits what an attacker gains from compromising a scraper.
+    if ! getent passwd "$APP_USER" >/dev/null; then
+      adduser --system --group --home "$INSTALL_DIR" \
+              --shell /usr/sbin/nologin --quiet "$APP_USER"
+    fi
+
+    # --- directories -------------------------------------------------------
+    # 0750 on the config directory and 0700 on the image store: config.yaml
+    # holds the JWT secret and the password pepper, and neither the photos nor
+    # the database are anyone else's business.
+    install -d -o "$APP_USER" -g "$APP_GROUP" -m 0750 "$CONFIG_DIR"
+    install -d -o "$APP_USER" -g "$APP_GROUP" -m 0700 "$CONFIG_DIR/images"
+    install -d -o "$APP_USER" -g "$APP_GROUP" -m 0755 /var/log/milsurp
+
+    # $INSTALL_DIR is deliberately NOT chowned to the service account. dpkg
+    # installs it root-owned and world-readable, which is all the service
+    # needs: it reads its code and writes nothing there. Handing an account
+    # that runs scrapers write access to its own code is how a scraping bug
+    # becomes persistence. (install-production.sh chowns because it rsyncs as
+    # root into a directory dpkg does not own; a package has no such problem.)
+
+    # --- configuration -----------------------------------------------------
+    # Deliberately NOT a dpkg conffile. A conffile ships identical bytes to
+    # every machine, and this file must contain secrets unique to each one --
+    # so it is generated once here and an upgrade never touches it.
+    FRESH_CONFIG=no
+    if [ ! -f "$CONFIG" ]; then
+      FRESH_CONFIG=yes
+      install -o "$APP_USER" -g "$APP_GROUP" -m 0600 \
+        "$INSTALL_DIR/config.yaml.sample" "$CONFIG"
+      "$VENV_PY" "$INSTALL_DIR/scripts/generate-secrets.py" "$CONFIG"
+      chmod 600 "$CONFIG"
+      chown "$APP_USER:$APP_GROUP" "$CONFIG"
+    fi
+
+    # --- database ----------------------------------------------------------
+    #
+    # Three outcomes, and they are deliberately not treated alike:
+    #
+    #   reachable, migrations outstanding  -> apply them, and fail loudly if
+    #                                         that does not work
+    #   reachable, already at head         -> say so and move on
+    #   not reachable                      -> do NOT fail the install
+    #
+    # That last one is the important one. On PostgreSQL the database may not
+    # exist yet, or may live on another host that is not up -- neither is a
+    # broken package, and failing here would leave dpkg in a half-configured
+    # state that an administrator then has to dig out of. The service is not
+    # started by this script, so an unmigrated database cannot be served by
+    # accident; it prints what to run instead.
+    # runuser, not sudo. sudo is not Essential and a minimal Ubuntu image does
+    # not have it -- the container test found all three database checks failing
+    # for that reason alone, with the postinst reporting "could not be reached"
+    # when the truth was "could not drop privileges". runuser comes from
+    # util-linux and is always present.
+    MIGRATION_STATE=unknown
+    if runuser -u "$APP_USER" -- env MILSURP_ENV=production MILSURP_CONFIG="$CONFIG" \
+         "$VENV_PY" "$INSTALL_DIR/scripts/dbupdate.py" --check >/dev/null 2>&1; then
+      MIGRATION_STATE=current
+    else
+      # --check exits non-zero both for "migrations outstanding" and for
+      # "cannot reach the database". Tell them apart by asking for the status,
+      # which needs the same connection but reports rather than changes.
+      if runuser -u "$APP_USER" -- env MILSURP_ENV=production MILSURP_CONFIG="$CONFIG" \
+           "$VENV_PY" "$INSTALL_DIR/scripts/dbupdate.py" --status >/dev/null 2>&1; then
+        echo "Milsurp: applying outstanding database migrations…"
+        if runuser -u "$APP_USER" -- env MILSURP_ENV=production MILSURP_CONFIG="$CONFIG" \
+             "$VENV_PY" "$INSTALL_DIR/scripts/dbupdate.py" --quiet; then
+          MIGRATION_STATE=migrated
+        else
+          MIGRATION_STATE=failed
+        fi
+      else
+        MIGRATION_STATE=unreachable
+      fi
+    fi
+
+    case "$MIGRATION_STATE" in
+      migrated)  echo "Milsurp: database migrated to the current schema." ;;
+      current)   echo "Milsurp: database schema is already current." ;;
+      failed)
+        echo "Milsurp: ERROR — database migration failed." >&2
+        echo "  The package is installed but the service was NOT started." >&2
+        echo "  Investigate with:" >&2
+        echo "    sudo -u $APP_USER env MILSURP_ENV=production \\" >&2
+        echo "      $VENV_PY $INSTALL_DIR/scripts/dbupdate.py --status" >&2
+        ;;
+      unreachable)
+        echo "Milsurp: the database could not be reached, so the schema was left alone."
+        echo "  This is expected on a first install with PostgreSQL, where the"
+        echo "  database has to be created before the schema can be built."
+        ;;
+    esac
+
+    # --- what the administrator still has to do ----------------------------
+    if [ "$FRESH_CONFIG" = yes ] || [ "$MIGRATION_STATE" = unreachable ]; then
+      cat <<NEXT
+
+  ─────────────────────────────────────────────────────────────────────────
+  Milsurp Monitor is installed but NOT yet running. Four things remain:
+
+    1. Edit the configuration — set admin.password, the email.* block and
+       server.production.public_url:
+
+         sudo -e $CONFIG
+
+    2. Build the schema and seed the sites and the admin account:
+
+         sudo -u $APP_USER env MILSURP_ENV=production \\
+           $VENV_PY $INSTALL_DIR/backend/cli.py init
+
+    3. Install the nginx site and point it at your domain:
+
+         sudo sed 's/milsurpmonitor\.com/YOUR.DOMAIN/g' \\
+           /usr/share/milsurp/nginx/milsurp-bootstrap.conf \\
+           > /etc/nginx/sites-available/milsurp
+         sudo ln -sf /etc/nginx/sites-available/milsurp /etc/nginx/sites-enabled/
+         sudo rm -f /etc/nginx/sites-enabled/default
+         sudo nginx -t && sudo systemctl reload nginx
+
+       Then, once DNS points here, get a certificate and switch to the TLS
+       config in the same directory:
+
+         sudo certbot --nginx -d YOUR.DOMAIN
+
+    4. Start it:
+
+         sudo systemctl start milsurp
+         sudo systemctl status milsurp
+         sudo journalctl -u milsurp -f
+
+  The app listens on 127.0.0.1 only; nginx terminates TLS and proxies to it.
+  ─────────────────────────────────────────────────────────────────────────
+
+NEXT
+    else
+      echo "Milsurp: upgraded. Restart to pick it up:  sudo systemctl restart milsurp"
+    fi
+    ;;
+
+  abort-upgrade|abort-remove|abort-deconfigure)
+    ;;
+esac
+
+# Automatically added by dh_installsystemd/13.31ubuntu1
+if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-deconfigure" ] || [ "$1" = "abort-remove" ] ; then
+	# The following line should be removed in trixie or trixie+1
+	deb-systemd-helper unmask 'milsurp.service' >/dev/null || true
+
+	# was-enabled defaults to true, so new installations run enable.
+	if deb-systemd-helper --quiet was-enabled 'milsurp.service'; then
+		# Enables the unit on first installation, creates new
+		# symlinks on upgrades if the unit file has changed.
+		deb-systemd-helper enable 'milsurp.service' >/dev/null || true
+	else
+		# Update the statefile to add new symlinks (if any), which need to be
+		# cleaned up on purge. Also remove old symlinks.
+		deb-systemd-helper update-state 'milsurp.service' >/dev/null || true
+	fi
+fi
+# End automatically added section
+
+
+exit 0

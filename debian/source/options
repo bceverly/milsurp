@@ -1,0 +1,45 @@
+# What must NOT go into the source package.
+#
+# `3.0 (native)` tars the whole directory, and a working checkout of this
+# project is 39 GB of downloaded listing photos, a 244 MB virtualenv, 158 MB of
+# node_modules and a 27 MB database. The first sbuild run spent nine minutes
+# compressing it before it was stopped. None of that belongs in a source
+# package and dpkg-source has no way to know.
+#
+# What DOES belong, and is deliberately not excluded:
+#   vendor/wheels    the offline dependency set -- the whole point of the design
+#   frontend/dist    the built bundle, because a builder cannot run npm
+tar-ignore = .git
+tar-ignore = .git/*
+tar-ignore = .venv
+tar-ignore = .venv/*
+tar-ignore = data
+tar-ignore = data/*
+tar-ignore = backups
+tar-ignore = backups/*
+tar-ignore = images
+tar-ignore = images/*
+tar-ignore = node_modules
+tar-ignore = */node_modules
+tar-ignore = */node_modules/*
+tar-ignore = *.db
+tar-ignore = *.db-shm
+tar-ignore = *.db-wal
+tar-ignore = *.log
+tar-ignore = .mypy_cache
+tar-ignore = .mypy_cache/*
+tar-ignore = .ruff_cache
+tar-ignore = .ruff_cache/*
+tar-ignore = .pytest_cache
+tar-ignore = .pytest_cache/*
+tar-ignore = .coverage
+tar-ignore = .security-reports
+tar-ignore = .security-reports/*
+tar-ignore = __pycache__
+tar-ignore = */__pycache__
+tar-ignore = */__pycache__/*
+tar-ignore = .server.pid
+tar-ignore = .milsurp-dev-port
+tar-ignore = coverage-backend.*
+tar-ignore = debian/milsurp
+tar-ignore = debian/milsurp/*
