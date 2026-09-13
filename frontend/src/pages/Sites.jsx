@@ -14,6 +14,7 @@ import {
   formatDuration,
   formatInterval,
   formatRelative,
+  parseUtc,
   timeTitle,
 } from "../format.js";
 import { ScanStatusChip } from "../components/StatusChip.jsx";
@@ -422,7 +423,14 @@ function SiteCard({ site, result, onChange, onError, onDismissResult }) {
           }}
           title={timeTitle(site.next_scan_at)}
         >
-          Next scan {formatRelative(site.next_scan_at)}
+          {/* "Next scan 3 hours ago". formatRelative reads both directions and
+              this label only makes sense in one of them. A due time in the past
+              is a normal state, not a glitch: the scheduler is off, or the
+              database was restored from a machine whose schedule stopped there.
+              The honest word for it is overdue. */}
+          {parseUtc(site.next_scan_at) < new Date()
+            ? `Scan overdue — was due ${formatRelative(site.next_scan_at)}`
+            : `Next scan ${formatRelative(site.next_scan_at)}`}
         </div>
       )}
     </div>

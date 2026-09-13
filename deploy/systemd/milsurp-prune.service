@@ -1,0 +1,73 @@
+# =============================================================================
+# Milsurp Monitor — image store housekeeping.
+#
+# Deletes photo files on disk that no item_photos row points at. Those
+# accumulate for an ordinary reason: a listing is delisted, its rows go, and
+# the pictures stay. On one development machine that was 73,097 files.
+#
+# Driven by milsurp-prune.timer rather than by the application's own scheduler,
+# and for the reason the scheduler itself gives for handling backups by file
+# age: an in-process counter resets on every restart, so a machine rebooted
+# daily would never reach a daily job. systemd's Persistent=true is the same
+# idea done by the init system.
+# =============================================================================
+
+[Unit]
+Description=Milsurp Monitor — prune orphaned images
+Documentation=https://github.com/bceverly/milsurp
+# Nothing to prune if the database cannot be read.
+After=network-online.target postgresql.service
+
+[Service]
+Type=oneshot
+User=milsurp
+Group=milsurp
+WorkingDirectory=/opt/milsurp
+
+Environment=MILSURP_ENV=production
+Environment=MILSURP_CONFIG=/etc/milsurp/config.yaml
+Environment=PYTHONUNBUFFERED=1
+
+ExecStart=/opt/milsurp/.venv/bin/python /opt/milsurp/backend/cli.py prune-images
+
+# --- Hardening -------------------------------------------------------------
+# The same posture as the main unit. This one *deletes files*, so the list of
+# places it may write is the part that matters most.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+ProtectProc=invisible
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+RemoveIPC=true
+# NOTE: an image store moved off /etc/milsurp -- onto an attached volume, say
+# -- must be named here too, exactly as it must be for milsurp.service. A
+# drop-in does that without editing this file:
+#
+#   /etc/systemd/system/milsurp-prune.service.d/volume.conf
+#     [Service]
+#     ReadWritePaths=/mnt/your-volume/images
+#
+# Without it the prune reads the store fine and silently deletes nothing.
+ReadWritePaths=/etc/milsurp
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+# A prune walks the whole store; on a large one that is a lot of stat() calls
+# and no reason to let it run away.
+TimeoutStartSec=30min
+MemoryMax=512M
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=milsurp-prune

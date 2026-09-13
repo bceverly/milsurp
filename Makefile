@@ -213,6 +213,10 @@ photos: $(VENV_PY) ## Download queued photos without re-scraping (make photos li
 		$(VENV_PY) backend/cli.py fetch-photos; \
 	fi
 
+.PHONY: prune-images
+prune-images: $(VENV_PY) ## Delete image files no listing references any more
+	@$(VENV_PY) backend/cli.py prune-images
+
 .PHONY: photos-retry
 photos-retry: $(VENV_PY) ## Try photos that were given up on after repeated failures
 	@$(VENV_PY) backend/cli.py fetch-photos --retry-failed $(if $(limit),--limit "$(limit)",)
@@ -343,7 +347,7 @@ deb-sbuild: vendor build-frontend ## Build in a clean offline chroot, as Launchp
 .PHONY: deb-clean
 deb-clean: ## Remove packaging build output
 	@rm -rf debian/milsurp debian/.debhelper debian/files debian/changelog
-	@rm -f debian/milsurp.service
+	@rm -f debian/milsurp.service debian/milsurp.milsurp-prune.service debian/milsurp.milsurp-prune.timer
 	@rm -f debian/*.substvars debian/*.debhelper.log debian/debhelper-build-stamp
 	@rm -rf vendor
 	@rm -f ../milsurp_*.deb ../milsurp_*.changes ../milsurp_*.buildinfo \

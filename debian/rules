@@ -137,16 +137,35 @@ override_dh_auto_install:
 	  debian/milsurp/usr/share/milsurp/nginx/milsurp-bootstrap.conf
 
 override_dh_installsystemd:
-	# The unit has ONE definition, in deploy/systemd/, which is also what
-	# install-production.sh and the README point at. dh_installsystemd insists
-	# on finding it at debian/<package>.service, so it is copied into place
-	# here rather than kept as a second checked-in copy that can drift out of
-	# step with the one everything else uses.
-	cp deploy/systemd/milsurp.service debian/milsurp.service
-	# Enabled at boot, but deliberately not started: a fresh install has no
-	# admin account and an unedited config, so starting it would only produce a
+	# The units have ONE definition, in deploy/systemd/, which is also what
+	# install-production.sh and the README point at. They are copied into place
+	# here rather than kept as second checked-in copies that can drift.
+	#
+	# The naming is debhelper's, not a choice: a unit belonging to package
+	# `milsurp` but not named after it goes in debian/<package>.<unit>.service.
+	# Named debian/milsurp-prune.service instead, dh reads it as belonging to a
+	# package called milsurp-prune, finds no such package, and silently ships
+	# nothing -- which is exactly what happened, and why three attempts at
+	# fixing the *enablement* got nowhere: the files were not in the package at
+	# all.
+	cp deploy/systemd/milsurp.service       debian/milsurp.service
+	cp deploy/systemd/milsurp-prune.service debian/milsurp.milsurp-prune.service
+	cp deploy/systemd/milsurp-prune.timer   debian/milsurp.milsurp-prune.timer
+
+	# Enabled at boot, deliberately not started: a fresh install has no admin
+	# account and an unedited config, so starting it would only produce a
 	# service that fails and a journal full of it. The postinst says what to do.
-	dh_installsystemd --name=milsurp --no-start
+	dh_installsystemd --no-start milsurp.service
+
+	# One call for the prune pair; --name selects both the .service and the
+	# .timer. Nothing needs suppressing: milsurp-prune.service has no [Install]
+	# section, so there is nothing to enable, while the timer has one and gets
+	# linked into timers.target.wants.
+	#
+	# --no-start covers an upgrade: starting the pair would run a full prune
+	# during `apt upgrade`, which on a large store is minutes of walking the
+	# filesystem while dpkg waits. The postinst starts the timer instead.
+	dh_installsystemd --name=milsurp-prune --no-start
 
 # =============================================================================
 # Keep debhelper's ELF machinery out of the venv.

@@ -3,3 +3,8 @@ if [ -z "$DPKG_ROOT" ] && [ "$1" = upgrade ] && [ -d /run/systemd/system ] ; the
 	deb-systemd-invoke stop 'milsurp.service' >/dev/null || true
 fi
 # End automatically added section
+# Automatically added by dh_installsystemd/13.31ubuntu1
+if [ -z "$DPKG_ROOT" ] && [ "$1" = upgrade ] && [ -d /run/systemd/system ] ; then
+	deb-systemd-invoke stop 'milsurp-prune.service' 'milsurp-prune.timer' >/dev/null || true
+fi
+# End automatically added section

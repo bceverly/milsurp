@@ -1,0 +1,24 @@
+# =============================================================================
+# Milsurp Monitor — daily image store housekeeping.
+#
+# See milsurp-prune.service for what it does and why it is a timer rather than
+# something the application schedules itself.
+# =============================================================================
+
+[Unit]
+Description=Milsurp Monitor — prune orphaned images daily
+Documentation=https://github.com/bceverly/milsurp
+
+[Timer]
+# Not midnight. Every timer on every machine fires at midnight, and this one
+# competes with the application's own backup window for a disk it shares.
+OnCalendar=*-*-* 04:20:00
+# Up to ten minutes of jitter, so a fleet of these does not arrive together.
+RandomizedDelaySec=10min
+# The property an in-process timer cannot have: a machine that was asleep or
+# switched off at 04:20 runs the job when it next comes up, rather than
+# skipping a day silently.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

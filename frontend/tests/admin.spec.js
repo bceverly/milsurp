@@ -134,6 +134,27 @@ test.describe("sites", () => {
     await expect(scanTime).toContainText(/^\d+(\.\d+)?s|^\d+m \d+s/m);
   });
 
+  test("a due time in the past reads as overdue, not as a next scan", async ({
+    signedIn,
+  }) => {
+    /**
+     * "Next scan 3 hours ago" -- seen on a real deployment. formatRelative
+     * reads both directions and the label only made sense in one of them, so
+     * every overdue site contradicted itself.
+     *
+     * A due time in the past is a normal state rather than a glitch: the
+     * scheduler ships disabled, and a database restored from another machine
+     * carries that machine's schedule with it. Both leave the time behind.
+     */
+    await signedIn.goto("/sites");
+    const card = signedIn.locator(".site-card", { hasText: "Demo Vendor" });
+    const schedule = card.locator("div", { hasText: /Next scan|Scan overdue/ }).last();
+    await expect(schedule).toBeVisible();
+
+    // Whichever way it reads, it must not say "next ... ago".
+    await expect(schedule).not.toContainText(/Next scan .*ago/i);
+  });
+
   test("vendors that are not built yet are listed as coming soon", async ({
     signedIn,
   }) => {

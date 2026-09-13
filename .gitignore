@@ -190,6 +190,8 @@ vendor/
 #   everything else    debhelper's own leavings and the staging tree
 debian/changelog
 debian/milsurp.service
+debian/milsurp.milsurp-prune.service
+debian/milsurp.milsurp-prune.timer
 debian/milsurp/
 debian/.debhelper/
 debian/files

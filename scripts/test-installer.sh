@@ -73,6 +73,11 @@ check "password_pepper was generated"     'grep -q "password_pepper: \"[A-Za-z0-
 check "no sample placeholder survived"    '! grep -qi "change-me\|replace-me\|CHANGEME" /etc/milsurp/config.yaml'
 check "app tree NOT owned by milsurp"     '[ "$(stat -c %U /opt/milsurp/backend/run.py)" = root ]'
 check "systemd unit installed"            '[ -f /usr/lib/systemd/system/milsurp.service ]'
+check "prune service installed"           '[ -f /usr/lib/systemd/system/milsurp-prune.service ]'
+check "prune timer installed"             '[ -f /usr/lib/systemd/system/milsurp-prune.timer ]'
+check "prune timer enabled at boot"       'ls /etc/systemd/system/timers.target.wants/ 2>/dev/null | grep -q milsurp-prune.timer'
+check "prune service NOT enabled alone"   '! ls /etc/systemd/system/multi-user.target.wants/ 2>/dev/null | grep -q milsurp-prune.service'
+check "prune timer is daily + persistent" 'grep -q "OnCalendar=" /usr/lib/systemd/system/milsurp-prune.timer && grep -q "Persistent=true" /usr/lib/systemd/system/milsurp-prune.timer'
 check "nginx templates installed"         '[ -f /usr/share/milsurp/nginx/milsurp.conf ]'
 check "venv python runs"                  '/opt/milsurp/.venv/bin/python -c "import sys; sys.exit(0)"'
 
@@ -84,6 +89,12 @@ check "database file was created"         '[ -f /etc/milsurp/milsurp.db ]'
 check "database owned by milsurp"         '[ "$(stat -c %U /etc/milsurp/milsurp.db)" = milsurp ]'
 check "schema is at the Alembic head" \
   'su -s /bin/sh milsurp -c "MILSURP_ENV=production /opt/milsurp/.venv/bin/python /opt/milsurp/scripts/dbupdate.py --check"'
+
+# The timer cannot run in a container with no init, but the command it runs
+# can -- and a prune that errors on an empty store would only be discovered
+# the first night it fired.
+check "prune-images runs on an empty store" \
+  'su -s /bin/sh milsurp -c "MILSURP_ENV=production /opt/milsurp/.venv/bin/python /opt/milsurp/backend/cli.py prune-images"'
 
 bold "Checking an upgrade is safe"
 # The property that matters on every `apt upgrade`: a second configure must not
