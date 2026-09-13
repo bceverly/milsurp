@@ -1,0 +1,25 @@
+# =============================================================================
+# Milsurp Monitor — daily reachability and parse check.
+#
+# See milsurp-canary.service for what it does and why it is a timer.
+# =============================================================================
+
+[Unit]
+Description=Milsurp Monitor — check every shop still answers, daily
+Documentation=https://github.com/bceverly/milsurp
+
+[Timer]
+# Early, and clear of 04:20 where the image prune runs: the two share a disk
+# and there is no reason to make them argue over it. Early also means the mail
+# about a shop that went quiet overnight is waiting rather than arriving mid-
+# afternoon.
+OnCalendar=*-*-* 06:10:00
+# Jitter, so a fleet of these does not arrive at twenty-eight shops together.
+RandomizedDelaySec=20min
+# A machine asleep or switched off at 06:10 runs the check when it next comes
+# up, rather than skipping a day silently — which is the exact failure the
+# canary exists to prevent, applied to the canary itself.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

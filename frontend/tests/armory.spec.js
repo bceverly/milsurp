@@ -586,13 +586,19 @@ test.describe("armory", () => {
       .getByRole("button", { name: "Name", exact: true })
       .click();
     await expect(signedIn.locator('th[aria-sort="descending"]')).toHaveCount(1);
-    expect(await firstName.innerText()).not.toBe(ascending);
+    await expect(firstName).not.toHaveText(ascending);
 
     await signedIn
       .locator("thead")
       .getByRole("button", { name: "Name", exact: true })
       .click();
-    expect(await firstName.innerText()).toBe(ascending);
+    // toHaveText, not innerText(). A click resolves when the event is
+    // dispatched, not when React has re-rendered, so a one-shot read here
+    // races the render and sees the *previous* order -- which is why this
+    // test has twice reported "410 Gauge" where ".17 HMR" was expected. The
+    // first click happens to be safe only because the aria-sort assertion
+    // above it retries; this one had nothing to wait on.
+    await expect(firstName).toHaveText(ascending);
   });
 
   test("the whole view survives a round trip through the listings", async ({

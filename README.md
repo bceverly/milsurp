@@ -288,6 +288,7 @@ sudo journalctl -u milsurp -f
 | Database | `/etc/milsurp/milsurp.db` (mode 0640) |
 | Photos | `/etc/milsurp/images` (mode 0700) |
 | Service | `milsurp`, hardened systemd unit, restarts on failure |
+| Timers | `milsurp-prune.timer` 04:20 (orphaned images), `milsurp-canary.timer` 06:10 (shops still answering) |
 | Logs | `journalctl -u milsurp` |
 
 The nginx config ships with TLS 1.2/1.3 only, HSTS, a strict CSP, OCSP stapling
@@ -1921,9 +1922,32 @@ if ctx.allowed(url):
     ...
 ```
 
-An unguarded fetch of a disallowed URL raises `Disallowed`. If robots.txt cannot
-be read at all — a 5xx, a 403, a connection failure — the site is treated as off
-limits rather than open, so a blip cannot quietly switch off a vendor's rules.
+An unguarded fetch of a disallowed URL raises `Disallowed`.
+
+**What an unreadable robots.txt means depends on how it failed**, and the split
+follows RFC 9309:
+
+| Answer | Reading | Effect |
+|---|---|---|
+| 5xx, 429, connection failure | "not now" — *unreachable* (§2.3.1.4) | off limits, and **not** remembered, so the next request asks again |
+| 404, 410, **401, 403** | "no file here" — *unavailable* (§2.3.1.3) | nothing is restricted |
+
+A blip therefore cannot quietly switch off a vendor's rules, and a file that
+genuinely is not there cannot quietly switch off a vendor.
+
+401 and 403 sat in the top row until they had cost listings twice. J&G Sales
+are behind Cloudflare, which answered a single `/robots.txt` with 403: the whole
+site was denied for the cache's full hour, every section warned "robots.txt
+disallows", the scrape returned nothing and 64 listings were de-listed — and
+their robots.txt allows all of it. `static.wixstatic.com` answers 403
+permanently, which left Hunter's Lodge unable to fetch the flyer its entire
+catalog is derived from, masked only because the unchanged-flyer short circuit
+returned before trying. The reading that a 401 or 403 means "behind a login, so
+private" is right for a genuinely auth-walled file and wrong for the case that
+actually occurs, which is bot management in front of a file that permits
+everything. A host that does not want to be crawled still has every ordinary
+way of saying so, starting with refusing the requests — which this code already
+honors, and which the cooldown register above is built around.
 **`scraping.obey_robots: false` is almost never the right tool.** It turns
 every restriction off on every site, which is a far bigger decision than the one
 anybody actually wants to make. For a single vendor who has given explicit
@@ -2012,14 +2036,28 @@ path consults it before making a request. Three things about it are deliberate:
 - **It fails open.** A cooldown that cannot be read means "carry on", never
   "fail the fetch" — an application whose HTTP layer stops working because a
   table is missing is a worse failure than asking a vendor too often.
+- **Trust comes back one step at a time, and the pace outlives the process.** A
+  success used to delete the row outright, which meant eight refusals of
+  evidence were erased by one photograph arriving; the next request then went
+  out at full speed, because the pace learned from a 429 lived only in the
+  process that learned it. checkpointcharlies.com sat in that sawtooth for
+  three days — pause, lapse, full-speed burst, refusal, pause — and every scan
+  in between reported FAILED for a reason that had nothing to do with the
+  vendor's markup. Now a success decays the count by one and lifts only the
+  pause, and `pace_for()` turns whatever count is left into a gap every fetcher
+  honors. A host that refused eight times answers eight times to earn full
+  speed back, which is a few minutes rather than never.
 
 A photo skipped because its host is resting does **not** count as a failed
 attempt, or a cooldown would burn a photograph's whole retry budget without a
 single request being made.
 
 **A pause ends by itself.** The wait doubles with each refusal up to an hour,
-and once it is up every fetcher resumes with no intervention — that is the
-"cooling off" the whole thing is for. The Sites page shows which hosts are
+and once it is up every fetcher resumes — slowly, at the pace the refusal count
+still earns — with no intervention. That is the "cooling off" the whole thing is
+for. `cli.py resting` shows both states side by side, because they are
+different: **PAUSED** is "do not ask at all, for this long", **PACE** is "ask,
+but leave this much between requests". The Sites page shows which hosts are
 resting and why, and an admin can lift one early with **Stop resting** once the
 cause is known and fixed; `cli.py resting` and `cli.py resting --clear` do the
 same from a terminal. Lifting it is deliberately a separate button rather than
@@ -2283,7 +2321,7 @@ frontend/
   tests/            Playwright suite
 deploy/
   nginx/            production and bootstrap site configs
-  systemd/          hardened service unit
+  systemd/          hardened service unit and the two scheduled jobs
 scripts/            install, migrate, sqlite-to-postgres, lint, test, security,
                     screenshots, brand
 marketing/images/   logo, favicon, coverage badges, screenshots
@@ -2301,6 +2339,7 @@ backend/cli.py adduser NAME EMAIL [--admin]
 backend/cli.py passwd NAME
 backend/cli.py digest [--user NAME]
 backend/cli.py prune-images     # delete image files nothing references
+backend/cli.py canary           # check every enabled shop still answers; exit 1 if not
 backend/cli.py rebuild-thumbnails  # regenerate thumbnails from stored originals
 backend/cli.py reclassify       # re-derive kind/caliber/country/maker from stored text
 backend/cli.py reclassify --recompute   # ...overwriting what is there, not only filling blanks

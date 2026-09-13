@@ -148,9 +148,11 @@ override_dh_installsystemd:
 	# nothing -- which is exactly what happened, and why three attempts at
 	# fixing the *enablement* got nowhere: the files were not in the package at
 	# all.
-	cp deploy/systemd/milsurp.service       debian/milsurp.service
-	cp deploy/systemd/milsurp-prune.service debian/milsurp.milsurp-prune.service
-	cp deploy/systemd/milsurp-prune.timer   debian/milsurp.milsurp-prune.timer
+	cp deploy/systemd/milsurp.service        debian/milsurp.service
+	cp deploy/systemd/milsurp-prune.service  debian/milsurp.milsurp-prune.service
+	cp deploy/systemd/milsurp-prune.timer    debian/milsurp.milsurp-prune.timer
+	cp deploy/systemd/milsurp-canary.service debian/milsurp.milsurp-canary.service
+	cp deploy/systemd/milsurp-canary.timer   debian/milsurp.milsurp-canary.timer
 
 	# Enabled at boot, deliberately not started: a fresh install has no admin
 	# account and an unedited config, so starting it would only produce a
@@ -166,6 +168,12 @@ override_dh_installsystemd:
 	# during `apt upgrade`, which on a large store is minutes of walking the
 	# filesystem while dpkg waits. The postinst starts the timer instead.
 	dh_installsystemd --name=milsurp-prune --no-start
+
+	# And the canary pair, the same way. --no-start matters more here than it
+	# does for the prune: starting it during `apt upgrade` would make twenty-
+	# eight outbound requests while dpkg waits, from a machine that has just
+	# changed underneath it.
+	dh_installsystemd --name=milsurp-canary --no-start
 
 # =============================================================================
 # Keep debhelper's ELF machinery out of the venv.

@@ -353,11 +353,18 @@ class ScrapeContext:
             self.sleep(delay - elapsed)
 
     def _delay_for(self, url: str) -> float:
-        """The pace to keep with this host: ours, theirs, or the one a 429 set."""
+        """The pace to keep with this host: ours, theirs, or the one a 429 set.
+
+        ``cooldown.pace_for`` is the same answer from a previous *process*.
+        Without it a scraper that starts after a cooldown expires knows nothing
+        about the eight refusals that produced it and opens at full speed,
+        which is how checkpointcharlies.com stayed refused for three days.
+        """
         return max(
             self.scraping.request_delay,
             self._crawl_delay_for(url),
             self._slowed.get(_host_of(url), 0.0),
+            cooldown.pace_for(url),
         )
 
     def _crawl_delay_for(self, url: str) -> float:

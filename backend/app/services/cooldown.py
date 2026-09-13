@@ -16,6 +16,17 @@ and where they are not, the CDN in front of both is what is counting.
 a scan makes thousands. A few seconds of staleness cannot matter — the shortest
 cooldown is a minute — and it keeps a hot loop off the database, which on
 SQLite is a lock this application has already been bitten by once.
+
+**Trust is rebuilt slowly, and the pace outlives the pause.** A pause on its
+own produces a sawtooth: the host goes quiet, the wait expires, a fresh process
+with an empty pace table asks at full speed, and earns the next refusal within
+seconds. checkpointcharlies.com sat in that loop for three days — eight
+consecutive refusals, every scan dying on a cooldown it had just re-earned —
+and none of it was visible, because a scan that never starts looks like a scan
+with nothing to report. So a success no longer erases the record; it decays it
+by one, and until it reaches zero :func:`pace_for` asks every fetcher to leave
+a gap. That is the half of "the pace a scan learns used to die with the
+process" that the original stop/go register did not fix.
 """
 
 from __future__ import annotations
@@ -23,7 +34,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from datetime import timedelta
+from datetime import datetime, timedelta
 from urllib.parse import urlparse
 
 from sqlalchemy import delete, select
@@ -42,11 +53,24 @@ log = logging.getLogger("milsurp.cooldown")
 MIN_COOLDOWN = timedelta(minutes=1)
 MAX_COOLDOWN = timedelta(hours=1)
 
+#: The gap asked for after one refusal, and the ceiling it doubles towards.
+#:
+#: This is the speed limit that applies *between* pauses -- once a host's
+#: cooldown has expired but before it has earned its full pace back. Five
+#: seconds matches MIN_PHOTO_BACKOFF, which is the number the photo fetcher
+#: already reaches for the first time a host says 429.
+MIN_PACE = 5.0
+MAX_PACE = 60.0
+
 #: How long a cached answer is trusted.
 CACHE_SECONDS = 5.0
 
 _lock = threading.Lock()
-_cache: dict[str, tuple[float, float | None]] = {}
+#: host -> (cache expiry as monotonic time, seconds still to wait or None,
+#: consecutive refusals). The refusal count rides along because succeeded() is
+#: called on every successful request and must answer "nothing to do" without
+#: touching the database, which is the overwhelmingly common case.
+_cache: dict[str, tuple[float, float | None, int]] = {}
 
 #: Whether the register has already complained about being unreachable. It is
 #: consulted before every request, so a broken one must not write a line per
@@ -101,36 +125,74 @@ def paused_for(url: str) -> float:
     Zero when the host is free, which is the overwhelmingly common answer and
     the one that has to be cheap.
     """
+    remaining, _refusals = _state(url)
+    return remaining
+
+
+def pace_for(url: str) -> float:
+    """Seconds a caller should leave between requests to this host.
+
+    Zero for a host that has never refused us, which is nearly all of them.
+
+    This is what stops the sawtooth. A cooldown answers "may I ask at all";
+    without an answer to "how fast", a fresh process resumes at full speed the
+    instant the pause lifts and is refused again inside a second. The gap
+    shrinks as :func:`succeeded` decays the refusal count, so a host that
+    starts answering is back to full speed within a handful of requests rather
+    than staying throttled forever.
+    """
+    _remaining, refusals = _state(url)
+    return pace_after(refusals)
+
+
+def pace_after(refusals: int) -> float:
+    """The gap a host earns for this many consecutive refusals.
+
+    Public because the `resting` command shows it beside the pause: a host
+    being asked slowly and a host not being asked at all are different states,
+    and only one of them used to be visible.
+    """
+    if refusals <= 0:
+        return 0.0
+    return float(min(MIN_PACE * 2 ** (refusals - 1), MAX_PACE))
+
+
+def _state(url: str) -> tuple[float, int]:
+    """(seconds still to wait, consecutive refusals), cached for a moment."""
     host = host_of(url)
     if not host:
-        return 0.0
+        return 0.0, 0
 
     now = time.monotonic()
     with _lock:
         cached = _cache.get(host)
         if cached is not None and cached[0] > now:
             remaining = cached[1]
-            return max(0.0, remaining - (CACHE_SECONDS - (cached[0] - now))) if remaining else 0.0
+            elapsed = CACHE_SECONDS - (cached[0] - now)
+            left = max(0.0, remaining - elapsed) if remaining else 0.0
+            return left, cached[2]
 
-    until = _read_until(host)
+    until, refusals = _read_row(host)
     remaining = 0.0
     if until is not None:
         remaining = max(0.0, (until - utcnow()).total_seconds())
     with _lock:
-        _cache[host] = (now + CACHE_SECONDS, remaining or None)
-    return remaining
+        _cache[host] = (now + CACHE_SECONDS, remaining or None, refusals)
+    return remaining, refusals
 
 
-def _read_until(host: str):
+def _read_row(host: str) -> tuple[datetime | None, int]:
     try:
         with session_scope() as session:
             row = session.execute(
                 select(HostCooldown).where(HostCooldown.host == host)
             ).scalar_one_or_none()
-            return as_utc(row.until) if row is not None else None
+            if row is None:
+                return None, 0
+            return as_utc(row.until), row.refusals
     except Exception as exc:  # see _unavailable: this must never break a fetch
         _unavailable(exc, "reading")
-        return None
+        return None, 0
 
 
 def refused(url: str, reason: str, retry_after: float | None = None) -> float:
@@ -186,29 +248,57 @@ def refused(url: str, reason: str, retry_after: float | None = None) -> float:
 
 
 def succeeded(url: str) -> None:
-    """Clear a host's cooldown after it answers again.
+    """Take one step back towards trusting this host.
 
     Called on every successful request, so it has to do nothing at all in the
     normal case — hence the cache check first, which is a dictionary lookup.
+
+    **One success used to delete the row outright**, and that is what produced
+    the sawtooth: eight refusals of accumulated evidence were thrown away by a
+    single photograph arriving, the next request went out at full speed, and
+    the host refused again. So a success now decays the count by one and lifts
+    the pause; the row goes only when the count reaches zero. A host that
+    refused us eight times has to answer eight times to be trusted at full
+    speed again, which on a recovering host is a few minutes rather than never.
     """
     host = host_of(url)
     if not host:
         return
     with _lock:
         cached = _cache.get(host)
-        if cached is not None and cached[1] is None and cached[0] > time.monotonic():
+        if cached is not None and cached[2] == 0 and cached[0] > time.monotonic():
             return
 
     try:
         with session_scope() as session:
-            result = session.execute(delete(HostCooldown).where(HostCooldown.host == host))
-            deleted = _rows_affected(result)
-            session.commit()
+            row = session.execute(
+                select(HostCooldown).where(HostCooldown.host == host)
+            ).scalar_one_or_none()
+            if row is None:
+                cleared, remaining = False, 0
+            elif row.refusals > 1:
+                row.refusals -= 1
+                # The pause is over -- it answered -- but the pace is not.
+                row.until = utcnow()
+                session.commit()
+                cleared, remaining = False, row.refusals
+            else:
+                session.execute(delete(HostCooldown).where(HostCooldown.host == host))
+                session.commit()
+                cleared, remaining = True, 0
     except Exception as exc:  # see _unavailable: this must never break a fetch
         _unavailable(exc, "clearing")
         return
-    if deleted:
+
+    if cleared:
         log.info("%s is answering again; cooldown cleared.", host)
+    elif remaining:
+        log.info(
+            "%s answered; easing off to one request every %.0fs (%d refusal(s) still on record).",
+            host,
+            pace_after(remaining),
+            remaining,
+        )
     _forget(host)
 
 
@@ -220,6 +310,29 @@ def active() -> list[HostCooldown]:
                 select(HostCooldown)
                 .where(HostCooldown.until > utcnow())
                 .order_by(HostCooldown.until.asc())
+            )
+            .scalars()
+            .all()
+        )
+        for row in rows:
+            session.expunge(row)
+        return list(rows)
+
+
+def tracked() -> list[HostCooldown]:
+    """Every host with a refusal still on its record, worst first.
+
+    Wider than :func:`active`, and the two answer different questions. A host
+    whose pause has lapsed but whose count has not reached zero is not being
+    *rested* — it is being asked slowly. Without this it would be invisible,
+    which is the state checkpointcharlies.com spent three days in.
+    """
+    with session_scope() as session:
+        rows = (
+            session.execute(
+                select(HostCooldown)
+                .where(HostCooldown.refusals > 0)
+                .order_by(HostCooldown.refusals.desc(), HostCooldown.host.asc())
             )
             .scalars()
             .all()

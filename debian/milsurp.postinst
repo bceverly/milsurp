@@ -166,4 +166,19 @@ esac
 
 #DEBHELPER#
 
+# --- Arm the timers -------------------------------------------------------
+# dh_installsystemd runs with --no-start, which *enables* the timers (the
+# symlink into timers.target.wants) but leaves them inactive until the next
+# boot. For the services that is deliberate -- see the comments in rules --
+# but for a .timer "started" is what arms the schedule, so without this a
+# freshly installed machine silently runs neither job until it is rebooted.
+#
+# Starting a timer costs nothing and runs no work: it registers a wakeup. The
+# units it triggers are still --no-start, so nothing scans, prunes or probes
+# during `apt install`. Persistent=true then handles a machine that was off at
+# the appointed hour.
+if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
+  deb-systemd-invoke start 'milsurp-prune.timer' 'milsurp-canary.timer' >/dev/null || true
+fi
+
 exit 0

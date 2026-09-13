@@ -159,9 +159,14 @@ class TestFetching:
         cache, _ = self.cache(self.Response(404))
         assert cache.for_url("https://shop.test/a").allows("/anything", UA)
 
-    @pytest.mark.parametrize("status", [401, 403, 500, 503])
+    @pytest.mark.parametrize("status", [429, 500, 503])
     def test_a_site_that_cannot_answer_is_left_alone(self, status):
-        """Erring the other way would let a blip switch off every restriction."""
+        """Erring the other way would let a blip switch off every restriction.
+
+        Only the statuses that mean "not now" land here. A 4xx means there is
+        no file to read, which is a different thing and is allowed -- see
+        TestAFailedFetchIsNotAnAnswer.
+        """
         cache, _ = self.cache(self.Response(status))
         assert not cache.for_url("https://shop.test/a").allows("/anything", UA)
 
@@ -231,15 +236,22 @@ class TestAFailedFetchIsNotAnAnswer:
         assert cache.for_url("https://shop.test/b").allows("/anything", UA)
         assert len(calls) == 2
 
-    @pytest.mark.parametrize("status", [401, 403, 500, 503])
+    #: The statuses that mean "not now": RFC 9309 calls 5xx unreachable, and a
+    #: 429 says the same thing in a different range.
+    NOT_NOW = [429, 500, 503]
+
+    #: The statuses that mean "there is no robots.txt here". RFC 9309 section
+    #: 2.3.1.3 calls 4xx "unavailable" and permits the crawl.
+    NO_RULES = [401, 403, 404, 410]
+
+    @pytest.mark.parametrize("status", NOT_NOW)
     def test_a_refusal_also_refuses_the_request(self, status):
         cache, _ = self.cache(self.Response(status))
         assert not cache.for_url("https://shop.test/a").allows("/anything", UA)
 
-    @pytest.mark.parametrize("status", [401, 403, 500, 503])
+    @pytest.mark.parametrize("status", NOT_NOW)
     def test_but_it_is_not_remembered_either(self, status):
-        """The J&G case: one Cloudflare 403 must not be this host's rules for
-        the next hour."""
+        """One bad minute must not be this host's rules for the next hour."""
         cache, calls = self.cache(
             self.Response(status), self.Response(200, "User-agent: *\nDisallow:\n")
         )
@@ -247,13 +259,43 @@ class TestAFailedFetchIsNotAnAnswer:
         assert cache.for_url("https://shop.test/b").allows("/anything", UA)
         assert len(calls) == 2
 
-    @pytest.mark.parametrize("status", [401, 403, 500, 503])
+    @pytest.mark.parametrize("status", NOT_NOW)
     def test_and_it_reads_as_unreadable_rather_than_as_a_rule(self, status):
         """Which is what makes the warning say "could not read robots.txt"
         instead of "robots.txt disallows" -- a difference that sent somebody
         looking for a rule that was not there."""
         cache, _ = self.cache(self.Response(status))
         assert cache.for_url("https://shop.test/a").reachable is False
+
+    @pytest.mark.parametrize("status", NO_RULES)
+    def test_a_file_that_is_not_there_restricts_nothing(self, status):
+        """401 and 403 sit here, not above, and that is a deliberate reversal.
+
+        Both cost real listings while they were treated as "off limits for
+        now". J&G Sales sit behind Cloudflare, which answered one /robots.txt
+        with 403: the whole site was denied, the scrape returned nothing and 64
+        listings were de-listed, and their robots.txt allows all of it.
+        static.wixstatic.com answers 403 permanently, which left Hunter's Lodge
+        unable to fetch the flyer its entire catalog is derived from.
+
+        The reading that a 401 or 403 means "behind a login, so private" is
+        fine for a genuinely auth-walled file and wrong for the case that
+        actually happens, which is bot management in front of a file that
+        permits everything.
+        """
+        cache, _ = self.cache(self.Response(status))
+        robots = cache.for_url("https://shop.test/a")
+        assert robots.allows("/anything", UA)
+        assert robots.reachable is True
+
+    @pytest.mark.parametrize("status", NO_RULES)
+    def test_and_that_answer_is_worth_remembering(self, status):
+        """Unlike a 5xx, this *is* an answer, so it is cached like any other
+        and the host is asked once rather than once per URL."""
+        cache, calls = self.cache(self.Response(status))
+        assert cache.for_url("https://shop.test/a").allows("/anything", UA)
+        assert cache.for_url("https://shop.test/b").allows("/anything", UA)
+        assert len(calls) == 1
 
     def test_a_file_that_was_actually_read_is_remembered(self):
         """The cache still exists, and one fetch per host per scan is the point

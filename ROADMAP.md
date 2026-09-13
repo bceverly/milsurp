@@ -2520,8 +2520,16 @@ fact.
 - **Planned** — Off-machine copies of those snapshots. Ten backups on the same
   disk as the database survive a bad UPDATE, which is what they were written
   for, but not a lost disk.
-- **Planned** — Image store housekeeping on a schedule (`prune-images` exists as
-  a CLI command but is not yet automatic).
+- **Shipped** — Image store housekeeping on a schedule. `milsurp-prune.timer`
+  runs `prune-images` nightly at 04:20 with jitter and `Persistent=true`, so a
+  machine that was off at the hour catches up rather than skipping a day.
+
+  The packaging holds the trap worth remembering: a unit belonging to package
+  `milsurp` but *not named after it* must be installed as
+  `debian/milsurp.<unit>.service`. Named `debian/milsurp-prune.service`,
+  debhelper reads it as belonging to a package called `milsurp-prune`, finds
+  none, and ships nothing — silently. Three attempts went into fixing the
+  *enablement* before anyone checked whether the files were in the package.
 - **Planned** — Docker Compose deployment as an alternative to the bare-metal
   installer.
 
@@ -2612,8 +2620,60 @@ more than one machine still wants the queue below.
 
 - **Planned** — Recorded HTTP fixtures for every scraper, so parsing can be
   tested without touching a vendor's site.
-- **Planned** — A nightly canary run against each live site that fails loudly
-  when a vendor's markup changes.
+- **Shipped** — A nightly canary against every enabled site, which fails loudly
+  when a vendor stops answering *or* when its markup moves. `milsurp canary`,
+  `make canary`, and `milsurp-canary.timer` at 06:10.
+
+  The probe is the real scrape, stopped after three listings. A scraper is a
+  generator, so consuming three and breaking closes it where it stands — which
+  exercises robots.txt, the session's identity, the politeness delay, the
+  catalog fetch and the parser for about a page of work per shop. Twenty-seven
+  shops took 100 seconds. It writes nothing: a canary that stored listings
+  would be a scan, and an abandoned scan de-lists everything it never reached.
+
+  The early stop only helps a scraper that yields as it reads. Royal Tiger
+  drives all of its sections through Chrome and collects them into a dict
+  *before* its first yield, so a probe there cannot reach listing one until the
+  whole grid pass is done — 507s measured, against real scans of 512–572s. It
+  gets its own 720s budget and the unit gets 2G rather than 768M, because a
+  canary killed by its own stopwatch or its own cgroup reports a working site
+  as broken, and nothing teaches somebody to ignore an alarm faster.
+
+  Five verdicts rather than one "failed", because the repairs are different
+  files. `REFUSED` is a conversation with the vendor — an address, an identity,
+  a rate. `EMPTY` is our parser being wrong about their page. `RESTING` is our
+  own cooldown register. `TIMEOUT` and `BROKE` are the rest.
+
+  Why it earns a place at all: the failure is silent. A vendor that starts
+  refusing us and a vendor whose markup moved both end in a scan that stores
+  nothing, and that is indistinguishable from a shop with empty shelves. Six of
+  the twenty-eight answer 403 to a request they dislike, and one datacenter IP
+  earned it from all six at once.
+
+  The first sweep found two real problems nothing else had reported, both since
+  fixed:
+
+  **The cooldown sawtooth.** `checkpoint-charlies` had failed three days
+  running, at `refusals=8` where every refusal sets the one-hour ceiling. The
+  cause was that a success *deleted* the register row outright, so eight
+  refusals of accumulated evidence were erased by one photograph arriving — and
+  the pace learned from a 429 lived in a per-process dict, so the next
+  `fetch-photos` opened at full speed and was refused within the second. Now a
+  success decays the count by one and lifts only the pause, and `pace_for()`
+  turns whatever is left into a gap every fetcher honors, across processes.
+  That is the half of "the pace a scan learns used to die with the process"
+  that the original stop/go register never covered. Recovery went from never to
+  about a minute.
+
+  **robots.txt answering 403.** `hunters-lodge` keeps its whole catalog in one
+  flyer image on `static.wixstatic.com`, which answers 403 to `/robots.txt`
+  permanently — so the flyer could never be fetched, masked only because the
+  unchanged-flyer short circuit returned before trying. 401 and 403 now mean
+  "no readable rules, so none to honor", per RFC 9309 §2.3.1.3, instead of "off
+  limits for now". This is the second time that reading cost listings: one
+  Cloudflare 403 on J&G Sales had already de-listed 64 of them.
+
+  After both, 26 of 27 answer, and the 27th recovers on its own inside a minute.
 - **Planned** — Visual regression tests on the screenshots `make screenshots`
   already produces.
 - **Planned** — Load testing of the item list endpoint at realistic row counts.

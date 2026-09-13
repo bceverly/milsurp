@@ -670,7 +670,7 @@ def load_config(path: Path | None = None, mode: str | None = None) -> Config:
     sel = _section(scr, "selenium")
     defaults = ScrapingConfig()
     scraping = ScrapingConfig(
-        user_agent=str(scr.get("user_agent", defaults.user_agent)),
+        user_agent=str(scr.get("user_agent") or defaults.user_agent),
         obey_robots=bool(scr.get("obey_robots", True)),
         request_timeout=int(scr.get("request_timeout", 30)),
         request_delay=float(scr.get("request_delay", 1.0)),

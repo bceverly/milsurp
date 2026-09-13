@@ -347,7 +347,7 @@ class ImageStore:
             return None, reason, False
 
         for attempt in range(PHOTO_ATTEMPTS):
-            self._wait_for(host)
+            self._wait_for(host, source_url)
             try:
                 response = session.get(
                     source_url,
@@ -390,9 +390,17 @@ class ImageStore:
         cooldown.refused(source_url, f"{TOO_MANY_REQUESTS} on photographs")
         return None, reason, False
 
-    def _wait_for(self, host: str) -> None:
-        """Honor the pace a host has already asked for."""
-        pace = self._slowed.get(host)
+    def _wait_for(self, host: str, url: str) -> None:
+        """Honor the pace a host has already asked for.
+
+        Two sources, and the second is the one that matters across runs: what
+        *this* process learned from a 429, and what the shared register
+        remembers from any earlier one. A `fetch-photos` starting with an empty
+        _slowed used to resume at full speed the moment a cooldown lapsed and
+        be refused within the second -- the loop that kept checkpointcharlies
+        .com refused for three days.
+        """
+        pace = max(self._slowed.get(host, 0.0), cooldown.pace_for(url))
         if not pace:
             return
         since = time.monotonic() - self._last_request_at.get(host, 0.0)

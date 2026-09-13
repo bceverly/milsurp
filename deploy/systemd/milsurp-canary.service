@@ -1,0 +1,86 @@
+# =============================================================================
+# Milsurp Monitor — the standing check that the shops still answer.
+#
+# Fetches the first few listings from every enabled site through the real
+# scraper — robots.txt, the session's identity, the politeness delay, the
+# catalog parse — and mails the admins about any that produced none.
+#
+# It exists because the failure it looks for is silent. A vendor that starts
+# refusing us and a vendor whose markup moved both end in a scan that stores
+# nothing, and a scan that stores nothing is indistinguishable from a shop that
+# sold out. Six of the twenty-eight will answer 403 to a request they dislike,
+# and one datacenter IP was enough to earn it from all six at once.
+#
+# A timer rather than something the application schedules, for the reason
+# milsurp-prune.service gives: an in-process counter resets on every restart,
+# so a machine rebooted daily would never reach a daily job.
+# =============================================================================
+
+[Unit]
+Description=Milsurp Monitor — check every shop still answers
+Documentation=https://github.com/bceverly/milsurp
+# Needs the network to ask, and the database to know which sites are enabled.
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=milsurp
+Group=milsurp
+WorkingDirectory=/opt/milsurp
+
+Environment=MILSURP_ENV=production
+Environment=MILSURP_CONFIG=/etc/milsurp/config.yaml
+Environment=PYTHONUNBUFFERED=1
+
+# --email is the loud part. The non-zero exit marks the unit failed and puts a
+# line in the journal, which is a fine record and a poor alarm: nobody reads
+# the journal of a job that usually passes.
+ExecStart=/opt/milsurp/.venv/bin/python /opt/milsurp/backend/cli.py canary --email
+
+# Not SuccessExitStatus=1. A shop going quiet *should* leave this unit in a
+# failed state, so `systemctl list-units --failed` and any monitoring that
+# watches it agree with the email.
+
+# --- Hardening -------------------------------------------------------------
+# Same posture as the other units. This one only reads the database and makes
+# outbound requests; it writes nothing but the host cooldown register.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+ProtectProc=invisible
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+RemoveIPC=true
+# The cooldown register lives here. A probe that earns a 429 records it, so the
+# next real scan honors the same rest the canary was told to take — and without
+# this the register is unwritable and that lesson is thrown away.
+ReadWritePaths=/etc/milsurp
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+# Worst case is twenty-seven shops at the 90s ceiling plus the one Selenium
+# site at its own 720s, which is a little under an hour. A healthy sweep
+# is nearer three. This is the runaway guard, not a target -- but it has to sit
+# above the arithmetic, or the guard fires before the budgets do and every slow
+# night reports a failure the shops had nothing to do with.
+TimeoutStartSec=75min
+# 768M was the figure for a sweep that only parses HTML, and it is wrong: Royal
+# Tiger needs a headless Chrome, which the main unit is given 3G for. A canary
+# killed by its own cgroup would report the one Selenium site as BROKE every
+# night, which is the same crying-wolf failure as too short a budget.
+MemoryMax=2G
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=milsurp-canary

@@ -38,6 +38,11 @@ CACHE_SECONDS = 3600.0
 #: past this is either a mistake or an attempt to make us hold it in memory.
 MAX_BYTES = 512_000
 
+#: Declared here rather than imported: this module deliberately depends on
+#: nothing but the standard library, and image_store -- which owns the other
+#: copy -- imports the scraper stack that imports this.
+TOO_MANY_REQUESTS = 429
+
 
 @dataclass(frozen=True)
 class Rule:
@@ -261,24 +266,48 @@ class RobotsCache:
             return Robots.denying_everything(reachable=False)
 
         status = getattr(response, "status_code", 0)
-        if status in (401, 403) or 500 <= status < 600:
-            # Refused or broken, which is not an answer either -- so it is
-            # handled exactly like a dropped connection: the request that
-            # provoked it is still refused, and the refusal is not remembered.
-            #
-            # It used to be remembered, on the reading that a 401 or 403 means
-            # the rules are behind a login and that is no invitation to crawl.
-            # That reading is fine for a genuinely auth-walled file and quite
-            # wrong for the common case: J&G Sales sit behind Cloudflare, whose
-            # bot management answered one /robots.txt with a 403 -- and that
-            # single response denied the whole site for the cache's full hour.
-            # Every section of their scan warned "robots.txt disallows", the
-            # scrape returned nothing, and 64 listings were de-listed. Their
-            # robots.txt allows all of it.
+        if status == TOO_MANY_REQUESTS or 500 <= status < 600:
+            # "Come back later" and "we are broken" are not answers about what
+            # is permitted, so they are handled exactly like a dropped
+            # connection: the request that provoked it is refused, and the
+            # refusal is not remembered. RFC 9309 calls 5xx "unreachable" and
+            # says a crawler must then assume complete disallow. 429 is not
+            # 5xx, but it means the same thing here -- ask again later -- and
+            # the host cooldown register is already the machinery for that.
             log.warning("%s answered %s; treating the site as off limits for now.", url, status)
             return Robots.denying_everything(reachable=False)
         if status != 200:
-            # 404 and friends: no robots.txt, so nothing is restricted.
+            # Every other 4xx, including 401 and 403: there is no readable
+            # robots.txt, so there are no stated rules to honor. RFC 9309
+            # section 2.3.1.3 calls this "unavailable" and says the crawler may
+            # then access any resource on the server, which is also what the
+            # major crawlers do in practice.
+            #
+            # 401 and 403 used to land in the branch above, on the reading that
+            # a file behind a login is no invitation to crawl. That reading is
+            # fine for a genuinely auth-walled file and wrong for the case that
+            # actually occurs, which is bot management in front of a file that
+            # permits everything. It cost twice:
+            #
+            #   * J&G Sales sit behind Cloudflare, which answered one
+            #     /robots.txt with 403. That single response denied the whole
+            #     site for the cache's full hour: every section of the scan
+            #     warned "robots.txt disallows", the scrape returned nothing,
+            #     and 64 listings were de-listed. Their robots.txt allows all
+            #     of it. The fix then was to stop *remembering* the refusal,
+            #     which helped and did not cure it.
+            #
+            #   * static.wixstatic.com answers 403 to /robots.txt permanently.
+            #     Hunter's Lodge keeps its whole catalog in one flyer image on
+            #     that CDN, so the scraper could never fetch it -- masked only
+            #     because the flyer had not changed and the unchanged-flyer
+            #     short circuit returned before trying.
+            #
+            # A host that does not want to be crawled still has every ordinary
+            # means of saying so, starting with refusing the requests
+            # themselves, which is a thing this code already honors.
+            if status in (401, 403):
+                log.info("%s answered %s, so there are no readable rules; proceeding.", url, status)
             return Robots.allowing_everything()
 
         text = getattr(response, "text", "") or ""

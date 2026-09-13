@@ -78,6 +78,88 @@ class TestRecordingARefusal:
         assert cooldown.paused_for(URL) >= before - 5
 
 
+class TestTrustIsRebuiltSlowly:
+    """The sawtooth, and why one good answer is not enough to undo eight bad ones.
+
+    checkpointcharlies.com spent three days in this loop: the photo fetcher
+    earned a 429, the register paused the host for an hour, the pause lapsed, a
+    fresh process with an empty pace table asked at full speed, and the host
+    refused again within the second. Every scan in between died on a cooldown
+    it had just re-earned, and reported FAILED for a reason that had nothing to
+    do with the vendor's markup.
+
+    Two properties close it: a success decays the count rather than erasing it,
+    and what is left is expressed as a *pace* that survives the process.
+    """
+
+    def _refuse(self, times: int) -> None:
+        for _ in range(times):
+            cooldown.refused(URL, "429 on photographs")
+            cooldown._cache.clear()
+
+    def test_a_success_steps_down_one_rung_not_all_of_them(self):
+        self._refuse(4)
+        assert cooldown.pace_for(URL) == cooldown.pace_after(4)
+
+        cooldown.succeeded(URL)
+        cooldown._cache.clear()
+        assert cooldown.pace_for(URL) == cooldown.pace_after(3)
+
+    def test_and_the_pause_lifts_even_though_the_pace_remains(self):
+        """It answered, so there is no reason to keep refusing to ask -- only a
+        reason to ask slowly."""
+        self._refuse(4)
+        assert cooldown.paused_for(URL) > 0
+
+        cooldown.succeeded(URL)
+        cooldown._cache.clear()
+        assert cooldown.paused_for(URL) == 0.0
+        assert cooldown.pace_for(URL) > 0
+
+    def test_enough_successes_and_the_record_goes_entirely(self):
+        self._refuse(3)
+        for _ in range(3):
+            cooldown.succeeded(URL)
+            cooldown._cache.clear()
+        assert cooldown.pace_for(URL) == 0.0
+        assert cooldown.active() == []
+
+    def test_a_host_that_never_refused_is_never_paced(self):
+        """The common case, and the one that has to cost nothing."""
+        assert cooldown.pace_for(URL) == 0.0
+
+    def test_the_pace_grows_with_the_refusals_and_stops_at_the_ceiling(self):
+        assert cooldown.pace_after(0) == 0.0
+        assert cooldown.pace_after(1) == cooldown.MIN_PACE
+        assert cooldown.pace_after(2) == cooldown.MIN_PACE * 2
+        assert cooldown.pace_after(99) == cooldown.MAX_PACE
+
+    def test_a_success_on_a_host_with_no_record_does_nothing(self):
+        cooldown.succeeded(OTHER)
+        assert cooldown.active() == []
+
+
+class TestTheLearnedPaceOutlivesTheProcess:
+    """The half of the register's own promise that the original did not keep.
+
+    Its docstring says the pace a scan learns used to die with the process. The
+    stop/go decision was persisted; the *speed* was not, and lived in a
+    per-process dict that a new `fetch-photos` started empty.
+    """
+
+    def test_both_fetchers_ask_the_register_for_it(self):
+        """Source-inspected, because the failure is silent: a fetcher that
+        forgot to ask would look exactly like a fetcher whose host is healthy,
+        right up until the vendor refuses it again."""
+        import inspect
+
+        from app.scrapers import base
+        from app.services import image_store
+
+        assert "cooldown.pace_for(url)" in inspect.getsource(base.ScrapeContext._delay_for)
+        assert "cooldown.pace_for(url)" in inspect.getsource(image_store.ImageStore._wait_for)
+
+
 class TestClearing:
     def test_a_host_that_answers_again_is_released(self):
         cooldown.refused(URL, "429")

@@ -9,6 +9,7 @@ milsurp users                    list accounts
 milsurp adduser NAME EMAIL       create an account (prompts for a password)
 milsurp passwd NAME              change an account's password
 milsurp digest [--user NAME]     send digests that are due, or one now
+milsurp canary                   check every shop still answers and still parses
 milsurp prune-images             delete image files no listing references
 milsurp refetch-details          re-read product pages on the next scan
 """
@@ -49,9 +50,11 @@ from app.security import (
 from app.services import (
     armory,
     bootstrap,
+    canary,
     classify,
     crosscatalog,
     discovery,
+    mailer,
     manufacturers,
     scan_service,
 )
@@ -403,17 +406,23 @@ def cmd_resting(args: argparse.Namespace) -> int:
         print(f"Lifted {lifted} pause(s) on {target}.")
         return 0
 
-    rows = cooldown.active()
+    rows = cooldown.tracked()
     if not rows:
         print("No hosts are being rested; everything is fetchable.")
         return 0
 
+    # Two columns because there are two states. PAUSED is "do not ask at all,
+    # for this long". PACE is "ask, but leave this much between requests" --
+    # which is what a host gets while it works its refusals back down to zero,
+    # and what used to be invisible because only the pause was recorded.
     now = utcnow()
-    print(f"{'HOST':<34} {'FOR':>8}  {'TIMES':>5}  REASON")
+    print(f"{'HOST':<34} {'PAUSED':>8} {'PACE':>6}  {'TIMES':>5}  REASON")
     for row in rows:
-        remaining = (as_utc(row.until) - now).total_seconds()
+        remaining = max(0.0, (as_utc(row.until) - now).total_seconds())
+        pace = cooldown.pace_after(row.refusals)
         print(
-            f"{row.host[:34]:<34} {_duration(remaining):>8}  {row.refusals:>5}  {row.reason or '—'}"
+            f"{row.host[:34]:<34} {_duration(remaining) if remaining else '—':>8} "
+            f"{f'{pace:.0f}s' if pace else '—':>6}  {row.refusals:>5}  {row.reason or '—'}"
         )
     print("\nRun 'cli.py resting --clear' to lift these once the cause is fixed.")
     return 0
@@ -444,8 +453,7 @@ def cmd_reclassify(args: argparse.Namespace) -> int:
     unknown = wanted - set(RECOMPUTABLE)
     if unknown:
         print(
-            f"Unknown field(s): {', '.join(sorted(unknown))}. "
-            f"Valid: {', '.join(RECOMPUTABLE)}.",
+            f"Unknown field(s): {', '.join(sorted(unknown))}. Valid: {', '.join(RECOMPUTABLE)}.",
             file=sys.stderr,
         )
         return 1
@@ -839,6 +847,125 @@ def cmd_prune_images(_args: argparse.Namespace) -> int:
     return 0
 
 
+_CANARY_MARK = {
+    canary.Verdict.OK: "ok",
+    canary.Verdict.REFUSED: "REFUSED",
+    canary.Verdict.RESTING: "RESTING",
+    canary.Verdict.EMPTY: "EMPTY",
+    canary.Verdict.TIMEOUT: "TIMEOUT",
+    canary.Verdict.BROKE: "BROKE",
+}
+
+
+def _canary_report(results: list[canary.Probe]) -> str:
+    """The failures, as plain text, for a terminal and for an email body."""
+    bad = canary.failures(results)
+    lines = [
+        f"{len(bad)} of {len(results)} shops did not answer with listings.",
+        "",
+    ]
+    for probe in bad:
+        status = f" HTTP {probe.status}" if probe.status else ""
+        lines.append(f"  {probe.name} ({probe.slug}) -- {probe.verdict.value}{status}")
+        if probe.detail:
+            lines.append(f"      {probe.detail}")
+    healthy = sorted(probe.slug for probe in results if probe.healthy)
+    if healthy:
+        lines.append("")
+        lines.append("Healthy: " + ", ".join(healthy))
+    return "\n".join(lines)
+
+
+def _mail_canary(results: list[canary.Probe]) -> None:
+    """Tell the admins. Never raises: a canary that dies in its own alerting
+    reports a clean sweep by exiting the same way a clean sweep would."""
+    bad = canary.failures(results)
+    text = _canary_report(results)
+    subject = f"Milsurp canary: {len(bad)} of {len(results)} shops not answering"
+    body = (
+        "<pre style='font:13px/1.5 ui-monospace,Menlo,Consolas,monospace'>"
+        + (text.replace("&", "&amp;").replace("<", "&lt;"))
+        + "</pre>"
+    )
+    with session_scope() as session:
+        admins = (
+            session.execute(
+                select(User).where(User.role == UserRole.ADMIN, User.is_active.is_(True))
+            )
+            .scalars()
+            .all()
+        )
+        addresses = [user.email for user in admins if user.email]
+    if not addresses:
+        print("No active admin has an email address; nothing sent.", file=sys.stderr)
+        return
+    for address in addresses:
+        try:
+            mailer.send_html(address, subject, body, text_body=text)
+        except mailer.MailError as exc:
+            print(f"Could not mail {address}: {exc}", file=sys.stderr)
+        else:
+            print(f"Reported to {address}.")
+
+
+def cmd_canary(args: argparse.Namespace) -> int:
+    """Probe every enabled shop and exit non-zero if any went quiet.
+
+    Exits 1 on a failure so a systemd timer marks the unit failed and the
+    journal records it, and mails the admins when asked, because a failed
+    oneshot nobody looks at is not "loudly".
+    """
+    config = get_config()
+    with session_scope() as session:
+        query = select(Site).order_by(Site.name)
+        if args.site:
+            query = query.where(Site.slug == args.site)
+        elif not args.all:
+            # Enabled only, by default: the canary's question is whether what
+            # this machine actually scrapes is still working. A shop nobody
+            # scans cannot go quiet in a way anyone would notice.
+            query = query.where(Site.enabled.is_(True))
+        sites = session.execute(query).scalars().all()
+        wanted = [(site.slug, site.name) for site in sites]
+    if not wanted:
+        if args.site:
+            print(f"No site with slug {args.site!r}.", file=sys.stderr)
+        else:
+            print("No sites are enabled. Use --all to check them anyway.", file=sys.stderr)
+        return 1
+
+    width = max(len(slug) for slug, _ in wanted)
+
+    def show(probe: canary.Probe) -> None:
+        status = f" HTTP {probe.status}" if probe.status else ""
+        note = f"  {probe.detail}" if probe.detail and not probe.healthy else ""
+        print(
+            f"  {probe.slug:<{width}}  {_CANARY_MARK[probe.verdict]:<8} "
+            f"{probe.items:>2} in {probe.seconds:5.1f}s{status}{note}",
+            flush=True,
+        )
+
+    results = canary.sweep(
+        config,
+        [slug for slug, _ in wanted],
+        want=args.items,
+        budget=args.budget,
+        skip_browser=args.skip_browser,
+        progress=show,
+    )
+
+    bad = canary.failures(results)
+    print()
+    if not bad:
+        shops = "shop" if len(results) == 1 else "shops"
+        print(f"All {len(results)} {shops} answered with listings.")
+        return 0
+    print(_canary_report(results))
+    if args.email:
+        _mail_canary(results)
+    return 1
+
+
 def cmd_rebuild_thumbnails(args: argparse.Namespace) -> int:
     """Regenerate thumbnails from the originals already on disk.
 
@@ -1059,6 +1186,49 @@ def _add_armory_commands(sub) -> None:
     armory_cmd.set_defaults(func=cmd_armory)
 
 
+def _add_scheduled_parsers(sub: argparse._SubParsersAction) -> None:
+    """The commands a timer runs rather than a person: housekeeping and the
+    canary. Grouped out of build_parser to keep it under the statement
+    ceiling, and grouped *together* because these two are what
+    debian/milsurp.milsurp-*.timer actually invoke.
+    """
+    sub.add_parser("prune-images", help="Delete image files no listing references.").set_defaults(
+        func=cmd_prune_images
+    )
+
+    canary_cmd = sub.add_parser(
+        "canary",
+        help="Check every enabled shop still answers and still parses; exit 1 if any does not.",
+    )
+    canary_cmd.add_argument("--site", help="Check one slug instead of every enabled site.")
+    canary_cmd.add_argument(
+        "--all",
+        action="store_true",
+        help="Include sites that are registered but disabled.",
+    )
+    canary_cmd.add_argument(
+        "--items",
+        type=int,
+        default=canary.DEFAULT_WANT,
+        help=f"Listings to see before a shop counts as healthy (default {canary.DEFAULT_WANT}).",
+    )
+    canary_cmd.add_argument(
+        "--budget",
+        type=float,
+        default=canary.DEFAULT_BUDGET,
+        help=f"Seconds to allow each shop (default {canary.DEFAULT_BUDGET:.0f}).",
+    )
+    canary_cmd.add_argument(
+        "--skip-browser",
+        action="store_true",
+        help="Leave out sites needing Selenium, for a host without Chrome.",
+    )
+    canary_cmd.add_argument(
+        "--email", action="store_true", help="Mail the admins when anything failed."
+    )
+    canary_cmd.set_defaults(func=cmd_canary)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="milsurp",
@@ -1164,9 +1334,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     thumbs.set_defaults(func=cmd_rebuild_thumbnails)
 
-    sub.add_parser("prune-images", help="Delete image files no listing references.").set_defaults(
-        func=cmd_prune_images
-    )
+    _add_scheduled_parsers(sub)
 
     return parser
 

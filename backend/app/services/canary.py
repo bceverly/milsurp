@@ -1,0 +1,278 @@
+"""A standing check that every shop still answers us, and still parses.
+
+Two different failures look identical from the outside, and neither one raises
+anything: a vendor that starts refusing our requests, and a vendor whose markup
+moved under a working request. Both end in a scan that stores no listings, and
+a scan that stores no listings is indistinguishable from a shop that has sold
+out of everything. Nothing in the system would ever say so.
+
+That is not hypothetical. Six of the twenty-eight vendors -- ancestryguns,
+apexgunparts, centerfiresystems, collectorsfirearms, ima-usa and jgsales --
+answer 403 to a request they dislike, and a datacenter IP was enough to earn it
+from all of them at once. A fifth of the catalog can go quiet in an afternoon.
+
+**The probe is the real scrape, stopped early.** Not a HEAD of the home page,
+which proves only that a web server is running, and not a recorded fixture,
+which proves only that yesterday's HTML still parses. A scraper is a generator
+(see :meth:`SiteScraper.scrape`), so consuming three listings and walking away
+exercises the whole path -- robots.txt, the session's identity, the politeness
+delay, the catalog fetch, the parser -- and then closes the generator. Whatever
+a real scan would hit, this hits first, in about a page's worth of work.
+
+What it deliberately does *not* do is write anything. No listings are stored,
+no ``scans`` row is opened, nothing is de-listed. A canary that mutated the
+catalog would be a scan, and a half-finished scan that marked every listing it
+never reached as gone is precisely the accident :meth:`scrape` warns about.
+"""
+
+from __future__ import annotations
+
+import enum
+import time
+from collections.abc import Callable, Iterable, Sequence
+from dataclasses import dataclass
+
+from ..config import Config
+from ..scrapers import get_scraper
+from ..scrapers.base import (
+    Disallowed,
+    HostResting,
+    ScrapeCanceled,
+    ScrapeContext,
+    ScrapeError,
+    SiteScraper,
+    vendors_answer,
+)
+
+#: Listings to see before calling a shop healthy. One would do -- the question
+#: is "did anything parse at all" -- but a catalog whose first card is a banner
+#: or a sold-out placeholder would answer it by accident, and three costs
+#: nothing extra because they are all on the page already fetched.
+DEFAULT_WANT = 3
+
+#: Seconds a single shop may take before the probe gives up on it. Generous on
+#: purpose: this is a ceiling that catches a hang, not a performance budget.
+#: Sixteen-minute catalogs exist, and the point is to stop long before one.
+DEFAULT_BUDGET = 90.0
+
+#: What a scraper needing a headless browser gets instead. Applied per scraper
+#: rather than raising the default, which would let a genuinely hung HTTP shop
+#: sit there eight times as long.
+#:
+#: Twelve minutes looks absurd next to the one-to-five seconds every other shop
+#: takes, and it is the honest number. The early stop only helps a scraper that
+#: yields as it reads; Royal Tiger drives all of its sections through Chrome
+#: and collects them into a dict *before* the first yield, so a probe cannot
+#: reach listing one until the whole grid pass is done. Real scans there run
+#: 512-572s. A budget under that reports a timeout every night for a site whose
+#: scans succeed -- which is the canary crying wolf about its own stopwatch,
+#: and the fastest way to teach somebody to ignore it.
+BROWSER_BUDGET = 720.0
+
+
+class Verdict(str, enum.Enum):
+    """What the probe found. Only ``OK`` is a pass.
+
+    ``REFUSED`` and ``EMPTY`` are separated because they need different
+    repairs and the distinction is invisible in the outcome. Refused is a
+    conversation with the vendor -- an address, an identity, a rate. Empty is
+    our parser being wrong about their page. Reporting both as "failed" would
+    send whoever reads it to the wrong file.
+
+    ``RESTING`` is the one that is our own doing: the host refused us at some
+    point, the cooldown register put it in the penalty box, and nothing has
+    asked it since. The first sweep this was run found checkpoint-charlies had
+    been failing that way for three consecutive days, each scan dying on the
+    cooldown rather than on anything the vendor did that morning. Calling that
+    BROKE would send someone to read the scraper, which is fine.
+    """
+
+    OK = "ok"
+    REFUSED = "refused"
+    RESTING = "resting"
+    EMPTY = "empty"
+    TIMEOUT = "timeout"
+    BROKE = "broke"
+
+    @property
+    def healthy(self) -> bool:
+        return self is Verdict.OK
+
+
+@dataclass(frozen=True)
+class Probe:
+    """One shop's answer."""
+
+    slug: str
+    name: str
+    verdict: Verdict
+    items: int
+    seconds: float
+    #: The HTTP status behind a REFUSED, where there was one.
+    status: int | None = None
+    #: One line a human can act on. Empty when there is nothing to say.
+    detail: str = ""
+
+    @property
+    def healthy(self) -> bool:
+        return self.verdict.healthy
+
+
+def probe(  # noqa: PLR0911 - one return per verdict, which is the whole shape
+    config: Config,
+    scraper: SiteScraper,
+    *,
+    want: int = DEFAULT_WANT,
+    budget: float = DEFAULT_BUDGET,
+) -> Probe:
+    """Fetch the first few listings from one shop and report what happened.
+
+    Never raises. A canary that can itself fail on shop three and take the
+    remaining twenty-five with it is worse than no canary, because the sweep
+    would report a partial picture as if it were the whole one.
+    """
+    started = time.monotonic()
+    deadline = started + budget
+    # needs_detail=False keeps the probe on the catalog page. A scraper is free
+    # to skip its per-listing detail fetches when nobody needs them, which is
+    # what turns "read the whole shop" into "read one page". The catalog parse
+    # is the part that breaks when markup moves, and it is the part this reads.
+    ctx = ScrapeContext(
+        config,
+        should_stop=lambda: time.monotonic() > deadline,
+        needs_detail=lambda _key: False,
+    )
+
+    seen = 0
+    try:
+        for _item in scraper.scrape(ctx):
+            seen += 1
+            if seen >= want or time.monotonic() > deadline:
+                break
+    except ScrapeCanceled:
+        # Our own doing: should_stop() is how the budget is enforced, and a
+        # scraper that honors it raises this. Reporting it as BROKE would blame
+        # the vendor for our stopwatch -- which is exactly what royal-tiger,
+        # the one Selenium site, did on its first nightly.
+        return _probe(
+            scraper,
+            Verdict.TIMEOUT,
+            seen,
+            started,
+            detail=f"gave up after {budget:.0f}s",
+        )
+    except HostResting as exc:
+        # Our own register, not the vendor's answer: the cooldown is why we did
+        # not ask. Caught before ScrapeError because it is a subclass of one.
+        return _probe(scraper, Verdict.RESTING, seen, started, detail=str(exc))
+    except Disallowed as exc:
+        # robots.txt is a refusal like any other from the canary's point of
+        # view: the listings do not arrive. Whether the file said no or could
+        # not be read changes the repair, so exc's own wording is kept.
+        return _probe(scraper, Verdict.REFUSED, seen, started, detail=str(exc))
+    except ScrapeError as exc:
+        status = getattr(exc, "status", None)
+        # VENDOR_ANSWERS -- 401/403/404/410 -- is the shop stating a policy
+        # rather than something breaking. That is exactly the six-vendor case.
+        verdict = Verdict.REFUSED if vendors_answer(exc) else Verdict.BROKE
+        return _probe(scraper, verdict, seen, started, status=status, detail=str(exc))
+    except Exception as exc:  # deliberate: see the docstring -- this never raises
+        return _probe(scraper, Verdict.BROKE, seen, started, detail=f"{type(exc).__name__}: {exc}")
+
+    if seen:
+        return _probe(scraper, Verdict.OK, seen, started)
+    if time.monotonic() > deadline:
+        return _probe(
+            scraper,
+            Verdict.TIMEOUT,
+            seen,
+            started,
+            detail=f"nothing parsed within {budget:.0f}s",
+        )
+    # The quiet one. The shop answered, the scrape ran to the end, and not one
+    # listing came out of it. Either they really are empty or we no longer know
+    # how to read them, and only a human can tell which.
+    return _probe(
+        scraper, Verdict.EMPTY, seen, started, detail="the scrape finished and parsed nothing"
+    )
+
+
+def _probe(
+    scraper: SiteScraper,
+    verdict: Verdict,
+    items: int,
+    started: float,
+    *,
+    status: int | None = None,
+    detail: str = "",
+) -> Probe:
+    return Probe(
+        slug=scraper.slug,
+        name=scraper.name or scraper.slug,
+        verdict=verdict,
+        items=items,
+        seconds=time.monotonic() - started,
+        status=status,
+        detail=detail,
+    )
+
+
+def sweep(
+    config: Config,
+    slugs: Sequence[str],
+    *,
+    want: int = DEFAULT_WANT,
+    budget: float = DEFAULT_BUDGET,
+    skip_browser: bool = False,
+    progress: Callable[[Probe], None] | None = None,
+) -> list[Probe]:
+    """Probe each slug in turn, in the order given.
+
+    Sequential rather than parallel, and that is deliberate: the politeness
+    delay and the robots cache are per-context, so twenty-eight threads would
+    be twenty-eight simultaneous strangers arriving at shops that already
+    dislike being crawled. The whole sweep is about a page per vendor.
+    """
+    results: list[Probe] = []
+    for slug in slugs:
+        scraper = get_scraper(slug)
+        if scraper is None:
+            results.append(
+                Probe(
+                    slug=slug,
+                    name=slug,
+                    verdict=Verdict.BROKE,
+                    items=0,
+                    seconds=0.0,
+                    detail="no scraper is registered for this slug",
+                )
+            )
+            continue
+        if skip_browser and scraper.requires_browser:
+            continue
+        allowance = max(budget, BROWSER_BUDGET) if scraper.requires_browser else budget
+        result = probe(config, scraper, want=want, budget=allowance)
+        results.append(result)
+        if progress is not None:
+            progress(result)
+    return results
+
+
+def failures(results: Iterable[Probe]) -> list[Probe]:
+    """The unhealthy probes, worst first.
+
+    Ordered so the top of a report is the thing to read. REFUSED outranks
+    EMPTY because a refusal is usually one cause behind many rows -- an
+    address, an identity -- while an empty parse is one shop's own markup.
+    """
+    rank = {
+        Verdict.REFUSED: 0,
+        Verdict.BROKE: 1,
+        Verdict.RESTING: 2,
+        Verdict.TIMEOUT: 3,
+        Verdict.EMPTY: 4,
+    }
+    return sorted(
+        (r for r in results if not r.healthy),
+        key=lambda r: (rank.get(r.verdict, 9), r.name.lower()),
+    )

@@ -78,6 +78,11 @@ check "prune timer installed"             '[ -f /usr/lib/systemd/system/milsurp-
 check "prune timer enabled at boot"       'ls /etc/systemd/system/timers.target.wants/ 2>/dev/null | grep -q milsurp-prune.timer'
 check "prune service NOT enabled alone"   '! ls /etc/systemd/system/multi-user.target.wants/ 2>/dev/null | grep -q milsurp-prune.service'
 check "prune timer is daily + persistent" 'grep -q "OnCalendar=" /usr/lib/systemd/system/milsurp-prune.timer && grep -q "Persistent=true" /usr/lib/systemd/system/milsurp-prune.timer'
+check "canary service installed"          '[ -f /usr/lib/systemd/system/milsurp-canary.service ]'
+check "canary timer installed"            '[ -f /usr/lib/systemd/system/milsurp-canary.timer ]'
+check "canary timer enabled at boot"      'ls /etc/systemd/system/timers.target.wants/ 2>/dev/null | grep -q milsurp-canary.timer'
+check "canary service NOT enabled alone"  '! ls /etc/systemd/system/multi-user.target.wants/ 2>/dev/null | grep -q milsurp-canary.service'
+check "canary timer is daily + persistent" 'grep -q "OnCalendar=" /usr/lib/systemd/system/milsurp-canary.timer && grep -q "Persistent=true" /usr/lib/systemd/system/milsurp-canary.timer'
 check "nginx templates installed"         '[ -f /usr/share/milsurp/nginx/milsurp.conf ]'
 check "venv python runs"                  '/opt/milsurp/.venv/bin/python -c "import sys; sys.exit(0)"'
 
@@ -95,6 +100,15 @@ check "schema is at the Alembic head" \
 # the first night it fired.
 check "prune-images runs on an empty store" \
   'su -s /bin/sh milsurp -c "MILSURP_ENV=production /opt/milsurp/.venv/bin/python /opt/milsurp/backend/cli.py prune-images"'
+
+# The canary makes outbound requests, so the container is not asked to run a
+# sweep -- a build host with no egress would fail a check about packaging. What
+# is checked is that the command exists and can read the site list, which is
+# where a missing import or an unregistered subcommand would show up.
+check "canary command is wired up" \
+  'su -s /bin/sh milsurp -c "MILSURP_ENV=production /opt/milsurp/.venv/bin/python /opt/milsurp/backend/cli.py canary --help" >/dev/null'
+check "canary reports no enabled sites rather than crashing" \
+  'su -s /bin/sh milsurp -c "MILSURP_ENV=production /opt/milsurp/.venv/bin/python /opt/milsurp/backend/cli.py canary --site nope" 2>&1 | grep -q "No site with slug"'
 
 bold "Checking an upgrade is safe"
 # The property that matters on every `apt upgrade`: a second configure must not

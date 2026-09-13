@@ -217,6 +217,11 @@ photos: $(VENV_PY) ## Download queued photos without re-scraping (make photos li
 prune-images: $(VENV_PY) ## Delete image files no listing references any more
 	@$(VENV_PY) backend/cli.py prune-images
 
+.PHONY: canary
+canary: $(VENV_PY) ## Check every shop still answers and still parses (exit 1 if not)
+	@$(VENV_PY) backend/cli.py canary $(if $(site),--site "$(site)",) \
+		$(if $(all),--all,) $(if $(skip_browser),--skip-browser,)
+
 .PHONY: photos-retry
 photos-retry: $(VENV_PY) ## Try photos that were given up on after repeated failures
 	@$(VENV_PY) backend/cli.py fetch-photos --retry-failed $(if $(limit),--limit "$(limit)",)
