@@ -2340,12 +2340,15 @@ backend/cli.py passwd NAME
 backend/cli.py digest [--user NAME]
 backend/cli.py prune-images     # delete image files nothing references
 backend/cli.py canary           # check every enabled shop still answers; exit 1 if not
+backend/cli.py catch-up         # re-apply this version's rules to stored rows (idempotent)
 backend/cli.py rebuild-thumbnails  # regenerate thumbnails from stored originals
 backend/cli.py reclassify       # re-derive kind/caliber/country/maker from stored text
 backend/cli.py reclassify --recompute   # ...overwriting what is there, not only filling blanks
 backend/cli.py refetch-details  # re-read product pages next scan (default: descriptions that are not prose)
 backend/cli.py refetch-details --site apex-gun-parts --dry-run
 backend/cli.py armory discover  # propose armory rows from every stored listing
+backend/cli.py armory qualify   # rename bare designations to name their maker (--apply)
+backend/cli.py armory tidy      # fill blanks from a row's own listings; retire silent rows (--apply)
 backend/cli.py fetch-photos     # drain the photo queue without re-scraping
 backend/cli.py running-scans    # list in-flight scans; exit 1 if any
 backend/cli.py infer            # fill blank caliber/country/maker from other vendors

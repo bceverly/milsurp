@@ -531,6 +531,130 @@ test.describe("armory", () => {
     await expect(drilldown.getByRole("button", { name: "Add model" })).toBeVisible();
   });
 
+  for (const tab of ["Manufacturers", "Models", "Calibers"]) {
+    test(`the ${tab} table fits its container without scrolling sideways`, async ({
+      signedIn,
+    }) => {
+      /**
+       * No horizontal scrollbar, at any width worth supporting.
+       *
+       * The models table used to overflow by about forty pixels, and only when
+       * the data happened to be long -- so the sideways scroll appeared and
+       * disappeared with the rows. Worse, a browser with overlay scrollbars
+       * draws nothing until you are already scrolling, so what was over the
+       * edge did not look like it was there at all: the eye and the trashcan
+       * were reported as simply missing.
+       *
+       * Fixed by letting the table shrink rather than by pinning what fell off
+       * it -- headers and cells wrap, the widest column ("Also written as")
+       * moved under the name it belongs to, and the controls give up padding
+       * before the data gives up room. Checked at 1024 because that is where
+       * it broke first, and asserted on header-to-cell count too, since a
+       * column removed from one of the two tables and not the other is the
+       * easy way to get this wrong.
+       */
+      await signedIn.setViewportSize({ width: 1024, height: 900 });
+      await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+      await expect(signedIn.locator(".alert--success")).toBeVisible();
+      await signedIn.getByRole("tab", { name: tab }).click();
+      // "Everything", not the default pending queue: an earlier test in this
+      // file approves the whole queue, so by the time this runs the default
+      // view can be empty — and an empty table renders "Nothing here" in a
+      // `.loading-row`, the same class the spinner uses. Waiting for that to
+      // reach zero therefore waits forever, which is how this failed in the
+      // suite while passing on its own.
+      await signedIn.getByLabel("Showing").selectOption("");
+      // Polled, not measured once. Changing the filter starts a fetch, so a
+      // wait that passes on the rows already on screen can be followed by a
+      // reload that replaces them with a placeholder before the measurement
+      // runs -- which read one cell where there should be nine. Retrying until
+      // a real row is on screen is the only honest way to measure a table that
+      // reloads underneath you.
+      //
+      // ":has(.table__actions)" picks a data row rather than a placeholder,
+      // and the backreference asserts every header has exactly one cell: a
+      // column removed from one of the two tables and not the other is the
+      // easy way to get this wrong, and it silently misaligns the other.
+      await expect
+        .poll(() =>
+          signedIn.evaluate(() => {
+            const wrap = document.querySelector("table")?.parentElement;
+            const row = document.querySelector("tbody tr:has(.table__actions)");
+            if (!wrap || !row) return "no data row on screen yet";
+            const headers = document.querySelectorAll("thead th").length;
+            const overflow = wrap.scrollWidth - wrap.clientWidth;
+            return `overflow=${overflow} cells=${row.children.length} headers=${headers}`;
+          }),
+        )
+        .toMatch(/^overflow=0 cells=(\d+) headers=\1$/);
+    });
+  }
+
+  test("the row controls stay on screen when the table is too wide", async ({
+    signedIn,
+  }) => {
+    /**
+     * The models table is ten columns and overflows its scroll container. The
+     * actions cell is justify-content: flex-end, so what went over the right
+     * edge was the two icon-only buttons -- the eye and the trashcan -- while
+     * "Merge…" stayed put. On a browser with overlay scrollbars nothing says
+     * the table scrolls at all, so the feature was simply missing as far as
+     * anyone could tell: "there is absolutely no eye or trash, just merge".
+     *
+     * Measured rather than eyeballed, because "is it in the DOM" and "can a
+     * person reach it" had different answers: the link reported visible with
+     * its right edge at 1451 on a 1440-wide window.
+     */
+    await signedIn.setViewportSize({ width: 1024, height: 900 });
+    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await expect(signedIn.locator(".alert--success")).toBeVisible();
+    await signedIn.getByRole("tab", { name: "Models" }).click();
+    // See the note above about .loading-row doubling as the empty state.
+    await signedIn.getByLabel("Showing").selectOption("");
+    await expect(
+      signedIn.getByRole("button", { name: "Merge\u2026" }).first(),
+    ).toBeVisible();
+
+    const row = signedIn.locator("tbody tr").first();
+    for (const control of [
+      row.getByRole("link", { name: /^View listings for/ }),
+      row.getByRole("button", { name: /^Delete / }),
+    ]) {
+      const box = await control.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box.x + box.width).toBeLessThanOrEqual(1024);
+      expect(box.x).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  test("a model under an expanded maker has its own eyeball", async ({ signedIn }) => {
+    /**
+     * The question this tab cannot answer on its own: deciding whether a maker
+     * really built a model means looking at what the model is holding, and
+     * from here the only route there was to open the row, read its name,
+     * switch to the models tab and find it again.
+     */
+    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await expect(signedIn.locator(".alert--success")).toBeVisible();
+    await signedIn.getByRole("tab", { name: "Manufacturers" }).click();
+    await signedIn.getByLabel("Showing").selectOption("approved");
+    await signedIn.getByRole("button", { name: "Expand Mauser" }).click();
+
+    const drilldown = signedIn.locator(".armory-drilldown");
+    await expect(drilldown).toBeVisible();
+    const view = drilldown.getByRole("link", { name: /^View listings for/ }).first();
+    await expect(view).toBeVisible();
+
+    // By model id, not by name -- the same link the models tab builds, so a
+    // renamed model cannot strand it. See listingsHref.
+    const href = await view.getAttribute("href");
+    expect(href).toContain("model=");
+    expect(href).toContain("availability=all");
+
+    await view.click();
+    await expect(signedIn.getByRole("heading", { name: "Inventory" })).toBeVisible();
+  });
+
   test("+ Add model from a maker pre-checks that maker", async ({ signedIn }) => {
     await signedIn.getByRole("tab", { name: "Manufacturers" }).click();
     await signedIn.getByLabel("Showing").selectOption("approved");

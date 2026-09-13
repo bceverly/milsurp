@@ -391,7 +391,11 @@ def _apply_catalog(session: Session, item: Item, trusted: bool) -> None:
     # and a percussion revolver are both "handgun" there. Only ever set on a
     # firearm, because a bayonet has no form. See Item.kind.
     item.kind = (
-        classify.finer_kind(found.kind, item.stated_kind)
+        classify.finer_kind(
+            found.kind,
+            item.stated_kind,
+            classify.form_in_title(item.title, is_rifle=item.is_rifle, is_pistol=item.is_pistol),
+        )
         if (item.is_rifle or item.is_pistol)
         else None
     )

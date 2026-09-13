@@ -1917,7 +1917,10 @@ an afternoon on model rows:
 - **Promote the 104 pending models.** +436 listings, one action.
 - **Fill in the silent rows if convenient**, worth ~89 listings, top twenty
   worth 98 of the 275. The eye on each armory row opens the listings it accounts for,
-  which is the check to make while doing it.
+  which is the check to make while doing it — and the models under an expanded
+  maker carry the same eye, so checking whether a firm really built something
+  no longer means opening the row, reading its name, switching tabs and finding
+  it again.
 - **Fill in the 194 rows that say nothing.** The largest remaining lever and no
   code at all.
 
@@ -2259,8 +2262,221 @@ until they promote it. The numbers above are what promoting them does.
   **6,623 of 10,964 listings carry one**: 2,769 pistols, 2,416 rifles, 994
   carbines, 276 revolvers, 78 shotguns, 42 percussion revolvers, 40 percussion
   rifles, 8 flintlock rifles. The 4,341 with none are a state rather than a
-  gap, and nothing sweeps them into a bucket. Labelled server-side from the
+  gap, and nothing sweeps them into a bucket. Labeled server-side from the
   armory page's own `KIND_LABELS`, so the two pages cannot drift.
+- **Shipped** — A third source for that kind: the listing's own title. The two
+  above are the curated model and `items.stated_kind`, which is the vendor's
+  *category* column — so nothing read the title, and 1,548 active firearms sat
+  with no kind while 835 of them said "Revolver", "Carbine" or "Rifle" in plain
+  text. `classify.form_in_title` reads it, and **untyped firearms went 1,548 →
+  683, 17.8% → 7.9%**.
+
+  It ranks last on purpose. Measured against the 7,146 listings that already
+  had a kind, the title agreed 1,338 times and disagreed 268 — and the
+  disagreements run both ways: "M95 Steyr Mannlicher Carbine" was stored as a
+  rifle and the title is right, while "German K98 8mm Rifle" is a Karabiner and
+  the model row is. So it fills blanks and never overrules.
+
+  Two rules earn their keep. **`.30 Carbine` is a cartridge**, and it is the
+  only one in the catalog whose name contains a form word (114 listings) — so
+  an occurrence a number introduces is discounted, and one that is not is kept:
+  a Ruger Blackhawk in .30 Carbine is a revolver, an M1 Carbine in it is still
+  a carbine. And **ignition sharpens the form**, because `FirearmKind` is
+  really ignition by form: "Percussion Revolver" lands in `percussion_revolver`
+  rather than `revolver`. `flintlock_pistol` went 0 → 20, `percussion_pistol`
+  1 → 17, `percussion_carbine` 0 → 4.
+- **Shipped** — Edged weapons and suppressors stop being rifles.
+  `_HEAD_NOUN_ACCESSORIES` had listed swords, sabers, cutlasses, suppressors
+  and silencers from the start, and every one was a dead letter: that constant
+  filters a word the scan has *already found*, and the scan runs over
+  `_ACCESSORY_NOUN`, which held none of them. So the veto that outranks the
+  vendor's category never got a word to veto — and a Civil War cavalry saber
+  filed under "M1 Garand & U.S. Rifles" was a rifle, as was a Gemtech
+  suppressor under "Used & Collectible Firearms".
+
+  Two guards came out of measuring it against all 11,038 listings. A saber
+  bayonet is a **bayonet**, so the sword half must not match first — without
+  that, "Model 1841 Mississippi Rifle … with Saber Bayonet Lug" became an edged
+  weapon. And a muzzle device is named by its bore rather than counted: the
+  bare `22` in "Gemtech SeaHunter 22 Suppressor" was read as a count of
+  suppressors, which stripped the only noun in the title. The dotted spelling
+  was safe all along, since a leading `.` fails the introducer's lookbehind.
+
+  Exactly 4 listings changed, all of them wrong before and right after, with
+  no collateral anywhere in the catalog.
+- **Shipped** — A second discriminator for a shared designation: who built it.
+  `_contradicted` already settled "Model 1917 is a Colt revolver and an Enfield
+  rifle" by asking what *kind* the listing says it is. It cannot settle two
+  rows of the same kind — a Mauser Model 1910 and an FN Model 1910 are both
+  pocket pistols — so whichever sorted first took the match, and its caliber,
+  country and maker with it.
+
+  **Decided by distance, not by presence.** The firm a title means to attach to
+  a designation stands next to it; a cartridge is elsewhere in the sentence:
+
+      Astra Model 900 7.63x25mm Mauser   -> Astra
+      FN Model 1910 in 7.65mm Mauser     -> FN
+
+  Both read the same way round, and a rule asking only *whether* each name
+  appears cannot separate them — each title names a rival and its own, so
+  neither is vetoed and sort order decides. Half those answers would be wrong,
+  and the wrong half is silent.
+
+  **It fires on nothing today, deliberately.** Rivals are built only from
+  makers on *other* rows claiming the same spelling, so a row nobody competes
+  with carries no guard at all. That restraint is the design: a maker named in
+  a title is a far noisier signal than a type word — it may be a cartridge
+  ("Astra Model 900 7.63x25mm Mauser"), and a row may simply not list the firm
+  that built it (17 of 20 measured cases). Either, turned into an absolute
+  veto, would lose matches that work.
+
+  Measured: 219 approved rows are named by nothing but a bare designation
+  ("Model 1910", "Type 53", "Model 1"), and exactly three spellings were
+  claimed twice — all three one gun under two names. Those were merged
+  (`M44` into `Mosin-Nagant M44`, `M91/30` into `Mosin-Nagant M91/30`), so no
+  designation is contested now. With a discovery queue proposing more bare
+  designations every scan, the collision is a question of when; building the
+  discriminator first costs one pass at cache-build time, and building it after
+  means first noticing that a listing quietly took the wrong model's facts.
+
+  **The maker back-fill that was meant to go with this did not survive the
+  data.** 480 maker links are implied by listings and missing from rows, and
+  filtering the cartridge trap the same way (`CZ75 + Luger` is the 9mm Luger
+  cartridge, 18 listings) leaves 52 — of which roughly a third are still wrong,
+  and wrong in a way no heuristic here can catch: `CARL GUSTAF 1896 + Mauser`
+  (64 listings) is the designer, not the builder. That is the distinction
+  `FirearmModel.country` already exists to keep — "where the pattern comes
+  from", explicitly not the firm — so inferring makers from listings cannot be
+  done safely and the links stay a curation job.
+- **Shipped** — The armory tables fit, rather than scrolling sideways. The
+  models table overflowed its container by about forty pixels, and only when
+  the data happened to be long — so the horizontal scroll appeared and
+  disappeared with the rows. A browser with overlay scrollbars draws nothing
+  until you are already scrolling, so what sat past the edge did not look like
+  it was there: the eye and the trashcan were reported as simply missing, and
+  the actions cell is `justify-content: flex-end`, so "Merge…" stayed put while
+  the two icon-only buttons beside it went over.
+
+  Fixed by letting the table shrink rather than by pinning what fell off it.
+  Four things, each found by measuring rather than guessing:
+
+  * **Headers and cells wrap.** `white-space: nowrap` on a `th` is what let
+    "ALSO WRITTEN AS" and "CHAMBERED IN" set a floor no free space could go
+    under.
+  * **A name is a button, and `.btn` is `nowrap`** — so one long designation
+    held the whole Name column open at 339px for rows reading "04/43", and
+    took 119px of sideways scroll with it. This was the pending queue, the
+    default view and the one most worked in.
+  * **"Also written as" moved under the name it belongs to.** It was the widest
+    column on the page, 182px of 1114, and "M91/30" is a way of writing
+    "Mosin-Nagant M91/30" rather than a separate fact about it.
+  * **The controls give up padding before the data gives up room.** At 1024 the
+    actions cell was the widest in the table at 197px — more than the names.
+
+  Verified at 1440, 1280, 1100 and 1024 across all three tabs, on the pending
+  queue as well as production: zero overflow. The test asserts header-to-cell
+  counts too, because removing a column from one of the two tables and not the
+  other is the easy way to get this wrong — which is exactly what happened
+  first time, silently misaligning the manufacturers table.
+- **Shipped** — `armory tidy`, and a correction to what it was meant to fix.
+  The residue of approving a discovery queue wholesale was reported as "91
+  unqualifiable bare designations, 86 saying nothing at all". **56 of those
+  were already switched off by hand** — the count had been taken over approved
+  rows without checking `enabled`, so retired rows were being reported as
+  outstanding work. Live, it was 34 bare rows and 10 silent ones. `qualify` had
+  the same blind spot and would have renamed retired rows; it now requires
+  enabled as well as approved, because a switched-off row has been ruled on.
+
+  What the command does is **retire** a row that says nothing, holds no
+  listing, and was proposed by a scan rather than shipped in the armory file —
+  switched off rather than deleted, because `propose_model` looks a name up
+  regardless of status, so a surviving row is a tombstone that stops the name
+  coming back while a deleted one returns on the next scan. That is the same
+  rule the page's trashcan already states in `comesBack()`. One row qualified.
+
+  It also **fills a blank country** from a row's own listings, and the
+  interesting part is that this fires on nothing. Three things had to be
+  learned to get there:
+
+  * **One listing is not agreement.** "SOHN 38H" — itself a truncation of
+    "J.P. Sauer & Sohn 38H" — would have learned it was Swiss from a single
+    listing whose country came through "Sauer"; the firm is German. "X400" is
+    a Surefire weaponlight, and its one listing is a rifle sold *with* one.
+    Both were unanimous by construction. The floor is two.
+  * **The kind cannot be machine-written**, however fillable it looks.
+    `TestTheShippedFileNamesItsCountries` takes a kind as the marker of a row
+    somebody has judged — "it cannot be guessed from a title" — and requires a
+    country beside it on that basis. Filling six kinds falsified the premise
+    and tripped the invariant: six judged-looking rows naming nowhere.
+  * **The rows still silent are silent for a reason.** "M1896" holds fourteen
+    listings across Sweden, Germany, Switzerland and Finland, because that
+    designation names different guns in different places. That is the
+    bare-designation problem itself, and picking one would be inventing an
+    answer rather than finding it.
+- **Shipped** — `armory qualify`: a bare designation is renamed to name the
+  firm already on it. "10/22" becomes "Ruger 10/22", "M1849" becomes "Colt
+  M1849", "Type 53" becomes "Mosin-Nagant Type 53". 119 rows renamed, and
+  **not one listing changed its model link** — the old name is kept as an
+  alias, so a rename can only widen what a row answers to, never narrow it.
+
+  **Nothing is inferred**, which is the whole safety argument: the firm is
+  already on the row and already vouched for, and this only moves it into the
+  name so the page and the matcher can both see it. Of 399 bare names, 122
+  qualified. The other 277 are refused rather than guessed: 178 have a country
+  but no maker, 86 have neither, and 13 have several — nine firms built the M1
+  Carbine, and "Inland M1 Carbine" would be a lie about the other eight.
+
+  Approved rows only, because discovery proposes bare designations on every
+  scan and renaming the pending queue would churn the list somebody is reading.
+
+  **The country answers where no firm can.** 178 of the 280 bare names carried
+  a country and no maker at all, so the pass falls back to the nationality:
+  "Model 1896" becomes "Swedish Model 1896", "Type 30" becomes "Japanese Type
+  30". A firm still wins where there is one — "Ruger 10/22" narrows more than
+  "U.S. 10/22" — and several makers or an unusable one fall through to the
+  country rather than to nothing, which is how "CO M1864" would have become
+  "U.S. M1864" had the firm not been fixed outright.
+
+  The adjectives are checked rather than trusted: every one of the 27
+  round-trips through `classify.extract_country`, because after this pass a
+  model's *name is a title the classifier will read*, and an adjective it did
+  not recognize would be a row teaching the classifier the wrong thing about
+  itself. A country with no entry keeps its bare designation.
+
+  **188 renamed in the second pass, 0 listings lost a model.** 91 approved rows
+  are still bare and every refusal is principled: 86 have neither a country nor
+  a usable maker, 4 have several makers and no country.
+
+  Two of the 122 were caught by a guard worth keeping: **"CO" was in the maker
+  table as an approved firm with eight listings**, read out of "SPENCER
+  REPEATING RIFLE *CO* M1865" and "Spencer *Co.* Boston". A junk firm is
+  survivable in a column; baked into a model's name it is not, because the name
+  is what the page shows and what the matcher compiles. So a firm that is only
+  a legal suffix — co, inc, ltd, gmbh, & sons — is refused, as is one that is
+  pending or *disabled*: "CO" was approved and switched off, already dealt with
+  by hand, and a pass reading only `status` would have quietly undone that.
+
+  It has since been fixed at the source rather than worked around. "CO" reached
+  five models and eight listings, and what it was standing in for was three
+  firms nobody had written down — **Joslyn**, **Triplett & Scott** and
+  **Cugir** (whose listings spell it "Cujir" as often as not). Two of the
+  models were truncations as well: `TTC 7` and `PSL 7`, where discovery took
+  the head of "TTC 7.62x25mm" and "PSL 7.62x54R" for the designation.
+
+  And M1864 turned out to be the contested-designation case for real, not in
+  theory: a **Joslyn carbine** and a **Triplett & Scott rifle**, both sold as
+  "M1864", both in this catalog. It is now two rows, both answering to the bare
+  spelling, told apart by the maker discriminator above — the first live use of
+  it, and it reads each title correctly. `test_modern_shelf.py` was tightened
+  to match: a shared spelling is allowed, but only where the rows carry firms
+  that no rival shares. Two rows with overlapping makers, or none, are back to
+  a coin toss and still fail.
+
+  The shipped `app/seed/armory.yaml` was regenerated with it: 119 added, 119
+  removed, every addition a rename of a removal, and the maker and caliber
+  lists untouched. Without that a fresh install would re-seed "10/22" beside
+  "Ruger 10/22" and manufacture the very collision the maker discriminator
+  above exists to resolve.
 - **Shipped** — The armory fills its own queue. Every scan ends by reading the
   listings it just stored and proposing the cartridges, firms and designations
   the table cannot explain (`services/discovery.py`); `make armory-discover`
@@ -2520,6 +2736,27 @@ fact.
 - **Planned** — Off-machine copies of those snapshots. Ten backups on the same
   disk as the database survive a bad UPDATE, which is what they were written
   for, but not a lost disk.
+- **Shipped** — `milsurp catch-up`, run from the postinst on every upgrade, so
+  a rule change reaches rows already stored without anybody remembering to do
+  it. A release changes how text is read, and nothing re-reads the catalog on
+  its own: a scan only re-derives what it touches, so a fix reached the shelf a
+  vendor happened to restock and no further. That left every upgrade depending
+  on a manual pass, on every machine — the kind of step that gets skipped and
+  then looks exactly like the fix never working.
+
+  Every step is idempotent, which is what lets it run unattended: 11s for a
+  first pass over 11,038 listings, under a second for a second pass. That is a
+  property each step has to *keep*, not a hope — `reclassify` without
+  `--recompute` only fills blanks, and `armory qualify` matches on the name it
+  is about to change. Ordered, too: the armory is renamed before the listings
+  are re-read, so the pass that reads them sees the finished table.
+
+  Safe in the postinst for three reasons. The service is stopped for the
+  duration — `dh_installsystemd`'s preinst does that on upgrade — so no scan is
+  competing for the rows. Only a current schema gets there at all. And it is
+  never fatal: a data pass that fails is a reason to look, not a reason to
+  leave dpkg half-configured, which is the same argument the migration block
+  beside it already makes.
 - **Shipped** — Image store housekeeping on a schedule. `milsurp-prune.timer`
   runs `prune-images` nightly at 04:20 with jitter and `Persistent=true`, so a
   machine that was off at the hour catches up rather than skipping a day.

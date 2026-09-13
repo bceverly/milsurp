@@ -1709,6 +1709,20 @@ _ACCESSORY_NOUN = re.compile(
     r"|hangers?|oilers?|belts?|handbooks?|manuals?|sights?|tools?|keepers?|grips?"
     r"|cartridges?"
     r"|barrels?|stocks?|handguards?|scopes?"
+    # Edged weapons and muzzle devices. These were listed in
+    # _HEAD_NOUN_ACCESSORIES from the start and were dead letters there: that
+    # one filters a word already *found*, and nothing could find them, because
+    # this is the vocabulary the search runs over. A Civil War cavalry saber
+    # filed by its vendor under "M1 Garand & U.S. Rifles" was a rifle, and so
+    # was a Gemtech suppressor under "Used & Collectible Firearms" -- the
+    # category promoted both and the head-noun veto never got a word to veto.
+    # ...but never where the word is modifying "bayonet". A saber bayonet is a
+    # bayonet, which this vocabulary already covers, and the sword half must
+    # not match first: "Model 1841 Mississippi Rifle ... with Saber Bayonet
+    # Lug" is a rifle, and reading "saber" as its head noun cost exactly that
+    # one the moment these words were added.
+    r"|(?:swords?|sab(?:er|re)s?)(?!\s+bayonets?)|cutlass(?:es)?"
+    r"|suppressors?|silencers?"
     r"|buckles?|frogs?|straps?|bandol[ei]{1,3}rs?)\b",
     re.I,
 )
@@ -1742,6 +1756,10 @@ _ATTACHED_INTRO = re.compile(
 _ATTACHED_GAP = 26
 
 
+#: Named by their bore rather than counted. See _without_attached_parts.
+_MUZZLE_DEVICE = re.compile(r"suppressors?|silencers?", re.I)
+
+
 def _without_attached_parts(title_lower: str) -> str:
     """The title with "w/ bayonet" and "no bayonet" taken out of it.
 
@@ -1763,6 +1781,15 @@ def _without_attached_parts(title_lower: str) -> str:
         for candidate in reversed(list(_ATTACHED_INTRO.finditer(window))):
             behind = window[candidate.end() :]
             if candidate.group(0).isdigit() and len(behind.split()) > 1:
+                continue
+            # A muzzle device is named by the bore it is cut for, not counted:
+            # "Gemtech SeaHunter 22 Suppressor" is one .22 suppressor, and
+            # reading the 22 as a count stripped the only noun in the title and
+            # left "Gemtech SeaHunter" to be filed as a rifle. The dotted
+            # spelling was already safe -- ".30cal Suppressor" fails the
+            # introducer's lookbehind -- so this is the same rule for the
+            # spelling that omits the dot.
+            if candidate.group(0).isdigit() and _MUZZLE_DEVICE.fullmatch(part.group(0)):
                 continue
             intro, gap = candidate, behind
             break
@@ -2367,21 +2394,33 @@ def classify_firearm(  # noqa: PLR0911 - one return per rule class; a single
     return (is_rifle, is_pistol)
 
 
-def finer_kind(model_kind: object | None, stated_kind: str | None) -> str | None:
-    """The finer kind of a firearm, from the two sources that can say.
+def finer_kind(
+    model_kind: object | None,
+    stated_kind: str | None,
+    title_form: str | None = None,
+) -> str | None:
+    """The finer kind of a firearm, from the three sources that can say.
 
-    The armory model first: it is curated, and it is the finer of the two --
+    The armory model first: it is curated, and it is the finest of the three --
     it knows ``percussion_revolver`` where a vendor writing per listing says
-    only "Revolver". The vendor's own word second, because it reaches
-    thousands of listings no model does.
+    only "Revolver". The vendor's own category second, because it reaches
+    thousands of listings no model does. The title's own words last, from
+    :func:`form_in_title`.
 
-    Returns one of :class:`FirearmKind`'s values, or None when neither source
-    had an answer. See Item.kind.
+    The title is last on purpose, and it earns its place by being consulted at
+    all: for a long time it was not, and 1,548 firearms sat with no kind while
+    835 of them said "Revolver", "Carbine" or "Rifle" in plain text. It ranks
+    below the other two because where they disagree with it the title is
+    usually the loose one -- "German K98 8mm Rifle" is a Karabiner, and the
+    model row knows that -- so this fills blanks and never overrules.
+
+    Returns one of :class:`FirearmKind`'s values, or None when no source had an
+    answer. See Item.kind.
     """
     if model_kind is not None:
         return getattr(model_kind, "value", str(model_kind))
     word = (stated_kind or "").strip().lower().replace("-", " ")
-    return _STATED_TO_KIND.get(word)
+    return _STATED_TO_KIND.get(word) or title_form
 
 
 #: What a vendor's own word maps to. Deliberately small: a word that names no
@@ -2395,6 +2434,106 @@ _STATED_TO_KIND = {
     "revolver": "revolver",
     "musket": "rifle",
 }
+
+
+# ---------------------------------------------------------------------------
+# The form a title names
+# ---------------------------------------------------------------------------
+#: ".30 Carbine" is a cartridge. Stripped before the form words are looked for,
+#: and stripped *only where a number introduces it*, which is the whole trick:
+#: an M1 Carbine chambered in .30 Carbine is still a carbine, and a rule that
+#: discounted the word everywhere would lose it. A Ruger Blackhawk in the same
+#: cartridge is a revolver, and that is the case this rescues.
+_CARTRIDGE_FORM = re.compile(r"\b[\d.]+\s*carbines?\b", re.I)
+
+#: Long guns and handguns. A title naming one of each is not an answer unless
+#: the coarse flags settle it -- see form_in_title.
+_LONG = "long"
+_HAND = "hand"
+
+#: Form words as a vendor writes them in a title, most specific first *within*
+#: a family. "M4 Carbine ... Rifle" is a carbine; "Model 10 Revolver" listed
+#: under pistols is a revolver.
+#:
+#: Musket sits with rifle rather than having a slot of its own, matching
+#: _STATED_TO_KIND. A fowling piece is a smoothbore long gun and reads as one.
+_TITLE_FORMS: tuple[tuple[re.Pattern[str], str, str], ...] = (
+    (re.compile(r"\bcarbines?\b", re.I), "carbine", _LONG),
+    (re.compile(r"\bshot\s?guns?\b", re.I), "shotgun", _LONG),
+    (re.compile(r"\brifles?\b|\bmuskets?\b|\bfowling\s+pieces?\b", re.I), "rifle", _LONG),
+    (re.compile(r"\brevolvers?\b", re.I), "revolver", _HAND),
+    (re.compile(r"\bpistols?\b", re.I), "pistol", _HAND),
+)
+
+#: The ignition systems that have a slot in FirearmKind. Matchlock and
+#: wheellock are deliberately absent: seven listings name one and the enum has
+#: nowhere to put them, so they keep the plain form rather than being invented
+#: a bucket.
+_TITLE_IGNITION: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"\bflint\s?locks?\b", re.I), "flintlock"),
+    (re.compile(r"\bpercussion\b|\bcap\s?locks?\b", re.I), "percussion"),
+)
+
+#: Which ignition-and-form pairs FirearmKind actually has. Spelled out rather
+#: than imported, because this module deliberately depends on nothing but the
+#: standard library -- see finer_kind's signature. test_title_form.py asserts
+#: the two agree, so adding a member to the enum cannot leave this behind.
+#:
+#: Note the gaps: there is no flintlock_revolver and no percussion_shotgun, so
+#: those fall back to the plain form rather than being spelled into existence.
+_COMBINED_KINDS = frozenset(
+    {
+        "flintlock_rifle",
+        "flintlock_carbine",
+        "flintlock_pistol",
+        "percussion_rifle",
+        "percussion_carbine",
+        "percussion_pistol",
+        "percussion_revolver",
+    }
+)
+
+
+def form_in_title(
+    title: str | None,
+    *,
+    is_rifle: bool = False,
+    is_pistol: bool = False,
+) -> str | None:
+    """What the listing's own title says this firearm *is*, or None.
+
+    The third and last source :func:`finer_kind` consults. Distinct from
+    :func:`stated_kind`, which answers the coarse rifle/handgun question for
+    the browse buckets; this answers the finer one, and it answers it from the
+    same sentence.
+
+    ``is_rifle`` and ``is_pistol`` are the coarse flags, used only to break a
+    tie. A title naming one form from each family -- "Volcanic No. 1 Pistol"
+    beside a "rifle" -- is not an answer on its own, but the flags were derived
+    by a much larger rule set and can settle it. With neither or both set, the
+    title is left unanswered rather than guessed.
+    """
+    text = _CARTRIDGE_FORM.sub(" ", title or "")
+    found = [(kind, family) for pattern, kind, family in _TITLE_FORMS if pattern.search(text)]
+    if not found:
+        return None
+
+    families = {family for _kind, family in found}
+    if len(families) == 1:
+        # Most specific first in _TITLE_FORMS, so the first match is the answer.
+        form = found[0][0]
+    elif is_pistol and not is_rifle:
+        form = next(kind for kind, family in found if family == _HAND)
+    elif is_rifle and not is_pistol:
+        form = next(kind for kind, family in found if family == _LONG)
+    else:
+        return None
+
+    for pattern, ignition in _TITLE_IGNITION:
+        if pattern.search(text):
+            combined = f"{ignition}_{form}"
+            return combined if combined in _COMBINED_KINDS else form
+    return form
 
 
 def _kind_from_caliber(caliber: str | None) -> tuple[bool, bool]:

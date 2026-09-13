@@ -1002,8 +1002,76 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  white-space: nowrap;
   border-bottom: 1px solid var(--silver-200);
+}
+
+/* Headers and cells wrap rather than forcing the table wider than its
+   container. `white-space: nowrap` on a header is what made "ALSO WRITTEN AS"
+   and "CHAMBERED IN" set a floor no amount of free space could go under, and
+   a table that cannot shrink is a table that scrolls sideways -- with no
+   scrollbar to say so, on any browser with overlay scrollbars. Two lines of
+   header is a much smaller cost than a column nobody can find.
+
+   `anywhere` rather than `break-word` for the cells: the long values here are
+   single unbroken tokens -- "Manufacture d'Armes de Saint-Étienne",
+   "7.62x54mmR" -- and break-word will not split those. */
+.table th,
+.table td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Less breathing room once the width is what is scarce. Twelve pixels a column
+   across nine columns is over a hundred back, which is the difference between
+   fitting and not on a 1024-wide window. */
+@media (max-width: 1200px) {
+  .table th,
+  .table td {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+}
+
+/* The controls are the widest cell in the table -- 197px at 1024, more than
+   the name column -- because three buttons each carry 11px of padding either
+   side. Tightening them is the last of the width, and it is the right place to
+   take it from: a narrower gap around a button costs nothing a reader needs,
+   where a narrower Name column costs the thing they came to read. */
+@media (max-width: 1200px) {
+  .table__actions {
+    gap: 2px;
+  }
+
+  .table__actions .btn--sm {
+    padding-left: 7px;
+    padding-right: 7px;
+  }
+
+  /* A chip is white-space: nowrap everywhere, which is right for a chip and
+     wrong for the one holding "Awaiting approval" in a column that has to
+     give. Letting this one wrap is the last eight pixels, and it only wraps
+     on a window narrow enough that the alternative was scrolling. */
+  .table td .chip {
+    white-space: normal;
+  }
+}
+
+/* A row's name is a button, and .btn is white-space: nowrap -- so one long
+   name set a floor under the whole Name column that no amount of free space
+   could go under. The pending queue is where it showed: 339px of Name column
+   for rows reading "04/43", because somewhere below them sat a designation
+   long enough to hold the column open, and 119px of sideways scroll with it.
+   Wrapping applies to the name, never to the controls beside it. */
+.table td:not(.table__actions) .btn {
+  white-space: normal;
+  text-align: left;
+}
+
+/* Except the controls, which must never wrap into two rows of buttons. */
+.table th.table__actions,
+.table td.table__actions {
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
 
 .table td {
@@ -1067,10 +1135,67 @@
   text-align: right;
 }
 
+/* The other spellings, under the name rather than beside it. Quieter than the
+   name and on its own line, so the column stays as narrow as the names in it
+   -- which is the point: as a column of its own this was the widest on the
+   page and the reason the table overflowed at all. */
+.armory-aliases {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--ink-500, #6b7280);
+}
+
+/* Pinned to the right edge, because the column that scrolls out of reach is
+   the one holding the controls.
+ 
+   The armory's models table is ten columns and overflows .table-wrap by about
+   forty pixels. On a browser with overlay scrollbars nothing announces that:
+   there is no visible scrollbar until you are already scrolling, so the eye
+   and the trashcan were simply not there as far as anyone could tell — and
+   this cell is justify-content: flex-end, so "Merge…" stayed on screen while
+   the two icon-only buttons beside it went over the edge. Reported as "there
+   is absolutely no eye or trash, just merge", which is exactly what it looked
+   like.
+ 
+   Sticky rather than narrower columns: the data is worth reading and a table
+   that has to scroll is fine, so long as the controls do not go with it. */
 .table__actions {
   display: flex;
   gap: 6px;
   justify-content: flex-end;
+  position: sticky;
+  right: 0;
+  /* From the row, so a hovered row's highlight carries across the pinned cell
+     instead of leaving a white notch at its end. */
+  background: inherit;
+}
+
+/* A header cell cannot be display:flex and still size its column properly, so
+   the rule above is split: the th only needs pinning and its own background. */
+.table thead th.table__actions {
+  display: table-cell;
+  position: sticky;
+  right: 0;
+  background: var(--silver-100);
+}
+
+/* Rows need an opaque background of their own or the pinned cell inherits
+   transparency and the columns scroll visibly underneath it. */
+.table tbody tr {
+  background: var(--surface);
+}
+
+/* Enough of an edge to read as pinned over what is sliding past it, and
+   nothing at all once the table fits and there is no overflow to hide. */
+.table td.table__actions::before,
+.table th.table__actions::before {
+  content: "";
+  position: absolute;
+  inset: 0 100% 0 auto;
+  width: 10px;
+  pointer-events: none;
+  background: linear-gradient(to right, rgb(0 0 0 / 0%), rgb(0 0 0 / 6%));
 }
 
 /* Site cards — a table would be unreadable on a phone. */
@@ -1698,6 +1823,13 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.75rem;
+}
+
+/* Pushed to the right edge, so the eyeballs line up down the drill-down the
+   way they do in the table above it rather than landing wherever the chips
+   before them happen to end. */
+.armory-drilldown__view {
+  margin-left: auto;
 }
 
 .armory-drilldown__empty {

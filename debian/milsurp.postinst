@@ -114,6 +114,36 @@ case "$1" in
         ;;
     esac
 
+    # --- bring stored rows up to this version's rules ----------------------
+    # A release changes how text is read, and the listings already stored were
+    # read by the old rules. Nothing re-reads them on its own: a scan only
+    # re-derives what it touches, so a rule fix reaches the shelf a vendor
+    # happens to restock and no further. That made every upgrade depend on
+    # somebody remembering a manual pass, on every machine -- which is exactly
+    # the kind of step that gets skipped and then quietly looks like the fix
+    # never worked.
+    #
+    # Safe here for three reasons. Every step in catch-up is idempotent, so a
+    # re-run finds nothing (measured: 11s for a first pass over 11,038
+    # listings, under a second for a second pass). The service is stopped for
+    # the duration -- dh_installsystemd's preinst does that on upgrade -- so
+    # no scan is competing for the rows. And only the schema being current
+    # gets us here at all.
+    #
+    # Never fatal. A data pass that fails is a reason to look, not a reason to
+    # leave dpkg half-configured; the same argument the migration block above
+    # makes for an unreachable database.
+    if [ "$MIGRATION_STATE" = current ] || [ "$MIGRATION_STATE" = migrated ]; then
+      if ! runuser -u "$APP_USER" -- env MILSURP_ENV=production MILSURP_CONFIG="$CONFIG" \
+           "$VENV_PY" "$INSTALL_DIR/backend/cli.py" catch-up; then
+        echo "Milsurp: WARNING — not every catch-up step finished." >&2
+        echo "  Nothing is broken by this; the rules simply have not reached" >&2
+        echo "  rows stored by an earlier version. Re-run it with:" >&2
+        echo "    sudo -u $APP_USER env MILSURP_ENV=production \\" >&2
+        echo "      $VENV_PY $INSTALL_DIR/backend/cli.py catch-up" >&2
+      fi
+    fi
+
     # --- what the administrator still has to do ----------------------------
     if [ "$FRESH_CONFIG" = yes ] || [ "$MIGRATION_STATE" = unreachable ]; then
       cat <<NEXT

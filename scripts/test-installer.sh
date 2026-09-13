@@ -110,6 +110,16 @@ check "canary command is wired up" \
 check "canary reports no enabled sites rather than crashing" \
   'su -s /bin/sh milsurp -c "MILSURP_ENV=production /opt/milsurp/.venv/bin/python /opt/milsurp/backend/cli.py canary --site nope" 2>&1 | grep -q "No site with slug"'
 
+# catch-up runs from the postinst on every upgrade, so a break in it is a break
+# in `apt upgrade`. It is idempotent and the container's database is empty, so
+# running it here costs nothing and proves the command, its imports and its
+# database access all work under the packaged venv.
+check "catch-up runs and is idempotent" \
+  'su -s /bin/sh milsurp -c "MILSURP_ENV=production /opt/milsurp/.venv/bin/python /opt/milsurp/backend/cli.py catch-up" &&
+   su -s /bin/sh milsurp -c "MILSURP_ENV=production /opt/milsurp/.venv/bin/python /opt/milsurp/backend/cli.py catch-up"'
+check "the postinst actually calls it" \
+  'grep -q "cli.py. catch-up" /var/lib/dpkg/info/milsurp.postinst'
+
 bold "Checking an upgrade is safe"
 # The property that matters on every `apt upgrade`: a second configure must not
 # regenerate the secrets, or every upgrade would invalidate every session and

@@ -53,9 +53,19 @@ class TestTheDesignationsDoNotCollide:
                     f"catalog -- qualify it as 'Glock {text}'."
                 )
 
-    def test_every_spelling_that_can_match_belongs_to_one_row(self, models):
-        """Two rows answering to one string is a coin toss decided by position,
-        and the loser's caliber and kind are silently the answer.
+    def test_a_shared_spelling_is_only_allowed_where_the_makers_settle_it(self, models):
+        """Two rows answering to one string used to be a coin toss decided by
+        position, with the loser's caliber and kind silently the answer.
+
+        It is not a coin toss any more *when the rows name different firms*:
+        `_outvoted_by_maker` reads the firm standing nearest the designation in
+        the title and discards the row it does not belong to. M1864 is the case
+        it was built for and the case that occurs -- a Joslyn carbine and a
+        Triplett & Scott rifle, both sold as "M1864", both in this catalog.
+
+        So the rule is no longer "never share a spelling". It is: share one
+        only if something can tell the rows apart. Two rows with overlapping
+        makers, or with none, are back to the coin toss and still fail here.
 
         Only rows that can actually match are compared. A *pending* row takes
         no part in matching at all, so the bare "AR15" and "M15" a scan
@@ -63,28 +73,34 @@ class TestTheDesignationsDoNotCollide:
         spellings -- they are the same question asked twice, and answering it
         is what promoting or merging one of them is for.
         """
-        known = {
-            ("M44", "Mosin-Nagant M44"),
-            ("M91/30", "Mosin-Nagant M91/30"),
-            ("91/30", "Mosin-Nagant M91/30"),
-        }
-        seen: dict[str, str] = {}
-        clashes = []
-        for row in models:
-            if row.get("status", "pending") != "approved" or not row.get("enabled", True):
-                continue
+        live = [
+            row
+            for row in models
+            if row.get("status", "pending") == "approved" and row.get("enabled", True)
+        ]
+        claims: dict[str, list[dict]] = {}
+        for row in live:
             for text in [row["name"], *(row.get("aliases") or [])]:
-                key = str(text).strip().lower()
-                if key in seen and seen[key] != row["name"]:
-                    # The bare M44/M91/30 rows are carried over from the old
-                    # one-maker-per-model table and are deliberately kept: see
-                    # _facts_known in services/armory.py, where the row that
-                    # can say more wins a tie.
-                    if (str(text), row["name"]) in known:
-                        continue
-                    clashes.append(f"{text!r}: {seen[key]} and {row['name']}")
-                seen.setdefault(key, row["name"])
-        assert not clashes, "one spelling, two rows: " + "; ".join(clashes)
+                owners = claims.setdefault(str(text).strip().lower(), [])
+                if row not in owners:
+                    owners.append(row)
+
+        undecidable = []
+        for spelling, owners in sorted(claims.items()):
+            if len(owners) < 2:
+                continue
+            makers = [set(row.get("manufacturers") or []) for row in owners]
+            # Every row needs a firm of its own that no rival shares, or there
+            # is nothing in a title for the discriminator to go on.
+            settled = all(
+                mine and all(mine.isdisjoint(theirs) for theirs in makers if theirs is not mine)
+                for mine in makers
+            )
+            if not settled:
+                undecidable.append(f"{spelling!r}: " + " and ".join(f"{r['name']}" for r in owners))
+        assert (
+            not undecidable
+        ), "one spelling, two rows, and nothing to choose between them: " + "; ".join(undecidable)
 
 
 class TestTheModernRowsSayEnoughToBeWorthHaving:

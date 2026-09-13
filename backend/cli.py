@@ -10,6 +10,7 @@ milsurp adduser NAME EMAIL       create an account (prompts for a password)
 milsurp passwd NAME              change an account's password
 milsurp digest [--user NAME]     send digests that are due, or one now
 milsurp canary                   check every shop still answers and still parses
+milsurp catch-up                 re-apply this version's rules to stored rows
 milsurp prune-images             delete image files no listing references
 milsurp refetch-details          re-read product pages on the next scan
 """
@@ -20,6 +21,7 @@ import argparse
 import getpass
 import re
 import sys
+from collections.abc import Callable
 from datetime import UTC
 from pathlib import Path
 
@@ -587,7 +589,15 @@ def cmd_reclassify(args: argparse.Namespace) -> int:
             # The finer kind, rebuilt here as it is during a scan. Only on a
             # firearm: a bayonet has no form. See Item.kind.
             flags["kind"] = (
-                classify.finer_kind(found.kind, item.stated_kind)
+                classify.finer_kind(
+                    found.kind,
+                    item.stated_kind,
+                    classify.form_in_title(
+                        item.title,
+                        is_rifle=bool(flags["is_rifle"]),
+                        is_pistol=bool(flags["is_pistol"]),
+                    ),
+                )
                 if (flags["is_rifle"] or flags["is_pistol"])
                 else None
             )
@@ -641,6 +651,58 @@ def cmd_reclassify(args: argparse.Namespace) -> int:
     return 0
 
 
+def _armory_qualify(args: argparse.Namespace) -> int:
+    """Make a bare designation say who built it: "M44" -> "Mosin-Nagant M44".
+
+    Only where the row already names exactly one maker, so nothing is inferred
+    -- see armory.plan_qualify. The old name stays on as an alias, which is
+    what makes this safe to run against a live catalog: a listing that says
+    only "M44" still matches, and the row simply answers to more than it did.
+    """
+    with session_scope() as session:
+        plan = armory.plan_qualify(session)
+        if not plan:
+            print("Nothing to qualify: no approved row is a bare designation with one maker.")
+            return 0
+        for rename in plan:
+            print(f"  {rename.was:<22} -> {rename.now}")
+        print(f"\n{len(plan)} row(s) would be renamed; each keeps its old name as an alias.")
+        if not args.apply:
+            print("Nothing changed. Re-run with --apply to carry it out.")
+            return 0
+        done = armory.apply_qualify(session, plan)
+    print(f"Renamed {done} row(s).")
+    return 0
+
+
+def _armory_tidy(args: argparse.Namespace) -> int:
+    """Fill a row from its own listings; switch off one that says nothing.
+
+    The residue of approving a discovery queue wholesale: 86 approved rows with
+    no kind, no country, no maker and no cartridge. Of those, 57 held no
+    listing either, so they could not answer a question if one were asked --
+    and the other 29 were answerable from the listings they already hold.
+    """
+    with session_scope() as session:
+        plan = armory.plan_tidy(session)
+        if not plan:
+            print("Nothing to tidy: every approved row either says something or answers for one.")
+            return 0
+        for entry in [e for e in plan if e.action == "fill"]:
+            print(f"  fill    {entry.name:<26} {entry.detail}")
+        for entry in [e for e in plan if e.action == "retire"]:
+            print(f"  retire  {entry.name:<26} {entry.detail}")
+        fills = sum(1 for e in plan if e.action == "fill")
+        retires = len(plan) - fills
+        print(f"\n{fills} row(s) would be filled in, {retires} switched off.")
+        if not args.apply:
+            print("Nothing changed. Re-run with --apply to carry it out.")
+            return 0
+        filled, retired = armory.apply_tidy(session, plan)
+    print(f"Filled {filled} field(s); switched off {retired} row(s).")
+    return 0
+
+
 def cmd_armory(args: argparse.Namespace) -> int:
     """Seed, export and sync the armory of models and calibers.
 
@@ -658,9 +720,23 @@ def cmd_armory(args: argparse.Namespace) -> int:
                 and designations the armory cannot explain, as pending rows.
                 Every scan now does this for the listings it touched; this is
                 the one-off pass over a catalog collected before it did.
+      qualify   rename rows whose name is only a designation so it names the
+                firm already on them. Prints a plan and does nothing unless
+                --apply is given.
+      tidy      fill a row's blanks from what its own listings agree on, and
+                switch off the ones that say nothing and match nothing. Also
+                a plan unless --apply is given.
     """
     action = args.armory_command
-    simple = {"seed": _armory_seed, "discover": _armory_discover, "export": None}
+    simple = {
+        "seed": _armory_seed,
+        "discover": _armory_discover,
+        # A lambda so it joins the same dispatch as the others rather than
+        # adding a seventh return to this function.
+        "qualify": lambda: _armory_qualify(args),
+        "tidy": lambda: _armory_tidy(args),
+        "export": None,
+    }
     if action == "export":
         path = Path(args.file)
         with session_scope() as session:
@@ -785,6 +861,73 @@ def cmd_infer(args: argparse.Namespace) -> int:
     )
     print(f"\nFilled {len(filled)} field(s) across the catalog ({fields}).")
     return 0
+
+
+def cmd_catch_up(args: argparse.Namespace) -> int:
+    """Bring stored rows into line with the rules this version ships.
+
+    A release changes how text is read, and the listings already in the
+    database were read by the old rules. Nothing re-reads them on its own: a
+    scan only re-derives the listings it touches, so a rule fix reaches the
+    shelf a vendor happens to restock and no further. Every upgrade has
+    therefore needed somebody to remember a manual pass, on every machine.
+
+    **Every step here is idempotent**, which is what lets the packaging run it
+    unattended: a second run finds nothing to do and says so. That is a
+    property each step has to keep, not a hope -- ``reclassify`` without
+    ``--recompute`` only fills blanks, and ``armory qualify`` matches on the
+    name it is about to change. A step that did something different the second
+    time would turn every upgrade into a mutation.
+
+    Ordered, and the order matters: the armory is renamed before the listings
+    are re-read, so the pass that reads them sees the finished table.
+
+    Never raises. A data pass that fails is a reason to look, not a reason to
+    leave a package half-configured -- see the migration block in
+    debian/milsurp.postinst for the same argument about the schema.
+    """
+    steps: list[tuple[str, Callable[[], int]]] = [
+        ("armory names", lambda: _catch_up_qualify(args.dry_run)),
+        ("listing facts", lambda: _catch_up_reclassify(args.dry_run)),
+    ]
+    failed = 0
+    for label, run in steps:
+        try:
+            run()
+        except Exception as exc:  # deliberate: see the docstring
+            failed += 1
+            print(f"  {label}: FAILED — {type(exc).__name__}: {exc}", file=sys.stderr)
+    if failed:
+        print(f"\n{failed} step(s) failed. The database is unchanged by those.", file=sys.stderr)
+        return 1
+    print("\nStored data is in line with this version's rules.")
+    return 0
+
+
+def _catch_up_qualify(dry_run: bool) -> int:
+    with session_scope() as session:
+        plan = armory.plan_qualify(session)
+        if not plan:
+            print("  armory names: nothing to qualify.")
+            return 0
+        for rename in plan:
+            print(f"    {rename.was} -> {rename.now}")
+        if dry_run:
+            print(f"  armory names: {len(plan)} row(s) would be renamed.")
+            return 0
+        done = armory.apply_qualify(session, plan)
+    print(f"  armory names: renamed {done} row(s).")
+    return done
+
+
+def _catch_up_reclassify(dry_run: bool) -> int:
+    if dry_run:
+        # No --dry-run on reclassify, and inventing one here would mean a
+        # second implementation of the thing being checked.
+        print("  listing facts: would re-derive kind, caliber, country and maker.")
+        return 0
+    print("  listing facts:")
+    return cmd_reclassify(argparse.Namespace(recompute=False, fields=""))
 
 
 def cmd_running_scans(args: argparse.Namespace) -> int:
@@ -1165,6 +1308,22 @@ def _add_armory_commands(sub) -> None:
         help="Where to write it. Defaults to the shipped armory file in this "
         "repository, so the change is a reviewable diff.",
     )
+    armory_qualify = armory_sub.add_parser(
+        "qualify",
+        help="Rename bare designations to name the firm already on the row.",
+    )
+    armory_qualify.add_argument(
+        "--apply", action="store_true", help="Carry the plan out rather than printing it."
+    )
+
+    armory_tidy = armory_sub.add_parser(
+        "tidy",
+        help="Fill rows from their own listings; switch off ones that say nothing.",
+    )
+    armory_tidy.add_argument(
+        "--apply", action="store_true", help="Carry the plan out rather than printing it."
+    )
+
     armory_sync = armory_sub.add_parser(
         "sync", help="Reconcile this database with an armory file. Prints a plan first."
     )
@@ -1195,6 +1354,15 @@ def _add_scheduled_parsers(sub: argparse._SubParsersAction) -> None:
     sub.add_parser("prune-images", help="Delete image files no listing references.").set_defaults(
         func=cmd_prune_images
     )
+
+    catch_up = sub.add_parser(
+        "catch-up",
+        help="Re-apply this version's rules to rows already stored (idempotent).",
+    )
+    catch_up.add_argument(
+        "--dry-run", action="store_true", help="Report what each step would do and change nothing."
+    )
+    catch_up.set_defaults(func=cmd_catch_up)
 
     canary_cmd = sub.add_parser(
         "canary",

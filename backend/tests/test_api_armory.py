@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.models import ArmoryStatus, Caliber, Manufacturer
+from app.models import ArmoryStatus, Caliber, FirearmModel, Item, Manufacturer, Site
 
 
 @pytest.fixture
@@ -25,6 +25,78 @@ def makers(seeded):
     seeded.add_all(rows)
     seeded.commit()
     return rows
+
+
+class TestTheListingsNumber:
+    """What the Listings column counts, and why it is every listing.
+
+    The number and the eye beside it have to agree, because the eye is how you
+    check the number. They did not: the column filtered to active listings and
+    the link has always opened ``availability=all``, so "10/22" read 0 Listings
+    and its eye showed the Ruger it accounts for. Thirteen rows read 0 while
+    explaining something, which on a page whose job is deciding what to keep is
+    an invitation to delete them.
+
+    The models tab was also the odd one out of three -- neither the maker nor
+    the caliber tally has ever filtered -- though a comment claimed otherwise.
+    """
+
+    @pytest.fixture
+    def one_sold_rifle(self, seeded):
+        site = Site(slug="s", name="S", base_url="https://e.test/")
+        model = FirearmModel(name="10/22", status=ArmoryStatus.APPROVED)
+        seeded.add_all([site, model])
+        seeded.flush()
+        seeded.add(
+            Item(
+                site_id=site.id,
+                external_key="k1",
+                url="https://e.test/1",
+                title="Ruger 10/22 Semi Auto Rifle, 22LR",
+                firearm_model_id=model.id,
+                is_rifle=True,
+                is_active=False,
+            )
+        )
+        seeded.commit()
+        return model
+
+    def test_a_de_listed_gun_still_counts(self, client, admin_headers, one_sold_rifle):
+        rows = client.get("/api/armory/models", headers=admin_headers).json()
+        row = next(r for r in rows if r["name"] == "10/22")
+        assert row["item_count"] == 1
+
+    def test_and_so_does_one_still_for_sale(self, client, admin_headers, one_sold_rifle, seeded):
+        seeded.add(
+            Item(
+                site_id=seeded.query(Site).first().id,
+                external_key="k2",
+                url="https://e.test/2",
+                title="Ruger 10/22 Carbine",
+                firearm_model_id=one_sold_rifle.id,
+                is_rifle=True,
+                is_active=True,
+            )
+        )
+        seeded.commit()
+        rows = client.get("/api/armory/models", headers=admin_headers).json()
+        row = next(r for r in rows if r["name"] == "10/22")
+        assert row["item_count"] == 2
+
+    def test_the_three_tabs_count_the_same_population(self):
+        """Source-inspected. The drift was invisible precisely because each
+        query reads fine on its own; only side by side is one of them odd."""
+        import inspect
+
+        from app.api import armory as models_api
+        from app.api import manufacturers as makers_api
+
+        for counter in (
+            models_api._listings_per_model,
+            models_api._caliber_counts,
+            makers_api._counts,
+        ):
+            assert "is_active" not in inspect.getsource(counter)
 
 
 class TestOnlyAnAdmin:

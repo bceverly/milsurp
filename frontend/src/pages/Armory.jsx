@@ -1592,7 +1592,7 @@ export default function Armory() {
                   sort={sort}
                   onSort={sortBy}
                 />
-                <th aria-label="Actions" />
+                <th aria-label="Actions" className="table__actions" />
               </tr>
             </thead>
             <tbody>
@@ -1757,6 +1757,20 @@ export default function Armory() {
                                       {model.manufacturers.length > 2 ? "s" : ""}
                                     </span>
                                   )}
+                                  {/* The same eyeball the models tab carries.
+                                      Deciding whether a maker really built a
+                                      model means looking at what the model is
+                                      actually holding, and from here the only
+                                      route there was to open the row, read its
+                                      name, switch tabs and find it again. */}
+                                  <Link
+                                    className="btn btn--ghost btn--sm armory-drilldown__view"
+                                    to={listingsHref("models", model)}
+                                    aria-label={`View listings for ${model.name}`}
+                                    title={`Show every listing ${model.name} accounts for`}
+                                  >
+                                    <Eye />
+                                  </Link>
                                 </div>
                               ))}
                               <button
@@ -1837,20 +1851,14 @@ export default function Armory() {
                     onSort={sortBy}
                   />
                 )}
-                <SortHeader
-                  label="Also written as"
-                  sortKey="aliases"
-                  sort={sort}
-                  onSort={sortBy}
-                />
                 <SortHeader label="Status" sortKey="status" sort={sort} onSort={sortBy} />
-                <th aria-label="Actions" />
+                <th aria-label="Actions" className="table__actions" />
               </tr>
             </thead>
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={tab === "models" ? 10 : 7} className="loading-row">
+                  <td colSpan={tab === "models" ? 9 : 6} className="loading-row">
                     <span className="spinner" /> Loading…
                   </td>
                 </tr>
@@ -1866,7 +1874,12 @@ export default function Armory() {
                         aria-label={`Select ${row.name}`}
                       />
                     </td>
-                    <td>
+                    {/* The listing that first proposed this row, as a tooltip.
+                        It used to hang off the "Also written as" cell, which no
+                        longer exists -- and hanging it off the aliases text
+                        instead would lose it on every row that has none. It is
+                        a fact about the row, so it belongs on the row's name. */}
+                    <td title={row.first_seen_in || undefined}>
                       <button
                         type="button"
                         className="btn btn--ghost btn--sm"
@@ -1896,6 +1909,19 @@ export default function Armory() {
                       {row.enabled === false && (
                         <span className="chip chip--neutral">disabled</span>
                       )}
+                      {/* The other spellings, under the name rather than in a
+                          column of their own. They were the widest column on
+                          the page -- 182px of a 1114px table -- and the models
+                          tab overflowed its container only when they happened
+                          to be long, which made the horizontal scroll appear
+                          and disappear with the data. They belong here anyway:
+                          "M91/30" is a way of writing "Mosin-Nagant M91/30",
+                          not a separate fact about it. */}
+                      {(row.aliases || "").split("\n").filter(Boolean).length > 0 && (
+                        <span className="armory-aliases">
+                          {(row.aliases || "").split("\n").filter(Boolean).join(" · ")}
+                        </span>
+                      )}
                     </td>
                     <td>
                       {tab === "models"
@@ -1916,9 +1942,6 @@ export default function Armory() {
                       </td>
                     )}
                     {tab === "models" && <td>{row.item_count}</td>}
-                    <td title={row.first_seen_in || undefined}>
-                      {(row.aliases || "").split("\n").filter(Boolean).join(" · ") || "—"}
-                    </td>
                     <td>{statusChip(row.status)}</td>
                     <td className="table__actions">
                       <button
@@ -1967,7 +1990,7 @@ export default function Armory() {
                 ))}
               {!loading && rows.length === 0 && (
                 <tr>
-                  <td colSpan={tab === "models" ? 10 : 7} className="loading-row">
+                  <td colSpan={tab === "models" ? 9 : 6} className="loading-row">
                     Nothing here. “Load shipped armory” brings in the starting list, and
                     scans add what they meet.
                   </td>

@@ -133,10 +133,27 @@ def _caliber_rules(session: Session) -> list[tuple[str, re.Pattern[str]]]:
 # ---------------------------------------------------------------------------
 # Models
 # ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class _Rule:
+    """One model's matching rule, and what may disqualify it.
+
+    ``rivals`` and ``own`` are the maker discriminator and are None on all but
+    a handful of rows -- they are built only where two models genuinely compete
+    for the same designation. See :func:`_maker_guard`.
+    """
+
+    pattern: re.Pattern[str]
+    found: Match
+    #: Makers that belong to a *different* row claiming this designation.
+    rivals: re.Pattern[str] | None = None
+    #: Makers on this row. None when it lists none.
+    own: re.Pattern[str] | None = None
+
+
 class ModelRegistry:
     """The model rules, in the order the admin put them in."""
 
-    def __init__(self, rules: list[tuple[re.Pattern[str], Match]]) -> None:
+    def __init__(self, rules: list[_Rule]) -> None:
         self.rules = rules
 
     def __len__(self) -> int:
@@ -166,9 +183,14 @@ class ModelRegistry:
         The ``description`` argument is kept so callers need not care, and so
         that the reason it is ignored has somewhere to live.
         """
-        for pattern, found in self.rules:
-            if pattern.search(title or "") and not _contradicted(title, found, stated_kind):
-                return found
+        for rule in self.rules:
+            if not rule.pattern.search(title or ""):
+                continue
+            if _contradicted(title, rule.found, stated_kind):
+                continue
+            if _outvoted_by_maker(title, rule):
+                continue
+            return rule.found
         return Match()
 
 
@@ -202,6 +224,71 @@ def _contradicted(title: str, found: Match, stated_kind: str | None = None) -> b
     return stated is not None and stated == wanted
 
 
+def _outvoted_by_maker(title: str, rule: _Rule) -> bool:
+    """Whether another row claiming this same designation fits the title better.
+
+    The second discriminator, and the companion to :func:`_contradicted`. That
+    one settles "Model 1917 is a Colt revolver and an Enfield rifle" by asking
+    what *kind* the listing says it is. This one settles the case the kind
+    cannot -- two rows of the same kind sharing a designation, told apart only
+    by who built them.
+
+    **It does nothing unless the designation is genuinely contested.** ``rivals``
+    is built only from makers on *other* rows claiming the same spelling, so on
+    a row nobody competes with it is None and this returns immediately. That
+    restraint is the whole design, because a maker named in a title is a far
+    noisier signal than a type word:
+
+    * The name may be a *cartridge*. "Astra Model 900 7.63x25mm **Mauser**" is
+      an Astra, and the maker registry reads Mauser out of the caliber.
+    * A model row may simply not list the firm that built it yet. Seventeen of
+      the twenty listings this was measured against were that -- "Mauser Bolo
+      Model 1921" really is a Mauser, and the row had not been told.
+
+    Either of those, turned into a veto on its own, would lose matches that
+    work today. So the test is comparative, and it is decided by *distance*:
+    the firm a title means to attach to a designation is the one standing next
+    to it, and the cartridge is somewhere else in the sentence.
+
+        Astra Model 900 7.63x25mm Mauser   -> Astra:  its own maker is nearer
+        FN Model 1910 in 7.65mm Mauser     -> FN:     likewise
+
+    Both read the same way round, and a rule that only asked *whether* each
+    name appears cannot separate them -- each title names a rival and its own,
+    so neither row is vetoed and whichever sorts first wins. Half of those
+    answers would be wrong.
+    """
+    if rule.rivals is None:
+        return False
+    designation = rule.pattern.search(title or "")
+    if designation is None:  # pragma: no cover - the caller has just matched it
+        return False
+    theirs = _nearest(rule.rivals, title, designation.span())
+    if theirs is None:
+        return False
+    ours = _nearest(rule.own, title, designation.span()) if rule.own else None
+    return ours is None or theirs < ours
+
+
+def _nearest(pattern: re.Pattern[str] | None, title: str, span: tuple[int, int]) -> int | None:
+    """How far the closest occurrence of ``pattern`` sits from ``span``.
+
+    Zero when they touch or overlap. None when the pattern is absent.
+    """
+    if pattern is None:
+        return None
+    start, end = span
+    gaps = [
+        (
+            0
+            if found.start() < end and found.end() > start
+            else min(abs(found.start() - end), abs(start - found.end()))
+        )
+        for found in pattern.finditer(title or "")
+    ]
+    return min(gaps) if gaps else None
+
+
 def _says(stated_kind: str | None) -> str | None:
     """A vendor's own word for the type, in the two terms _contradicted uses."""
     if not stated_kind:
@@ -222,7 +309,7 @@ def _facts_known(row: FirearmModel) -> int:
     )
 
 
-def _model_rules(session: Session) -> list[tuple[re.Pattern[str], Match]]:
+def _model_rules(session: Session) -> list[_Rule]:
     rows = (
         session.execute(
             select(FirearmModel)
@@ -244,8 +331,9 @@ def _model_rules(session: Session) -> list[tuple[re.Pattern[str], Match]]:
     # accident of history, and the answer is strictly worse. Position still
     # decides first, so an admin who wants a particular order still gets it.
     rows = sorted(rows, key=lambda row: (row.position, -_facts_known(row), row.id))
+    contested = _contested_designations(rows)
     return [
-        (
+        _Rule(
             manufacturers.pattern_for(row.spellings),
             Match(
                 model=row.name,
@@ -263,9 +351,56 @@ def _model_rules(session: Session) -> list[tuple[re.Pattern[str], Match]]:
                 manufacturer=(row.manufacturers[0].name if len(row.manufacturers) == 1 else None),
                 country=row.country,
             ),
+            *_maker_guard(row, contested),
         )
         for row in rows
     ]
+
+
+def _contested_designations(rows: list[FirearmModel]) -> dict[str, list[FirearmModel]]:
+    """Every spelling claimed by more than one row, and who claims it.
+
+    Measured when this was written: three, and all three were the *same gun
+    under two names* -- "M44" beside "Mosin-Nagant M44", "M91/30" beside
+    "Mosin-Nagant M91/30". Those are duplicates to merge, not ambiguity, so
+    the guard below currently fires on nothing at all.
+
+    That is the intended state. 219 approved rows are named by a bare
+    designation -- "Model 1910", "Type 53", "Model 1" -- and discovery keeps
+    proposing more, so the collision is a question of when. Building the
+    discriminator before it is needed costs one pass over the rows at cache
+    build time; building it afterwards means first noticing that a listing
+    quietly took the wrong model's caliber, kind and country.
+    """
+    claims: dict[str, list[FirearmModel]] = {}
+    for row in rows:
+        for spelling in row.spellings:
+            claims.setdefault(spelling.strip().lower(), []).append(row)
+    return {spelling: owners for spelling, owners in claims.items() if len(owners) > 1}
+
+
+def _maker_guard(
+    row: FirearmModel, contested: dict[str, list[FirearmModel]]
+) -> tuple[re.Pattern[str] | None, re.Pattern[str] | None]:
+    """The two maker patterns for one row, or (None, None) for most of them.
+
+    A row nobody competes with gets no guard, which is what keeps this from
+    touching the overwhelming majority of matches. See _outvoted_by_maker.
+    """
+    rivals: set[str] = set()
+    for spelling in row.spellings:
+        for other in contested.get(spelling.strip().lower(), ()):
+            if other.id != row.id:
+                rivals.update(name for firm in other.manufacturers for name in firm.spellings)
+    own = {name for firm in row.manufacturers for name in firm.spellings}
+    # A firm on both rows tells the two apart not at all.
+    rivals -= own
+    if not rivals:
+        return None, None
+    return (
+        manufacturers.pattern_for(sorted(rivals)),
+        manufacturers.pattern_for(sorted(own)) if own else None,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -866,6 +1001,336 @@ def export_armory(session: Session) -> dict[str, Any]:
             for row in models
         ],
     }
+
+
+#: A name that is nothing but a designation -- "Model 1910", "M44", "10/22",
+#: "Type 53". Optionally a prefix word, then digits and the separators a
+#: designation uses, and at most a two-letter suffix ("M1935S", "Model 62A").
+#:
+#: 399 of 892 approved rows were named this way when the pass was written, and
+#: the trouble with all of them is the same: "Model 1910" is a Mauser, an FN
+#: and a Winchester, so the name says nothing about which row you are looking
+#: at -- on the page or in a match.
+_BARE_DESIGNATION = re.compile(
+    r"^(?:(?:model|mod\.?|type|pattern|mle|wz\.?|m)\s*)?\d[\d./-]*[a-z]{0,2}$", re.I
+)
+
+
+#: Words that are *part* of a firm's name and never the whole of it.
+#:
+#: "CO" is in the maker table as an approved firm with eight listings, read out
+#: of "SPENCER REPEATING RIFLE **CO** M1865" and "Spencer **Co.** Boston". It
+#: is junk, and a junk firm is survivable in a column nobody reads twice --
+#: baked into a model's *name* it is not, because the name is what the page
+#: shows and what the matcher compiles. So this pass refuses to use one, and
+#: the row keeps its bare designation until somebody fixes the firm.
+_NOT_A_FIRM = frozenset(
+    {
+        "co",
+        "co.",
+        "company",
+        "corp",
+        "corp.",
+        "inc",
+        "inc.",
+        "llc",
+        "ltd",
+        "ltd.",
+        "gmbh",
+        "ag",
+        "sa",
+        "sarl",
+        "bros",
+        "bros.",
+        "sons",
+        "& sons",
+        "and sons",
+    }
+)
+
+
+#: The nationality word for a country, for rows that name no maker.
+#:
+#: Every one of these round-trips: ``classify.extract_country("Swedish Model
+#: 1896 Rifle")`` returns "Sweden", which is the property that makes it safe to
+#: write into a name. The classifier reads titles, and after this pass a model
+#: name *is* a title it will meet -- so an adjective it does not recognize, or
+#: recognizes as somewhere else, would be a row teaching the classifier the
+#: wrong thing about itself. test_armory_qualify.py asserts the round-trip for
+#: every entry rather than trusting the spelling.
+#:
+#: Deliberately not exhaustive. A country with no entry keeps its bare
+#: designation, which is the same refusal a row with several makers gets: the
+#: pass says nothing rather than guessing.
+_COUNTRY_ADJECTIVE = {
+    "Argentina": "Argentine",
+    "Austria": "Austrian",
+    "Belgium": "Belgian",
+    "Brazil": "Brazilian",
+    "Canada": "Canadian",
+    "China": "Chinese",
+    "Czech Republic": "Czech",
+    "Egypt": "Egyptian",
+    "Ethiopia": "Ethiopian",
+    "Finland": "Finnish",
+    "France": "French",
+    "Germany": "German",
+    "Israel": "Israeli",
+    "Italy": "Italian",
+    "Japan": "Japanese",
+    "Netherlands": "Dutch",
+    "Persia": "Persian",
+    "Poland": "Polish",
+    "Portugal": "Portuguese",
+    "Russia": "Russian",
+    "Spain": "Spanish",
+    "Sweden": "Swedish",
+    "Switzerland": "Swiss",
+    "Turkey": "Turkish",
+    "United Kingdom": "British",
+    "United States": "U.S.",
+    "Yugoslavia": "Yugoslavian",
+}
+
+
+@dataclass(frozen=True)
+class Rename:
+    """One row whose name can be made to say who built it."""
+
+    model_id: int
+    was: str
+    now: str
+
+
+def plan_qualify(session: Session) -> list[Rename]:
+    """Bare designations that can be prefixed with the firm already on the row.
+
+    **Only where the row names exactly one maker**, which is the whole of the
+    safety argument: nothing here is inferred. The firm is already recorded and
+    already vouched for, and this only moves it into the name so the page and
+    the matcher can both see it. Of the 399 bare names measured, 122 qualified
+    -- 178 had a country but no maker, 86 had neither, and 13 had several, and
+    picking one of several would be inventing an answer. Nine firms built the
+    M1 Carbine; "Inland M1 Carbine" would be a lie about the other eight.
+
+    Approved rows only. Discovery proposes bare designations on every scan, and
+    renaming a row nobody has vouched for yet would churn the pending queue
+    that somebody is trying to read.
+
+    The old name is kept as an alias by :func:`apply_qualify`, so a listing
+    that says only "Model 1910" still matches. A rename can therefore only
+    widen what the row answers to, never narrow it.
+    """
+    rows = (
+        session.execute(
+            select(FirearmModel)
+            .options(selectinload(FirearmModel.manufacturers))
+            # Enabled too, not just approved. A switched-off row has been ruled
+            # on, and 56 of the bare designations were already retired that way
+            # -- renaming those would be busywork that also makes the armory
+            # look like it has more live problems than it does.
+            .where(
+                FirearmModel.status == ArmoryStatus.APPROVED,
+                FirearmModel.enabled.is_(True),
+            )
+            .order_by(FirearmModel.name)
+        )
+        .scalars()
+        .all()
+    )
+    taken = {row.name.strip().lower() for row in rows}
+    plan: list[Rename] = []
+    for row in rows:
+        name = row.name.strip()
+        if not _BARE_DESIGNATION.match(name):
+            continue
+        prefix = _qualifier(row)
+        if prefix is None:
+            continue
+        proposed = f"{prefix} {name}"
+        # firearm_models.name is unique, and a row already carrying the better
+        # name is the good case: leave the bare one to be merged by hand.
+        if proposed.strip().lower() in taken:
+            continue
+        plan.append(Rename(model_id=row.id, was=row.name, now=proposed))
+    return plan
+
+
+def _qualifier(row: FirearmModel) -> str | None:
+    """What to put in front of a bare designation, or None to leave it alone.
+
+    The firm first, because "Ruger 10/22" says more than "U.S. 10/22" -- and
+    the country second, because a great many rows have one and no maker: of 280
+    bare designations, 122 named exactly one firm and 178 named only a country.
+
+    Nothing is invented in either case. Both facts are already on the row and
+    already vouched for; this decides which of them to show.
+    """
+    if len(row.manufacturers) == 1:
+        maker = row.manufacturers[0]
+        # A firm nobody has vouched for, or one somebody has switched off,
+        # must not get its name written into a model. "CO" was found this way:
+        # approved but *disabled* -- already dealt with by hand, and still
+        # attached to two models, so a pass reading only `status` would have
+        # baked a retired firm into "CO M1864". Disabled is a decision about a
+        # row, and this is the kind of place that has to honor it.
+        usable = maker.status == ArmoryStatus.APPROVED and maker.enabled is not False
+        if usable and maker.name.strip().lower() not in _NOT_A_FIRM:
+            return maker.name.strip()
+        # Otherwise fall through: a country is a poorer answer than a firm and
+        # a better one than nothing, and a row whose only firm is unusable is
+        # exactly where that trade is worth making.
+    elif row.manufacturers:
+        # Several. Nine firms built the M1 Carbine, and naming one of them
+        # would be a lie about the other eight -- but the *country* is still a
+        # fact about the pattern, so the fall-through below still applies.
+        pass
+    return _COUNTRY_ADJECTIVE.get((row.country or "").strip()) or None
+
+
+def apply_qualify(session: Session, plan: Iterable[Rename]) -> int:
+    """Carry out a :func:`plan_qualify`, keeping every old name as an alias."""
+    done = 0
+    for rename in plan:
+        row = session.get(FirearmModel, rename.model_id)
+        if row is None or row.name != rename.was:
+            continue
+        aliases = [line.strip() for line in (row.aliases or "").splitlines() if line.strip()]
+        if rename.was not in aliases:
+            aliases.insert(0, rename.was)
+        row.name = rename.now
+        row.aliases = "\n".join(aliases)
+        done += 1
+    if done:
+        session.commit()
+        invalidate()
+    return done
+
+
+@dataclass(frozen=True)
+class Tidy:
+    """One row that can say more, or should stop being asked."""
+
+    model_id: int
+    name: str
+    #: "fill" or "retire".
+    action: str
+    detail: str
+
+
+def plan_tidy(session: Session) -> list[Tidy]:
+    """Rows to fill in from their own listings, and rows to switch off.
+
+    Two passes over the same problem: an approved row that says nothing. 86 of
+    them were bare designations with no kind, no country, no maker and no
+    cartridge -- the residue of approving a discovery queue wholesale.
+
+    **Filling** takes only the country, and only where the row's own listings
+    agree on it -- the same shape as `crosscatalog.fill_gaps`, a fact carried
+    from listings that state it to ones that do not. The maker is left out
+    because 64 listings would have taught "CARL GUSTAF 1896" that its maker is
+    Mauser, which designed the pattern and did not build the rifle, and no rule
+    here separates the two. The kind is left out because the shipped file uses
+    it as the marker of human judgment; see _agreed_facts.
+
+    On the catalog this was written against it fills **nothing**, and the
+    reason is the finding rather than a defect: the rows still silent are
+    silent because their designation genuinely means different guns in
+    different places. "M1896" holds fourteen listings across Sweden, Germany,
+    Switzerland and Finland. That is the bare-designation problem itself, and
+    agreeing to pick one would be inventing an answer.
+
+    **Retiring** switches off a row that says nothing, holds no listing, and
+    was proposed by a scan rather than shipped in the armory file. Disabled
+    rather than deleted, because `propose_model` looks a name up regardless of
+    status: a surviving row is a tombstone that stops the name coming back,
+    and a deleted one returns the next time a scan meets it. The page says the
+    same thing on its trashcan -- see comesBack() in Armory.jsx.
+
+    Nothing from the shipped file is touched, and nothing with a listing on it:
+    a row holding even one is answering for something.
+    """
+    rows = (
+        session.execute(
+            select(FirearmModel)
+            .options(selectinload(FirearmModel.manufacturers), selectinload(FirearmModel.calibers))
+            .where(FirearmModel.status == ArmoryStatus.APPROVED, FirearmModel.enabled.is_(True))
+            .order_by(FirearmModel.name)
+        )
+        .scalars()
+        .all()
+    )
+    by_id = {row.id: row for row in rows}
+    linked: dict[int, list[Item]] = {row.id: [] for row in rows}
+    for item in session.execute(select(Item).where(Item.firearm_model_id.in_(by_id))).scalars():
+        if item.firearm_model_id is not None:
+            linked[item.firearm_model_id].append(item)
+
+    plan: list[Tidy] = []
+    for row in rows:
+        items = linked[row.id]
+        if items:
+            fills = _agreed_facts(row, items)
+            if fills:
+                said = ", ".join(f"{name}={value}" for name, value in sorted(fills.items()))
+                plan.append(Tidy(row.id, row.name, "fill", said))
+        elif _facts_known(row) == 0 and (row.first_seen_in or "").strip():
+            plan.append(Tidy(row.id, row.name, "retire", "says nothing and matches nothing"))
+    return plan
+
+
+#: How many listings have to say a thing before it counts as agreement.
+#:
+#: Two, because one is not a consensus and the failures were all singletons.
+#: "SOHN 38H" -- itself a truncation of "J.P. Sauer & Sohn 38H" -- would have
+#: learned it was Swiss from one listing whose country was mis-derived through
+#: "Sauer"; the firm is German. "X400" is a Surefire weaponlight, and its one
+#: listing is a rifle sold *with* one, which would have taught the row it was a
+#: Swiss rifle. With a single listing "they all agree" is true by construction
+#: and says nothing at all.
+MIN_AGREEING = 2
+
+
+def _agreed_facts(row: FirearmModel, items: list[Item]) -> dict[str, object]:
+    """The blanks on *row* that enough of its listings answer the same way.
+
+    **The country and nothing else.** The kind looks equally fillable and is
+    not: `TestTheShippedFileNamesItsCountries` takes a kind as the marker of a
+    row somebody has actually judged -- "it cannot be guessed from a title" --
+    and uses that to require a country beside it. A machine writing kinds
+    falsifies the premise and trips the invariant, which is what happened the
+    first time this ran: six rows gained a kind, none could gain a country, and
+    the shipped file then carried six judged-looking rows that name nowhere.
+
+    The maker is left out for its own reason -- see plan_tidy.
+    """
+    fills: dict[str, object] = {}
+    if not row.country:
+        countries = [item.country for item in items if item.country]
+        if len(set(countries)) == 1 and len(countries) >= MIN_AGREEING:
+            fills["country"] = countries[0]
+    return fills
+
+
+def apply_tidy(session: Session, plan: Iterable[Tidy]) -> tuple[int, int]:
+    """Carry out a :func:`plan_tidy`. Returns (filled, retired)."""
+    filled = retired = 0
+    for entry in plan:
+        row = session.get(FirearmModel, entry.model_id)
+        if row is None or row.name != entry.name:
+            continue
+        if entry.action == "retire":
+            row.enabled = False
+            retired += 1
+            continue
+        items = list(session.execute(select(Item).where(Item.firearm_model_id == row.id)).scalars())
+        for name, value in _agreed_facts(row, items).items():
+            setattr(row, name, value)
+            filled += 1
+    if filled or retired:
+        session.commit()
+        invalidate()
+    return filled, retired
 
 
 def write_export(session: Session, path: Path) -> int:

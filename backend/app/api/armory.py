@@ -98,12 +98,23 @@ def _listings_per_model(session: DbSession) -> dict[int, int]:
     missing, which made "is this row worth filling in?" the question the page
     could not answer.
 
-    Counted over *active* listings only, the way the maker tally is: a de-listed
-    gun is not something a decision about this row will affect today.
+    Every listing it accounts for, not only the ones still for sale -- which is
+    what the eye beside the number opens (``availability=all``), and what the
+    makers and calibers tabs have always counted.
+
+    This used to filter to active listings, on the reading that a de-listed gun
+    is not something a decision about this row will affect today. Two things
+    were wrong with it. The comment claimed it matched the maker tally and did
+    not: neither the maker nor the caliber count has ever filtered, so the
+    models tab was the odd one out of three. And it made the number disagree
+    with the link beside it -- "10/22" read 0 Listings, and clicking its eye
+    showed the Ruger it accounts for. A number you cannot verify by clicking it
+    is worse than one that counts a sold rifle, and 13 rows read 0 while
+    explaining something, which is an invitation to delete them.
     """
     rows = session.execute(
         select(Item.firearm_model_id, func.count(Item.id))
-        .where(Item.firearm_model_id.is_not(None), Item.is_active.is_(True))
+        .where(Item.firearm_model_id.is_not(None))
         .group_by(Item.firearm_model_id)
     ).all()
     return {model_id: count for model_id, count in rows if model_id}
