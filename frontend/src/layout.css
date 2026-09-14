@@ -2049,3 +2049,83 @@
   color: var(--ink-400);
   font-size: 11.5px;
 }
+
+/* Similar listings on the item detail page.
+   
+   A list rather than a grid of cards: the rows are read top to bottom against
+   a price, which is the comparison the panel exists for, and a grid makes that
+   a scan across two axes instead of down one. */
+.similar {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.similar__link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.similar__link:hover,
+.similar__link:focus-visible {
+  background: var(--navy-50);
+}
+
+.similar__thumb {
+  width: 56px;
+  height: 42px;
+  flex: 0 0 auto;
+  object-fit: cover;
+  border-radius: 5px;
+  background: var(--silver-100);
+}
+
+.similar__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+/* Two lines and then an ellipsis. A surplus dealer's title runs to a hundred
+   characters and the price beside it is what the row is for. */
+.similar__title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 13.5px;
+  line-height: 1.3;
+}
+
+.similar__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--ink-500);
+}
+
+/* Why this row is here. Quiet: it is the justification, not the content. */
+.similar__why {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--silver-100);
+}
+
+.similar__price {
+  flex: 0 0 auto;
+  font-weight: 600;
+  font-size: 13.5px;
+  white-space: nowrap;
+}

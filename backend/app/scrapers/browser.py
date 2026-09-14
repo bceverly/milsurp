@@ -16,6 +16,7 @@ The two hard-won behaviors from the standalone Royal Tiger scanner live here:
 from __future__ import annotations
 
 import contextlib
+import os
 import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -42,6 +43,50 @@ class BrowserUnavailable(ScrapeError):
     """Selenium or Chrome is not installed on this machine."""
 
 
+#: Where a Chrome or Chromium binary actually lives, in the order to try.
+#:
+#: Selenium Manager finds a browser on its own, and looks for "chrome" and
+#: "google-chrome". Ubuntu ships neither: `apt install chromium-browser`
+#: installs a *snap* -- the deb is a transitional shim -- and the real binary
+#: is /snap/bin/chromium. So the install succeeds, the browser works, and
+#: Selenium reports "Unable to obtain driver for chrome", which reads as
+#: nothing being installed at all.
+_CHROME_BINARIES = (
+    "/usr/bin/google-chrome",
+    "/usr/bin/google-chrome-stable",
+    "/opt/google/chrome/chrome",
+    "/snap/bin/chromium",
+    "/usr/bin/chromium",
+    "/usr/bin/chromium-browser",
+)
+
+#: And the matching driver. The snap's is namespaced, and /usr/bin/chromedriver
+#: on Ubuntu is a shim for it.
+_CHROMEDRIVERS = (
+    "/usr/bin/chromedriver",
+    "/snap/bin/chromium.chromedriver",
+    "/usr/lib/chromium-browser/chromedriver",
+    "/usr/lib/chromium/chromedriver",
+)
+
+
+def _first_present(paths: tuple[str, ...]) -> str | None:
+    """The first of *paths* that exists and can be run."""
+    for path in paths:
+        if os.access(path, os.X_OK):
+            return path
+    return None
+
+
+def find_chrome() -> tuple[str | None, str | None]:
+    """(browser, driver) discovered on this machine, either possibly None.
+
+    Only consulted where the configuration says nothing, so an installation
+    that names its own paths is never second-guessed.
+    """
+    return _first_present(_CHROME_BINARIES), _first_present(_CHROMEDRIVERS)
+
+
 @contextmanager
 def chrome(config: ScrapingConfig) -> Iterator[Any]:
     """Yield a configured headless Chrome driver, always quitting it after."""
@@ -64,16 +109,27 @@ def chrome(config: ScrapingConfig) -> Iterator[Any]:
     # Sites behind bot protection reject the default automation fingerprint.
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_argument(f"user-agent={config.user_agent}")
-    if config.chrome_binary:
-        options.binary_location = config.chrome_binary
+    found_binary, found_driver = find_chrome()
+    binary = config.chrome_binary or found_binary
+    driver_path = config.chromedriver_path or found_driver
+    if binary:
+        options.binary_location = binary
 
     try:
-        service = Service(config.chromedriver_path) if config.chromedriver_path else None
+        service = Service(driver_path) if driver_path else None
         driver = webdriver.Chrome(options=options, service=service)
     except Exception as exc:  # pragma: no cover - depends on host browser
+        # Say what was looked for. "Unable to obtain driver for chrome" on a
+        # machine where `apt install chromium-browser` has just reported
+        # success is a message that sends somebody to reinstall the thing they
+        # already have -- the browser is there, under a name Selenium does not
+        # try.
         raise BrowserUnavailable(
-            f"could not start headless Chrome: {exc}. Install Google Chrome, or "
-            f"disable this site in the admin UI."
+            f"could not start headless Chrome: {exc}. "
+            f"Browser: {binary or 'none found'}; driver: {driver_path or 'none found'}. "
+            f"Looked in {', '.join(_CHROME_BINARIES)}. Set scraping.selenium."
+            f"chrome_binary and chromedriver_path in config.yaml, install Google "
+            f"Chrome, or disable this site in the admin UI."
         ) from exc
 
     try:

@@ -1551,8 +1551,36 @@ before they got nothing.
   thousands.
 - **Planned** — Price range slider driven by the actual distribution, rather
   than free-text min/max.
-- **Planned** — "Similar listings" on the detail page, matched on caliber,
-  country and manufacturer.
+- **Shipped** — "Similar listings" on the detail page. The price spectrum
+  above it answers "is this a good deal?" and stopped one step short: it says
+  *cheaper than 8% of them* and offered no way to reach the them, so a reader
+  told their rifle was dear had to retype the model into the search box.
+
+  **Graded, not boolean**, and every row says which band it came in on — the
+  same model and cartridge, the same model in another cartridge, the same
+  cartridge from the same country, the same cartridge. A list that mixed the
+  same rifle at another vendor with a different rifle in the same round,
+  unlabeled, would be worse than useful. The order is the value order, and the
+  cartridge is the spine: it is nearly always stated, nearly always right, and
+  a buyer will not cross it, so country and maker only ever narrow within it.
+
+  Two things it took measuring to get right:
+
+  * **The bands exclude each other in SQL**, rather than being deduplicated
+    afterwards. They are nested by nature — every "same gun" row is also a
+    "same cartridge" row — so a row the closest band's LIMIT cut off turned up
+    in the next one wearing the wrong label: twelve K98ks and a limit of ten
+    produced two K98ks announced as "the same model, another cartridge".
+  * **Two slots are held back for the wider bands.** 3,978 of 8,690 active
+    firearms — 46% — sit in a model-and-cartridge group of nine or more, so
+    without it the list is *entirely* the same gun on nearly half the catalog.
+    Held back rather than fixed: a gun nothing else resembles still gets a full
+    list. A CZ75 page now offers six CZ75s by price and then a CZ85 and a
+    CZ75BD.
+
+  Accessories are excluded wholesale rather than band by band — a bayonet that
+  fits an 8mm Mauser is not an alternative to the rifle, and the cartridge on
+  it is the rifle's anyway.
 
 ### Watchlists and notifications
 
@@ -2857,6 +2885,32 @@ more than one machine still wants the queue below.
 
 - **Planned** — Recorded HTTP fixtures for every scraper, so parsing can be
   tested without touching a vendor's site.
+- **Shipped** — The browser is found where Ubuntu actually puts it. `apt
+  install chromium-browser` reports success, installs a working browser, and
+  leaves Selenium reporting "Unable to obtain driver for chrome" — because on
+  Ubuntu that deb is a transitional shim for a **snap**, and the binary lands
+  at `/snap/bin/chromium`, which Selenium Manager never tries. It looks for
+  "chrome" and "google-chrome", and the machine has neither.
+
+  The old message said "Install Google Chrome", which sends whoever reads it to
+  reinstall the thing they already have — and did, on the production VM the
+  first night the canary ran there. `browser.py` now tries a list of real
+  paths, real Chrome first and the snap after, and says what it looked for when
+  it finds nothing. The configuration still wins where it is set: an install
+  that names its own paths has made a decision. `debian/control` recommends
+  `chromium-driver` rather than the shim.
+- **Shipped** — The canary stops blaming a vendor for our own politeness. A
+  host the cooldown register is pacing gets a gap of up to a minute between
+  requests, so two requests cannot fit in a ninety-second budget and never
+  will: checkpointcharlies.com, on a 60s gap after refusing a run of photo
+  fetches, was reported as a **timeout** on the first production sweep. The
+  budget now grows by that gap, and a timeout on a paced host says whose
+  waiting it was.
+
+  Both of that night's failures were the same shape — the canary reporting our
+  own side as a vendor fault. A monitor whose false alarms all point outward is
+  one you learn to ignore, which is the failure that matters most for something
+  meant to be read once a night.
 - **Shipped** — A nightly canary against every enabled site, which fails loudly
   when a vendor stops answering *or* when its markup moves. `milsurp canary`,
   `make canary`, and `milsurp-canary.timer` at 06:10.

@@ -210,3 +210,54 @@ class TestItWritesNothing:
         source = Path(canary.__file__).read_text(encoding="utf-8")
         assert "session_scope" not in source
         assert "commit" not in source
+
+
+class TestAPacedHostIsGivenTimeToBeAskedSlowly:
+    """The canary must not blame a vendor for our own politeness.
+
+    checkpointcharlies.com refused a run of photo fetches, so the cooldown
+    register held every request to it to a sixty-second gap. Two requests
+    therefore cannot fit in a ninety-second budget and never will -- and the
+    first night this ran in production it reported the shop as a timeout, which
+    reads as the vendor being broken.
+    """
+
+    def test_the_budget_grows_with_the_gap(self, config, monkeypatch):
+        asked: list[float] = []
+        monkeypatch.setattr(canary, "get_scraper", lambda _slug: _Fake(_yielding(3)))
+        monkeypatch.setattr(canary.cooldown, "pace_for", lambda _url: 60.0)
+        monkeypatch.setattr(
+            canary,
+            "probe",
+            lambda _c, _s, want, budget: asked.append(budget)
+            or canary.Probe(slug="x", name="x", verdict=Verdict.OK, items=3, seconds=0.0),
+        )
+        canary.sweep(config, ["x"], budget=90.0)
+        assert asked == [90.0 + 60.0 * canary.PACED_REQUESTS]
+
+    def test_and_stays_put_for_a_host_nobody_is_pacing(self, config, monkeypatch):
+        asked: list[float] = []
+        monkeypatch.setattr(canary, "get_scraper", lambda _slug: _Fake(_yielding(3)))
+        monkeypatch.setattr(canary.cooldown, "pace_for", lambda _url: 0.0)
+        monkeypatch.setattr(
+            canary,
+            "probe",
+            lambda _c, _s, want, budget: asked.append(budget)
+            or canary.Probe(slug="x", name="x", verdict=Verdict.OK, items=3, seconds=0.0),
+        )
+        canary.sweep(config, ["x"], budget=90.0)
+        assert asked == [90.0]
+
+    def test_a_timeout_says_whose_fault_the_waiting_was(self, config, monkeypatch):
+        """ "gave up after 90s" sends a reader to check the vendor. If the
+        register is holding us to a request a minute, the vendor is not the
+        thing to check."""
+        monkeypatch.setattr(canary.cooldown, "pace_for", lambda _url: 60.0)
+        result = canary.probe(config, _Fake(_raising(ScrapeCanceled("stopped"))))
+        assert result.verdict is Verdict.TIMEOUT
+        assert "our own pacing" in result.detail
+
+    def test_and_does_not_when_there_was_none(self, config, monkeypatch):
+        monkeypatch.setattr(canary.cooldown, "pace_for", lambda _url: 0.0)
+        result = canary.probe(config, _Fake(_raising(ScrapeCanceled("stopped"))))
+        assert "our own pacing" not in result.detail

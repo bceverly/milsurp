@@ -143,6 +143,7 @@ export const api = {
   // Where this listing sits among the others of the same gun. Null for most
   // of them — it needs a matched model, a maker, a cartridge and three peers.
   itemPricePosition: (id) => request(`/api/items/${id}/price-position`),
+  itemSimilar: (id) => request(`/api/items/${id}/similar`),
 
   // --- sites ---
   sites: () => request("/api/sites"),

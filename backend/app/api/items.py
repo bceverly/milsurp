@@ -20,8 +20,9 @@ from ..schemas import (
     PhotoOut,
     PricePointOut,
     PricePositionOut,
+    SimilarListingOut,
 )
-from ..services import pricing
+from ..services import pricing, similar
 from ..services.image_store import ImageStore, ImageStoreError
 from ..services.search import (
     KINDS,
@@ -375,6 +376,41 @@ def price_history(item_id: int, _user: CurrentUser, session: DbSession) -> list[
         .all()
     )
     return [PricePointOut.model_validate(point) for point in points]
+
+
+@router.get("/{item_id}/similar", response_model=list[SimilarListingOut])
+def similar_listings(
+    item_id: int, _user: CurrentUser, session: DbSession
+) -> list[SimilarListingOut]:
+    """Other listings worth looking at beside this one.
+
+    Its own endpoint for the same reason price-position is: it answers nothing
+    for a listing with neither a model nor a cartridge, and the detail page
+    should not wait on a query to find that out.
+
+    Empty rather than absent when there is nothing to say. A list the page can
+    render as zero rows is easier to hold than a null it has to special-case.
+    """
+    item = session.get(Item, item_id)
+    if item is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such item.")
+    found = similar.find(session, item)
+    # One query for the vendor names rather than one per row: eight listings
+    # from eight shops is the good case for this feature, not the rare one.
+    site_names = {
+        site.id: site.name
+        for site in session.execute(
+            select(Site).where(Site.id.in_({entry.item.site_id for entry in found}))
+        ).scalars()
+    }
+    return [
+        SimilarListingOut(
+            item=_to_out(entry.item, site_names),
+            rung=entry.rung.key,
+            label=entry.rung.label,
+        )
+        for entry in found
+    ]
 
 
 @router.get("/{item_id}/price-position", response_model=PricePositionOut | None)

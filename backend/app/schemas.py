@@ -508,6 +508,22 @@ class ItemDetail(ItemOut):
     model_notes: str | None = None
 
 
+class SimilarListingOut(BaseModel):
+    """One listing worth looking at beside the one on screen, and why.
+
+    The reason travels with the row rather than grouping the response into
+    sections: the page shows one list, and a row that cannot say why it is
+    there is a recommendation the reader has to take on trust.
+    """
+
+    item: ItemOut
+    #: The band it came in on -- "same_gun", "same_model", and so on.
+    rung: str
+    #: What to print for that band. Server-side, so the page and the service
+    #: cannot drift on the wording the way two copies of a label do.
+    label: str
+
+
 class PricePositionOut(BaseModel):
     """Where one listing sits among the others of the same gun.
 

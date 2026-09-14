@@ -43,6 +43,7 @@ from ..scrapers.base import (
     SiteScraper,
     vendors_answer,
 )
+from . import cooldown
 
 #: Listings to see before calling a shop healthy. One would do -- the question
 #: is "did anything parse at all" -- but a catalog whose first card is a banner
@@ -54,6 +55,11 @@ DEFAULT_WANT = 3
 #: purpose: this is a ceiling that catches a hang, not a performance budget.
 #: Sixteen-minute catalogs exist, and the point is to stop long before one.
 DEFAULT_BUDGET = 90.0
+
+#: How many paced requests a probe is assumed to need: robots.txt, the catalog,
+#: and a little room. Multiplied by the gap the cooldown register is asking for
+#: and added to the budget -- see sweep().
+PACED_REQUESTS = 4
 
 #: What a scraper needing a headless browser gets instead. Applied per scraper
 #: rather than raising the default, which would let a genuinely hung HTTP shop
@@ -159,7 +165,7 @@ def probe(  # noqa: PLR0911 - one return per verdict, which is the whole shape
             Verdict.TIMEOUT,
             seen,
             started,
-            detail=f"gave up after {budget:.0f}s",
+            detail=_gave_up(scraper, budget),
         )
     except HostResting as exc:
         # Our own register, not the vendor's answer: the cooldown is why we did
@@ -187,7 +193,7 @@ def probe(  # noqa: PLR0911 - one return per verdict, which is the whole shape
             Verdict.TIMEOUT,
             seen,
             started,
-            detail=f"nothing parsed within {budget:.0f}s",
+            detail=_gave_up(scraper, budget),
         )
     # The quiet one. The shop answered, the scrape ran to the end, and not one
     # listing came out of it. Either they really are empty or we no longer know
@@ -195,6 +201,23 @@ def probe(  # noqa: PLR0911 - one return per verdict, which is the whole shape
     return _probe(
         scraper, Verdict.EMPTY, seen, started, detail="the scrape finished and parsed nothing"
     )
+
+
+def _gave_up(scraper: SiteScraper, budget: float) -> str:
+    """Why a probe ran out of time, naming our own politeness where it applies.
+
+    A reader looking at "gave up after 90s" will go and check the vendor. If
+    the register is holding us to one request a minute, the vendor is not the
+    thing to check.
+    """
+    gap = cooldown.pace_for(scraper.base_url)
+    if gap:
+        return (
+            f"nothing parsed within {budget:.0f}s, of which most was our own "
+            f"pacing: the cooldown register is asking for {gap:.0f}s between "
+            f"requests to this host"
+        )
+    return f"nothing parsed within {budget:.0f}s"
 
 
 def _probe(
@@ -251,7 +274,15 @@ def sweep(
         if skip_browser and scraper.requires_browser:
             continue
         allowance = max(budget, BROWSER_BUDGET) if scraper.requires_browser else budget
-        result = probe(config, scraper, want=want, budget=allowance)
+        # A host the cooldown register is pacing has to be given time to be
+        # asked slowly. Without this the budget is spent waiting out a delay
+        # *we* imposed and the shop is reported as a timeout -- which is the
+        # canary blaming a vendor for our own politeness, and it happened the
+        # first night this ran in production: checkpointcharlies.com was on a
+        # 60s gap after refusing a run of photo fetches, so two requests could
+        # not fit in ninety seconds and never will.
+        gap = cooldown.pace_for(scraper.base_url)
+        result = probe(config, scraper, want=want, budget=allowance + gap * PACED_REQUESTS)
         results.append(result)
         if progress is not None:
             progress(result)

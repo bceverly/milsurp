@@ -44,7 +44,14 @@ Recommends:
  tesseract-ocr,
 # Selenium drives a real browser for the handful of vendors whose catalog is
 # drawn client-side.
- chromium-browser | google-chrome-stable,
+#
+# chromium-driver, not chromium-browser: on Ubuntu the latter is a transitional
+# package for a *snap*, so `apt install chromium-browser` reports success and
+# installs nothing apt can see -- the binary lands at /snap/bin/chromium, which
+# Selenium Manager does not look for. app/scrapers/browser.py finds it anyway,
+# and naming the driver package here is what gets a matching chromedriver on
+# machines where apt still has a real one.
+ chromium-driver | chromium-chromedriver | google-chrome-stable,
 Suggests:
  certbot,
  python3-certbot-nginx,

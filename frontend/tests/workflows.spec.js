@@ -262,6 +262,41 @@ test.describe("item detail extras", () => {
     expect(Number.parseFloat(left)).toBeLessThanOrEqual(100);
   });
 
+  test("and offers other listings worth looking at, each saying why", async ({
+    signedIn,
+  }) => {
+    /**
+     * The step the spectrum stops short of. It says "cheaper than 8% of them"
+     * and gives no way to reach the them, so a reader told their rifle is dear
+     * had to retype the model into the search box.
+     *
+     * The reason on each row is the part worth pinning: one list mixing the
+     * same rifle at another vendor with a different rifle in the same
+     * cartridge, unlabeled, would be worse than useful.
+     */
+    await signedIn.goto("/?search=Mosin&availability=all");
+    const card = signedIn.locator(".item-card").first();
+    await expect(card).toBeVisible();
+    await card.click();
+    await expect(signedIn.locator(".detail__facts")).toBeVisible();
+
+    const panel = signedIn.locator(".panel", { hasText: "Similar listings" });
+    await expect(panel).toBeVisible();
+    const rows = panel.locator(".similar__row");
+    expect(await rows.count()).toBeGreaterThan(0);
+
+    // Every row says which band it came in on.
+    const reasons = await panel.locator(".similar__why").allInnerTexts();
+    expect(reasons.length).toBe(await rows.count());
+    expect(reasons.every((text) => text.trim().length > 0)).toBe(true);
+
+    // And following one lands on that listing rather than back here.
+    const here = signedIn.url();
+    await rows.first().locator("a").click();
+    await expect(signedIn.locator(".detail__facts")).toBeVisible();
+    expect(signedIn.url()).not.toBe(here);
+  });
+
   test("the dearest listing puts its marker at the far end", async ({ signedIn }) => {
     /**
      * Reported from the running site. The marker was placed by the *statistic*

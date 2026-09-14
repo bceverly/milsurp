@@ -130,6 +130,73 @@ function ArmoryPanel({ item, onClose }) {
  * hidden by the choice; the graduations carry the dollar values a quarter,
  * half and three-quarters of the way along.
  */
+/**
+ * Other listings worth looking at, each saying why it is there.
+ *
+ * The spectrum above answers "is this a good deal?" and stops one step short:
+ * it says *cheaper than 8% of them* and offers no way to reach the them. A
+ * reader told their rifle is dear had to retype the model into the search box.
+ *
+ * One list rather than sections, with the reason on the row. Sections would
+ * put a heading above a single card on most pages, and the reason is a
+ * property of the row anyway: two rows from different bands sit together
+ * happily as long as each says which it came in on.
+ */
+function SimilarListings({ rows }) {
+  if (!rows.length) return null;
+  return (
+    <div className="panel" style={{ marginTop: 20 }}>
+      <div className="panel__head">
+        <h2>Similar listings</h2>
+        <span className="chip chip--neutral">{rows.length}</span>
+      </div>
+      <div className="panel__body">
+        <ul className="similar">
+          {rows.map(({ item, rung, label }) => (
+            <li key={item.id} className="similar__row">
+              <Link className="similar__link" to={`/items/${item.id}`}>
+                {/* AuthImage, not <img>: the photo store needs an
+                    Authorization header, so a plain src renders a broken
+                    icon. See components/AuthImage.jsx. */}
+                {item.thumbnail_url ? (
+                  <AuthImage
+                    className="similar__thumb"
+                    src={item.thumbnail_url}
+                    alt=""
+                    loading="lazy"
+                  />
+                ) : (
+                  <span
+                    className="similar__thumb similar__thumb--empty"
+                    aria-hidden="true"
+                  />
+                )}
+                <span className="similar__text">
+                  <span className="similar__title">{item.title}</span>
+                  <span className="similar__meta">
+                    {item.site_name}
+                    {/* The band, in words the server chose. Kept out of the
+                        link's accessible name: it repeats down the list and a
+                        screen reader reading it on every row is noise. */}
+                    <span className="similar__why" data-rung={rung}>
+                      {label}
+                    </span>
+                  </span>
+                </span>
+                <span className="similar__price">
+                  {item.current_price == null
+                    ? "Call for price"
+                    : formatMoney(item.current_price, item.currency)}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 function PriceSpectrum({ position, currency }) {
   if (!position) return null;
   // Two different numbers, and mixing them up caused both of this widget's
@@ -273,6 +340,7 @@ export default function ItemDetail() {
   const [lightbox, setLightbox] = useState(false);
   const [armoryOpen, setArmoryOpen] = useState(false);
   const [spectrum, setSpectrum] = useState(null);
+  const [similar, setSimilar] = useState([]);
 
   useTitle(item?.title);
 
@@ -303,6 +371,21 @@ export default function ItemDetail() {
       .itemPricePosition(itemId)
       .then((result) => !canceled && setSpectrum(result))
       .catch(() => !canceled && setSpectrum(null));
+    return () => {
+      canceled = true;
+    };
+  }, [itemId]);
+
+  // Same shape as the spectrum above: separate, and allowed to fail quietly.
+  // It answers with nothing for a listing that states neither a model nor a
+  // cartridge, and the page is complete without it.
+  useEffect(() => {
+    let canceled = false;
+    setSimilar([]);
+    api
+      .itemSimilar(itemId)
+      .then((rows) => !canceled && setSimilar(rows || []))
+      .catch(() => !canceled && setSimilar([]));
     return () => {
       canceled = true;
     };
@@ -563,6 +646,8 @@ export default function ItemDetail() {
               )}
             </div>
           </div>
+
+          <SimilarListings rows={similar} />
         </div>
       </div>
 
