@@ -16,7 +16,7 @@ alembic>=1.14,<2.0
 psycopg[binary]>=3.2
 
 # Configuration
-PyYAML>=6.0.2
+PyYAML>=6.0.3
 
 # Security: Argon2id password hashing and JWT sessions
 argon2-cffi>=25.1.0
