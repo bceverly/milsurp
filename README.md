@@ -133,6 +133,13 @@ changed — filtered to the sites you care about and capped so it stays readable
   browse URL, so running one is a link and there is no second search
   implementation to drift. **Send now** mails one search on demand, without
   disturbing the daily digest's schedule or its watermark.
+- **Watchlist.** Star a listing to hear when its price moves or it sells, and
+  optionally name the price you would pay. A target is a promise to stay quiet:
+  with one set, only a price at or below it is mailed — a rifle drifting $900 →
+  $925 says nothing to somebody waiting for $700 — while a sale is always worth
+  hearing, because that is about whether there is still a rifle. What counts as
+  news is defined once and used by both the digest and the page, so the two
+  cannot disagree about whether something happened.
 - **Responsive**: a two-column grid and a slide-in drawer on a phone, a fixed
   sidebar and multi-column grid on a desktop.
 - **All times stored UTC**, rendered in the viewer's own timezone.

@@ -39,7 +39,7 @@ from ..models import (
     as_utc,
     utcnow,
 )
-from . import mailer, search
+from . import mailer, search, watchlist
 from .image_store import ImageStore, ImageStoreError
 
 log = logging.getLogger("milsurp.digest")
@@ -431,6 +431,87 @@ def _saved_row(item: Item, base_url: str, site_name: str, photo_cid: str | None)
       </tr>"""
 
 
+def _watch_row(update, base_url: str, site_name: str, photo_cid: str | None) -> str:
+    """One watched listing, led by what happened to it.
+
+    The headline goes first and in colour, because this section is read
+    differently from the others: a watcher is not browsing, they are checking
+    whether the one thing they care about has moved. "Sold" has to be legible
+    before the title is.
+    """
+    item = update.item
+    price = _money(item.current_price, item.currency)
+    was = (
+        f'<span style="color:{MUTED};font-size:13px;text-decoration:line-through;'
+        f'margin-left:8px;">{_money(item.previous_price, item.currency)}</span>'
+        if item.previous_price and item.current_price != item.previous_price
+        else ""
+    )
+    target = (
+        f'<div style="color:{MUTED};font-size:12px;margin:4px 0 0;">'
+        f"Your target: {_money(update.watch.target_price, item.currency)}</div>"
+        if update.watch.target_price is not None
+        else ""
+    )
+    note = (
+        f'<div style="color:{MUTED};font-size:12px;font-style:italic;margin:4px 0 0;">'
+        f"{_e(truncate(update.watch.note, 120))}</div>"
+        if update.watch.note
+        else ""
+    )
+    here = f"{base_url}/items/{item.id}"
+    picture = (
+        f"""
+        <td width="84" valign="top"
+            style="padding:14px 12px 14px 0;border-bottom:1px solid #E3E8F0;">
+          <a href="{_e(here)}" style="text-decoration:none;">
+            <img src="cid:{photo_cid}" width="72" height="72" alt=""
+                 style="display:block;width:72px;height:72px;object-fit:cover;
+                        border-radius:6px;border:1px solid #E3E8F0;" />
+          </a>
+        </td>"""
+        if photo_cid
+        else ""
+    )
+    return f"""
+      <tr>{picture}
+        <td valign="top" style="padding:14px 0;border-bottom:1px solid #E3E8F0;">
+          <div style="font-size:12px;font-weight:700;letter-spacing:.08em;
+               text-transform:uppercase;color:{BLUE};">{_e(update.headline)}</div>
+          <a href="{_e(here)}" style="color:{NAVY};font-weight:600;font-size:15px;
+             text-decoration:none;line-height:1.35;">{_e(truncate(item.title, TITLE_CHARS))}</a>
+          <div style="color:{MUTED};font-size:12px;margin:5px 0 0;">{_e(site_name)}</div>
+          {target}{note}
+          <div style="margin:8px 0 0;">
+            <span style="color:{NAVY};font-weight:700;font-size:16px;">{price}</span>{was}
+          </div>
+        </td>
+      </tr>"""
+
+
+def _watch_section(
+    updates: list, base_url: str, sites: dict[int, Site], photos: dict[int, str]
+) -> str:
+    """The watchlist, first in the email.
+
+    Above new listings and price drops on purpose: those are the catalog
+    talking, and this is the answer to a question the reader actually asked.
+    """
+    if not updates:
+        return ""
+    rows = "".join(
+        _watch_row(update, base_url, _site_name(sites, update.item), photos.get(update.item.id))
+        for update in updates
+    )
+    return f"""
+      <tr><td style="padding:26px 24px 0;">
+        <h2 style="margin:0;font-size:17px;color:{INK};font-weight:700;
+            border-left:4px solid {BLUE};padding-left:10px;">You are watching</h2>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+               style="border-collapse:collapse;">{rows}</table>
+      </td></tr>"""
+
+
 def _site_name(sites: dict[int, Site], item: Item) -> str:
     site = sites.get(item.site_id)
     return site.name if site is not None else ""
@@ -525,6 +606,7 @@ def render_digest(
     since: datetime,
     config: Config,
     saved: list[tuple[SavedSearch, list[Item], int]] | None = None,
+    watched: list | None = None,
 ) -> tuple[str, str, dict[str, bytes]]:
     """Return ``(subject, html_body, inline_images)``.
 
@@ -542,8 +624,16 @@ def render_digest(
 
     saved = saved or []
     saved_count = sum(len(items) for _row, items, _total in saved)
+    watched = watched or []
 
     parts = []
+    if watched:
+        # First in the subject as well as the body. Somebody with a watchlist
+        # opens the email to find out about it, and "3 new listings" in front
+        # of "the rifle you are watching sold" buries the answer.
+        parts.append(
+            f"{len(watched)} you are watching" if len(watched) != 1 else watched[0].headline.lower()
+        )
     if new_count:
         parts.append(f"{new_count} new listing{'s' if new_count != 1 else ''}")
     if drop_count:
@@ -563,7 +653,11 @@ def render_digest(
     store = ImageStore(config)
     budget = MAX_EMAIL_PHOTO_BYTES
     saved_groups = [{0: items} for _row, items, _total in saved]
-    for group in (new_items, price_drops, *saved_groups):
+    # Watched listings take their photographs first: they are the reason this
+    # reader opened the email, and running out of budget on them would be the
+    # worst place to run out.
+    watched_group = {0: [update.item for update in watched]}
+    for group in (watched_group, new_items, price_drops, *saved_groups):
         for items in group.values():
             for item in items:
                 if len(photo_cids) >= MAX_EMAIL_PHOTOS or budget <= 0:
@@ -618,11 +712,12 @@ def render_digest(
     sites you follow.
   </td></tr>
 
+  {_watch_section(watched, base_url, sites, photo_cids)}
   {_section('New listings', new_items, sites, zone, False, photo_cids)}
   {_section('Price reductions', price_drops, sites, zone, True, photo_cids)}
   {_saved_sections(saved, sites, base_url, photo_cids)}
 
-  {'' if (new_count or drop_count) else f'''
+  {'' if (new_count or drop_count or watched) else f'''
   <tr><td style="padding:24px;color:{MUTED};font-size:14px;">
     No new listings or price reductions this time.
   </td></tr>'''}
@@ -673,8 +768,10 @@ def build_digest(
     site_ids = selected_site_ids(session, preference)
     # No sites chosen means no new-listing or price-drop sections. It used to
     # mean no digest at all, and that is still right when there is nothing else
-    # to send -- but a saved search is a reason to send one.
-    if not site_ids and not saved:
+    # to send -- but a saved search is a reason to send one, and so is a
+    # watchlist: somebody following one rifle and no sites at all has asked a
+    # narrower question, not a smaller one.
+    if not site_ids and not saved and not user.watched_items:
         return None
 
     # First run has no watermark: look back one interval rather than emailing
@@ -686,16 +783,26 @@ def build_digest(
 
     new_items = collect_new_items(session, preference, site_ids, since)
     price_drops = collect_price_drops(session, preference, site_ids, since)
+    # Not scoped by the site selection, for the same reason a saved search is
+    # not: starring a listing is a statement about *that listing*, and a filter
+    # chosen for the browse sections has no business overruling it.
+    watched = watchlist.updates(session, user, since)
 
     # Every site a row in this email mentions, not only the selected ones: a
     # saved search can match a vendor the digest's site filter leaves out, and
     # its rows still have to say where they came from.
-    wanted = set(site_ids) | {item.site_id for _row, items, _total in saved for item in items}
+    wanted = (
+        set(site_ids)
+        | {item.site_id for _row, items, _total in saved for item in items}
+        | {update.item.site_id for update in watched}
+    )
     sites = {
         site.id: site
         for site in session.execute(select(Site).where(Site.id.in_(wanted))).scalars().all()
     }
-    subject, body, images = render_digest(user, new_items, price_drops, sites, since, config, saved)
+    subject, body, images = render_digest(
+        user, new_items, price_drops, sites, since, config, saved, watched
+    )
     new_count = sum(len(v) for v in new_items.values())
     drop_count = sum(len(v) for v in price_drops.values())
     return subject, body, images, new_count, drop_count, cutoff

@@ -33,6 +33,7 @@ from .api import (
     scans,
     sites,
     system,
+    watchlist,
 )
 from .config import ROOT_DIR, get_config
 from .scheduler import get_scheduler
@@ -349,6 +350,7 @@ def create_app() -> FastAPI:
     api.include_router(items.router)
     api.include_router(preferences.router)
     api.include_router(saved_searches.router)
+    api.include_router(watchlist.router)
     app.include_router(api)
 
     _mount_frontend(app)

@@ -23,6 +23,7 @@ import {
   External,
   Eye,
   Sparkle,
+  Star,
   TrendDown,
   X,
 } from "../components/Icons.jsx";
@@ -130,6 +131,145 @@ function ArmoryPanel({ item, onClose }) {
  * hidden by the choice; the graduations carry the dollar values a quarter,
  * half and three-quarters of the way along.
  */
+/**
+ * Watch this listing, and optionally name the price you would pay.
+ *
+ * The star is a *state*, not an event: it renders filled or empty from the
+ * item's own response, and clicking it is idempotent server-side, so a double
+ * click leaves one watch rather than an error.
+ *
+ * The target is deliberately behind the star rather than beside it. Most
+ * watches have no number on them — "keep an eye on this" — and putting a price
+ * field in front of everybody asks a question they have not got to yet.
+ */
+function WatchControl({ item }) {
+  const [watching, setWatching] = useState(Boolean(item.watched));
+  const [target, setTarget] = useState(
+    item.watch_target_price == null ? "" : String(item.watch_target_price),
+  );
+  const [note, setNote] = useState(item.watch_note || "");
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  // The item can change under this component when the route does.
+  useEffect(() => {
+    setWatching(Boolean(item.watched));
+    setTarget(item.watch_target_price == null ? "" : String(item.watch_target_price));
+    setNote(item.watch_note || "");
+    setOpen(false);
+    setError("");
+  }, [item.id, item.watched, item.watch_target_price, item.watch_note]);
+
+  const save = async (body) => {
+    setBusy(true);
+    setError("");
+    try {
+      await api.watch(item.id, body);
+      setWatching(true);
+    } catch (err) {
+      setError(err?.message || "Could not save that.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggle = async () => {
+    if (!watching) return save({});
+    setBusy(true);
+    setError("");
+    try {
+      await api.unwatch(item.id);
+      setWatching(false);
+      setTarget("");
+      setNote("");
+      setOpen(false);
+    } catch (err) {
+      setError(err?.message || "Could not stop watching.");
+    } finally {
+      setBusy(false);
+    }
+    return undefined;
+  };
+
+  return (
+    <div className="watch">
+      <div className="watch__row">
+        <button
+          type="button"
+          className={`btn btn--sm ${watching ? "btn--primary" : "btn--ghost"}`}
+          onClick={toggle}
+          disabled={busy}
+          aria-pressed={watching}
+        >
+          <Star filled={watching} size={16} />
+          {watching ? "Watching" : "Watch"}
+        </button>
+        {watching && (
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm"
+            onClick={() => setOpen((was) => !was)}
+            aria-expanded={open}
+          >
+            {target === ""
+              ? "Set a target"
+              : `Target ${formatMoney(Number(target), item.currency)}`}
+          </button>
+        )}
+      </div>
+
+      {watching && open && (
+        <div className="watch__form">
+          <label className="watch__field">
+            <span>Tell me if it drops below</span>
+            <input
+              className="input"
+              type="number"
+              min="0"
+              step="1"
+              value={target}
+              onChange={(event) => setTarget(event.target.value)}
+              placeholder="Any change"
+            />
+          </label>
+          <label className="watch__field">
+            <span>Note to yourself</span>
+            <input
+              className="input"
+              type="text"
+              maxLength={200}
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              placeholder="Optional"
+            />
+          </label>
+          <button
+            type="button"
+            className="btn btn--primary btn--sm"
+            disabled={busy}
+            onClick={() =>
+              save({
+                target_price: target === "" ? null : Number(target),
+                note: note || null,
+              }).then(() => setOpen(false))
+            }
+          >
+            Save
+          </button>
+          {/* Said plainly, because it is the surprising half: a target means
+              "do not tell me until then", so ordinary movement goes quiet. */}
+          <p className="watch__hint">
+            With a target set, only a price at or below it is emailed — and a sale always
+            is.
+          </p>
+        </div>
+      )}
+      {error && <p className="watch__error">{error}</p>}
+    </div>
+  );
+}
+
 /**
  * Other listings worth looking at, each saying why it is there.
  *
@@ -584,6 +724,11 @@ export default function ItemDetail() {
               the thing somebody is about to act on: it answers "is this a good
               deal?", which is the question the catalog exists for. */}
           <PriceSpectrum position={spectrum} currency={item.currency} />
+
+          {/* Under the spectrum and above the buy button: the spectrum says
+              whether this is a good price, and watching is what somebody does
+              when the answer is "not yet". */}
+          <WatchControl item={item} />
 
           <a
             className="btn btn--primary"

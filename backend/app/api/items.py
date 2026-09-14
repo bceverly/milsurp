@@ -22,7 +22,7 @@ from ..schemas import (
     PricePositionOut,
     SimilarListingOut,
 )
-from ..services import pricing, similar
+from ..services import pricing, similar, watchlist
 from ..services.image_store import ImageStore, ImageStoreError
 from ..services.search import (
     KINDS,
@@ -310,7 +310,7 @@ def list_items(
 
 
 @router.get("/{item_id}", response_model=ItemDetail)
-def get_item(item_id: int, _user: CurrentUser, session: DbSession) -> ItemDetail:
+def get_item(item_id: int, user: CurrentUser, session: DbSession) -> ItemDetail:
     item = (
         session.execute(
             select(Item)
@@ -336,6 +336,11 @@ def get_item(item_id: int, _user: CurrentUser, session: DbSession) -> ItemDetail
     # What the armory knows about the match, so the facts panel can show it
     # and link out. Read here rather than on the list endpoint: it is three
     # relationship loads per listing and the grid shows none of it.
+    watch = watchlist.watching(session, user, item.id)
+    if watch is not None:
+        detail.watched = True
+        detail.watch_target_price = watch.target_price
+        detail.watch_note = watch.note
     if item.firearm_model is not None:
         found = item.firearm_model
         detail.model_kind = found.kind.value if found.kind else None

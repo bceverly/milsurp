@@ -165,18 +165,12 @@ def find(session: Session, item: Item, limit: int = DEFAULT_LIMIT) -> list[Simil
     for rung, clauses in _rungs(item):
         rows = session.execute(
             _base(item)
-            # Excluded in the query, not after it. A wider band's rows are
-            # mostly the closer band's rows over again, so filtering afterwards
-            # lets them eat the LIMIT and the band comes back empty: twelve
-            # K98ks are also twelve "same cartridge, Germany" rows, and the
-            # VZ-24 behind them never appeared.
-            .where(*clauses, Item.is_rifle.is_(item.is_rifle), Item.id.notin_(seen))
+            .where(*clauses, Item.is_rifle.is_(item.is_rifle))
             # Cheapest first within a band: the reason somebody follows one of
             # these is usually the price, and a listing with none sorts last
             # rather than first, which is what NULLS LAST is for.
-            .order_by(Item.current_price.is_(None), Item.current_price.asc()).limit(
-                limit + RESERVED_FOR_WIDER
-            )
+            .order_by(Item.current_price.is_(None), Item.current_price.asc())
+            .limit(limit + RESERVED_FOR_WIDER)
         ).scalars()
         band = []
         for row in rows:

@@ -498,6 +498,15 @@ class ItemDetail(ItemOut):
     #: this particular gun is said to be from -- so both are shown, and a
     #: disagreement between them is information rather than a bug.
     model_country: str | None = None
+
+    #: Whether *this* reader is watching it, and on what terms. Carried on the
+    #: detail response rather than fetched separately: the star has to render
+    #: in its true state on first paint, and a second request to find that out
+    #: shows an empty star for a moment on a listing somebody is watching --
+    #: which reads as having lost the watch.
+    watched: bool = False
+    watch_target_price: float | None = None
+    watch_note: str | None = None
     #: Whether a person has vouched for the row. A pending row decided nothing
     #: about this listing, and saying so is the difference between "the armory
     #: thinks" and "the armory has been asked and not answered".
@@ -634,6 +643,37 @@ class EmailPreferenceUpdate(BaseModel):
 #: Mirrored by LIMITS in frontend/src/pages/SavedSearches.jsx.
 SAVED_SEARCH_LIMITS = (5, 10, 20, 30, 50, 100)
 SavedSearchLimit = Literal[5, 10, 20, 30, 50, 100]
+
+
+class WatchCreate(BaseModel):
+    """Starting to watch a listing, or changing the terms of one.
+
+    Both fields optional: starring with no target is the common case -- "keep
+    an eye on this" -- and a target is the stronger statement somebody makes
+    when they have decided what they will pay.
+    """
+
+    target_price: float | None = Field(default=None, ge=0)
+    note: str | None = Field(default=None, max_length=200)
+
+
+class WatchOut(UTCModel):
+    """One watched listing, with the listing itself along for the ride.
+
+    The item is nested rather than flattened: a watchlist row shows a price, a
+    photo and a vendor, all of which are the *item's* and all of which change
+    under the watch. Copying them up would be a second version of the truth.
+    """
+
+    id: int
+    item: ItemOut
+    target_price: float | None = None
+    note: str | None = None
+    created_at: datetime
+    #: What the digest would say about it right now, or null for "nothing since
+    #: your last email". Computed from the same rule the digest uses, so the
+    #: page and the email cannot disagree about what counts as news.
+    headline: str | None = None
 
 
 class SavedSearchOut(UTCModel):

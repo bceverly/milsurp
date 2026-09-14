@@ -1584,9 +1584,40 @@ before they got nothing.
 
 ### Watchlists and notifications
 
-- **Planned** — Per-user watchlist: star a listing, get told when its price
-  moves or it sells.
-- **Planned** — Price-target alerts ("tell me if this drops below $X").
+- **Shipped** — Per-user watchlist: star a listing, hear when its price moves
+  or it sells, and name the price you would pay. A monitor you have to visit is
+  half a monitor, and this is the half that was missing — the catalog could say
+  what was on the shelves and whether a price was good, but not "tell me when
+  *that one* moves", which is the question somebody has about the rifle they
+  have decided they want and will not pay this week's price for.
+
+  **What counts as news is defined once**, in `services/watchlist.py`, and used
+  by both the digest that mails it and the page that shows it — two copies of
+  that rule would disagree eventually, and the disagreement would be silent.
+  Sold and de-listed outrank everything, then a target reached, then ordinary
+  movement.
+
+  **A target is a promise to stay quiet.** Naming $700 means "do not tell me
+  until then", so a rifle drifting $900 → $925 says nothing — while a sale
+  still does, because that is about whether there is a rifle at all rather than
+  what it costs.
+
+  It reuses the digest's own `since` watermark rather than storing a last-
+  notified price. A second clock is one more thing to keep wound, and it would
+  disagree with the digest's the first time an email failed to send.
+
+  The star is a *state*, not an event: `PUT` rather than `POST`, so clicking
+  twice leaves one watch, and the same call sets a target on something already
+  starred. The watch travels on the item detail response rather than being
+  fetched separately, so it paints in its true state — a second request means
+  an empty star for a moment on a listing somebody is watching, which reads as
+  having lost the watch.
+
+  A watchlist is now reason enough to send a digest on its own: somebody
+  following one rifle and no sites at all has asked a narrower question, not a
+  smaller one. The section goes first in the email, above new listings and
+  price reductions — those are the catalog talking, this is the answer to
+  something the reader asked.
 - **Planned** — Web push notifications as an alternative to email.
 
 ### Data quality

@@ -13,6 +13,7 @@ import ArmoryPage from "./pages/Armory.jsx";
 import SettingsPage from "./pages/Settings.jsx";
 import BackupsPage from "./pages/Backups.jsx";
 import SavedSearches from "./pages/SavedSearches.jsx";
+import Watchlist from "./pages/Watchlist.jsx";
 
 function FullPageSpinner() {
   return (
@@ -61,6 +62,7 @@ export default function App() {
         <Route path="settings" element={<SettingsPage />} />
         <Route path="backups" element={<BackupsPage />} />
         <Route path="saved-searches" element={<SavedSearches />} />
+        <Route path="watchlist" element={<Watchlist />} />
         <Route
           path="sites"
           element={

@@ -177,6 +177,15 @@ export const Sparkle = (p) => (
   </Svg>
 );
 
+// Watching, and not watching. One outline, filled or not: a star that changes
+// colour but not shape keeps the row's alignment steady as it toggles, and the
+// filled state has to be readable at a glance down a list of forty.
+export const Star = ({ filled = false, ...p }) => (
+  <Svg {...p} fill={filled ? "currentColor" : "none"}>
+    <path d="M12 3.6l2.6 5.3 5.8.85-4.2 4.1 1 5.75L12 16.9l-5.2 2.7 1-5.75-4.2-4.1 5.8-.85z" />
+  </Svg>
+);
+
 export const Bookmark = (p) => (
   <Svg {...p}>
     <path d="M6 4.5h12a1 1 0 0 1 1 1V20l-7-4-7 4V5.5a1 1 0 0 1 1-1z" />

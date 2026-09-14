@@ -145,6 +145,13 @@ export const api = {
   itemPricePosition: (id) => request(`/api/items/${id}/price-position`),
   itemSimilar: (id) => request(`/api/items/${id}/similar`),
 
+  watchlist: () => request("/api/watchlist"),
+  // The object, not a string: request() does the JSON.stringify itself, and
+  // stringifying here again posts a quoted string the server cannot read.
+  watch: (itemId, body) =>
+    request(`/api/watchlist/${itemId}`, { method: "PUT", body: body || {} }),
+  unwatch: (itemId) => request(`/api/watchlist/${itemId}`, { method: "DELETE" }),
+
   // --- sites ---
   sites: () => request("/api/sites"),
   // Vendors the roadmap intends to read. No rows behind these, so they are

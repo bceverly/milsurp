@@ -15,6 +15,7 @@ import {
   Menu,
   Rifle,
   Sites as SitesIcon,
+  Star,
   Tag as TagIcon,
   Database as DatabaseIcon,
   Users as UsersIcon,
@@ -28,6 +29,10 @@ const NAV = [
   // filters on it and belongs beside the page it came from — not down with
   // the email settings, which is only one of the things it can do.
   { to: "/saved-searches", label: "Saved searches", icon: Bookmark },
+  // Beside saved searches, and after it: a saved search is a standing question
+  // about the catalog, a watchlist a standing question about particular guns.
+  // Both are "things I asked for", and both belong above the admin entries.
+  { to: "/watchlist", label: "Watchlist", icon: Star },
   { to: "/sites", label: "Sites", icon: SitesIcon, adminOnly: true },
   // One entry, not two. Makers, models and calibers are three views of one
   // body of knowledge, and having "Makers" beside "Armory" invited exactly

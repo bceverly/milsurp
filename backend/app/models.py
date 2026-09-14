@@ -108,6 +108,9 @@ class User(Base, TimestampMixin):
     saved_searches: Mapped[list["SavedSearch"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    watched_items: Mapped[list["WatchedItem"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
     @property
     def is_admin(self) -> bool:
@@ -934,6 +937,49 @@ class SavedSearch(Base, TimestampMixin):
     last_emailed_at: Mapped[datetime | None] = mapped_column(DateTime)
 
     user: Mapped["User"] = relationship(back_populates="saved_searches")
+
+
+class WatchedItem(Base, TimestampMixin):
+    """One listing a user is following.
+
+    The catalog answers "what is on the shelves" and, since the price spectrum,
+    "is this a good deal". It could not answer "tell me when *that one* moves",
+    which is the question somebody has about the rifle they have decided they
+    want and will not pay this week's price for. Until now the only way to find
+    out was to come back and look.
+
+    **A row per (user, listing), and nothing about the listing copied onto it.**
+    The price, the title and whether it has sold all live on the item and change
+    under it; duplicating any of them here would create a second version of the
+    truth whose only job is to go stale. What this table holds is the fact that
+    somebody cares, and the one number that is theirs rather than the vendor's.
+
+    Deleted with the user and with the listing. A de-listed gun keeps its row --
+    that is the interesting case, not a reason to forget -- because a scan
+    marks a listing inactive rather than removing it. Only a genuine delete
+    cascades, and nothing in the application does that to an item.
+    """
+
+    __tablename__ = "watched_items"
+    __table_args__ = (UniqueConstraint("user_id", "item_id", name="uq_watched_item"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    item_id: Mapped[int] = mapped_column(
+        ForeignKey("items.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    #: "Tell me if it drops below this." NULL means any movement is worth
+    #: hearing about, which is the sensible default for a gun somebody is
+    #: merely following rather than waiting on.
+    target_price: Mapped[float | None] = mapped_column(Float)
+    #: Why this one, in the watcher's own words. Optional, and never shown to
+    #: anybody else: a watchlist of forty rifles is unreadable without it.
+    note: Mapped[str | None] = mapped_column(String(200))
+
+    user: Mapped["User"] = relationship(back_populates="watched_items")
+    item: Mapped["Item"] = relationship()
 
 
 class EmailPreference(Base, TimestampMixin):
