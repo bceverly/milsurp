@@ -15,7 +15,7 @@ responses>=0.25          # stub HTTP for scraper tests
 # Linting and formatting
 ruff>=0.9
 black>=24.10
-mypy>=1.14
+mypy>=2.3.1
 bandit[toml]>=1.9.4      # security-focused static analysis
 types-PyYAML>=6.0
 types-requests>=2.32
