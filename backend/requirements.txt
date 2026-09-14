@@ -5,7 +5,7 @@ python-multipart>=0.0.32
 email-validator>=2.2
 
 # Database
-SQLAlchemy>=2.0.36,<3.0
+SQLAlchemy>=2.0.52,<3.0
 alembic>=1.14,<2.0
 # The PostgreSQL driver. Installed unconditionally because the engine is a
 # config.yaml setting rather than a build-time choice: a deployment that starts
