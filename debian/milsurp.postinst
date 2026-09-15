@@ -144,6 +144,24 @@ case "$1" in
       fi
     fi
 
+    # --- the sample's placeholder address ---------------------------------
+    # config.yaml.sample ships `admin: email: you@example.com` and this script
+    # copies that file into place, so an administrator who follows the notes
+    # below -- set a password, sign in, change it -- ends up with an admin
+    # account at an address that does not exist. Every digest, watch alert and
+    # canary report then bounces, and the first sign of it is a bounce message
+    # rather than the alert they asked for.
+    #
+    # Checked on every configure rather than only a fresh one: a placeholder
+    # survives an upgrade exactly as happily as an install.
+    if grep -qE '^[[:space:]]*email:[[:space:]]*you@example\.com' "$CONFIG" 2>/dev/null; then
+      echo "Milsurp: WARNING — admin.email in $CONFIG is still the sample's" >&2
+      echo "  placeholder, you@example.com. Nothing can be delivered there, so" >&2
+      echo "  every digest, watch alert and canary report will bounce." >&2
+      echo "  Set a real address in $CONFIG, and change it on the Users page if" >&2
+      echo "  the account has already been created." >&2
+    fi
+
     # --- what the administrator still has to do ----------------------------
     if [ "$FRESH_CONFIG" = yes ] || [ "$MIGRATION_STATE" = unreachable ]; then
       cat <<NEXT
@@ -151,8 +169,8 @@ case "$1" in
   ─────────────────────────────────────────────────────────────────────────
   Milsurp Monitor is installed but NOT yet running. Four things remain:
 
-    1. Edit the configuration — set admin.password, the email.* block and
-       server.production.public_url:
+    1. Edit the configuration — set admin.email and admin.password, the
+       email.* block and server.production.public_url:
 
          sudo -e $CONFIG
 

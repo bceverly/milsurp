@@ -36,13 +36,41 @@ class TestWhereItLooks:
         monkeypatch.setattr(browser.os, "access", lambda path, _mode: path.startswith("/snap/"))
         assert browser.find_chrome() == ("/snap/bin/chromium", "/snap/bin/chromium.chromedriver")
 
+    def test_the_driver_matches_the_browser_it_drives(self, monkeypatch):
+        """Reported from production, and a real bug in the first version of
+        this: the browser and the driver were searched for independently, so a
+        machine with the Chromium snap and Ubuntu's /usr/bin/chromedriver got
+        the two paired together -- and that shim dies under snap confinement
+        with "Service /usr/bin/chromedriver unexpectedly exited. Status code
+        was: 46". The canary reported Royal Tiger broken on a machine where
+        Chromium works perfectly well.
+        """
+        present = {"/snap/bin/chromium", "/snap/bin/chromium.chromedriver", "/usr/bin/chromedriver"}
+        monkeypatch.setattr(browser.os, "access", lambda path, _mode: path in present)
+        binary, driver = browser.find_chrome()
+        assert binary == "/snap/bin/chromium"
+        assert driver == "/snap/bin/chromium.chromedriver"
+
+    def test_a_browser_with_no_driver_beside_it_still_returns(self, monkeypatch):
+        """Selenium Manager can fetch a matching driver, and letting it try is
+        better than refusing to start."""
+        monkeypatch.setattr(
+            browser.os, "access", lambda path, _mode: path == "/usr/bin/google-chrome"
+        )
+        assert browser.find_chrome() == ("/usr/bin/google-chrome", None)
+
+    def test_every_browser_names_the_drivers_that_can_drive_it(self):
+        """A browser missing from the map would silently get no driver at all."""
+        assert set(browser._DRIVERS_FOR) == set(browser._CHROME_BINARIES)
+
     def test_and_nothing_is_reported_as_nothing(self, nothing_installed):
         assert browser.find_chrome() == (None, None)
 
     def test_every_path_it_tries_is_absolute(self):
         """A bare name would be resolved against PATH, and PATH under a systemd
         unit is not the one an administrator tested with."""
-        for path in (*browser._CHROME_BINARIES, *browser._CHROMEDRIVERS):
+        drivers = [path for paths in browser._DRIVERS_FOR.values() for path in paths]
+        for path in (*browser._CHROME_BINARIES, *drivers):
             assert path.startswith("/"), path
 
 

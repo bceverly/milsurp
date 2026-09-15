@@ -89,6 +89,26 @@ def seed_password_differs(user: User, config: Config) -> bool:
     return not verify_password(config.admin.password, user.password_hash, config)
 
 
+#: Addresses the shipped sample carries, which nobody should be mailed at.
+#:
+#: config.yaml.sample ships ``admin: email: you@example.com`` and the postinst
+#: copies that file into place, so an administrator who sets a password and
+#: signs in -- which is what the install notes tell them to do -- ends up with
+#: an admin account whose address does not exist. Every digest, every watch
+#: alert and every canary report then bounces, and the alerts nobody receives
+#: are the ones they asked for.
+#:
+#: Matched on the domain rather than the whole address: RFC 2606 reserves
+#: example.com, .invalid and friends precisely so nothing real uses them.
+_PLACEHOLDER_DOMAINS = ("example.com", "example.org", "example.net", "invalid", "localhost")
+
+
+def is_placeholder_email(address: str | None) -> bool:
+    """Whether this address is one of the reserved ones nobody can receive at."""
+    domain = (address or "").rsplit("@", 1)[-1].strip().lower()
+    return bool(domain) and domain in _PLACEHOLDER_DOMAINS
+
+
 def ensure_admin(session: Session, config: Config | None = None) -> User | None:
     """Create the initial admin account from the config file, once.
 
@@ -141,6 +161,18 @@ def ensure_admin(session: Session, config: Config | None = None) -> User | None:
         "change the password, then clear admin.password from the config.",
         seed.username,
     )
+    if is_placeholder_email(seed.email):
+        # Loud, and separate from the line above, because it is a different
+        # problem with a different fix: the password is meant to be changed and
+        # the address is meant to have been set before first start.
+        log.error(
+            "The admin account was seeded with %r, which is a reserved address "
+            "nobody can receive mail at. Every digest, watch alert and canary "
+            "report will bounce. Set admin.email in %s, or change it on the "
+            "Users page after signing in.",
+            seed.email,
+            config.source_path or "the configuration file",
+        )
     return user
 
 

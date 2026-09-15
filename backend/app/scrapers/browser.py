@@ -60,14 +60,33 @@ _CHROME_BINARIES = (
     "/usr/bin/chromium-browser",
 )
 
-#: And the matching driver. The snap's is namespaced, and /usr/bin/chromedriver
-#: on Ubuntu is a shim for it.
-_CHROMEDRIVERS = (
-    "/usr/bin/chromedriver",
-    "/snap/bin/chromium.chromedriver",
-    "/usr/lib/chromium-browser/chromedriver",
-    "/usr/lib/chromium/chromedriver",
-)
+#: The driver that goes with each browser, in the order to try.
+#:
+#: **Paired, not a separate list, and that is the whole of the lesson here.**
+#: The first version of this searched for a browser and a driver independently,
+#: found /snap/bin/chromium and /usr/bin/chromedriver, and handed Selenium a
+#: driver that cannot drive that browser: on Ubuntu /usr/bin/chromedriver is a
+#: shim for the snap and dies under confinement with "Service
+#: /usr/bin/chromedriver unexpectedly exited. Status code was: 46". The canary
+#: reported Royal Tiger broken for it, on a machine where Chromium works.
+#:
+#: A driver has to match the browser it drives, so the browser is chosen first
+#: and the driver follows from it.
+_DRIVERS_FOR = {
+    "/usr/bin/google-chrome": ("/usr/bin/chromedriver", "/usr/local/bin/chromedriver"),
+    "/usr/bin/google-chrome-stable": ("/usr/bin/chromedriver", "/usr/local/bin/chromedriver"),
+    "/opt/google/chrome/chrome": ("/usr/bin/chromedriver", "/usr/local/bin/chromedriver"),
+    # The snap ships its own, namespaced. Nothing else can drive it.
+    "/snap/bin/chromium": ("/snap/bin/chromium.chromedriver",),
+    "/usr/bin/chromium": (
+        "/usr/lib/chromium/chromedriver",
+        "/usr/bin/chromedriver",
+    ),
+    "/usr/bin/chromium-browser": (
+        "/usr/lib/chromium-browser/chromedriver",
+        "/usr/bin/chromedriver",
+    ),
+}
 
 
 def _first_present(paths: tuple[str, ...]) -> str | None:
@@ -81,10 +100,17 @@ def _first_present(paths: tuple[str, ...]) -> str | None:
 def find_chrome() -> tuple[str | None, str | None]:
     """(browser, driver) discovered on this machine, either possibly None.
 
+    The browser decides, and the driver follows it -- see _DRIVERS_FOR. A
+    browser found with no driver beside it still returns: Selenium Manager can
+    fetch a matching one, and letting it try is better than refusing to start.
+
     Only consulted where the configuration says nothing, so an installation
     that names its own paths is never second-guessed.
     """
-    return _first_present(_CHROME_BINARIES), _first_present(_CHROMEDRIVERS)
+    binary = _first_present(_CHROME_BINARIES)
+    if binary is None:
+        return None, None
+    return binary, _first_present(_DRIVERS_FOR.get(binary, ()))
 
 
 @contextmanager
@@ -127,6 +153,8 @@ def chrome(config: ScrapingConfig) -> Iterator[Any]:
         raise BrowserUnavailable(
             f"could not start headless Chrome: {exc}. "
             f"Browser: {binary or 'none found'}; driver: {driver_path or 'none found'}. "
+            f"A driver must match its browser: the snap at /snap/bin/chromium "
+            f"is driven only by /snap/bin/chromium.chromedriver. "
             f"Looked in {', '.join(_CHROME_BINARIES)}. Set scraping.selenium."
             f"chrome_binary and chromedriver_path in config.yaml, install Google "
             f"Chrome, or disable this site in the admin UI."
