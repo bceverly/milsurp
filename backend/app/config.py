@@ -223,6 +223,15 @@ class SchedulerConfig:
     # run for hours; without this the remainder would drain one scan at a time,
     # which on a daily cadence is days of listings with no pictures.
     photo_tick_seconds: int = 180
+    #: How often a watched listing is re-read from its own page, in seconds.
+    #:
+    #: Two hours. A watchlist is tens of listings, so this is a few requests an
+    #: hour against shops that take thousands during one catalog scan -- and
+    #: twelve checks a day against a catalog scanned once is most of what an
+    #: alert is for. Shorter is tempting and is the wrong trade against shops
+    #: that already rate-limit: six of these vendors refuse a request they
+    #: dislike outright.
+    watch_poll_seconds: int = 7200
     #: How many sites are scanned at once. **The default depends on the
     #: database engine** -- see CONCURRENT_SCANS. Naming it in config.yaml
     #: overrides that, whichever engine is in use.
@@ -659,6 +668,7 @@ def load_config(path: Path | None = None, mode: str | None = None) -> Config:
         enabled=bool(sch.get("enabled", True)),
         tick_seconds=int(sch.get("tick_seconds", 60)),
         digest_tick_seconds=int(sch.get("digest_tick_seconds", 300)),
+        watch_poll_seconds=int(sch.get("watch_poll_seconds", 7200)),
         max_concurrent_scans=int(
             sch.get("max_concurrent_scans", CONCURRENT_SCANS[database.engine])
         ),

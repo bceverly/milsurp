@@ -25,8 +25,8 @@ from concurrent.futures import Future, ThreadPoolExecutor
 
 from .config import Config, get_config
 from .database import session_scope
-from .models import User
-from .services import backup, digest, scan_service
+from .models import EmailStatus, User, utcnow
+from .services import backup, digest, scan_service, watchlist, watchpoll
 
 log = logging.getLogger("milsurp.scheduler")
 
@@ -41,6 +41,7 @@ class Scheduler:
         self._lock = threading.Lock()
         self._ticks = 0
         self._seconds_since_digest_check = 0.0
+        self._seconds_since_watch_poll = 0.0
         #: A single worker, kept apart from the scan pool: photo downloading is
         #: long and low priority, and must never hold a slot a due scan needs.
         self._photo_pool: ThreadPoolExecutor | None = None
@@ -112,6 +113,7 @@ class Scheduler:
                 log.exception("Scheduler tick failed")
             self._seconds_since_digest_check += tick
             self._seconds_since_photo_check += tick
+            self._seconds_since_watch_poll += tick
             self._stop.wait(tick)
 
     def tick(self) -> None:
@@ -123,6 +125,18 @@ class Scheduler:
         if self._seconds_since_digest_check >= self.config.scheduler.digest_tick_seconds:
             self._seconds_since_digest_check = 0.0
             self._dispatch_digests()
+        # Re-read watched listings on their own clock, well ahead of the daily
+        # catalog scan: the alert below can only be as fresh as the price it
+        # reads, and this is what makes that price fresh.
+        if self._seconds_since_watch_poll >= self.config.scheduler.watch_poll_seconds:
+            self._seconds_since_watch_poll = 0.0
+            self._dispatch_watch_poll()
+        # Every tick, not on the digest's timer. What makes an alert due is a
+        # price changing, which happens when a scan or the poll above finds it
+        # -- and the whole point of asking for one is not waiting for the next
+        # digest. The check is a single indexed query returning nothing on
+        # almost every tick.
+        self._dispatch_watch_alerts()
         self._dispatch_backup()
 
     # -- backups ------------------------------------------------------------
@@ -224,6 +238,78 @@ class Scheduler:
                     )
             except Exception:
                 log.exception("Digest for user %s raised", user_id)
+
+    def _dispatch_watch_poll(self) -> None:
+        """Re-read the listings people are watching.
+
+        Isolated like every other dispatch: a shop refusing one page must not
+        stop the scans, and the poller itself already swallows a refusal per
+        listing so one bad page does not end the pass.
+        """
+        try:
+            with session_scope() as session:
+                result = watchpoll.run(session, self.config)
+        except Exception:
+            log.exception("Watch poll failed")
+            return
+        if result.checked or result.failed:
+            log.info(
+                "Watch poll: checked %s, %s changed, %s sold, %s skipped, %s failed.",
+                result.checked,
+                result.changed,
+                result.sold,
+                result.skipped,
+                result.failed,
+            )
+
+    def _dispatch_watch_alerts(self) -> None:
+        """Mail anybody whose watched listing has reached their target.
+
+        Each user in their own session, the way digests are: one reader's mail
+        failing must not cost the others theirs.
+
+        The watch is marked only after the send returns, so a failure is
+        retried on the next tick rather than recorded as delivered -- the one
+        ordering that matters here, because the thing being promised is an
+        email somebody is waiting for.
+        """
+        # Two passes, and the first one only asks *who*. The ORM rows it loads
+        # belong to a session that closes with it, and the send needs live ones
+        # to mark afterwards -- so the second pass re-reads inside the session
+        # that will do the marking, which also re-checks the answer against a
+        # price that may have moved in between.
+        try:
+            with session_scope() as session:
+                user_ids = sorted(watchlist.due_alerts(session))
+        except Exception:
+            log.exception("Could not determine which watch alerts are due")
+            return
+
+        for user_id in user_ids:
+            if self._stop.is_set():
+                return
+            try:
+                with session_scope() as session:
+                    user = session.get(User, user_id)
+                    if user is None:
+                        continue
+                    fresh = watchlist.due_alerts(session).get(user_id, [])
+                    if not fresh:
+                        continue
+                    result = digest.send_watch_alert(session, user, fresh, self.config)
+                    if result.status is EmailStatus.SENT:
+                        now = utcnow()
+                        for update in fresh:
+                            watchlist.mark_alerted(update.watch, update.item, now)
+                        session.commit()
+                    log.info(
+                        "Watch alert for %s: %s (%s listing(s)).",
+                        user.username,
+                        result.status.value,
+                        len(fresh),
+                    )
+            except Exception:
+                log.exception("Watch alert for user %s raised", user_id)
 
     # -- introspection ------------------------------------------------------
     def status(self) -> dict[str, object]:

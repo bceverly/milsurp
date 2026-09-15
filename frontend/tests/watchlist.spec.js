@@ -80,6 +80,33 @@ test.describe("watchlist", () => {
     );
   });
 
+  test("an alert can be asked for, and only with a target", async ({ signedIn }) => {
+    /**
+     * A rifle that hits $700 an hour after the daily digest sends is news
+     * twenty-three hours later. The checkbox is the way out of that, and it is
+     * offered only with a target named: "tell me the moment it reaches
+     * nothing" is not a request.
+     */
+    await openFirstListing(signedIn);
+    await signedIn.getByRole("button", { name: "Watch", exact: true }).click();
+    await signedIn.getByRole("button", { name: "Set a target" }).click();
+
+    const alert = signedIn.getByRole("checkbox", { name: /the moment it gets there/ });
+    await expect(alert).toBeDisabled();
+
+    await signedIn.getByLabel("Tell me if it drops below").fill("500");
+    await expect(alert).toBeEnabled();
+    await alert.check();
+    await signedIn.getByRole("button", { name: "Save" }).click();
+
+    await signedIn.getByRole("link", { name: "Watchlist" }).click();
+    await expect(signedIn.locator(".watchlist__alert")).toContainText("Alerts on");
+
+    // And it survives a reload, rather than being a thing the page remembered.
+    await signedIn.reload();
+    await expect(signedIn.locator(".watchlist__alert")).toBeVisible();
+  });
+
   test("and it can be stopped from the watchlist", async ({ signedIn }) => {
     await openFirstListing(signedIn);
     await signedIn.getByRole("button", { name: "Watch", exact: true }).click();

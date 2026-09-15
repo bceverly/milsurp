@@ -507,6 +507,7 @@ class ItemDetail(ItemOut):
     watched: bool = False
     watch_target_price: float | None = None
     watch_note: str | None = None
+    watch_alert_immediately: bool = False
     #: Whether a person has vouched for the row. A pending row decided nothing
     #: about this listing, and saying so is the difference between "the armory
     #: thinks" and "the armory has been asked and not answered".
@@ -655,6 +656,9 @@ class WatchCreate(BaseModel):
 
     target_price: float | None = Field(default=None, ge=0)
     note: str | None = Field(default=None, max_length=200)
+    #: Mail me the moment it reaches the target rather than in the next digest.
+    #: Meaningless without a target, and ignored when there is none.
+    alert_immediately: bool = False
 
 
 class WatchOut(UTCModel):
@@ -669,6 +673,10 @@ class WatchOut(UTCModel):
     item: ItemOut
     target_price: float | None = None
     note: str | None = None
+    alert_immediately: bool = False
+    #: When this watch last triggered an immediate alert, so the page can say
+    #: so rather than leaving somebody wondering whether it works.
+    alerted_at: datetime | None = None
     created_at: datetime
     #: What the digest would say about it right now, or null for "nothing since
     #: your last email". Computed from the same rule the digest uses, so the

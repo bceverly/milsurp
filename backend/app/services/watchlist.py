@@ -130,6 +130,62 @@ def _after(moment: datetime | None, since: datetime) -> bool:
     return moment > since
 
 
+def due_alerts(session: Session) -> dict[int, list[Update]]:
+    """Every watch owed an immediate alert, by user id.
+
+    Separate from :func:`updates` and asking a narrower question. The digest
+    reports *anything* that happened since its watermark; an alert fires only
+    for a target reached, and only for a watch that asked to be interrupted.
+
+    **Its watermark is a price, not a time.** An alert runs between digests and
+    so has no cutoff to work from -- without a memory of its own it would mail
+    the same $650 on every scheduler tick until somebody bought the rifle. What
+    it remembers is the price it last mentioned, which also gets the awkward
+    case right: a vendor who puts a price back up and drops it again has
+    genuinely done something worth a second email, where a timestamp would have
+    said "already told you about that one".
+    """
+    rows = (
+        session.execute(
+            select(WatchedItem)
+            .options(selectinload(WatchedItem.item))
+            .where(
+                WatchedItem.alert_immediately.is_(True),
+                WatchedItem.target_price.is_not(None),
+            )
+        )
+        .scalars()
+        .all()
+    )
+    found: dict[int, list[Update]] = {}
+    for watch in rows:
+        item = watch.item
+        if item is None or not _alert_is_due(watch, item):
+            continue
+        found.setdefault(watch.user_id, []).append(Update(watch=watch, item=item, news=News.TARGET))
+    return found
+
+
+def _alert_is_due(watch: WatchedItem, item: Item) -> bool:
+    """Whether this watch has reached a target it has not yet reported.
+
+    A sold or de-listed gun is not alerted about. That is a real event and the
+    digest carries it, but it is not a *buying opportunity*, and interrupting
+    somebody to tell them they missed one is the wrong side of useful.
+    """
+    if not item.is_active or item.is_sold or item.current_price is None:
+        return False
+    if watch.target_price is None or item.current_price > watch.target_price:
+        return False
+    return watch.alerted_price is None or item.current_price != watch.alerted_price
+
+
+def mark_alerted(watch: WatchedItem, item: Item, when: datetime) -> None:
+    """Record what an alert said, so it is not said again."""
+    watch.alerted_price = item.current_price
+    watch.alerted_at = when
+
+
 def updates(session: Session, user: User, since: datetime) -> list[Update]:
     """Everything worth telling this user about their watchlist.
 

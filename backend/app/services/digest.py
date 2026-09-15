@@ -970,6 +970,76 @@ def send_saved_search(
     return entry
 
 
+def send_watch_alert(
+    session: Session, user: User, updates: list, config: Config | None = None
+) -> EmailLog:
+    """Mail one reader that a watched listing has reached their target.
+
+    **Out of band, like "Send now" on a saved search.** It touches neither
+    ``next_send_at`` nor ``last_digest_cutoff``: an alert is not the digest
+    arriving early, and moving the watermark would silently swallow whatever
+    else had happened since -- the reader would get their price and lose the
+    week's new listings.
+
+    It does not consult ``enabled`` either. That flag answers "send me a digest
+    on a schedule"; asking to be told the moment a rifle hits $700 is a
+    different request, made per watch, and somebody with digests off has still
+    made it.
+
+    Marking what was said is the caller's job, and deliberately: this returns
+    without touching the watches so a send that failed can be retried on the
+    next tick rather than being recorded as delivered.
+    """
+    config = config or get_config()
+    now = utcnow()
+    sites = {
+        site.id: site
+        for site in session.execute(
+            select(Site).where(Site.id.in_({update.item.site_id for update in updates}))
+        )
+        .scalars()
+        .all()
+    }
+    _subject, body, images = render_digest(user, {}, {}, sites, now, config, [], updates)
+
+    # Its own subject rather than the digest's. "Milsurp Monitor: 3 new
+    # listings" in the notification shade is not what somebody who asked to be
+    # interrupted at $700 needs to see.
+    if len(updates) == 1:
+        item = updates[0].item
+        subject = (
+            f"{BRAND}: {truncate(item.title, 60)} is {_money(item.current_price, item.currency)}"
+        )
+    else:
+        subject = f"{BRAND}: {len(updates)} listings reached your target"
+
+    try:
+        mailer.send_html(user.email, subject, body, config=config, inline_images=images)
+    except mailer.MailError as exc:
+        entry = EmailLog(
+            user_id=user.id,
+            status=EmailStatus.FAILED,
+            subject=subject,
+            error_message=str(exc),
+            body_html=body,
+            body_text=mailer.html_to_text(body),
+        )
+        session.add(entry)
+        session.commit()
+        return entry
+
+    entry = EmailLog(
+        user_id=user.id,
+        status=EmailStatus.SENT,
+        subject=subject,
+        body_html=body,
+        body_text=mailer.html_to_text(body),
+    )
+    session.add(entry)
+    session.commit()
+    return entry
+
+
 def due_user_ids(session: Session) -> list[int]:
     """Active users with digests enabled whose next send time has arrived."""
     now = utcnow()

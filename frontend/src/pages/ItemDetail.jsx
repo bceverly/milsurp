@@ -148,6 +148,7 @@ function WatchControl({ item }) {
     item.watch_target_price == null ? "" : String(item.watch_target_price),
   );
   const [note, setNote] = useState(item.watch_note || "");
+  const [alertNow, setAlertNow] = useState(Boolean(item.watch_alert_immediately));
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -157,9 +158,16 @@ function WatchControl({ item }) {
     setWatching(Boolean(item.watched));
     setTarget(item.watch_target_price == null ? "" : String(item.watch_target_price));
     setNote(item.watch_note || "");
+    setAlertNow(Boolean(item.watch_alert_immediately));
     setOpen(false);
     setError("");
-  }, [item.id, item.watched, item.watch_target_price, item.watch_note]);
+  }, [
+    item.id,
+    item.watched,
+    item.watch_target_price,
+    item.watch_note,
+    item.watch_alert_immediately,
+  ]);
 
   const save = async (body) => {
     setBusy(true);
@@ -183,6 +191,7 @@ function WatchControl({ item }) {
       setWatching(false);
       setTarget("");
       setNote("");
+      setAlertNow(false);
       setOpen(false);
     } catch (err) {
       setError(err?.message || "Could not stop watching.");
@@ -244,6 +253,18 @@ function WatchControl({ item }) {
               placeholder="Optional"
             />
           </label>
+          {/* Only offered with a target named: "tell me the moment it reaches
+              nothing" is not a request, and an alert with no threshold would
+              fire on every price change forever. */}
+          <label className="watch__check">
+            <input
+              type="checkbox"
+              checked={alertNow && target !== ""}
+              disabled={target === ""}
+              onChange={(event) => setAlertNow(event.target.checked)}
+            />
+            <span>Email me the moment it gets there, without waiting for a digest</span>
+          </label>
           <button
             type="button"
             className="btn btn--primary btn--sm"
@@ -252,6 +273,7 @@ function WatchControl({ item }) {
               save({
                 target_price: target === "" ? null : Number(target),
                 note: note || null,
+                alert_immediately: alertNow && target !== "",
               }).then(() => setOpen(false))
             }
           >

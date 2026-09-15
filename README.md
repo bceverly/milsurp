@@ -140,6 +140,19 @@ changed — filtered to the sites you care about and capped so it stays readable
   hearing, because that is about whether there is still a rifle. What counts as
   news is defined once and used by both the digest and the page, so the two
   cannot disagree about whether something happened.
+  A watch can also ask to be **emailed as soon as a scan finds** its target
+  reached, rather than waiting for the next digest — opt-in, and only where a
+  target is named. Watched listings are also re-read **every two hours** from
+  their own product page, well ahead of their site's daily catalog scan, so the
+  price the alert reads is a recent one. Twenty-two of the twenty-eight shops
+  publish a price this can read — schema.org, Open Graph, Shopify's per-product
+  JSON or WooCommerce's own markup — and the rest are skipped rather than
+  guessed at, keeping the freshness their scan gives them.
+  That alert keeps its own watermark, and it is the *price* it last reported
+  rather than a timestamp: it fires between digests, so without a memory of its
+  own it would repeat itself on every scheduler tick, and remembering a price
+  means a vendor who reverts and re-drops has genuinely done something worth a
+  second email.
 - **Responsive**: a two-column grid and a slide-in drawer on a phone, a fixed
   sidebar and multi-column grid on a desktop.
 - **All times stored UTC**, rendered in the viewer's own timezone.

@@ -36,6 +36,7 @@ from urllib.parse import urljoin
 
 from .base import (
     Disallowed,
+    PriceCheck,
     ScrapeContext,
     ScrapedItem,
     ScrapeError,
@@ -110,6 +111,34 @@ def is_sold_out(product: dict[str, Any]) -> bool:
 
 class ShopifyScraper(SiteScraper):
     """One Shopify shop. Subclasses supply the slug, name and collections."""
+
+    def check_price(self, ctx: ScrapeContext, url: str) -> PriceCheck | None:
+        """One product's price from Shopify's own per-product JSON.
+
+        Overrides the schema.org default, which neither Shopify shop here
+        publishes -- both were measured as having no Product node at all. What
+        they do have is guaranteed by the platform: every product page answers
+        at ``<url>.js`` with the same document the catalog walk already reads,
+        so this reuses ``price_now`` and ``is_sold_out`` rather than describing
+        a price a second time.
+        """
+        # The handle URL with .js on the end. A query string would be carried
+        # through and make the endpoint 404, so it is dropped.
+        base = url.split("?", 1)[0].rstrip("/")
+        try:
+            product = json.loads(ctx.get_text(f"{base}.js"))
+        except (ValueError, TypeError):
+            return None
+        if not isinstance(product, dict):
+            return None
+        price = price_now(product)
+        if price is None:
+            return None
+        # Shopify quotes in minor units in .js -- 129995 for $1,299.95 -- where
+        # products.json quotes "1299.95". Same field, two endpoints, and
+        # reporting cents as dollars would mail somebody about a rifle at a
+        # hundred times its price.
+        return PriceCheck(price=price / 100.0, sold_out=is_sold_out(product))
 
     #: One entry per collection to read. ``url`` is the collection page, not the
     #: JSON endpoint — the ``.json`` is appended here so the roadmap and the

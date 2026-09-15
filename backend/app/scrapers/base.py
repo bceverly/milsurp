@@ -624,6 +624,17 @@ class ScrapeCanceled(ScrapeError):
     """Raised when an operator stops a run mid-flight."""
 
 
+@dataclass(frozen=True)
+class PriceCheck:
+    """What a single-listing re-read found. See SiteScraper.check_price."""
+
+    price: float
+    #: Whether the shop's own structured data says it cannot be bought. Read
+    #: from the same node as the price, so it costs nothing extra -- and a
+    #: watched rifle selling is the thing its watcher most needs to know.
+    sold_out: bool = False
+
+
 class SiteScraper(abc.ABC):
     """Base class for a vendor scraper."""
 
@@ -677,6 +688,52 @@ class SiteScraper(abc.ABC):
         interrupted scrape can never mark the listings it never reached as
         gone.
         """
+
+    def check_price(self, ctx: ScrapeContext, url: str) -> PriceCheck | None:
+        """This one listing's price and availability, without scanning the shop.
+
+        For the watchlist poller: a watched listing is re-read every couple of
+        hours, where its site's catalog is scanned daily. Twenty listings is
+        forty requests an hour against shops that take thousands during a
+        scan, so the cost is negligible -- but only because it is *one page*,
+        which is what this method is for.
+
+        **Two generic layers, in order of how much they say.** schema.org
+        first: twelve of the twenty-eight shops publish a Product/Offer node,
+        and measured against a live page from each, every price matched what
+        the scan had stored, exactly. Then the Open Graph and microdata meta
+        tags, which five more publish -- less, because they carry no
+        availability, and enough, because a price is what an alert is waiting
+        on.
+
+        WooCommerce's own price markup last, which reaches two shops neither of
+        the others does -- including Royal Tiger, whose catalog needs a
+        headless browser while its product pages are ordinary server-rendered
+        WooCommerce.
+
+        Whether a shop publishes any of them turns out to depend on the *theme*
+        rather than the platform: six BigCommerce shops publish schema.org and
+        a seventh publishes only the meta tag; Royal Tiger is not registered as
+        a WooCommerce shop at all and serves WooCommerce product pages. That is
+        why all three layers live on the base class rather than on each
+        platform, and a platform with something better (Shopify's per-product
+        JSON) overrides them.
+
+        Returns None when the page says nothing this can read, which is the
+        honest answer for the shops that publish no structured price. The
+        poller skips those and they keep the freshness their scan gives them;
+        it does not guess from the markup, because a wrong price here mails
+        somebody about a rifle that is not on offer.
+        """
+        soup = BeautifulSoup(ctx.get_text(url), "html.parser")
+        node = product_json_ld(soup)
+        if node is not None:
+            offer = offer_of(node)
+            stated = offer.get("price")
+            price = parse_price(str(stated)) if stated is not None else None
+            if price is not None:
+                return PriceCheck(price=price, sold_out=is_sold_out(node))
+        return meta_price(soup) or woocommerce_price(soup)
 
     def __repr__(self) -> str:  # pragma: no cover - debugging aid
         return f"<{type(self).__name__} slug={self.slug!r}>"
@@ -736,6 +793,125 @@ def offer_of(node: dict[str, Any] | None) -> dict[str, Any]:
     if isinstance(offers, list):
         offers = next((o for o in offers if isinstance(o, dict)), {})
     return offers if isinstance(offers, dict) else {}
+
+
+#: Where a shop states its price outside schema.org, most specific first.
+#:
+#: Open Graph's ``product:price:amount`` is what four of these publish and is
+#: unambiguous. ``og:price:amount`` is the older spelling of the same thing.
+#: The microdata ``itemprop="price"`` is last because it is the loosest -- a
+#: page may carry several, and the first is not reliably the product's -- but
+#: gunprime publishes nothing else, so it earns a place at the end.
+_META_PRICE_SOURCES = (
+    ('meta[property="product:price:amount"]', "content"),
+    ('meta[property="og:price:amount"]', "content"),
+    ('meta[itemprop="price"]', "content"),
+)
+
+
+def meta_price(soup: BeautifulSoup) -> PriceCheck | None:
+    """A price from the page's meta tags, when there is no schema.org node.
+
+    No availability comes with it -- these tags carry a number and nothing
+    else -- so ``sold_out`` is False rather than unknown. That is the safe way
+    round: a watched listing wrongly marked sold is retired from the poller and
+    from its watcher's attention, where a missed sale is caught by the next
+    catalog scan.
+    """
+    for selector, attribute in _META_PRICE_SOURCES:
+        tag = soup.select_one(selector)
+        if tag is None:
+            continue
+        price = parse_price(str(tag.get(attribute) or ""))
+        if price is not None:
+            return PriceCheck(price=price, sold_out=False)
+    return None
+
+
+#: WooCommerce renders every price in a span of this class, whatever the theme
+#: puts around it. Distinctive enough to be a reliable signal on its own: a
+#: page carrying it is a WooCommerce product page.
+_WOO_PRICE = "span.woocommerce-Price-amount"
+
+#: Where the product's own price is, most specific first. WooCommerce's
+#: standard product template puts it in ``.summary``/``.entry-summary``, and
+#: ``p.price`` is the element itself.
+_WOO_PRODUCT_SCOPES = (
+    "div.summary.entry-summary",
+    "div.entry-summary",
+    "div.summary",
+    "p.price",
+)
+
+#: WooCommerce's own words for "out of stock", as the theme prints them.
+_WOO_SOLD = re.compile(r"\bout of stock\b|\bsold\s*out\b", re.I)
+
+
+def woocommerce_price(soup: BeautifulSoup) -> PriceCheck | None:
+    """A price from WooCommerce's own markup, for shops that publish nothing.
+
+    The last generic layer, and it covers two shops neither of the others
+    reaches -- including Royal Tiger, whose *catalog* needs a headless browser
+    while its product pages are ordinary server-rendered WooCommerce. A poll
+    that can read those without starting Chrome is the difference between
+    polling that shop and not.
+
+    **The sale case is the whole of the care here.** A discounted product
+    renders the old price in ``<del>`` and the new one in ``<ins>``, both in
+    spans of the same class -- so taking the first match reports the price the
+    shop is *not* charging, which for a watcher waiting on a number is the one
+    mistake that matters. ``<ins>`` wins where there is one, and anything
+    inside ``<del>`` is passed over.
+    """
+    # Scoped to the product summary, never the whole page. A WooCommerce theme
+    # renders a mini-cart in its header using the very same class, and an empty
+    # one reads "$0.00" -- which is what Royal Tiger returned the first time
+    # this ran against it. A zero would have looked like the largest price drop
+    # in the catalog and mailed every watcher of that rifle.
+    scope = None
+    for selector in _WOO_PRODUCT_SCOPES:
+        scope = soup.select_one(selector)
+        if scope is not None:
+            break
+    tags = (scope or soup).select(_WOO_PRICE)
+    if not tags:
+        return None
+    # The new price, where the shop is showing both.
+    for tag in tags:
+        if tag.find_parent("ins") is not None:
+            price = _woo_amount(tag)
+            if price is not None:
+                return PriceCheck(price=price, sold_out=_woo_sold_out(soup))
+    for tag in tags:
+        if tag.find_parent("del") is not None:
+            continue
+        price = _woo_amount(tag)
+        if price is not None:
+            return PriceCheck(price=price, sold_out=_woo_sold_out(soup))
+    return None
+
+
+def _woo_amount(tag: Tag) -> float | None:
+    """A price from one span, refusing zero.
+
+    Nothing here is free, so a zero is a cart total, a placeholder, or a theme
+    rendering a variable product before a variant is chosen. Reporting one
+    would be the largest price drop this application has ever seen, and it
+    would be mailed to whoever asked to be told.
+    """
+    price = parse_price(tag.get_text(" ", strip=True))
+    return price if price else None
+
+
+def _woo_sold_out(soup: BeautifulSoup) -> bool:
+    """Whether the theme is printing a stock notice that says so.
+
+    Read from the stock element only, not the whole page: "out of stock" occurs
+    in a shop's own prose often enough -- a shipping notice, a related-products
+    heading -- that searching the document would retire live listings.
+    """
+    stock = soup.select_one("p.stock, .stock")
+    return bool(stock and _WOO_SOLD.search(stock.get_text(" ", strip=True)))
 
 
 def is_sold_out(node: dict[str, Any] | None) -> bool:

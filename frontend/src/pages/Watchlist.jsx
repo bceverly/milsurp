@@ -69,7 +69,15 @@ export default function Watchlist() {
           <div className="panel__body">
             <ul className="watchlist">
               {rows.map(
-                ({ id, item, target_price: target, note, headline, created_at }) => (
+                ({
+                  id,
+                  item,
+                  target_price: target,
+                  alert_immediately: alerts,
+                  note,
+                  headline,
+                  created_at: created,
+                }) => (
                   <li key={id} className="watchlist__row">
                     <Link className="watchlist__link" to={`/items/${item.id}`}>
                       {item.thumbnail_url ? (
@@ -92,12 +100,16 @@ export default function Watchlist() {
                         <span className="watchlist__title">{item.title}</span>
                         <span className="watchlist__meta">
                           {item.site_name}
-                          <span>Watching since {formatRelative(created_at)}</span>
+                          <span>Watching since {formatRelative(created)}</span>
                           {target != null && (
                             <span className="watchlist__target">
                               Target {formatMoney(target, item.currency)}
                             </span>
                           )}
+                          {/* Said on the row, because "did I ask to be
+                              interrupted about this one" is the question a
+                              watchlist of forty cannot answer otherwise. */}
+                          {alerts && <span className="watchlist__alert">Alerts on</span>}
                         </span>
                         {note && <span className="watchlist__note">{note}</span>}
                       </span>

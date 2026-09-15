@@ -696,6 +696,14 @@ class Item(Base, TimestampMixin):
     firearm_model_id: Mapped[int | None] = mapped_column(
         ForeignKey("firearm_models.id", ondelete="SET NULL"), index=True
     )
+    #: When the watchlist poller last re-read this listing's own page.
+    #:
+    #: Not ``last_seen_at``, which is when a *scan* last met it. This is the
+    #: poller's own rotation marker: oldest first, so a watchlist longer than
+    #: one pass is read round-robin rather than the same head of it forever.
+    #: Set even when the shop published no price this could read, or an
+    #: unreadable page would be asked for first on every pass.
+    last_checked_at: Mapped[datetime | None] = mapped_column(DateTime)
     is_rifle: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_pistol: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     #: Separate flags rather than one "kind", because a listing can be several
@@ -977,6 +985,24 @@ class WatchedItem(Base, TimestampMixin):
     #: Why this one, in the watcher's own words. Optional, and never shown to
     #: anybody else: a watchlist of forty rifles is unreadable without it.
     note: Mapped[str | None] = mapped_column(String(200))
+    #: Mail me the moment it reaches the target, rather than in the next
+    #: digest. Off by default: an alert is an interruption, and somebody who
+    #: has not asked for one has not asked to be interrupted.
+    alert_immediately: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, index=True
+    )
+    #: The price this watch was last alerted about, and the watermark the alert
+    #: runs on.
+    #:
+    #: The digest has ``last_digest_cutoff`` to tell it what is new. An alert
+    #: fires between digests and so has no such clock -- without one it would
+    #: mail the same $650 every five minutes until somebody bought the rifle.
+    #: A *price* rather than a timestamp, because the question an alert asks is
+    #: "is this a number I have not told you about", and a vendor who reverts a
+    #: price and drops it again has genuinely done something worth a second
+    #: email.
+    alerted_price: Mapped[float | None] = mapped_column(Float)
+    alerted_at: Mapped[datetime | None] = mapped_column(DateTime)
 
     user: Mapped["User"] = relationship(back_populates="watched_items")
     item: Mapped["Item"] = relationship()

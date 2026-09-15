@@ -44,6 +44,8 @@ def _out(watch: WatchedItem, site_names: dict[int, str], since) -> WatchOut:
         item=_to_out(watch.item, site_names),
         target_price=watch.target_price,
         note=watch.note,
+        alert_immediately=watch.alert_immediately,
+        alerted_at=watch.alerted_at,
         created_at=watch.created_at,
         headline=watchlist.HEADLINES[news] if news else None,
     )
@@ -80,8 +82,15 @@ def watch_item(
     if row is None:
         row = WatchedItem(user_id=user.id, item_id=item_id)
         session.add(row)
+    # Clearing the target clears the alert with it: "tell me the moment it
+    # reaches nothing" is not a request, and leaving the flag set would have it
+    # fire again the next time a target was named.
+    if row.target_price != payload.target_price:
+        row.alerted_price = None
+        row.alerted_at = None
     row.target_price = payload.target_price
     row.note = (payload.note or "").strip() or None
+    row.alert_immediately = bool(payload.alert_immediately) and payload.target_price is not None
     session.commit()
     session.refresh(row)
 

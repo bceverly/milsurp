@@ -16,7 +16,16 @@ from datetime import timedelta
 
 import pytest
 
-from app.models import EmailPreference, Item, Site, User, UserRole, WatchedItem, utcnow
+from app.models import (
+    EmailPreference,
+    Item,
+    Site,
+    User,
+    UserRole,
+    WatchedItem,
+    as_utc,
+    utcnow,
+)
 from app.security import hash_password
 from app.services import watchlist
 from app.services.watchlist import News
@@ -258,3 +267,160 @@ class TestTheDigestCarriesIt:
         _subject, html, _images, _new, _drops, _cutoff = built
         assert "You are watching" in html
         assert "Price dropped" in html
+
+
+class TestImmediateAlerts:
+    """Reaching a target between digests.
+
+    A rifle that hits $700 an hour after the daily digest sends is news
+    twenty-three hours later, and on a shelf where one rifle is one rifle that
+    is often too late. So an alert runs on the scan cadence instead — which
+    means it has no watermark, and needs one of its own.
+    """
+
+    def _alerting(self, session, user, site, *, price, target=700.0, **kwargs):
+        watch, item = _watched(session, user, site, price=price, target=target, **kwargs)
+        watch.alert_immediately = True
+        session.commit()
+        return watch, item
+
+    def test_a_target_reached_is_due(self, clean_db, watcher):
+        user, site = watcher
+        self._alerting(clean_db, user, site, price=650)
+        assert list(watchlist.due_alerts(clean_db)) == [user.id]
+
+    def test_a_price_above_it_is_not(self, clean_db, watcher):
+        user, site = watcher
+        self._alerting(clean_db, user, site, price=900)
+        assert watchlist.due_alerts(clean_db) == {}
+
+    def test_nor_a_watch_that_did_not_ask(self, clean_db, watcher):
+        """Opt-in. An alert is an interruption, and somebody who has not asked
+        for one has not asked to be interrupted."""
+        user, site = watcher
+        _watched(clean_db, user, site, price=650, target=700)
+        assert watchlist.due_alerts(clean_db) == {}
+
+    def test_nor_one_with_no_target_at_all(self, clean_db, watcher):
+        user, site = watcher
+        watch, _item = _watched(clean_db, user, site, price=650)
+        watch.alert_immediately = True
+        clean_db.commit()
+        assert watchlist.due_alerts(clean_db) == {}
+
+    def test_a_sold_listing_is_not_alerted_about(self, clean_db, watcher):
+        """A real event, and the digest carries it — but it is not a buying
+        opportunity, and interrupting somebody to say they missed one is the
+        wrong side of useful."""
+        user, site = watcher
+        self._alerting(clean_db, user, site, price=650, sold=True)
+        assert watchlist.due_alerts(clean_db) == {}
+
+
+class TestTheAlertRemembersWhatItSaid:
+    """Its watermark is a *price*, not a time.
+
+    An alert fires between digests and so cannot use last_digest_cutoff.
+    Without a memory of its own it would mail the same $650 on every scheduler
+    tick until somebody bought the rifle.
+    """
+
+    def test_it_does_not_repeat_itself(self, clean_db, watcher):
+        user, site = watcher
+        watch, item = _watched(clean_db, user, site, price=650, target=700)
+        watch.alert_immediately = True
+        clean_db.commit()
+        assert list(watchlist.due_alerts(clean_db)) == [user.id]
+
+        watchlist.mark_alerted(watch, item, utcnow())
+        clean_db.commit()
+        assert watchlist.due_alerts(clean_db) == {}
+
+    def test_but_a_new_price_is_a_new_thing_to_say(self, clean_db, watcher):
+        """A price rather than a timestamp gets the awkward case right: a
+        vendor who puts a price back up and drops it again has genuinely done
+        something worth a second email."""
+        user, site = watcher
+        watch, item = _watched(clean_db, user, site, price=650, target=700)
+        watch.alert_immediately = True
+        watchlist.mark_alerted(watch, item, utcnow())
+        clean_db.commit()
+        assert watchlist.due_alerts(clean_db) == {}
+
+        item.current_price = 600
+        clean_db.commit()
+        assert list(watchlist.due_alerts(clean_db)) == [user.id]
+
+    def test_and_clearing_the_target_clears_the_memory(
+        self, client, normal_user, clean_db, watcher
+    ):
+        """Otherwise the next target named would be judged against a price from
+        the last one."""
+        _user, site = watcher
+        item = Item(
+            site_id=site.id,
+            external_key="alert",
+            url="https://s.test/a",
+            title="A rifle",
+            current_price=650,
+            is_rifle=True,
+        )
+        clean_db.add(item)
+        clean_db.commit()
+
+        client.put(
+            f"/api/watchlist/{item.id}",
+            json={"target_price": 700, "alert_immediately": True},
+            headers=normal_user["headers"],
+        )
+        client.put(f"/api/watchlist/{item.id}", json={}, headers=normal_user["headers"])
+
+        row = clean_db.execute(
+            __import__("sqlalchemy").select(WatchedItem).where(WatchedItem.item_id == item.id)
+        ).scalar_one()
+        assert row.target_price is None
+        assert row.alerted_price is None
+        # And the flag goes with it: "tell me the moment it reaches nothing" is
+        # not a request.
+        assert row.alert_immediately is False
+
+
+class TestTheAlertEmail:
+    def test_it_names_the_listing_rather_than_counting_things(self, clean_db, watcher, app_config):
+        """ "Milsurp Monitor: 3 new listings" in a notification shade is not
+        what somebody who asked to be interrupted at $700 needs to see."""
+        from app.services import digest
+
+        user, site = watcher
+        watch, _item = _watched(clean_db, user, site, price=650, target=700)
+        watch.alert_immediately = True
+        clean_db.commit()
+
+        found = watchlist.due_alerts(clean_db)[user.id]
+        entry = digest.send_watch_alert(clean_db, user, found, app_config)
+        # Email is off in the test configuration, so this records a failure --
+        # the subject is built before the send and is what is being checked.
+        assert "A rifle" in entry.subject
+        assert "650" in entry.subject.replace(",", "")
+
+    def test_it_does_not_move_the_digest_watermark(self, clean_db, watcher, app_config):
+        """An alert is not the digest arriving early. Moving the cutoff would
+        swallow the week's new listings to deliver one price."""
+        from app.services import digest
+
+        user, site = watcher
+        preference = EmailPreference(user_id=user.id, enabled=True, frequency_hours=24)
+        preference.last_digest_cutoff = utcnow() - timedelta(hours=3)
+        clean_db.add(preference)
+        watch, _item = _watched(clean_db, user, site, price=650, target=700)
+        watch.alert_immediately = True
+        clean_db.commit()
+        before = preference.last_digest_cutoff
+
+        digest.send_watch_alert(clean_db, user, watchlist.due_alerts(clean_db)[user.id], app_config)
+        clean_db.refresh(preference)
+        # as_utc on both sides: the column is naive and `before` was read while
+        # the object was still aware, so a bare == compares tzinfo rather than
+        # the instant, which is not the question.
+        assert as_utc(preference.last_digest_cutoff) == as_utc(before)
+        assert preference.next_send_at is None

@@ -2282,3 +2282,23 @@
   text-transform: uppercase;
   color: var(--ink-500);
 }
+
+/* "Email me the moment it gets there" — the alert opt-in, under the target. */
+.watch__check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--ink-700);
+}
+
+.watch__check input[disabled] + span {
+  opacity: 0.55;
+}
+
+/* A watch that will interrupt you, marked on its row. */
+.watchlist__alert {
+  font-weight: 600;
+  color: var(--blue-600, #1d4ed8);
+}

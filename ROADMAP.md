@@ -1618,6 +1618,106 @@ before they got nothing.
   smaller one. The section goes first in the email, above new listings and
   price reductions — those are the catalog talking, this is the answer to
   something the reader asked.
+- **Shipped** — Price-target alerts that do not wait for the digest. A rifle
+  reaching $700 an hour after the daily digest sends was news twenty-three
+  hours later, and on a shelf where one rifle is one rifle that is often too
+  late. Opt-in per watch, and offered only where a target is named: "tell me
+  the moment it reaches nothing" is not a request.
+
+  **The alert itself fetches nothing.** It reads the database on every
+  scheduler tick (60s) and mails what it finds, so it is exactly as fresh as
+  the price it reads. On its own that halved the worst case — from about 48
+  hours (a day for a scan to notice, a day for a digest to mail) to about 24 —
+  and the entry below closes most of the rest by re-reading watched listings
+  every two hours instead of waiting for their catalog scan.
+- **Shipped** — Watched listings are re-read on their own clock, every two
+  hours, against catalogs scanned once a day. A watchlist is tens of listings,
+  so this is a few requests an hour against shops that take thousands during a
+  single scan — the cost is negligible *because it is one page per listing*.
+
+  **The expensive part turned out not to be needed.** The plan was a
+  single-product price parse per platform, nine of them. What the shops
+  actually needed was **three generic layers on the base class**, because what
+  a shop publishes depends on its *theme* rather than its platform — six
+  BigCommerce shops publish schema.org and a seventh publishes only a meta tag,
+  and Royal Tiger is not registered as a WooCommerce shop at all yet serves
+  WooCommerce product pages.
+
+  | layer | shops |
+  |---|---|
+  | schema.org `Product`/`Offer` | 12 |
+  | Shopify per-product `.js` | +2 |
+  | Open Graph / `itemprop` meta | +5 |
+  | WooCommerce price markup | +3 |
+
+  **Twenty-two of twenty-eight**, verified against a live product page from
+  every shop: twenty-one matched the stored price exactly and the twenty-second
+  was the poller working — Recoil Gun Works had reverted a sale after the last
+  scan, and the check found $399.99 where the database still said $369.99.
+
+  Two shops came free that were not expected. **Royal Tiger** needs a headless
+  browser for its *catalog* and serves ordinary server-rendered WooCommerce
+  product pages, so it can be polled over plain HTTP; **Checkpoint Charlie's**
+  had merely been in cooldown during the first survey.
+
+  **A shop that publishes nothing is skipped, not guessed at.** Those keep the
+  freshness their scan gives them. Reading a price out of theme markup would
+  eventually mail somebody about a rifle that is not on offer, which is worse
+  than telling them a few hours late. Six are in that state, and two of them
+  structurally: Hunter's Lodge has no product pages at all — its listings are
+  OCR of one scanned magazine advertisement — and eBayonet is five
+  hand-maintained pages of prose with no storefront behind them. AIM Surplus
+  and Simpson Ltd. render their prices client-side; Empire Arms publishes
+  `<font class="auto-style40">. . $695.</font>` and Joe Salter an unclassed
+  `<h2>`, either of which could be parsed and neither of which could be
+  trusted to keep meaning the same thing.
+
+  **The WooCommerce layer earned its caution twice.** Royal Tiger first
+  returned **$0.00** — the theme renders its header mini-cart with the very
+  same CSS class, and an empty cart says zero. A zero would have read as the
+  largest price drop in the catalog and been mailed to every watcher of that
+  rifle. The same page also carries $29.99 and $199.99 in related-product
+  headings. So the search is scoped to the product summary rather than the
+  document, a zero is refused outright, and a discounted product's struck-
+  through `<del>` price is passed over in favour of the `<ins>` one: reporting
+  a price the shop is not charging is the one mistake that matters to somebody
+  waiting on a number.
+
+  It reads through `ScrapeContext` like everything else, so robots.txt, the
+  cooldown register and the politeness delay all apply — this is now the most
+  frequent thing the application does and would be the first to earn a block
+  otherwise. A price it finds is stored in the same columns a scan writes, with
+  a `PriceHistory` row carrying **no** `scan_run_id`: this did not happen
+  during a scan, and inventing a run to point at would put a lie in the scan
+  history to keep a foreign key company.
+
+  Measured end to end against five live listings: five checked, four prices
+  read and every one matching, one skipped, nothing failed.
+
+  **The alert has its own watermark, and it is a price rather than a time.** It
+  fires between digests and so cannot use `last_digest_cutoff` — without a
+  memory of its own it would mail the same $650 on every scheduler tick until
+  somebody bought the rifle. A price is the right shape because the question an
+  alert asks is "is this a number I have not told you about", so a vendor who
+  puts a price back up and drops it again has genuinely done something worth a
+  second email, where a timestamp would have said "already mentioned".
+
+  Out of band in the way "Send now" on a saved search is: it touches neither
+  `next_send_at` nor `last_digest_cutoff`, because an alert is not the digest
+  arriving early and moving the watermark would swallow the week's new listings
+  to deliver one price. It ignores `enabled` too — that flag answers "send me a
+  digest on a schedule", and asking to be told the moment a rifle hits $700 is
+  a different request made per watch.
+
+  Dispatched on the scan cadence rather than the digest one, since what makes
+  an alert due is a price changing and that happens when a scan finds it. The
+  watch is marked only after the send returns, so a failed email is retried on
+  the next tick rather than recorded as delivered. Its subject names the
+  listing and the price: "3 new listings" in a notification shade is not what
+  somebody who asked to be interrupted at $700 needs to see. A sold listing is
+  never alerted about — the digest carries it, but it is not a buying
+  opportunity, and interrupting somebody to say they missed one is the wrong
+  side of useful.
 - **Planned** — Web push notifications as an alternative to email.
 
 ### Data quality

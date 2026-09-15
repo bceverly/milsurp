@@ -341,6 +341,7 @@ def get_item(item_id: int, user: CurrentUser, session: DbSession) -> ItemDetail:
         detail.watched = True
         detail.watch_target_price = watch.target_price
         detail.watch_note = watch.note
+        detail.watch_alert_immediately = watch.alert_immediately
     if item.firearm_model is not None:
         found = item.firearm_model
         detail.model_kind = found.kind.value if found.kind else None
