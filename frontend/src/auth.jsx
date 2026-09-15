@@ -59,8 +59,17 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  const signIn = useCallback(async (username, password) => {
-    const result = await api.login(username, password);
+  /**
+   * Sign in, in one exchange or two.
+   *
+   * Returns null when the server wants a second factor. Null rather than an
+   * exception, because being asked for a code is not a failure: the password
+   * was right, and the page's next move is to show a field rather than an
+   * error.
+   */
+  const signIn = useCallback(async (username, password, totpCode) => {
+    const result = await api.login(username, password, totpCode);
+    if (result?.two_factor_required) return null;
     setToken(result.access_token);
     setUser(result.user);
     return result.user;

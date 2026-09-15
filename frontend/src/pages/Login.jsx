@@ -11,6 +11,12 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  //: Set once the server has asked for a code. The password stays in state and
+  //: is sent again with it: the second exchange is a whole sign-in, not a
+  //: continuation of a half-open one, so there is no session to hold on to
+  //: between the two.
+  const [needsCode, setNeedsCode] = useState(false);
+  const [code, setCode] = useState("");
 
   useEffect(() => {
     document.title = "Sign in · Milsurp Monitor";
@@ -30,10 +36,19 @@ export default function Login() {
     setError(null);
     setBusy(true);
     try {
-      await signIn(username.trim(), password);
+      const signedIn = await signIn(username.trim(), password, code.trim() || undefined);
+      if (signedIn === null) {
+        // Not an error: the password was right and the server wants the other
+        // half. Showing a red box here would say the opposite.
+        setNeedsCode(true);
+        setBusy(false);
+      }
     } catch (err) {
       setError(err.message);
       setBusy(false);
+      // A wrong code clears the field and leaves the prompt up. Clearing the
+      // password too would make somebody retype it for a mistyped digit.
+      setCode("");
     }
   }
 
@@ -82,13 +97,37 @@ export default function Login() {
             />
           </label>
 
+          {needsCode && (
+            <label className="field">
+              <span className="field__label">Authenticator code</span>
+              <input
+                className="input"
+                name="totp"
+                /* text, not number: a leading zero is part of the code and a
+                   number input eats it, and the spinner arrows are nonsense
+                   here. inputMode gets the numeric keypad on a phone. */
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                required
+                autoFocus
+              />
+              <span className="field__hint">
+                The six digits from your authenticator app — or one of your recovery
+                codes, if you do not have your phone.
+              </span>
+            </label>
+          )}
+
           <button
             className="btn btn--primary btn--block"
             type="submit"
-            disabled={busy || !username || !password}
+            disabled={busy || !username || !password || (needsCode && !code.trim())}
           >
             {busy ? <span className="spinner" /> : null}
-            {busy ? "Signing in…" : "Sign in"}
+            {busy ? "Signing in…" : needsCode ? "Verify" : "Sign in"}
           </button>
         </form>
 

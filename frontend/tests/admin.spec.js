@@ -296,8 +296,16 @@ test.describe("email digest settings", () => {
     await expect(signedIn.getByRole("status")).toBeVisible();
   });
 
-  test("the password panel is present", async ({ signedIn }) => {
+  test("the password panel has moved off this page", async ({ signedIn }) => {
+    // It lived here since it was written, under a nav item called Email
+    // digest, which is not where anybody looks for it.
     await signedIn.goto("/settings");
+    await expect(signedIn.getByRole("heading", { name: "Password" })).toHaveCount(0);
+
+    await signedIn.goto("/security");
+    await expect(
+      signedIn.getByRole("heading", { name: "Security settings" }),
+    ).toBeVisible();
     await expect(signedIn.getByRole("heading", { name: "Password" })).toBeVisible();
     await expect(signedIn.getByLabel("Current password")).toBeVisible();
   });
@@ -310,6 +318,7 @@ test.describe("navigation", () => {
       ["Armory", "Armory"],
       ["Users", "Users"],
       ["Email digest", "Email digest"],
+      ["Security settings", "Security settings"],
       ["Inventory", "Inventory"],
     ]) {
       await signedIn.getByRole("link", { name, exact: true }).click();

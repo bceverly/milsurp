@@ -14,6 +14,7 @@ import {
   Mail,
   Menu,
   Rifle,
+  Shield,
   Sites as SitesIcon,
   Star,
   Tag as TagIcon,
@@ -42,6 +43,11 @@ const NAV = [
   { to: "/users", label: "Users", icon: UsersIcon, adminOnly: true },
   { to: "/backups", label: "Backups", icon: DatabaseIcon, adminOnly: true },
   { to: "/settings", label: "Email digest", icon: Mail },
+  // Its own entry. The password panel lived under "Email digest" since it was
+  // written, and putting two-factor there too made that worse rather than
+  // better: nobody looking for either clicks Email digest, and somebody went
+  // looking and did not find it.
+  { to: "/security", label: "Security settings", icon: Shield },
 ];
 
 export default function Shell() {

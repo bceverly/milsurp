@@ -59,7 +59,13 @@ security:
   argon2_parallelism: 1
 admin:
   username: admin
-  email: admin@example.com
+  # Not example.com: bootstrap reports a reserved domain as an error, because
+  # the shipped sample ships one and an admin seeded from it cannot receive the
+  # digests, alerts or canary reports it is then sent. A suite that seeds one on
+  # every run would print that error on every run and teach everybody to skim
+  # past it. `.test` is reserved for exactly this and is not one of the domains
+  # that check refuses.
+  email: admin@milsurp.test
   password: "test-admin-passphrase"
 email:
   enabled: false

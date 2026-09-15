@@ -160,6 +160,23 @@ export default function UsersPage() {
   const [editing, setEditing] = useState(null); // user object, or "new"
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [resetting, setResetting] = useState(null);
+  //: What the server said about the last link. Kept rather than flashed,
+  //: because when email is not configured it carries the link itself and the
+  //: admin has to be able to copy it.
+  const [resetResult, setResetResult] = useState(null);
+
+  async function sendReset(user) {
+    setResetting(user.id);
+    setResetResult(null);
+    try {
+      setResetResult({ ...(await api.sendResetLink(user.id)), username: user.username });
+    } catch (err) {
+      setResetResult({ sent: false, detail: err.message, username: user.username });
+    } finally {
+      setResetting(null);
+    }
+  }
 
   const load = useCallback(() => {
     api
@@ -227,6 +244,26 @@ export default function UsersPage() {
         </div>
       )}
 
+      {resetResult && (
+        <div className={`alert alert--${resetResult.sent ? "success" : "error"}`}>
+          <p style={{ margin: 0 }}>
+            <strong>{resetResult.username}:</strong> {resetResult.detail}
+          </p>
+          {/* Only present when the mail did not go, so a deployment with no
+              SMTP has a working button rather than one that silently does
+              nothing. Not a leak: this page can already set the password
+              outright. */}
+          {resetResult.url && <p className="reset-link">{resetResult.url}</p>}
+          <button
+            type="button"
+            className="btn btn--sm"
+            onClick={() => setResetResult(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       <div className="panel">
         {!users && (
           <div className="loading-row" style={{ padding: 20 }}>
@@ -290,6 +327,22 @@ export default function UsersPage() {
                         }}
                       >
                         Edit
+                      </button>
+                      {/* Better than setting the password here, which this
+                          page can already do: the admin never learns the new
+                          one, and the person choosing it is the person who
+                          will use it. */}
+                      <button
+                        className="btn btn--ghost btn--sm"
+                        disabled={!user.is_active || resetting === user.id}
+                        title={
+                          user.is_active
+                            ? "Email a one-time link for setting a new password"
+                            : "Re-enable the account first"
+                        }
+                        onClick={() => sendReset(user)}
+                      >
+                        {resetting === user.id ? "Sending…" : "Reset link"}
                       </button>
                       <button
                         className="btn btn--ghost btn--sm"

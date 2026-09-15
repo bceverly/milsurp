@@ -105,7 +105,20 @@ class User(Base, TimestampMixin):
     email_logs: Mapped[list["EmailLog"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    #: The TOTP secret, encrypted with a key derived from the pepper. See
+    #: app/totp.py: a stolen database alone must not hand over both factors.
+    totp_secret: Mapped[str | None] = mapped_column(Text)
+    #: Whether a code is demanded at sign-in. Separate from holding a secret,
+    #: because enrolment has a middle state: a secret is issued and shown, and
+    #: only a code typed back from the phone turns this on. Without that gap an
+    #: enrolment abandoned halfway locks the account out.
+    totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    totp_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime)
+
     saved_searches: Mapped[list["SavedSearch"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    recovery_codes: Mapped[list["RecoveryCode"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
     watched_items: Mapped[list["WatchedItem"]] = relationship(
@@ -945,6 +958,71 @@ class SavedSearch(Base, TimestampMixin):
     last_emailed_at: Mapped[datetime | None] = mapped_column(DateTime)
 
     user: Mapped["User"] = relationship(back_populates="saved_searches")
+
+
+class PasswordResetToken(Base, TimestampMixin):
+    """A one-time link an administrator sends to somebody who cannot get in.
+
+    **Issued by an admin, not requested by a stranger.** The roadmap parked
+    self-service reset for a specific reason -- it needs an unauthenticated
+    endpoint that issues tokens to anybody who names an address -- and this
+    keeps that half authenticated. Only redeeming is open, and redeeming needs
+    a token nobody can guess.
+
+    It is not new power. An admin can already set another account's password
+    outright through ``PATCH /api/users/{id}``; what this changes is that the
+    admin never learns the new one and the person choosing it is the person who
+    will use it.
+
+    Hashed at rest with the same Argon2 the passwords use, because for as long
+    as it is live the token *is* the password.
+    """
+
+    __tablename__ = "password_reset_tokens"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    token_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime)
+    #: Which administrator sent it. Kept because "who reset this account and
+    #: when" is the first question after an account behaves oddly, and SET NULL
+    #: rather than CASCADE so deleting an admin does not erase that answer.
+    issued_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+
+    user: Mapped["User"] = relationship(foreign_keys=[user_id])
+
+
+class RecoveryCode(Base, TimestampMixin):
+    """One single-use code for signing in without the authenticator.
+
+    A phone is lost, replaced or wiped, and a second factor with no way round
+    it is a lockout waiting to happen. Ten of these are issued when two-factor
+    is turned on, shown once, and each works exactly once.
+
+    **Hashed, with the same Argon2 the passwords use.** They are password-
+    equivalent -- one of them alone is the whole second factor -- so storing
+    them in the clear would undo most of what the second factor is for.
+
+    Used ones are kept rather than deleted, so "you have three left" is
+    answerable and a code arriving twice can be told from a code that never
+    existed.
+    """
+
+    __tablename__ = "recovery_codes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    code_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    user: Mapped["User"] = relationship(back_populates="recovery_codes")
 
 
 class WatchedItem(Base, TimestampMixin):

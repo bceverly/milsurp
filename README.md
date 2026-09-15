@@ -153,6 +153,17 @@ changed — filtered to the sites you care about and capped so it stays readable
   own it would repeat itself on every scheduler tick, and remembering a price
   means a vendor who reverts and re-drops has genuinely done something worth a
   second email.
+- **Two-factor authentication.** Optional per account, TOTP, so an attacker
+  with the password still does not have the six digits. Ten single-use recovery
+  codes are shown once when it is turned on, and
+  `milsurp twofactor NAME --disable` is the way back in when the phone and the
+  codes are both gone. Implemented against RFC 6238 in the standard library —
+  checked against the RFC's own test vectors — rather than adding a dependency
+  the Debian package would have to vendor.
+- **One-time password reset links.** An admin sends one from the Users page;
+  the person follows it and chooses their own password, which the admin never
+  learns. Single use, expires in an hour, superseded by the next one, and it
+  does not bypass two-factor.
 - **Responsive**: a two-column grid and a slide-in drawer on a phone, a fixed
   sidebar and multi-column grid on a desktop.
 - **All times stored UTC**, rendered in the viewer's own timezone.

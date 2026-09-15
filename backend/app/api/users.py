@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import func, select
 
 from ..deps import AdminUser, AppConfig, DbSession
-from ..models import EmailPreference, User, UserRole
-from ..schemas import UserCreate, UserOut, UserUpdate
+from ..logsafe import safe_identifier
+from ..models import EmailPreference, EmailStatus, User, UserRole
+from ..schemas import ResetLinkOut, UserCreate, UserOut, UserUpdate
 from ..security import PasswordPolicyError, hash_password, validate_password
+from ..services import digest, passwordreset
+
+log = logging.getLogger("milsurp.users")
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -73,6 +79,65 @@ def get_user(user_id: int, _admin: AdminUser, session: DbSession) -> UserOut:
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such user.")
     return UserOut.model_validate(user)
+
+
+@router.post("/{user_id}/reset-link", response_model=ResetLinkOut)
+def send_reset_link(
+    user_id: int, admin: AdminUser, session: DbSession, config: AppConfig
+) -> ResetLinkOut:
+    """Mail this account a one-time link for setting a new password.
+
+    Not new power -- an admin can already set the password through PATCH on
+    this same resource. What it changes is that the admin never learns the new
+    one, and the person choosing it is the person who will use it.
+
+    Issuing supersedes any outstanding link for the account, so pressing the
+    button twice because the first mail did not arrive does not leave two live
+    credentials in a mailbox.
+    """
+    user = session.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such user.")
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="That account is disabled. Re-enable it before sending a reset link.",
+        )
+
+    issued = passwordreset.issue(session, user, admin, config)
+    session.commit()
+
+    entry = digest.send_password_reset(
+        session, user, issued.url, passwordreset.LIFETIME_MINUTES, config
+    )
+    sent = entry.status is EmailStatus.SENT
+    log.info(
+        "Password reset link issued for %s by %s (%s)",
+        safe_identifier(user.username),
+        safe_identifier(admin.username),
+        "mailed" if sent else "not mailed",
+    )
+    if sent:
+        return ResetLinkOut(
+            sent=True,
+            email=user.email,
+            expires_at=issued.expires_at,
+            detail=(
+                f"Sent to {user.email}. It works once and expires in "
+                f"{passwordreset.LIFETIME_MINUTES} minutes."
+            ),
+        )
+    return ResetLinkOut(
+        sent=False,
+        email=user.email,
+        expires_at=issued.expires_at,
+        url=issued.url,
+        detail=(
+            "Email could not be sent, so the link is here instead — pass it on "
+            "yourself. It works once and expires in "
+            f"{passwordreset.LIFETIME_MINUTES} minutes."
+        ),
+    )
 
 
 @router.patch("/{user_id}", response_model=UserOut)

@@ -50,6 +50,55 @@ Password = Annotated[str, Field(min_length=1, max_length=1024)]
 class LoginRequest(BaseModel):
     username: str = Field(min_length=1, max_length=64)
     password: str = Field(min_length=1, max_length=1024)
+    #: A six-digit authenticator code, or a recovery code. Optional because the
+    #: sign-in is two exchanges: the first says whether one is wanted, and only
+    #: an account with two-factor turned on is asked. Sending the password
+    #: again with the code is what the second exchange does.
+    totp_code: str | None = Field(default=None, max_length=64)
+
+
+class TwoFactorRequired(BaseModel):
+    """The answer to a first exchange for an account that wants a code.
+
+    A 200 with this shape rather than a 401, because nothing has gone wrong:
+    the password was right, and the server is asking for the other half. A 401
+    would be indistinguishable from a wrong password to the page and to
+    anything reading the logs.
+    """
+
+    two_factor_required: bool = True
+    #: Said plainly so the prompt can offer both without a second link.
+    detail: str = "Enter the code from your authenticator, or a recovery code."
+
+
+class TotpStart(BaseModel):
+    """A freshly issued secret, shown once and never retrievable again."""
+
+    secret: str
+    #: The same secret in blocks, for reading off a screen and typing into a
+    #: phone. Rendered rather than a QR code: a QR would mean a new frontend
+    #: dependency for one screen, and on a phone the URI below opens the
+    #: authenticator directly.
+    secret_grouped: str
+    otpauth_uri: str
+
+
+class TotpConfirm(BaseModel):
+    code: str = Field(min_length=1, max_length=16)
+
+
+class TotpStatus(BaseModel):
+    enabled: bool = False
+    confirmed_at: datetime | None = None
+    recovery_codes_left: int = 0
+
+
+class RecoveryCodesOut(BaseModel):
+    """Shown once, when two-factor is turned on. There is deliberately no way
+    to see them again: a list of second factors retrievable by anybody already
+    signed in is not a second factor."""
+
+    codes: list[str]
 
 
 class TokenResponse(UTCModel):
@@ -58,6 +107,48 @@ class TokenResponse(UTCModel):
     token_type: Literal["bearer"] = "bearer"  # noqa: S105
     expires_at: datetime
     user: "UserOut"
+
+
+class ResetLinkOut(BaseModel):
+    """What an administrator is told after sending a link.
+
+    The link itself is returned **only when the mail did not go** -- a
+    self-hosted deployment with no SMTP configured would otherwise have a
+    button that silently does nothing. It is not a leak: an admin can already
+    set the password outright, so handing them the link grants no power they
+    did not have, and it is the difference between a working feature and one
+    that needs an email server first.
+    """
+
+    sent: bool
+    #: Where it went, so the admin can see it is the address they expected.
+    email: str
+    expires_at: datetime
+    #: Present only when `sent` is false.
+    url: str | None = None
+    detail: str
+
+
+class PasswordResetRedeem(BaseModel):
+    token: str = Field(min_length=1, max_length=256)
+    new_password: Password
+
+
+class PasswordResetCheck(BaseModel):
+    """Whether a link is still good, asked before the form is shown.
+
+    So somebody who clicks an expired link is told so, rather than typing a new
+    password twice and then being refused.
+    """
+
+    valid: bool
+    username: str | None = None
+
+
+class PasswordConfirm(BaseModel):
+    """Prove it is still you, for a change that weakens the account."""
+
+    password: str = Field(min_length=1, max_length=1024)
 
 
 class PasswordChangeRequest(BaseModel):

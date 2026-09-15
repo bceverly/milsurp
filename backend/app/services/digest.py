@@ -1040,6 +1040,79 @@ def send_watch_alert(
     return entry
 
 
+def send_password_reset(
+    session: Session, user: User, url: str, minutes: int, config: Config | None = None
+) -> EmailLog:
+    """Mail somebody the link an administrator has just made for them.
+
+    Plain and short on purpose. This arrives unexpectedly in somebody's mailbox
+    and asks them to click a link and type a password, which is the shape of
+    every phishing message ever sent -- so it says who asked for it and what to
+    do if that was not them, and it carries no photographs, no marketing and no
+    other links to click.
+    """
+    config = config or get_config()
+    subject = f"{BRAND}: reset your password"
+    body = f"""<!doctype html>
+<html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{_e(subject)}</title></head>
+<body style="margin:0;padding:0;background:{PAPER};
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+       style="background:{PAPER};padding:24px 12px;"><tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+       style="max-width:520px;background:#FFFFFF;border-radius:12px;overflow:hidden;
+              box-shadow:0 1px 3px rgba(10,34,64,.12);">
+  <tr><td style="background:{NAVY};padding:20px 24px;color:#FFFFFF;font-size:18px;
+      font-weight:700;">{BRAND}</td></tr>
+  <tr><td style="padding:24px;color:{INK};font-size:15px;line-height:1.55;">
+    <p style="margin:0 0 14px;">Hello {_e(user.full_name or user.username)},</p>
+    <p style="margin:0 0 14px;">An administrator has asked us to let you set a new
+      password for your {BRAND} account. Use this link within
+      <strong>{minutes} minutes</strong>:</p>
+    <p style="margin:0 0 18px;">
+      <a href="{_e(url)}" style="display:inline-block;background:{BLUE};color:#FFFFFF;
+         text-decoration:none;padding:11px 22px;border-radius:6px;font-weight:600;">
+        Set a new password</a></p>
+    <p style="margin:0 0 14px;color:{MUTED};font-size:13px;">It works once, and
+      signing in again everywhere else will be needed afterwards. If you use an
+      authenticator app, you will still be asked for a code — this link does not
+      replace it.</p>
+    <p style="margin:0;color:{MUTED};font-size:13px;"><strong>If you were not
+      expecting this</strong>, you can ignore it: the link expires on its own.
+      Tell whoever runs this site, though — somebody pressed a button.</p>
+  </td></tr>
+</table></td></tr></table></body></html>"""
+
+    try:
+        mailer.send_html(user.email, subject, body, config=config)
+    except mailer.MailError as exc:
+        entry = EmailLog(
+            user_id=user.id,
+            status=EmailStatus.FAILED,
+            subject=subject,
+            error_message=str(exc),
+            # The body carries a live credential, so it is not kept on a failure
+            # the way a digest is: an admin reading the email log to find out why
+            # a message bounced should not find a working reset link in it.
+            body_text="(a password reset link; not recorded)",
+        )
+        session.add(entry)
+        session.commit()
+        return entry
+
+    entry = EmailLog(
+        user_id=user.id,
+        status=EmailStatus.SENT,
+        subject=subject,
+        body_text="(a password reset link; not recorded)",
+    )
+    session.add(entry)
+    session.commit()
+    return entry
+
+
 def due_user_ids(session: Session) -> list[int]:
     """Active users with digests enabled whose next send time has arrived."""
     now = utcnow()

@@ -59,6 +59,7 @@ from app.services import (
     mailer,
     manufacturers,
     scan_service,
+    twofactor,
 )
 from app.services import backup as backup_service
 from app.services import digest as digest_service
@@ -349,6 +350,47 @@ def cmd_passwd(args: argparse.Namespace) -> int:
         # Sign the account out everywhere.
         user.token_version += 1
     print(f"Password updated for {args.username!r}; existing sessions were ended.")
+    return 0
+
+
+def cmd_twofactor(args: argparse.Namespace) -> int:
+    """Show or switch off two-factor for one account.
+
+    **The way back in when the phone and the recovery codes are both gone.**
+    Every other route deliberately requires something the locked-out person no
+    longer has, which is what makes a second factor worth having -- so the last
+    resort is shell access to the machine, and that is this.
+
+    Deliberately not a way to *turn it on*: enrolment needs a secret shown to
+    the person holding the phone, which a terminal on the server is not.
+    """
+    with session_scope() as session:
+        user = session.execute(select(User).where(User.username == args.username)).scalars().first()
+        if user is None:
+            print(f"No account named {args.username!r}.", file=sys.stderr)
+            return 1
+
+        if not args.disable:
+            if twofactor.is_enabled(user):
+                left = twofactor.recovery_codes_left(session, user)
+                when = _fmt(user.totp_confirmed_at)
+                print(f"{user.username}: two-factor ON since {when}, {left} recovery code(s) left.")
+            else:
+                print(f"{user.username}: two-factor is off.")
+            return 0
+
+        if not twofactor.is_enabled(user) and not user.totp_secret:
+            print(f"{user.username}: two-factor is already off; nothing to do.")
+            return 0
+
+        twofactor.disable(session, user)
+        # Every token already issued stops working. Somebody who has lost
+        # control of a phone may have lost control of a session with it, and
+        # leaving those alive would make this a smaller fix than it looks.
+        user.token_version += 1
+        session.commit()
+        print(f"{user.username}: two-factor is off and every existing session is signed out.")
+        print("Sign in with the password alone, then turn it back on from Settings.")
     return 0
 
 
@@ -1000,10 +1042,16 @@ _CANARY_MARK = {
 }
 
 
-def _canary_report(results: list[canary.Probe]) -> str:
+def _canary_report(results: list[canary.Probe], backups: canary.BackupHealth | None = None) -> str:
     """The failures, as plain text, for a terminal and for an email body."""
     bad = canary.failures(results)
-    lines = [
+    lines = []
+    if backups is not None and backups.stale:
+        # First, because it is the one nobody else will ever mention. A vendor
+        # going quiet shows up as an empty shelf eventually; a backup that
+        # stopped shows up on the day it is needed.
+        lines += [f"BACKUPS: {backups.headline}", ""]
+    lines += [
         f"{len(bad)} of {len(results)} shops did not answer with listings.",
         "",
     ]
@@ -1019,12 +1067,15 @@ def _canary_report(results: list[canary.Probe]) -> str:
     return "\n".join(lines)
 
 
-def _mail_canary(results: list[canary.Probe]) -> None:
+def _mail_canary(results: list[canary.Probe], backups: canary.BackupHealth | None = None) -> None:
     """Tell the admins. Never raises: a canary that dies in its own alerting
     reports a clean sweep by exiting the same way a clean sweep would."""
     bad = canary.failures(results)
-    text = _canary_report(results)
-    subject = f"Milsurp canary: {len(bad)} of {len(results)} shops not answering"
+    text = _canary_report(results, backups)
+    if backups is not None and backups.stale and not bad:
+        subject = "Milsurp canary: backups have stopped"
+    else:
+        subject = f"Milsurp canary: {len(bad)} of {len(results)} shops not answering"
     body = (
         "<pre style='font:13px/1.5 ui-monospace,Menlo,Consolas,monospace'>"
         + (text.replace("&", "&amp;").replace("<", "&lt;"))
@@ -1097,15 +1148,22 @@ def cmd_canary(args: argparse.Namespace) -> int:
         progress=show,
     )
 
+    # The backups are checked too, and reported in the same breath: a copy that
+    # stopped leaving this machine four nights ago fails exactly the way a
+    # vendor that stopped answering does -- quietly, with nothing to see.
+    backups = canary.backup_health(config)
+
     bad = canary.failures(results)
     print()
-    if not bad:
+    if not bad and not backups.stale:
         shops = "shop" if len(results) == 1 else "shops"
         print(f"All {len(results)} {shops} answered with listings.")
+        if backups.configured:
+            print(backups.headline)
         return 0
-    print(_canary_report(results))
+    print(_canary_report(results, backups))
     if args.email:
-        _mail_canary(results)
+        _mail_canary(results, backups)
     return 1
 
 
@@ -1345,6 +1403,27 @@ def _add_armory_commands(sub) -> None:
     armory_cmd.set_defaults(func=cmd_armory)
 
 
+def _add_account_parsers(sub: argparse._SubParsersAction) -> None:
+    """The commands that act on one account. Grouped out of build_parser to
+    keep it under the statement ceiling, and grouped together because these are
+    the two an administrator reaches for when somebody cannot get in.
+    """
+    passwd = sub.add_parser("passwd", help="Change an account's password.")
+    passwd.add_argument("username")
+    passwd.add_argument("--password", help="Set non-interactively.")
+    passwd.set_defaults(func=cmd_passwd)
+
+    command = sub.add_parser("twofactor", help="Show or switch off two-factor for an account.")
+    command.add_argument("username")
+    command.add_argument(
+        "--disable",
+        action="store_true",
+        help="Turn it off and sign out every existing session. The way back in "
+        "when the phone and the recovery codes are both gone.",
+    )
+    command.set_defaults(func=cmd_twofactor)
+
+
 def _add_scheduled_parsers(sub: argparse._SubParsersAction) -> None:
     """The commands a timer runs rather than a person: housekeeping and the
     canary. Grouped out of build_parser to keep it under the statement
@@ -1435,10 +1514,7 @@ def build_parser() -> argparse.ArgumentParser:
     adduser.add_argument("--password", help="Set non-interactively (avoid in shared shells).")
     adduser.set_defaults(func=cmd_adduser)
 
-    passwd = sub.add_parser("passwd", help="Change an account's password.")
-    passwd.add_argument("username")
-    passwd.add_argument("--password", help="Set non-interactively.")
-    passwd.set_defaults(func=cmd_passwd)
+    _add_account_parsers(sub)
 
     digest_cmd = sub.add_parser("digest", help="Send due digests.")
     digest_cmd.add_argument("--user", help="Send to one user now, even if not due.")

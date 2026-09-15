@@ -186,6 +186,16 @@ export const Star = ({ filled = false, ...p }) => (
   </Svg>
 );
 
+// A shield: the security settings. Outline like the rest, so it reads beside
+// them rather than shouting -- this is a page you visit twice a year, not a
+// warning.
+export const Shield = (p) => (
+  <Svg {...p}>
+    <path d="M12 3l7 3v5.5c0 4.3-2.9 7.6-7 9-4.1-1.4-7-4.7-7-9V6z" />
+    <path d="M9.2 12.2l2 2 3.6-3.9" />
+  </Svg>
+);
+
 export const Bookmark = (p) => (
   <Svg {...p}>
     <path d="M6 4.5h12a1 1 0 0 1 1 1V20l-7-4-7 4V5.5a1 1 0 0 1 1-1z" />

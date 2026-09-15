@@ -491,8 +491,6 @@ export default function SettingsPage() {
       </div>
 
       {reading && <MessageModal entry={reading} onClose={() => setReading(null)} />}
-
-      <PasswordPanel />
     </div>
   );
 }
@@ -550,97 +548,5 @@ function MessageModal({ entry, onClose }) {
         <pre className="message-body">{body.body_text || "(no text recorded)"}</pre>
       )}
     </Modal>
-  );
-}
-
-function PasswordPanel() {
-  const policy = usePasswordPolicy();
-  const [current, setCurrent] = useState("");
-  const [next, setNext] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [error, setError] = useState(null);
-  const [done, setDone] = useState(false);
-  const [busy, setBusy] = useState(false);
-
-  async function submit(event) {
-    event.preventDefault();
-    setError(null);
-    if (next !== confirm) {
-      setError("The new passwords do not match.");
-      return;
-    }
-    setBusy(true);
-    try {
-      await api.changePassword(current, next);
-      // Changing the password revokes every issued token, including this tab's,
-      // so the next request will bounce to the sign-in screen by design.
-      setDone(true);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div className="panel">
-      <div className="panel__head">
-        <h2>Password</h2>
-      </div>
-      <div className="panel__body">
-        {done ? (
-          <div className="alert alert--success" style={{ marginBottom: 0 }}>
-            Password changed. All other sessions have been signed out — you will be asked
-            to sign in again shortly.
-          </div>
-        ) : (
-          <form onSubmit={submit} style={{ maxWidth: 420 }}>
-            {error && (
-              <div className="alert alert--error" role="alert">
-                {error}
-              </div>
-            )}
-            <label className="field">
-              <span className="field__label">Current password</span>
-              <input
-                className="input"
-                type="password"
-                value={current}
-                onChange={(event) => setCurrent(event.target.value)}
-                autoComplete="current-password"
-                required
-              />
-            </label>
-            <label className="field">
-              <span className="field__label">New password</span>
-              <input
-                className="input"
-                type="password"
-                value={next}
-                onChange={(event) => setNext(event.target.value)}
-                autoComplete="new-password"
-                minLength={policy.minLength}
-                required
-              />
-              <span className="field__hint">{policy.hint}</span>
-            </label>
-            <label className="field">
-              <span className="field__label">Confirm new password</span>
-              <input
-                className="input"
-                type="password"
-                value={confirm}
-                onChange={(event) => setConfirm(event.target.value)}
-                autoComplete="new-password"
-                required
-              />
-            </label>
-            <button className="btn btn--primary" type="submit" disabled={busy}>
-              {busy ? "Changing…" : "Change password"}
-            </button>
-          </form>
-        )}
-      </div>
-    </div>
   );
 }

@@ -130,6 +130,16 @@ override_dh_auto_install:
 	   done' sh {} +
 
 	# --- everything the administrator, not the service, touches -------------
+	# The off-machine backup schedule, as a sample rather than installed into
+	# /etc/cron.d. It names a NAS this package cannot know the address of, so
+	# shipping it live would give every install a cron job that fails nightly.
+	# deploy/cron/README.md is the runbook.
+	install -d debian/milsurp/usr/share/milsurp/cron
+	install -m 0644 deploy/cron/milsurp-offsite \
+	  debian/milsurp/usr/share/milsurp/cron/milsurp-offsite.sample
+	install -m 0644 deploy/cron/README.md \
+	  debian/milsurp/usr/share/milsurp/cron/README.md
+
 	install -d debian/milsurp/usr/share/milsurp/nginx
 	install -m 0644 deploy/nginx/milsurp.conf \
 	  debian/milsurp/usr/share/milsurp/nginx/milsurp.conf

@@ -43,7 +43,7 @@ from ..scrapers.base import (
     SiteScraper,
     vendors_answer,
 )
-from . import cooldown
+from . import backup, cooldown
 
 #: Listings to see before calling a shop healthy. One would do -- the question
 #: is "did anything parse at all" -- but a catalog whose first card is a banner
@@ -287,6 +287,50 @@ def sweep(
         if progress is not None:
             progress(result)
     return results
+
+
+#: How old the off-machine backup record may get before it is worth saying.
+#:
+#: Two days. The job runs nightly, so this is two missed runs -- one is a
+#: transient (the NAS rebooting, the network down for an hour) and two is a
+#: pattern. Reporting on one would teach whoever reads this to ignore it, which
+#: is the failure mode a nightly report can least afford.
+STALE_BACKUP_HOURS = 48
+
+
+@dataclass(frozen=True)
+class BackupHealth:
+    """Whether copies of the database are still leaving this machine."""
+
+    #: None when no copy has ever been recorded, which is a different thing
+    #: from an old one and is reported differently.
+    age_hours: float | None
+    configured: bool
+
+    @property
+    def stale(self) -> bool:
+        return self.configured and (self.age_hours or 0) > STALE_BACKUP_HOURS
+
+    @property
+    def headline(self) -> str:
+        if not self.configured:
+            return "No off-machine copy has ever been recorded."
+        if self.age_hours is None:  # pragma: no cover - configured implies a stamp
+            return "No off-machine copy has ever been recorded."
+        days = self.age_hours / 24
+        return f"The last off-machine copy was {days:.1f} day(s) ago."
+
+
+def backup_health(config: Config) -> BackupHealth:
+    """Whether the off-machine copy is still happening.
+
+    Beside the shop checks because it is the same kind of failure: something
+    that should be happening quietly has stopped, and nothing announces it. A
+    backup that stopped four nights ago and a vendor that stopped answering
+    four nights ago are found the same way, and by the same nightly email.
+    """
+    age = backup.offsite_age_hours(config.backups.directory)
+    return BackupHealth(age_hours=age, configured=age is not None)
 
 
 def failures(results: Iterable[Probe]) -> list[Probe]:

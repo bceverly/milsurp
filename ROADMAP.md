@@ -2892,9 +2892,54 @@ fact.
 - **Planned** — A documented restore drill. A backup nobody has restored is not
   a backup, and the snapshots above have been opened by the tests but never
   actually restored into service.
-- **Planned** — Off-machine copies of those snapshots. Ten backups on the same
+- **Shipped** — Off-machine copies of those snapshots. Ten backups on the same
   disk as the database survive a bad UPDATE, which is what they were written
-  for, but not a lost disk.
+  for, but not a lost disk — and production is one VM in a house.
+
+  `scripts/offsite-backup.sh` runs nightly as the `milsurp` account, takes a
+  fresh snapshot, bundles it **with `config.yaml`**, sends it over ssh and
+  verifies the byte count on the far side before pruning to ten.
+  `scripts/offsite-images.sh` mirrors the photo store weekly with rsync.
+  `deploy/cron/README.md` is the runbook.
+
+  **The config travels with the dump, and that is the point.**
+  `security.password_pepper` is HMAC'd into every password and now also
+  derives the key that decrypts the TOTP secrets, and it is stored nowhere but
+  that file. A database restored without it has no working logins, including
+  the administrator's. A database-only backup looks complete and is not.
+
+  **It says when it stops.** A cron job that quietly fails announces itself on
+  the day the backup is needed, so the script writes a stamp beside the
+  snapshots after its own byte-count check passes, and `milsurp canary` reports
+  the age of it — two days, which is two missed nights, because complaining
+  about one would teach whoever reads that email to skim it. The stamp is read
+  rather than the far side: asking the application to check a NAS would mean
+  giving it credentials for the one place a compromised application must not
+  reach. A deployment that never set the job up is not nagged about a choice it
+  made.
+
+  It runs as `milsurp` rather than root or a login account: the snapshot
+  directory is 0700 and `config.yaml` is 0600, both owned by it, so any other
+  account would need those loosened. The key lives in `/etc/milsurp` rather
+  than the account's home, which is `/opt/milsurp` — dpkg owns that and an
+  upgrade rewrites it.
+
+  **Three bugs surfaced in the ten minutes between writing it and trusting
+  it**, and every one would have failed silently at 03:10 with the first sign
+  being an empty directory on the day it was needed:
+
+  * a default `NAS_PATH` of `/volume1/backups/milsurp` — a Synology-shaped
+    guess about somebody else's filesystem, which a mistyped variable fell back
+    to. Now required, like `NAS_TARGET`;
+  * "cannot reach *host*" reported about a machine that had just answered:
+    reaching the far side and being able to write there were one check, and are
+    now two with two messages;
+  * `-p` for the port, which means that to `ssh` and *preserve times* to
+    `scp` — so scp read the port number as a filename. Now `-o Port=`, which
+    means the same to both.
+
+  That is the argument for running a backup by hand, and then once under cron,
+  before believing in it.
 - **Shipped** — `milsurp catch-up`, run from the postinst on every upgrade, so
   a rule change reaches rows already stored without anybody remembering to do
   it. A release changes how text is read, and nothing re-reads the catalog on
@@ -2998,12 +3043,71 @@ more than one machine still wants the queue below.
 
 ## 5. Security and compliance
 
-- **Planned** — Two-factor authentication (TOTP) for admin accounts.
+- **Shipped** — Two-factor authentication (TOTP). The admin sign-in is
+  reachable from the internet through haproxy and a password was the only thing
+  in front of it.
+
+  **Written against the standard library rather than adding `pyotp`**, because
+  the Debian package vendors every wheel it ships and this one would not have
+  earned the build machinery. That trade is only defensible if the arithmetic
+  is right, so it is tested against all six of RFC 6238's published vectors: if
+  those pass, every authenticator app on every phone agrees with it.
+
+  **The secret is encrypted at rest**, keyed from `security.password_pepper` —
+  the same secret that is already HMAC'd into every password and lives in the
+  config file rather than the database. A stolen dump that handed over both
+  factors at once would make the second one decorative.
+
+  Three decisions are about locking the owner out rather than keeping an
+  attacker out, which is the likelier failure for a self-hosted thing:
+
+  * **Enrolment is two steps.** The secret is issued and shown; only a code
+    typed back from the phone turns it on. Collapsing them means a mistyped
+    secret or a closed tab locks the account out.
+  * **Ten recovery codes**, Argon2-hashed because one of them alone is the
+    whole second factor, and with no I, O, 0 or 1 because they are read off
+    paper by somebody already having a bad day. Accepted at the same prompt as
+    a TOTP code, not behind a second link.
+  * **`milsurp twofactor NAME --disable`** for when the phone and the codes are
+    both gone. It bumps `token_version` too: somebody who lost control of a
+    phone may have lost a session with it.
+
+  Signing in is two exchanges. An account with two-factor gets a **200** saying
+  `two_factor_required`, not a 401 — nothing has gone wrong, and a 401 would be
+  indistinguishable from a wrong password to the page and to the logs. The
+  throttle counter is deliberately left alone at that point: counting "the
+  password was right and I have not asked yet" as a failure would lock somebody
+  out halfway through their own sign-in. The code is checked only after the
+  password is known good, so the response cannot be used to discover which
+  accounts have it turned on.
+- **Shipped** — One-time password reset links, sent by an administrator. This
+  entry used to sit below as *deliberately not built*: self-service reset needs
+  an unauthenticated endpoint that issues tokens to anybody who names an
+  address. Admin-initiated keeps the **issuing** side authenticated, which was
+  the whole of that objection, and leaves only redeeming open — which needs
+  thirty-two random bytes.
+
+  It is not new power. An admin could already set another account's password
+  outright through `PATCH /api/users/{id}`; what changes is that the admin
+  never learns the new one. The old flow's failure mode was "set it and tell
+  them what it is", after which two people know it and it has been said aloud
+  over whatever channel was to hand.
+
+  Single use, an hour long, superseded by the next one issued for the account —
+  an admin who presses the button twice because the first mail did not arrive
+  must not leave two live credentials in a mailbox, the older being the one
+  nobody is watching for. Hashed with Argon2, because while it is live the
+  token *is* the password. Redeeming signs out every open session.
+
+  **It does not walk past two-factor.** An account with an authenticator still
+  needs it afterwards; a reset link that skipped the second factor would make a
+  compromised mailbox enough to defeat it.
+
+  When mail cannot be sent the link is handed back to the admin instead, so a
+  deployment without SMTP has a working button rather than one that silently
+  does nothing.
 - **Planned** — Audit log of administrative actions: user creation, role
   changes, site enable/disable.
-- **Planned** — Self-service password reset over email. Deliberately not built
-  yet: it adds an unauthenticated, token-issuing endpoint, and with a handful of
-  users an admin reset is a smaller attack surface.
 - **Planned** — Session management UI: see and revoke active sessions.
 - **Planned** — Move the session token from `sessionStorage` to a
   `HttpOnly`/`Secure`/`SameSite=Strict` cookie plus a CSRF token. That removes

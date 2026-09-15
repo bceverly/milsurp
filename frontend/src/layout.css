@@ -2302,3 +2302,41 @@
   font-weight: 600;
   color: var(--blue-600, #1d4ed8);
 }
+
+/* Two-factor enrolment: the secret, big enough to read off a screen and type
+   into a phone without losing your place. */
+.totp-secret {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--silver-200);
+  border-radius: 8px;
+  background: var(--paper);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  word-break: break-all;
+}
+
+/* Recovery codes, shown once. Two columns so ten of them are one glance
+   rather than a scroll, and monospace because they get copied by hand. */
+.recovery-codes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 4px 16px;
+  margin: 10px 0 14px;
+  padding: 0;
+  list-style: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+}
+
+/* A reset link handed back to the admin when email could not send it. Wraps,
+   because it is long and has to be selectable in full. */
+.reset-link {
+  margin: 8px 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  word-break: break-all;
+  user-select: all;
+}

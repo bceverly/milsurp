@@ -14,6 +14,8 @@ import SettingsPage from "./pages/Settings.jsx";
 import BackupsPage from "./pages/Backups.jsx";
 import SavedSearches from "./pages/SavedSearches.jsx";
 import Watchlist from "./pages/Watchlist.jsx";
+import SecurityPage from "./pages/Security.jsx";
+import ResetPassword from "./pages/ResetPassword.jsx";
 
 function FullPageSpinner() {
   return (
@@ -49,6 +51,9 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      {/* Outside the signed-in shell, like the login page: whoever
+          followed this link cannot sign in, which is the point of it. */}
+      <Route path="/reset/:token" element={<ResetPassword />} />
       <Route
         path="/"
         element={
@@ -60,6 +65,7 @@ export default function App() {
         <Route index element={<Browse />} />
         <Route path="items/:itemId" element={<ItemDetail />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="security" element={<SecurityPage />} />
         <Route path="backups" element={<BackupsPage />} />
         <Route path="saved-searches" element={<SavedSearches />} />
         <Route path="watchlist" element={<Watchlist />} />

@@ -1,31 +1,41 @@
-# Milsurp Monitor — off-machine backups.
+# Milsurp Monitor — off-machine backups to the NAS.
 #
 #   sudo install -m 0644 milsurp-offsite /etc/cron.d/milsurp-offsite
 #
-# /etc/cron.d needs the user field (root) and a PATH of its own: cron's default
-# does not include /usr/local/sbin, and neither script is anywhere else.
+# Runs as the `milsurp` account, which already owns the snapshot directory
+# (0700) and config.yaml (0600). No other account can read either without
+# loosening the permissions on the file that holds the pepper, the JWT secret
+# and the database password — so this needs no privilege beyond the one the
+# application already has.
 #
-# Set NAS_TARGET here rather than editing the scripts, so an upgrade that
-# replaces them does not take your configuration with it.
+# /etc/cron.d needs the user field and a PATH of its own: cron's default does
+# not include /usr/local/bin, and neither script is anywhere else.
+#
+# Settings live here rather than in the scripts, so an upgrade that replaces
+# them does not take your configuration with it.
 
 SHELL=/bin/sh
-PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+PATH=/usr/local/bin:/usr/bin:/bin
 MAILTO=""
 
-NAS_TARGET=backup@nas.lan
-SSH_KEY=/root/.ssh/id_milsurp_backup
+NAS_TARGET=bceverly@192.168.4.10
+SSH_KEY=/etc/milsurp/backup_key
+KEEP=10
 
 # The database and the config, nightly at 03:10.
 #
-# Before the image prune at 04:20 and the canary at 06:10, and clear of the
-# application's own backup window: three jobs arriving together on one disk is
-# how a backup comes to time out.
-10 3 * * *  root  NAS_PATH=/volume1/backups/milsurp milsurp-offsite >> /var/log/milsurp-offsite.log 2>&1
+# Clear of the image prune at 04:20 and the canary at 06:10: three jobs
+# arriving together on one disk is how a backup comes to time out.
+10 3 * * *  milsurp  NAS_PATH=/zfs-pool/backup/milsurp milsurp-offsite >> /var/log/milsurp-offsite.log 2>&1
 
 # The photo store, Sundays at 02:30.
 #
-# Weekly because it is re-downloadable — `milsurp fetch-photos` rebuilds it
-# from URLs the database already holds — so this saves a week of re-fetching
-# rather than saving the data itself. rsync sends only what changed after the
-# first pass.
-30 2 * * 0  root  NAS_PATH=/volume1/backups/milsurp-images milsurp-offsite-images >> /var/log/milsurp-offsite.log 2>&1
+# **A different directory, and that is not cosmetic.** This one runs rsync with
+# --delete, so pointed at /zfs-pool/backup/milsurp it would delete every
+# database bundle sitting there on its first pass.
+#
+# Weekly because the images are re-downloadable — `milsurp fetch-photos`
+# rebuilds the store from URLs the database already holds — so this saves a
+# week of re-fetching rather than saving the data. rsync sends only what
+# changed after the first pass.
+30 2 * * 0  milsurp  NAS_PATH=/zfs-pool/backup/milsurp-images milsurp-offsite-images >> /var/log/milsurp-offsite.log 2>&1

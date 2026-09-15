@@ -118,13 +118,41 @@ export function qs(params) {
 
 export const api = {
   // --- auth ---
-  login: (username, password) =>
-    request("/api/auth/login", { method: "POST", body: { username, password } }),
+  // totpCode is undefined on the first exchange. An account with two-factor
+  // answers that one with { two_factor_required: true } and no token; the page
+  // then asks again with the code alongside the password it already has.
+  login: (username, password, totpCode) =>
+    request("/api/auth/login", {
+      method: "POST",
+      body: { username, password, ...(totpCode ? { totp_code: totpCode } : {}) },
+    }),
   me: () => request("/api/auth/me"),
   policy: () => request("/api/policy"),
   accessConfig: () => request("/api/access-request/config"),
   requestAccess: (payload) =>
     request("/api/access-request", { method: "POST", body: payload }),
+  // --- two-factor ---
+  totpStatus: () => request("/api/auth/totp"),
+  totpStart: () => request("/api/auth/totp/start", { method: "POST" }),
+  totpConfirm: (code) =>
+    request("/api/auth/totp/confirm", { method: "POST", body: { code } }),
+  totpDisable: (password) =>
+    request("/api/auth/totp/disable", { method: "POST", body: { password } }),
+
+  // --- password reset by link ---
+  // Named resetToken, not token: the module already has a `token` holding the
+  // session's own, and two things called that in one file is how the wrong one
+  // gets sent.
+  checkResetLink: (resetToken) =>
+    request(`/api/auth/reset/${encodeURIComponent(resetToken)}`),
+  redeemResetLink: (resetToken, new_password) =>
+    request("/api/auth/reset", {
+      method: "POST",
+      body: { token: resetToken, new_password },
+    }),
+  sendResetLink: (userId) =>
+    request(`/api/users/${userId}/reset-link`, { method: "POST" }),
+
   changePassword: (current_password, new_password) =>
     request("/api/auth/password", {
       method: "POST",

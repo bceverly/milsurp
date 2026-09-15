@@ -129,6 +129,36 @@ def age_hours(directory: Path, *, now: datetime | None = None) -> float | None:
     return (now - taken).total_seconds() / 3600
 
 
+#: Where scripts/offsite-backup.sh records a successful copy.
+#:
+#: Beside the snapshots rather than in /var, so it moves with them: an
+#: installation that puts its snapshots somewhere else has its stamp there too,
+#: and the two cannot end up describing different directories.
+OFFSITE_STAMP = ".offsite-stamp"
+
+
+def offsite_age_hours(directory: Path, *, now: datetime | None = None) -> float | None:
+    """How long since a copy of a snapshot reached somewhere else, or None.
+
+    None means no copy has ever been recorded -- which is the honest answer for
+    a deployment that has not set the job up, and is reported differently from
+    "it has been four days".
+
+    **Read from a stamp rather than from the far side.** The application cannot
+    see a NAS across the network, and asking it to would mean giving it
+    credentials for the one place a compromised application must not be able to
+    reach: the backups. The script writes the stamp after its own byte-count
+    check passes, so a stale stamp means the copy stopped, which is exactly the
+    failure worth noticing.
+    """
+    stamp = directory / OFFSITE_STAMP
+    if not stamp.is_file():
+        return None
+    now = now or datetime.now(UTC)
+    written = datetime.fromtimestamp(stamp.stat().st_mtime, UTC)
+    return (now - written).total_seconds() / 3600
+
+
 def is_due(session: Session, config: Config, *, now: datetime | None = None) -> bool:
     """Measured against the newest file on disk, not against a timer.
 

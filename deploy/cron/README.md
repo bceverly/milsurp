@@ -7,45 +7,84 @@ not survive a lost disk, and production is one VM in a house.
 gigabytes and re-downloadable; the database is megabytes. What cannot be
 recovered from anywhere is `security.password_pepper` in `config.yaml` — it is
 HMAC'd into every password before Argon2 and stored nowhere else, so a database
-restored without that exact string has no working logins, including yours. That
-is why the nightly bundle carries the config and not just the dump.
+restored without that exact string has no working logins, including yours. It
+also decrypts the TOTP secrets. That is why the nightly bundle carries the
+config and not just the dump.
+
+## Which account runs it
+
+`milsurp`, not `root` and not a login account. It already owns everything the
+job touches:
+
+| | mode | owner |
+|---|---|---|
+| `/etc/milsurp` | 0750 | milsurp:milsurp |
+| `/etc/milsurp/config.yaml` | 0600 | milsurp:milsurp |
+| `/etc/milsurp/backups` | 0700 | milsurp |
+
+An ordinary login account cannot read either, and adding it to the `milsurp`
+group would not help — 0600 on the file and 0700 on the directory give the
+group nothing. Making it work would mean loosening the permissions on the file
+holding the pepper, the JWT secret and the database password, which is the
+trade this is trying not to make.
+
+The key cannot live in `milsurp`'s home: that is `/opt/milsurp`, which dpkg
+owns and an upgrade rewrites. `/etc/milsurp` is `milsurp`'s own and survives
+upgrades, so the key and the `known_hosts` file go there.
 
 ## Setting it up
 
-Everything runs as root: the snapshot directory is `0700 milsurp` and
-`config.yaml` is `0600`.
-
 ```sh
-# 1. A key for this and nothing else, with no passphrase so cron can use it.
-sudo ssh-keygen -t ed25519 -f /root/.ssh/id_milsurp_backup -N '' -C milsurp-offsite
-sudo cat /root/.ssh/id_milsurp_backup.pub     # add this to the NAS account
+# 1. Put the private key where milsurp can read it and an upgrade will not
+#    touch it. This is the *private* half — no .pub — whose public half is
+#    already in bceverly@192.168.4.10:~/.ssh/authorized_keys.
+sudo install -m 0600 -o milsurp -g milsurp ~/.ssh/id_rsa /etc/milsurp/backup_key
+sudo install -m 0600 -o milsurp -g milsurp /dev/null /etc/milsurp/known_hosts
 
-# 2. Prove the VM can actually reach the NAS, before trusting a cron job to.
-sudo ssh -i /root/.ssh/id_milsurp_backup -o BatchMode=yes backup@nas.lan 'echo reachable'
+# 2. Prove the VM can reach the NAS *as milsurp*, before trusting cron with it.
+sudo -u milsurp ssh -i /etc/milsurp/backup_key \
+  -o UserKnownHostsFile=/etc/milsurp/known_hosts -o StrictHostKeyChecking=accept-new \
+  bceverly@192.168.4.10 'echo reachable; ls -d /zfs-pool/backup'
 
-# 3. Install the scripts and the schedule.
-sudo install -m 0755 offsite-backup.sh  /usr/local/sbin/milsurp-offsite
-sudo install -m 0755 offsite-images.sh  /usr/local/sbin/milsurp-offsite-images
-sudo install -m 0644 milsurp-offsite    /etc/cron.d/milsurp-offsite
-sudoedit /etc/cron.d/milsurp-offsite           # set NAS_TARGET and the paths
+# If that fails with "no mutual signature algorithm", the key is an older RSA
+# one and the NAS runs OpenSSH 8.8 or newer, which stopped accepting SHA-1
+# signatures by default. Confirm with -o PubkeyAcceptedKeyTypes=+ssh-rsa; the
+# better fix is an ed25519 key generated for this job, which sidesteps it.
 
-# 4. Run it once by hand. A cron job you have never run is a plan, not a backup.
-sudo NAS_TARGET=backup@nas.lan NAS_PATH=/volume1/backups/milsurp milsurp-offsite
+# 3. Somewhere to log, writable by milsurp.
+sudo install -m 0640 -o milsurp -g adm /dev/null /var/log/milsurp-offsite.log
+
+# 4. Install the scripts and the schedule.
+sudo install -m 0755 offsite-backup.sh /usr/local/bin/milsurp-offsite
+sudo install -m 0755 offsite-images.sh /usr/local/bin/milsurp-offsite-images
+sudo install -m 0644 milsurp-offsite   /etc/cron.d/milsurp-offsite
+
+# 5. Run it once by hand. A cron job you have never run is a plan, not a backup.
+sudo -u milsurp env NAS_TARGET=bceverly@192.168.4.10 \
+  NAS_PATH=/zfs-pool/backup/milsurp KEEP=10 milsurp-offsite
 ```
+
+## Two directories, not one
+
+The nightly job writes bundles to `/zfs-pool/backup/milsurp` and keeps ten.
+The weekly image mirror writes to `/zfs-pool/backup/milsurp-images`, and it
+**must** be a different directory: it runs `rsync --delete`, so pointed at the
+first one it would delete every database bundle there on its first pass.
 
 ## Encrypting it
 
 The bundle carries the pepper, the JWT secret and the database password in
 clear text. `scp` protects it in flight; nothing protects it at rest on the
-NAS. If the NAS is shared, or backed up somewhere else in turn:
+NAS. If the pool is shared, or replicated somewhere else in turn:
 
 ```sh
-sudo sh -c 'umask 077; head -c 32 /dev/urandom | base64 > /root/.milsurp-backup-pass'
+sudo sh -c 'umask 077; head -c 32 /dev/urandom | base64 > /etc/milsurp/backup_pass'
+sudo chown milsurp:milsurp /etc/milsurp/backup_pass
 # then add to /etc/cron.d/milsurp-offsite:
-#   GPG_PASSPHRASE_FILE=/root/.milsurp-backup-pass
+#   GPG_PASSPHRASE_FILE=/etc/milsurp/backup_pass
 ```
 
-**Put that passphrase in your password vault before you rely on it.** A bundle
+**Put that passphrase in your password vault before relying on it.** A bundle
 you cannot decrypt is not a backup, and the machine holding the only copy of
 the passphrase is the machine you are backing up.
 
@@ -58,11 +97,11 @@ sudo -u postgres pg_restore -d milsurp --clean --if-exists milsurp-20260915-0310
 sudo systemctl restart milsurp
 ```
 
-The photographs come back from the weekly mirror, or from
-`milsurp fetch-photos` given time and the vendors' patience.
+The photographs come back from the weekly mirror, or from `milsurp
+fetch-photos` given time and the vendors' patience.
 
 ## What is not covered
 
-A restore has never been done end to end on this deployment. Until it has,
-this is a copy of some files rather than a proven backup — the roadmap says the
-same thing and it stays true until somebody rebuilds a machine from one.
+A restore has never been done end to end on this deployment. Until it has, this
+is a copy of some files rather than a proven backup — the roadmap says the same
+and it stays true until somebody rebuilds a machine from one.
