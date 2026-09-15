@@ -117,8 +117,21 @@ def _padded(secret: str) -> str:
 # At rest
 # ---------------------------------------------------------------------------
 #: How the stored form is marked, so a future scheme can be told from this one
-#: without guessing at the ciphertext.
-_SEALED = "v1:"
+#: without guessing at the ciphertext. That marker is now earning its keep:
+#: ``v2:`` is what gets written, ``v1:`` is still read.
+_SEALED = "v2:"
+
+#: The original marker. Rows written before the derivation below changed still
+#: open, because a scheme change must not lock out everybody who already
+#: enrolled -- their phone holds a secret this row is the only copy of.
+_SEALED_V1 = "v1:"
+
+
+def _version_of(stored: str | None) -> str | None:
+    """Which scheme wrote this row, or None if nothing here did."""
+    if not stored:
+        return None
+    return next((mark for mark in (_SEALED, _SEALED_V1) if stored.startswith(mark)), None)
 
 
 def _keystream(key: bytes, nonce: bytes, length: int) -> bytes:
@@ -137,12 +150,30 @@ def _keystream(key: bytes, nonce: bytes, length: int) -> bytes:
     return bytes(out[:length])
 
 
-def _keys(config: Config) -> tuple[bytes, bytes]:
+def _keys(config: Config, version: str = _SEALED) -> tuple[bytes, bytes]:
     """Separate keys for encrypting and for authenticating.
 
     Derived from the pepper rather than used directly, and two of them rather
     than one, because a key that both encrypts and signs is the shape most
     likely to be wrong in a way nobody notices.
+
+    **The root is an HMAC, not a bare hash.** v1 computed
+    ``sha256(label + pepper)``, which works and is still read below, but
+    ``H(label || secret)`` is the construction every guide tells you not to
+    reach for: SHA-2 is a Merkle-Damgard hash, so the digest of a prefix lets
+    you extend it, and "label then secret" gives no real domain separation
+    between one label and another that happens to share a boundary. HMAC is
+    built to be keyed and has neither problem, and it is the extract step of
+    HKDF (RFC 5869) spelled out -- salt as the key, the secret as the message.
+
+    Nothing here was exploitable: the root never leaves this function, and the
+    pepper is a random value of at least ``MIN_SECRET_BYTES``, not a chosen
+    password. It is changed because the right construction costs the same.
+
+    CodeQL reads the old line as hashing a password with a fast hash, which is
+    the shape of a real mistake -- ``password_pepper`` is in the name, and a
+    *user's* password does belong in Argon2 rather than SHA-256. Here it is
+    key material, and key material is what HMAC takes.
     """
     pepper = (config.security.password_pepper or "").encode("utf-8")
     if not pepper:
@@ -150,7 +181,10 @@ def _keys(config: Config) -> tuple[bytes, bytes]:
             "security.password_pepper is not set; a TOTP secret cannot be stored safely "
             "without it. Run 'make secrets' and set it in the configuration file."
         )
-    root = hashlib.sha256(b"milsurp-totp-v1" + pepper).digest()
+    if version == _SEALED_V1:
+        root = hashlib.sha256(b"milsurp-totp-v1" + pepper).digest()
+    else:
+        root = hmac.new(b"milsurp-totp-v2", pepper, hashlib.sha256).digest()
     return (
         hmac.new(root, b"encrypt", hashlib.sha256).digest(),
         hmac.new(root, b"authenticate", hashlib.sha256).digest(),
@@ -175,17 +209,18 @@ def unseal(stored: str, config: Config | None = None) -> str | None:
     second factor that cannot be checked, and the caller's answer to that is to
     refuse the sign-in, not to return a 500 that says the database is odd.
     """
-    if not stored or not stored.startswith(_SEALED):
+    version = _version_of(stored)
+    if version is None:
         return None
     config = config or get_config()
     try:
-        blob = base64.urlsafe_b64decode(stored[len(_SEALED) :].encode("ascii"))
+        blob = base64.urlsafe_b64decode(stored[len(version) :].encode("ascii"))
     except (ValueError, TypeError):
         return None
     if len(blob) < 32:
         return None
     nonce, tag, body = blob[:16], blob[16:32], blob[32:]
-    cipher_key, mac_key = _keys(config)
+    cipher_key, mac_key = _keys(config, version)
     expected = hmac.new(mac_key, nonce + body, hashlib.sha256).digest()[:16]
     if not hmac.compare_digest(expected, tag):
         return None

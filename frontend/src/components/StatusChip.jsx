@@ -1,5 +1,6 @@
 import React from "react";
 import { Check, Clock, Warning, X } from "./Icons.jsx";
+import { fromMap } from "../lookup";
 
 /** Maps a scan status to its chip styling and icon. */
 const SCAN_STATUS = {
@@ -11,11 +12,11 @@ const SCAN_STATUS = {
 };
 
 export function ScanStatusChip({ status, size = 13 }) {
-  const entry = SCAN_STATUS[status] || {
+  const entry = fromMap(SCAN_STATUS, status, {
     tone: "neutral",
     label: status || "Unknown",
     Icon: Clock,
-  };
+  });
   const { tone, label, Icon } = entry;
   return (
     <span className={`chip chip--${tone}`}>
@@ -32,9 +33,9 @@ const EMAIL_STATUS = {
 };
 
 export function EmailStatusChip({ status }) {
-  const { tone, label } = EMAIL_STATUS[status] || {
+  const { tone, label } = fromMap(EMAIL_STATUS, status, {
     tone: "neutral",
     label: status,
-  };
+  });
   return <span className={`chip chip--${tone}`}>{label}</span>;
 }

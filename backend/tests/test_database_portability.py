@@ -748,6 +748,55 @@ class TestThePoolIsBigEnoughForTheScans:
 
         assert pool_complaint(self.config_for(tmp_path, "database:\n  path: /tmp/x.db\n")) is None
 
+    # -- and the other half of the same number ------------------------------
+
+    def test_request_threads_are_capped_at_what_the_pool_can_feed(self, tmp_path):
+        """The cap that stopped a browse page taking the site down.
+
+        A `def` endpoint runs in anyio's thread pool and almost all of them
+        want a session. With more threads than connections, the surplus
+        threads block on checkout for `pool_timeout` -- 30 seconds -- and a
+        thread waiting on a connection is a thread no other request can use.
+
+        Run inside an event loop because that is where it runs for real: the
+        limiter belongs to the loop, and `lifespan` is already on one.
+        """
+        import asyncio
+
+        import anyio.to_thread
+
+        from app.main import _match_request_threads_to_the_pool
+
+        config = self.config_for(
+            tmp_path,
+            "database:\n  engine: postgresql\n  host: h\n  name: milsurp\n  user: u\n"
+            "  pool_size: 20\n  max_overflow: 10\nscheduler:\n  max_concurrent_scans: 2\n",
+        )
+
+        async def go():
+            _match_request_threads_to_the_pool(config)
+            return anyio.to_thread.current_default_thread_limiter().total_tokens
+
+        # 20 + 10, less the two a scan may hold for hours.
+        assert asyncio.run(go()) == 28
+
+    def test_a_tiny_pool_still_leaves_enough_threads_to_serve(self, tmp_path):
+        """SQLite development has no pool worth the name, and throttling it to
+        one thread would look like a hang rather than a safeguard."""
+        import asyncio
+
+        import anyio.to_thread
+
+        from app.main import MIN_REQUEST_THREADS, _match_request_threads_to_the_pool
+
+        config = self.config_for(tmp_path, "database:\n  path: /tmp/x.db\n")
+
+        async def go():
+            _match_request_threads_to_the_pool(config)
+            return anyio.to_thread.current_default_thread_limiter().total_tokens
+
+        assert asyncio.run(go()) >= MIN_REQUEST_THREADS
+
 
 class TestTimestampsAreStoredInUTCOnBothEngines:
     """The bug this class exists for cost four hours on every row.

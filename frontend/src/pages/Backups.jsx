@@ -16,6 +16,7 @@ import { api } from "../api.js";
 import { useTitle } from "../hooks.js";
 import { formatBytes, formatRelative, timeTitle } from "../format.js";
 import { Refresh } from "../components/Icons.jsx";
+import { fromMap } from "../lookup";
 
 const HOURS_LABEL = {
   6: "Every 6 hours",
@@ -148,7 +149,7 @@ export default function BackupsPage() {
                 >
                   {state.interval_choices.map((hours) => (
                     <option key={hours} value={hours}>
-                      {HOURS_LABEL[hours] || `Every ${hours} hours`}
+                      {fromMap(HOURS_LABEL, hours, `Every ${hours} hours`)}
                     </option>
                   ))}
                 </select>

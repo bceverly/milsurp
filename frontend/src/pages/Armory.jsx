@@ -28,6 +28,7 @@ import { useTitle } from "../hooks.js";
 import Modal from "../components/Modal.jsx";
 import Field from "../components/Field.jsx";
 import { Eye, Plus, Refresh, Trash } from "../components/Icons.jsx";
+import { fromMap } from "../lookup";
 
 const TABS = [
   { key: "manufacturers", label: "Manufacturers" },
@@ -64,7 +65,7 @@ export function tabFromHash(hash) {
   const wanted = decodeURIComponent(String(hash || "").replace(/^#/, ""))
     .trim()
     .toLowerCase();
-  return TAB_FROM_HASH[wanted] || DEFAULT_TAB;
+  return fromMap(TAB_FROM_HASH, wanted, DEFAULT_TAB);
 }
 
 /**
@@ -1215,7 +1216,7 @@ export default function Armory() {
   };
 
   const rows = useMemo(() => {
-    const read = sortValues[sort.key] || sortValues.name;
+    const read = fromMap(sortValues, sort.key, sortValues.name);
     const byName = nameOrder(tab);
     return [...unsorted].sort((left, right) => {
       const a = read(left);

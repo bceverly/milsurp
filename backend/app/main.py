@@ -14,6 +14,7 @@ from contextlib import asynccontextmanager
 from enum import Enum
 from pathlib import Path
 
+import anyio.to_thread
 from fastapi import APIRouter, FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -75,6 +76,7 @@ async def lifespan(_app: FastAPI):
 
     _warn_about_weak_secrets(config)
     _warn_about_the_connection_pool(config)
+    _match_request_threads_to_the_pool(config)
     bootstrap.initialize(config)
 
     scheduler = get_scheduler()
@@ -88,6 +90,13 @@ async def lifespan(_app: FastAPI):
 #: HMAC-SHA256 keys shorter than the 256-bit digest add no further security
 #: (RFC 7518 section 3.2 requires at least this many bytes).
 MIN_SECRET_BYTES = 32
+
+#: Never cap request threads below this, however small the pool is.
+#:
+#: A SQLite development instance has no pool to speak of, and throttling it to
+#: one or two threads would make the app feel broken for no reason -- the
+#: starvation this guards against is a PostgreSQL deployment under load.
+MIN_REQUEST_THREADS = 8
 
 
 class SecretHealth(str, Enum):
@@ -198,6 +207,53 @@ def _warn_about_the_connection_pool(config) -> None:
     complaint = pool_complaint(config)
     if complaint:
         log.warning("%s", complaint)
+
+
+def _match_request_threads_to_the_pool(config) -> None:
+    """Never let more requests run at once than there are connections for.
+
+    Every endpoint defined with ``def`` rather than ``async def`` runs in
+    anyio's worker thread pool, which defaults to 40 threads, and almost all
+    of them ask for a database session. The connection pool was sized for
+    *scans* -- ``max_concurrent_scans`` plus a little headroom -- and nothing
+    made the two numbers agree, so 40 threads could queue for a handful of
+    connections. SQLAlchemy makes a waiter wait ``pool_timeout`` seconds, 30
+    by default, and a thread waiting on a checkout is a thread no other
+    request can use.
+
+    That is what took the site down. A browse page asked for 192 thumbnails at
+    once; each one is a ``def`` endpoint that wants a session. The threads
+    filled, then blocked on the pool, and every later request -- including
+    ``/api/health``, which touches no database at all -- sat waiting for a
+    thread that was itself waiting for a connection. Past 30 seconds the proxy
+    in front returned 504. The machine was idle the whole time, because
+    nothing was working: everything was queuing.
+
+    Capping the threads at what the pool can feed turns that around. Requests
+    beyond the limit wait in the event loop for microseconds instead of
+    occupying a thread for thirty seconds, and each one that does run has a
+    connection waiting for it. A thumbnail is a row lookup and a file read --
+    a few milliseconds -- so a queue of 192 drains in well under a second.
+
+    Scans get their reservation kept back, because a scan holds its connection
+    for as long as it runs and must not be crowded out by a busy grid.
+    """
+    capacity = config.database.pool_size + config.database.max_overflow
+    reserved = config.scheduler.max_concurrent_scans
+    threads = max(MIN_REQUEST_THREADS, capacity - reserved)
+    try:
+        limiter = anyio.to_thread.current_default_thread_limiter()
+    except Exception:  # pragma: no cover - anyio always provides one
+        log.warning("Could not reach the thread limiter; leaving it at the default.")
+        return
+    limiter.total_tokens = threads
+    log.info(
+        "Request threads capped at %s (pool %s + overflow %s, %s reserved for scans).",
+        threads,
+        config.database.pool_size,
+        config.database.max_overflow,
+        reserved,
+    )
 
 
 #: What to tell a client to wait when the database is locked.

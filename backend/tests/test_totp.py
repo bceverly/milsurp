@@ -147,6 +147,42 @@ class TestAtRest:
         )
         assert totp.unseal(sealed, other) is None
 
+    def test_new_rows_are_written_as_v2(self, app_config):
+        assert totp.seal(totp.new_secret(), app_config).startswith("v2:")
+
+    def test_a_v1_row_still_opens(self, app_config):
+        """Somebody enrolled before the derivation changed still has a phone
+        holding a secret this row is the only copy of. Rejecting it would be a
+        lockout dressed up as a security improvement."""
+        secret = totp.new_secret()
+
+        # Sealed the way v1 did it, against the same pepper.
+        import base64 as _b64
+
+        cipher_key, mac_key = totp._keys(app_config, totp._SEALED_V1)
+        nonce = b"0123456789abcdef"
+        raw = secret.encode("ascii")
+        body = bytes(
+            a ^ b for a, b in zip(raw, totp._keystream(cipher_key, nonce, len(raw)), strict=True)
+        )
+        import hashlib as _h
+        import hmac as _hm
+
+        tag = _hm.new(mac_key, nonce + body, _h.sha256).digest()[:16]
+        old_row = "v1:" + _b64.urlsafe_b64encode(nonce + tag + body).decode("ascii")
+
+        assert totp.unseal(old_row, app_config) == secret
+
+    def test_the_two_versions_derive_different_keys(self, app_config):
+        """Otherwise the version marker would be decoration."""
+        assert totp._keys(app_config, totp._SEALED) != totp._keys(app_config, totp._SEALED_V1)
+
+    def test_a_v1_row_is_not_readable_as_v2(self, app_config):
+        """A row relabeled by hand does not open, because the tag is checked
+        with the key the label asks for."""
+        sealed = totp.seal(totp.new_secret(), app_config)
+        assert totp.unseal("v1:" + sealed[len("v2:") :], app_config) is None
+
     def test_no_pepper_at_all_is_refused_loudly(self, app_config):
         """Storing it in the clear would be the silent alternative, and the
         silent alternative is the one somebody finds out about later."""

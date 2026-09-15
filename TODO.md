@@ -1468,6 +1468,156 @@ nothing, whatever its exit code.**
 
 ---
 
+## 38. CodeQL, three alerts — two real, one a false positive with a real fix
+
+### Unvalidated dynamic method call ×2 (`Armory.jsx`)
+
+Both genuine. `const read = sortValues[sort.key] || sortValues.name` looks like
+it falls back for any unknown column and does not: `sort.key` comes straight
+off the query string with no validation, and every object literal inherits from
+`Object.prototype`. Reproduced before fixing:
+
+```
+?sort=name         -> read(row) = "B"                 order: A,B
+?sort=toString     -> read(row) = "[object Undefined]" order: B,A
+?sort=__proto__    -> THROWS: TypeError: read is not a function
+?sort=constructor  -> read(row) = {"name":"B"}         order: B,A
+?sort=valueOf      -> THROWS: TypeError
+```
+
+Two of the five take the render down. Not a data leak — everything reachable
+is already on the page — but a URL anybody can type that makes the armory a
+blank screen.
+
+**The sweep mattered more than the two alerts.** Grepping the pattern found six
+sites, and `tabFromHash` had the identical bug one screen above: `#__proto__`
+made `tab` an object rather than a string. CodeQL never flagged that one,
+because the result is read rather than *called*, and its query is about calls.
+Taking the alerts at face value would have fixed two lines of a six-line
+problem.
+
+- [x] `src/lookup.js` — `fromMap(map, key, fallback)`, an own-property check,
+      with the reasoning where somebody will meet it. Used at all six sites:
+      `Armory` ×2, `StatusChip` ×2, `Backups`, `SavedSearches`. Every map's
+      values are truthy, so this is behavior-preserving for real keys and only
+      changes what happens for inherited ones.
+- [x] `sortValues` deliberately stays inside the component — there is a comment
+      saying why, and validating at the lookup needs no second list of column
+      names to drift out of sync with it.
+- [x] A Playwright regression test walking `#__proto__`, `#constructor`,
+      `#toString` and `?sort=__proto__|valueOf|constructor`, plus a real sort
+      afterward so the guard cannot pass by breaking the feature.
+
+### Weak hashing on sensitive data ×1 (`totp.py:153`)
+
+The line is `hashlib.sha256(b"milsurp-totp-v1" + pepper)` — SHA-256, which is
+not broken. The rule is about hashing *sensitive data* with a fast hash instead
+of a password KDF, and `password_pepper` has "password" in the name. As an
+alarm about a user's password it would be right; this is a random value of at
+least `MIN_SECRET_BYTES` = 32, and a slow KDF exists to make *low-entropy*
+guesses expensive. Ruff agrees it is not a weak algorithm — the `# noqa: S324`
+tried first came back as an unused directive.
+
+So: a false positive, and there is still something to fix behind it.
+`H(label || secret)` is the KDF construction every guide warns off — SHA-2 is
+Merkle-Damgard, so a digest can be extended, and "label then secret" gives no
+real domain separation. HMAC has neither problem and is HKDF-Extract (RFC 5869)
+written out. Nothing was exploitable — the root never leaves the function — but
+the correct construction costs the same.
+
+- [x] v2 derives the root as `hmac.new(b"milsurp-totp-v2", pepper, sha256)`.
+- [x] **v1 rows still open.** The `_SEALED = "v1:"` marker was put there for
+      "a future scheme", and this is it. Refusing old rows would be a lockout
+      dressed as an improvement: the phone holds a secret the row is the only
+      copy of. Verified against the real database — the one enrolled `v1:` row
+      unseals under the new code.
+- [x] Four tests: new rows are v2, a v1 row opens, the two versions derive
+      different keys, and a row relabeled by hand does not open.
+
+Section 36 recorded that in-source `# codeql[...]` suppressions are not honored
+by GitHub, so a false positive is either fixed in code or dismissed by hand in
+the Security tab. This one had a fix worth making anyway; if CodeQL still
+flags the v1 branch it is read-only compatibility code and should be dismissed
+there.
+
+---
+
+## 39. 504s in production: nothing was broken, everything was queuing
+
+Reported as "504s from production". The application was healthy throughout —
+`load average 0.00`, nine seconds of CPU in two hours — and nginx had not
+returned a single 504. It had returned **546 `499`s**, all with zero bytes
+sent, which is nginx for "the client hung up before the answer was ready".
+
+TLS terminates on a pfSense box running HAProxy. HAProxy answers 504 when
+`timeout server` expires and drops the backend connection; nginx records that
+as 499. **The 504 and the 499 are one event written down at both ends**, and
+the whole evening's confusion came from only ever seeing one of them. A probe
+from outside measured 30.29s to the 504 — pfSense's default `timeout server`
+is 30s.
+
+533 of the 546 were thumbnails, in bursts matching a browse page load.
+
+### Why a thumbnail grid could stop the site
+
+`AuthImage` fetched on mount, unconditionally. `loading="lazy"` was passed
+down to the `<img>` where it did nothing: the bytes had already been requested
+before the browser could defer anything. A 192-card page therefore opened 192
+simultaneous requests.
+
+`get_photo` is a `def` endpoint taking both `CurrentUser` and `DbSession`, so
+each of those 192 wanted a thread *and* a connection. anyio gives 40 threads;
+the pool was sized for scans — `max_concurrent_scans + 6` — so the surplus
+threads blocked on checkout for SQLAlchemy's 30s `pool_timeout`. A thread
+waiting for a connection is a thread no other request can use, which is why
+`/api/health` — no database at all — also timed out at 30s. Nothing was
+working. Everything was waiting.
+
+- [x] `AuthImage` defers the *fetch* until an IntersectionObserver says the
+      card is within 400px of the viewport. 192 concurrent requests become
+      about a dozen. Images without `loading="lazy"` — a detail hero, a
+      gallery frame — are unchanged; there is one of them and waiting would
+      only feel slower.
+- [x] `_match_request_threads_to_the_pool()` caps anyio's threads at
+      `pool_size + max_overflow - max_concurrent_scans`. Requests past the cap
+      wait microseconds in the event loop instead of holding a thread for
+      thirty seconds, and every request that runs has a connection waiting for
+      it. Scans keep their reservation. Floor of 8 so SQLite development is
+      not throttled to a crawl.
+- [x] Verified `FileResponse` streams in the event loop, so a photo endpoint
+      holds its thread only for the row lookup — the cap cannot be held open
+      by a slow client.
+- [x] nginx upstream `keepalive` 16 -> 64 plus `keepalive_requests`. 16 was
+      being exceeded by ordinary browsing.
+
+### The configuration nobody deployed
+
+The VM was running **`milsurp-bootstrap.conf`** — the stopgap meant to last
+the few minutes until certbot gets a certificate — as its permanent production
+config. `milsurp.conf` is installed by `setup-letsencrypt.sh`, and a
+deployment whose TLS terminates upstream never runs it. So production had no
+rate limiting, no photo location, no upstream keepalive and no security
+headers, and nothing ever said so.
+
+- [x] `deploy/nginx/milsurp-behind-proxy.conf`: the tuned configuration minus
+      the TLS machinery, for exactly this shape. Documents what the terminator
+      must send (`X-Forwarded-Proto`, `X-Forwarded-For`) and that its own
+      server timeout needs to be 120s, not 30. Syntax-checked against real
+      nginx.
+
+### And the linter was not reading the app
+
+Found while fixing `AuthImage`: `eslint .` under ESLint 8 lints `.js` only
+unless given `--ext`, and `package.json` does not give it. **All 25 `.jsx`
+files — every component and page — have never been linted.** Running with
+`--ext .js,.jsx` reports 36 problems. Not fixed here; it is its own piece of
+work and this was an outage. Recorded so it is not rediscovered by accident.
+
+This is the fourth thing in this file to pass by not looking. Three scanners
+and now the linter.
+
+---
+
 ## Context for whoever picks this up
 
 ### Where work stopped

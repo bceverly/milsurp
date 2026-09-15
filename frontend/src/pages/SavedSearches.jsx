@@ -15,6 +15,7 @@ import { api } from "../api.js";
 import { useTitle } from "../hooks.js";
 import { formatRelative, timeTitle } from "../format.js";
 import { Bookmark, Mail, Refresh, Trash } from "../components/Icons.jsx";
+import { fromMap } from "../lookup";
 
 /** What the email-limit dropdown offers; mirrors SAVED_SEARCH_LIMITS. */
 const LIMITS = [5, 10, 20, 30, 50, 100];
@@ -118,7 +119,7 @@ function SavedSearchCard({ search, onChange, onDelete }) {
 
       <p className="saved-search__filters">{describe(search.query)}</p>
       <p className="saved-search__sort">
-        Sorted by {SORT_LABELS[search.sort] || search.sort}
+        Sorted by {fromMap(SORT_LABELS, search.sort, search.sort)}
       </p>
 
       <div className="saved-search__controls">

@@ -288,6 +288,41 @@ test.describe("armory", () => {
     );
   });
 
+  test("a URL naming an inherited property is treated as unknown, not obeyed", async ({
+    signedIn,
+  }) => {
+    /**
+     * Every object literal inherits from Object.prototype, so the lookups
+     * behind these two URLs used to return something truthy for keys nobody
+     * put in the map and skip their fallback. `?sort=__proto__` found
+     * Object.prototype, which is not callable, and the sort comparator took
+     * the render down with it; `#__proto__` made the tab an object instead of
+     * a string. CodeQL found the first as "unvalidated dynamic method call"
+     * and never saw the second, because that one is read rather than called.
+     */
+    for (const hash of ["#__proto__", "#constructor", "#toString"]) {
+      await signedIn.goto(`/armory${hash}`);
+      // Falls back exactly like "#nonsense" above rather than rendering an
+      // object as the tab.
+      await expect(signedIn.getByRole("tab", { name: "Models" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+    }
+
+    for (const key of ["__proto__", "valueOf", "constructor"]) {
+      await signedIn.goto(`/armory?sort=${key}#model`);
+      // The page is still standing and the table still has rows: an unknown
+      // column sorts by name rather than throwing.
+      await expect(signedIn.getByRole("heading", { name: "Armory" })).toBeVisible();
+      await expect(signedIn.locator("tbody tr").first()).toBeVisible();
+    }
+
+    // And a real column still sorts, so the guard did not swallow the feature.
+    await signedIn.goto("/armory?sort=name#model");
+    await expect(signedIn.locator("tbody tr").first()).toBeVisible();
+  });
+
   test("an alias can be made the primary name", async ({ signedIn }) => {
     /**
      * "IWI" and "Israel Weapon Industries" are one firm, and which of them is
