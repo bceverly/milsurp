@@ -111,7 +111,10 @@ def send_reset_link(
         session, user, issued.url, passwordreset.LIFETIME_MINUTES, config
     )
     sent = entry.status is EmailStatus.SENT
-    log.info(
+    # Matched for the word "Password" in the message template. The link itself
+    # is never logged -- the interpolated values are two usernames through
+    # safe_identifier(), which is an allowlist, and a two-state string.
+    log.info(  # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
         "Password reset link issued for %s by %s (%s)",
         safe_identifier(user.username),
         safe_identifier(admin.username),

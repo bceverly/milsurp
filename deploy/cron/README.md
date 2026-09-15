@@ -90,18 +90,37 @@ the passphrase is the machine you are backing up.
 
 ## Restoring
 
+**[deploy/RESTORE.md](../RESTORE.md) is the runbook**, and it is the one to
+follow: it has been walked end to end against a real bundle off the NAS, it
+covers the migration step this shorthand leaves out, and it records the way the
+restore fails if you reach for the obvious `pg_restore` flags. The short form,
+for somebody who has read it before:
+
 ```sh
 tar -xzf milsurp-20260915-031000.tar.gz          # or: gpg -d …tar.gz.gpg | tar -xz
 sudo install -m 0600 -o milsurp -g milsurp config.yaml /etc/milsurp/config.yaml
 sudo -u postgres pg_restore -d milsurp --clean --if-exists milsurp-20260915-031000.dump
+sudo -u milsurp env MILSURP_ENV=production \
+  /opt/milsurp/.venv/bin/python /opt/milsurp/scripts/dbupdate.py
 sudo systemctl restart milsurp
 ```
 
-The photographs come back from the weekly mirror, or from `milsurp
+`dbupdate.py` is not optional. A backup is older than the code it is being
+restored under, often by several migrations, and the schema has to be brought
+forward before the application will start.
+
+The photographs come back from the weekly mirror, or from `backend/cli.py
 fetch-photos` given time and the vendors' patience.
 
 ## What is not covered
 
-A restore has never been done end to end on this deployment. Until it has, this
-is a copy of some files rather than a proven backup — the roadmap says the same
-and it stays true until somebody rebuilds a machine from one.
+A restore *has* now been done end to end — see the runbook — so this is a
+proven backup rather than a copy of some files. What that drill did not prove:
+
+- **The encrypted path.** The bundle restored was a plain `.tar.gz`. If you
+  set `GPG_PASSPHRASE_FILE`, do the drill again; a passphrase nobody has ever
+  decrypted with is a guess.
+- **A bare-metal rebuild.** The restore went into a throwaway container, not a
+  freshly installed machine. The package install, the certificate and the DNS
+  are still untested as one sequence.
+- **The photographs.** The image mirror has never been rsynced back.

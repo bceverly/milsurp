@@ -20,13 +20,29 @@ updates:
     commit-message:
       prefix: "deps(python)"
     groups:
-      # Patch and minor bumps are almost always safe and are what the weekly
-      # security scan wants applied promptly.
-      python-minor-and-patch:
+      # One PR a week for Python, not one per dependency.
+      #
+      # This used to carry `update-types: [minor, patch]` and quietly matched
+      # nothing. Requirements here are floors -- `SQLAlchemy>=2.0.36,<3.0` --
+      # so when a release already satisfies the range there is no version to
+      # update and dependabot raises the floor instead. A floor bump has no
+      # semver update-type to match on, so every one of them fell outside the
+      # group: five landed as five separate PRs on 2026-09-13, each changing a
+      # number that pip was already resolving to anyway.
+      #
+      # Without `update-types` the group takes everything it is offered, which
+      # is the behavior the comment above always claimed.
+      python:
         patterns: ["*"]
-        update-types: [minor, patch]
     ignore:
       # Majors get their own PR so the changelog actually gets read.
+      #
+      # Same blind spot, and it is worth knowing about rather than assuming
+      # this covers everything: `version-update:semver-major` matches a
+      # version change, so a *floor* raised across a major boundary is not
+      # ignored. mypy went `>=1.14` to `>=2.3.1` that way. It now rides in the
+      # weekly group instead of arriving alone -- so read the group PR's list
+      # rather than trusting that anything major would have been split out.
       - dependency-name: "*"
         update-types: [version-update:semver-major]
 

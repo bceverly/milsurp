@@ -637,6 +637,37 @@ handles the consistent-snapshot part, so the hazard above does not arise.
 package — and the password is passed to it in the environment rather than on
 the command line, where every account on the box could read it.
 
+#### Getting one back
+
+**[deploy/RESTORE.md](deploy/RESTORE.md) is the restore runbook.** It has been
+walked end to end against a real bundle: pulled off the NAS, restored into a
+clean PostgreSQL 18, migrated from the revision it was dumped at up to the one
+the code wanted, and then driven by the application to prove the data was
+usable rather than merely present.
+
+Three things in it are worth knowing before you need them.
+
+`config.yaml` belongs in the backup next to the dump, and the offsite bundle
+puts it there. It holds `security.password_pepper`, which is mixed into every
+password hash and derives the key that decrypts the two-factor secrets, and it
+is stored nowhere else. A database restored without that exact file comes back
+with a full user table and no working logins.
+
+**Restore as the superuser and let the dump carry its own ownership** — no
+`--role`, no `--no-owner`. Since PostgreSQL 15 the `public` schema does not
+grant `CREATE` to everyone, so switching roles mid-restore makes every
+`CREATE TABLE` fail. That failure is quiet in the way that matters:
+`pg_restore` reports the errors and still exits 0, so a restore that built
+nothing at all looks from the shell like one that worked. Count the tables
+afterward.
+
+**Run `scripts/dbupdate.py` after restoring.** A backup is nearly always behind
+the code — the drill's was three migrations back — and nothing brings the
+schema forward on its own.
+
+Also: the photographs are not in the database backup. They come from the weekly
+image mirror, or are re-fetched from URLs the database still holds.
+
 ### Makers
 
 The names the scanner looks for when it works out who made a listing live in a
@@ -2306,17 +2337,31 @@ same binary. gitleaks is also accepted as a container image
 (`docker pull ghcr.io/gitleaks/gitleaks:latest`) if you would rather not put a
 binary in `/usr/local/bin`.
 
-Snyk needs an account: run `snyk auth` once, or export `SNYK_TOKEN`. Until then
-it is skipped and `pip-audit` / `npm audit` carry the dependency check.
+Snyk needs an account. CI has one — a `SNYK_TOKEN` repository secret, read by
+the `make security` step in `.github/workflows/security.yml`. Locally, run
+`snyk auth` once or export the same variable; until you do it is skipped and
+`pip-audit` / `npm audit` carry the dependency check on their own.
+
+**A skipped tool no longer reports as a clean scan.** `make security` ends with
+*"clean — every tool ran"* or *"clean — but N of the tools did not run"*, and
+the second is yellow. The exit code is unchanged either way, so a developer who
+has not installed the scanners yet is not blocked; they are just not told they
+are covered when they are not. That distinction is worth the two lines: semgrep
+and pip-audit sat uninstalled in a virtualenv here for three days, and every
+run in that time said "clean".
 
 CI additionally runs CodeQL and TruffleHog, and re-runs everything weekly so a
 newly-disclosed CVE in an unchanged dependency is still caught.
 
-Two of semgrep's findings are suppressed in-source with the reasoning next to
-the code: two startup warnings are matched by its credential-in-log rule purely
-for containing the words "secrets" and "admin.password" in their *message
-text*, while the only values they interpolate are a setting's name and a file
-path.
+Four of semgrep's findings are suppressed in-source with the reasoning next to
+the code, all of them the same false positive from its credential-in-log rule,
+which matches on the words in a *message text* rather than on anything
+interpolated into it. Two startup warnings contain "secrets" and
+"admin.password" while passing only a setting's name and a file path; two
+password-reset lines contain "Password" while passing only account names —
+one read off the database row after the token was already redeemed, the other
+through `logsafe.safe_identifier()`, which is an allowlist. No reset link or
+token is ever logged.
 
 Nothing is suppressed for CodeQL. In-source `# codeql[...]` comments turned out
 not to be honored by GitHub code scanning, which was the right outcome: each

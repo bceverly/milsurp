@@ -1356,6 +1356,118 @@ scanner cannot resolve unpinned ranges without an interpreter to look at.
 
 ---
 
+## 37. semgrep failed CI, and said nothing about why
+
+The password-reset work tripped `logger-credential-disclosure` twice, on
+`api/auth.py` and `api/users.py`. Both are false in the same way as the two
+already suppressed in section 16: the rule matches the word "Password" in a
+*message template*, and neither call has a credential to leak — one logs
+`account_label()`, read off the database row after the token was already
+redeemed, and the other logs two usernames through `safe_identifier()`, which
+is an allowlist rather than an escape. The link itself is never logged.
+
+- [x] Both suppressed with `# nosemgrep` on the call line, reasoning in the
+      comment above it. The marker rides on the call because on its own line
+      ruff reads it as commented-out code — same as `main.py`.
+
+**The worse half was the reporting.** The failure branch re-ran bare `semgrep`
+instead of `"$SEMGREP"`, and the lookup right above it exists precisely because
+the scanner lives in `.venv/bin` and is not on `PATH`. So CI printed
+
+```
+▸ semgrep — rule-based static analysis
+  ✗ findings — see .../semgrep.json
+```
+
+and then nothing — a failure nobody can act on without checking the branch out
+and installing a scanner to reproduce it. The re-run also dropped
+`--config=p/python` and `--config=p/javascript`, so even with the binary found,
+a finding from either pack would have printed an empty list under the word
+"findings".
+
+- [x] Read the findings back out of the JSON the scan already wrote, instead of
+      scanning a second time. Correct by construction — it cannot disagree with
+      the report it is summarizing, and it does not cost another few minutes.
+- [x] Verified: 0 findings across 238 files, and the printer exercised against
+      both a report with findings and a missing one.
+
+### And the scanner was not installed at all
+
+Reproducing the failure locally turned up something worse than the finding:
+**neither semgrep nor pip-audit was in `.venv`**, and both are pinned in
+`backend/requirements-security.txt`. The virtualenv dates from 2026-09-12;
+`install-dev.sh` has installed that file since 2026-09-06 and runs under
+`set -euo pipefail`, so it was not built by a complete run of it. Installing
+both by hand works first time, so nothing is broken — the venv was simply made
+another way and the scanners were never noticed missing.
+
+They were never noticed because `make security` printed **`✓ Security scan
+clean.`** the whole time. The skip list was right there above it saying
+pip-audit had not run, and the last line still said clean. That is the same
+sentence the file's own header warns about: *"a developer without these
+installed gets a scan that passes by doing almost nothing."*
+
+- [x] The summary distinguishes the two claims. Every tool ran: green, *"every
+      tool ran"*. Something skipped: yellow, *"but N of the tools did not
+      run"*, and a line saying a green run means only as much as the skip list
+      allows. The exit code is unchanged — a developer who has not set the
+      scanners up yet is still not blocked, which was the original and correct
+      intent.
+- [x] `Skipped (not installed)` → `Skipped:`; the entries carry their own
+      reason, and one of them was `snyk installed but not authenticated`.
+
+### Seven dependabot PRs, five of which changed nothing
+
+Five of the seven open PRs raised a `>=` floor to a version pip was already
+resolving to — `SQLAlchemy>=2.0.36` to `>=2.0.52` with 2.0.52 installed, and
+four more like it. Safe, and worth taking so the floor states what is actually
+tested, but they should never have been five PRs. `dependabot.yml` says patch
+and minor bumps are grouped into one; the group carried
+`update-types: [minor, patch]`, and a floor bump is not a version update, so it
+has no update-type to match and fell outside the group. Dropping `update-types`
+makes the group take everything, which is what its comment always claimed.
+
+The `ignore` rule for majors has the identical blind spot, and this is the part
+to remember: mypy's floor went `>=1.14` to `>=2.3.1`, across a major boundary,
+and was not ignored. Nothing will split a major floor bump out for review, so
+the group PR's list has to be read rather than trusted.
+
+- [x] pip group renamed `python`, `update-types` removed. npm left alone — its
+      grouping demonstrably works, because npm pins exact versions in a
+      lockfile and its updates really are version updates.
+- [x] All seven applied locally and tested rather than merged on faith. mypy
+      2.3.1 is clean on 94 source files, vite 8.3.0 builds and the Playwright
+      suite passes, 2720 backend tests pass.
+- [x] `actions/download-artifact` v7 -> v8. Held at first on the theory that it
+      had to match `upload-artifact@v7` two jobs above it — and `release.yml`
+      never runs on a PR, so a green check would not have proved anything. The
+      theory was wrong: v8's README names `actions/upload-artifact@v7` as a
+      supported source. Its real changes are erroring on hash mismatch instead
+      of warning, and skipping decompression for `archive: false` uploads,
+      which this project does not use.
+
+### Snyk turned on
+
+A `SNYK_TOKEN` repository secret now exists, so the CI step that had been
+installing snyk and then skipping it actually scans. Verified against the
+bumped dependencies before pushing, because a scanner enabled for the first
+time can fail a build on something that was always there: 0 issues on both
+ecosystems.
+
+- [x] The two halves report separately — `Python: clean` / `Node: clean`. They
+      used to print `Python:` and `Node:` with the result sent to /dev/null and
+      nothing after the colon, which nobody noticed while the whole section was
+      being skipped. Two scans behind one summary meant "vulnerabilities found"
+      could not say which half found them. All three verdicts exercised.
+
+This is the third scanner in this file to fail quietly rather than loudly —
+semgrep skipping silently when it was installed, Snyk reporting a scan that
+never ran as a clean one, and now a failure with the reason omitted. Worth
+stating as a rule: **a security tool that cannot say what it found is reporting
+nothing, whatever its exit code.**
+
+---
+
 ## Context for whoever picks this up
 
 ### Where work stopped

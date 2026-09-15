@@ -30,6 +30,11 @@ note()    { printf '    \033[2m%s\033[0m\n' "$*"; }
 
 have_venv() { [ -x "$VENV/bin/$1" ]; }
 
+# Used to summarize JSON reports. The virtualenv's interpreter when there is
+# one, because that is the copy this project is built against, but any python3
+# will do -- nothing here imports from the project.
+if have_venv python; then PY="$VENV/bin/python"; else PY="$(command -v python3 || true)"; fi
+
 printf '\n\033[1mSecurity scan\033[0m \033[2m(same tools as CI)\033[0m\n'
 
 # ---------------------------------------------------------------------------
@@ -74,10 +79,29 @@ if [ -n "$SEMGREP" ]; then
     ok "no issues"
   else
     bad "findings — see $REPORTS/semgrep.json"
-    semgrep --config=p/security-audit --config=p/secrets \
-            --error --quiet --metrics=off \
-            --exclude=node_modules --exclude=.venv --exclude=dist . 2>/dev/null \
-      | head -40 | sed 's/^/    /'
+    # Read the report back rather than scanning a second time. The old line
+    # re-ran bare `semgrep` — not "$SEMGREP" — and the lookup above exists
+    # precisely because the scanner is normally in .venv/bin and not on PATH,
+    # so in CI it printed nothing at all under the word "findings". A failure
+    # you cannot act on without checking the branch out yourself is barely a
+    # failure report. The re-run also dropped p/python and p/javascript, so a
+    # finding from either pack would have printed an empty list.
+    if [ -n "$PY" ]; then
+      "$PY" - "$REPORTS/semgrep.json" <<'PYEOF' | head -40
+import json, sys
+try:
+    results = json.load(open(sys.argv[1]))["results"]
+except (OSError, ValueError, KeyError):
+    print("    (report unreadable)")
+    raise SystemExit
+for f in results:
+    rule = f["check_id"].rsplit(".", 1)[-1]
+    print(f"    {f['path']}:{f['start']['line']}  {rule}")
+    print("      " + " ".join(f["extra"]["message"].split())[:150])
+PYEOF
+    else
+      note "no python3 to summarize the report with; read the JSON directly."
+    fi
     FAILURES+=("semgrep")
   fi
 else
@@ -103,25 +127,31 @@ if command -v snyk >/dev/null 2>&1; then
     # --command points Snyk at this project's interpreter. Without it the pip
     # scanner cannot resolve our unpinned ranges and exits 2 with
     # SNYK-OS-PYTHON-0013, "Missing required packages".
-    printf '  Python:\n'
+    # Each ecosystem says how it did on its own line. These used to print
+    # "Python:" and "Node:" with the result discarded to /dev/null and nothing
+    # after the colon, which was invisible while the whole section was being
+    # skipped for want of a token. With two scans behind one summary, "found
+    # vulnerabilities" that does not say which half found them is a report you
+    # have to go and re-run to act on.
+    snyk_verdict() {
+      case "$1" in
+        0) printf 'clean\n' ;;
+        1) printf 'vulnerabilities\n'; SNYK_VULNS=1 ;;
+        *) printf 'did not run\n';    SNYK_BROKEN=1 ;;
+      esac
+    }
+
+    printf '  Python: '
     snyk test --file=backend/requirements.txt --package-manager=pip \
       --command="$VENV/bin/python" \
       --severity-threshold=high --json-file-output="$REPORTS/snyk-python.json" \
       >/dev/null 2>&1
-    case $? in
-      0) ;;
-      1) SNYK_VULNS=1 ;;
-      *) SNYK_BROKEN=1 ;;
-    esac
+    snyk_verdict $?
 
-    printf '  Node:\n'
+    printf '  Node:   '
     (cd frontend && snyk test --severity-threshold=high \
       --json-file-output="$REPORTS/snyk-node.json" >/dev/null 2>&1)
-    case $? in
-      0) ;;
-      1) SNYK_VULNS=1 ;;
-      *) SNYK_BROKEN=1 ;;
-    esac
+    snyk_verdict $?
 
     if [ "$SNYK_VULNS" = "1" ]; then
       bad "vulnerabilities found — see $REPORTS/snyk-*.json"
@@ -241,11 +271,22 @@ fi
 # ---------------------------------------------------------------------------
 printf '\n'
 if [ ${#SKIPPED[@]} -gt 0 ]; then
-  printf '\033[2mSkipped (not installed): %s\033[0m\n' "$(IFS=', '; echo "${SKIPPED[*]}")"
+  printf '\033[2mSkipped: %s\033[0m\n' "$(IFS=', '; echo "${SKIPPED[*]}")"
 fi
 
 if [ ${#FAILURES[@]} -eq 0 ]; then
-  printf '\033[1;92m✓ Security scan clean.\033[0m\n\n'
+  # "Clean" and "clean as far as it looked" are different claims, and the
+  # difference is the whole value of the line. semgrep and pip-audit sat
+  # uninstalled in a virtualenv for three days while this printed the first
+  # one; nothing was wrong except that nothing was being checked.
+  if [ ${#SKIPPED[@]} -gt 0 ]; then
+    printf '\033[1;93m✓ Security scan clean — but %d of the tools did not run.\033[0m\n' \
+      "${#SKIPPED[@]}"
+    printf '\033[2m  A green run here only means as much as the list above allows.\033[0m\n'
+    printf '\033[2m  make install-dev installs semgrep, pip-audit and gitleaks.\033[0m\n\n'
+  else
+    printf '\033[1;92m✓ Security scan clean — every tool ran.\033[0m\n\n'
+  fi
   exit 0
 fi
 

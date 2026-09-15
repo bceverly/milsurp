@@ -259,7 +259,12 @@ def redeem_reset_link(payload: PasswordResetRedeem, session: DbSession, config: 
         )
     session.commit()
     # The account name, never the token: this line ends up in a log file.
-    log.info("Password reset completed for %s", account_label(user))
+    # The rule fires on the word "Password" in the message template. The only
+    # interpolated value is account_label(), which reads the name off the
+    # database row -- the token was already redeemed and is not in scope here.
+    log.info(  # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
+        "Password reset completed for %s", account_label(user)
+    )
 
 
 @router.post("/totp/start", response_model=TotpStart)

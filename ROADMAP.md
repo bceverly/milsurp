@@ -2889,9 +2889,34 @@ fact.
   perfectly good CDN images that way, because the guard resolved every photo URL
   separately and the resolver buckled under four hundred lookups of one name.
   Resolutions are cached per host, and only successes are cached.
-- **Planned** — A documented restore drill. A backup nobody has restored is not
-  a backup, and the snapshots above have been opened by the tests but never
-  actually restored into service.
+- **Shipped** — The restore drill, done rather than described. A backup nobody
+  has restored is not a backup; the snapshots above had been opened by the
+  tests and never put back into service. So one was: the newest bundle pulled
+  off the NAS, restored into a clean PostgreSQL 18, migrated forward, and then
+  driven by the application. 20 tables, 11,093 listings, 77,754 photo rows, 28
+  sites; `armory.match` compiled 808 rules from the restored table and still
+  answered `Mosin-Nagant M91/30`. `deploy/RESTORE.md` is what was actually run.
+
+  **Two things only a real attempt finds.** The first restore produced 218
+  errors from `permission denied for schema public`, because the obvious
+  `--role=milsurp` switches to a role that PostgreSQL 15 and later no longer
+  grant `CREATE` on `public` — so every `CREATE TABLE` failed and the two
+  hundred errors after it were constraints for tables that were never made.
+  Restoring as the superuser and letting the dump carry its own ownership
+  works. Worse than the error is its manners: `pg_restore` prints the failures
+  and **still exits 0**, so a restore that created nothing looks from the shell
+  like a restore that worked. The runbook counts tables afterward for that
+  reason.
+
+  The second: the bundle was dumped at Alembic `0024` and the code wanted
+  `0026`. That is not a mistake, it is the normal case — backups are older than
+  deployments — and it means `scripts/dbupdate.py` is part of restoring rather
+  than a step after it. The quick recipe in `deploy/cron/README.md` had omitted
+  it and would have left whoever followed it with a database the application
+  refuses to start against.
+
+  Still unproven, and recorded as such: the GPG-encrypted variant, a rebuild of
+  a bare machine rather than a container, and reading the image mirror back.
 - **Shipped** — Off-machine copies of those snapshots. Ten backups on the same
   disk as the database survive a bad UPDATE, which is what they were written
   for, but not a lost disk — and production is one VM in a house.
