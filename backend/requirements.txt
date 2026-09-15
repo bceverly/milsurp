@@ -1,35 +1,40 @@
 # Web framework and server
-fastapi>=0.115,<1.0
-uvicorn[standard]>=0.34,<1.0
+fastapi>=0.141.1,<1.0
+uvicorn[standard]>=0.52.4,<1.0
 python-multipart>=0.0.32
-email-validator>=2.2
+email-validator>=2.3.0
 
 # Database
 SQLAlchemy>=2.0.52,<3.0
-alembic>=1.14,<2.0
+alembic>=1.20.0,<2.0
 # The PostgreSQL driver. Installed unconditionally because the engine is a
 # config.yaml setting rather than a build-time choice: a deployment that starts
 # on SQLite and moves later should not need a different set of packages, and
 # the test suite exercises both. Unused, it costs a few megabytes and nothing
 # at runtime. [binary] ships the libpq wheels, so there is no build step and no
 # libpq-dev to install.
-psycopg[binary]>=3.2
+psycopg[binary]>=3.3.5
 
 # Configuration
 PyYAML>=6.0.3
 
 # Security: Argon2id password hashing and JWT sessions
 argon2-cffi>=25.1.0
-PyJWT>=2.10
+# Held one release behind on purpose. semgrep pins pyjwt[crypto]~=2.13.0, and
+# it shares this virtualenv under `make security`, so asking for 2.14 makes the
+# two unsatisfiable: whichever requirements file is installed last wins and
+# `pip check` fails either way. Dependabot proposed 2.14.0 and semgrep 1.177.0
+# in the same PR without noticing. Raise this when semgrep relaxes its pin.
+PyJWT>=2.13.0
 
 # Image processing (thumbnail generation during scans)
-Pillow>=11.0
+Pillow>=12.3.0
 
 # Scraping
-requests>=2.32
-beautifulsoup4>=4.12
-lxml>=5.3
-selenium>=4.48.0
+requests>=2.34.2
+beautifulsoup4>=4.15.0
+lxml>=6.1.3
+selenium>=4.49.0
 
 # OCR, for vendors that publish a scanned flyer instead of a catalog
 # (Hunter's Lodge). This is only the Python binding: it needs the `tesseract`

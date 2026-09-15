@@ -1,4 +1,3 @@
-import React from "react";
 import { Check, Clock, Warning, X } from "./Icons.jsx";
 import { fromMap } from "../lookup";
 

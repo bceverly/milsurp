@@ -721,7 +721,7 @@ const EMPTY_MAKER = {
  * Offered instead of doing it, when the row is one a scan will simply propose
  * again. See :func:`comesBack`.
  */
-function DeleteForm({ row, table, canDisable, error, onDelete, onDisable }) {
+function DeleteForm({ row, canDisable, error, onDelete, onDisable }) {
   const returning = comesBack(row);
   const seen = (row.first_seen_in || "").split("\n").filter(Boolean);
 
@@ -1411,8 +1411,8 @@ export default function Armory() {
         [...prev, created].sort((a, b) => compareCalibers(a.name, b.name)),
       );
       return created;
-    } catch (failure) {
-      setFormError(failure.message);
+    } catch (problem) {
+      setFormError(problem.message);
       return null;
     }
   };
@@ -2117,7 +2117,6 @@ export default function Armory() {
         >
           <DeleteForm
             row={deleting}
-            table={tab}
             // Calibers gained this switch in migration 0018; before that,
             // sending the row back for approval was the only durable "no".
             canDisable={"enabled" in deleting}

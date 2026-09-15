@@ -9,7 +9,6 @@
  * Every icon is decorative and marked `aria-hidden`; the meaning always lives in
  * adjacent text or an aria-label on the control itself.
  */
-import React from "react";
 
 function Svg({ children, size = 18, strokeWidth = 1.8, ...rest }) {
   return (

@@ -7,7 +7,7 @@
  * than better: nobody looking for the two-factor switch clicks Email digest,
  * and somebody did go looking and did not find it.
  */
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../api.js";
 import { usePasswordPolicy, useTitle } from "../hooks.js";
 import { formatDateTime } from "../format.js";

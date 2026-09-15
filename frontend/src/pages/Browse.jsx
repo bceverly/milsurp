@@ -4,7 +4,7 @@
  * Filter state lives in the URL query string rather than component state, so a
  * filtered view can be bookmarked, shared, and survives the back button.
  */
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api.js";
 import { useDebounced, useOptimisticSearchParams, useTitle } from "../hooks.js";
@@ -565,7 +565,9 @@ export default function Browse() {
       });
     }
     return chips;
-  }, [params, data, toggleMulti, update]);
+    // `kind` is read off `params`, so it cannot change without params changing;
+    // it is listed because the rule is right that the memo reads it.
+  }, [params, kind, data, toggleMulti, update]);
 
   const clearAll = () => {
     setSearchText("");

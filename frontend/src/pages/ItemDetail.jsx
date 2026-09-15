@@ -1,7 +1,7 @@
 /**
  * One listing: photo gallery, structured facts, description, and price history.
  */
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api.js";
 import { useTitle } from "../hooks.js";
@@ -18,15 +18,7 @@ function kindLabel(kind) {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 import Modal from "../components/Modal.jsx";
-import {
-  ChevronLeft,
-  External,
-  Eye,
-  Sparkle,
-  Star,
-  TrendDown,
-  X,
-} from "../components/Icons.jsx";
+import { ChevronLeft, External, Eye, Star, TrendDown, X } from "../components/Icons.jsx";
 
 /**
  * One labeled value.
@@ -612,11 +604,14 @@ export default function ItemDetail() {
         <div>
           <div className="gallery__main">
             {current ? (
-              <AuthImage
-                src={current.url}
-                alt={item.title}
+              <button
+                type="button"
+                className="gallery__zoom"
                 onClick={() => setLightbox(true)}
-              />
+                aria-label={`View ${item.title} full size`}
+              >
+                <AuthImage src={current.url} alt={item.title} />
+              </button>
             ) : (
               <div className="item-card__noimg">No photos captured</div>
             )}
@@ -800,6 +795,13 @@ export default function ItemDetail() {
                   <table className="price-table">
                     <tbody>
                       {[...history].reverse().map((point, index) => (
+                        // The index is a tiebreaker, not the key: two
+                        // observations can share a timestamp, and PricePointOut
+                        // carries no id to use instead. Safe here where the
+                        // rule usually is not, because these rows hold no state
+                        // of their own -- nothing to attach to the wrong row
+                        // when the list grows.
+                        // eslint-disable-next-line react/no-array-index-key
                         <tr key={`${point.observed_at}-${index}`}>
                           <td>{formatMoney(point.price, point.currency)}</td>
                           <td title={timeTitle(point.observed_at)}>
@@ -823,13 +825,18 @@ export default function ItemDetail() {
       )}
 
       {lightbox && current && (
-        <div
-          className="lightbox"
-          onClick={() => setLightbox(false)}
-          role="dialog"
-          aria-modal="true"
-          aria-label={item.title}
-        >
+        <div className="lightbox" role="dialog" aria-modal="true" aria-label={item.title}>
+          {/* Click-anywhere-to-close, as its own presentational layer. The
+              dialog itself must not carry the handler: a click listener on a
+              non-interactive role is one no keyboard can reach, and the
+              surround is decoration. Escape closes it and the button below is
+              the control a screen reader announces, so this is a convenience
+              and not the only way out. */}
+          <div
+            className="lightbox__backdrop"
+            role="presentation"
+            onClick={() => setLightbox(false)}
+          />
           <button
             className="lightbox__close"
             onClick={() => setLightbox(false)}

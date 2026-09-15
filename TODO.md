@@ -1438,6 +1438,32 @@ the group PR's list has to be read rather than trusted.
 - [x] All seven applied locally and tested rather than merged on faith. mypy
       2.3.1 is clean on 94 source files, vite 8.3.0 builds and the Playwright
       suite passes, 2720 backend tests pass.
+- [x] The grouping worked: the next Monday produced **one** PR with 19 updates
+      instead of nineteen. Worth knowing why there were nineteen left --
+      `open-pull-requests-limit: 5` meant only five of the twenty-four were
+      ever proposed, so the backlog had been invisible rather than absent.
+
+**And the group PR could not be merged as it stood.** It raised `PyJWT` to
+2.14.0 and `semgrep` to 1.177.0 in the same commit, and semgrep pins
+`pyjwt[crypto]~=2.13.0`. They share this virtualenv under `make security`, so
+the two requirements are unsatisfiable together: whichever file is installed
+last wins and `pip check` fails either way. Dependabot resolves each
+requirements file on its own and never saw it.
+
+- [x] Eighteen of the nineteen applied; `PyJWT>=2.13.0` with the reason
+      written next to it, to be raised when semgrep relaxes its pin. Verified
+      with `pip check` rather than assumed.
+- [x] Tested rather than merged on faith, which matters more here than for the
+      floor bumps: pytest 8 -> 9, pytest-cov 6 -> 7, Pillow 11 -> 12, lxml
+      5 -> 6, black 24 -> 26, ruff 0.9 -> 0.16, fastapi 0.115 -> 0.141,
+      uvicorn 0.34 -> 0.52. 2726 backend tests pass, black and ruff still
+      agree with every file they format and check.
+
+This is exactly what the note above about reading the group's list was for. The
+grouping is still right — nineteen PRs would have been worse — but a group is
+one decision covering many changes, and nothing else checks that the members
+agree with each other.
+
 - [x] `actions/download-artifact` v7 -> v8. Held at first on the theory that it
       had to match `upload-artifact@v7` two jobs above it — and `release.yml`
       never runs on a PR, so a green check would not have proved anything. The
@@ -1534,11 +1560,20 @@ the correct construction costs the same.
 - [x] Four tests: new rows are v2, a v1 row opens, the two versions derive
       different keys, and a row relabeled by hand does not open.
 
-Section 36 recorded that in-source `# codeql[...]` suppressions are not honored
-by GitHub, so a false positive is either fixed in code or dismissed by hand in
-the Security tab. This one had a fix worth making anyway; if CodeQL still
-flags the v1 branch it is read-only compatibility code and should be dismissed
-there.
+**It did not clear the alert, and adding a branch made it two.** #38 closed and
+#39/#40 opened on both lines — the bare hash *and* the HMAC. The rule follows
+anything named like a password into any hashing operation, and key derivation
+cannot avoid hashing the secret; the only sinks it accepts are password-hashing
+functions. There is no shape of correct code here that satisfies it, short of
+running a deliberately slow KDF over a value that has no guessing weakness to
+protect, at the cost of a third key version.
+
+So both are dismissed in the Security tab as false positives, which section 36
+already established is the only mechanism GitHub offers. The construction
+change stands on its own merit and would have been worth making with no scanner
+involved — but it was predicted here to clear the alert, and it did not. Worth
+remembering before reaching for a crypto change to satisfy a static analyzer:
+the rule was never reading the construction, only the name of the input.
 
 ---
 
@@ -1608,10 +1643,25 @@ headers, and nothing ever said so.
 ### And the linter was not reading the app
 
 Found while fixing `AuthImage`: `eslint .` under ESLint 8 lints `.js` only
-unless given `--ext`, and `package.json` does not give it. **All 25 `.jsx`
-files — every component and page — have never been linted.** Running with
-`--ext .js,.jsx` reports 36 problems. Not fixed here; it is its own piece of
-work and this was an outage. Recorded so it is not rediscovered by accident.
+unless given `--ext`, and `package.json` did not give it. **All 25 `.jsx`
+files — every component and page — had never been linted**, which is why
+`make lint` had been green over code nobody was checking.
+
+- [x] `--ext .js,.jsx` on both `lint` and `lint:fix`. All 35 problems fixed,
+      nothing suppressed except one array-index key with the reason beside it.
+- [x] 20 unused `React` imports removed (the config already uses the JSX
+      runtime); `main.jsx` and `Armory.jsx` keep theirs because they really do
+      use `React.*`. Four dead named imports and one dead prop — `DeleteForm`
+      took a `table` it never read, passed from the one call site.
+- [x] A `catch (failure)` in `Armory.jsx` shadowed a `failure` state variable
+      one scope up, so inside the handler the name silently meant the error.
+- [x] **Two real accessibility defects, not just lint noise.** The item
+      gallery's hero image opened the lightbox from a bare `<img onClick>` —
+      no keyboard could reach it, while the thumbnails directly below it were
+      already proper buttons. It is a button now, styled to lay out exactly as
+      the image did. And the lightbox carried its dismiss handler on the
+      element holding `role="dialog"`; that moved to a presentational backdrop
+      layer, leaving the dialog semantics alone. Escape already worked.
 
 This is the fourth thing in this file to pass by not looking. Three scanners
 and now the linter.

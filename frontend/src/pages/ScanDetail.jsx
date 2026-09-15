@@ -4,7 +4,7 @@
  * While the run is still going the page polls every two seconds and keeps the
  * log pinned to the bottom, so watching a scan works the way tailing a log does.
  */
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api.js";
 import { useInterval, useTitle } from "../hooks.js";

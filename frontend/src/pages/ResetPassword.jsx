@@ -5,7 +5,7 @@
  * link is checked before the form is shown, so somebody holding an expired one
  * is told so rather than choosing a password twice and then being refused.
  */
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api.js";
 import { usePasswordPolicy, useTitle } from "../hooks.js";

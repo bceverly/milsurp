@@ -5,7 +5,7 @@
  * a fixed sidebar on desktop and a slide-in drawer on phones, driven entirely
  * by CSS. Only the drawer's open/closed state lives in JavaScript.
  */
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth.jsx";
 import {

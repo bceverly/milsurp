@@ -170,10 +170,20 @@ def _keys(config: Config, version: str = _SEALED) -> tuple[bytes, bytes]:
     pepper is a random value of at least ``MIN_SECRET_BYTES``, not a chosen
     password. It is changed because the right construction costs the same.
 
-    CodeQL reads the old line as hashing a password with a fast hash, which is
-    the shape of a real mistake -- ``password_pepper`` is in the name, and a
-    *user's* password does belong in Argon2 rather than SHA-256. Here it is
-    key material, and key material is what HMAC takes.
+    **CodeQL flags both branches, and that is expected.** Its rule follows
+    anything named like a password into any hashing operation, and key
+    derivation cannot avoid hashing the secret -- the only sinks it accepts
+    are password-hashing functions such as PBKDF2 or Argon2. Those exist to
+    make *low-entropy* guesses expensive; the pepper is a random value of at
+    least ``MIN_SECRET_BYTES``, so a slow KDF would buy nothing and cost a
+    third key version. Moving v1's bare hash to HMAC did not satisfy the rule
+    and was never going to: it is a false positive about the input, not about
+    the construction.
+
+    So the alerts are dismissed in the Security tab -- section 36 of TODO.md
+    records that GitHub does not honor in-source ``# codeql[...]``
+    suppressions, which leaves the UI as the only place to say this. The
+    construction changed anyway, because it was worth changing on its own.
     """
     pepper = (config.security.password_pepper or "").encode("utf-8")
     if not pepper:

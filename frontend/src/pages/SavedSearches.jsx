@@ -9,7 +9,7 @@
  * alone**: running a search shows everything it matches, which is why the card
  * reports the full match count beside a limit that is usually smaller.
  */
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api.js";
 import { useTitle } from "../hooks.js";

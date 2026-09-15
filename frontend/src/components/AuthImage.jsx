@@ -35,7 +35,7 @@ import { Image as ImageIcon } from "./Icons.jsx";
  */
 const NEARBY = "400px";
 
-export default function AuthImage({ src, alt, className, onClick, loading }) {
+export default function AuthImage({ src, alt, className, loading }) {
   const defer = loading === "lazy";
   const [objectUrl, setObjectUrl] = useState(null);
   const [failed, setFailed] = useState(false);
@@ -116,13 +116,5 @@ export default function AuthImage({ src, alt, className, onClick, loading }) {
     return <div className="item-card__noimg" ref={holder} aria-hidden="true" />;
   }
 
-  return (
-    <img
-      src={objectUrl}
-      alt={alt}
-      className={className}
-      onClick={onClick}
-      loading={loading}
-    />
-  );
+  return <img src={objectUrl} alt={alt} className={className} loading={loading} />;
 }

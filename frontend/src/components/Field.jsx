@@ -15,7 +15,7 @@
  *     )}
  *   </Field>
  */
-import React, { useId } from "react";
+import { useId } from "react";
 
 export default function Field({ label, hint, error, children, className = "" }) {
   const generated = useId();

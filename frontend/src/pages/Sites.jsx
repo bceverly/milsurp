@@ -5,7 +5,7 @@
  * The list polls while any scan is running so progress appears without the
  * admin reloading; polling stops as soon as everything is idle.
  */
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api.js";
 import { useInterval, useTitle } from "../hooks.js";

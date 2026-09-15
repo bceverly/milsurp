@@ -6,7 +6,7 @@
  * presents as a bottom sheet (see .modal in layout.css), which is both easier to
  * reach one-handed and the platform convention.
  */
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { X } from "./Icons.jsx";
 
 /**
@@ -60,6 +60,11 @@ export default function Modal({ title, onClose, children, footer, labelledBy }) 
   return (
     <div
       className="modal-scrim"
+      // Explicitly decoration. The scrim is a dismiss surface, not a control:
+      // the dialog it wraps carries the semantics, Escape closes it (above),
+      // and every modal has its own buttons. Saying so keeps the click from
+      // reading as an interaction no keyboard can reach.
+      role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}

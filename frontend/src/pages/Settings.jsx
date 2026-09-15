@@ -4,9 +4,9 @@
  * The per-site item limits are deliberately required rather than optional —
  * without a cap, one big scan turns a digest into a hundred-item wall of text.
  */
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
-import { usePasswordPolicy, useTitle } from "../hooks.js";
+import { useTitle } from "../hooks.js";
 import { useAuth } from "../auth.jsx";
 import { browserTimeZone, formatDateTime, formatRelative, timeTitle } from "../format.js";
 import { EmailStatusChip } from "../components/StatusChip.jsx";

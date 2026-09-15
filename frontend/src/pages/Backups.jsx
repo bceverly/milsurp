@@ -11,7 +11,7 @@
  * directory holding nothing is the failure this page exists to make visible,
  * and it is only visible if both are on the screen at once.
  */
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../api.js";
 import { useTitle } from "../hooks.js";
 import { formatBytes, formatRelative, timeTitle } from "../format.js";

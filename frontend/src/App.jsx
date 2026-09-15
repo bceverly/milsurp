@@ -1,4 +1,3 @@
-import React from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth.jsx";
 import Shell from "./components/Shell.jsx";

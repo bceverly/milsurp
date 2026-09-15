@@ -6,10 +6,10 @@
  * only when the form is actually opened, so the sign-in page stays free of
  * third-party JavaScript for the people who just want to log in.
  */
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
 import Modal from "./Modal.jsx";
-import { Check, Mail } from "./Icons.jsx";
+import { Check } from "./Icons.jsx";
 
 const RECAPTCHA_SRC = "https://www.google.com/recaptcha/api.js";
 

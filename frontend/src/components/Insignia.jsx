@@ -8,7 +8,6 @@
  * writes this alongside marketing/images/logo.svg and the favicon from the
  * same geometry.
  */
-import React from "react";
 
 export default function Insignia({ size = 30, className }) {
   return (

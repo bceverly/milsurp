@@ -1,9 +1,9 @@
 /** User administration: create, edit, reset passwords, deactivate, delete. */
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../api.js";
 import { usePasswordPolicy, useTitle } from "../hooks.js";
 import { useAuth } from "../auth.jsx";
-import { formatDateTime, formatRelative, timeTitle } from "../format.js";
+import { formatRelative, timeTitle } from "../format.js";
 import Modal from "../components/Modal.jsx";
 import Field from "../components/Field.jsx";
 import { Plus, Refresh, Trash } from "../components/Icons.jsx";

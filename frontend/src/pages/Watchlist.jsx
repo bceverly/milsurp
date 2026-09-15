@@ -7,7 +7,7 @@
  * something happened — which they would, eventually, as two copies of the same
  * rule always do.
  */
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api.js";
 import { useTitle } from "../hooks.js";

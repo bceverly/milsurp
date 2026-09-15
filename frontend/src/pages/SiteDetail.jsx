@@ -1,5 +1,5 @@
 /** Scan history for one site, newest first. */
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api.js";
 import { useInterval, useTitle } from "../hooks.js";
