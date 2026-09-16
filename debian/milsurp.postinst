@@ -203,8 +203,9 @@ case "$1" in
   ─────────────────────────────────────────────────────────────────────────
 
 NEXT
-    else
-      echo "Milsurp: upgraded. Restart to pick it up:  sudo systemctl restart milsurp"
+    elif [ "$MIGRATION_STATE" = failed ]; then
+      echo "Milsurp: upgraded, but the service was left stopped because the" >&2
+      echo "  migration failed. Fix that, then:  sudo systemctl start milsurp" >&2
     fi
     ;;
 
@@ -226,6 +227,52 @@ esac
 # during `apt install`. Persistent=true then handles a machine that was off at
 # the appointed hour.
 if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
+  # --- Reload, always ------------------------------------------------------
+  # debhelper only emits `systemctl daemon-reload` alongside the start code it
+  # generates, and --no-start suppresses both. So a release that changed a
+  # unit file left systemd reading the old copy until somebody noticed
+  #
+  #   Warning: The unit file ... changed on disk.
+  #
+  # and reloaded by hand. Nothing here depends on that happening, which is why
+  # it went unnoticed: the stale unit is only used the *next* time the service
+  # starts. Reloading costs nothing and running units are untouched.
+  systemctl --system daemon-reload >/dev/null 2>&1 || true
+
+  # --- And restart, when it is safe to ------------------------------------
+  # dh_installsystemd's preinst stops the service on upgrade and --no-start
+  # means nothing brought it back, so every release was an outage lasting
+  # until an administrator read the line telling them to restart. On a
+  # production machine that is a silent one: the package reports success, apt
+  # exits 0, and the site is down.
+  #
+  # The reason for --no-start is real and is kept: an unmigrated database must
+  # not be served. But the postinst has already established whether that is
+  # the case, so the question it answers is narrower than "never start".
+  #
+  #   current/migrated -> the schema matches this build; start it
+  #   failed           -> leave it stopped, loudly (message above)
+  #   unreachable      -> first install, or a database that is not up yet;
+  #                       the four-step block above tells the operator what
+  #                       to do and starting is their call
+  #
+  # FRESH_CONFIG is the other hold-back: a first install has a config.yaml
+  # full of placeholders and no admin password, so starting it would only
+  # produce a service that cannot be signed into.
+  #
+  # `deb-systemd-invoke` rather than `systemctl` so policy-rc.d is respected
+  # -- that is what keeps this from starting a service inside a container
+  # build, where the installer test runs.
+  if [ "$FRESH_CONFIG" != yes ] &&
+     { [ "$MIGRATION_STATE" = current ] || [ "$MIGRATION_STATE" = migrated ]; }; then
+    if deb-systemd-invoke restart 'milsurp.service' >/dev/null 2>&1; then
+      echo "Milsurp: upgraded and restarted."
+    else
+      echo "Milsurp: upgraded, but the restart did not take. Check:" >&2
+      echo "    sudo systemctl status milsurp" >&2
+    fi
+  fi
+
   deb-systemd-invoke start 'milsurp-prune.timer' 'milsurp-canary.timer' >/dev/null || true
 fi
 

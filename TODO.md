@@ -1668,6 +1668,62 @@ and now the linter.
 
 ---
 
+## 40. Every release was a silent outage
+
+The 2.3.0.3 upgrade installed cleanly, reported success, exited 0 — and left
+the site returning 502. `dh_installsystemd --no-start` means the preinst stops
+the service on upgrade and nothing brings it back. The postinst printed
+
+    Milsurp: upgraded. Restart to pick it up:  sudo systemctl restart milsurp
+
+into apt's output, where it scrolled past. Every release had worked this way;
+it only got noticed because it happened in the middle of diagnosing something
+else, and the 502 looked at first like the nginx change made minutes later.
+
+**And the units were never reloaded.** debhelper emits `systemctl
+daemon-reload` only alongside the start code `--no-start` suppresses, so a
+release that changed a unit file left systemd reading the old copy. That one
+hides well: the stale unit is only consulted the *next* time the service
+starts, so the damage surfaces a release later than the cause. It showed up as
+`Warning: The unit file ... changed on disk` on a hand-typed restart.
+
+The reason for `--no-start` is real and is kept — an unmigrated database must
+not be served. But the postinst has already worked out whether that is the
+case, so the question it needs to answer is narrower than "never start":
+
+    current/migrated -> the schema matches this build; restart
+    failed           -> leave it stopped, and say so on stderr
+    unreachable      -> first install or a database that is not up; the
+                        four-step block already tells the operator what to do
+
+- [x] `systemctl --system daemon-reload` on every configure, unconditionally.
+      It costs nothing and running units are untouched.
+- [x] The restart gated on the state above, plus `FRESH_CONFIG` — a first
+      install has placeholder secrets and no admin password, so starting would
+      only produce a service nobody can sign into.
+- [x] `deb-systemd-invoke` rather than `systemctl`, so policy-rc.d is honored
+      and a container build still does not start anything.
+
+### Tested, because nothing else covers this file
+
+`scripts/test-installer.sh` runs in a container with no systemd, so
+`[ -d /run/systemd/system ]` is false and it never reaches any of this. There
+were no packaging tests at all.
+
+`backend/tests/test_packaging_postinst.py` extracts the **real** `if` condition
+out of `debian/milsurp.postinst` with a regex and evaluates it under `/bin/sh`
+for every combination of the two variables — a copy of the condition would keep
+passing after somebody edited the file, which is the one thing the test is for.
+Fourteen tests: the truth table, that the reload is present and cannot fail the
+install, that the restart respects policy-rc.d, and that the script parses at
+all.
+
+A failure mode worth naming: this is the fourth thing in this file that passed
+by not looking, and the first where the thing not looking was the release
+itself. `apt` cannot tell you the service it stopped never came back.
+
+---
+
 ## Context for whoever picks this up
 
 ### Where work stopped
