@@ -393,3 +393,48 @@ class TestRunningItTwice:
         listing(clean_db, site, "CZ 27 pistol", caliber="7.65mm Browning")
         found = discovery.discover(clean_db, clean_db.query(Item).all())
         assert found.calibers == set()
+
+
+class TestAMakerCandidateHasToBePlausible:
+    """The maker queue's problem is precision, not recall.
+
+    A firm's name has no shape to recognize, so it is read positionally -- the
+    capitalized words before a designation -- and that cannot tell a maker from
+    a designer, a pattern name or a sentence fragment. The good firms have been
+    approved already, which is what stops them being proposed again, so what
+    reaches a human now is the residue: eleven candidates over the whole
+    catalog, of which one was a real firm.
+
+    Measured after these two vetoes: eleven became six, and the real firm
+    stayed.
+    """
+
+    def test_a_cartridge_name_is_not_a_firm(self):
+        """ "TOKAREV" and "SKS" are what the gun is, not who made it -- and the
+        caliber tables already know that."""
+        for name in ("TOKAREV", "SKS", "Fusil Gras"):
+            assert not discovery._is_a_plausible_maker(name), name
+
+    def test_a_bare_corporate_suffix_is_a_fragment(self):
+        """What is left when the leftward walk stops at a comma."""
+        for name in ("CO", "Ordnance", "Arms", "Ltd", "Weapons"):
+            assert not discovery._is_a_plausible_maker(name), name
+
+    def test_a_real_firm_survives_both(self):
+        for name in ("DELAWARE MACHINERY", "Bernardelli", "Norinco", "Carl Gustafs"):
+            assert discovery._is_a_plausible_maker(name), name
+
+    def test_a_firm_whose_name_contains_a_suffix_survives(self):
+        """Only a name with *nothing* in it but the suffix is vetoed --
+        "Delaware Machinery" and "Springfield Armory" are firms."""
+        assert discovery._is_a_plausible_maker("Springfield Armory")
+        assert discovery._is_a_plausible_maker("Royal Small Arms")
+
+    def test_nothing_is_not_a_firm(self):
+        assert not discovery._is_a_plausible_maker("")
+        assert not discovery._is_a_plausible_maker("   ")
+
+    def test_the_veto_runs_inside_the_candidate_walk(self):
+        """Not only as a helper: a title that yields a vetoed name must yield
+        nothing rather than the name."""
+        assert discovery.maker_candidates("Russian SKS Type 56 Rifle") == []

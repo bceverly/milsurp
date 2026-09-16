@@ -417,6 +417,17 @@ function ItemRow({ item }) {
 export default function Browse() {
   useTitle("Inventory");
   const [params, setParams] = useOptimisticSearchParams();
+
+  /** The current filters as an export URL. See the buttons for why a link works. */
+  const exportHref = useCallback(
+    (format) => {
+      const query = new URLSearchParams(params);
+      for (const drop of ["page", "per_page", "view", "sort"]) query.delete(drop);
+      query.set("format", format);
+      return `/api/items/export?${query.toString()}`;
+    },
+    [params],
+  );
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -588,6 +599,24 @@ export default function Browse() {
                   data?.total === 1 ? "" : "s"
                 } match your filters`}
           </p>
+        </div>
+        <div className="page-head__actions">
+          {/*
+           * Plain links, and they only work because the session is a cookie
+           * now: a bearer token in sessionStorage could not authenticate a
+           * navigation, so a download had to be fetched as a blob and handed
+           * back to the page. The browser attaches the cookie itself, and the
+           * server's Content-Disposition does the rest.
+           *
+           * The paging and view parameters are dropped: an export is the whole
+           * filtered set, so "page 2" is not a thing it can mean.
+           */}
+          <a className="btn btn--secondary" href={exportHref("csv")}>
+            Export CSV
+          </a>
+          <a className="btn btn--ghost" href={exportHref("json")}>
+            JSON
+          </a>
         </div>
       </div>
 

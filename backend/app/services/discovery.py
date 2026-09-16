@@ -484,6 +484,72 @@ def _name_before(text: str, index: int) -> str:
     return " ".join(reversed(take))
 
 
+#: Words that name the kind of business rather than the business.
+#:
+#: A candidate made only of these is a fragment, not a firm: the positional
+#: rule walked back from a designation and stopped at a comma, leaving "CO" or
+#: "Ordnance" behind. "Delaware Machinery" survives because "Delaware" is not
+#: in here -- what is vetoed is a name with nothing in it but the suffix.
+_CORPORATE_ONLY = frozenset(
+    (
+        "co",
+        "company",
+        "corp",
+        "corporation",
+        "inc",
+        "incorporated",
+        "ltd",
+        "limited",
+        "gmbh",
+        "ag",
+        "sa",
+        "arms",
+        "armory",
+        "armoury",
+        "arsenal",
+        "ordnance",
+        "weapons",
+        "industries",
+        "industrie",
+        "works",
+        "mfg",
+        "manufacturing",
+        "firearms",
+        "guns",
+    )
+)
+
+
+def _is_a_plausible_maker(name: str) -> bool:
+    """Whether a positional guess is worth proposing as a firm.
+
+    Two vetoes, both measured against what the queue actually held rather than
+    imagined. Of eleven candidates standing over the catalog, these removed
+    five and kept the one real firm.
+
+    **A name the classifier reads as a cartridge is not a firm.** "TOKAREV",
+    "SKS" and "Fusil Gras" all arrived here, and all three are what the gun is
+    rather than who made it -- the positional rule cannot tell a maker from a
+    designer or a pattern name, and the caliber tables already can.
+
+    **A name with nothing in it but a corporate suffix is a fragment.** "CO"
+    and "Ordnance" are what is left when the leftward walk stops at a comma.
+
+    Neither veto is clever and that is deliberate: the queue's problem is
+    precision, not recall. The good firms have been approved already -- which
+    is what stops them being proposed again -- so what reaches a human now is
+    the residue, and every junk row in it costs the attention that the real
+    one needs.
+    """
+    bare = name.strip()
+    if not bare:
+        return False
+    if classify.extract_caliber(bare) is not None:
+        return False
+    words = [w.strip(".'+-").lower() for w in re.findall(r"[A-Za-z][\w&.'+-]*", bare)]
+    return bool(words) and not all(word in _CORPORATE_ONLY for word in words)
+
+
 def maker_candidates(title: str) -> list[str]:
     """Capitalized words immediately before a designation.
 
@@ -497,7 +563,12 @@ def maker_candidates(title: str) -> list[str]:
     found: list[str] = []
     for match in _designations(text):
         name = _name_before(text, match.start())
-        if name and not DESIGNATION.fullmatch(name) and name not in found:
+        if (
+            name
+            and not DESIGNATION.fullmatch(name)
+            and _is_a_plausible_maker(name)
+            and name not in found
+        ):
             found.append(name)
     return found
 

@@ -533,3 +533,41 @@ test.describe("correcting a listing by hand", () => {
     await expect(panel.getByRole("button", { name: "Remove correction" })).toBeHidden();
   });
 });
+
+test.describe("exporting what you are looking at", () => {
+  test("the export link carries the current filters", async ({ signedIn }) => {
+    /**
+     * The whole promise of the feature. A link that dropped the filters would
+     * hand somebody the entire catalog while they were looking at eleven
+     * rifles, and they would not notice until they opened the file.
+     */
+    // Set through the UI rather than by hand in the URL: the page normalizes
+    // what it is given, so a filter typed into the address bar is not proof
+    // that the one a person actually applied reaches the link.
+    await signedIn.goto("/browse");
+    await signedIn.getByPlaceholder("Search titles and descriptions…").fill("Mosin");
+    await expect(signedIn).toHaveURL(/search=Mosin/);
+
+    const href = await signedIn
+      .getByRole("link", { name: "Export CSV" })
+      .getAttribute("href");
+    expect(href).toContain("/api/items/export");
+    expect(href).toContain("search=Mosin");
+    expect(href).toContain("format=csv");
+    // Paging is not a thing an export can mean.
+    expect(href).not.toContain("page=");
+  });
+
+  test("it downloads a file rather than navigating", async ({ signedIn }) => {
+    /**
+     * Works at all only because the session is a cookie: a bearer token in
+     * sessionStorage could not authenticate a plain navigation.
+     */
+    await signedIn.goto("/browse");
+    const [download] = await Promise.all([
+      signedIn.waitForEvent("download"),
+      signedIn.getByRole("link", { name: "Export CSV" }).click(),
+    ]);
+    expect(download.suggestedFilename()).toMatch(/^milsurp-\d{8}\.csv$/);
+  });
+});

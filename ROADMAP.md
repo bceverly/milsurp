@@ -2701,21 +2701,55 @@ until they promote it. The numbers above are what promoting them does.
   **zero listings change**, because the nine Lebel listings are already right
   and three of them are bayonets the accessory rules keep uncalibered.
 
-  **And a real bug this found and did not fix.** 32 firearms — rifles, carbines
-  and pistols, all with a firearm `kind` — hold a caliber that
-  `extract_caliber` now refuses to re-derive, because their titles end "with
-  bayonet" or "W/HOLSTER" and `_accessory_leads` reads the included item as the
-  product. `_COMES_WITH` exists for exactly this and `_is_a_bayonet` uses it;
-  `_accessory_leads` never has. A fix was attempted and **backed out**: guarding
-  on the inclusion word rescued the scabbard in "Lebel cruciform bayonet with
-  scabbard" and turned a genuine bayonet into a rifle. `_BUNDLED_ACCESSORY`
-  does not contain "bayonet" at all — bayonets go through `_is_a_bayonet` —
-  and the interaction between the two needs understanding before either
-  changes. The next scan of those 32 listings drops their caliber.
-- **Planned** — Better maker candidates. Two in three is a usable queue and not
-  a good one. The obvious next signal is the description rather than the title,
-  and the obvious risk is the one that made model matching title-only: prose
-  names other people's guns.
+  **A scare this also produced, and the correction to it.** 32 firearms were
+  found holding a caliber that `extract_caliber` declines to re-derive — titles
+  ending "with bayonet" or "W/HOLSTER" — and that was written up here as 32
+  listings about to lose their caliber on the next scan. **That was wrong.**
+  The scan fills gaps and does not overwrite: `item.caliber = item.caliber or
+  derived["caliber"]`, so a stored value is never replaced by a heuristic. None
+  of those listings is at risk.
+
+  Two things were wrong with the diagnosis as well as the conclusion. Only 20
+  of the 32 reach `_accessory_leads` at all; the other twelve stop somewhere
+  else. And the headline examples — `SWISS K11 W/BAYONET`, the Berthier — are
+  in the `accessory_leads=False` group, so the veto was never their reason.
+  `SWISS K11 W/BAYONET` states no cartridge and names no designation that
+  implies one; its caliber comes from the armory's model match, which is the
+  system working.
+
+  What remains is smaller and still real: `_COMES_WITH` exists to tell "rifle
+  w/ bayonet" from a bayonet, `_is_a_bayonet` uses it and `_accessory_leads`
+  does not. A fix was attempted and **backed out** — guarding on the inclusion
+  word rescued the *scabbard* in "Lebel cruciform bayonet with scabbard" and
+  turned a genuine bayonet into a rifle, because `_BUNDLED_ACCESSORY` contains
+  scabbards and not bayonets. Worth doing with `_BUNDLED_ACCESSORY`,
+  `_is_a_bayonet`, `_ACCESSORY_COMPOUND` and `_is_the_head_noun` read together
+  first; not worth doing from a wrong model of which one fires.
+- **Shipped** — Better maker candidates, though not in the direction this
+  entry expected. It proposed reading descriptions as the next signal; measuring
+  the queue first said that was the wrong way.
+
+  **Eleven candidates stood over the whole catalog and about one was a real
+  firm** — `LUGER`, `TOKAREV`, `SKS`, `Fusil Gras`, `CO`, `Ordnance`, `Weapons
+  Micro Galil`. Not "two in three" any more, and for a good reason: approving a
+  maker is what stops it being proposed again, so the real firms have been
+  taken and what reaches a human now is the residue. The problem is precision,
+  and reading descriptions would have added recall — more candidates, the same
+  junk fraction, more attention spent.
+
+  Two vetoes, both measured rather than imagined:
+
+  * **A name the caliber tables read as a cartridge is not a firm.** The
+    positional rule cannot tell a maker from a designer or a pattern name;
+    `extract_caliber` already can. Removes TOKAREV, SKS, Fusil Gras.
+  * **A name with nothing in it but a corporate suffix is a fragment** — what
+    is left when the leftward walk stops at a comma. Removes CO and Ordnance,
+    and keeps "Delaware Machinery" and "Springfield Armory", where the suffix
+    is part of a real name.
+
+  **Eleven to six, with the real firm kept.** Deliberately stopped there: the
+  obvious next veto — "the name appears in an armory model name" — would reject
+  **Mauser**, which is both a firm and a model word.
 - **Planned** — Cross-site duplicate detection proper. The same rifle listed by
   two vendors should be recognizable — the token index built for field filling
   is the start of this, but a duplicate needs more than a shared model name.
@@ -2875,7 +2909,27 @@ fact.
 
 - **Planned** — Market view: average price by caliber and country over time,
   built on the price history that is already being collected.
-- **Planned** — CSV / JSON export of a filtered result set.
+- **Shipped** — CSV / JSON export of a filtered result set. `GET
+  /api/items/export` takes the same query parameters as the list endpoint, so a
+  browse URL becomes an export by changing the path — which is the only way the
+  promise "what you are looking at" can be kept, and there is a test asserting
+  the exported row count equals what the list endpoint reports for the same
+  query.
+
+  No pagination: an export is the whole answer or it is not an export. Bounded
+  at 25,000 rows instead, and it **refuses rather than truncating** — a file
+  that quietly stops looks complete and is not.
+
+  The buttons are plain links, and that only works because of the session-cookie
+  change above: a bearer token in `sessionStorage` could not authenticate a
+  navigation, so this would have needed fetching as a blob and handing back to
+  the page. The browser attaches the cookie itself.
+
+  The filter arguments are spelled out twice rather than shared through a dict.
+  A dataclass dependency was tried first and is not a FastAPI idiom — it bound
+  the filter object as the response — and a shared `**kwargs` dict defeats
+  mypy's check on fifteen arguments, which is a worse trade than repeating
+  them.
 - **Planned** — "What changed this week" digest across all sites, distinct from
   the per-user email.
 

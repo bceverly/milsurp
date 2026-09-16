@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import csv
 import hashlib
+import io
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy import Select, case, func, or_, select
 from sqlalchemy.orm import selectinload
 
@@ -253,8 +256,15 @@ def list_items(
             detail=f"Unknown sort {sort!r}. Valid: {', '.join(SORTS)}.",
         )
 
+    # Spelled out twice rather than shared through a dict: mypy cannot check a
+    # heterogeneous **kwargs against this signature, and losing the check on
+    # fifteen filter arguments is a worse trade than repeating them.
+    #
+    # The kind facet is counted against a query that does *not* filter by kind,
+    # so it can show what the other kinds would return.
     without_kind = apply_filters(
         select(Item),
+        kinds=None,
         site_ids=site_id,
         categories=category,
         calibers=caliber,
@@ -262,7 +272,6 @@ def list_items(
         manufacturers=manufacturer,
         models=model,
         forms=form,
-        kinds=None,
         availability=availability,
         search=search,
         min_price=min_price,
@@ -272,6 +281,7 @@ def list_items(
     )
     base = apply_filters(
         select(Item),
+        kinds=kind,
         site_ids=site_id,
         categories=category,
         calibers=caliber,
@@ -279,7 +289,6 @@ def list_items(
         manufacturers=manufacturer,
         models=model,
         forms=form,
-        kinds=kind,
         availability=availability,
         search=search,
         min_price=min_price,
@@ -309,6 +318,137 @@ def list_items(
         per_page=per_page,
         pages=pages,
         facets=_with_kinds(session, base, without_kind) if include_facets else None,
+    )
+
+
+#: Columns an export carries, in the order a reader wants them.
+#:
+#: Chosen rather than "every column": `id` and `external_key` are this
+#: application's bookkeeping and mean nothing in a spreadsheet, while the
+#: derived fields are the interesting part -- a caliber this application worked
+#: out is exactly what somebody would want to sort by.
+EXPORT_COLUMNS: tuple[str, ...] = (
+    "title",
+    "price",
+    "currency",
+    "caliber",
+    "country",
+    "manufacturer",
+    "kind",
+    "condition",
+    "site",
+    "url",
+    "is_sold",
+    "first_seen_at",
+    "last_seen_at",
+)
+
+#: The most rows one export may carry.
+#:
+#: Generous -- it is above the whole active catalog -- and present so that a
+#: filter nobody meant to be that wide cannot ask the database to stream
+#: everything it has into a browser. Hitting it is reported rather than
+#: silently truncating, because an export that quietly stops is worse than one
+#: that refuses.
+EXPORT_LIMIT = 25_000
+
+
+def _export_row(item: Item, site_names: dict[int, str]) -> dict[str, object]:
+    return {
+        "title": item.title,
+        "price": item.current_price,
+        "currency": item.currency,
+        "caliber": item.caliber,
+        "country": item.country,
+        "manufacturer": item.manufacturer,
+        "kind": item.kind,
+        "condition": item.condition,
+        "site": site_names.get(item.site_id, ""),
+        "url": item.url,
+        "is_sold": item.is_sold,
+        "first_seen_at": item.first_seen_at.isoformat() if item.first_seen_at else None,
+        "last_seen_at": item.last_seen_at.isoformat() if item.last_seen_at else None,
+    }
+
+
+@router.get("/export")
+def export_items(
+    _user: CurrentUser,
+    session: DbSession,
+    fmt: str = Query(default="csv", pattern="^(csv|json)$", alias="format"),
+    site_id: list[int] | None = Query(default=None),
+    category: list[str] | None = Query(default=None),
+    caliber: list[str] | None = Query(default=None),
+    country: list[str] | None = Query(default=None),
+    manufacturer: list[str] | None = Query(default=None),
+    model: list[str] | None = Query(default=None, description="Armory model ids."),
+    kind: list[str] | None = Query(default=None),
+    form: list[str] | None = Query(default=None),
+    availability: str = Query(default="available"),
+    search: str | None = Query(default=None, max_length=200),
+    min_price: float | None = Query(default=None, ge=0),
+    max_price: float | None = Query(default=None, ge=0),
+    new_since_hours: int | None = Query(default=None, ge=1, le=8760),
+    price_drops_only: bool = Query(default=False),
+) -> Response:
+    """The listings a browse page is showing, as a file.
+
+    **The same query parameters as the list endpoint**, so a browse URL becomes
+    an export by changing the path -- which is the only way the promise "what
+    you are looking at" can be kept. They are declared twice because FastAPI
+    reads them off the signature; what matters is that both hand the same
+    dictionary to the same `apply_filters`.
+
+    No pagination: an export is the whole answer or it is not an export. It is
+    bounded by EXPORT_LIMIT instead, and says so rather than truncating.
+    """
+    query = apply_filters(
+        select(Item),
+        site_ids=site_id,
+        categories=category,
+        calibers=caliber,
+        countries=country,
+        manufacturers=manufacturer,
+        models=model,
+        forms=form,
+        kinds=kind,
+        availability=availability,
+        search=search,
+        min_price=min_price,
+        max_price=max_price,
+        new_since_hours=new_since_hours,
+        price_drops_only=price_drops_only,
+    )
+
+    total = session.execute(select(func.count()).select_from(query.subquery())).scalar_one()
+    if total > EXPORT_LIMIT:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"That is {int(total):,} listings and the limit is {EXPORT_LIMIT:,}. "
+                "Narrow the filters and try again."
+            ),
+        )
+
+    items = session.execute(query.order_by(Item.first_seen_at.desc())).scalars().all()
+    site_names = {row[0]: row[1] for row in session.execute(select(Site.id, Site.name)).all()}
+    rows = [_export_row(item, site_names) for item in items]
+
+    stamp = datetime.now(UTC).strftime("%Y%m%d")
+    if fmt == "json":
+        return JSONResponse(
+            content=rows,
+            headers={"Content-Disposition": f'attachment; filename="milsurp-{stamp}.json"'},
+        )
+
+    buffer = io.StringIO()
+    writer = csv.DictWriter(buffer, fieldnames=list(EXPORT_COLUMNS), extrasaction="ignore")
+    writer.writeheader()
+    writer.writerows(rows)
+    return Response(
+        content=buffer.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="milsurp-{stamp}.csv"'},
     )
 
 
