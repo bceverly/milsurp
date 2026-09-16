@@ -68,7 +68,10 @@ test.describe("watchlist", () => {
 
     await signedIn.getByLabel("Tell me if it drops below").fill("123");
     await signedIn.getByLabel("Note to yourself").fill("only at this price");
-    await signedIn.getByRole("button", { name: "Save" }).click();
+    // exact: the item page now also offers "Save correction" for admins,
+    // and a substring match picks up both. Same reason armory.spec and
+    // saved-searches.spec already spell it this way.
+    await signedIn.getByRole("button", { name: "Save", exact: true }).click();
 
     // The button reads its own state, so it updates without a reload.
     await expect(signedIn.getByRole("button", { name: /^Target/ })).toBeVisible();
@@ -97,7 +100,10 @@ test.describe("watchlist", () => {
     await signedIn.getByLabel("Tell me if it drops below").fill("500");
     await expect(alert).toBeEnabled();
     await alert.check();
-    await signedIn.getByRole("button", { name: "Save" }).click();
+    // exact: the item page now also offers "Save correction" for admins,
+    // and a substring match picks up both. Same reason armory.spec and
+    // saved-searches.spec already spell it this way.
+    await signedIn.getByRole("button", { name: "Save", exact: true }).click();
 
     await signedIn.getByRole("link", { name: "Watchlist" }).click();
     await expect(signedIn.locator(".watchlist__alert")).toContainText("Alerts on");

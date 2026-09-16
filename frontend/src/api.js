@@ -142,6 +142,12 @@ export const api = {
   totpDisable: (password) =>
     request("/api/auth/totp/disable", { method: "POST", body: { password } }),
 
+  // --- corrections by hand ---
+  itemOverride: (id) => request(`/api/items/${id}/override`),
+  setItemOverride: (id, values) =>
+    request(`/api/items/${id}/override`, { method: "PUT", body: values }),
+  clearItemOverride: (id) => request(`/api/items/${id}/override`, { method: "DELETE" }),
+
   // --- sessions ---
   sessions: () => request("/api/auth/sessions"),
   revokeSession: (id) => request(`/api/auth/sessions/${id}`, { method: "DELETE" }),

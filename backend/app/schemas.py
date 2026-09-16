@@ -702,6 +702,35 @@ class FacetValue(BaseModel):
     count: int
 
 
+class ItemOverrideIn(BaseModel):
+    """A correction to one listing.
+
+    Every field optional, and an omitted one means "leave this as it is" while
+    an empty one means "stop overriding this". The distinction matters: a form
+    that posted every box on every save would assert an opinion about fields
+    nobody touched.
+    """
+
+    caliber: str | None = None
+    country: str | None = None
+    manufacturer: str | None = None
+    model: str | None = None
+    kind: str | None = None
+    note: str | None = None
+
+
+class ItemOverrideOut(UTCModel):
+    caliber: str | None = None
+    country: str | None = None
+    manufacturer: str | None = None
+    model: str | None = None
+    kind: str | None = None
+    note: str | None = None
+    #: Kept beside the id so the record survives the account being deleted.
+    set_by_name: str | None = None
+    updated_at: datetime | None = None
+
+
 class ItemFacets(BaseModel):
     sites: list[FacetValue] = Field(default_factory=list)
     categories: list[FacetValue] = Field(default_factory=list)

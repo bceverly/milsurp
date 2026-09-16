@@ -49,6 +49,8 @@ USER_ROLE_CHANGED = "user.role_changed"
 USER_PASSWORD_RESET = "user.password_reset_sent"  # noqa: S105  # nosec B105
 SITE_ENABLED = "site.enabled"
 SITE_DISABLED = "site.disabled"
+ITEM_OVERRIDDEN = "item.overridden"
+ITEM_OVERRIDE_CLEARED = "item.override_cleared"
 SESSION_REVOKED = "session.revoked"
 SESSIONS_REVOKED = "session.revoked_all"
 

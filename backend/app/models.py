@@ -960,6 +960,48 @@ class SavedSearch(Base, TimestampMixin):
     user: Mapped["User"] = relationship(back_populates="saved_searches")
 
 
+class ItemOverride(Base, TimestampMixin):
+    """What a person decided about one listing, outranking every rule.
+
+    Everything this application knows beyond the vendor's own words is derived
+    and recomputed on every scan. That is what lets a rule fix reach eleven
+    thousand rows at once, and it is exactly what makes a correction by hand
+    impossible: the next scan derives the old answer again.
+
+    A row here is applied last -- after the vendor's fields, after the
+    heuristics, after the armory -- so it wins whatever they conclude. Only the
+    columns somebody actually set are honored: NULL means "no opinion", never
+    "blank it", because an override is a correction and not a second source of
+    truth.
+
+    In its own table rather than as columns on :class:`Item`, so that
+    ``reclassify --recompute`` -- whose whole job is to rebuild derived fields
+    -- cannot mistake an override for one of them.
+    """
+
+    __tablename__ = "item_overrides"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    item_id: Mapped[int] = mapped_column(
+        ForeignKey("items.id", ondelete="CASCADE"), nullable=False, unique=True, index=True
+    )
+    caliber: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    country: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    manufacturer: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    model: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    kind: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    #: Why. An override with no reason is one nobody can safely undo later.
+    note: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    set_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    set_by_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
+
+    item: Mapped[Item] = relationship("Item")
+
+
 class UserSession(Base, TimestampMixin):
     """One sign-in, so that one sign-in can be ended.
 

@@ -169,6 +169,17 @@ DESIGNATION_CALIBERS: tuple[tuple[str, str], ...] = (
     (r"lee\s*-?\s*enfield|lee\s*-?\s*speed", ".303 British"),
     (r"\bberthier\b", "8mm Lebel"),
     (r"st\.?\s*etienne\s*19(?:07|15)", "8mm Lebel"),
+    # The rifle the cartridge is named after, which was the one French
+    # designation missing. "French Lebel Model 1886 Rifle 8mm" read as 8mm
+    # Mauser: nothing claimed the bare 8mm for Lebel, so the Mauser fallback
+    # took it -- with the word "Lebel" sitting in the title.
+    #
+    # Safe beside Berthier for the same reason Berthier is: these are
+    # designations, weighed only after a cartridge the listing spells out, and
+    # the accessory rules already keep a "Lebel bayonet" from acquiring the
+    # rifle's caliber. Measured: nine Lebel listings in the catalog, six
+    # already correct and three bayonets that stay uncalibered.
+    (r"\blebel\b", "8mm Lebel"),
     # A P.38 is 9mm, and now that ".38" cannot match inside the designation
     # this is what says so.
     (r"\bp\.?\s*38\b", "9mm Luger"),

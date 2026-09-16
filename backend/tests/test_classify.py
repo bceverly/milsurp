@@ -2267,3 +2267,44 @@ class TestTheOtherTwentyTwos:
         """Most of them are, and the rule is kept broad on purpose -- it is
         just no longer the *first* thing tried."""
         assert classify.extract_caliber("Winchester Model 69 .22 bolt action") == ".22 LR"
+
+
+class TestLebelIsADesignationToo:
+    """The rifle the cartridge is named after, which was the French
+    designation missing.
+
+    The roadmap listed two caliber patterns as wrong in the same way. Measuring
+    them found both already right: 7.65 beside "Luger" reads as 7.65 Parabellum
+    (five live listings, all correct), and a bare 8mm is held back and weighed
+    against the designation (244 of 249 correctly Mauser, the rest Lebel).
+
+    What the measurement found instead was the gap underneath them. Nothing
+    claimed a bare 8mm *for Lebel*, so the Mauser fallback took it with the
+    word "Lebel" sitting in the title -- the one French designation the table
+    did not have, beside Berthier and St Etienne which it did.
+    """
+
+    def test_a_lebel_rifle_with_a_bare_8mm_is_not_a_mauser(self):
+        assert classify.extract_caliber("French Lebel Model 1886 Rifle 8mm") == "8mm Lebel"
+
+    def test_a_spelled_cartridge_still_outranks_the_designation(self):
+        """A Lebel rebarrelled to 8x57 is whatever the seller says it is:
+        designations are weighed only after a cartridge the listing states."""
+        assert (
+            classify.extract_caliber("Lebel Model 1886 rifle 8mm Mauser conversion") == "8mm Mauser"
+        )
+
+    def test_a_lebel_bayonet_gains_no_caliber(self):
+        """The accessory rules already keep a designation from reaching a part,
+        which is what makes adding this one safe -- three of the nine Lebel
+        listings in the catalog are bayonets."""
+        assert (
+            classify.extract_caliber("Mle. 1886/16 Lebel cruciform bayonet with scabbard") is None
+        )
+
+    def test_the_mauser_fallback_is_untouched(self):
+        assert classify.extract_caliber("Yugoslavian M48 Bolt Action Rifle 8mm") == "8mm Mauser"
+        assert classify.extract_caliber("German Kar98k 8mm Mauser") == "8mm Mauser"
+
+    def test_the_other_french_designations_still_answer(self):
+        assert classify.extract_caliber("Berthier Mle 1907/15 Carbine 8mm") == "8mm Lebel"

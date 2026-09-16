@@ -4,25 +4,28 @@ from __future__ import annotations
 
 import hashlib
 
-from fastapi import APIRouter, HTTPException, Query, Response, status
+from fastapi import APIRouter, HTTPException, Query, Request, Response, status
 from fastapi.responses import FileResponse
 from sqlalchemy import Select, case, func, or_, select
 from sqlalchemy.orm import selectinload
 
-from ..deps import AppConfig, CurrentUser, DbSession
+from ..deps import AdminUser, AppConfig, CurrentUser, DbSession
+from ..logsafe import client_address
 from ..models import FirearmModel, Item, ItemPhoto, PriceHistory, Site
 from ..schemas import (
     FacetValue,
     ItemDetail,
     ItemFacets,
     ItemOut,
+    ItemOverrideIn,
+    ItemOverrideOut,
     ItemPage,
     PhotoOut,
     PricePointOut,
     PricePositionOut,
     SimilarListingOut,
 )
-from ..services import pricing, similar, watchlist
+from ..services import audit, overrides, pricing, similar, watchlist
 from ..services.image_store import ImageStore, ImageStoreError
 from ..services.search import (
     KINDS,
@@ -516,3 +519,80 @@ def get_photo(
             "Cache-Control": "private, no-cache",
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Corrections by hand
+# ---------------------------------------------------------------------------
+@router.get("/{item_id}/override", response_model=ItemOverrideOut | None)
+def read_override(item_id: int, _user: CurrentUser, session: DbSession) -> ItemOverrideOut | None:
+    """This listing's correction, if somebody has made one."""
+    override = overrides.for_item(session, item_id)
+    return (
+        None if override is None else ItemOverrideOut.model_validate(override, from_attributes=True)
+    )
+
+
+@router.put("/{item_id}/override", response_model=ItemOverrideOut)
+def set_override(
+    item_id: int,
+    payload: ItemOverrideIn,
+    admin: AdminUser,
+    request: Request,
+    session: DbSession,
+) -> ItemOverrideOut:
+    """Correct what the rules concluded about this listing.
+
+    Admin-only: an override outranks every rule in the application, and one
+    set by mistake is invisible afterwards -- the listing simply reads wrong
+    and nothing says why.
+    """
+    item = session.get(Item, item_id)
+    if item is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such listing.")
+
+    # exclude_unset so an omitted field keeps whatever it had. A field sent
+    # empty clears the override for it; the two are different requests and
+    # mean different things.
+    values = payload.model_dump(exclude_unset=True)
+    note = values.pop("note", None)
+    override = overrides.save(session, item, values, actor=admin, note=note)
+    audit.record(
+        session,
+        actor=admin,
+        action=audit.ITEM_OVERRIDDEN,
+        target_type="item",
+        target_id=item.id,
+        target_label=item.title,
+        detail="; ".join(f"{k}={v}" for k, v in values.items() if v) or "cleared",
+        ip_address=client_address(request),
+    )
+    session.commit()
+    return ItemOverrideOut.model_validate(override, from_attributes=True)
+
+
+@router.delete("/{item_id}/override", status_code=status.HTTP_204_NO_CONTENT)
+def clear_override(item_id: int, admin: AdminUser, request: Request, session: DbSession) -> None:
+    """Drop the correction and let the rules answer again.
+
+    The derived values are not restored here -- the next scan, or `reclassify
+    --recompute`, puts back whatever the rules now say. Guessing at them from
+    this side would mean a second implementation of the pipeline.
+    """
+    item = session.get(Item, item_id)
+    if item is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such listing.")
+    if not overrides.clear(session, item):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="This listing has no override."
+        )
+    audit.record(
+        session,
+        actor=admin,
+        action=audit.ITEM_OVERRIDE_CLEARED,
+        target_type="item",
+        target_id=item.id,
+        target_label=item.title,
+        ip_address=client_address(request),
+    )
+    session.commit()

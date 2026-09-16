@@ -48,7 +48,7 @@ from ..scrapers import (
     get_scraper,
     get_scraper_class,
 )
-from . import armory, classify, discovery, manufacturers
+from . import armory, boilerplate, classify, discovery, manufacturers, overrides
 from .image_store import ImageStore, StoredImage
 
 #: Progress lines kept per run. Enough to debug a scrape without unbounded growth.
@@ -228,7 +228,11 @@ def _upsert_item(
     item.url = scraped.url
     item.title = scraped.title
     if scraped.description:
-        item.description = scraped.description
+        # The shop's standing notices come off the end here rather than at
+        # display time, so every reader of the column -- the detail page, the
+        # digest, the classifier reading prose for facts -- sees the same text.
+        # Conservative by construction: see app/services/boilerplate.
+        item.description = boilerplate.strip_boilerplate(scraped.description)
     item.category = scraped.category
     # Only what the scraper actually stated, exactly like the description above.
     #
@@ -335,6 +339,11 @@ def _upsert_item(
     item.manufacturer = manufacturers.canonical(session, item.manufacturer)
 
     _apply_catalog(session, item, trusted)
+
+    # Last word, after the vendor's fields, the heuristics and the armory.
+    # A person who corrected this listing did so knowing what the rules said,
+    # so anything the rules conclude now is the thing being corrected.
+    overrides.apply_to(session, item)
 
     session.flush()
 

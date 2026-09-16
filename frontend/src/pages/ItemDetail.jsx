@@ -1,10 +1,11 @@
 /**
  * One listing: photo gallery, structured facts, description, and price history.
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api.js";
 import { useTitle } from "../hooks.js";
+import { useAuth } from "../auth.jsx";
 import { formatDateTime, formatMoney, formatRelative, timeTitle } from "../format.js";
 import AuthImage from "../components/AuthImage.jsx";
 
@@ -58,6 +59,134 @@ function Fact({ label, children, always = false }) {
  * decided nothing about this listing, and "awaiting approval" is the
  * difference between an answer and an unanswered question.
  */
+/**
+ * Correcting what the rules concluded about one listing.
+ *
+ * Everything on this page beyond the vendor's own words is derived and
+ * recomputed on every scan -- which is what lets one rule fix reach eleven
+ * thousand listings, and what made a correction typed into the database last
+ * exactly until the next scan. An override outranks all of it.
+ *
+ * **A blank box means "no opinion", not "clear the field".** Only what is
+ * filled in gets sent, so correcting a caliber never asserts that the country
+ * is unknown. Emptying a box that had an override removes that one.
+ *
+ * Admin-only, because an override set by mistake is invisible afterwards: the
+ * listing simply reads wrong and nothing on the page says why.
+ */
+function OverridePanel({ item, onChanged }) {
+  const FIELDS = [
+    ["caliber", "Caliber"],
+    ["country", "Country"],
+    ["manufacturer", "Manufacturer"],
+    ["model", "Model"],
+  ];
+  const [saved, setSaved] = useState(null);
+  const [form, setForm] = useState(null);
+  const [note, setNote] = useState("");
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let canceled = false;
+    api
+      .itemOverride(item.id)
+      .then((row) => {
+        if (canceled) return;
+        setSaved(row);
+        setForm(Object.fromEntries(FIELDS.map(([k]) => [k, (row && row[k]) || ""])));
+        setNote((row && row.note) || "");
+      })
+      .catch(() => {
+        if (!canceled) setForm(Object.fromEntries(FIELDS.map(([k]) => [k, ""])));
+      });
+    return () => {
+      canceled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item.id]);
+
+  async function submit(event) {
+    event.preventDefault();
+    setError(null);
+    setBusy(true);
+    try {
+      const row = await api.setItemOverride(item.id, { ...form, note });
+      setSaved(row);
+      onChanged();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function drop() {
+    setError(null);
+    setBusy(true);
+    try {
+      await api.clearItemOverride(item.id);
+      setSaved(null);
+      setForm(Object.fromEntries(FIELDS.map(([k]) => [k, ""])));
+      setNote("");
+      onChanged();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (form === null) return null;
+
+  return (
+    <div className="panel">
+      <div className="panel__head">
+        <h2>Correct this listing</h2>
+        {saved && (
+          <button type="button" className="btn btn--ghost" onClick={drop} disabled={busy}>
+            Remove correction
+          </button>
+        )}
+      </div>
+      <div className="panel__body">
+        {error && <p className="alert alert--danger">{error}</p>}
+        <p className="muted">
+          These outrank everything the scan works out, and survive a re-scrape. Leave a
+          box empty to let the rules answer for that field.
+        </p>
+        <form onSubmit={submit}>
+          {FIELDS.map(([key, label]) => (
+            <label className="field" key={key}>
+              <span>{label}</span>
+              <input
+                className="input"
+                value={form[key]}
+                onChange={(event) => setForm({ ...form, [key]: event.target.value })}
+              />
+            </label>
+          ))}
+          <label className="field">
+            <span>Why</span>
+            <input
+              className="input"
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              placeholder="So whoever reads this later knows"
+            />
+          </label>
+          <button type="submit" className="btn btn--primary" disabled={busy}>
+            {busy ? "Saving…" : "Save correction"}
+          </button>
+          {saved?.set_by_name && (
+            <p className="muted">Last set by {saved.set_by_name}.</p>
+          )}
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function ArmoryPanel({ item, onClose }) {
   const rows = [
     ["Kind", item.model_kind ? kindLabel(item.model_kind) : null],
@@ -488,6 +617,7 @@ function PriceSparkline({ history }) {
 export default function ItemDetail() {
   const { itemId } = useParams();
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const [item, setItem] = useState(null);
   const [error, setError] = useState(null);
   const [activePhoto, setActivePhoto] = useState(0);
@@ -497,6 +627,13 @@ export default function ItemDetail() {
   const [similar, setSimilar] = useState([]);
 
   useTitle(item?.title);
+
+  const reloadItem = useCallback(() => {
+    api
+      .item(itemId)
+      .then(setItem)
+      .catch((err) => setError(err.message));
+  }, [itemId]);
 
   useEffect(() => {
     let canceled = false;
@@ -819,6 +956,8 @@ export default function ItemDetail() {
           <SimilarListings rows={similar} />
         </div>
       </div>
+
+      {isAdmin && <OverridePanel item={item} onChanged={reloadItem} />}
 
       {armoryOpen && item.model && (
         <ArmoryPanel item={item} onClose={() => setArmoryOpen(false)} />

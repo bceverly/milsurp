@@ -2686,11 +2686,32 @@ until they promote it. The numbers above are what promoting them does.
   description and let the *order of the table* decide; the title now wins, and
   68 listings were corrected. And `merge_models` was dropping the `country` of
   the row it folded away — missed when that column was added.
-- **Planned** — Two caliber patterns that are wrong in the same way: a bare
-  `8mm` claims "8mm Mauser" ahead of "8mm Lebel", and `7.65mm` claims ".32 ACP"
-  where a Luger means 7.65 Parabellum. Both surfaced while measuring whether a
-  title's stated caliber should outrank `MODEL_CALIBERS` — which it should, and
-  cannot until these are fixed, because today that change is a wash.
+- **Shipped** — …but both of those patterns turned out to be **already fixed**,
+  and the entry was stale. Measured before touching anything: 7.65 beside
+  "Luger" reads as 7.65 Parabellum on all five live listings, and a bare 8mm is
+  held back and weighed against the designation — 244 of 249 correctly Mauser,
+  the other five Lebel. The `MODEL_CARTRIDGES` / `_AMBIGUOUS_BORES` split had
+  done it and nobody updated this.
+
+  What the measurement found instead was the gap underneath them. Nothing
+  claimed a bare 8mm *for Lebel*, so the Mauser fallback took it with the word
+  "Lebel" sitting in the title: `French Lebel Model 1886 Rifle 8mm` read as 8mm
+  Mauser. The designation table knew Berthier and St Etienne and not the rifle
+  the cartridge is named after. Added, and isolated against the whole catalog:
+  **zero listings change**, because the nine Lebel listings are already right
+  and three of them are bayonets the accessory rules keep uncalibered.
+
+  **And a real bug this found and did not fix.** 32 firearms — rifles, carbines
+  and pistols, all with a firearm `kind` — hold a caliber that
+  `extract_caliber` now refuses to re-derive, because their titles end "with
+  bayonet" or "W/HOLSTER" and `_accessory_leads` reads the included item as the
+  product. `_COMES_WITH` exists for exactly this and `_is_a_bayonet` uses it;
+  `_accessory_leads` never has. A fix was attempted and **backed out**: guarding
+  on the inclusion word rescued the scabbard in "Lebel cruciform bayonet with
+  scabbard" and turned a genuine bayonet into a rifle. `_BUNDLED_ACCESSORY`
+  does not contain "bayonet" at all — bayonets go through `_is_a_bayonet` —
+  and the interaction between the two needs understanding before either
+  changes. The next scan of those 32 listings drops their caliber.
 - **Planned** — Better maker candidates. Two in three is a usable queue and not
   a good one. The obvious next signal is the description rather than the title,
   and the obvious risk is the one that made model matching title-only: prose
@@ -2701,9 +2722,54 @@ until they promote it. The numbers above are what promoting them does.
 - **Planned** — Admin UI for the rest of the classification heuristics
   (calibers, countries, the accessory vetoes), on the pattern the maker list now
   sets.
-- **Planned** — Manual override fields on an item, preserved across re-scrapes.
-- **Planned** — Strip vendor boilerplate from descriptions (ordering
-  instructions, FFL notices) that currently reaches the detail view.
+- **Shipped** — Manual override fields on an item, preserved across re-scrapes.
+  Migration 0028, `item_overrides`, one row per listing, applied **last** — after
+  the vendor's own fields, after the heuristics, after the armory.
+
+  The pipeline is built to be recomputed, which is what lets one rule fix reach
+  eleven thousand listings and exactly what made a correction typed into the
+  database last until the next scan. An override outranks all of it, and is
+  narrow on purpose: caliber, country, manufacturer, model and kind — the
+  derived fields. Price, title and URL are the vendor's own words, and
+  disagreeing with those is not a correction.
+
+  **A blank field means "no opinion", never "clear it"**, so correcting a
+  caliber does not assert that the country is unknown — the API uses
+  `exclude_unset` and an explicitly empty field removes that one override.
+  It records who and why: an override nobody can explain is one nobody can
+  safely undo, and the person reading it will not be the person who set it.
+
+  In its own table rather than as columns on `items`, so `reclassify
+  --recompute` — whose whole job is to rebuild derived fields — cannot mistake
+  one for derived data. Clearing an override deliberately does *not* restore
+  the derived value: what that should be is the scan's business, and guessing
+  from this side would be a second implementation of the pipeline.
+- **Shipped** — Vendor boilerplate taken off the end of descriptions.
+  `app/services/boilerplate.py`, applied where the scan stores the text so
+  every reader — detail page, digest, the classifier reading prose for facts —
+  sees the same thing. **1,067 of 10,775 descriptions trimmed, 3.6% of the
+  characters.**
+
+  Conservative by construction, and each guard is there because an earlier
+  version did the harm it prevents:
+
+  * **Only from the end, whole sentences, stopping at the first that is not
+    boilerplate** — so a policy sentence mid-description is never touched.
+    "Shipped to my FFL in 1962" is part of a story about a gun.
+  * **A cap on how long a removable sentence may be.** Parts-kit contents lists
+    have no full stops, so one arrives as a single 700-character chunk; an
+    incidental match inside it removed a real description from four listings,
+    59% each.
+  * **A cut at a mid-text `DISCLAIMER:` marker rather than dropping the chunk
+    containing it.** Dealers write condition notes with no punctuation either,
+    so the notes and the disclaimer arrive as one sentence — and removing the
+    sentence removed the condition report, which is the part a buyer reads.
+  * **A floor and a share limit.** `Description **C&R FFL OK**` is 26
+    characters and all of them useful: C&R eligibility is a fact about the gun.
+
+  The rule throughout is that leaving boilerplate in is a small harm and
+  cutting a description short is a large one, so every judgment call goes the
+  same way.
 - **Parked** — Optical character recognition of proof marks from photos. Fun,
   but a long way from paying for itself.
 

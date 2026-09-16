@@ -504,3 +504,32 @@ test.describe("the filter panel", () => {
     expect(bottom.bottom).toBeLessThanOrEqual(bottom.viewport + 1);
   });
 });
+
+test.describe("correcting a listing by hand", () => {
+  /**
+   * Everything on the detail page beyond the vendor's own words is derived and
+   * recomputed on every scan, so a correction typed into the database used to
+   * last exactly until the next one. An override outranks the rules and
+   * survives.
+   */
+  test("an admin can override what the rules concluded", async ({ signedIn }) => {
+    await signedIn.goto("/browse");
+    await signedIn.locator("a[href^='/items/']").first().click();
+    await expect(
+      signedIn.getByRole("heading", { name: "Correct this listing" }),
+    ).toBeVisible();
+
+    const panel = signedIn.locator(".panel", { hasText: "Correct this listing" });
+    await panel.getByLabel("Caliber").fill("7.65 Parabellum");
+    await panel.getByLabel("Why").fill("It is a Luger.");
+    await panel.getByRole("button", { name: "Save correction" }).click();
+
+    // The page reloads the listing, so the correction is visible at once
+    // rather than after the next scan.
+    await expect(panel.getByText("Last set by admin.")).toBeVisible();
+
+    // And it can be taken off again.
+    await panel.getByRole("button", { name: "Remove correction" }).click();
+    await expect(panel.getByRole("button", { name: "Remove correction" })).toBeHidden();
+  });
+});
