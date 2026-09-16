@@ -11,6 +11,15 @@ caliber fix cost 138 listings their manufacturer -- a maker the vendor supplied,
 which cannot be re-derived from the text and comes back only on that site's
 next scan. So ``--fields`` says which of the four it may touch, and the rest
 keep the fill-blanks-only behavior.
+
+**And ``--fields`` was not enough**, which is what provenance is for. Scoped to
+nothing but the caliber the flag still changed 3,187 of 11,038 listings, 2,251
+of them to nothing at all, because it cannot tell a caliber the rules guessed
+from one the dealer printed. Now it can: the scan stamps each value with who
+supplied it, and a rebuild declines anything marked ``vendor`` -- **and
+anything unmarked**, which is every row written before that existed. Half the
+tests below exist to hold that second half, because it is the one that looks
+like the command not working.
 """
 
 from __future__ import annotations
@@ -21,6 +30,7 @@ import pytest
 from cli import RECOMPUTABLE, cmd_reclassify
 
 from app.models import Item, Site
+from app.services import provenance
 
 
 @pytest.fixture
@@ -47,6 +57,13 @@ def listing(clean_db, site):
         caliber="6.5x52mm Carcano",
         manufacturer="Breda Meccanica Bresciana",
         is_active=True,
+        # Stamped as the rules', because that is what these tests are about:
+        # whether a rebuild corrects what the rules got wrong. The vendor's own
+        # values and the unmarked ones have their own class below.
+        caliber_source=provenance.DERIVED,
+        manufacturer_source=provenance.DERIVED,
+        country_source=provenance.DERIVED,
+        condition_source=provenance.DERIVED,
     )
     clean_db.add(row)
     clean_db.commit()
@@ -67,6 +84,61 @@ class TestTheDefault:
         _run()
         clean_db.refresh(listing)
         assert listing.caliber == "6.5x52mm Carcano"
+
+
+class TestWhoseValueItIs:
+    """The gate that ``--fields`` alone could not provide."""
+
+    def test_a_vendor_value_is_not_rebuilt(self, clean_db, listing):
+        """Sixty years of surplus is full of rebarreled guns and the dealer has
+        the thing in their hand."""
+        listing.caliber_source = provenance.VENDOR
+        clean_db.commit()
+
+        _run(recompute=True, fields="caliber")
+        clean_db.refresh(listing)
+        assert listing.caliber == "6.5x52mm Carcano"
+
+    def test_nor_is_one_whose_origin_nobody_recorded(self, clean_db, listing):
+        """The important half. Every row written before provenance existed has
+        no source, and treating those as fair game is exactly the damage this
+        was built to prevent -- 2,251 listings cleared in one run."""
+        listing.caliber_source = None
+        clean_db.commit()
+
+        _run(recompute=True, fields="caliber")
+        clean_db.refresh(listing)
+        assert listing.caliber == "6.5x52mm Carcano"
+
+    def test_a_catalog_value_is_the_rules_too(self, clean_db, listing):
+        """The armory is not the vendor. It filled a blank from the model the
+        listing names, and a better rule may fill it better."""
+        listing.caliber_source = provenance.CATALOG
+        clean_db.commit()
+
+        _run(recompute=True, fields="caliber")
+        clean_db.refresh(listing)
+        assert listing.caliber == "12-gauge"
+
+    def test_a_rebuilt_field_is_restamped(self, clean_db, listing):
+        """So the *next* fix can reach it. Without this the rows the rules own
+        never say so and every run starts from the same standstill."""
+        listing.caliber_source = provenance.CATALOG
+        clean_db.commit()
+
+        _run(recompute=True, fields="caliber")
+        clean_db.refresh(listing)
+        assert listing.caliber_source == provenance.DERIVED
+
+    def test_a_field_outside_fields_keeps_its_source(self, clean_db, listing):
+        """It was not rebuilt, so nothing new is known about where it came
+        from and saying otherwise would be a lie the next run acts on."""
+        listing.manufacturer_source = provenance.VENDOR
+        clean_db.commit()
+
+        _run(recompute=True, fields="caliber")
+        clean_db.refresh(listing)
+        assert listing.manufacturer_source == provenance.VENDOR
 
 
 class TestRecompute:

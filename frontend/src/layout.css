@@ -2548,3 +2548,12 @@
 .classify-table td:nth-last-child(4) {
   white-space: nowrap;
 }
+
+/* Where a derived value came from, under the value itself: quieter than the
+   label above it, because it qualifies the answer rather than being one. */
+.fact__source {
+  display: block;
+  margin-top: 1px;
+  font-size: 11px;
+  color: var(--ink-400);
+}

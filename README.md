@@ -1553,6 +1553,71 @@ make reclassify recompute=1 fields=caliber   # overwrite just the one a fix affe
 A field left out of `fields=` keeps the fill-blanks behavior rather than being
 skipped: a blank is not a value somebody stated, so filling it overrules nobody.
 
+**`recompute=1` used to be a blunt instrument even scoped to one field.**
+Scoped to nothing but the caliber, over 11,038 stored listings, it changed
+**3,187 of them**: 2,251 lost their caliber outright and 935 got a different
+one, and most of those were losses rather than corrections — a Carl Gustafs
+1896 stated as 6.5x55mm Swedish came back 8mm Mauser, a DWM P.08 stated as .30
+Luger came back 9mm Luger, and a Carcano carbine whose own title reads "6.5X52"
+came back 7.35x51mm Carcano.
+
+The cause is in the flag's own design, documented at its call site: under
+`--recompute` the stored value is deliberately withheld from `classify.enrich`
+*and* from `armory.fill_in`, because passing it in is what made an earlier
+version of the flag change nothing at all. That is right for a value the rules
+derived and wrong for one a **vendor stated** — and nothing recorded which of
+the two a stored value was.
+
+**Something does now**, and the section below describes it. Each of the four
+rebuildable fields carries a source beside it, and a rebuild declines anything
+marked `vendor` or `override`, and anything unmarked. The same command that
+changed 3,187 listings now changes none of them and says why:
+
+```
+Reclassified 0 of 11038 listing(s).
+  left alone, stated by the vendor or of unknown origin — caliber: 11038
+```
+
+That number falls as each site's next scan records where its values came from.
+Until it does, a wrong answer on a stored listing is corrected **through the
+override on its detail page** — which is what that feature is for, survives
+re-scrapes, and now says so on the page.
+
+### Where a stored value came from
+
+Everything beyond a vendor's own words is derived, and the pipeline is built to
+be recomputed — that is what lets one rule fix reach eleven thousand listings.
+It had one thing missing from the start, and the paragraph above is what that
+cost. Four columns on `items` now answer it, written beside the value by
+whichever step set it (`app/services/provenance.py`):
+
+| Source | Who said it | May a rebuild change it? |
+| --- | --- | --- |
+| `vendor` | The shop published it as a structured field on their own page. | **No.** Sixty years of surplus is full of rebarreled and rechambered guns and the dealer has the thing in their hand. |
+| `derived` | `classify` read it out of the title or description. | Yes — this is what a rule fix is for. |
+| `catalog` | The armory filled it from the model the listing names. | Yes. The armory is not the vendor; a better rule may fill it better. |
+| `override` | A person corrected it, knowing what the rules said. | **No.** |
+| *(none)* | Nobody recorded it — every row written before this existed. | **No.** |
+
+Two properties carry the design. **A spelling is not a source**: the armory
+normalizes ".32 ACP" and "7.65mm Browning" into one answer and the maker table
+spells "S&W" as "Smith & Wesson", and neither is a new opinion about the gun,
+so both go through `respell`, which changes the value and leaves the source
+alone. Recording them as the catalog's would hand a rebuild permission over the
+vendor's own fields, which is the original bug wearing a hat. And **unknown is
+protected**: guessing about provenance is the mistake being corrected, so
+guessing again in the other direction is not an improvement.
+
+The `override` source closes a hole that predates all of this. `reclassify`
+never read the override table at all, so a rebuild quietly undid a person's
+correction until the next scan put it back.
+
+**It is deliberately not backfilled**, which means it earns nothing on the day
+it ships. A backfill would have to guess which stored values were the vendor's,
+and that guess is the thing being fixed. It fills in instead as each site's
+next scan rewrites its rows — every site scans daily, so the cost is bounded
+and is the honest price of not having recorded it from the start.
+
 Measured over 4,566 active listings, 140 change. This reversed a precedence
 this file had deliberately deferred: the note on it said flipping it was a wash
 until two pattern bugs were fixed — the Berthiers, where `8mm Lebel` was misread
@@ -2499,7 +2564,7 @@ of them. Before this the only revocation was `token_version`, which retires
 every token at once — right for a password change, useless for closing the
 laptop you left at work without also signing yourself out of your phone.
 
-The session making the request is labelled, because that is the first thing
+The session making the request is labeled, because that is the first thing
 anybody looks for and signing yourself out by accident is the obvious mistake.
 "Sign out everywhere else" keeps the one asking, for the same reason.
 

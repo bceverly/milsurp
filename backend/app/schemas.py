@@ -822,6 +822,18 @@ class ItemDetail(ItemOut):
     #: panel showing both is how that stops looking like a contradiction.
     model_notes: str | None = None
 
+    #: Where each derived field's value came from: `vendor`, `derived`,
+    #: `catalog`, or absent when nobody recorded it. A dict rather than four
+    #: more fields because it is read as a unit and the page renders it in one
+    #: loop; adding a fifth derived field should not need a schema change here.
+    #:
+    #: Shown because it is the difference between a caliber worth correcting
+    #: and one worth trusting. A value the shop published is the dealer's, with
+    #: the gun in front of them; one the rules read out of a title is a guess
+    #: this application made, and the person deciding whether to override it
+    #: cannot tell which without being told.
+    sources: dict[str, str] = Field(default_factory=dict)
+
 
 class SimilarListingOut(BaseModel):
     """One listing worth looking at beside the one on screen, and why.

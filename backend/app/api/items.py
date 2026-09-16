@@ -28,7 +28,7 @@ from ..schemas import (
     PricePositionOut,
     SimilarListingOut,
 )
-from ..services import audit, overrides, pricing, similar, watchlist
+from ..services import audit, overrides, pricing, provenance, similar, watchlist
 from ..services.image_store import ImageStore, ImageStoreError
 from ..services.search import (
     KINDS,
@@ -479,6 +479,14 @@ def get_item(item_id: int, user: CurrentUser, session: DbSession) -> ItemDetail:
     # What the armory knows about the match, so the facts panel can show it
     # and link out. Read here rather than on the list endpoint: it is three
     # relationship loads per listing and the grid shows none of it.
+    # Only the fields that have one: an absent key and a null read the same on
+    # the page, and sending four nulls for a listing nothing is known about
+    # says less than sending nothing.
+    detail.sources = {
+        field: source
+        for field, column in provenance.SOURCE_COLUMNS.items()
+        if (source := getattr(item, column, None))
+    }
     watch = watchlist.watching(session, user, item.id)
     if watch is not None:
         detail.watched = True

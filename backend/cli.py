@@ -24,6 +24,7 @@ import sys
 from collections.abc import Callable
 from datetime import UTC
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -58,6 +59,7 @@ from app.services import (
     discovery,
     mailer,
     manufacturers,
+    provenance,
     scan_service,
     twofactor,
 )
@@ -485,6 +487,48 @@ def _duration(seconds: float) -> str:
 RECOMPUTABLE = ("caliber", "country", "condition", "manufacturer")
 
 
+def _permitted(
+    item: Item,
+    filled: dict[str, Any],
+    wanted: set[str],
+    protected: dict[str, int],
+) -> dict[str, Any]:
+    """Cut a rebuild down to the fields it is allowed to overwrite.
+
+    Two gates, and they answer different questions. ``--fields`` is the
+    operator saying which fields this fix is about; a field left out keeps the
+    fill-blanks-only behavior, so a caliber fix need not cost every listing its
+    maker. **Provenance is the row saying whose value it is** -- the vendor
+    published it, or nobody recorded who did, and neither is ours to rewrite.
+
+    Without that second gate the flag could not tell a correction from a
+    demolition. Scoped to nothing but the caliber it changed 3,187 of 11,038
+    listings, 2,251 of them to nothing at all, because it discards the stored
+    value by design and re-derives from the title. A Carl Gustafs 1896 stated
+    as 6.5x55mm Swedish came back 8mm Mauser.
+
+    Counts what it refused, into *protected*, so a run that reached almost
+    nothing says so rather than reporting a quiet success.
+
+    A field it *does* rebuild is stamped ``derived`` on the way past -- even
+    when the value it lands on is the one already there. A row whose answer the
+    rules would have produced anyway is a row the rules own, and recording that
+    is what lets the next fix reach it; without it the unknown rows stay
+    unknown forever and this earns nothing beyond what a scan rewrites.
+    """
+    allowed: dict[str, Any] = {}
+    for name, value in filled.items():
+        if name not in wanted:
+            allowed[name] = getattr(item, name) or value
+        elif provenance.may_recompute(item, name):
+            allowed[name] = value
+            setattr(item, provenance.SOURCE_COLUMNS[name], provenance.DERIVED)
+        else:
+            allowed[name] = getattr(item, name)
+            protected[name] = protected.get(name, 0) + 1
+    return allowed
+
+
 def cmd_reclassify(args: argparse.Namespace) -> int:
     """Re-derive rifle/pistol and the other inferred fields from stored text.
 
@@ -503,6 +547,11 @@ def cmd_reclassify(args: argparse.Namespace) -> int:
         return 1
 
     changed = 0
+    #: field -> how many listings declined the rebuild because the value was
+    #: the vendor's, or of unknown origin. Reported at the end: a run that
+    #: skipped most of the catalog has not failed, but somebody expecting a
+    #: rule fix to land needs to know it did not reach these.
+    protected: dict[str, int] = {}
     with session_scope() as session:
         # Whether a site's prose is about the listing it is attached to. Looked
         # up once per site rather than once per listing.
@@ -646,11 +695,15 @@ def cmd_reclassify(args: argparse.Namespace) -> int:
             # --recompute overwrites; --fields says which of them it may
             # overwrite. A field left out keeps the fill-blanks-only behavior,
             # so a caliber fix need not cost every listing its maker.
+            #
+            # **And provenance says which of them it is allowed to.** A value
+            # the vendor published is theirs, and one of unknown origin is
+            # treated the same way -- see app/services/provenance.py. Without
+            # this gate the flag could not tell a correction from a
+            # demolition: scoped to nothing but the caliber it changed 3,187
+            # of 11,038 listings, 2,251 of them to nothing at all.
             if args.recompute:
-                filled = {
-                    name: (value if name in wanted else (getattr(item, name) or value))
-                    for name, value in filled.items()
-                }
+                filled = _permitted(item, filled, wanted, protected)
 
             if any(getattr(item, name) != value for name, value in (flags | filled).items()):
                 for name, value in flags.items():
@@ -690,6 +743,11 @@ def cmd_reclassify(args: argparse.Namespace) -> int:
     print(f"Reclassified {changed} of {len(items)} listing(s).")
     print(f"  rifles: {rifles}   handguns: {pistols}   other: {other}")
     print(f"  bayonets: {bayonets}   parts kits: {kits}")
+    if protected:
+        detail = ", ".join(f"{name}: {count}" for name, count in sorted(protected.items()))
+        print(f"  left alone, stated by the vendor or of unknown origin — {detail}")
+        print("  A row's origin is recorded by the scan that writes it, so this")
+        print("  number falls as each site is scanned.")
     return 0
 
 

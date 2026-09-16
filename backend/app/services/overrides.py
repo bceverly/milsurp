@@ -23,6 +23,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..models import Item, ItemOverride, User
+from . import provenance
 
 #: The fields a person may correct.
 #:
@@ -52,8 +53,19 @@ def apply_to(session: Session, item: Item) -> bool:
     changed = False
     for field in FIELDS:
         value = getattr(override, field, None)
-        if value and getattr(item, field, None) != value:
+        if not value:
+            continue
+        if getattr(item, field, None) != value:
             setattr(item, field, value)
+            changed = True
+        # Stamped whether or not the value moved. A correction that happens to
+        # agree with the rules is still a person's answer, and the stamp is
+        # what stops a later rebuild treating it as the rules' own to discard.
+        # `model` and `kind` are overridable and have no source column: they
+        # are not fields reclassify rebuilds from text.
+        column = provenance.SOURCE_COLUMNS.get(field)
+        if column and getattr(item, column, None) != provenance.OVERRIDE:
+            setattr(item, column, provenance.OVERRIDE)
             changed = True
     return changed
 

@@ -31,7 +31,37 @@ import { ChevronLeft, External, Eye, Star, TrendDown, X } from "../components/Ic
  * worth looking at the hardest ones to find. "Unknown" is the same word the
  * filter uses for them.
  */
-function Fact({ label, children, always = false }) {
+/**
+ * Where a derived value came from, said in the fewest words that are true.
+ *
+ * It is the difference between a caliber worth correcting and one worth
+ * trusting. The shop published it, with the gun in front of them — or this
+ * application read it out of a title, which is a guess. Somebody deciding
+ * whether to override a field cannot tell those apart without being told, and
+ * the six listings this shipped alongside were all of the second kind.
+ *
+ * Nothing is shown for a value of unrecorded origin. Every row written before
+ * the sources existed has none, and inventing a label for "we do not know"
+ * would put a confident word on the page where the honest answer is silence.
+ */
+const SOURCE_LABEL = {
+  vendor: ["from the shop", "Published by the vendor in their own catalog"],
+  derived: ["read from the listing", "Worked out from the title and description"],
+  catalog: ["from the armory", "Filled in from the model this listing names"],
+  override: ["corrected by hand", "Someone overrode this, knowing what the rules said"],
+};
+
+function Source({ source }) {
+  const entry = source ? SOURCE_LABEL[source] : null;
+  if (!entry) return null;
+  return (
+    <span className="fact__source" title={entry[1]}>
+      {entry[0]}
+    </span>
+  );
+}
+
+function Fact({ label, children, always = false, source = null }) {
   const empty = children === null || children === undefined || children === "";
   if (empty && !always) return null;
   return (
@@ -40,6 +70,7 @@ function Fact({ label, children, always = false }) {
       <div className={`fact__value ${empty ? "fact__value--unknown" : ""}`}>
         {empty ? "Unknown" : children}
       </div>
+      {!empty && <Source source={source} />}
     </div>
   );
 }
@@ -722,6 +753,9 @@ export default function ItemDetail() {
   }
 
   const photos = item.photos || [];
+  // Only the fields whose origin was recorded; the rest are simply absent,
+  // which is every row written before the sources existed.
+  const sources = item.sources || {};
   const current = photos[activePhoto];
   const dropped = item.price_drop > 0;
   const history = [...(item.price_history || [])].sort(
@@ -846,16 +880,16 @@ export default function ItemDetail() {
                 </button>
               </Fact>
             )}
-            <Fact label="Manufacturer" always>
+            <Fact label="Manufacturer" always source={sources.manufacturer}>
               {item.manufacturer}
             </Fact>
-            <Fact label="Caliber" always>
+            <Fact label="Caliber" always source={sources.caliber}>
               {item.caliber}
             </Fact>
-            <Fact label="Country" always>
+            <Fact label="Country" always source={sources.country}>
               {item.country}
             </Fact>
-            <Fact label="Bore condition" always>
+            <Fact label="Bore condition" always source={sources.condition}>
               {item.condition}
             </Fact>
             <Fact label="Lowest seen">

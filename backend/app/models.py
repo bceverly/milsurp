@@ -684,6 +684,25 @@ class Item(Base, TimestampMixin):
     #: Null means the vendor said nothing, which Simpson also use for their
     #: accessories -- so a blank here is an answer, not a gap.
     stated_kind: Mapped[str | None] = mapped_column(String(32))
+
+    # --- where each derived field's value came from -------------------------
+    #
+    # `vendor`, `derived` or `catalog`, written beside the value by whichever
+    # step set it. NULL means nobody knows, which is every row stored before
+    # this was added, and is treated exactly like `vendor` -- protected.
+    #
+    # Without these, `reclassify --recompute` could not tell a caliber the
+    # rules guessed from one the dealer printed, and scoped to nothing but the
+    # caliber it changed 3,187 of 11,038 listings, 2,251 of them to nothing at
+    # all. See app/services/provenance.py for the full account.
+    #
+    # Not indexed: nothing filters on them, and four low-cardinality indexes on
+    # the widest table in the schema would cost every scan's writes to make one
+    # maintenance command marginally faster.
+    caliber_source: Mapped[str | None] = mapped_column(String(16))
+    country_source: Mapped[str | None] = mapped_column(String(16))
+    condition_source: Mapped[str | None] = mapped_column(String(16))
+    manufacturer_source: Mapped[str | None] = mapped_column(String(16))
     #: The finer kind, resolved once and stored: "revolver", "carbine",
     #: "percussion_pistol". One of :class:`FirearmKind`'s values.
     #:

@@ -2750,6 +2750,56 @@ until they promote it. The numbers above are what promoting them does.
   **Eleven to six, with the real firm kept.** Deliberately stopped there: the
   obvious next veto — "the name appears in an armory model name" — would reject
   **Mauser**, which is both a firm and a model word.
+- **Shipped** — Record whether a stored field was **stated by the vendor or
+  derived by the rules**. Migration 0031, four columns on `items` and
+  `app/services/provenance.py`.
+
+  That single missing fact was what made `reclassify recompute=1` unusable as a
+  maintenance step: scoped to nothing but the caliber it changed **3,187 of
+  11,038 listings**, 2,251 of them to nothing at all, because it could not tell
+  a caliber the rules guessed from one the dealer printed. A Carl Gustafs 1896
+  stated as 6.5x55mm Swedish came back 8mm Mauser; a Carcano carbine whose own
+  title reads "6.5X52" came back 7.35x51mm. The scan had always known which it
+  had — `item.caliber = scraped.caliber or item.caliber` and then
+  `item.caliber = item.caliber or derived["caliber"]`, two lines that knew the
+  answer and threw it away.
+
+  Four sources, and the gate is a whitelist: `derived` and `catalog` may be
+  rebuilt, `vendor` and `override` may not, and **neither may a value nobody
+  recorded**. That last is the important half — every row written before this
+  existed has no source, and treating those as fair game reproduces exactly the
+  damage. Verified against the real catalog: the same command that changed
+  3,187 listings now changes **0**, reports `caliber: 11038` left alone, and a
+  four-field comparison over all 11,038 rows confirms nothing moved.
+
+  **A spelling is not a source.** The armory normalizes ".32 ACP" and "7.65mm
+  Browning" into one answer and the maker table spells "S&W" as "Smith &
+  Wesson"; neither is a new opinion about the gun, so both go through
+  `respell`, which changes the value and leaves the source alone. Recording
+  them as the catalog's would hand a rebuild permission over the vendor's own
+  fields — the original bug wearing a hat.
+
+  **The `override` source closes a hole that predates the module.**
+  `reclassify` never read the override table at all, so a rebuild quietly undid
+  a person's correction until the next scan put it back.
+
+  Shown on the item detail page under each derived value — "from the shop",
+  "read from the listing", "from the armory", "corrected by hand" — because it
+  is the difference between a value worth correcting and one worth trusting,
+  and the person deciding whether to override cannot tell without being told.
+  Nothing is shown for an unrecorded origin: the honest answer there is
+  silence.
+
+  **Deliberately not backfilled**, so it earns nothing on the day it ships. A
+  backfill would have to guess which values were the vendor's, and that guess
+  is the thing being fixed. It fills in as each site's next scan rewrites its
+  rows; every site scans daily.
+- **Planned** — Have `catch-up` run a provenance-scoped recompute on upgrade,
+  so a rule fix reaches stored listings without anybody remembering. The gate
+  above makes this safe rather than merely possible — but **not yet measured**,
+  because with every source still unrecorded it would decline all 11,038 rows
+  and prove nothing. It wants a scan cycle's worth of sources first, and then
+  the same before-and-after count the rest of these entries carry.
 - **Planned** — Cross-site duplicate detection proper. The same rifle listed by
   two vendors should be recognizable — the token index built for field filling
   is the start of this, but a duplicate needs more than a shared model name.
@@ -3401,7 +3451,7 @@ more than one machine still wants the queue below.
   the cost is one primary-key lookup per request, beside the one already
   loading the user.
 
-  Which session is *this* browser is labelled, because it is the first thing
+  Which session is *this* browser is labeled, because it is the first thing
   anybody looks for and signing yourself out by accident is the obvious
   mistake. "Sign out everywhere else" deliberately keeps the one asking:
   logging yourself out as a side effect of securing your account reads as the

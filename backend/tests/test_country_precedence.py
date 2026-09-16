@@ -263,4 +263,9 @@ class TestBothCodePathsAgree:
 
         source = inspect.getsource(scan_service._apply_catalog)
         assert "manufacturers.country_for(" in source
-        assert "item.country or found.country" in source
+        # The model before the maker. The listing's own answer still wins and
+        # is no longer spelled `item.country or ...` here: provenance.fill
+        # writes only into a blank, which is the same rule said once instead
+        # of at every call site.
+        assert "found.country or manufacturers.country_for(" in source
+        assert 'provenance.fill(\n        item,\n        "country",' in source

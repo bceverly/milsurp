@@ -48,7 +48,7 @@ from ..scrapers import (
     get_scraper,
     get_scraper_class,
 )
-from . import armory, boilerplate, classify, discovery, manufacturers, overrides
+from . import armory, boilerplate, classify, discovery, manufacturers, overrides, provenance
 from .image_store import ImageStore, StoredImage
 
 #: Progress lines kept per run. Enough to debug a scrape without unbounded growth.
@@ -193,11 +193,23 @@ def _fill_from_vendor(item: Item, scraped: ScrapedItem) -> None:
     Pulled out of _upsert_item so the "only if stated" rule lives in one place
     and reads as one decision. The comment above the call explains why the
     direction is this way round; this is the list it applies to.
+
+    **And each one is stamped ``vendor``**, which is the whole of what makes a
+    later rebuild able to leave it alone. See app/services/provenance.py.
     """
-    item.caliber = scraped.caliber or item.caliber
-    item.country = scraped.country or item.country
-    item.manufacturer = scraped.manufacturer or item.manufacturer
-    item.condition = scraped.condition or item.condition
+    for field, value in (
+        ("caliber", scraped.caliber),
+        ("country", scraped.country),
+        ("manufacturer", scraped.manufacturer),
+        ("condition", scraped.condition),
+    ):
+        # A vendor who states a value on a re-scrape is restating their own, so
+        # the stamp is applied whether or not the field was empty -- otherwise
+        # a row first filled by the rules would never learn that the shop has
+        # since published the answer itself.
+        if value:
+            setattr(item, field, value)
+            setattr(item, provenance.SOURCE_COLUMNS[field], provenance.VENDOR)
     # Stored so `reclassify` can still see it: a type applied during a scan and
     # not written down is thrown away by the next rebuild. See
     # Item.stated_kind.
@@ -317,26 +329,35 @@ def _upsert_item(
     # a WooCommerce shop has nowhere structured to put it at all, so the first
     # of them read every rifle in as "7.62x54R" in the title and blank in the
     # column. Only the gaps are filled — a value the vendor stated is theirs.
-    item.caliber = item.caliber or derived["caliber"]
-    item.country = item.country or derived["country"]
-    item.condition = item.condition or derived["condition"]
+    provenance.fill(item, "caliber", derived["caliber"], provenance.DERIVED)
+    provenance.fill(item, "country", derived["country"], provenance.DERIVED)
+    provenance.fill(item, "condition", derived["condition"], provenance.DERIVED)
 
     # The maker last, because the caliber is one of the things that names it —
     # a great many surplus cartridges are called after the firm that designed
     # them — and the caliber is only settled on the line above. Derived first,
     # this read a caliber that was not there yet.
-    item.manufacturer = item.manufacturer or manufacturers.extract(
-        session,
-        item.title,
-        item.description if trusted else None,
-        item.caliber,
-    )
+    if not item.manufacturer:
+        provenance.fill(
+            item,
+            "manufacturer",
+            manufacturers.extract(
+                session,
+                item.title,
+                item.description if trusted else None,
+                item.caliber,
+            ),
+            provenance.DERIVED,
+        )
     # Whichever way it arrived, written the way the table writes it. A vendor
     # who states "S&W" is not being argued with -- they are being spelled --
     # and without this the Manufacturer filter offered "S&W" and
     # "Smith & Wesson" as two firms, 25 listings under one and 53 under the
     # other, with no way to ask for both.
-    item.manufacturer = manufacturers.canonical(session, item.manufacturer)
+    #
+    # Through respell, so it stays a spelling: the field still says whoever
+    # actually had the opinion.
+    provenance.respell(item, "manufacturer", manufacturers.canonical(session, item.manufacturer))
 
     _apply_catalog(session, item, trusted)
 
@@ -409,8 +430,16 @@ def _apply_catalog(session: Session, item: Item, trusted: bool) -> None:
         else None
     )
     if found.caliber:
-        item.caliber = found.caliber
-    item.manufacturer = item.manufacturer or found.manufacturer
+        # fill_in hands back the listing's own caliber *normalized* when it had
+        # one, and the model's only when it did not -- so this is a spelling in
+        # the first case and a catalog fill in the second, and they must not be
+        # recorded alike. Stamping both `catalog` would hand a later recompute
+        # permission over the vendor's own field, which is the original bug.
+        if item.caliber:
+            provenance.respell(item, "caliber", found.caliber)
+        else:
+            provenance.fill(item, "caliber", found.caliber, provenance.CATALOG)
+    provenance.fill(item, "manufacturer", found.manufacturer, provenance.CATALOG)
     # Same one-directional fill, and for a sharper reason than the maker. The
     # model's country is where the *pattern* comes from; a listing's is where
     # this particular gun is said to be from, and those genuinely differ -- a
@@ -424,8 +453,11 @@ def _apply_catalog(session: Session, item: Item, trusted: bool) -> None:
     # that still has nothing. It is worth asking at all because it is where the
     # blanks are: of 1,407 active listings with no country, 1,247 already
     # carried a maker.
-    item.country = (
-        item.country or found.country or manufacturers.country_for(session, item.manufacturer)
+    provenance.fill(
+        item,
+        "country",
+        found.country or manufacturers.country_for(session, item.manufacturer),
+        provenance.CATALOG,
     )
     # The kind *refines*, it never promotes. The armory knows what a model is;
     # it does not know whether this listing is selling one. "Early style band
