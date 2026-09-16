@@ -1,3 +1,3 @@
 """Milsurp Monitor — military surplus firearm listing tracker."""
 
-__version__ = "2.4.0.3"
+__version__ = "2.4.0.4"
