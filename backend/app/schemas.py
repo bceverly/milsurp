@@ -71,6 +71,37 @@ class TwoFactorRequired(BaseModel):
     detail: str = "Enter the code from your authenticator, or a recovery code."
 
 
+class SessionOut(UTCModel):
+    """One sign-in, as the person who owns it sees it."""
+
+    id: int
+    user_agent: str | None = None
+    ip_address: str | None = None
+    created_at: datetime | None = None
+    last_seen_at: datetime | None = None
+    expires_at: datetime
+    #: Whether this is the session making the request. The list is useless
+    #: without it -- "which one is this browser?" is the first thing anybody
+    #: asks, and signing yourself out by accident is the obvious mistake.
+    current: bool = False
+
+
+class AuditEventOut(UTCModel):
+    """One thing somebody did."""
+
+    id: int
+    action: str
+    #: Kept beside the id so a deleted account's actions still say who.
+    actor_name: str | None = None
+    actor_id: int | None = None
+    target_type: str | None = None
+    target_id: str | None = None
+    target_label: str | None = None
+    detail: str | None = None
+    ip_address: str | None = None
+    created_at: datetime | None = None
+
+
 class TotpStart(BaseModel):
     """A freshly issued secret, shown once and never retrievable again."""
 
@@ -102,9 +133,21 @@ class RecoveryCodesOut(BaseModel):
 
 
 class TokenResponse(UTCModel):
+    #: The session also arrives as an HttpOnly cookie, and that is what the
+    #: browser uses. This field stays for scripts and for the test suite, which
+    #: need a way to obtain a bearer token -- there is no other.
+    #:
+    #: **It is the one place the raw token is still visible to script**, and
+    #: worth being straight about: the sign-in response can be read by an XSS
+    #: that is already running and able to intercept it. What the cookie ends
+    #: is the far larger exposure, a token sitting in `sessionStorage` for the
+    #: whole session where any script could read it at any moment.
     access_token: str
     # Not a credential: this is the RFC 6750 token type.
     token_type: Literal["bearer"] = "bearer"  # noqa: S105
+    #: Echoed back in X-CSRF-Token on unsafe requests. Not secret -- it is in a
+    #: readable cookie too. It defends by being unreadable to *other* origins.
+    csrf_token: str
     expires_at: datetime
     user: "UserOut"
 

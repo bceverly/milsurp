@@ -764,10 +764,11 @@ test.describe("armory", () => {
     signedIn,
   }) => {
     /**
-     * The eye navigates in the current tab, because the bearer token lives in
-     * sessionStorage and a new tab would not have it -- see listingsHref. So
-     * Back has to bring the page back exactly as it was, which means the tab,
-     * the Showing filter, the sort and the search all have to be in the URL.
+     * The eye navigates in the current tab -- see listingsHref, where the
+     * original reason (a per-tab bearer token) is recorded as having gone
+     * away with the move to a cookie. So Back has to bring the page back
+     * exactly as it was, which means the tab, the Showing filter, the sort
+     * and the search all have to be in the URL.
      * Before this the sort and the search were React state and Back dropped
      * both, landing you on the Models tab sorted by name with an empty box.
      */

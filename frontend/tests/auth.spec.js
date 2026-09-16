@@ -66,15 +66,36 @@ test.describe("session", () => {
   });
 
   test("signing out returns to the login screen", async ({ signedIn }) => {
-    await signedIn.getByRole("button", { name: "Sign out" }).first().click();
+    await signedIn.locator("button.topbar__signout").click();
     await expect(signedIn.locator('input[name="username"]')).toBeVisible();
   });
 
-  test("signing out clears the stored token", async ({ signedIn }) => {
-    await signedIn.getByRole("button", { name: "Sign out" }).first().click();
+  test("signing out actually ends the session", async ({ signedIn, context }) => {
+    /**
+     * Stronger than it used to be, and deliberately so. It used to check that
+     * a string had been removed from sessionStorage, which the page could do
+     * on its own while the server happily went on honoring the session. The
+     * session is a cookie now, so only the server can end it -- and reloading
+     * is what proves it did.
+     */
+    await signedIn.locator("button.topbar__signout").click();
     await expect(signedIn.locator('input[name="username"]')).toBeVisible();
-    const token = await signedIn.evaluate(() => sessionStorage.getItem("milsurp.token"));
-    expect(token).toBeNull();
+
+    const names = (await context.cookies()).map((c) => c.name);
+    expect(names).not.toContain("milsurp_session");
+
+    // The real check: a fresh load is not signed back in.
+    await signedIn.reload();
+    await expect(signedIn.locator('input[name="username"]')).toBeVisible();
+  });
+
+  test("the session cookie is not reachable from JavaScript", async ({ signedIn }) => {
+    /** The whole reason it moved out of sessionStorage: one XSS hole should
+     * not hand over a working session. */
+    const visible = await signedIn.evaluate(() => document.cookie);
+    expect(visible).not.toContain("milsurp_session");
+    // The CSRF token is readable on purpose -- the page has to echo it back.
+    expect(visible).toContain("milsurp_csrf");
   });
 
   test("an admin sees the admin-only navigation", async ({ signedIn }) => {

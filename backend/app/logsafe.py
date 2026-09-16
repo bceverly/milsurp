@@ -93,3 +93,22 @@ def safe_identifier(value: object, pattern: re.Pattern[str] = USERNAME_PATTERN) 
     """
     text = value if isinstance(value, str) else str(value)
     return text if pattern.fullmatch(text) else REJECTED
+
+
+def client_address(request: object) -> str:
+    """The peer address of a request, or a fixed marker when there is none.
+
+    Read straight from the connection, so nothing here comes from the request
+    body -- a header can be set by anybody, and an address that can be chosen
+    is not an address. A test client has no peer at all.
+
+    Guarded on the way out rather than at each point of use, so every caller
+    gets the same value and no future one has to remember. See
+    :data:`ADDRESS_PATTERN` for why this is an allowlist and not an escape.
+
+    Lives here rather than in an API module because three of them want it now:
+    sign-in throttling, the sessions list and the audit log.
+    """
+    client = getattr(request, "client", None)
+    host = getattr(client, "host", None) or "unknown"
+    return safe_identifier(host, ADDRESS_PATTERN)

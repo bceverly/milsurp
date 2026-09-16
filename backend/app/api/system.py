@@ -4,15 +4,16 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from sqlalchemy import func, select
 
 from .. import __version__
 from ..deps import AdminUser, AppConfig, CurrentUser, DbSession
 from ..models import EmailLog, Item, ScanRun, Site, User
 from ..scheduler import get_scheduler
-from ..schemas import HealthOut, PolicyOut, SystemStatusOut
+from ..schemas import AuditEventOut, HealthOut, PolicyOut, SystemStatusOut
 from ..security import password_requirements
+from ..services import audit
 from ..services.image_store import ImageStore
 
 router = APIRouter(tags=["system"])
@@ -75,3 +76,33 @@ def system_status(_admin: AdminUser, session: DbSession, config: AppConfig) -> S
         scheduler=get_scheduler().status(),
         counts={key: int(value) for key, value in counts.items()},
     )
+
+
+@router.get("/audit", response_model=list[AuditEventOut])
+def audit_log(
+    _admin: AdminUser,
+    session: DbSession,
+    limit: int = Query(default=100, ge=1, le=500),
+    action: str | None = Query(default=None),
+) -> list[AuditEventOut]:
+    """What administrators have done, newest first.
+
+    Admin-only, which is a judgment rather than an obvious call: the log is
+    mostly *about* administrators, and showing everyone who changed whose role
+    would be a privacy decision made by accident. An account that cannot see
+    the Users page has no use for it.
+    """
+    return [
+        AuditEventOut.model_validate(event, from_attributes=True)
+        for event in audit.recent(session, limit=limit, action=action)
+    ]
+
+
+@router.get("/audit/actions", response_model=list[str])
+def audit_actions(_admin: AdminUser, session: DbSession) -> list[str]:
+    """The actions that actually appear, for the filter.
+
+    Read from the data rather than from the constants: a filter offering
+    actions nothing has ever done is a filter that mostly returns nothing.
+    """
+    return audit.actions(session)

@@ -5,13 +5,14 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from datetime import timedelta
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
 
-from .. import totp
+from .. import sessions, totp
 from ..deps import AppConfig, CurrentUser, DbSession
-from ..logsafe import ADDRESS_PATTERN, safe_identifier
+from ..logsafe import client_address
 from ..models import User, utcnow
 from ..schemas import (
     LoginRequest,
@@ -20,6 +21,7 @@ from ..schemas import (
     PasswordResetCheck,
     PasswordResetRedeem,
     RecoveryCodesOut,
+    SessionOut,
     TokenResponse,
     TotpConfirm,
     TotpStart,
@@ -29,13 +31,15 @@ from ..schemas import (
 )
 from ..security import (
     PasswordPolicyError,
+    TokenError,
     create_access_token,
+    decode_access_token,
     hash_password,
     needs_rehash,
     validate_password,
     verify_password,
 )
-from ..services import passwordreset, twofactor
+from ..services import audit, passwordreset, twofactor, usersessions
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -72,17 +76,8 @@ _attempts_lock = threading.Lock()
 
 
 def _client_address(request: Request) -> str:
-    """The peer address, or a fixed marker when there is none.
-
-    Read straight from the connection, so nothing here comes from the request
-    body. A test client has no peer at all.
-
-    Guarded on the way out rather than at the point it is logged, so every
-    caller gets the same value and no future one has to remember. See
-    :data:`ADDRESS_PATTERN` for why this is an allowlist and not an escape.
-    """
-    host = request.client.host if request.client else "unknown"
-    return safe_identifier(host, ADDRESS_PATTERN)
+    """The peer address. Moved to logsafe when the audit log wanted it too."""
+    return client_address(request)
 
 
 def _throttle_key(username: str, request: Request) -> str:
@@ -115,7 +110,11 @@ def _clear_failures(key: str) -> None:
 
 @router.post("/login", response_model=TokenResponse | TwoFactorRequired)
 def login(
-    payload: LoginRequest, request: Request, session: DbSession, config: AppConfig
+    payload: LoginRequest,
+    request: Request,
+    response: Response,
+    session: DbSession,
+    config: AppConfig,
 ) -> TokenResponse | JSONResponse:
     """Sign in, in one exchange or two.
 
@@ -210,12 +209,49 @@ def login(
     user.last_login_at = utcnow()
     session.commit()
 
-    token, expires_at = create_access_token(user.id, user.role.value, user.token_version, config)
+    # The row first, because the token has to carry its id -- that id is what
+    # makes this one sign-in endable without ending the others.
+    expires_at_guess = utcnow() + timedelta(minutes=config.security.access_token_minutes)
+    record = usersessions.begin(
+        session,
+        user,
+        expires_at=expires_at_guess,
+        user_agent=request.headers.get("user-agent"),
+        ip_address=_client_address(request),
+    )
+    token, expires_at = create_access_token(
+        user.id, user.role.value, user.token_version, config, session_id=record.id
+    )
+    # The guess above is only used to create the row; the token decides the
+    # real expiry, so the row is corrected rather than left approximately right.
+    record.expires_at = expires_at
+    session.commit()
+    # The browser's copy: HttpOnly, so no script can read it. See app/sessions.
+    csrf = sessions.issue(response, token, expires_at, config)
     return TokenResponse(
         access_token=token,
+        csrf_token=csrf,
         expires_at=expires_at,
         user=UserOut.model_validate(user),
     )
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(config: AppConfig) -> Response:
+    """Drop the session cookies.
+
+    Needed now in a way it was not before. Signing out used to be the page
+    forgetting a string it was holding; a cookie belongs to the browser, and
+    only a response can ask it to let go. Unauthenticated on purpose -- someone
+    holding an expired or broken session must still be able to get rid of it,
+    and the worst this can do to anyone is sign them out.
+    """
+    # Cleared on the response that is actually returned. Setting them on an
+    # injected Response and then returning a different one discards them
+    # silently: a sign-out that answers 204 and leaves the session standing.
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    sessions.clear(response, config)
+    return response
 
 
 @router.get("/reset/{token}", response_model=PasswordResetCheck)
@@ -337,6 +373,92 @@ def totp_status(user: CurrentUser, session: DbSession) -> TotpStatus:
 @router.get("/me", response_model=UserOut)
 def me(user: CurrentUser) -> UserOut:
     return UserOut.model_validate(user)
+
+
+def _current_session_id(request: Request, config) -> int | None:
+    """Which session row this request is using, if any.
+
+    Read back out of the token rather than tracked somewhere: the token is
+    already being decoded on every request, and a second source of truth for
+    "which session is this" is a second thing that can disagree.
+    """
+    from ..sessions import token_from
+
+    credentials = request.headers.get("authorization", "")
+    header = credentials[7:] if credentials.lower().startswith("bearer ") else None
+    token, _ = token_from(request, header)
+    if not token:
+        return None
+    try:
+        payload = decode_access_token(token, config)
+    except TokenError:
+        return None
+    sid = payload.get("sid")
+    return int(sid) if sid is not None else None
+
+
+@router.get("/sessions", response_model=list[SessionOut])
+def list_sessions(
+    request: Request, user: CurrentUser, session: DbSession, config: AppConfig
+) -> list[SessionOut]:
+    """Where this account is signed in.
+
+    Only ever this account's own: the sessions list is a personal security
+    page, not an administrative one. An admin who needs to end somebody else's
+    access disables the account, which ends all of it.
+    """
+    here = _current_session_id(request, config)
+    out = []
+    for row in usersessions.live_for(session, user):
+        item = SessionOut.model_validate(row, from_attributes=True)
+        out.append(item.model_copy(update={"current": row.id == here}))
+    return out
+
+
+@router.delete("/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+def revoke_session(
+    session_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: DbSession,
+) -> None:
+    """End one sign-in, including possibly this one."""
+    if not usersessions.revoke(session, user, session_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No such session.",
+        )
+    audit.record(
+        session,
+        actor=user,
+        action=audit.SESSION_REVOKED,
+        target_type="session",
+        target_id=session_id,
+        ip_address=_client_address(request),
+    )
+    session.commit()
+
+
+@router.post("/sessions/revoke-others", status_code=status.HTTP_204_NO_CONTENT)
+def revoke_other_sessions(
+    request: Request, user: CurrentUser, session: DbSession, config: AppConfig
+) -> None:
+    """Sign out everywhere except here.
+
+    The exception matters: signing yourself out as a side effect of securing
+    your account reads as the button having gone wrong, and the next thing
+    somebody does is sign back in and wonder whether it worked.
+    """
+    ended = usersessions.revoke_all(session, user, except_id=_current_session_id(request, config))
+    audit.record(
+        session,
+        actor=user,
+        action=audit.SESSIONS_REVOKED,
+        target_type="session",
+        detail=f"{ended} other session(s)",
+        ip_address=_client_address(request),
+    )
+    session.commit()
 
 
 @router.post("/password", status_code=status.HTTP_204_NO_CONTENT)

@@ -3131,13 +3131,75 @@ more than one machine still wants the queue below.
   When mail cannot be sent the link is handed back to the admin instead, so a
   deployment without SMTP has a working button rather than one that silently
   does nothing.
-- **Planned** — Audit log of administrative actions: user creation, role
-  changes, site enable/disable.
-- **Planned** — Session management UI: see and revoke active sessions.
-- **Planned** — Move the session token from `sessionStorage` to a
-  `HttpOnly`/`Secure`/`SameSite=Strict` cookie plus a CSRF token. That removes
-  the token from JavaScript's reach entirely, at the cost of needing CSRF
-  protection the current header-based scheme does not.
+- **Shipped** — Audit log of administrative actions. User creation, edits and
+  deletion, role changes, reset links issued, sites enabled and disabled, and
+  sessions revoked — readable at **Audit log** in the admin navigation, with a
+  filter that offers only the actions that have actually happened.
+
+  **Three properties make it a record rather than a decoration.** It is
+  append-only: nothing in the application edits or deletes a row, because a log
+  somebody can tidy answers a different question from the one it appears to.
+  The actor is kept twice, as an id and as a name, and the foreign key is `SET
+  NULL` — deleting an account cannot erase what it did, and the row most worth
+  reading is usually the one written by somebody who is no longer here. And
+  recording can never break what it records: `audit.record` swallows its own
+  failures, because an audit write that raised would turn "the log is full"
+  into "nobody can create a user".
+
+  A role change gets its own action so it can be filtered for, and the detail
+  says `role normal -> admin` rather than "role changed" — noted before the
+  edit, since afterwards there is nothing left to compare against.
+- **Shipped** — Session management. Where this account is signed in, on the
+  Security settings page, with per-session revoke and "sign out everywhere
+  else".
+
+  It needed the stateless token to grow a row. `token_version` retires *every*
+  token at once — right for a password change, useless for closing the laptop
+  you left at work without also signing yourself out of your phone — and
+  nothing could answer "where am I signed in?" because nothing was written
+  down. A login now writes a `user_sessions` row and the token carries its id;
+  the cost is one primary-key lookup per request, beside the one already
+  loading the user.
+
+  Which session is *this* browser is labelled, because it is the first thing
+  anybody looks for and signing yourself out by accident is the obvious
+  mistake. "Sign out everywhere else" deliberately keeps the one asking:
+  logging yourself out as a side effect of securing your account reads as the
+  button having gone wrong.
+
+  A token with no session id stays valid — one minted by a script, or issued
+  before this existed. It was valid when it was handed out, and
+  `token_version` is still what retires those.
+- **Shipped** — The session is an `HttpOnly`/`Secure`/`SameSite=Strict` cookie
+  with a double-submit CSRF token, instead of a bearer token in
+  `sessionStorage` that any script on the page could read.
+
+  The CSRF defense is the price, exactly as predicted, and it is checked in
+  `get_current_user` where every authenticated route already passes. A request
+  carrying an `Authorization` header is exempt, which is the same argument in
+  reverse: a header has to be set deliberately and a forged request cannot set
+  one. The header also wins when both arrive — explicit beats ambient, and
+  anything with a cookie jar (`requests.Session`, the test client) ends up
+  sending both.
+
+  **Not "entirely" out of reach, and the difference is worth stating.** The
+  login response still carries the raw token, because nothing else can obtain
+  one and both scripts and the test suite need to. An XSS already running and
+  able to intercept the sign-in can read that. What the cookie ends is the far
+  larger exposure: a token sitting in storage for the whole session, readable
+  at any moment.
+
+  `Secure` is off in development, because it means HTTPS-only and development
+  runs on plain http — a Secure cookie there is set and never sent back, which
+  looks exactly like being signed out at random.
+
+  Two things fell out of it. Signing out needs a server round trip now, so
+  `POST /api/auth/logout` exists; the old sign-out only made the page forget a
+  string, which a cookie ignores. And the armory's eye links navigate in the
+  current tab for a reason that has now expired — `sessionStorage` was per-tab
+  and a new tab landed on the sign-in screen; cookies are shared across tabs,
+  so that is a preference now rather than a constraint, and the comment says
+  so.
 
 ---
 
@@ -3163,6 +3225,14 @@ more than one machine still wants the queue below.
   a price is absent or positive. Verified by breaking a parser on purpose: a
   one-character change to eBayonet's stock-number pattern turned four of these
   red.
+
+  Royal Tiger is the exception that proves the seam: its catalog is drawn by
+  JavaScript, so no server response contains it. Its fixture is one page the
+  browser built, captured once and parsed directly by `test_royal_tiger.py`.
+  Two independent guards keep it out of the replay set — the manifest's `kind`
+  and the scraper's own `requires_browser` — because the first version trusted
+  the label alone and the suite went off to open Chrome and fetch from the
+  shop, which is precisely what these tests exist to stop.
 
   **It found something on the first run.** Two shops publish `$0.00` for a
   listing nobody has priced — a restricted launcher sold on enquiry, a Walther

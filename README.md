@@ -2356,10 +2356,89 @@ The application is built against the [OWASP Top 10](https://owasp.org/Top10/).
 | **A04 Insecure Design** | Per-site scan locking; per-user digest caps; login throttling with lockout; exactly one unauthenticated write path, and it is captcha-gated, rate-limited and writes nothing to the database. |
 | **A05 Security Misconfiguration** | Security headers from both the app and nginx, including a strict CSP. API docs disabled in production. Hardened systemd unit (`ProtectSystem=strict`, `NoNewPrivileges`, syscall filter). Config 0600, photo store 0700, database 0640. Startup warns about short or placeholder secrets. |
 | **A06 Vulnerable Components** | Dependabot on pip, npm and Actions. `pip-audit`, `npm audit` and Snyk in CI and in `make security`. |
-| **A07 Authentication Failures** | Per-(username, IP) throttling with lockout; uniform failure messages and timing equalization so usernames cannot be enumerated; 12-character minimum with a common-password check; password change ends all sessions. |
+| **A07 Authentication Failures** | Per-(username, IP) throttling with lockout; uniform failure messages and timing equalization so usernames cannot be enumerated; 12-character minimum with a common-password check; password change ends all sessions. The session is an `HttpOnly`, `SameSite=Strict` cookie no script can read, with a double-submit CSRF token — see below. |
 | **A08 Integrity Failures** | Pinned dependency floors with lockfiles; CodeQL, semgrep and bandit in CI; a pre-push hook that blocks on any lint finding. |
-| **A09 Logging Failures** | Failed sign-ins, access requests, scan outcomes and every digest attempt are logged; scan history and email delivery history are queryable in the UI. Every attacker-supplied value is passed through `app/logsafe.scrub` first, so a newline in a username cannot forge a log record. |
+| **A09 Logging Failures** | An append-only audit log of administrative actions — user creation, role changes, site enable/disable — readable in the UI and surviving deletion of the account that caused it. Failed sign-ins, access requests, scan outcomes and every digest attempt are logged; scan history and email delivery history are queryable in the UI. Every attacker-supplied value is passed through `app/logsafe.scrub` first, so a newline in a username cannot forge a log record. |
 | **A10 SSRF** | Image URLs come from third-party markup, so every download validates the URL first: http/https only, and DNS resolution must not land on a private, loopback, link-local or reserved address. Cloud metadata endpoints are unreachable. |
+
+### The session is a cookie the page cannot read
+
+The session used to be a bearer token in `sessionStorage`. Any script running
+on the page could read it, so one cross-site scripting hole — anywhere in the
+frontend, or in anything it loads — handed over a working session for as long
+as it lasted.
+
+It is now an **`HttpOnly`, `SameSite=Strict` cookie**. The browser sends it and
+no script can see it, so taking it requires compromising the browser rather
+than finding one line of markup.
+
+**That trade is not free, and the cost has a name.** A cookie is attached by
+the browser to *every* request reaching this origin, including ones another
+site caused — cross-site request forgery, which a header-based token was immune
+to by construction: nobody can set an `Authorization` header on a request they
+merely caused somebody else's browser to make. Two things stand where nothing
+had to before:
+
+- **`SameSite=Strict`**, so the browser will not attach the cookie to a request
+  that originated anywhere but this site. This is most of the protection.
+- **A double-submit CSRF token** in a second, deliberately readable cookie,
+  echoed back in `X-CSRF-Token` on every unsafe method. An attacker's page can
+  cause a request; the same-origin policy stops it reading our cookie to know
+  what to echo. Belt and braces, because `SameSite` is enforced by the browser
+  and browsers have bugs.
+
+Both are checked in `get_current_user`, which every authenticated route already
+passes through.
+
+**A request carrying an `Authorization` header skips the CSRF check**, and that
+is not a hole — it is the same argument as above, read the other way. A bearer
+token has to be set deliberately, so a forged request cannot carry one. That
+path stays for scripts and for the test suite, and the header wins when both
+are present: explicit beats ambient.
+
+### Sessions can be ended one at a time
+
+A sign-in writes a `user_sessions` row and the token carries its id, so
+**Security settings** can list where the account is signed in and end any one
+of them. Before this the only revocation was `token_version`, which retires
+every token at once — right for a password change, useless for closing the
+laptop you left at work without also signing yourself out of your phone.
+
+The session making the request is labelled, because that is the first thing
+anybody looks for and signing yourself out by accident is the obvious mistake.
+"Sign out everywhere else" keeps the one asking, for the same reason.
+
+A token carrying no session id stays valid — one minted by a script, or issued
+before this existed. It was valid when it was handed out, and `token_version`
+still retires it.
+
+### And administrative actions are written down
+
+**Audit log** in the admin navigation records who created an account, changed a
+role, sent a reset link, or enabled and disabled a site. Append-only: nothing
+in the application edits or deletes a row, because a log somebody can tidy
+answers a different question from the one it appears to. The actor is stored as
+an id *and* a name, with the foreign key set to `SET NULL`, so deleting an
+account cannot erase what it did — the row most worth reading is usually the
+one written by somebody who is no longer here.
+
+Recording can never break what it records: `audit.record` swallows its own
+failures and reports them to the application log instead. A lost audit row is a
+real loss, and it is the right way round — the alternative makes the log a
+single point of failure for the features it watches.
+
+Two consequences worth knowing:
+
+- **Signing out needs the server.** A cookie belongs to the browser and only a
+  response can ask it to let go, so `POST /api/auth/logout` exists now. It is
+  unauthenticated on purpose: somebody holding an expired session must still be
+  able to get rid of it, and the worst it can do to anyone is sign them out.
+- **The login response still contains the raw token**, because there is no other
+  way for a script or the test suite to obtain one. That is the one place it is
+  still visible to JavaScript, and it is worth being straight about: an XSS that
+  is already running and able to intercept the sign-in can read it. What the
+  cookie ends is the far larger exposure — a token sitting in storage for the
+  whole session, readable at any moment.
 
 Run the same scanners CI runs, locally:
 
@@ -2392,8 +2471,8 @@ run in that time said "clean".
 CI additionally runs CodeQL and TruffleHog, and re-runs everything weekly so a
 newly-disclosed CVE in an unchanged dependency is still caught.
 
-Four of semgrep's findings are suppressed in-source with the reasoning next to
-the code, all of them the same false positive from its credential-in-log rule,
+Five of semgrep's findings are suppressed in-source with the reasoning next to
+the code. Four are the same false positive from its credential-in-log rule,
 which matches on the words in a *message text* rather than on anything
 interpolated into it. Two startup warnings contain "secrets" and
 "admin.password" while passing only a setting's name and a file path; two
@@ -2401,6 +2480,13 @@ password-reset lines contain "Password" while passing only account names —
 one read off the database row after the token was already redeemed, the other
 through `logsafe.safe_identifier()`, which is an allowlist. No reset link or
 token is ever logged.
+
+The fifth is the CSRF cookie being set without `HttpOnly`, which is the
+mechanism rather than a mistake: the page has to read that cookie to echo it
+back, and one no script could read could not be echoed. It is not a credential
+— it authenticates nothing on its own, the session beside it *is* `HttpOnly`,
+and what protects it is the same-origin policy stopping another site reading
+it.
 
 Nothing is suppressed for CodeQL. In-source `# codeql[...]` comments turned out
 not to be honored by GitHub code scanning, which was the right outcome: each

@@ -77,10 +77,46 @@ class Recording:
 
 
 def available() -> list[str]:
-    """Every slug with a recording on disk, sorted."""
+    """Every slug whose *scan* can be replayed from a recording, sorted.
+
+    Two exclusions, and both are the same mistake waiting to happen: replaying
+    a scan runs the real scraper, and a scraper that drives a browser will go
+    to the shop for its catalog no matter what is on disk beside it.
+
+    * A manifest marked ``"kind": "rendered"`` holds a page the browser built.
+      There is no server response that contains that catalog, so there is
+      nothing for ``scrape()`` to read -- ``scrape()`` is what drives the
+      browser. Royal Tiger's fixture is one of these, parsed directly by
+      ``test_royal_tiger.py`` instead.
+    * ``requires_browser`` is checked as well, against the scraper rather than
+      the fixture, because the first version of this trusted the manifest alone
+      and a mislabelled one sent the suite to fetch from the shop. A test that
+      reaches the network is a test that fails on somebody else's bad day, and
+      this particular shop is fragile enough that it should not be asked twice.
+    """
     if not FIXTURES.is_dir():
         return []
-    return sorted(d.name for d in FIXTURES.iterdir() if d.is_dir() and (d / MANIFEST).is_file())
+    found = []
+    for directory in sorted(FIXTURES.iterdir()):
+        manifest = directory / MANIFEST
+        if not directory.is_dir() or not manifest.is_file():
+            continue
+        if json.loads(manifest.read_text()).get("kind", "http") != "http":
+            continue
+        if _needs_a_browser(directory.name):
+            continue
+        found.append(directory.name)
+    return found
+
+
+def _needs_a_browser(slug: str) -> bool:
+    """Whether replaying this scraper would open Chrome and reach the network."""
+    from app.scrapers import get_scraper
+
+    try:
+        return bool(getattr(get_scraper(slug), "requires_browser", False))
+    except Exception:  # pragma: no cover - an unregistered fixture directory
+        return False
 
 
 def load(slug: str) -> Recording:

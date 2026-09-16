@@ -88,11 +88,19 @@ export function tabFromHash(hash) {
  *   answer "no listings" for exactly the rows most in need of a decision.
  *
  * These navigate in the current tab, which is not the obvious choice -- looking
- * at the listings is something you do *while* deciding about a row. A new tab
- * was tried and backed out: the bearer token lives in sessionStorage (see
- * api.js, and the reason there), sessionStorage is per-tab, and a browser will
- * not copy it into a tab opened with target="_blank" -- so every eye landed on
- * the sign-in screen. Measured, not assumed.
+ * at the listings is something you do *while* deciding about a row.
+ *
+ * **The original reason for it has since gone away.** A new tab was tried and
+ * backed out because the session was a bearer token in sessionStorage, which
+ * is per-tab and which a browser will not copy into a tab opened with
+ * target="_blank": every eye landed on the sign-in screen. The session is a
+ * cookie now, shared across tabs, so a new tab would work.
+ *
+ * It stays in the current tab anyway, on the weaker argument that was always
+ * underneath: Back has to bring the row list back exactly as it was, and the
+ * URL carries the tab, the filter, the sort and the search precisely so that
+ * it can. Worth revisiting if anybody would rather have the new tab -- this is
+ * now a preference rather than a constraint.
  */
 function listingsHref(tab, row) {
   const params = new URLSearchParams();

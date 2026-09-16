@@ -1,10 +1,17 @@
 /**
  * Authentication context.
  *
- * Holds the signed-in user and exposes sign in / sign out. On mount it
- * revalidates any token left in sessionStorage against /auth/me, so a token
- * that expired, was revoked by a password change, or belongs to a since-disabled
- * account never produces a half-working UI.
+ * Holds the signed-in user and exposes sign in / sign out. The session itself
+ * is an `HttpOnly` cookie this code cannot see -- which is the point of it --
+ * so "are we signed in?" is a question only the server can answer. On mount it
+ * asks, via /auth/me, and a session that expired, was revoked by a password
+ * change, or belongs to a since-disabled account never produces a half-working
+ * UI.
+ *
+ * That ask now happens on every load rather than only when a stored token
+ * existed, because there is no longer anything on this side to check first.
+ * One request, and it is the same one that used to run whenever a token was
+ * present.
  */
 import {
   createContext,
@@ -14,7 +21,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { api, getToken, setToken, setUnauthorizedHandler } from "./api.js";
+import { api, setUnauthorizedHandler } from "./api.js";
 
 const AuthContext = createContext(null);
 
@@ -23,8 +30,12 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   const signOut = useCallback(() => {
-    setToken(null);
-    setUser(null);
+    // The server has to do it: a cookie belongs to the browser, and only a
+    // response can ask it to let go. Forgetting the user locally without this
+    // leaves the session alive and the next reload signed straight back in.
+    // The local state is cleared either way -- a network failure on the way
+    // out must not leave somebody looking at a page they asked to leave.
+    api.logout().finally(() => setUser(null));
   }, []);
 
   // Any 401 anywhere in the app drops the session rather than leaving the user
@@ -36,20 +47,15 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     let canceled = false;
-    if (!getToken()) {
-      setLoading(false);
-      return undefined;
-    }
     api
       .me()
       .then((me) => {
         if (!canceled) setUser(me);
       })
       .catch(() => {
-        if (!canceled) {
-          setToken(null);
-          setUser(null);
-        }
+        // No session, or one the server no longer honors. Either way the
+        // answer is the sign-in screen.
+        if (!canceled) setUser(null);
       })
       .finally(() => {
         if (!canceled) setLoading(false);
@@ -70,7 +76,7 @@ export function AuthProvider({ children }) {
   const signIn = useCallback(async (username, password, totpCode) => {
     const result = await api.login(username, password, totpCode);
     if (result?.two_factor_required) return null;
-    setToken(result.access_token);
+    // Nothing to keep: the session and the CSRF token both arrived as cookies.
     setUser(result.user);
     return result.user;
   }, []);

@@ -384,3 +384,49 @@ test.describe("backups", () => {
     await expect(signedIn.getByText(/Last run/)).toBeVisible();
   });
 });
+
+test.describe("sessions and the audit log", () => {
+  test("the sessions list names this browser", async ({ signedIn }) => {
+    /**
+     * The first thing anybody looks for, and the reason the list is worth
+     * having at all: "which one is this?" Signing yourself out by accident is
+     * the obvious mistake, so the current session is labelled and its button
+     * says Sign out rather than Revoke.
+     */
+    await signedIn.goto("/security");
+    const row = signedIn.locator("tbody tr", { hasText: "This browser" });
+    await expect(row).toHaveCount(1);
+    await expect(row.getByRole("button", { name: "Sign out" })).toBeVisible();
+  });
+
+  test("administrative actions show up in the audit log", async ({ signedIn }) => {
+    /**
+     * End to end rather than through the API: the point of the log is that
+     * somebody can go and read it, so the test does what they would.
+     */
+    await signedIn.goto("/users");
+    await signedIn.getByRole("button", { name: "Add user" }).click();
+
+    // Labels, not name attributes: this form builds its ids through <Field>,
+    // so the label is the stable handle.
+    const dialog = signedIn.getByRole("dialog");
+    await dialog.getByLabel("Username").fill("audited-by-e2e");
+    // example.com, not example.test: Pydantic's EmailStr refuses the RFC 2606
+    // reserved TLDs, so a .test address fails validation and the dialog stays
+    // open -- which is exactly how this test failed the first time.
+    await dialog.getByLabel("Email address").fill("audited@example.com");
+    await dialog.locator('input[type="password"]').fill("a-long-enough-passphrase");
+    await dialog.getByRole("button", { name: "Save" }).click();
+    await expect(dialog).toBeHidden();
+
+    await signedIn.goto("/audit");
+    const row = signedIn.locator("tbody tr", { hasText: "audited-by-e2e" });
+    await expect(row.first()).toBeVisible();
+    await expect(row.first()).toContainText("User created");
+    await expect(row.first()).toContainText("admin");
+  });
+
+  test("the audit log is admin-only in the navigation", async ({ signedIn }) => {
+    await expect(signedIn.getByRole("link", { name: "Audit log" })).toBeVisible();
+  });
+});

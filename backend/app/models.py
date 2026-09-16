@@ -960,6 +960,79 @@ class SavedSearch(Base, TimestampMixin):
     user: Mapped["User"] = relationship(back_populates="saved_searches")
 
 
+class UserSession(Base, TimestampMixin):
+    """One sign-in, so that one sign-in can be ended.
+
+    The token stayed stateless for a long time and that was the right default:
+    no lookup, no shared state, nothing to keep in step. What it could not do
+    was answer "where am I signed in?" or "end that one". The only revocation
+    was ``User.token_version``, which retires *every* token at once -- fine for
+    a password change, useless for closing the laptop you left at work without
+    also signing yourself out of your phone.
+
+    The token now carries this row's id and the row can be marked revoked. The
+    cost is one primary-key lookup per request, beside the one that already
+    loads the user.
+    """
+
+    __tablename__ = "user_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    #: Somebody else's string, so it arrives scrubbed and truncated.
+    user_agent: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+
+    user: Mapped[User] = relationship("User")
+
+    @property
+    def is_live(self) -> bool:
+        # as_utc because every datetime column here is naive UTC by convention
+        # and utcnow() is aware; comparing the two directly raises.
+        expires = as_utc(self.expires_at)
+        return self.revoked_at is None and expires is not None and expires > utcnow()
+
+
+class AuditEvent(Base, TimestampMixin):
+    """Something an administrator did, kept where it can be read back.
+
+    Failed sign-ins were already logged. What happened *after* somebody got in
+    was not: creating an account, changing a role, disabling a site are all
+    decisions somebody made, and a log file that scrolls and rotates is not
+    where you go to find out who.
+
+    **The actor is kept twice, as an id and as a name.** The foreign key is
+    ``SET NULL`` so deleting an account cannot erase what it did, and the name
+    survives beside it -- because the row most worth reading is usually the one
+    written by somebody who is no longer here.
+
+    Append-only by convention: nothing in the application updates or deletes
+    one. A log somebody can edit answers a different question from the one it
+    appears to.
+    """
+
+    __tablename__ = "audit_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    actor_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    actor_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    action: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    target_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    target_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    target_label: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    detail: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    actor: Mapped[User | None] = relationship("User")
+
+
 class PasswordResetToken(Base, TimestampMixin):
     """A one-time link an administrator sends to somebody who cannot get in.
 

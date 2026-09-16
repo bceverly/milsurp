@@ -1,0 +1,13 @@
+{
+  "slug": "royal-tiger",
+  "recorded_at": "2026-09-16T14:28:24+00:00",
+  "note": "A browser-rendered page, not an HTTP response. This catalog is drawn by JavaScript, so no server response contains it and a scan cannot be replayed from it. Parsed directly by test_royal_tiger.py.",
+  "section": "Antique",
+  "pages": [
+    {
+      "url": "https://royaltigerimports.com/antiques/",
+      "file": "0001.html.gz"
+    }
+  ],
+  "kind": "rendered"
+}

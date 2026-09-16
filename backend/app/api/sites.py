@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import threading
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from sqlalchemy import case, func, select
 
 from ..deps import AdminUser, CurrentUser, DbSession
+from ..logsafe import client_address
 from ..models import HostCooldown, Item, ScanRun, Site, as_utc, utcnow
 from ..schemas import (
     PlannedSiteOut,
@@ -17,7 +18,7 @@ from ..schemas import (
     SiteUpdate,
 )
 from ..scrapers.planned import PLANNED
-from ..services import cooldown, scan_service
+from ..services import audit, cooldown, scan_service
 
 router = APIRouter(prefix="/sites", tags=["sites"])
 
@@ -101,16 +102,25 @@ def get_site(site_id: int, _user: CurrentUser, session: DbSession) -> SiteOut:
 
 @router.patch("/{site_id}", response_model=SiteOut)
 def update_site(
-    site_id: int, payload: SiteUpdate, _admin: AdminUser, session: DbSession
+    site_id: int,
+    payload: SiteUpdate,
+    admin: AdminUser,
+    request: Request,
+    session: DbSession,
 ) -> SiteOut:
     """Enable/disable a site or change how often it is scanned."""
     site = session.get(Site, site_id)
     if site is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such site.")
 
+    turned = None
     if payload.enabled is not None:
         was_enabled = site.enabled
         site.enabled = payload.enabled
+        # Only a change is worth a row. Saving the page with the switch already
+        # where it was is not a decision anybody made.
+        if payload.enabled != was_enabled:
+            turned = payload.enabled
         if payload.enabled and not was_enabled:
             # Re-enabling schedules the site immediately rather than leaving it
             # to wait out an interval that elapsed while it was off.
@@ -129,6 +139,17 @@ def update_site(
         site.name = payload.name
     if payload.description is not None:
         site.description = payload.description
+
+    if turned is not None:
+        audit.record(
+            session,
+            actor=admin,
+            action=audit.SITE_ENABLED if turned else audit.SITE_DISABLED,
+            target_type="site",
+            target_id=site.id,
+            target_label=site.name,
+            ip_address=client_address(request),
+        )
 
     session.commit()
     return _site_out(session, site)

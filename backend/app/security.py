@@ -181,8 +181,16 @@ def create_access_token(
     token_version: int,
     config: Config | None = None,
     expires_minutes: int | None = None,
+    session_id: int | None = None,
 ) -> tuple[str, datetime]:
-    """Issue a signed access token. Returns ``(token, expires_at_utc)``."""
+    """Issue a signed access token. Returns ``(token, expires_at_utc)``.
+
+    ``session_id`` names the row this token belongs to, so that one sign-in can
+    be ended without ending the rest. Optional, and absent means "not tied to a
+    session": a token minted by a script or a test is still valid, and
+    revocation for those is still ``token_version``, which retires all of them
+    at once. See :class:`app.models.UserSession`.
+    """
     config = config or get_config()
     if not config.security.jwt_secret:
         raise TokenError(
@@ -201,6 +209,8 @@ def create_access_token(
         "exp": int(expires_at.timestamp()),
         "iss": "milsurp",
     }
+    if session_id is not None:
+        payload["sid"] = session_id
     token = jwt.encode(payload, config.security.jwt_secret, algorithm=config.security.jwt_algorithm)
     return token, expires_at
 

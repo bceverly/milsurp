@@ -19,6 +19,7 @@ import {
   Star,
   Tag as TagIcon,
   Database as DatabaseIcon,
+  History as HistoryIcon,
   Users as UsersIcon,
   X,
 } from "./Icons.jsx";
@@ -42,6 +43,7 @@ const NAV = [
   { to: "/armory", label: "Armory", icon: TagIcon, adminOnly: true },
   { to: "/users", label: "Users", icon: UsersIcon, adminOnly: true },
   { to: "/backups", label: "Backups", icon: DatabaseIcon, adminOnly: true },
+  { to: "/audit", label: "Audit log", icon: HistoryIcon, adminOnly: true },
   { to: "/settings", label: "Email digest", icon: Mail },
   // Its own entry. The password panel lived under "Email digest" since it was
   // written, and putting two-factor there too made that worse rather than

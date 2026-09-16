@@ -1,5 +1,6 @@
 /**
- * Security settings: the password, and two-factor authentication.
+ * Security settings: the password, two-factor authentication, and where this
+ * account is signed in.
  *
  * A page of their own rather than a section of the digest page, where they
  * used to live. The password panel sat under a nav item called "Email digest"
@@ -20,6 +21,7 @@ export default function SecurityPage() {
         <h1>Security settings</h1>
       </div>
       <TwoFactorPanel />
+      <SessionsPanel />
       <PasswordPanel />
     </div>
   );
@@ -247,6 +249,124 @@ function TwoFactorPanel() {
               Cancel
             </button>
           </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Where this account is signed in, and how to end one of those places.
+ *
+ * The session used to be a token this page could not enumerate -- there was
+ * nothing written down, so "where am I signed in?" had no answer and the only
+ * revocation available ended every session at once. A sign-in is a row now.
+ *
+ * **Which one is this browser is the first thing anybody looks for**, so the
+ * current session is labelled and its button says "Sign out" rather than
+ * "Revoke": ending the one you are using is a legitimate thing to want and a
+ * bad thing to do by accident.
+ */
+function SessionsPanel() {
+  const [rows, setRows] = useState(null);
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(() => {
+    api
+      .sessions()
+      .then(setRows)
+      .catch((err) => setError(err.message));
+  }, []);
+
+  useEffect(load, [load]);
+
+  async function end(id, isCurrent) {
+    setError(null);
+    setBusy(true);
+    try {
+      await api.revokeSession(id);
+      // Ending the current one signs this tab out; any request after it gets a
+      // 401 and the app falls back to the sign-in screen on its own.
+      if (!isCurrent) load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function endOthers() {
+    setError(null);
+    setBusy(true);
+    try {
+      await api.revokeOtherSessions();
+      load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const others = (rows || []).filter((row) => !row.current).length;
+
+  return (
+    <div className="panel">
+      <div className="panel__head">
+        <h2>Signed in</h2>
+        {others > 0 && (
+          <button
+            type="button"
+            className="btn btn--secondary"
+            onClick={endOthers}
+            disabled={busy}
+          >
+            Sign out everywhere else
+          </button>
+        )}
+      </div>
+      <div className="panel__body">
+        {error && <p className="alert alert--danger">{error}</p>}
+        {rows === null && !error && <p className="muted">Loading…</p>}
+        {rows !== null && rows.length === 0 && (
+          <p className="muted">No other sessions.</p>
+        )}
+        {rows !== null && rows.length > 0 && (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Browser</th>
+                <th>Address</th>
+                <th>Signed in</th>
+                <th>Last used</th>
+                <th aria-label="Actions" />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.id}>
+                  <td>
+                    {row.user_agent || "Unknown"}
+                    {row.current && <span className="chip chip--info">This browser</span>}
+                  </td>
+                  <td>{row.ip_address || "—"}</td>
+                  <td>{row.created_at ? formatDateTime(row.created_at) : "—"}</td>
+                  <td>{row.last_seen_at ? formatDateTime(row.last_seen_at) : "—"}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="btn btn--ghost"
+                      onClick={() => end(row.id, row.current)}
+                      disabled={busy}
+                    >
+                      {row.current ? "Sign out" : "Revoke"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </div>

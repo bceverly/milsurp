@@ -127,7 +127,7 @@ class TestTheRecordingsThemselves:
 #: without a fixture fails the test below instead of quietly never being
 #: exercised. Removing a name from here means recording it.
 NOT_RECORDABLE = {
-    "royal-tiger": "renders its catalog in JavaScript; the fixture would be a browser page",
+    "royal-tiger": "renders its catalog in JavaScript; its fixture is a rendered page, tested in test_royal_tiger.py",
     "simpson-ltd": "catalog is in Firestore, which refuses an unauthenticated read",
     "hunters-lodge": "reads a PDF flyer through OCR, not HTML — see test_flyer.py",
 }
@@ -164,3 +164,17 @@ class TestEveryScraperIsCovered:
     def test_an_exemption_is_not_also_recorded(self):
         """If it turned out to be recordable, the reason is now wrong."""
         assert not set(NOT_RECORDABLE) & set(RECORDED)
+
+    def test_nothing_replayed_would_open_a_browser(self):
+        """The guard that matters, because getting this wrong is not a red
+        test -- it is the suite quietly fetching from a vendor.
+
+        Royal Tiger has a fixture directory of its own (a rendered page), and
+        the first version of the exclusion trusted only the manifest's label.
+        A mislabelled manifest sent `scrape()` off to open Chrome and go to the
+        shop, which is the one thing these tests exist to stop.
+        """
+        from app.scrapers import get_scraper
+
+        driving = [s for s in RECORDED if getattr(get_scraper(s), "requires_browser", False)]
+        assert not driving, f"replaying these would reach the network: {driving}"

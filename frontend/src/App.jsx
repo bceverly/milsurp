@@ -10,6 +10,7 @@ import ScanDetail from "./pages/ScanDetail.jsx";
 import UsersPage from "./pages/Users.jsx";
 import ArmoryPage from "./pages/Armory.jsx";
 import SettingsPage from "./pages/Settings.jsx";
+import AuditLogPage from "./pages/AuditLog.jsx";
 import BackupsPage from "./pages/Backups.jsx";
 import SavedSearches from "./pages/SavedSearches.jsx";
 import Watchlist from "./pages/Watchlist.jsx";
@@ -66,6 +67,7 @@ export default function App() {
         <Route path="settings" element={<SettingsPage />} />
         <Route path="security" element={<SecurityPage />} />
         <Route path="backups" element={<BackupsPage />} />
+        <Route path="audit" element={<AuditLogPage />} />
         <Route path="saved-searches" element={<SavedSearches />} />
         <Route path="watchlist" element={<Watchlist />} />
         <Route

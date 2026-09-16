@@ -1,40 +1,39 @@
 /**
  * API client.
  *
- * The bearer token is held in memory and mirrored into sessionStorage rather
- * than localStorage: sessionStorage is cleared when the tab closes, which keeps
- * a forgotten session on a shared machine from outliving the browsing session.
- * A 401 from any call clears it and notifies the auth context so the app can
- * fall back to the sign-in screen instead of rendering broken pages.
+ * **This file no longer holds the session.** It used to keep a bearer token in
+ * `sessionStorage`, which meant any script running on the page could read it:
+ * one cross-site scripting hole, anywhere in this frontend or in anything it
+ * loads, handed over a working session. The session is now an `HttpOnly`
+ * cookie the browser sends and no script can see.
+ *
+ * What that costs is CSRF. A cookie is attached to every request reaching this
+ * origin, including ones another site caused, which a header-based token was
+ * immune to by construction. Two things stand in for it: `SameSite=Strict` on
+ * the cookie, and a token in a second, readable cookie that this file echoes
+ * back in `X-CSRF-Token` on anything that changes something. An attacker's
+ * page can cause a request; the same-origin policy stops it reading our cookie
+ * to know what to echo.
+ *
+ * A 401 from any call notifies the auth context so the app falls back to the
+ * sign-in screen instead of rendering broken pages.
  */
 
-const TOKEN_KEY = "milsurp.token";
+//: Written by the server alongside the session, readable on purpose.
+const CSRF_COOKIE = "milsurp_csrf";
+const CSRF_HEADER = "X-CSRF-Token";
 
-let token = null;
+//: Methods the server asks for the echo on. Kept in step with
+//: `sessions.UNSAFE_METHODS`.
+const UNSAFE = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
 let onUnauthorized = null;
 
-function readStoredToken() {
-  try {
-    return sessionStorage.getItem(TOKEN_KEY);
-  } catch {
-    // Private mode or blocked storage: fall back to memory only.
-    return null;
-  }
-}
-
-export function setToken(value) {
-  token = value;
-  try {
-    if (value) sessionStorage.setItem(TOKEN_KEY, value);
-    else sessionStorage.removeItem(TOKEN_KEY);
-  } catch {
-    /* memory-only session */
-  }
-}
-
-export function getToken() {
-  if (token === null) token = readStoredToken();
-  return token;
+function csrfToken() {
+  // Read at call time rather than cached: signing in replaces it, and a stale
+  // one fails every write with a 403 that looks like a permissions bug.
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${CSRF_COOKIE}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
 }
 
 export function setUnauthorizedHandler(handler) {
@@ -52,9 +51,11 @@ export class ApiError extends Error {
 
 async function request(path, { method = "GET", body, signal, raw = false } = {}) {
   const headers = {};
-  const current = getToken();
-  if (current) headers.Authorization = `Bearer ${current}`;
   if (body !== undefined) headers["Content-Type"] = "application/json";
+  if (UNSAFE.has(method)) {
+    const csrf = csrfToken();
+    if (csrf) headers[CSRF_HEADER] = csrf;
+  }
 
   let response;
   try {
@@ -63,9 +64,11 @@ async function request(path, { method = "GET", body, signal, raw = false } = {})
       headers,
       signal,
       body: body === undefined ? undefined : JSON.stringify(body),
-      // The token travels in a header, so no cookies are needed; omitting
-      // credentials also means CSRF is not reachable against this API.
-      credentials: "omit",
+      // The session is a cookie now, so it has to be sent. "same-origin" and
+      // not "include": this API is only ever same-origin, and "include" would
+      // attach credentials to a cross-origin call if one were ever added by
+      // accident.
+      credentials: "same-origin",
     });
   } catch (error) {
     if (error.name === "AbortError") throw error;
@@ -73,7 +76,6 @@ async function request(path, { method = "GET", body, signal, raw = false } = {})
   }
 
   if (response.status === 401) {
-    setToken(null);
     if (onUnauthorized) onUnauthorized();
   }
 
@@ -121,6 +123,7 @@ export const api = {
   // totpCode is undefined on the first exchange. An account with two-factor
   // answers that one with { two_factor_required: true } and no token; the page
   // then asks again with the code alongside the password it already has.
+  logout: () => request("/api/auth/logout", { method: "POST" }),
   login: (username, password, totpCode) =>
     request("/api/auth/login", {
       method: "POST",
@@ -138,6 +141,22 @@ export const api = {
     request("/api/auth/totp/confirm", { method: "POST", body: { code } }),
   totpDisable: (password) =>
     request("/api/auth/totp/disable", { method: "POST", body: { password } }),
+
+  // --- sessions ---
+  sessions: () => request("/api/auth/sessions"),
+  revokeSession: (id) => request(`/api/auth/sessions/${id}`, { method: "DELETE" }),
+  revokeOtherSessions: () =>
+    request("/api/auth/sessions/revoke-others", { method: "POST" }),
+
+  // --- audit log (admin) ---
+  auditLog: (params = {}) => {
+    const query = new URLSearchParams();
+    if (params.action) query.set("action", params.action);
+    if (params.limit) query.set("limit", String(params.limit));
+    const suffix = query.toString();
+    return request(`/api/audit${suffix ? `?${suffix}` : ""}`);
+  },
+  auditActions: () => request("/api/audit/actions"),
 
   // --- password reset by link ---
   // Named resetToken, not token: the module already has a `token` holding the

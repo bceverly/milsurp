@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 from sqlalchemy import func, select
 
 from ..deps import AdminUser, AppConfig, DbSession
-from ..logsafe import safe_identifier
+from ..logsafe import client_address, safe_identifier
 from ..models import EmailPreference, EmailStatus, User, UserRole
 from ..schemas import ResetLinkOut, UserCreate, UserOut, UserUpdate
 from ..security import PasswordPolicyError, hash_password, validate_password
-from ..services import digest, passwordreset
+from ..services import audit, digest, passwordreset
 
 log = logging.getLogger("milsurp.users")
 
@@ -33,7 +33,11 @@ def list_users(_admin: AdminUser, session: DbSession) -> list[UserOut]:
 
 @router.post("", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 def create_user(
-    payload: UserCreate, _admin: AdminUser, session: DbSession, config: AppConfig
+    payload: UserCreate,
+    admin: AdminUser,
+    request: Request,
+    session: DbSession,
+    config: AppConfig,
 ) -> UserOut:
     try:
         validate_password(payload.password, config)
@@ -69,6 +73,16 @@ def create_user(
     # Every user gets a preferences row up front, so the settings page never
     # has to special-case its absence.
     session.add(EmailPreference(user_id=user.id))
+    audit.record(
+        session,
+        actor=admin,
+        action=audit.USER_CREATED,
+        target_type="user",
+        target_id=user.id,
+        target_label=user.username,
+        detail=f"role {user.role.value}",
+        ip_address=client_address(request),
+    )
     session.commit()
     return UserOut.model_validate(user)
 
@@ -83,7 +97,11 @@ def get_user(user_id: int, _admin: AdminUser, session: DbSession) -> UserOut:
 
 @router.post("/{user_id}/reset-link", response_model=ResetLinkOut)
 def send_reset_link(
-    user_id: int, admin: AdminUser, session: DbSession, config: AppConfig
+    user_id: int,
+    admin: AdminUser,
+    request: Request,
+    session: DbSession,
+    config: AppConfig,
 ) -> ResetLinkOut:
     """Mail this account a one-time link for setting a new password.
 
@@ -114,6 +132,16 @@ def send_reset_link(
     # Matched for the word "Password" in the message template. The link itself
     # is never logged -- the interpolated values are two usernames through
     # safe_identifier(), which is an allowlist, and a two-state string.
+    audit.record(
+        session,
+        actor=admin,
+        action=audit.USER_PASSWORD_RESET,
+        target_type="user",
+        target_id=user.id,
+        target_label=user.username,
+        detail="mailed" if sent else "not mailed",
+        ip_address=client_address(request),
+    )
     log.info(  # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
         "Password reset link issued for %s by %s (%s)",
         safe_identifier(user.username),
@@ -147,7 +175,8 @@ def send_reset_link(
 def update_user(
     user_id: int,
     payload: UserUpdate,
-    _admin: AdminUser,
+    admin: AdminUser,
+    request: Request,
     session: DbSession,
     config: AppConfig,
 ) -> UserOut:
@@ -191,6 +220,11 @@ def update_user(
 
     if payload.full_name is not None:
         user.full_name = payload.full_name
+    # Noted before the change, because afterwards there is nothing to compare
+    # against and "changed to admin" without "from what" answers half the
+    # question somebody is asking.
+    was_role = user.role.value
+    was_active = user.is_active
     if payload.role is not None:
         user.role = UserRole(payload.role)
     if payload.is_active is not None:
@@ -205,12 +239,46 @@ def update_user(
         # An admin reset must sign the user out everywhere.
         user.token_version += 1
 
+    changes = _what_changed(user, was_role, was_active, payload.password is not None)
+    if changes:
+        # A role change gets its own action so it can be filtered for. It is
+        # the one edit here that grants somebody power they did not have.
+        action = audit.USER_ROLE_CHANGED if user.role.value != was_role else audit.USER_UPDATED
+        audit.record(
+            session,
+            actor=admin,
+            action=action,
+            target_type="user",
+            target_id=user.id,
+            target_label=user.username,
+            detail="; ".join(changes),
+            ip_address=client_address(request),
+        )
+
     session.commit()
     return UserOut.model_validate(user)
 
 
+def _what_changed(user: User, was_role: str, was_active: bool, password_set: bool) -> list[str]:
+    """What an edit actually did, for the audit detail.
+
+    A separate function because the route was already at the branch ceiling and
+    this is the part with no bearing on the response -- the log reads better
+    for saying "role normal -> admin" rather than "role changed", and that
+    costs three comparisons nothing else needs to see.
+    """
+    changes = []
+    if user.role.value != was_role:
+        changes.append(f"role {was_role} -> {user.role.value}")
+    if user.is_active != was_active:
+        changes.append("enabled" if user.is_active else "disabled")
+    if password_set:
+        changes.append("password set by admin")
+    return changes
+
+
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_user(user_id: int, admin: AdminUser, session: DbSession) -> None:
+def delete_user(user_id: int, admin: AdminUser, request: Request, session: DbSession) -> None:
     user = session.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such user.")
@@ -227,5 +295,18 @@ def delete_user(user_id: int, admin: AdminUser, session: DbSession) -> None:
             status_code=status.HTTP_409_CONFLICT,
             detail="This is the only active administrator; promote another first.",
         )
+    # Recorded before the delete, so the label is read off the row while it is
+    # still there. The event outlives the account: its actor_id is SET NULL on
+    # delete and the name stays beside it.
+    audit.record(
+        session,
+        actor=admin,
+        action=audit.USER_DELETED,
+        target_type="user",
+        target_id=user.id,
+        target_label=user.username,
+        detail=f"role {user.role.value}",
+        ip_address=client_address(request),
+    )
     session.delete(user)
     session.commit()

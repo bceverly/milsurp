@@ -56,12 +56,15 @@ test.describe("two-factor", () => {
    */
   test.afterEach(async ({ signedIn }) => {
     await signedIn.evaluate(async (password) => {
-      const token = sessionStorage.getItem("milsurp.token");
-      if (!token) return;
+      // The session rides on the cookie, so this only has to echo the CSRF
+      // token back the way the app itself does.
+      const csrf = document.cookie.match(/(?:^|;\s*)milsurp_csrf=([^;]*)/);
+      if (!csrf) return;
       await fetch("/api/auth/totp/disable", {
         method: "POST",
+        credentials: "same-origin",
         headers: {
-          Authorization: `Bearer ${token}`,
+          "X-CSRF-Token": decodeURIComponent(csrf[1]),
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ password }),
@@ -102,7 +105,11 @@ test.describe("two-factor", () => {
     await expect(panel.locator(".recovery-codes li")).toHaveCount(10);
 
     // Sign out and back in.
-    await signedIn.getByRole("button", { name: /Sign out/i }).click();
+    // The top bar's, specifically. The Security page now also lists this
+    // account's sessions, each with its own Sign out, so a name match alone
+    // is ambiguous -- and would be for a person too if they were not in
+    // different parts of the page.
+    await signedIn.locator("button.topbar__signout").click();
     await expect(signedIn).toHaveURL(/\/login/);
 
     await signedIn.getByLabel("Username").fill("admin");
