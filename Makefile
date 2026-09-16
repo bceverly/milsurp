@@ -341,6 +341,11 @@ deb: vendor build-frontend ## Alias for `installer`
 installer-test: ## Install the built .deb in a throwaway container and check it works
 	@scripts/test-installer.sh
 
+.PHONY: record-fixtures
+record-fixtures: $(VENV_PY) ## Re-record vendor pages for the scraper tests (touches the network)
+	@echo "This is the one target that fetches from vendor sites. SITE=<slug> for one."
+	@$(VENV_PY) scripts/record-fixtures.py $${SITE:---all}
+
 .PHONY: deb-source
 deb-source: vendor build-frontend ## Build the signed source package for a Launchpad upload
 	@scripts/build-deb.sh --source

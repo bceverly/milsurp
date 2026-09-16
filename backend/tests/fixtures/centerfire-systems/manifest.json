@@ -1,0 +1,18 @@
+{
+  "slug": "centerfire-systems",
+  "recorded_at": "2026-09-16T13:52:58+00:00",
+  "pages": [
+    {
+      "url": "https://centerfiresystems.com/collections/c-r-eligible/products.json?limit=250&page=1",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://centerfiresystems.com/collections/c-r-eligible/products.json?limit=250&page=2",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://centerfiresystems.com/collections/firearms-classic-firearms-military/products.json?limit=250&page=1",
+      "file": "0003.html.gz"
+    }
+  ]
+}

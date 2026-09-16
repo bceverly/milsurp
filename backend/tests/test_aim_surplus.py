@@ -193,3 +193,92 @@ class TestTheSearchQuery:
         monkeypatch.setattr(context, "get_text", lambda *_a, **_k: "<html>nope</html>")
         with pytest.raises(ScrapeError, match="did not return JSON"):
             AimSurplusScraper()._search(context, 744, 1)
+
+
+class TestRereadingOneListingsPrice:
+    """The watchlist poller's single-page check.
+
+    Nothing generic can work here: every page on this site is Vue scaffolding
+    with no price in it, which is exactly what made the catalog look like it
+    needed a headless browser. The shop's own product endpoint answers in one
+    request.
+    """
+
+    @staticmethod
+    def _answering(ctx_factory, monkeypatch, payload, seen=None):
+        context = ctx_factory()
+
+        def fake_get_text(url, **_kwargs):
+            if seen is not None:
+                seen.append(url)
+            return json.dumps(payload)
+
+        monkeypatch.setattr(context, "get_text", fake_get_text)
+        return context
+
+    #: Their real shape, with the three disagreeing prices intact.
+    RECORD = {
+        "product": {
+            "price": "399.95",
+            "lowest_price": "249.95",
+            "discounted_price": {"price": "249.95", "original_price": "399.95"},
+            "in_stock": True,
+        }
+    }
+
+    def test_it_asks_the_product_endpoint_by_id(self, monkeypatch, ctx_factory):
+        seen: list[str] = []
+        context = self._answering(ctx_factory, monkeypatch, self.RECORD, seen)
+        AimSurplusScraper().check_price(
+            context, "https://aimsurplus.com/products/x", key="aim-6086"
+        )
+        assert seen == ["https://aimsurplus.com/data/products/6086"]
+
+    def test_it_reports_the_same_price_the_scan_stores(self, monkeypatch, ctx_factory):
+        """`price`, `lowest_price` and `discounted_price` disagree -- 399.95,
+        249.95, 249.95 on this one record. The poller compares what this
+        returns against what the scan stored, so reading a different field
+        here would report a price change on every pass, forever."""
+        context = self._answering(ctx_factory, monkeypatch, self.RECORD)
+        found = AimSurplusScraper().check_price(
+            context, "https://aimsurplus.com/products/x", key="aim-6086"
+        )
+        assert found is not None
+        assert found.price == _price(self.RECORD["product"])
+        assert found.price == 399.95
+
+    def test_out_of_stock_is_carried(self, monkeypatch, ctx_factory):
+        record = {"product": dict(self.RECORD["product"], in_stock=False)}
+        context = self._answering(ctx_factory, monkeypatch, record)
+        found = AimSurplusScraper().check_price(
+            context, "https://aimsurplus.com/products/x", key="aim-6086"
+        )
+        assert found is not None
+        assert found.sold_out
+
+    def test_without_a_key_it_cannot_ask(self, monkeypatch, ctx_factory):
+        """The URL is a slug made from the title and the API is keyed by a
+        numeric id, so there is no question to ask without the key. The one
+        shop here where that is true."""
+        context = self._answering(ctx_factory, monkeypatch, self.RECORD)
+        assert AimSurplusScraper().check_price(context, "https://aimsurplus.com/products/x") is None
+
+    @pytest.mark.parametrize("key", ["", "aim-", "27299", "aim-abc", "woo-27299"])
+    def test_a_key_from_another_shop_is_refused(self, monkeypatch, ctx_factory, key):
+        context = self._answering(ctx_factory, monkeypatch, self.RECORD)
+        assert AimSurplusScraper().check_price(context, "https://aimsurplus.com/x", key=key) is None
+
+    def test_an_empty_record_is_silence(self, monkeypatch, ctx_factory):
+        context = self._answering(ctx_factory, monkeypatch, {"product": {}})
+        assert (
+            AimSurplusScraper().check_price(context, "https://aimsurplus.com/x", key="aim-1")
+            is None
+        )
+
+    def test_a_zero_price_is_not_a_price(self, monkeypatch, ctx_factory):
+        record = {"product": {"price": "0.00", "lowest_price": "0.00", "in_stock": True}}
+        context = self._answering(ctx_factory, monkeypatch, record)
+        assert (
+            AimSurplusScraper().check_price(context, "https://aimsurplus.com/x", key="aim-1")
+            is None
+        )

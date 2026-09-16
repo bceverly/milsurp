@@ -1,0 +1,22 @@
+{
+  "slug": "ebayonet",
+  "recorded_at": "2026-09-16T13:45:51+00:00",
+  "pages": [
+    {
+      "url": "https://www.ebayonet.com/bayonetsa_f.htm",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://www.ebayonet.com/bayonetsg.htm",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://www.ebayonet.com/bayonetsh_m.htm",
+      "file": "0003.html.gz"
+    },
+    {
+      "url": "https://www.ebayonet.com/bayonetsn_s.htm",
+      "file": "0004.html.gz"
+    }
+  ]
+}

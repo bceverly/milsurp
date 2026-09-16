@@ -1042,10 +1042,19 @@ _CANARY_MARK = {
 }
 
 
-def _canary_report(results: list[canary.Probe], backups: canary.BackupHealth | None = None) -> str:
+def _canary_report(
+    results: list[canary.Probe],
+    backups: canary.BackupHealth | None = None,
+    site: canary.SiteHealth | None = None,
+) -> str:
     """The failures, as plain text, for a terminal and for an email body."""
     bad = canary.failures(results)
     lines = []
+    if site is not None and site.unhappy:
+        # Above even the backups. Every other line in this report is about
+        # something that will matter later; this one is about right now, and
+        # about the only thing here that visitors can see for themselves.
+        lines += [f"SITE: {site.headline}", ""]
     if backups is not None and backups.stale:
         # First, because it is the one nobody else will ever mention. A vendor
         # going quiet shows up as an empty shelf eventually; a backup that
@@ -1067,12 +1076,21 @@ def _canary_report(results: list[canary.Probe], backups: canary.BackupHealth | N
     return "\n".join(lines)
 
 
-def _mail_canary(results: list[canary.Probe], backups: canary.BackupHealth | None = None) -> None:
+def _mail_canary(
+    results: list[canary.Probe],
+    backups: canary.BackupHealth | None = None,
+    site: canary.SiteHealth | None = None,
+) -> None:
     """Tell the admins. Never raises: a canary that dies in its own alerting
     reports a clean sweep by exiting the same way a clean sweep would."""
     bad = canary.failures(results)
-    text = _canary_report(results, backups)
-    if backups is not None and backups.stale and not bad:
+    text = _canary_report(results, backups, site)
+    # The subject is what gets read on a phone, so the worst thing wins it.
+    if site is not None and site.down:
+        subject = "Milsurp canary: THE SITE IS DOWN"
+    elif site is not None and site.unhappy:
+        subject = "Milsurp canary: the site is struggling"
+    elif backups is not None and backups.stale and not bad:
         subject = "Milsurp canary: backups have stopped"
     else:
         subject = f"Milsurp canary: {len(bad)} of {len(results)} shops not answering"
@@ -1153,17 +1171,23 @@ def cmd_canary(args: argparse.Namespace) -> int:
     # vendor that stopped answering does -- quietly, with nothing to see.
     backups = canary.backup_health(config)
 
+    # And the site itself, from outside. An application cannot report its own
+    # absence, and this process is the only part of the deployment still
+    # running when the service is not.
+    site = canary.site_health(config)
+
     bad = canary.failures(results)
     print()
-    if not bad and not backups.stale:
+    if not bad and not backups.stale and not site.unhappy:
         shops = "shop" if len(results) == 1 else "shops"
         print(f"All {len(results)} {shops} answered with listings.")
+        print(site.headline)
         if backups.configured:
             print(backups.headline)
         return 0
-    print(_canary_report(results, backups))
+    print(_canary_report(results, backups, site))
     if args.email:
-        _mail_canary(results, backups)
+        _mail_canary(results, backups, site)
     return 1
 
 

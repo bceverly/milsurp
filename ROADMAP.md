@@ -3143,8 +3143,35 @@ more than one machine still wants the queue below.
 
 ## 6. Testing and tooling
 
-- **Planned** — Recorded HTTP fixtures for every scraper, so parsing can be
-  tested without touching a vendor's site.
+- **Shipped** — Recorded HTTP fixtures, so a parser can be tested against the
+  markup it parses without asking the vendor. **25 of the 28 shops**, replayed
+  by `backend/tests/test_recorded_scrapers.py`; the other three are listed in
+  `NOT_RECORDABLE` with their reasons, and a scraper added without either fails
+  the suite rather than quietly never being exercised.
+
+  Recording happens at `ScrapeContext.get_text`, the single door every scraper
+  goes through, so `scripts/record-fixtures.py` captures a whole scan without
+  any scraper knowing about it. It runs the real context — robots.txt, the
+  cooldown register and the politeness delay all apply — and stops through the
+  application's own cancellation. It is the only thing in the repository that
+  deliberately fetches from a vendor, and it is a target an operator runs.
+
+  **The tests assert shape, never contents.** A recording is a photograph of a
+  shop on one day; asserting it still sells a particular Mosin is a test that
+  fails when somebody buys it. What is pinned is that listings come back, that
+  each carries the key the database matches on, that no two share one, and that
+  a price is absent or positive. Verified by breaking a parser on purpose: a
+  one-character change to eBayonet's stock-number pattern turned four of these
+  red.
+
+  **It found something on the first run.** Two shops publish `$0.00` for a
+  listing nobody has priced — a restricted launcher sold on enquiry, a Walther
+  frame marked unavailable — and the scan stored the zero. Nothing rejected it,
+  and zero is not a price: it reaches the deal comparison and the watchlist as
+  the best offer anyone ever made. Fixing it took two edits, because there are
+  two `parse_price` functions matching different patterns and BigCommerce
+  reaches for the other one — which is itself the kind of thing only a test
+  against real markup finds.
 - **Shipped** — The browser is found where Ubuntu actually puts it. `apt
   install chromium-browser` reports success, installs a working browser, and
   leaves Selenium reporting "Unable to obtain driver for chrome" — because on

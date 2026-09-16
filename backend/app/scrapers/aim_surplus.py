@@ -51,7 +51,14 @@ import json
 from collections.abc import Iterable, Iterator
 from typing import Any
 
-from .base import ScrapeContext, ScrapedItem, ScrapeError, SiteScraper, flatten_html
+from .base import (
+    PriceCheck,
+    ScrapeContext,
+    ScrapedItem,
+    ScrapeError,
+    SiteScraper,
+    flatten_html,
+)
 
 SITE_BASE = "https://aimsurplus.com/"
 
@@ -186,6 +193,45 @@ class AimSurplusScraper(SiteScraper):
             return item
         return self._detailed(ctx, item, int(product_id)) or item
 
+    def check_price(
+        self, ctx: ScrapeContext, url: str, *, key: str | None = None  # noqa: ARG002
+    ) -> PriceCheck | None:
+        """One listing's price, from the shop's own product endpoint.
+
+        The generic layers find nothing here and never could: every page on
+        this site is Vue scaffolding with no price in it, which is what made
+        the catalog look like it needed a headless browser. The same JSON the
+        front end calls answers this in one request -- ``/data/products/<id>``
+        carries the price and ``in_stock`` together.
+
+        **The key is required, and this is the one shop where that is true.**
+        The product URL is a slug made from the title and the API is keyed by
+        a numeric id, so the URL alone cannot ask the question. The id is in
+        the external key, which is where it has been since the catalog walk
+        built it.
+
+        ``_price`` rather than a field of its own, deliberately: the poller
+        compares what this returns against what the scan stored, so the two
+        have to mean the same thing. This shop publishes ``price``,
+        ``lowest_price`` and a ``discounted_price`` block that disagree --
+        399.95, 249.95 and 249.95 on one listing -- and reading a different one
+        here would report a price change on every pass, forever.
+        """
+        product_id = _id_from_key(key)
+        if product_id is None:
+            return None
+        try:
+            body = ctx.get_text(f"{SITE_BASE}data/products/{product_id}")
+            product = (json.loads(body) or {}).get("product") or {}
+        except (ValueError, TypeError):
+            return None
+        if not product:
+            return None
+        price = _price(product)
+        if price is None or price <= 0:
+            return None
+        return PriceCheck(price=price, sold_out=product.get("in_stock") is False)
+
     def _detailed(
         self, ctx: ScrapeContext, item: ScrapedItem, product_id: int
     ) -> ScrapedItem | None:
@@ -219,6 +265,14 @@ class AimSurplusScraper(SiteScraper):
             image_urls=_images(product.get("images") or []),
             images_are_complete=True,
         )
+
+
+def _id_from_key(key: str | None) -> str | None:
+    """``aim-27299`` -> ``27299``, and nothing at all for anything else."""
+    if not key:
+        return None
+    _, _, tail = key.partition("aim-")
+    return tail if tail.isdigit() else None
 
 
 def _price(product: dict[str, Any]) -> float | None:

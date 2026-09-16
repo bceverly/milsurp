@@ -1,0 +1,18 @@
+{
+  "slug": "sarco",
+  "recorded_at": "2026-09-16T13:49:13+00:00",
+  "pages": [
+    {
+      "url": "https://searchserverapi.com/getresults?api_key=7I8v4I9z4m&q=&maxResults=250&startIndex=0&items=true&output=json&restrictBy%5Bcategories%5D=Frames",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://searchserverapi.com/getresults?api_key=7I8v4I9z4m&q=&maxResults=250&startIndex=0&items=true&output=json&restrictBy%5Bcategories%5D=Actions+%26+Receivers",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://searchserverapi.com/getresults?api_key=7I8v4I9z4m&q=&maxResults=250&startIndex=0&items=true&output=json&restrictBy%5Bcategories%5D=Pistols",
+      "file": "0003.html.gz"
+    }
+  ]
+}

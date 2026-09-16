@@ -19,10 +19,16 @@ from __future__ import annotations
 import html as html_lib
 import re
 from collections.abc import Iterable
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 
 from ..services import classify
-from .base import ScrapeContext, ScrapedItem, SiteScraper, normalize_whitespace
+from .base import (
+    PriceCheck,
+    ScrapeContext,
+    ScrapedItem,
+    SiteScraper,
+    normalize_whitespace,
+)
 
 SITE_BASE = "https://www.empirearms.com/"
 
@@ -161,6 +167,15 @@ def parse_page(html_text: str, category: str, source_url: str) -> list[ScrapedIt
     return items
 
 
+def _source_for(url: str) -> dict[str, str] | None:
+    """Which of the two inventory pages this URL is, if either."""
+    path = urlsplit(url).path.rsplit("/", 1)[-1].lower()
+    for source in SOURCES:
+        if urlsplit(source["url"]).path.rsplit("/", 1)[-1].lower() == path:
+            return source
+    return None
+
+
 class EmpireArmsScraper(SiteScraper):
     slug = "empire-arms"
     name = "Empire Arms"
@@ -168,6 +183,36 @@ class EmpireArmsScraper(SiteScraper):
     description = "Collector-grade military surplus rifles and handguns (static HTML catalog)."
     requires_browser = False
     default_interval_minutes = 720
+
+    def check_price(
+        self, ctx: ScrapeContext, url: str, *, key: str | None = None
+    ) -> PriceCheck | None:
+        """One listing's price, re-read from the inventory page it sits on.
+
+        **The key is not optional here and cannot be made so.** This shop has
+        two pages -- ``rifles.htm`` and ``pistols.htm`` -- and every gun on a
+        page shares its URL exactly, with no fragment to tell them apart. The
+        URL says which page; only the external key says which rifle. A check
+        that fell back to "the first price on the page" would quietly report
+        one gun's price for another, and the whole point of the watchlist is
+        that somebody acts on what it says.
+
+        Like eBayonet, it re-runs the scan's own ``parse_page`` rather than
+        reading the price itself, so the answer is derived the same way the
+        stored one was. Both shops keep a whole catalog on one page, which is
+        why both spend a parse to answer about a single listing.
+        """
+        if not key:
+            return None
+        source = _source_for(url)
+        if source is None:
+            return None
+        for item in parse_page(ctx.get_text(url), source["category"], source["url"]):
+            if item.external_key == key:
+                if item.price is None or item.price <= 0:
+                    return None
+                return PriceCheck(price=item.price, sold_out=bool(item.is_sold))
+        return None
 
     def scrape(self, ctx: ScrapeContext) -> Iterable[ScrapedItem]:
         items: list[ScrapedItem] = []

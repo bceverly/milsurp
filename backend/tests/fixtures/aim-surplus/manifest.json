@@ -1,0 +1,18 @@
+{
+  "slug": "aim-surplus",
+  "recorded_at": "2026-09-16T13:47:31+00:00",
+  "pages": [
+    {
+      "url": "https://aimsurplus.com/data/search?q=&g=&category=744&filter=&sort_by=&pagesize=60&page=1&mode=category",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://aimsurplus.com/data/products/246",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://aimsurplus.com/data/products/371",
+      "file": "0003.html.gz"
+    }
+  ]
+}

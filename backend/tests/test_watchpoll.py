@@ -66,9 +66,14 @@ def _a_user(session):
 def answering(monkeypatch):
     """A scraper that reports whatever the test says, without a network."""
 
-    def answer(found):
+    def answer(found, *, seen=None):
         class Fake:
-            def check_price(self, _ctx, _url):
+            # The keyword mirrors SiteScraper.check_price: two shops keep a
+            # whole catalog on one page and the key is the only thing that
+            # says which listing is meant.
+            def check_price(self, _ctx, url, *, key=None):
+                if seen is not None:
+                    seen.append((url, key))
                 if isinstance(found, Exception):
                     raise found
                 return found
@@ -223,3 +228,22 @@ class TestItReadsEachListingOnce:
         clean_db.commit()
 
         assert watchpoll.watched_items(clean_db)[0].url == never.url
+
+
+class TestTheListingsIdentityTravelsWithIt:
+    """Two shops keep a whole catalog on one page.
+
+    eBayonet addresses a listing by fragment; Empire Arms has no fragment at
+    all -- every rifle it sells is at `rifles.htm`. The URL alone cannot say
+    which one, so the poller hands the scraper the external key as well.
+    """
+
+    def test_the_external_key_is_passed_to_the_scraper(self, clean_db, shop, answering, app_config):
+        seen: list[tuple[str, str | None]] = []
+        item = _watched(clean_db, shop, price=900)
+        answering(PriceCheck(price=900.0), seen=seen)
+        watchpoll.run(clean_db, app_config)
+        assert seen, "the poller never asked"
+        url, key = seen[0]
+        assert url == item.url
+        assert key == item.external_key

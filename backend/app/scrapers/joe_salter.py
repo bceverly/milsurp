@@ -51,6 +51,7 @@ from collections.abc import Iterable
 
 from .base import (
     Disallowed,
+    PriceCheck,
     ScrapeContext,
     ScrapedItem,
     ScrapeError,
@@ -118,6 +119,17 @@ TAG_RE = re.compile(r"<[^>]+>")
 TOTAL_RE = re.compile(r"(?i)showing\s+\d+\s+to\s+\d+\s+of\s+(\d+)")
 
 OUT_OF_STOCK_RE = re.compile(r"(?i)availability\s*:?\s*(out\s+of\s+stock|sold)")
+
+#: The product page's own price, and nothing else that looks like money.
+#:
+#: Scoping this to the heading matters more than it looks. The page carries
+#: twenty-one dollar amounts -- shipping options, related items, and a mini
+#: cart reading **$0.00** that appears *before* the real one. A search over the
+#: whole page returns zero, which is not a price and would be mailed to
+#: somebody as a rifle suddenly being free. The same mistake cost Royal Tiger's
+#: check a release, and the same fix applies: read the element the shop puts
+#: the price in, and refuse a zero even there.
+DETAIL_PRICE_RE = re.compile(r"<h2[^>]*>\s*\$\s?([\d,]+(?:\.\d{2})?)\s*</h2>", re.I)
 
 #: The dealer's spec preamble, which every gun he lists carries and no book
 #: does: "Serial #8013, .32 S&W, 3 inch round ribbed barrel" or, for a piece
@@ -301,6 +313,50 @@ class JoeSalterScraper(SiteScraper):
             # render. Logged so a real parsing regression has something to look
             # unusual against.
             ctx.log(f"{source['category']}: {taken} listing(s); the shop says {claimed}.")
+
+    def check_price(
+        self, ctx: ScrapeContext, url: str, *, key: str | None = None
+    ) -> PriceCheck | None:
+        """One listing's price, re-read from its own page.
+
+        This shop publishes no schema.org node and no price meta tag, so the
+        three generic layers on the base class all come back empty and the
+        watchlist poller was skipping it entirely -- a watched rifle here kept
+        only the freshness its daily scan gave it.
+
+        The page does say everything needed, in OpenCart's stock markup the
+        theme has left alone: the price in a heading, ``Availability:`` in a
+        list beside it, and ``Item #:`` carrying the same number this
+        application uses as the external key.
+
+        **That last one is checked, not assumed.** A product URL is a slug made
+        from a title, and this dealer sells one of a thing -- when a piece
+        sells and another like it is listed, a stale URL can come back holding
+        a different gun at a different price. Confirming the item number costs
+        nothing and is the difference between re-reading a listing and reading
+        whatever is at its address now.
+        """
+        html_text = ctx.get_text(url)
+
+        if key and not self._is_the_same_listing(html_text, key):
+            # Silence rather than a guess. The poller records the attempt and
+            # moves on; the daily scan will notice the listing is gone.
+            return None
+
+        match = DETAIL_PRICE_RE.search(html_text)
+        if match is None:
+            return None
+        price = _price(match.group(0))
+        if price is None or price <= 0:
+            # Zero is the mini cart, not the gun.
+            return None
+        return PriceCheck(price=price, sold_out=bool(OUT_OF_STOCK_RE.search(html_text)))
+
+    @staticmethod
+    def _is_the_same_listing(html_text: str, key: str) -> bool:
+        """Whether the page still carries the item number we asked for."""
+        found = ITEM_NUMBER_RE.search(html_text)
+        return found is not None and found.group(1).strip() == key.strip()
 
     def with_detail(self, ctx: ScrapeContext, item: ScrapedItem) -> ScrapedItem:
         """The full description, the availability, and the gallery if allowed.

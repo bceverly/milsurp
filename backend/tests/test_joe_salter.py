@@ -355,3 +355,102 @@ class TestTheBooksAmongTheGuns:
         decision: "Published Boer War ZAR Model 1895 Mauser Rifle"."""
         page = self._tile("Published Boer War ZAR Model 1895 Mauser Rifle", "$4,995.00")
         assert len(parse_catalog(page, "x")) == 1
+
+
+#: A product page as this shop serves one, with the two traps in place: the
+#: mini cart's $0.00 sits *before* the real price, and the related-items strip
+#: carries prices of its own.
+PRICED = """<html><body>
+  <div class="mini-cart"><span class="total">$0.00</span></div>
+  <h1>Excellent Boxed Colt Woodsman</h1>
+  <ul class="list-unstyled"><li><h2>$1,295.00</h2></li></ul>
+  <ul class="list-unstyled">
+    <li>Brand: <a href="#">Colt Firearms</a></li>
+    <li>Item #: 52655 </li>
+    <li>Availability: In Stock</li>
+  </ul>
+  <h3>You may also like</h3>
+  <div class="product-thumb"><p class="price">$17.95</p></div>
+</body></html>"""
+
+
+def _serving(context, html_text):
+    context.get_text = lambda _url, **_k: html_text  # type: ignore[method-assign]
+    return context
+
+
+class TestRereadingOneListingsPrice:
+    """The watchlist poller's single-page check.
+
+    This shop publishes no schema.org node and no price meta tag, so all three
+    generic layers on the base class come back empty and the poller was
+    skipping it. Everything it needs is in OpenCart's stock markup.
+    """
+
+    def test_the_price_comes_from_the_heading(self, ctx_factory, app_config):
+        found = JoeSalterScraper().check_price(
+            _serving(ctx_factory(config=app_config), PRICED),
+            "https://shop.joesalter.com/x",
+            key="52655",
+        )
+        assert found is not None
+        assert found.price == 1295.0
+        assert not found.sold_out
+
+    def test_the_mini_cart_is_not_the_price(self, ctx_factory, app_config):
+        """$0.00 appears first in the page. Reading the whole page instead of
+        the heading returns zero, and zero is mailed to somebody as a rifle
+        that suddenly costs nothing -- the bug Royal Tiger's check already
+        cost a release."""
+        found = JoeSalterScraper().check_price(
+            _serving(ctx_factory(config=app_config), PRICED),
+            "https://shop.joesalter.com/x",
+            key="52655",
+        )
+        assert found is not None
+        assert found.price != 0.0
+
+    def test_a_sold_listing_says_so(self, ctx_factory, app_config):
+        sold = PRICED.replace("Availability: In Stock", "Availability: Out of Stock")
+        found = JoeSalterScraper().check_price(
+            _serving(ctx_factory(config=app_config), sold),
+            "https://shop.joesalter.com/x",
+            key="52655",
+        )
+        assert found is not None
+        assert found.sold_out
+
+    def test_a_page_holding_a_different_item_is_refused(self, ctx_factory, app_config):
+        """A product URL is a slug made from a title, and this dealer sells one
+        of a thing. A stale URL can come back holding a different gun at a
+        different price, and mailing that is worse than being a day late."""
+        found = JoeSalterScraper().check_price(
+            _serving(ctx_factory(config=app_config), PRICED),
+            "https://shop.joesalter.com/x",
+            key="99999",
+        )
+        assert found is None
+
+    def test_without_a_key_it_still_reads(self, ctx_factory, app_config):
+        """The identity check is a guard, not a requirement."""
+        found = JoeSalterScraper().check_price(
+            _serving(ctx_factory(config=app_config), PRICED), "https://shop.joesalter.com/x"
+        )
+        assert found is not None
+        assert found.price == 1295.0
+
+    def test_a_page_with_no_price_is_silence_not_a_guess(self, ctx_factory, app_config):
+        found = JoeSalterScraper().check_price(
+            _serving(ctx_factory(config=app_config), DETAIL), "https://shop.joesalter.com/x"
+        )
+        assert found is None
+
+    def test_a_zero_heading_is_refused(self, ctx_factory, app_config):
+        """Whatever a $0.00 heading is, it is not what the gun costs."""
+        free = PRICED.replace("<h2>$1,295.00</h2>", "<h2>$0.00</h2>")
+        found = JoeSalterScraper().check_price(
+            _serving(ctx_factory(config=app_config), free),
+            "https://shop.joesalter.com/x",
+            key="52655",
+        )
+        assert found is None

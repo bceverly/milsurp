@@ -1724,6 +1724,76 @@ itself. `apt` cannot tell you the service it stopped never came back.
 
 ---
 
+## 41. Price polling for the shops that had none
+
+Six of twenty-eight shops published no price the watchlist poller could read,
+so a watched listing there kept only the freshness its daily scan gave it —
+alerts up to a day late on exactly the listings somebody cared enough to watch.
+Hunter's Lodge is left out by request (that flyer changes every two or three
+months). Of the remaining five, **four now work and one still cannot**.
+
+### The generic layers were never going to reach these
+
+`check_price` tries schema.org, then price meta tags, then WooCommerce markup.
+These five publish none of the three, and the reasons differ enough that each
+needed its own answer:
+
+| | what it needed |
+|---|---|
+| **joe-salter** | OpenCart markup: price in a heading, `Availability:` beside it |
+| **aim-surplus** | the shop's own `/data/products/<id>` JSON |
+| **ebayonet** | re-parse the shared page, select by fragment |
+| **empire-arms** | re-parse the shared page, select by key |
+| **simpson-ltd** | still the browser — see below |
+
+### `key` now travels with the URL
+
+Two of these shops keep a whole catalog on one page. eBayonet's listings are
+paragraphs on a country page, addressed by fragment; Empire Arms has *no*
+fragment at all — every rifle it sells is at `rifles.htm`. So `check_price`
+grew a keyword `key`, the listing's `external_key`, and the poller passes it.
+Without it Empire Arms has no question to ask, and "the first price on the
+page" would report one gun's price for another.
+
+### The measurement that changed the design
+
+The obvious approach for eBayonet is to flatten the page and read the price
+nearest the item number. Measured against sixteen real listings, that matched
+the stored price **four times** — and twice gave two neighbours each other's
+prices, which is the failure that mails somebody about the wrong bayonet.
+
+The association only survives in the page structure, which `parse_page`
+already reads correctly. So both shared-page shops re-run the scan's own
+parser and pick the matching entry. Re-verified live: **eBayonet 10 of 10,
+Empire Arms 12 of 12** against stored prices.
+
+That is also why aim-surplus reuses `_price` rather than reading a field
+directly. Its API publishes `price`, `lowest_price` and `discounted_price`
+disagreeing on the same record — 399.95, 249.95, 249.95 — and the poller
+compares against what the scan stored, so a different field here would report
+a price change on every pass, forever.
+
+- [x] joe-salter, live-verified: $1,295 and $645 on two listings, and the
+      **mini cart's `$0.00` sits before the real price in the page** — the
+      same trap that cost Royal Tiger's check a release, so the read is scoped
+      to the heading and refuses a zero.
+- [x] joe-salter also confirms `Item #:` matches the key before believing the
+      page. A product URL here is a slug made from a title and the dealer sells
+      one of a thing; a stale URL can come back holding a different gun.
+- [x] aim-surplus, live-verified: 129.95 matching stored, and `in_stock: false`
+      correctly reported as sold.
+- [x] 26 tests across the four shops, none of them touching the network.
+
+### Simpson Ltd. stays unpollable, honestly
+
+Still a 2,832-byte React shell with site-wide meta and no product data. The
+catalog is in Firestore, its rules refuse an unauthenticated read and anonymous
+sign-in is disabled. Nothing has changed and no amount of parsing gets past it;
+it needs the browser, as the roadmap already says. Recorded here rather than
+worked around.
+
+---
+
 ## Context for whoever picks this up
 
 ### Where work stopped

@@ -40,8 +40,9 @@ from __future__ import annotations
 import html as html_lib
 import re
 from collections.abc import Iterable
+from urllib.parse import urlsplit, urlunsplit
 
-from .base import ScrapeContext, ScrapedItem, ScrapeError, SiteScraper
+from .base import PriceCheck, ScrapeContext, ScrapedItem, ScrapeError, SiteScraper
 
 SITE_BASE = "https://www.ebayonet.com/"
 
@@ -216,6 +217,43 @@ class EBayonetScraper(SiteScraper):
     )
     requires_browser = False
     default_interval_minutes = 1440
+
+    def check_price(
+        self, ctx: ScrapeContext, url: str, *, key: str | None = None
+    ) -> PriceCheck | None:
+        """One bayonet's price, re-read from the page it lives on.
+
+        There are no product pages here. A listing is a paragraph on one of
+        five hand-maintained country pages, and its URL is that page plus a
+        fragment -- ``bayonetsa_f.htm#18224``. So this re-fetches the page and
+        asks which paragraph, exactly as a scan does.
+
+        **It reuses parse_page rather than reading the price itself**, and the
+        reason is worth stating because the shortcut looks so tempting. Flatten
+        this page to text and the prices and the item numbers interleave:
+        measured across sixteen listings, taking the price nearest a number
+        matched the stored value four times, and twice two neighbours had each
+        other's. The association only survives in the structure, which
+        parse_page already reads correctly -- and reading it a second, different
+        way would eventually mail somebody the bayonet below the one they are
+        watching.
+
+        The whole page is parsed to answer about one listing. That is the cost
+        of a shop with no product pages, and it is a local parse of something
+        already fetched rather than a second request.
+        """
+        wanted = key or urlsplit(url).fragment
+        if not wanted:
+            return None
+        page = urlsplit(url).path.rsplit("/", 1)[-1] or PAGES[0]
+        for item in parse_page(ctx.get_text(urlunsplit(urlsplit(url)._replace(fragment=""))), page):
+            if item.external_key == wanted:
+                if item.price is None or item.price <= 0:
+                    return None
+                return PriceCheck(price=item.price, sold_out=bool(item.is_sold))
+        # Gone from the page it was on. The daily scan is what marks a listing
+        # delisted; this one stays quiet rather than guessing.
+        return None
 
     def scrape(self, ctx: ScrapeContext) -> Iterable[ScrapedItem]:
         items: list[ScrapedItem] = []

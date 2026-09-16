@@ -689,8 +689,22 @@ class SiteScraper(abc.ABC):
         gone.
         """
 
-    def check_price(self, ctx: ScrapeContext, url: str) -> PriceCheck | None:
+    def check_price(
+        self,
+        ctx: ScrapeContext,
+        url: str,
+        *,
+        key: str | None = None,  # noqa: ARG002 - the generic layers read the URL; see the docstring
+    ) -> PriceCheck | None:
         """This one listing's price and availability, without scanning the shop.
+
+        ``key`` is the listing's ``external_key``, and the generic layers below
+        ignore it: a shop that gives every listing its own page has already
+        said which one it means by the URL. It is here for the shops that do
+        not. Two of them put their whole catalog on one page -- the URL is
+        ``rifles.htm`` for every rifle -- so the key is the only thing that
+        says *which* rifle, and a check that could not tell would happily mail
+        somebody another listing's price.
 
         For the watchlist poller: a watched listing is re-read every couple of
         hours, where its site's catalog is scanned daily. Twenty listings is
@@ -999,6 +1013,14 @@ def parse_price(text: str | None) -> float | None:
 
     Returns ``None`` for "Call for price", empty strings and anything that does
     not contain a number.
+
+    **Zero is absence, not a price.** Shops publish ``$0.00`` for a listing
+    nobody has priced yet -- a restricted item sold on enquiry, a frame listed
+    unavailable -- and the two shops caught doing it here also marked those
+    listings out of stock. Storing zero would be worse than storing nothing:
+    nothing is understood everywhere as "no price", while zero is a number, and
+    it flows into the deal comparison and the watchlist as the best offer
+    anyone has ever made.
     """
     if not text:
         return None
@@ -1006,6 +1028,7 @@ def parse_price(text: str | None) -> float | None:
     if not match:
         return None
     try:
-        return float(match.group(0).replace(",", ""))
+        price = float(match.group(0).replace(",", ""))
     except ValueError:
         return None
+    return price if price > 0 else None

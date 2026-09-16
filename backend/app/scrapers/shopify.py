@@ -92,9 +92,14 @@ def price_now(product: dict[str, Any]) -> float | None:
     prices = []
     for variant in product.get("variants") or []:
         try:
-            prices.append(float(variant["price"]))
+            value = float(variant["price"])
         except (KeyError, TypeError, ValueError):
             continue
+        # Zero means the shop has not priced it -- see parse_price. Skipped
+        # rather than taken as the cheapest variant, which it would otherwise
+        # always be.
+        if value > 0:
+            prices.append(value)
     return min(prices) if prices else None
 
 
@@ -112,8 +117,13 @@ def is_sold_out(product: dict[str, Any]) -> bool:
 class ShopifyScraper(SiteScraper):
     """One Shopify shop. Subclasses supply the slug, name and collections."""
 
-    def check_price(self, ctx: ScrapeContext, url: str) -> PriceCheck | None:
+    def check_price(
+        self, ctx: ScrapeContext, url: str, *, key: str | None = None  # noqa: ARG002
+    ) -> PriceCheck | None:
         """One product's price from Shopify's own per-product JSON.
+
+        ``key`` is unused here: Shopify gives every product its own page and
+        its own JSON, so the URL already says which product is meant.
 
         Overrides the schema.org default, which neither Shopify shop here
         publishes -- both were measured as having no Product node at all. What

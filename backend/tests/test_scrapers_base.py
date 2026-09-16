@@ -406,3 +406,50 @@ class _Response:
     def __init__(self, status_code, text=""):
         self.status_code = status_code
         self.text = text
+
+
+class TestZeroIsNotAPrice:
+    """Two shops in the recorded fixtures publish `$0.00` for a listing nobody
+    has priced -- a restricted item sold on enquiry, a frame listed
+    unavailable -- and both marked those listings out of stock.
+
+    Storing the zero is worse than storing nothing. `None` is understood
+    everywhere in this application as "no price"; zero is a number, and it
+    reaches the "is this a good deal?" comparison and the watchlist alerts as
+    the best offer anybody has ever made.
+    """
+
+    def test_a_zero_amount_reads_as_no_price(self):
+        from app.scrapers.base import parse_price
+
+        assert parse_price("$0.00") is None
+        assert parse_price("0") is None
+
+    def test_a_real_amount_still_does(self):
+        from app.scrapers.base import parse_price
+
+        assert parse_price("$1,295.00") == 1295.0
+
+    def test_the_storefront_copy_agrees(self):
+        """There are two parse_price functions and they match different
+        patterns. The rule was added to one first, and BigCommerce kept
+        returning zero because it reaches for the other."""
+        from app.scrapers.base import parse_price as base_price
+        from app.scrapers.storefront import parse_price as storefront_price
+
+        assert storefront_price("$0.00") is None
+        assert base_price("$0.00") is None
+        assert storefront_price("$425.00") == base_price("$425.00") == 425.0
+
+    def test_shopify_skips_an_unpriced_variant(self):
+        """Zero would otherwise always win, because price_now takes the
+        cheapest variant a product offers."""
+        from app.scrapers.shopify import price_now
+
+        product = {"variants": [{"price": "0.00"}, {"price": "129995"}]}
+        assert price_now(product) == 129995.0
+
+    def test_shopify_with_nothing_priced_says_nothing(self):
+        from app.scrapers.shopify import price_now
+
+        assert price_now({"variants": [{"price": "0.00"}]}) is None

@@ -126,3 +126,78 @@ class TestItIsRegistered:
     def test_it_needs_no_browser(self):
         """Five static files. The roadmap filed this as needing one."""
         assert EBayonetScraper.requires_browser is False
+
+
+class TestRereadingOneListingsPrice:
+    """The watchlist poller's single-page check, on a shop with no pages.
+
+    A listing here is a paragraph on a shared country page, so its URL is that
+    page plus a fragment and the fragment is the only thing that says which
+    bayonet. There is nothing generic to read: no schema.org, no meta tag, no
+    storefront.
+    """
+
+    @staticmethod
+    def _serving(ctx_factory, html_text, seen=None):
+        context = ctx_factory()
+
+        def fake_get_text(url, **_kwargs):
+            if seen is not None:
+                seen.append(url)
+            return html_text
+
+        context.get_text = fake_get_text  # type: ignore[method-assign]
+        return context
+
+    URL = "https://www.ebayonet.com/bayonetsa_f.htm#18782"
+
+    def test_it_finds_the_listing_the_fragment_names(self, ctx_factory):
+        found = EBayonetScraper().check_price(self._serving(ctx_factory, PAGE), self.URL)
+        assert found is not None
+        assert found.price == 110.0
+
+    def test_the_key_wins_over_the_fragment(self, ctx_factory):
+        found = EBayonetScraper().check_price(
+            self._serving(ctx_factory, PAGE), self.URL, key="16601"
+        )
+        assert found is not None
+        assert found.price == 275.0
+
+    def test_a_sold_bayonet_says_so(self, ctx_factory):
+        found = EBayonetScraper().check_price(
+            self._serving(ctx_factory, PAGE), self.URL, key="16601"
+        )
+        assert found is not None
+        assert found.sold_out
+
+    def test_the_fragment_is_not_sent_to_the_shop(self, ctx_factory):
+        """It is a position in a document, not part of the address."""
+        seen: list[str] = []
+        EBayonetScraper().check_price(self._serving(ctx_factory, PAGE, seen), self.URL)
+        assert seen == ["https://www.ebayonet.com/bayonetsa_f.htm"]
+
+    def test_a_listing_no_longer_on_the_page_is_silence(self, ctx_factory):
+        found = EBayonetScraper().check_price(
+            self._serving(ctx_factory, PAGE), self.URL, key="00000"
+        )
+        assert found is None
+
+    def test_a_url_naming_nothing_is_refused(self, ctx_factory):
+        found = EBayonetScraper().check_price(
+            self._serving(ctx_factory, PAGE), "https://www.ebayonet.com/bayonetsa_f.htm"
+        )
+        assert found is None
+
+    def test_it_agrees_with_what_a_scan_would_store(self, ctx_factory):
+        """The point of reusing parse_page. Flattening this page and taking the
+        price nearest an item number matched the stored value on four of
+        sixteen real listings, and twice gave two neighbours each other's."""
+        scanned = {item.external_key: item.price for item in parse_page(PAGE, "bayonetsa_f.htm")}
+        for key, expected in scanned.items():
+            if expected is None:
+                continue
+            found = EBayonetScraper().check_price(
+                self._serving(ctx_factory, PAGE), self.URL, key=key
+            )
+            assert found is not None, key
+            assert found.price == expected, key

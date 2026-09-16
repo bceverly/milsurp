@@ -2197,6 +2197,45 @@ make test-frontend   # Playwright
   that the condition is present before asserting the behavior.
 - The backend suite builds a throwaway database **through the real migration
   chain**, so it exercises the production schema rather than an approximation.
+
+### Scrapers are tested against recorded pages
+
+Every scraper parses markup nobody here controls, and the only thing that
+proves a parser still works is running it against that markup. The suite must
+not ask the vendor — it would be slow, it would fail on their bad days rather
+than ours, and it would put twenty-eight shops' servers in the path of
+`make test`. So the pages are recorded once and replayed.
+
+```bash
+make record-fixtures              # every site — touches the network
+make record-fixtures SITE=sarco   # just one
+```
+
+Recordings live in `backend/tests/fixtures/<slug>/`, gzipped because these
+pages are large: Atlantic Firearms serves 1.3 MB a page and Empire Arms keeps
+its whole rifle catalog in 778 KB. They are capped at a few pages each, which
+is enough to cross a page boundary and reach a detail fetch — where parsers
+actually break — and small enough that the repository stays clonable.
+
+`make record-fixtures` is **the only target that fetches from a vendor**. It
+runs the real `ScrapeContext`, so robots.txt, the host cooldown register and
+the politeness delay all apply, and it stops through the application's own
+cancellation rather than by hanging up mid-request.
+
+**The tests assert shape, never contents.** A recording is a photograph of a
+shop on one day; asserting it still sells a particular Mosin is a test that
+fails when somebody buys it. What is pinned is what the rest of the application
+requires of every scraper: that listings come back at all, that each carries
+the key the database matches on, that no two share a key, and that a price is
+either absent or positive. A stale recording is ordinary — re-record it. A
+recording that no longer *parses* is the regression this exists to catch, and
+the one that is otherwise invisible: a scan reports success with an empty
+catalog.
+
+Running off the end of a capped recording ends the replay rather than failing
+it, so a scraper that grew an extra request looks like a short recording. What
+that cannot hide is the failure being watched for — a parser that stopped
+finding listings in pages it *did* record still comes back empty.
 - `test_database_portability.py` holds the "Two engines, one schema" checks. It
   round-trips the whole migration chain up/down/up on SQLite everywhere, and
   does the same against a real PostgreSQL when `MILSURP_TEST_POSTGRES_URL`

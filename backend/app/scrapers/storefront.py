@@ -61,13 +61,26 @@ def background_images(tag: Tag) -> list[str]:
 
 
 def parse_price(text: str) -> float | None:
+    """A dollar amount out of theme markup, or None when there is not one.
+
+    The storefront classes' own copy, kept separate from ``base.parse_price``
+    because the two match against different patterns. They agree on the rule
+    that matters: **zero is the absence of a price, not a price.** A shop
+    publishes ``$0.00`` for something nobody has priced -- an item sold on
+    enquiry, a frame listed unavailable -- and storing that zero would put the
+    best offer anyone ever made into the deal comparison and the watchlist.
+
+    That divergence cost a fix: the rule was added to the other copy first and
+    BigCommerce kept returning zero, because it reaches for this one.
+    """
     match = PRICE.search(text or "")
     if not match:
         return None
     try:
-        return float(match.group(1).replace(",", ""))
+        price = float(match.group(1).replace(",", ""))
     except ValueError:  # pragma: no cover - the pattern guarantees digits
         return None
+    return price if price > 0 else None
 
 
 def image_sources(tag: Tag) -> list[str]:

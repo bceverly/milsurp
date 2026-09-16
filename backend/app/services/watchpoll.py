@@ -142,7 +142,7 @@ def run(session: Session, config: Config, limit: int = MAX_PER_PASS) -> Result:
             continue
         now = utcnow()
         try:
-            found = scraper.check_price(ctx, item.url)
+            found = scraper.check_price(ctx, item.url, key=item.external_key)
         except ScrapeError as exc:
             result.failed += 1
             log.info("Watch poll: %s refused (%s)", item.url, exc)

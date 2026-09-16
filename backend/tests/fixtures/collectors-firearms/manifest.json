@@ -1,0 +1,18 @@
+{
+  "slug": "collectors-firearms",
+  "recorded_at": "2026-09-16T13:48:45+00:00",
+  "pages": [
+    {
+      "url": "https://collectorsfirearms.com/product-category/rifles/foreign-military-rifles/",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://collectorsfirearms.com/product/wwii-izhevsk-arsenal-m91-30-mosin-nagant-bolt-action-rifle-7-62x54r-l2026-10910/",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://collectorsfirearms.com/product/wwii-tula-arsenal-m91-30-mosin-nagant-bolt-action-rifle-l2026-10916/",
+      "file": "0003.html.gz"
+    }
+  ]
+}

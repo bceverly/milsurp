@@ -261,3 +261,140 @@ class TestAPacedHostIsGivenTimeToBeAskedSlowly:
         monkeypatch.setattr(canary.cooldown, "pace_for", lambda _url: 0.0)
         result = canary.probe(config, _Fake(_raising(ScrapeCanceled("stopped"))))
         assert "our own pacing" not in result.detail
+
+
+class TestWatchingOurOwnSite:
+    """The check that exists because the application cannot report its absence.
+
+    Everything else in this module watches somebody else's website. This one
+    goes out through `public_url` and comes back in the way a visitor does,
+    because the outage it was written for had the Python process answering in
+    under a millisecond while the proxy in front returned 504s. Anything that
+    only asked localhost would have called that healthy.
+    """
+
+    @staticmethod
+    def _config(app_config, url="https://milsurp.test"):
+        import dataclasses
+
+        return dataclasses.replace(
+            app_config, server=dataclasses.replace(app_config.server, public_url=url)
+        )
+
+    @staticmethod
+    def _answers(monkeypatch, sequence):
+        """Make requests.get walk `sequence`, one entry per attempt.
+
+        An int is a status code; an exception instance is raised; a tuple is
+        (status, seconds) so an attempt can be made to look slow without one.
+        """
+        calls = {"n": 0}
+        clock = {"t": 1000.0}
+
+        def fake_get(url, timeout=None):
+            index = min(calls["n"], len(sequence) - 1)
+            calls["n"] += 1
+            entry = sequence[index]
+            if isinstance(entry, Exception):
+                raise entry
+            status, elapsed = entry if isinstance(entry, tuple) else (entry, 0.01)
+            clock["t"] += elapsed
+            return _Response(status)
+
+        monkeypatch.setattr(canary.requests, "get", fake_get)
+        monkeypatch.setattr(canary.time, "monotonic", lambda: clock["t"])
+        monkeypatch.setattr(canary, "SITE_GAP", 0.0)
+        return calls
+
+    def test_a_site_that_answers_is_up(self, app_config, monkeypatch):
+        self._answers(monkeypatch, [200])
+        health = canary.site_health(self._config(app_config), sleep=lambda _: None)
+        assert not health.unhappy
+        assert not health.down
+        assert "is up" in health.headline
+
+    def test_it_asks_through_the_public_url(self, app_config, monkeypatch):
+        seen = {}
+
+        def fake_get(url, timeout=None):
+            seen["url"] = url
+            return _Response(200)
+
+        monkeypatch.setattr(canary.requests, "get", fake_get)
+        monkeypatch.setattr(canary, "SITE_GAP", 0.0)
+        canary.site_health(self._config(app_config), sleep=lambda _: None)
+        # Not localhost: localhost proves the process is alive, which was
+        # never the half in doubt.
+        assert seen["url"] == "https://milsurp.test/api/health"
+
+    def test_nothing_answering_is_down(self, app_config, monkeypatch):
+        self._answers(monkeypatch, [canary.requests.ConnectionError("refused")])
+        health = canary.site_health(self._config(app_config), sleep=lambda _: None)
+        assert health.down
+        assert health.unhappy
+        assert "not answering" in health.headline
+
+    def test_a_gateway_error_is_down_too(self, app_config, monkeypatch):
+        """What a visitor actually saw: the proxy answering instead of us."""
+        self._answers(monkeypatch, [504])
+        health = canary.site_health(self._config(app_config), sleep=lambda _: None)
+        assert health.down
+        assert health.status == 504
+
+    def test_some_answering_and_some_not_is_flapping(self, app_config, monkeypatch):
+        """The shape of the real outage: fine between the bursts."""
+        self._answers(monkeypatch, [200, canary.requests.ConnectionError("x"), 200])
+        health = canary.site_health(self._config(app_config), sleep=lambda _: None)
+        assert not health.down
+        assert health.flapping
+        assert health.unhappy
+        assert "1 of 3" not in health.headline  # it reports successes, not failures
+        assert "2 of 3" in health.headline
+
+    def test_answering_slowly_is_worth_saying(self, app_config, monkeypatch):
+        self._answers(monkeypatch, [(200, canary.SITE_SLOW_SECONDS + 1)])
+        health = canary.site_health(self._config(app_config), sleep=lambda _: None)
+        assert health.slow
+        assert health.unhappy
+        assert not health.down
+
+    def test_a_normal_answer_is_not_called_slow(self, app_config, monkeypatch):
+        self._answers(monkeypatch, [(200, 0.02)])
+        health = canary.site_health(self._config(app_config), sleep=lambda _: None)
+        assert not health.slow
+
+    def test_it_samples_more_than_once(self, app_config, monkeypatch):
+        """One probe cannot see an intermittent fault, and the fault this was
+        written for was intermittent."""
+        calls = self._answers(monkeypatch, [200])
+        canary.site_health(self._config(app_config), sleep=lambda _: None)
+        assert calls["n"] == canary.SITE_ATTEMPTS
+        assert canary.SITE_ATTEMPTS > 1
+
+    def test_the_slow_threshold_warns_before_a_visitor_would(self, app_config):
+        """It has to fire while requests are still being answered, not once
+        the proxy in front has already given up on them."""
+        assert canary.SITE_SLOW_SECONDS < canary.SITE_TIMEOUT
+
+
+class _Response:
+    """Just enough of requests.Response for the checks above."""
+
+    def __init__(self, status_code: int) -> None:
+        self.status_code = status_code
+
+
+class TestTheDetailIsReadable:
+    """A connection error's repr is three hundred characters of retry
+    machinery, and this ends up in an email somebody reads on a phone."""
+
+    def test_a_long_error_is_trimmed(self):
+        trimmed = canary._short("x" * 500)
+        assert len(trimmed) <= canary.SITE_DETAIL_CHARS
+        assert trimmed.endswith("…")
+
+    def test_a_short_one_is_left_alone(self):
+        assert canary._short("ConnectionError: refused") == "ConnectionError: refused"
+
+    def test_newlines_do_not_survive(self):
+        assert "\n" not in canary._short("first line\nsecond line")

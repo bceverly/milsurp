@@ -31,6 +31,9 @@ import enum
 import time
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
+from http import HTTPStatus
+
+import requests
 
 from ..config import Config
 from ..scrapers import get_scraper
@@ -331,6 +334,153 @@ def backup_health(config: Config) -> BackupHealth:
     """
     age = backup.offsite_age_hours(config.backups.directory)
     return BackupHealth(age_hours=age, configured=age is not None)
+
+
+# ---------------------------------------------------------------------------
+# Is the site itself up?
+# ---------------------------------------------------------------------------
+#: Attempts per run, because one sample cannot see an intermittent fault.
+#:
+#: The outage this check exists for was bursty: a browse page opened two
+#: hundred thumbnail requests, everything queued behind them, and a minute
+#: later the site was answering in milliseconds again. A single probe would
+#: have missed it more often than not. Three spread over a few seconds is
+#: still cheap and catches a site that is up but struggling.
+SITE_ATTEMPTS = 3
+
+#: Seconds between them. Long enough not to be one burst of its own.
+SITE_GAP = 2.0
+
+#: How long a health check may take before it is worth saying something.
+#:
+#: The endpoint reads no database and normally answers in milliseconds -- 17ms
+#: through the full public path from the host itself. Five seconds is therefore
+#: not a threshold anything healthy approaches; it is the shape of a request
+#: queueing behind something, which is what the last outage looked like from
+#: the outside. Deliberately well under the proxy's own server timeout, so this
+#: mail arrives before visitors start seeing gateway errors rather than after.
+SITE_SLOW_SECONDS = 5.0
+
+#: Give up on a single attempt here. Above the slow threshold so a slow answer
+#: is still measured rather than turned into a timeout.
+SITE_TIMEOUT = 20.0
+
+#: How much of a connection error to quote.
+#:
+#: urllib3 wraps a refused connection in three nested exceptions and the repr
+#: runs to three hundred characters of retry machinery. What a reader needs is
+#: the first clause; the rest is an email nobody finishes.
+SITE_DETAIL_CHARS = 110
+
+
+@dataclass(frozen=True)
+class SiteHealth:
+    """Whether the application is serving the people it is for.
+
+    Everything else in this module watches somebody else's website. This
+    watches ours, from outside, over the same path a visitor takes -- proxy,
+    nginx and app -- because that is the only way to find out what they get.
+
+    It is here rather than in the app because an application cannot report its
+    own absence. The canary is a separate process on a timer and mails through
+    its own configuration, so it still has a voice when the service is down.
+    """
+
+    url: str
+    #: Best status seen. None when nothing answered at all.
+    status: int | None
+    #: Slowest successful attempt, in seconds. None when none succeeded.
+    slowest: float | None
+    attempts: int
+    failures: int
+    detail: str = ""
+
+    @property
+    def down(self) -> bool:
+        """Nothing answered correctly. The failure worth waking up for."""
+        return self.status != HTTPStatus.OK
+
+    @property
+    def flapping(self) -> bool:
+        """Some answered and some did not, which is its own kind of broken."""
+        return not self.down and 0 < self.failures < self.attempts
+
+    @property
+    def slow(self) -> bool:
+        return not self.down and (self.slowest or 0) > SITE_SLOW_SECONDS
+
+    @property
+    def unhappy(self) -> bool:
+        return self.down or self.flapping or self.slow
+
+    @property
+    def headline(self) -> str:
+        if self.down:
+            what = f"HTTP {self.status}" if self.status else self.detail or "no answer"
+            return f"The site is not answering at {self.url} ({what})."
+        if self.flapping:
+            return (
+                f"The site answered {self.attempts - self.failures} of "
+                f"{self.attempts} times at {self.url}."
+            )
+        if self.slow:
+            return f"The site answered in {self.slowest:.1f}s at {self.url}."
+        return f"The site is up ({self.slowest:.2f}s)."
+
+
+def _short(text: str) -> str:
+    """One line, short enough to read in a subject-adjacent position."""
+    flat = " ".join(text.split())
+    if len(flat) <= SITE_DETAIL_CHARS:
+        return flat
+    return flat[: SITE_DETAIL_CHARS - 1].rstrip() + "…"
+
+
+def site_health(config: Config, *, sleep: Callable[[float], None] = time.sleep) -> SiteHealth:
+    """Fetch our own health endpoint, the long way round.
+
+    Through ``public_url`` rather than localhost on purpose. Localhost proves
+    the Python process is alive, which is the half that was never in doubt:
+    the last outage had the application answering in under a millisecond while
+    visitors were being shown 504s by the proxy in front of it. A check that
+    cannot see the difference would have reported everything fine.
+    """
+    url = (config.server.public_url or "").rstrip("/") + "/api/health"
+    status: int | None = None
+    slowest: float | None = None
+    failed = 0
+    detail = ""
+
+    for attempt in range(SITE_ATTEMPTS):
+        if attempt:
+            sleep(SITE_GAP)
+        started = time.monotonic()
+        try:
+            response = requests.get(url, timeout=SITE_TIMEOUT)
+        except requests.RequestException as exc:
+            failed += 1
+            detail = detail or _short(f"{type(exc).__name__}: {exc}")
+            continue
+        elapsed = time.monotonic() - started
+        if response.status_code == HTTPStatus.OK:
+            status = HTTPStatus.OK
+            slowest = elapsed if slowest is None else max(slowest, elapsed)
+        else:
+            failed += 1
+            # Keep the first bad status only if nothing has answered properly;
+            # a 200 anywhere in the run is the more useful headline.
+            if status is None:
+                status = response.status_code
+            detail = detail or f"HTTP {response.status_code}"
+
+    return SiteHealth(
+        url=url,
+        status=status,
+        slowest=slowest,
+        attempts=SITE_ATTEMPTS,
+        failures=failed,
+        detail=detail,
+    )
 
 
 def failures(results: Iterable[Probe]) -> list[Probe]:

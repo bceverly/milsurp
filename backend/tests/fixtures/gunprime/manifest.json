@@ -1,0 +1,18 @@
+{
+  "slug": "gunprime",
+  "recorded_at": "2026-09-16T13:49:06+00:00",
+  "pages": [
+    {
+      "url": "https://gunprime.com/tags/collectible",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://gunprime.com/tags/collectible?page=2",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://gunprime.com/tags/collectible?page=3",
+      "file": "0003.html.gz"
+    }
+  ]
+}

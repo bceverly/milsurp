@@ -1,0 +1,22 @@
+{
+  "slug": "joe-salter",
+  "recorded_at": "2026-09-16T13:45:45+00:00",
+  "pages": [
+    {
+      "url": "https://shop.joesalter.com/CandR-Firearms-curio-and-relic-handguns-rifles?limit=100",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://shop.joesalter.com/CandR-Firearms-curio-and-relic-handguns-rifles?limit=100&page=2",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://shop.joesalter.com/CandR-Firearms-curio-and-relic-handguns-rifles?limit=100&page=3",
+      "file": "0003.html.gz"
+    },
+    {
+      "url": "https://shop.joesalter.com/Antique-Handguns-flintlock-percussion-pre-1898-muzzleloader?limit=100",
+      "file": "0004.html.gz"
+    }
+  ]
+}
