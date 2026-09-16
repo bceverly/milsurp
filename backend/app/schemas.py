@@ -446,6 +446,177 @@ class ArmoryKind(UTCModel):
     is_handgun: bool
 
 
+class CountryOut(UTCModel):
+    id: int
+    name: str
+    aliases: str | None = None
+    position: int
+    enabled: bool
+    notes: str | None = None
+    #: How many stored listings currently carry this country. Shown so an
+    #: operator disabling a rule can see what it is holding up first.
+    listing_count: int = 0
+
+
+class CountryIn(BaseModel):
+    """A country rule as the form sends it.
+
+    ``aliases`` is free text, one spelling per line, and is matched literally.
+    Deliberately not a pattern: it comes from a form, and a regular expression
+    from a form is both a way to hang the process and a way to match something
+    nobody meant.
+    """
+
+    name: str = Field(min_length=1, max_length=128)
+    aliases: str | None = None
+    position: int = 1000
+    enabled: bool = True
+    notes: str | None = None
+
+
+class CountryUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=128)
+    aliases: str | None = None
+    position: int | None = None
+    enabled: bool | None = None
+    notes: str | None = None
+
+
+class ChangeSiteOut(UTCModel):
+    """One shop's week."""
+
+    site_id: int
+    slug: str
+    name: str
+    enabled: bool
+    added: int
+    sold: int
+    delisted: int
+    reduced: int
+    active: int
+    failed_scans: int
+    last_success_at: datetime | None = None
+    #: Nothing at all changed here. Not an error on its own, and exactly what a
+    #: broken scraper looks like, which is why it is a flag and not a filter.
+    silent: bool
+
+
+class ChangeHighlightOut(UTCModel):
+    """One listing worth a line, with the reason it earned one."""
+
+    item_id: int
+    title: str
+    site_name: str
+    url: str
+    currency: str
+    price: float | None = None
+    was: float | None = None
+    drop: float | None = None
+    drop_percent: float | None = None
+
+
+class ChangesOut(UTCModel):
+    """A week in review of the catalog.
+
+    Not the per-user digest: no preferences are applied and every signed-in
+    user sees the same answer. See :mod:`app.services.changes`.
+    """
+
+    since: datetime
+    until: datetime
+    days: int
+    added: int
+    sold: int
+    delisted: int
+    reduced: int
+    active_now: int
+    total_reduction: float
+    sites: list[ChangeSiteOut]
+    biggest_drops: list[ChangeHighlightOut]
+    arrivals: list[ChangeHighlightOut]
+    new_calibers: list[str]
+    new_countries: list[str]
+    new_manufacturers: list[str]
+
+
+class CaliberDesignationOut(UTCModel):
+    id: int
+    caliber: str
+    spellings: str
+    requires: str | None = None
+    whole_word: bool
+    position: int
+    enabled: bool
+    notes: str | None = None
+    #: How many stored listings currently carry this caliber -- from any rule,
+    #: not only this one. Shown so an operator disabling a rule can see the
+    #: size of what it sits in front of.
+    listing_count: int = 0
+
+
+class CaliberDesignationIn(BaseModel):
+    """A designation rule as the form sends it.
+
+    ``spellings`` and ``requires`` are free text, one spelling per line,
+    matched literally. Not patterns, for the reason :class:`CountryIn` gives.
+    The rule matches when any spelling appears **and**, if ``requires`` is
+    filled, when any of those appears as well -- which is how the table says
+    "Mauser and 8mm in the same listing".
+    """
+
+    caliber: str = Field(min_length=1, max_length=64)
+    spellings: str = Field(min_length=1)
+    requires: str | None = None
+    whole_word: bool = True
+    position: int = 1000
+    enabled: bool = True
+    notes: str | None = None
+
+
+class CaliberDesignationUpdate(BaseModel):
+    caliber: str | None = Field(default=None, min_length=1, max_length=64)
+    spellings: str | None = Field(default=None, min_length=1)
+    requires: str | None = None
+    whole_word: bool | None = None
+    position: int | None = None
+    enabled: bool | None = None
+    notes: str | None = None
+
+
+class ClassifierKeywordOut(UTCModel):
+    id: int
+    kind: str
+    keyword: str
+    match: str
+    enabled: bool
+    notes: str | None = None
+
+
+class ClassifierKeywordIn(BaseModel):
+    """A word that decides whether a listing is a part or a gun.
+
+    ``kind`` picks which of the three lists it joins and ``match`` how hard it
+    looks: ``word`` on boundaries, ``suffix`` for an optic — which is named by
+    what it is on the end of, so telescope and riflescope both count — and
+    ``substring`` anywhere at all, which is what the two veto lists have always
+    done and why "gun" reaches "shotgun".
+    """
+
+    kind: Literal["accessory", "promotional", "firearm"] = "accessory"
+    keyword: str = Field(min_length=2, max_length=64)
+    match: Literal["word", "suffix", "substring"] = "word"
+    enabled: bool = True
+    notes: str | None = None
+
+
+class ClassifierKeywordUpdate(BaseModel):
+    kind: Literal["accessory", "promotional", "firearm"] | None = None
+    keyword: str | None = Field(default=None, min_length=2, max_length=64)
+    match: Literal["word", "suffix", "substring"] | None = None
+    enabled: bool | None = None
+    notes: str | None = None
+
+
 class ManufacturerOut(UTCModel):
     id: int
     name: str

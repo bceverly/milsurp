@@ -375,6 +375,26 @@ _METRIC_BORE_RANGE = (4.0, 15.0)
 
 
 def _looks_like_accessory(title_lower: str) -> bool:
+    """Whether the title names a part rather than a gun.
+
+    **The keywords come from the classifier_keywords table when there is one**,
+    falling back to the constants above when there is not -- during an upgrade
+    before the migration has run, and in the tests that build a classifier with
+    no database at all. See :mod:`app.services.accessories`.
+    """
+    # Imported here, not at the top: this module is regular expressions and
+    # measurements, importable and testable on its own, and a module-level
+    # import of something that reaches the database would end that.
+    from . import accessories
+
+    # The table answers with all three lists or with none of them. It carries
+    # the two vetoes as well as the accessory words, because the order they are
+    # applied in *is* the rule and splitting it across two places would leave
+    # somebody able to edit half of it.
+    from_table = accessories.looks_like_one(title_lower)
+    if from_table is not None:
+        return from_table
+
     if any(phrase in title_lower for phrase in PROMOTIONAL_PHRASES):
         return False
     if any(word in title_lower for word in FIREARM_WORDS):
@@ -560,7 +580,16 @@ def extract_caliber(  # noqa: PLR0911 - each branch is one rule class,
     # ".40 S&W" the description mentions in passing, which is the rule this
     # function has followed since the Zastava M83s were found filed under .38
     # Special with ".357 Magnum" in every title.
-    named = _first_match(DESIGNATION_CALIBERS, haystack)
+    # **The designations come from the caliber_designations table when there
+    # is one**, and from the constants above when there is not. Same fallback,
+    # same reason, as the country and accessory lists.
+    from . import designations
+
+    named = (
+        designations.match(haystack)
+        if designations.available()
+        else _first_match(DESIGNATION_CALIBERS, haystack)
+    )
     for text in (title_lower, haystack):
         found = _longest_match(SPELLED_CARTRIDGES, text)
         if found:
@@ -2683,12 +2712,37 @@ _POLISH_THE_FINISH = re.compile(
 
 
 def extract_country(title: str, description: str | None = None) -> str | None:
-    """Country of origin, preferring the nationality that leads the title."""
+    """Country of origin, preferring the nationality that leads the title.
+
+    **The rules come from the countries table when there is one**, so an
+    operator can teach it that "Ishapore" means India without a deploy. See
+    :mod:`app.services.countries` for why that is a process-wide registry
+    rather than a session the way the maker list is.
+
+    :data:`COUNTRY_PATTERNS` stays as the fallback and as the seed the table
+    was built from. It answers for the test suite, which builds a classifier
+    with no database, and for the minutes during an upgrade before the
+    migration has run -- identically, because the table was seeded from it.
+    """
+    # Imported here rather than at the top of the file. This module has no
+    # other dependency on the application -- it is regular expressions and
+    # measurements, importable and testable on its own -- and a module-level
+    # import of something that reaches the database would end that. The cost
+    # is one dictionary lookup per call; the registry behind it is built once.
+    from . import countries
+
     lead = _POLISH_THE_FINISH.sub(" ", (title or "")[:48])
+    haystack = _POLISH_THE_FINISH.sub(" ", f"{title or ''} {description or ''}")
+
+    if countries.available():
+        # The lead of the title first, then the whole of it: a listing that
+        # opens "Swedish" is Swedish however many other nationalities it goes
+        # on to mention.
+        return countries.match(lead) or countries.match(haystack)
+
     country = _match_first(COUNTRY_PATTERNS, lead)
     if country:
         return country
-    haystack = _POLISH_THE_FINISH.sub(" ", f"{title or ''} {description or ''}")
     return _match_first(COUNTRY_PATTERNS, haystack)
 
 

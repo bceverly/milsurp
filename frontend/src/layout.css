@@ -2363,3 +2363,188 @@
   word-break: break-all;
   user-select: all;
 }
+
+/* The spellings column on the Classification page: one rule can carry
+   eighteen spellings, and they read as a set of chips rather than a
+   comma-separated run-on. */
+.classify-spellings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.classify-spellings code {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.classify-order {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.classify-order li + li {
+  margin-top: 3px;
+}
+
+/* --- What changed: the week in review ----------------------------------- */
+
+.week-window {
+  margin: -6px 0 14px;
+  color: var(--ink-500);
+  font-size: 13px;
+}
+
+.week-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.week-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.week-stat__value {
+  font-size: 22px;
+  font-weight: 650;
+  line-height: 1.1;
+}
+
+.week-stat__label {
+  font-size: 12px;
+  color: var(--ink-500);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.week-stat__hint {
+  font-size: 12px;
+  color: var(--ink-400);
+}
+
+/* A shop that reported nothing is the finding, so it is dimmed rather than
+   hidden: hiding it would answer the question the page is asking. */
+.week-row--silent td {
+  color: var(--ink-400);
+}
+
+.week-chip {
+  margin-left: 6px;
+  font-size: 11px;
+}
+
+.week-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.week-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.week-list li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.week-list li:last-child {
+  border-bottom: 0;
+}
+
+.week-list__title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.week-list__meta {
+  grid-column: 1;
+  font-size: 12.5px;
+  color: var(--ink-500);
+}
+
+.week-list__out {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  align-self: center;
+  color: var(--ink-400);
+}
+
+.week-empty {
+  padding: 14px;
+  margin: 0;
+  color: var(--ink-500);
+  font-size: 13px;
+}
+
+.week-learned__body {
+  padding: 0 14px 14px;
+}
+
+.week-learned h3 {
+  font-size: 13px;
+  margin: 10px 0 6px;
+  color: var(--ink-700);
+}
+
+.week-learned__values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+/* The classification tables are wide — one designation rule can carry
+   eighteen spellings — and a header that wraps to one letter per line is
+   unreadable at any width. The spellings themselves still wrap. */
+.classify-table th {
+  white-space: nowrap;
+}
+
+.classify-table .classify-spellings {
+  max-width: 34rem;
+}
+
+/* A rule carrying eighteen spellings makes a tall row, and the controls --
+   a flex cell, so they sit at its top by default -- belong beside it. */
+.classify-table td {
+  vertical-align: middle;
+}
+
+/* The shared actions cell is a flex container, which does not stretch to a
+   tall row: on a rule carrying eighteen spellings the buttons stranded
+   themselves at the top of a cell whose background stopped three lines short.
+   Back to a table cell here, keeping the sticky right edge that earns its
+   place on a table this wide. */
+.classify-table .table__actions {
+  display: table-cell;
+  vertical-align: middle;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.classify-table .table__actions .btn {
+  vertical-align: middle;
+}
+
+/* "part of a word" is three words describing one setting, and breaking it
+   across two lines reads as two settings. */
+.classify-table td:nth-last-child(4) {
+  white-space: nowrap;
+}

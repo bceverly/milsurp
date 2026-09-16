@@ -47,6 +47,17 @@ export const Filter = (p) => (
   </Svg>
 );
 
+/**
+ * A sieve — the classification rules, which is what sorts one listing from
+ * another before anything else in the application sees it.
+ */
+export const Sieve = (p) => (
+  <Svg {...p}>
+    <path d="M3 5h18l-7 8v6l-4 2v-8z" />
+    <path d="M8 9h8" />
+  </Svg>
+);
+
 /** Crossed rifles — the browse/inventory view. */
 export const Rifle = (p) => (
   <Svg {...p}>

@@ -229,6 +229,49 @@ def clean_db(_database):
         db.close()
 
 
+#: The classification tables, which `clean_db` deliberately does not empty.
+#:
+#: They are seeded by their migrations, not by bootstrap, and every test that
+#: classifies anything depends on that seed being intact. A test that edits one
+#: through the API therefore has to put it back -- the first version of this
+#: did not, and one disabled country made a Swedish Mauser stop being Swedish
+#: three hundred tests later, in a file that had never heard of countries.
+CLASSIFICATION_TABLES = ("countries", "caliber_designations", "classifier_keywords")
+
+
+@pytest.fixture
+def restore_classification_rules(_database):
+    """Snapshot the classification tables and put them back afterwards.
+
+    Not autouse: it costs a few dozen rows of copying, and only the handful of
+    tests that edit these tables need it. Ask for it in any test module that
+    writes to one.
+    """
+    from sqlalchemy import text
+
+    from app.database import get_session_factory
+    from app.services import accessories, countries, designations
+
+    db = get_session_factory()()
+    snapshot = {
+        table: [dict(row) for row in db.execute(text(f"SELECT * FROM {table}")).mappings()]
+        for table in CLASSIFICATION_TABLES
+    }
+    try:
+        yield
+    finally:
+        for table, rows in snapshot.items():
+            db.execute(text(f"DELETE FROM {table}"))
+            if rows:
+                columns = ", ".join(rows[0])
+                values = ", ".join(f":{name}" for name in rows[0])
+                db.execute(text(f"INSERT INTO {table} ({columns}) VALUES ({values})"), rows)
+        db.commit()
+        db.close()
+        for module in (countries, designations, accessories):
+            module.invalidate()
+
+
 @pytest.fixture
 def seeded(clean_db, app_config):
     """A database with the site list and the admin account seeded."""

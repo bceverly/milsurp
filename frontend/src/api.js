@@ -236,6 +236,33 @@ export const api = {
     request(`/api/manufacturers/${id}`, { method: "PATCH", body: patch }),
   deleteManufacturer: (id) => request(`/api/manufacturers/${id}`, { method: "DELETE" }),
 
+  // --- a week in review of the catalog, nobody's filters applied ---
+  changes: (params = {}) => request(`/api/changes${qs(params)}`),
+
+  // --- classification rules: countries, caliber designations, accessories ---
+  countries: (params = {}) => request(`/api/countries${qs(params)}`),
+  createCountry: (payload) =>
+    request("/api/countries", { method: "POST", body: payload }),
+  updateCountry: (id, patch) =>
+    request(`/api/countries/${id}`, { method: "PATCH", body: patch }),
+  deleteCountry: (id) => request(`/api/countries/${id}`, { method: "DELETE" }),
+
+  caliberDesignations: (params = {}) => request(`/api/caliber-designations${qs(params)}`),
+  createCaliberDesignation: (payload) =>
+    request("/api/caliber-designations", { method: "POST", body: payload }),
+  updateCaliberDesignation: (id, patch) =>
+    request(`/api/caliber-designations/${id}`, { method: "PATCH", body: patch }),
+  deleteCaliberDesignation: (id) =>
+    request(`/api/caliber-designations/${id}`, { method: "DELETE" }),
+
+  classifierKeywords: (params = {}) => request(`/api/classifier-keywords${qs(params)}`),
+  createClassifierKeyword: (payload) =>
+    request("/api/classifier-keywords", { method: "POST", body: payload }),
+  updateClassifierKeyword: (id, patch) =>
+    request(`/api/classifier-keywords/${id}`, { method: "PATCH", body: patch }),
+  deleteClassifierKeyword: (id) =>
+    request(`/api/classifier-keywords/${id}`, { method: "DELETE" }),
+
   // --- the armory: manufacturers, models, calibers, and the approval gate ---
   armorySummary: () => request("/api/armory/summary"),
   armoryKinds: () => request("/api/armory/kinds"),

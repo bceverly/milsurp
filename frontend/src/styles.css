@@ -333,6 +333,11 @@ img {
   border-color: #b9e0c9;
   color: #145c33;
 }
+.alert--warning {
+  background: var(--amber-100);
+  border-color: #eed9a8;
+  color: var(--amber-600);
+}
 .alert--info {
   background: var(--navy-50);
   border-color: var(--navy-100);

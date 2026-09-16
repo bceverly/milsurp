@@ -15,6 +15,8 @@ import {
   Menu,
   Rifle,
   Shield,
+  Sieve,
+  TrendDown,
   Sites as SitesIcon,
   Star,
   Tag as TagIcon,
@@ -30,6 +32,10 @@ const NAV = [
   // Directly under Inventory, because a saved search *is* the inventory with
   // filters on it and belongs beside the page it came from — not down with
   // the email settings, which is only one of the things it can do.
+  // Above the saved searches, because it is the thing somebody opens first
+  // after being away: the email digest says what you asked for, this says what
+  // happened.
+  { to: "/changes", label: "What changed", icon: TrendDown },
   { to: "/saved-searches", label: "Saved searches", icon: Bookmark },
   // Beside saved searches, and after it: a saved search is a standing question
   // about the catalog, a watchlist a standing question about particular guns.
@@ -41,6 +47,10 @@ const NAV = [
   // the split it took a rewrite to remove: a maker carrying its own flat list
   // of models that nothing else could see.
   { to: "/armory", label: "Armory", icon: TagIcon, adminOnly: true },
+  // Directly after the Armory, because the two answer the same question from
+  // opposite ends: the Armory is what the catalog is allowed to say, and this
+  // is the rules that decide what any one listing says.
+  { to: "/classification", label: "Classification", icon: Sieve, adminOnly: true },
   { to: "/users", label: "Users", icon: UsersIcon, adminOnly: true },
   { to: "/backups", label: "Backups", icon: DatabaseIcon, adminOnly: true },
   { to: "/audit", label: "Audit log", icon: HistoryIcon, adminOnly: true },

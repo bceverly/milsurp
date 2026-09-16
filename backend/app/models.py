@@ -960,6 +960,110 @@ class SavedSearch(Base, TimestampMixin):
     user: Mapped["User"] = relationship(back_populates="saved_searches")
 
 
+class Country(Base, TimestampMixin):
+    """A country of origin, and the spellings that mean it.
+
+    Same story as :class:`Manufacturer`: the list began as regular expressions
+    in :mod:`app.services.classify`, so teaching it that "Ishapore" means India
+    was a code change for a fact about the world the operator knows and the
+    programmer does not.
+
+    ``aliases`` are matched as literal text on word boundaries, never as
+    patterns -- they come from a form, and a regular expression from a form is
+    both a way to hang the process and a way to match something nobody meant.
+
+    ``position`` decides which rule is tried first. It matters here for the
+    same reason it does for makers: a title reading "Czechoslovakian" must be
+    tried before one reading "Czech" or every one of them files under the
+    shorter name.
+    """
+
+    __tablename__ = "countries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
+    aliases: Mapped[str | None] = mapped_column(Text)
+    position: Mapped[int] = mapped_column(Integer, default=1000, nullable=False, index=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
+    notes: Mapped[str | None] = mapped_column(Text)
+
+
+class CaliberDesignation(Base, TimestampMixin):
+    """A rifle designation, and the caliber it implies.
+
+    Forty-eight regular expressions in :mod:`app.services.classify`, which is
+    where a dealer's shorthand -- "K31", "vz.24", "Type 99" -- was turned into
+    a cartridge. Knowing that a Mauser ES340 is a .22 trainer is a fact about
+    rifles, not about software, and it belonged where the person who knows it
+    can type it.
+
+    ``spellings`` and ``requires`` are both newline-separated lists of literal
+    text, never patterns, for the reason :class:`Country` gives: a regular
+    expression typed into a form is both a way to hang the process and a way to
+    match something nobody meant. The row matches when **any** spelling appears
+    and -- if ``requires`` is filled -- when any of *those* appears as well,
+    anywhere in the text. That second list is how the original expressed
+    "Mauser and 8mm in the same listing"; the co-occurrence rules are the ones
+    that cannot be written as a phrase.
+
+    ``whole_word`` is the difference between "walther pp", which is meant to
+    catch a Walther PPK, and "ak", which must not catch Krakow. The original
+    table drew this line with ``\\b`` on some rules and not others, and the
+    column is that same decision made visible.
+
+    ``position`` is load-bearing and more so than for countries: these rules
+    are tried **in order** and the first match wins, because several of them
+    are "these two words co-occur" rules that match most of a description.
+    Scored on specificity instead, ``swiss`` + ``rifle`` beat ``vetterli`` and
+    relabeled five Vetterli and Peabody rifles that state their own caliber.
+    """
+
+    __tablename__ = "caliber_designations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    caliber: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    spellings: Mapped[str] = mapped_column(Text, nullable=False)
+    requires: Mapped[str | None] = mapped_column(Text)
+    whole_word: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    position: Mapped[int] = mapped_column(Integer, default=1000, nullable=False, index=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
+    notes: Mapped[str | None] = mapped_column(Text)
+
+
+class ClassifierKeyword(Base, TimestampMixin):
+    """A word that decides whether a listing is a part or a gun.
+
+    Three lists in one table, because they are read together and in a fixed
+    order -- two vetoes, then the words themselves:
+
+    * ``accessory`` says the listing is a part.
+    * ``promotional`` says the part is being thrown in with a gun. "Mosin-Nagant
+      w/ free bayonet" is a rifle.
+    * ``firearm`` says the listing names a gun whatever else it mentions.
+
+    ``match`` is ``word``, ``suffix`` or ``substring``, and the distinction has
+    a scar behind it. The accessory words were substring tests, and one of them
+    was quietly wrong for every Springfield in the catalog: "spring" is inside
+    "Springfield", so a Springfield Model 1903 was an accessory and never got a
+    caliber -- 23 of the 28 in the database. They are ``word`` now. ``suffix``
+    is the single deliberate exception, for "scope": an optic is named by what
+    it is on the end of, and a telescope, a periscope and a riflescope are all
+    the same kind of thing.
+
+    The two veto lists stay ``substring``, faithfully. "gun" reaching "shotgun"
+    and "handgun" is the point of writing it that way.
+    """
+
+    __tablename__ = "classifier_keywords"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    keyword: Mapped[str] = mapped_column(String(64), nullable=False)
+    match: Mapped[str] = mapped_column(String(16), default="word", nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
+    notes: Mapped[str | None] = mapped_column(Text)
+
+
 class ItemOverride(Base, TimestampMixin):
     """What a person decided about one listing, outranking every rule.
 

@@ -153,6 +153,19 @@ changed — filtered to the sites you care about and capped so it stays readable
   own it would repeat itself on every scheduler tick, and remembering a price
   means a vendor who reverts and re-drops has genuinely done something worth a
   second email.
+- **"What changed".** A week in review of the whole catalog, at `/changes` and
+  open to every signed-in user — and deliberately not the email digest. That
+  one is a shopping list: your sites, your price floor, capped so it fits in a
+  preview pane. This is the other question, *what happened*, and it has the
+  same answer for everybody. It carries the three things the digest cannot:
+  **what left** (a digest is about arrivals, so a listing that sold or was
+  taken down is invisible in it, and that is half of a week), **which shops
+  were quiet** (every enabled site is in the table whether or not it had news,
+  because a shop that reported nothing is either a slow vendor or a broken
+  scraper and nothing else puts those two side by side), and **what the catalog
+  learned** — calibers, countries and makers whose earliest listing anywhere is
+  inside the window, which is new stock, or a classification rule that has
+  started matching something it should not.
 - **Two-factor authentication.** Optional per account, TOTP, so an attacker
   with the password still does not have the six digits. Ten single-use recovery
   codes are shown once when it is turned on, and
@@ -1389,6 +1402,88 @@ is described as a Walther PP copy and a box of .32 ACP lists the pistols it
 suits, and reading those gave sixty-three listings the Walther PP as their
 model, a third of them CZs and one of them ammunition — each of which would
 then have taken the PP's caliber and kind.
+
+### The classification rules are a table, not a source file
+
+Three tabs at `/classification` in the admin pages — **Countries**, **Caliber
+designations** and **Part or gun** — holding what used to be 38 country
+patterns, 48 caliber patterns and three keyword lists in
+`app/services/classify.py`. Teaching the application
+that "Ishapore" means India, or that a Mauser ES340 is a .22 trainer, was a
+code change, a review and a deploy, for a fact about rifles the person running
+the site knows and the programmer does not. The maker list moved out of the
+source for that reason and these followed it.
+
+**They could not follow it exactly, and the difference is the interesting
+part.** A maker is matched by `manufacturers.extract(session, …)`, called from
+the scan, where a session exists. These three are matched inside
+`classify.enrich`, which *scrapers* call too — and a scraper has no database
+session and should not be given one: it runs against somebody else's website,
+and the moment it can write to the database it is a different kind of program.
+So each list is a **process-wide registry** that loads once and is dropped when
+the table changes, and every write in the API calls `invalidate()`. Forgetting
+that is the failure this shape of code has: the edit saves, the page shows it,
+and nothing classifies differently until the process restarts, with nothing on
+screen to say why. There is a test for it on all three.
+
+Each registry has a deliberately loud fallback: a table it cannot read logs a
+warning and yields to the constants it was seeded from. That path is for the
+test suite, which builds a classifier with no database at all, and for the
+minutes during an upgrade before the migration has run.
+
+**Literal text, never patterns.** A regular expression typed into a form is
+both a way to hang the process and a way to match something nobody meant. A
+rule is a list of spellings matched on word boundaries, and the three things a
+regex could say that a spelling cannot became three columns:
+
+| Column | What it is for |
+| --- | --- |
+| **Also needs** (`requires`) | A second list, also literal. Eleven of the forty-eight caliber patterns were "these two things co-occur" rules written `X.*Y\|Y.*X` — this is how the table says "Mauser and 8mm in the same listing". |
+| **Whole words only** | The difference between "walther pp", meant to catch a Walther PPK, and "ak", which must not catch Krakow. The original drew this line with `\b` on some rules and not others. |
+| **How to match it** | `word`, `suffix` or `substring`. The accessory words were substring tests, and one was quietly wrong for every Springfield in the catalog: "spring" is inside "Springfield", so a Springfield Model 1903 was an accessory and never got a caliber — 23 of the 28 in the database. `suffix` is the one exception, for an optic, which is named by what it is on the end of. |
+
+**Order is load-bearing on the designations and nowhere else.** They are tried
+in the operator's order and the first match wins, because several are "two
+words in the same listing" rules that match most of a description. Scored on
+specificity instead, `swiss` + `rifle` beat `vetterli` and relabeled five
+Vetterli and Peabody rifles that state their own caliber in their titles. The
+accessory words do not compete — they compile to one alternation — so that tab
+has no position column at all.
+
+**Seeded from the constants and measured against them.** The countries table is
+equivalent: *11,038 listings compared, 0 differences*, which took three tries.
+Seeding each country's own name as a spelling looks obviously right and moved
+38 listings, because the pattern it replaced for Finland was `\bFinn(?:ish)?\b`
+and never matched the word "Finland". The seed carries the spellings the code
+had and no more — adding "Finland" is now a one-line edit on a page, which is
+the whole feature.
+
+The caliber table is **not** equivalent, and the migration says exactly where
+it is not. Measured end to end through `extract_caliber` over all 11,038
+listings, **23 change and every one goes from wrong or absent to right**:
+eleven W+F Bern Swiss rifles and a Chatellerault Gras that `swiss.*rifle` could
+not reach because they write "Swiss" after the word "rifle", and twelve .22
+rimfire trainers — a Mauser ES340, a Model 410, a Mauser 107, a 625B, a Tikka
+M91 — that the `mauser` + `8mm` rule was filing as centerfire. Nothing loses a
+caliber it had, and the part-or-gun verdict is identical on all 11,038.
+
+**The "Part or gun" tab holds three lists, because their order is the rule.** A
+gun sold *with* an accessory is a gun — "Mosin-Nagant w/ free bayonet" is a
+rifle. A title that names a gun is a gun whatever else it mentions. Only when
+neither veto fires do the accessory words decide. Split across three tabs
+somebody could edit half of a rule, so they are one tab that states the order
+on the page, one table, and one registry that applies it. The two veto lists
+are still substring matches, faithfully: "gun" reaching "shotgun" and "handgun"
+is the point of writing it that way, and narrowing them is a change somebody
+should make on purpose and measure.
+
+**Nothing on this page rewrites the catalog.** A rule change reaches stored
+listings on the next scan, or immediately through `make reclassify recompute=1
+fields=…` — scoped, because an unscoped recompute also clears the makers the
+vendors supplied. An edit that silently touched eleven thousand rows is not
+something to find out about afterwards. Deleting a rule is the same bargain:
+it removes the thing that *assigns* an answer, not the answer, and the dialog
+says so and points at the on/off switch instead.
 
 ### The write-ahead log
 

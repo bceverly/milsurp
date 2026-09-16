@@ -36,6 +36,15 @@ from .api import (
     system,
     watchlist,
 )
+from .api import (
+    changes as changes_api,
+)
+from .api import (
+    classification as classification_api,
+)
+from .api import (
+    countries as countries_api,
+)
 from .config import ROOT_DIR, get_config
 from .scheduler import get_scheduler
 from .services import bootstrap
@@ -401,6 +410,9 @@ def create_app() -> FastAPI:
     api.include_router(users_router())
     api.include_router(sites.router)
     api.include_router(manufacturers.router)
+    api.include_router(countries_api.router)
+    api.include_router(classification_api.router)
+    api.include_router(changes_api.router)
     api.include_router(armory.router)
     api.include_router(scans.router)
     api.include_router(items.router)

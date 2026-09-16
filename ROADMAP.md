@@ -2753,9 +2753,90 @@ until they promote it. The numbers above are what promoting them does.
 - **Planned** — Cross-site duplicate detection proper. The same rifle listed by
   two vendors should be recognizable — the token index built for field filling
   is the start of this, but a duplicate needs more than a shared model name.
-- **Planned** — Admin UI for the rest of the classification heuristics
-  (calibers, countries, the accessory vetoes), on the pattern the maker list now
-  sets.
+- **Shipped** — Admin UI for the rest of the classification heuristics.
+  Migrations 0029 and 0030, three tables and one page with three tabs:
+  **38 countries, 52 caliber designations and 43 keywords** — the 21 accessory
+  words and the two lists that veto them, 8 promotional phrases and 14 firearm
+  words. All of it used to be tuples and regular expressions in
+  `app/services/classify.py`. Teaching the application that "Ishapore" means
+  India, or that a Mauser ES340 is a .22 trainer, was a code change, a review
+  and a deploy — for a fact about rifles the operator knows and the programmer
+  does not.
+
+  **They could not follow the maker list exactly, and the difference is the
+  interesting part.** A maker is matched by `manufacturers.extract(session, …)`,
+  called from the scan where a session exists. These three are matched inside
+  `classify.enrich`, which *scrapers* call — and a scraper has no database
+  session and should not be given one: it runs against somebody else's website,
+  and the moment it can write to the database it is a different kind of
+  program. So each list is a process-wide registry that loads once and is
+  dropped when the table changes, and every write in the API calls
+  `invalidate()`. Forgetting that is the failure this shape of code has: the
+  edit saves, the page shows it, and nothing classifies differently until the
+  process restarts, with nothing on screen to say why. There is a test for it
+  on every one of the three.
+
+  **Literal text, never patterns.** A regular expression typed into a form is
+  both a way to hang the process and a way to match something nobody meant. So
+  a rule is a list of spellings, matched on word boundaries, and the three
+  things the regexes could say that a spelling cannot are three columns:
+
+  * `requires` — a second list, also literal. Eleven of the forty-eight caliber
+    patterns were "these two things co-occur" rules written `X.*Y|Y.*X`, which
+    is how the table says "Mauser and 8mm in the same listing".
+  * `whole_word` — the difference between "walther pp", meant to catch a
+    Walther PPK, and "ak", which must not catch Krakow. The original drew this
+    line with `\b` on some rules and not others; the column makes it visible.
+  * `match` on a keyword — `word`, `suffix` or `substring`. The accessory words
+    were substring tests, and one was quietly wrong for every Springfield in
+    the catalog: "spring" is inside "Springfield", so a Springfield Model 1903
+    was an accessory and never got a caliber, 23 of the 28 in the database.
+    They are whole words now. `suffix` is the one deliberate exception, for an
+    optic, which is named by what it is on the end of. The two veto lists stay
+    `substring`, faithfully: "gun" reaching "shotgun" is the point of writing
+    it that way, and narrowing them is a change to make on purpose and measure.
+
+  **Seeded from the constants, and measured against them.** The countries table
+  is byte-for-byte equivalent: *11,038 listings compared, 0 differences* — which
+  took three tries. Seeding each country's own name as a spelling looks
+  obviously right and moved 38 listings, because the pattern it replaced for
+  Finland was `\bFinn(?:ish)?\b` and never matched the word "Finland". The
+  seed carries the spellings the code had and no more; adding "Finland" is now
+  a one-line edit on a page, which is the whole feature.
+
+  The caliber table is **not** byte-equivalent, and here is exactly where it is
+  not. Measured end to end through `extract_caliber` across all 11,038
+  listings: **23 change, every one of them from wrong or absent to right.**
+
+  * `requires` is unordered where three of the original patterns were
+    one-directional. `swiss.*rifle` wanted "Swiss" *before* "rifle", which no
+    W+F Bern listing writes. Eleven Swiss rifles and a Chatellerault Gras that
+    state their identity plainly were getting no caliber at all. The seven
+    rules the author wrote both ways round say what was meant; the three
+    written one way round are where the hand slipped.
+  * The `.22 Long Rifle` rule now accepts the spelling without the leading stop
+    and is tried before the Swiss rule. Twelve more, six of them positively
+    wrong rather than blank: a Mauser ES340, a Model 410, a Mauser 107 and a
+    625B training rifle are .22 rimfire sporters that the `mauser` + `8mm` rule
+    was filing as 8mm Mauser, and a Tikka M91 trainer was filed as 7.62x54R.
+
+  Nothing loses a caliber it had, and the part-or-gun verdict is identical on
+  all 11,038.
+
+  **The three keyword lists live in one table because their order is the
+  rule.** A gun sold *with* an accessory is a gun; a title that names a gun is
+  a gun; only then do the accessory words get a say. Split across three tables
+  and three tabs, somebody could edit half of a rule, so they are one tab that
+  says the order on the page and one registry that applies it.
+
+  **Two things deliberately left alone.** Ordering within the designations is a
+  number an operator types, not a drag handle: the first match wins and the
+  list is 52 long, so a gap-of-ten scheme that survives an insertion beats a
+  gesture that renumbers everything. And nothing on this page rewrites the
+  catalog — a rule change reaches stored listings only through `make reclassify
+  recompute=1 fields=…`, scoped, because an unscoped recompute also clears the
+  makers the vendors supplied. An edit that silently touched eleven thousand
+  rows is not something to find out about afterwards.
 - **Shipped** — Manual override fields on an item, preserved across re-scrapes.
   Migration 0028, `item_overrides`, one row per listing, applied **last** — after
   the vendor's own fields, after the heuristics, after the armory.
@@ -2930,8 +3011,47 @@ fact.
   the filter object as the response — and a shared `**kwargs` dict defeats
   mypy's check on fifteen arguments, which is a worse trade than repeating
   them.
-- **Planned** — "What changed this week" digest across all sites, distinct from
-  the per-user email.
+- **Shipped** — "What changed" across all sites, distinct from the per-user
+  email. `app/services/changes.py`, `GET /api/changes?days=`, and a page at
+  `/changes` open to every signed-in user.
+
+  **It is a page rather than a message, and that is the distinction.** The
+  email digest is a shopping list: each person's sites, each person's price
+  floor, capped per site so it fits in a preview pane. This is the other
+  question — *what happened to the catalog* — and it has the same answer for
+  everybody, so mailing it to each user separately would be sending the same
+  page twenty times.
+
+  Three things in it are not in the digest, and they are the reason it exists:
+
+  * **What left.** A digest is about arrivals, so a listing that sold or was
+    taken down is invisible in it. Half of what happens in a week is
+    departures, and until now nothing counted them.
+  * **Which shops were quiet.** Every *enabled* site is in the per-site table
+    whether or not it had news, because a shop that reported nothing all week
+    is either a slow vendor or a broken scraper, and nothing else in the
+    application puts those two next to each other and makes you look. Failed
+    scans in the window are counted in the same row, which is what tells them
+    apart. A *disabled* site appears only if it had activity — a shop switched
+    off on Wednesday still had a Monday, and the headline numbers count those
+    rows, so the table has to as well.
+  * **What the catalog learned.** Calibers, countries and makers whose
+    *earliest* listing anywhere is inside the window. Asked that way round
+    deliberately: "a recent listing carries this value" would name every
+    caliber in the catalog every week. Usually it is new stock; sometimes it is
+    a classification rule that has started matching something it should not,
+    which is the other reason to look.
+
+  **The window is closed at both ends**, because "since a week ago" moves while
+  you read it and double-counts against a page somebody reloads. Bounded at 90
+  days: the queries are unbounded scans over `items` and the page is reachable
+  by every signed-in user, and a year of this is a report, not a page.
+
+  Arrivals are ranked by price rather than by recency — "newest" is what the
+  browse view already answers, and answers better. A reduction under $5 is not
+  news: the catalog is full of rounding and shipping recalculations. The
+  reduction test matches what the digest means by a price drop, so the two
+  never disagree in front of somebody comparing them.
 
 ---
 
