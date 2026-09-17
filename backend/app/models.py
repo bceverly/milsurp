@@ -15,6 +15,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     Enum,
+    FetchedValue,
     Float,
     ForeignKey,
     Index,
@@ -699,6 +700,22 @@ class Item(Base, TimestampMixin):
     # Not indexed: nothing filters on them, and four low-cardinality indexes on
     # the widest table in the schema would cost every scan's writes to make one
     # maintenance command marginally faster.
+    #: The six searched fields concatenated, maintained by the database itself
+    #: (a generated column on PostgreSQL, the same on SQLite) so nothing in the
+    #: application can forget to update it. Indexed for substring search --
+    #: pg_trgm on PostgreSQL, an FTS5 trigram table on SQLite. See migration
+    #: 0034 for why one document rather than six indexes, and why the fields are
+    #: joined by a newline.
+    #:
+    #: Never written by this application. `FetchedValue` is what says so: it
+    #: keeps the column out of every INSERT and UPDATE, which a generated
+    #: column refuses outright -- "cannot INSERT into generated column" on
+    #: SQLite, and 239 failing tests the first time this was mapped as an
+    #: ordinary column.
+    search_document: Mapped[str | None] = mapped_column(
+        Text, server_default=FetchedValue(), server_onupdate=FetchedValue()
+    )
+
     caliber_source: Mapped[str | None] = mapped_column(String(16))
     country_source: Mapped[str | None] = mapped_column(String(16))
     condition_source: Mapped[str | None] = mapped_column(String(16))
@@ -1194,6 +1211,15 @@ class AuditEvent(Base, TimestampMixin):
     target_label: Mapped[str | None] = mapped_column(String(255), nullable=True)
     detail: Mapped[str | None] = mapped_column(String(500), nullable=True)
     ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    #: What the row held before this change, as JSON, for the events that can
+    #: be undone. NULL on everything else -- most of what is logged here is not
+    #: reversible, and a sign-in has no "before".
+    #:
+    #: Unstructured on purpose: the shape differs per target, and a column per
+    #: field would be a schema change every time an editable field is added,
+    #: for a value nothing ever queries. Written by the endpoint that knows the
+    #: shape, read by the one that reverses it, opaque to everything between.
+    before_state: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     actor: Mapped[User | None] = relationship("User")
 

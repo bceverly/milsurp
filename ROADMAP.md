@@ -1546,9 +1546,56 @@ before they got nothing.
 
 #### The rest of the search work
 
-- **Planned** — SQLite FTS5 full-text index. The current `LIKE`-per-term search
-  is fine at tens of thousands of rows; it will not stay fine at hundreds of
-  thousands.
+- **Shipped** — A substring index for the search box, on **both** engines.
+  Migration 0034, a generated `items.search_document` column, `pg_trgm` on
+  PostgreSQL and an FTS5 trigram table on SQLite. Measured over 11,038
+  listings: **43-190ms per query before, 4.5-6x faster overall**, with the
+  common single-term queries 10-80x — and **0 differences in the answers**
+  across 39 queries on PostgreSQL and 28 on SQLite.
+
+  **The roadmap asked for FTS5 and FTS5 was the wrong answer**, which the
+  measurement said before any of it was written. A word index tokenizes, and
+  this catalog tokenizes badly: `M1911A1` is one token, so searching "1911"
+  lost 86 listings; `K98k` is one token, so "k98" lost 59; "8mm" lost 108. And
+  `S&W` reduces under PostgreSQL's English configuration to the single token
+  `w`, which returned **1,736 listings instead of 211**. Token search cannot
+  match inside a word, and matching inside a word is exactly what this search
+  box has always promised.
+
+  So: trigram indexes, which **accelerate the existing semantics instead of
+  changing them**. Both engines have one natively — `gin_trgm_ops` serves
+  `ILIKE '%x%'` directly, and FTS5's `trigram` tokenizer does the same for
+  substrings — so the two dialects differ in how the index is asked, never in
+  what it answers.
+
+  **One document, not six indexes.** The six searched fields are concatenated
+  into a generated column, joined by a **newline**, which is the detail that
+  makes this equivalent rather than merely similar: a space would let the
+  phrase "germany rifle" match a listing whose country is Germany and whose
+  category is Rifle, and neither field contains the phrase. A newline cannot be
+  typed into the search box.
+
+  Three things found by measuring rather than reasoning:
+
+  * **Two-character terms take the old path on purpose.** A trigram index
+    cannot serve them, and PostgreSQL will *try* — scanning the GIN index,
+    narrowing nothing, rechecking every row it visited, at 91ms against 47ms
+    for the plain scan. On SQLite it is worse than slow: FTS5 indexes nothing
+    shorter than a trigram, so a two-character MATCH returns **nothing at all**.
+  * **The first SQLite version was wrong in a way only a corpus test finds.**
+    Both terms of a two-word query carried the same bind parameter name, so the
+    second overwrote the first and "mosin german" executed as "german AND
+    german". Building the subquery through SQLAlchemy rather than `text()`
+    gives each clause its own anonymous bind.
+  * **The column has to be unwritable.** Mapped as an ordinary column it went
+    into every INSERT, which a generated column refuses outright — 239 failing
+    tests. `FetchedValue` is what says the database owns it.
+
+  Degrades rather than breaks. A database between installing the release and
+  running its migration, or a PostgreSQL whose role may not `CREATE EXTENSION
+  pg_trgm`, falls back to the original six-column scan — which is the old
+  behavior exactly, and therefore a safe thing to land on rather than an error
+  to raise.
 - **Shipped** — Price filter in the browse rail: a histogram, two handles and
   two number boxes. The roadmap line asked for a slider "rather than free-text
   min/max" and was wrong about the starting point — **there was no price
@@ -2875,15 +2922,39 @@ until they promote it. The numbers above are what promoting them does.
   maker and kind are settled by rules that live elsewhere, and re-deriving them
   from here would duplicate `_apply_catalog` in a second place, which this
   codebase has already done twice.
-- **Planned** — Undo for an armory edit. A merge already reverses — it records
-  what it took so it can be given back — and an ordinary edit does not, which
-  is the asymmetry worth closing now that an edit reports how many listings it
-  moved: seeing "412 listing(s) re-matched" is exactly when somebody wants the
-  last five minutes back. The audit log already records who changed what, so
-  the shape is a revert built on it rather than a new history.
-- **Planned** — Cross-site duplicate detection proper. The same rifle listed by
-  two vendors should be recognizable — the token index built for field filling
-  is the start of this, but a duplicate needs more than a shared model name.
+- **Shipped** — Undo for an armory edit. Migration 0032,
+  `app/services/armoryundo.py`, and an **Undo** button on the audit log.
+
+  **The audit log could not drive it as it stood**, which the planned entry had
+  been optimistic about. It recorded *that* a row changed — who, when, which
+  fields — and never what those fields held, so it could say "somebody edited
+  the K31's aliases at 14:02" and not what they were at 14:01. That answers
+  "who did this" and not "put it back", which is the question somebody actually
+  has on seeing *412 listing(s) re-matched* under a dialog they have just
+  closed.
+
+  So the log gained one column holding JSON. Not a table of its own: an undo
+  belongs to the event that needs undoing, it is read exactly when that event
+  is read, and a parallel history would be a second thing to write and prune in
+  step with the first. Unstructured on purpose — the shape differs per target,
+  and a column per field would be a schema change every time an editable field
+  is added, for a value nothing ever queries.
+
+  **A delete comes back with a new id, and that turns out not to matter.** The
+  listings pointing at a deleted row were unlinked when it went, so restoring
+  it cannot restore them by id — but the armory matches by *spelling*, so
+  re-reading every listing that mentions the restored names links them to the
+  new row and the count comes back where it was. There is a test for exactly
+  that, because it is the claim the feature rests on. (The id is deliberately
+  not asserted either way: SQLite may hand back the same one, and the feature
+  works regardless precisely because nothing depends on it.)
+
+  The button appears only where the server says the change is revertible — an
+  armory edit or deletion that recorded a before-state. Everything logged
+  before this migration has nothing to restore, and a button that answers with
+  an error is worse than no button. A revert is itself logged and is not
+  revertible: undoing an undo is the same operation on a newer event, which is
+  what somebody means by "actually, put it back again".
 - **Shipped** — Admin UI for the rest of the classification heuristics.
   Migrations 0029 and 0030, three tables and one page with three tabs:
   **38 countries, 52 caliber designations and 43 keywords** — the 21 accessory
@@ -3248,11 +3319,6 @@ fact.
 
 - **Shipped** — PostgreSQL as an alternative backend, and the rule that keeps
   it working. See the section below.
-- **Planned** — Move scans to a real queue (Celery/RQ or `arq`) so the scheduler
-  and the workers can be separate processes.
-- **Planned** — Prometheus metrics endpoint: scan durations, item counts, error
-  rates.
-- **Planned** — Structured JSON logging, for log aggregation in production.
 - **Shipped** — Database snapshots, taken by the application itself: SQLite's
   online backup API or `pg_dump -Fc`, `backups/` gitignored. Taken by the
   scheduler on the age of the newest snapshot rather than on a timer, so a
@@ -3425,9 +3491,6 @@ fact.
   debhelper reads it as belonging to a package called `milsurp-prune`, finds
   none, and ships nothing — silently. Three attempts went into fixing the
   *enablement* before anyone checked whether the files were in the package.
-- **Planned** — Docker Compose deployment as an alternative to the bare-metal
-  installer.
-
 ### PostgreSQL, and the rule that keeps both engines working — **Shipped**
 
 SQLite is right for one machine and stops being right the moment more than one
@@ -3782,9 +3845,87 @@ more than one machine still wants the queue below.
   reads `NoNewPrivs` from `/proc/self/status`, and when the only browser found
   is under `/snap/` it says so, names the directives, and says plainly that
   nothing in `config.yaml` can bridge it.
+- **Fixed** — The same afternoon lost twice, to the same file. With the snap
+  ruled out and Google Chrome installed from its `.deb`, Royal Tiger still
+  broke: *"Service /usr/bin/chromedriver unexpectedly exited. Status code was:
+  1"*, with a real driver sitting unused at `/usr/local/bin/chromedriver`.
+
+  On Ubuntu `/usr/bin/chromedriver` is a shim for the snap — **which the
+  module's own comment had said for months** while the preference list below it
+  still reached for that path first. The knowledge was in the prose and not in
+  the code.
+
+  Two fixes, because the ordering alone would only have moved the trap. The
+  packaged Chromes now try `/usr/local/bin/chromedriver` first: that is where an
+  administrator puts something on purpose, and on this question their deliberate
+  act outranks whatever apt left behind. And a snap driver is skipped outright
+  for a browser that is not itself a snap — `is_snap_driver` resolves symlinks
+  into `/snap/` and reads the small wrapper scripts that exec it, stating the
+  module's founding invariant once in code rather than trusting it to the order
+  of a dictionary. Anything unreadable or large is taken at face value, since a
+  false "this is a snap" would hide a working driver, which is the worse
+  mistake of the two.
+- **Shipped** — Email when a *scan* fails, not only when the nightly canary
+  does. `app/services/scanalerts.py`, hooked into the one place every run is
+  closed out, after the commit — a message describing a scan that was then
+  rolled back would be worse than no message.
+
+  The canary probes every shop at 06:10 and mails what it finds, which covers a
+  vendor changing its markup. It is a separate probe, though, and that left two
+  gaps: a scan dying at 02:00 waited four hours to be noticed, and the canary
+  stops after three listings, so a failure on page nine — a pagination change, a
+  detail page that started 404ing — passed it while every real scan failed.
+
+  **A change of state, never a standing condition**, which is the whole
+  discipline and the reason it is worth having. A site broken for a fortnight
+  must not mail every night for a fortnight: by the third night it is a rule in
+  somebody's mail client and by the fifth the next real failure lands in the
+  same folder unread. So the question asked is not "did this scan fail?" but
+  "is this different from last time?" Recovery is reported for the same reason
+  failure is — somebody told a shop went quiet is owed the sentence saying it
+  came back.
+
+  Three verdicts that deliberately say nothing. `PARTIAL` is some pages or
+  images failing while the catalog came through, which is a warning on the
+  scan's own record and not a vendor gone quiet. `CANCELED` is an administrator
+  pressing stop, and it does not count as the previous verdict either — or a
+  cancel between two failures would make the second look like news. And a
+  first-ever scan that *works* is not news: nobody needs telling that a thing
+  did what it was installed to do.
+
+  Never raises. Alerting that can break a scan turns every mail outage into a
+  scraping outage, and the failure it reports is its own.
+- **Fixed** — CodeQL #41, *clear-text logging of sensitive information*, High,
+  `services/audit.py:98`. The line is `log.exception("Could not record audit
+  event %s", action)`, and the "sensitive information" was the action name —
+  because one of them was `USER_PASSWORD_RESET = "user.password_reset_sent"`.
+
+  **The third tool to read that constant as a credential.** Ruff's S105 and
+  bandit's B105 had both flagged it, and both had been suppressed inline for
+  months; CodeQL simply found the same name by the same heuristic and followed
+  it to a logging call. No password was within reach of any of them: the value
+  is the name of something that happened.
+
+  So the constant is renamed to `USER_RESET_LINK_SENT` / `user.reset_link_sent`
+  — named for what it is, a link being mailed, rather than for the thing the
+  link eventually lets somebody change. **Verified locally rather than
+  assumed**: with the two suppressions deleted and the old name restored, ruff
+  and bandit each flag it again; with the new name and no suppressions, both
+  fall silent. That is the heuristic identified directly, which is as close to
+  running CodeQL as this machine gets. Migration 0033 rewrites the rows already
+  written so the action has one spelling, and the audit page keeps a label for
+  the old string for a database restored from an older snapshot.
+
+  A test now walks every upper-case string constant in the module and fails on
+  any that reads as a credential, so the next action somebody adds cannot
+  quietly bring the problem back.
+
+  The same pass removed a flag argument that put a password-named value on the
+  path into the audit log: `_what_changed(..., password_set: bool)` used it
+  only to append a constant string, so the caller appends it instead. A boolean
+  is not a secret, but a static analyzer is right to look twice at that shape.
 - **Planned** — Visual regression tests on the screenshots `make screenshots`
   already produces.
-- **Planned** — Load testing of the item list endpoint at realistic row counts.
 - **Shipped** — Raise the coverage floors. **Backend 65% → 83%** against a
   measured 88.0%, **frontend 65% → 76%** statements and 77% lines against
   81.2% and 81.9%, with branches 50% → 70% and functions 55% → 73%.

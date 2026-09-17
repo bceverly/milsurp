@@ -122,7 +122,10 @@ changed — filtered to the sites you care about and capped so it stays readable
 ### Browsing
 
 - Keyword search across titles **and** captured descriptions, with multi-term
-  matching and quoted phrases.
+  matching and quoted phrases — **substring** matching, so "1911" finds an
+  M1911A1 and "303" finds a .303 British. Backed by a trigram index on both
+  engines (`pg_trgm` on PostgreSQL, FTS5's trigram tokenizer on SQLite), which
+  makes it 4.5-6x faster overall without moving a single answer.
 - Faceted filters: site, category, caliber, country, manufacturer, type,
   availability, "reduced only".
 - **Price range as a shape, not two boxes.** A log-scaled histogram of what the
@@ -1541,6 +1544,55 @@ something to find out about afterwards. Deleting a rule is the same bargain:
 it removes the thing that *assigns* an answer, not the answer, and the dialog
 says so and points at the on/off switch instead.
 
+### Searching without changing what search means
+
+The browse search is "every term must appear somewhere in the listing", matched
+as a **substring** across six columns. No index can serve a leading wildcard, so
+every search read the whole catalog: 43-190ms at 11,038 listings, growing
+linearly.
+
+**The obvious fix is a word index, and it is the wrong one here.** PostgreSQL's
+`tsvector` tokenizes, and this catalog tokenizes badly — measured before
+anything was built:
+
+| Query | Substring (today) | `tsvector` | Why |
+| --- | --- | --- | --- |
+| `1911` | 361 | 275 | `M1911A1` is one token |
+| `k98` | 289 | 230 | `K98k` is one token |
+| `8mm` | 694 | 586 | same |
+| `s&w` | 211 | **1,736** | `S&W` reduces to the token `w` |
+
+Token search cannot match inside a word, and matching inside a word is what
+this search box has always promised.
+
+**So: trigram indexes, which make the existing semantics fast rather than
+replacing them.** Both engines have one natively — PostgreSQL's `gin_trgm_ops`
+serves `ILIKE '%x%'` directly, and SQLite's FTS5 has a `trigram` tokenizer that
+does the same for substrings. The dialects differ in how the index is asked and
+never in what it answers, which is the one-schema-two-engines rule applied to
+the one feature where the engines have nothing in common.
+
+The six fields are concatenated into a generated `search_document` column and
+indexed once, **joined by a newline**. That is what makes it equivalent rather
+than similar: a space would let the phrase "germany rifle" match a listing whose
+country is Germany and whose category is Rifle, when neither field contains the
+phrase. A newline cannot be typed into a search box.
+
+**Two-character terms deliberately take the old path.** A trigram index cannot
+serve them; PostgreSQL will *try*, scan the index, narrow nothing and recheck
+every row — 91ms against 47ms for the plain scan — and SQLite's FTS5 indexes
+nothing shorter than a trigram, so a two-character MATCH returns nothing at all.
+
+It degrades rather than breaks. A database between installing a release and
+running its migration, or a PostgreSQL whose role may not `CREATE EXTENSION
+pg_trgm`, falls back to the original six-column scan: the old behavior exactly,
+which is why it is something to land on rather than something to raise about.
+
+`backend/tests/test_search_index.py` holds the claim the whole change rests on
+— 28 queries chosen for the ways they can go wrong, each asserted identical
+between the index and the scan it replaced, including a check that the test is
+exercising the index at all rather than comparing the scan with itself.
+
 ### The write-ahead log
 
 *SQLite only — none of this section applies on PostgreSQL.*
@@ -2092,6 +2144,19 @@ applies second, and it leaves rows the file does not mention alone unless
 `--prune` is given: the armory is curated in two places, and a row missing from
 the file is more often unexported than unwanted. `backend/tests/test_armory.py`
 pins the round trip — export then sync is a no-op.
+
+**And it can be put back.** Every armory edit and deletion records what the row
+held beforehand, and the audit log offers an **Undo** beside it. That pairing is
+deliberate: the count is what makes somebody want the undo, and until both
+existed the page could tell you it had moved four hundred listings and offer no
+way back.
+
+Undoing a *delete* re-creates the row, which cannot have its old id — the
+listings pointing at it were unlinked when it went. It does not need one: the
+armory matches by spelling, so re-reading every listing that mentions the
+restored names links them to the new row and the count returns. A revert is
+itself logged and is not revertible, because undoing an undo is the same
+operation on a newer event.
 
 **An armory edit says what it cost the catalog.** Approving a model, adding an
 alias to a cartridge, switching a row off or deleting one re-matches every

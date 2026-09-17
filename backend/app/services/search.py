@@ -12,15 +12,142 @@ live here, and both callers go through them.
 
 from __future__ import annotations
 
+import logging
 import re
 from datetime import timedelta
 from typing import Any
 from urllib.parse import parse_qsl, urlencode
 
-from sqlalchemy import Select, or_, select, true
+from sqlalchemy import Select, column, or_, select, table, true
 from sqlalchemy.orm import Session
 
 from ..models import Item, utcnow
+
+log = logging.getLogger("milsurp.search")
+
+#: Below three characters a trigram index cannot help, and on SQLite it is
+#: worse than that: FTS5's trigram tokenizer indexes nothing shorter, so a MATCH
+#: for a two-character term returns *nothing at all* rather than a slow answer.
+#: Those terms take the plain scan, which is correct and no slower than the
+#: whole search used to be.
+TRIGRAM_MIN = 3
+
+#: The FTS5 table, as a bare table rather than a mapped class: it has no
+#: columns worth naming, and `items_fts MATCH ?` is a predicate on the table
+#: itself, which is how FTS5 spells a whole-row match.
+_FTS = table("items_fts", column("rowid"), column("items_fts"))
+
+#: How the search box is served on this deployment, worked out once.
+#:
+#: ``postgres`` -- a GIN pg_trgm index over `items.search_document`, which
+#: serves ``ILIKE '%x%'`` directly, so the query is the obvious one.
+#: ``sqlite``   -- an FTS5 trigram table, which needs a MATCH subquery.
+#: ``columns``  -- neither: the six original ILIKEs. This is what a database
+#: sees between installing a release and running its migration, and what a
+#: PostgreSQL whose role could not create the pg_trgm extension keeps using.
+#: It is the old behavior, exactly, which is why it is a safe thing to fall
+#: back to rather than an error to raise.
+_index_kind: str | None = None
+
+
+def _search_index() -> str:
+    """Which search index this database has, cached after the first look."""
+    global _index_kind
+    if _index_kind is not None:
+        return _index_kind
+    try:
+        from sqlalchemy import inspect
+
+        from ..database import get_engine
+
+        engine = get_engine()
+        inspector = inspect(engine)
+        columns = {column["name"] for column in inspector.get_columns("items")}
+        if "search_document" not in columns:
+            _index_kind = "columns"
+        elif engine.dialect.name == "postgresql":
+            indexes = {index["name"] for index in inspector.get_indexes("items")}
+            _index_kind = "postgres" if "ix_items_search_trgm" in indexes else "columns"
+        elif "items_fts" in set(inspector.get_table_names()):
+            _index_kind = "sqlite"
+        else:
+            _index_kind = "columns"
+    except Exception:
+        log.warning(
+            "Could not determine the search index; using the unindexed scan.", exc_info=True
+        )
+        _index_kind = "columns"
+    return _index_kind
+
+
+def forget_search_index() -> None:
+    """Drop the cached answer. For the tests, which build several databases in
+    one process, and for a migration applied while the app is running."""
+    global _index_kind
+    _index_kind = None
+
+
+def _escaped(term: str) -> str:
+    return term.replace("!", "!!").replace("%", "!%").replace("_", "!_")
+
+
+def _columns_clause(pattern: str) -> Any:
+    """The original six-way OR, which every other form has to agree with.
+
+    ilike, not like. SQLite's LIKE ignores case for ASCII and PostgreSQL's does
+    not, so plain `like` would quietly make the search case-sensitive --
+    "enfield" would stop matching "ENFIELD SMLE", which is how most of these
+    vendors write a title.
+    """
+    return or_(
+        Item.title.ilike(pattern, escape="!"),
+        Item.description.ilike(pattern, escape="!"),
+        Item.caliber.ilike(pattern, escape="!"),
+        Item.manufacturer.ilike(pattern, escape="!"),
+        Item.country.ilike(pattern, escape="!"),
+        Item.category.ilike(pattern, escape="!"),
+    )
+
+
+def _term_clause(term: str) -> Any:
+    """One term's predicate: it must appear somewhere in the listing.
+
+    The three forms answer identically -- that is the whole contract, and it is
+    tested against the real catalog rather than asserted. What differs is only
+    how much of the table has to be read to find out.
+    """
+    kind = _search_index()
+    pattern = f"%{_escaped(term)}%"
+
+    # Too short for a trigram, on either engine, so the original columns are
+    # the fastest correct answer -- and asking for the indexed form is worse
+    # than not having the index. PostgreSQL will *try* the GIN index for a
+    # two-character pattern, fail to narrow anything, and recheck every row it
+    # visited: measured at 91ms against 47ms for the plain scan, a regression
+    # this branch exists to prevent. On SQLite the same term matches nothing
+    # at all through FTS5.
+    if len(term) < TRIGRAM_MIN:
+        return _columns_clause(pattern)
+
+    if kind == "postgres":
+        return Item.search_document.ilike(pattern, escape="!")
+
+    if kind == "sqlite" and len(term) >= TRIGRAM_MIN:
+        # FTS5 takes the term as a quoted string, where the only character
+        # needing care is the quote itself. The LIKE wildcards are ordinary
+        # characters to it, so the escaping above is deliberately not applied.
+        #
+        # Built as a real select rather than a `text()` carrying a named bind.
+        # Two terms meant two clauses with the *same* parameter name and the
+        # second quietly overwrote the first, so "mosin german" was executed as
+        # "german AND german" -- two results where the right answer is none.
+        # SQLAlchemy names an anonymous bind per clause, which is the whole
+        # reason to let it build the statement.
+        quoted = '"' + term.replace('"', '""') + '"'
+        return Item.id.in_(select(_FTS.c.rowid).where(_FTS.c.items_fts.op("MATCH")(quoted)))
+
+    return _columns_clause(pattern)
+
 
 SORTS: dict[str, tuple[Any, ...]] = {
     "newest": (Item.first_seen_at.desc(), Item.id.desc()),
@@ -140,30 +267,8 @@ def apply_filters(  # noqa: PLR0912 - one branch per filter; splitting it
     # "all" applies no availability filter at all.
 
     if search:
-        # Every term must appear somewhere in the listing, but they may land in
-        # different fields -- so "enfield 303" matches a rifle whose title says
-        # Enfield and whose caliber says .303 British. A phrase in double
-        # quotes is kept together.
         for term in _search_terms(search):
-            escaped = term.replace("!", "!!").replace("%", "!%").replace("_", "!_")
-            pattern = f"%{escaped}%"
-            # ilike, not like. SQLite's LIKE ignores case for ASCII and
-            # PostgreSQL's does not, so plain `like` would quietly make the
-            # search case-sensitive the day this moves to PostgreSQL --
-            # "enfield" would stop matching "ENFIELD SMLE", which is how most
-            # of these vendors write a title. ILIKE means the same thing on
-            # both: PostgreSQL has it natively and SQLAlchemy renders
-            # lower(x) LIKE lower(y) on SQLite.
-            stmt = stmt.where(
-                or_(
-                    Item.title.ilike(pattern, escape="!"),
-                    Item.description.ilike(pattern, escape="!"),
-                    Item.caliber.ilike(pattern, escape="!"),
-                    Item.manufacturer.ilike(pattern, escape="!"),
-                    Item.country.ilike(pattern, escape="!"),
-                    Item.category.ilike(pattern, escape="!"),
-                )
-            )
+            stmt = stmt.where(_term_clause(term))
 
     if min_price is not None:
         stmt = stmt.where(Item.current_price.is_not(None), Item.current_price >= min_price)

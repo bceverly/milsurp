@@ -25,11 +25,18 @@ const LABELS = {
   "user.updated": "User changed",
   "user.deleted": "User deleted",
   "user.role_changed": "Role changed",
+  "user.reset_link_sent": "Reset link sent",
+  // Rows written before the action was renamed. Kept so the old ones still
+  // read as words rather than as a raw key; see services/audit.py for why the
+  // name changed.
   "user.password_reset_sent": "Reset link sent",
   "site.enabled": "Site enabled",
   "site.disabled": "Site disabled",
   "session.revoked": "Session revoked",
   "session.revoked_all": "Other sessions revoked",
+  "armory.edited": "Armory row changed",
+  "armory.deleted": "Armory row deleted",
+  "armory.reverted": "Armory change undone",
 };
 
 function label(action) {
@@ -41,6 +48,9 @@ export default function AuditLogPage() {
   const [rows, setRows] = useState(null);
   const [actions, setActions] = useState([]);
   const [action, setAction] = useState("");
+  const [undoing, setUndoing] = useState(null);
+  const [notice, setNotice] = useState("");
+  const [problem, setProblem] = useState("");
   const [error, setError] = useState(null);
 
   const load = useCallback(() => {
@@ -52,6 +62,28 @@ export default function AuditLogPage() {
   }, [action]);
 
   useEffect(load, [load]);
+
+  /**
+   * Put one change back.
+   *
+   * The list is reloaded afterwards rather than patched in place: an undo
+   * writes a new event of its own, and a page that showed the old list with a
+   * row silently altered would be lying about its own history.
+   */
+  async function undo(row) {
+    setUndoing(row.id);
+    setNotice("");
+    setProblem("");
+    try {
+      const result = await api.revertArmoryChange(row.id);
+      setNotice(result.message);
+      load();
+    } catch (err) {
+      setProblem(err.message);
+    } finally {
+      setUndoing(null);
+    }
+  }
 
   useEffect(() => {
     // The filter offers only actions that have actually happened: one listing
@@ -85,6 +117,9 @@ export default function AuditLogPage() {
         <p className="muted">Nothing recorded yet.</p>
       )}
 
+      {notice && <p className="alert alert--success">{notice}</p>}
+      {problem && <p className="alert alert--error">{problem}</p>}
+
       {rows !== null && rows.length > 0 && (
         <div className="table-wrap">
           <table className="table">
@@ -96,6 +131,7 @@ export default function AuditLogPage() {
                 <th>Target</th>
                 <th>Detail</th>
                 <th>From</th>
+                <th />
               </tr>
             </thead>
             <tbody>
@@ -112,6 +148,21 @@ export default function AuditLogPage() {
                   <td>{row.target_label || row.target_id || "—"}</td>
                   <td>{row.detail || "—"}</td>
                   <td>{row.ip_address || "—"}</td>
+                  <td className="table__actions">
+                    {/* Only where the row recorded what it held beforehand.
+                        The server answers that question, because a button that
+                        replies with an error is worse than no button. */}
+                    {row.revertible && (
+                      <button
+                        type="button"
+                        className="btn btn--ghost btn--sm"
+                        disabled={undoing === row.id}
+                        onClick={() => undo(row)}
+                      >
+                        {undoing === row.id ? "Undoing…" : "Undo"}
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

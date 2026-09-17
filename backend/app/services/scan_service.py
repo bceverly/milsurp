@@ -48,7 +48,16 @@ from ..scrapers import (
     get_scraper,
     get_scraper_class,
 )
-from . import armory, boilerplate, classify, discovery, manufacturers, overrides, provenance
+from . import (
+    armory,
+    boilerplate,
+    classify,
+    discovery,
+    manufacturers,
+    overrides,
+    provenance,
+    scanalerts,
+)
 from .image_store import ImageStore, StoredImage
 
 #: Progress lines kept per run. Enough to debug a scrape without unbounded growth.
@@ -1226,6 +1235,16 @@ def run_scan(  # noqa: PLR0912,PLR0915 - one linear scan lifecycle; see ROADMAP
                 schedule_next(site, run.finished_at)
                 log.flush()
                 session.commit()
+
+            # After the commit, deliberately: a message describing a scan that
+            # was then rolled back would be worse than no message. Only a
+            # *change* of verdict is reported -- see services/scanalerts.py --
+            # so a shop broken for a fortnight does not mail every night for a
+            # fortnight and teach somebody to filter it away.
+            told = scanalerts.consider(session, site, run)
+            if told:
+                log(f"Administrators told: {site.slug} {told}.")
+                log.flush()
 
             return run.id
     finally:

@@ -299,6 +299,10 @@ export const api = {
       body: { source_id, target_id },
     }),
   seedArmory: () => request("/api/armory/seed", { method: "POST" }),
+  // Addressed by the audit event rather than by the row: the event is what
+  // somebody is looking at when they decide to undo it.
+  revertArmoryChange: (eventId) =>
+    request(`/api/armory/revert/${eventId}`, { method: "POST" }),
   // A plain link rather than a fetch, like the item export and for the same
   // reason: the session is a cookie, so the browser authenticates the
   // navigation itself and the file lands in Downloads instead of in memory.

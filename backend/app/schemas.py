@@ -78,6 +78,12 @@ class SessionOut(UTCModel):
     user_agent: str | None = None
     ip_address: str | None = None
     created_at: datetime | None = None
+    #: Whether this change can be put back. True only for an armory edit or
+    #: deletion that recorded what the row held beforehand — everything logged
+    #: before migration 0032 has nothing to restore, and most of what is logged
+    #: here was never reversible. Computed rather than stored so the page never
+    #: offers a button that would answer with an error.
+    revertible: bool = False
     last_seen_at: datetime | None = None
     expires_at: datetime
     #: Whether this is the session making the request. The list is useless
@@ -100,6 +106,12 @@ class AuditEventOut(UTCModel):
     detail: str | None = None
     ip_address: str | None = None
     created_at: datetime | None = None
+    #: Whether this change can be put back. True only for an armory edit or
+    #: deletion that recorded what the row held beforehand — everything logged
+    #: before migration 0032 has nothing to restore, and most of what is logged
+    #: here was never reversible. Computed rather than stored so the page never
+    #: offers a button that would answer with an error.
+    revertible: bool = False
 
 
 class TotpStart(BaseModel):

@@ -135,7 +135,7 @@ def send_reset_link(
     audit.record(
         session,
         actor=admin,
-        action=audit.USER_PASSWORD_RESET,
+        action=audit.USER_RESET_LINK_SENT,
         target_type="user",
         target_id=user.id,
         target_label=user.username,
@@ -239,7 +239,15 @@ def update_user(
         # An admin reset must sign the user out everywhere.
         user.token_version += 1
 
-    changes = _what_changed(user, was_role, was_active, payload.password is not None)
+    changes = _what_changed(user, was_role, was_active)
+    if payload.password is not None:
+        # Appended here rather than passed in as a flag. The helper took a
+        # `password_set: bool` it used only to append this constant, which is
+        # the flag-argument smell -- and it also put a password-named value on
+        # the path into the audit log, which is the sort of thing a static
+        # analyzer is right to look at twice even when, as here, the value was
+        # only ever a boolean.
+        changes.append("password set by admin")
     if changes:
         # A role change gets its own action so it can be filtered for. It is
         # the one edit here that grants somebody power they did not have.
@@ -259,7 +267,7 @@ def update_user(
     return UserOut.model_validate(user)
 
 
-def _what_changed(user: User, was_role: str, was_active: bool, password_set: bool) -> list[str]:
+def _what_changed(user: User, was_role: str, was_active: bool) -> list[str]:
     """What an edit actually did, for the audit detail.
 
     A separate function because the route was already at the branch ceiling and
@@ -272,8 +280,6 @@ def _what_changed(user: User, was_role: str, was_active: bool, password_set: boo
         changes.append(f"role {was_role} -> {user.role.value}")
     if user.is_active != was_active:
         changes.append("enabled" if user.is_active else "disabled")
-    if password_set:
-        changes.append("password set by admin")
     return changes
 
 

@@ -13,7 +13,7 @@ from ..models import EmailLog, Item, ScanRun, Site, User
 from ..scheduler import get_scheduler
 from ..schemas import AuditEventOut, HealthOut, PolicyOut, SystemStatusOut
 from ..security import password_requirements
-from ..services import audit
+from ..services import armoryundo, audit
 from ..services.image_store import ImageStore
 
 router = APIRouter(tags=["system"])
@@ -92,10 +92,20 @@ def audit_log(
     would be a privacy decision made by accident. An account that cannot see
     the Users page has no use for it.
     """
-    return [
-        AuditEventOut.model_validate(event, from_attributes=True)
-        for event in audit.recent(session, limit=limit, action=action)
-    ]
+    rows = []
+    for event in audit.recent(session, limit=limit, action=action):
+        out = AuditEventOut.model_validate(event, from_attributes=True)
+        # Answered here rather than by the page guessing from the action name:
+        # an event is revertible only if it also recorded what the row held,
+        # and everything written before migration 0032 did not. A button that
+        # answers with an error is worse than no button.
+        out.revertible = (
+            event.action in (audit.ARMORY_EDITED, audit.ARMORY_DELETED)
+            and bool(event.before_state)
+            and event.target_type in armoryundo.REVERTIBLE
+        )
+        rows.append(out)
+    return rows
 
 
 @router.get("/audit/actions", response_model=list[str])

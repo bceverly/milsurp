@@ -28,12 +28,14 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, Response, status
+from fastapi import APIRouter, HTTPException, Query, Request, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from ..deps import AdminUser, AppConfig, DbSession
+from ..logsafe import client_address
 from ..models import (
+    AuditEvent,
     Caliber,
     FirearmKind,
     FirearmModel,
@@ -58,7 +60,7 @@ from ..schemas import (
     FirearmModelUpdate,
 )
 from ..services import armory as service
-from ..services import classify, mailer
+from ..services import armoryundo, audit, classify, mailer
 
 router = APIRouter(prefix="/armory", tags=["armory"])
 
@@ -283,7 +285,11 @@ def create_caliber(payload: CaliberCreate, _admin: AdminUser, session: DbSession
 
 @router.patch("/calibers/{caliber_id}", response_model=ArmoryWrite)
 def update_caliber(
-    caliber_id: int, payload: CaliberUpdate, _admin: AdminUser, session: DbSession
+    caliber_id: int,
+    payload: CaliberUpdate,
+    admin: AdminUser,
+    request: Request,
+    session: DbSession,
 ) -> ArmoryWrite:
     row = _row(session, Caliber, caliber_id)
     changes = _emptied(payload.model_dump(exclude_unset=True))
@@ -293,11 +299,24 @@ def update_caliber(
     # re-matched as well as the ones it answers to now, or a removed alias
     # leaves its listings pointing at a rule that no longer exists.
     spellings = list(row.spellings)
+    # Taken before anything is written, which is the only moment it exists.
+    before = armoryundo.snapshot(row)
     for field, value in changes.items():
         setattr(row, field, value)
     session.flush()
     service.invalidate()
     changed = service.reprocess(session, [*spellings, *row.spellings])
+    audit.record(
+        session,
+        actor=admin,
+        action=audit.ARMORY_EDITED,
+        target_type="caliber",
+        target_id=row.id,
+        target_label=row.name,
+        detail=", ".join(sorted(changes)),
+        ip_address=client_address(request),
+        before=before,
+    )
     session.commit()
     return ArmoryWrite(
         caliber=_caliber_out(row, _caliber_counts(session), _models_per_caliber(session)),
@@ -306,7 +325,9 @@ def update_caliber(
 
 
 @router.delete("/calibers/{caliber_id}", response_model=ArmoryWrite)
-def delete_caliber(caliber_id: int, _admin: AdminUser, session: DbSession) -> ArmoryWrite:
+def delete_caliber(
+    caliber_id: int, admin: AdminUser, request: Request, session: DbSession
+) -> ArmoryWrite:
     """Remove a cartridge, and say how many listings stopped carrying it.
 
     A body rather than 204, for the reason the maker endpoints already return
@@ -316,10 +337,22 @@ def delete_caliber(caliber_id: int, _admin: AdminUser, session: DbSession) -> Ar
     """
     row = _row(session, Caliber, caliber_id)
     spellings = list(row.spellings)
+    before, label, was_id = armoryundo.snapshot(row), row.name, row.id
     session.delete(row)
     session.flush()
     service.invalidate()
     changed = service.reprocess(session, spellings)
+    audit.record(
+        session,
+        actor=admin,
+        action=audit.ARMORY_DELETED,
+        target_type="caliber",
+        target_id=was_id,
+        target_label=label,
+        detail=f"{changed} listing(s) re-matched",
+        ip_address=client_address(request),
+        before=before,
+    )
     session.commit()
     return ArmoryWrite(listings_changed=changed)
 
@@ -343,7 +376,11 @@ def create_model(
 
 @router.patch("/models/{model_id}", response_model=ArmoryWrite)
 def update_model(
-    model_id: int, payload: FirearmModelUpdate, _admin: AdminUser, session: DbSession
+    model_id: int,
+    payload: FirearmModelUpdate,
+    admin: AdminUser,
+    request: Request,
+    session: DbSession,
 ) -> ArmoryWrite:
     row = _row(session, FirearmModel, model_id)
     changes = _emptied(payload.model_dump(exclude_unset=True))
@@ -355,11 +392,23 @@ def update_model(
         row.calibers = _calibers(session, changes.pop("caliber_ids") or [])
     # Both sides of the edit -- see update_caliber for why.
     spellings = list(row.spellings)
+    before = armoryundo.snapshot(row)
     for field, value in changes.items():
         setattr(row, field, value)
     session.flush()
     service.invalidate()
     changed = service.reprocess(session, [*spellings, *row.spellings])
+    audit.record(
+        session,
+        actor=admin,
+        action=audit.ARMORY_EDITED,
+        target_type="model",
+        target_id=row.id,
+        target_label=row.name,
+        detail=", ".join(sorted(changes)),
+        ip_address=client_address(request),
+        before=before,
+    )
     session.commit()
     return ArmoryWrite(
         model=_model_out(row, _listings_per_model(session).get(row.id, 0)),
@@ -368,9 +417,12 @@ def update_model(
 
 
 @router.delete("/models/{model_id}", response_model=ArmoryWrite)
-def delete_model(model_id: int, _admin: AdminUser, session: DbSession) -> ArmoryWrite:
+def delete_model(
+    model_id: int, admin: AdminUser, request: Request, session: DbSession
+) -> ArmoryWrite:
     row = _row(session, FirearmModel, model_id)
     spellings = list(row.spellings)
+    before, label, was_id = armoryundo.snapshot(row), row.name, row.id
     session.delete(row)
     session.flush()
     service.invalidate()
@@ -379,6 +431,17 @@ def delete_model(model_id: int, _admin: AdminUser, session: DbSession) -> Armory
     # to explain would silently stop being explained by anything, with nothing
     # said about it.
     changed = service.reprocess(session, spellings)
+    audit.record(
+        session,
+        actor=admin,
+        action=audit.ARMORY_DELETED,
+        target_type="model",
+        target_id=was_id,
+        target_label=label,
+        detail=f"{changed} listing(s) re-matched",
+        ip_address=client_address(request),
+        before=before,
+    )
     session.commit()
     return ArmoryWrite(listings_changed=changed)
 
@@ -590,6 +653,33 @@ def email_armory_file(admin: AdminUser, session: DbSession, config: AppConfig) -
     return ArmoryAction(
         changed=rows,
         message=f"Sent {rows:,} rows to {admin.email}.",
+    )
+
+
+@router.post("/revert/{event_id}", response_model=ArmoryAction)
+def revert_edit(
+    event_id: int, admin: AdminUser, request: Request, session: DbSession
+) -> ArmoryAction:
+    """Put an armory row back the way it was before one logged change.
+
+    The event is the thing somebody is looking at when they want to undo it, so
+    the undo is addressed by event rather than by row. See
+    :mod:`app.services.armoryundo` for why a delete comes back with a new id
+    and why that turns out not to matter.
+    """
+    event = session.get(AuditEvent, event_id)
+    if event is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such change.")
+    try:
+        done = armoryundo.revert(session, event, admin, client_address(request))
+    except armoryundo.CannotRevert as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    restored = "restored" if done.recreated else "put back"
+    moved = f" {done.listings_changed:,} listing(s) re-matched." if done.listings_changed else ""
+    return ArmoryAction(
+        changed=1,
+        items_restamped=done.listings_changed,
+        message=f"{done.label} {restored}.{moved}",
     )
 
 

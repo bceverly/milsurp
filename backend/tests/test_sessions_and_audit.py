@@ -16,7 +16,7 @@ from __future__ import annotations
 import pytest
 
 from app import sessions
-from app.models import AuditEvent, User, UserSession
+from app.models import AuditEvent, User, UserRole, UserSession
 from app.services import audit, usersessions
 
 
@@ -190,3 +190,47 @@ class TestTheAuditLog:
 
     def test_an_admin_can(self, client, admin_headers):
         assert client.get("/api/audit", headers=admin_headers).status_code == 200
+
+
+class TestTheResetActionIsNotNamedForAPassword:
+    """Three static analyzers in turn read `USER_PASSWORD_RESET` as a hardcoded
+    credential: ruff's S105, bandit's B105 — both suppressed inline for months
+    — and then CodeQL, reporting *clear-text logging of sensitive information*
+    against the `log.exception` that names the action when a write fails.
+
+    No password was ever within reach of any of them. Renaming the constant is
+    what the suppressions were standing in for, and these hold the rename so it
+    does not quietly come back with the next action somebody adds.
+    """
+
+    def test_no_action_is_named_for_a_credential(self):
+        suspicious = {"password", "secret", "token", "credential", "apikey"}
+        for name in dir(audit):
+            if not name.isupper():
+                continue
+            value = getattr(audit, name)
+            if not isinstance(value, str):
+                continue
+            words = f"{name} {value}".lower()
+            assert not any(word in words for word in suspicious), (
+                f"{name} reads as a credential to a static analyzer. Name it for "
+                f"what happened rather than for what the thing eventually changes."
+            )
+
+    def test_the_reset_action_still_exists_under_its_new_name(self):
+        assert audit.USER_RESET_LINK_SENT == "user.reset_link_sent"
+
+    def test_sending_a_link_records_the_new_action(self, client, admin_headers, clean_db):
+        target = User(
+            username="forgetful",
+            email="forgetful@example.test",
+            role=UserRole.NORMAL,
+            is_active=True,
+            password_hash="x",
+        )
+        clean_db.add(target)
+        clean_db.commit()
+
+        client.post(f"/api/users/{target.id}/reset-link", headers=admin_headers)
+        actions = {row["action"] for row in client.get("/api/audit", headers=admin_headers).json()}
+        assert "user.password_reset_sent" not in actions

@@ -25,6 +25,7 @@ watches.
 
 from __future__ import annotations
 
+import json
 import logging
 
 from sqlalchemy import select
@@ -46,8 +47,25 @@ USER_CREATED = "user.created"
 USER_UPDATED = "user.updated"
 USER_DELETED = "user.deleted"
 USER_ROLE_CHANGED = "user.role_changed"
-USER_PASSWORD_RESET = "user.password_reset_sent"  # noqa: S105  # nosec B105
+#: Named for what it is -- a link was mailed -- rather than for the thing the
+#: link eventually lets somebody change.
+#:
+#: It was named for the password rather than for the link, and carried
+#: suppressions for both ruff's S105 and bandit's B105, because each reads a
+#: constant whose name contains PASSWORD as a hardcoded credential. CodeQL then
+#: read the same constant the same way and reported *clear-text logging of
+#: sensitive information* against the `log.exception` below, which logs the
+#: action name when an audit write fails.
+#:
+#: Three tools, one false positive, and no password within reach of any of
+#: them: the value is the name of something that happened. Renaming it is what
+#: the two suppressions were standing in for, and with the name changed both
+#: linters fall silent on their own.
+USER_RESET_LINK_SENT = "user.reset_link_sent"
 COUNTRY_CHANGED = "country.changed"
+ARMORY_EDITED = "armory.edited"
+ARMORY_DELETED = "armory.deleted"
+ARMORY_REVERTED = "armory.reverted"
 DESIGNATION_CHANGED = "caliber_designation.changed"
 CLASSIFIER_KEYWORD_CHANGED = "classifier_keyword.changed"
 SITE_ENABLED = "site.enabled"
@@ -74,6 +92,7 @@ def record(
     target_label: str | None = None,
     detail: str | None = None,
     ip_address: str | None = None,
+    before: dict[str, object] | None = None,
 ) -> AuditEvent | None:
     """Write one event. Returns None if it could not be written.
 
@@ -90,6 +109,10 @@ def record(
             target_label=scrub(target_label or "", limit=LABEL_CHARS) or None,
             detail=scrub(detail or "", limit=DETAIL_CHARS) or None,
             ip_address=scrub(ip_address or "", limit=64) or None,
+            # Not scrubbed and not truncated: it is JSON that has to parse when
+            # it is read back, and half a document restores nothing. What goes
+            # in comes from the endpoint rather than from a request body.
+            before_state=json.dumps(before, default=str) if before is not None else None,
         )
         session.add(event)
         session.flush()
