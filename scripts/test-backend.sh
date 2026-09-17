@@ -12,7 +12,7 @@ cd "$REPO_ROOT"
 VENV_PY=".venv/bin/python"
 [ -x "$VENV_PY" ] || { echo "No virtualenv — run 'make install-dev'." >&2; exit 1; }
 
-printf '\n\033[1mBackend tests\033[0m (pytest, minimum 65%% coverage)\n\n'
+printf '\n\033[1mBackend tests\033[0m (pytest, minimum 83%% coverage)\n\n'
 
 # Six of these tests need a real PostgreSQL and skip without one. If this
 # machine has the test database, use it rather than making somebody remember a

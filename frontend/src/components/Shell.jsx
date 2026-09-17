@@ -16,6 +16,7 @@ import {
   Rifle,
   Shield,
   Sieve,
+  Sparkle,
   TrendDown,
   Sites as SitesIcon,
   Star,
@@ -36,6 +37,9 @@ const NAV = [
   // after being away: the email digest says what you asked for, this says what
   // happened.
   { to: "/changes", label: "What changed", icon: TrendDown },
+  // Beside it, because the two are the same instinct at different scales:
+  // what moved this week, and what things are worth in general.
+  { to: "/market", label: "Market", icon: Sparkle },
   { to: "/saved-searches", label: "Saved searches", icon: Bookmark },
   // Beside saved searches, and after it: a saved search is a standing question
   // about the catalog, a watchlist a standing question about particular guns.

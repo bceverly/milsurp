@@ -11,6 +11,7 @@ import UsersPage from "./pages/Users.jsx";
 import ArmoryPage from "./pages/Armory.jsx";
 import ClassificationPage from "./pages/Classification.jsx";
 import ChangesPage from "./pages/Changes.jsx";
+import MarketPage from "./pages/Market.jsx";
 import SettingsPage from "./pages/Settings.jsx";
 import AuditLogPage from "./pages/AuditLog.jsx";
 import BackupsPage from "./pages/Backups.jsx";
@@ -71,6 +72,7 @@ export default function App() {
         <Route path="backups" element={<BackupsPage />} />
         <Route path="audit" element={<AuditLogPage />} />
         <Route path="changes" element={<ChangesPage />} />
+        <Route path="market" element={<MarketPage />} />
         <Route path="saved-searches" element={<SavedSearches />} />
         <Route path="watchlist" element={<Watchlist />} />
         <Route

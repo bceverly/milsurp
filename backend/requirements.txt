@@ -41,3 +41,19 @@ selenium>=4.49.0
 # binary, which `make install-dev` installs and which a site's scraper checks
 # for before using. A machine without it runs everything else normally.
 pytesseract>=0.3.13
+
+# The IANA timezone database, as a package rather than as whatever the host
+# happens to carry.
+#
+# Debian 12 and Ubuntu 23.04 moved the backward-compatibility *links* out of
+# `tzdata` and into a separate `tzdata-legacy` package that nothing installs by
+# default. A browser reporting a legacy alias -- `Intl.DateTimeFormat()` still
+# says "America/Indianapolis" on some systems, not
+# "America/Indiana/Indianapolis" -- then gets a zone the server cannot resolve,
+# and saving the digest settings fails with "Unknown timezone". It worked on
+# every development machine, because those had tzdata-legacy.
+#
+# `zoneinfo` searches TZPATH first and falls back to this package for a name
+# the system database does not carry, so this fixes the aliases without
+# overriding a host's own, more current, database.
+tzdata>=2026.2

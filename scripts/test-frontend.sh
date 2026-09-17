@@ -6,7 +6,7 @@
 #
 # Builds the bundle with istanbul instrumentation (COVERAGE=1), starts the app
 # against a disposable database seeded with sample listings, runs Playwright,
-# then reports coverage through nyc and fails below 65%.
+# then reports coverage through nyc and fails below the floors in .nycrc.json.
 #
 # The database is disposable on purpose: the suite signs in, changes site
 # settings and saves preferences, and must not touch a developer's real data.
@@ -40,7 +40,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-printf '\n\033[1mFrontend tests\033[0m (Playwright, minimum 65%% coverage)\n\n'
+printf '\n\033[1mFrontend tests\033[0m (Playwright, minimum 76%% coverage)\n\n'
 
 # --- Disposable configuration ----------------------------------------------
 # Fresh throwaway secrets per run. Generated rather than hard-coded so that no

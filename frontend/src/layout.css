@@ -2557,3 +2557,68 @@
   font-size: 11px;
   color: var(--ink-400);
 }
+
+/* --- Market: what a kind of gun goes for -------------------------------- */
+
+.market-chip {
+  margin-left: 6px;
+  font-size: 11px;
+}
+
+.market-spread {
+  min-width: 260px;
+}
+
+.market-spread__low,
+.market-spread__high {
+  font-size: 11.5px;
+  color: var(--ink-400);
+}
+
+.market-spread__low {
+  margin-right: 6px;
+}
+
+.market-spread__high {
+  margin-left: 6px;
+}
+
+/* The bar is drawn against the widest band on the page, not against itself,
+   so two rows can be compared by eye — which is the only reason to draw it
+   rather than print three numbers. */
+.market-bar {
+  position: relative;
+  display: inline-block;
+  vertical-align: middle;
+  width: 150px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--silver-100);
+  overflow: hidden;
+}
+
+.market-bar__range {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--navy-100);
+}
+
+.market-bar__median {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: var(--navy-600);
+}
+
+.market-share {
+  display: block;
+  font-size: 11px;
+  color: var(--ink-400);
+}
+
+.market-footnote {
+  font-size: 12.5px;
+  color: var(--ink-500);
+}

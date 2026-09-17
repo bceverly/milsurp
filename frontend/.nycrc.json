@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/nycrc",
-  "//": "Coverage is collected by Playwright from an istanbul-instrumented build (COVERAGE=1), written to .nyc_output, and reported here.",
+  "//": "Coverage is collected by Playwright from an istanbul-instrumented build (COVERAGE=1), written to .nyc_output, and reported here. Floors are set a few points below the measured figures (statements 81.2%, lines 81.9%, functions 78.2%, branches 75.4%): far enough not to fail an honestly thinner new page, close enough that a real regression cannot pass.",
   "all": false,
   "include": ["src/**/*.{js,jsx}"],
   "exclude": ["src/main.jsx", "tests/**", "**/*.config.js"],
@@ -8,8 +8,8 @@
   "report-dir": "coverage",
   "temp-dir": ".nyc_output",
   "check-coverage": true,
-  "lines": 65,
-  "statements": 65,
-  "functions": 55,
-  "branches": 50
+  "lines": 77,
+  "statements": 76,
+  "functions": 73,
+  "branches": 70
 }

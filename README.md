@@ -153,6 +153,17 @@ changed — filtered to the sites you care about and capped so it stays readable
   own it would repeat itself on every scheduler tick, and remembering a price
   means a vendor who reverts and re-drops has genuinely done something worth a
   second email.
+- **Market.** What each kind of gun is being asked for across every shop at
+  once, by caliber, country or maker, at `/market`. The detail page answers "is
+  this a good deal?" for one listing; this answers it before you have a listing
+  in front of you. The typical price is a **median** (one dealer with two
+  hundred cheap parts kits drags a mean), the spread is the **tenth to
+  ninetieth percentile** (one mislabeled $750,000 Gatling gun sets the maximum
+  for .45-70 and says nothing about the ones anybody will buy), and it is
+  **firearms only** by default, because a caliber's listings mix $600 rifles
+  with $40 bayonets. Every band says how many shops it came from and what share
+  the largest holds — most of them are one dealer, and a median from one shelf
+  is that shop's pricing rather than the market's.
 - **"What changed".** A week in review of the whole catalog, at `/changes` and
   open to every signed-in user — and deliberately not the email digest. That
   one is a shopping list: your sites, your price floor, capped so it fits in a
@@ -601,6 +612,24 @@ email:
 
 Verify it without sending anything from **Admin → test connection**, or send
 yourself a digest immediately from **Email digest → Send one now**.
+
+**Timezones come from the `tzdata` package, not from the host.** Debian 12 and
+Ubuntu 23.04 moved the backward-compatibility *links* out of `tzdata` into a
+separate `tzdata-legacy` package that nothing installs by default, and a
+browser still reporting a legacy alias — `Intl.DateTimeFormat()` says
+`America/Indianapolis` on some systems rather than
+`America/Indiana/Indianapolis` — then produced a zone the server could not
+resolve. Saving the digest settings failed with *Unknown timezone*, and since
+the settings page offers the device's own zone as its first option, for that
+person the page could not be saved at all. It worked on every development
+machine, all of which had `tzdata-legacy`.
+
+`zoneinfo` searches `TZPATH` first and falls back to the packaged database for
+a name the system does not carry, so the dependency fixes the aliases without
+overriding a host's own, more current, copy. `backend/tests/test_timezones.py`
+holds it, and holds it honestly: the tests run with `TZPATH` pointed at an
+empty directory, because on a developer's machine they would otherwise pass
+whatever the fix was.
 
 ### Backups
 
@@ -2341,8 +2370,14 @@ make test-frontend   # Playwright
 
 | Suite | Tool | Tests | Coverage | Gate |
 |---|---|---|---|---|
-| Backend | pytest | 861 | 79.6% | 65% |
-| Frontend | Playwright | 69 | 79.1% lines | 65% |
+| Backend | pytest | 3,136 | 88.0% | 83% |
+| Frontend | Playwright | 180 | 81.9% lines | 77% |
+
+Each gate sits a few points under the measured figure. Far enough that a new
+module which is honestly thinner than the average does not fail the build;
+close enough that a real regression cannot pass. A floor two dozen points below
+reality is not a gate — it is a number that has stopped meaning anything, which
+is what 65% had become.
 
 - **Warnings are errors.** A warning is a library telling you something is
   wrong; letting them scroll past defeats the point. `make lint` holds the
@@ -2436,7 +2471,9 @@ finding listings in pages it *did* record still comes back empty.
 - Both desktop and mobile viewports are tested; the responsive layout is a
   first-class target, not a spot check.
 - `make coverage` regenerates the README badges: red below 65%, amber below 80%,
-  green above.
+  green above. Those are the *badge* thresholds and are deliberately not the
+  gate: a badge describes where the suite is, and the gate says what it may not
+  fall below.
 
 ### How a scan survives being interrupted
 

@@ -300,11 +300,11 @@ test-postgres: $(VENV_PY) ## Run the schema tests against a real PostgreSQL (use
 		$(VENV_PY) -m pytest backend/tests/test_database_portability.py -q --no-cov
 
 .PHONY: test-backend
-test-backend: $(VENV_PY) ## Run the pytest suite (fails under 65% coverage)
+test-backend: $(VENV_PY) ## Run the pytest suite (fails under 83% coverage)
 	@scripts/test-backend.sh
 
 .PHONY: test-frontend
-test-frontend: frontend/node_modules ## Run the Playwright suite (fails under 65% coverage)
+test-frontend: frontend/node_modules ## Run the Playwright suite (fails under 76% coverage)
 	@scripts/test-frontend.sh
 
 .PHONY: coverage

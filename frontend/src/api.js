@@ -236,6 +236,9 @@ export const api = {
     request(`/api/manufacturers/${id}`, { method: "PATCH", body: patch }),
   deleteManufacturer: (id) => request(`/api/manufacturers/${id}`, { method: "DELETE" }),
 
+  // --- what a kind of gun goes for, across every dealer at once ---
+  market: (params = {}) => request(`/api/market${qs(params)}`),
+
   // --- a week in review of the catalog, nobody's filters applied ---
   changes: (params = {}) => request(`/api/changes${qs(params)}`),
 

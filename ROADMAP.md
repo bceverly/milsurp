@@ -3038,8 +3038,66 @@ fact.
 
 ### Reporting
 
-- **Planned** — Market view: average price by caliber and country over time,
-  built on the price history that is already being collected.
+- **Shipped** — Market view. `app/services/market.py`, `GET /api/market?by=`,
+  and a page at `/market` open to every signed-in user: what each kind of gun
+  is being asked for across every shop at once, by caliber, country or maker.
+  The detail page answers "is this a good deal?" for one listing by placing it
+  among others of the same model; this is the same question one level up, which
+  is the one somebody has *before* they have a listing in front of them.
+
+  **Four decisions, each of which the naive version gets wrong.**
+
+  * **The median, not the mean.** One dealer listing two hundred parts kits at
+    forty dollars drags a mean and leaves a median where it was.
+  * **Firearms only, by default.** A caliber's listings mix six-hundred-dollar
+    rifles with forty-dollar bayonets, magazines and parts kits, and a median
+    across those describes nothing that exists.
+  * **The tenth to ninetieth percentile, not the range.** A single mislabeled
+    $750,000 Gatling gun sets the maximum for .45-70 and says nothing about the
+    .45-70s anybody will buy.
+  * **A minimum sample**, reported rather than silently applied: 60 bands shown
+    out of 161, with the 101 too thin and the 184 listings in them counted on
+    the page. Below a handful a median is an anecdote with a decimal point.
+
+  **The finding came out of building it: most bands are one dealer.** ".22
+  Caliber" is a single shop, 6.5x55mm Swedish 98% one shop, 7.5x55mm Swiss 93%,
+  Switzerland 92%, Sweden 96%. A median from one shelf is that shop's pricing
+  and not the market's, so every band carries the number of shops behind it and
+  the share held by the largest, and anything at or above 70% is marked. A page
+  that did not say so would be inviting exactly the wrong conclusion.
+
+  **No line chart, and the roadmap line that asked for one was wrong about the
+  data.** A `price_history` row is written only when a price *changes* — the
+  right storage, since a row per scan would be eleven thousand duplicates a day
+  — so a series has to be reconstructed rather than read. That is
+  straightforward and is not the problem: there are 10,968 price points across
+  10,910 listings over eight days, which is 1.005 points each. There is no
+  series to reconstruct yet.
+
+  The obvious substitute — comparing what is on the shelf against what has left
+  it — was built, measured and removed. Across the whole catalog at most three
+  calibers have both a live and a sold sample worth the name, and their gaps
+  run from −39% to +33%: noise wearing a percent sign. The unweighted version
+  looked far better and was worse, reporting an 85% gap for 9mm Luger that was
+  entirely a difference in *which dealers* turn over stock.
+- **Fixed** — *Unknown timezone 'America/Indianapolis'* when saving the digest
+  settings on production. Debian 12 and Ubuntu 23.04 moved the IANA
+  backward-compatibility links into a separate `tzdata-legacy` package that
+  nothing installs by default; every development machine had it and production
+  did not. The settings page offers the device's own zone as its first option
+  and `Intl.DateTimeFormat()` still reports the legacy alias on some systems,
+  so for that person the page simply could not be saved.
+
+  Fixed by depending on the `tzdata` package, which carries the links whatever
+  the host has — `zoneinfo` searches `TZPATH` first and falls back to it, so a
+  host with a more current database keeps using its own. The regression tests
+  run with `TZPATH` pointed at an empty directory: without that they pass on
+  any developer's machine whatever the fix is, which is what let this reach
+  production in the first place.
+- **Planned** — Price bands over time, once there is enough history to
+  reconstruct a series. The page above is the snapshot; this is the axis it
+  deliberately does not draw, and it wants a few months of `price_history`
+  before it can say anything a reader should act on.
 - **Shipped** — CSV / JSON export of a filtered result set. `GET
   /api/items/export` takes the same query parameters as the list endpoint, so a
   browse URL becomes an export by changing the path — which is the only way the
@@ -3615,5 +3673,13 @@ more than one machine still wants the queue below.
 - **Planned** — Visual regression tests on the screenshots `make screenshots`
   already produces.
 - **Planned** — Load testing of the item list endpoint at realistic row counts.
-- **Planned** — Raise the coverage floor from 65% toward 80% as the suite fills
-  in.
+- **Shipped** — Raise the coverage floors. **Backend 65% → 83%** against a
+  measured 88.0%, **frontend 65% → 76%** statements and 77% lines against
+  81.2% and 81.9%, with branches 50% → 70% and functions 55% → 73%.
+
+  The suite had been sitting twenty-three points above its own gate, which
+  means a floor that number could not fail anything short of deleting a
+  module. Each is now set a few points under the measured figure: far enough
+  not to fail a new module that is honestly thinner than the average, close
+  enough that a real regression cannot pass. A gate two dozen points below
+  reality is not a gate.

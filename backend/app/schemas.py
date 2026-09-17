@@ -482,6 +482,44 @@ class CountryUpdate(BaseModel):
     notes: str | None = None
 
 
+class MarketBandOut(BaseModel):
+    """One value of the chosen dimension, and what it costs."""
+
+    value: str
+    listings: int
+    low: float
+    median: float
+    high: float
+    currency: str
+    #: How many shops the band is drawn from, and the share held by the
+    #: largest. Carried because a median from one shelf is that shop's pricing
+    #: and not the market's, and a page that did not say so would invite
+    #: exactly the wrong conclusion.
+    sites: int
+    top_site_share: float
+    concentrated: bool
+
+
+class MarketOut(BaseModel):
+    """What a kind of gun goes for across every dealer at once.
+
+    See :mod:`app.services.market` for why it is a median, why it is firearms
+    only, why the spread is the tenth and ninetieth percentiles rather than the
+    range, and why there is no line chart.
+    """
+
+    dimension: str
+    firearms_only: bool
+    min_sample: int
+    considered: int
+    #: Groups too small to say anything about, reported rather than dropped
+    #: silently: a page showing sixty bands out of a hundred and sixty owes
+    #: the reader that number.
+    thin_groups: int
+    thin_listings: int
+    bands: list[MarketBandOut]
+
+
 class ChangeSiteOut(UTCModel):
     """One shop's week."""
 
