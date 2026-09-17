@@ -638,6 +638,26 @@ holds it, and holds it honestly: the tests run with `TZPATH` pointed at an
 empty directory, because on a developer's machine they would otherwise pass
 whatever the fix was.
 
+**A snap browser cannot run under the hardened unit, and that is not a bug to
+tune around.** Royal Tiger is one of the sites that needs a real browser, and on
+a machine whose only Chromium is the snap it failed with *"Service
+/snap/bin/chromium.chromedriver unexpectedly exited. Status code was: 46"* —
+every path in that message correct, the browser found, the matching driver
+chosen, and none of it the problem.
+
+`snap-confine` builds the sandbox before the browser starts, using privileges it
+picks up from file capabilities (`cap_sys_admin` and `cap_sys_chroot` among
+them). `NoNewPrivileges=true` is exactly a promise that no executable will ever
+pick those up. The unit forbids it twice more: `RestrictNamespaces=true` denies
+the mount namespace the sandbox is made of, and `SystemCallFilter=@system-service`
+covers neither `mount` nor `pivot_root`.
+
+**Install a non-snap browser** — Google Chrome's `.deb`, or chromium from a PPA
+— and the scraper finds it at `/usr/bin/google-chrome` with no configuration at
+all. Loosening the unit is the other way to make it start, and it un-hardens the
+one process on the machine that runs a stranger's JavaScript. The error says all
+of this now rather than offering config keys that were already right.
+
 ### Backups
 
 The scheduler snapshots the database on a schedule an administrator sets, and
@@ -2035,6 +2055,59 @@ Model and maker candidates are read only from listings already classified as a
 firearm. A bayonet listing names the rifle it fits, and proposing that rifle
 from it teaches the armory nothing it can trust.
 
+**Getting an admin's edits back into the repository.** The armory is curated
+on a running instance and shipped from `backend/app/seed/armory.yaml`, so the
+two drift the moment somebody approves a model in production. `armory export`
+writes the database back out in the seed file's own shape and a stable order —
+statuses included, because a row an admin promoted should arrive at the next
+instance as production rather than as a demotion — and `armory sync` reads such
+a file back.
+
+**From the Armory page there are two buttons**, because an administrator using
+the web pages has no shell on the server and telling them to get one is not an
+answer to "how do I keep what I just curated". **Download armory** saves the
+file — a plain link, which only works because the session is a cookie, the same
+reason the listing export is one. **Email it to me** sends it, attached, with
+what to do with it in the body. To the requesting admin's own address and no
+other: this is the whole curated catalog, and a box that could send it anywhere
+is a way to take it out with one stolen session.
+
+Or from a shell, which is the same bytes:
+
+```
+sudo -u milsurp env MILSURP_ENV=production /opt/milsurp/.venv/bin/python \
+  /opt/milsurp/backend/cli.py armory export --file /tmp/armory.yaml
+```
+
+Then copy that over `backend/app/seed/armory.yaml` and **read the diff before
+committing** — that is the review, and it is the point of the stable ordering.
+The export carries the *whole* armory, pending and merged rows included, so
+what the diff usually shows is a handful of rows `discover` proposed from that
+instance's listings and nobody has ruled on yet. Those are the ones to think
+about; an approved model with its aliases and country is the part you are
+trying to keep.
+
+`sync` is the destructive counterpart to `seed` and therefore plans first and
+applies second, and it leaves rows the file does not mention alone unless
+`--prune` is given: the armory is curated in two places, and a row missing from
+the file is more often unexported than unwanted. `backend/tests/test_armory.py`
+pins the round trip — export then sync is a no-op.
+
+**An armory edit says what it cost the catalog.** Approving a model, adding an
+alias to a cartridge, switching a row off or deleting one re-matches every
+listing whose text mentions any of the spellings involved — which is the point
+of the table, and is also several hundred listings changing while somebody
+looks at one dialog. Each of those writes now reports how many were re-matched,
+in the same words the maker endpoints have used since they were written: *"3
+listing(s) re-matched."* The number was already being computed and thrown away
+on exactly the two edits that move the most.
+
+It covers the armory's own reach and no more — the model link and the caliber.
+A listing's country, maker and kind are settled by rules that live elsewhere,
+and re-deriving them from here would duplicate `_apply_catalog` in a second
+place, which is a mistake this codebase has already made twice. `reclassify`
+remains the way to rebuild everything.
+
 **Merging is how the same thing said twice becomes one thing.** "Mosin" folds
 into "Mosin-Nagant", "7.65mm Browning" into ".32 ACP". The source's spellings
 move to the target, so nothing it used to recognize stops being recognized,
@@ -2754,6 +2827,8 @@ backend/cli.py refetch-details --site apex-gun-parts --dry-run
 backend/cli.py armory discover  # propose armory rows from every stored listing
 backend/cli.py armory qualify   # rename bare designations to name their maker (--apply)
 backend/cli.py armory tidy      # fill blanks from a row's own listings; retire silent rows (--apply)
+backend/cli.py armory export    # write this database's armory to a committable file
+backend/cli.py armory sync      # reconcile this database with such a file (--apply, --prune)
 backend/cli.py fetch-photos     # drain the photo queue without re-scraping
 backend/cli.py running-scans    # list in-flight scans; exit 1 if any
 backend/cli.py infer            # fill blank caliber/country/maker from other vendors

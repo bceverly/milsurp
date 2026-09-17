@@ -20,6 +20,7 @@ import os
 import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Any
 
 from ..config import ScrapingConfig
@@ -72,10 +73,20 @@ _CHROME_BINARIES = (
 #:
 #: A driver has to match the browser it drives, so the browser is chosen first
 #: and the driver follows from it.
+#:
+#: **And /usr/local/bin comes before /usr/bin for the packaged browsers**, which
+#: is the second half of the same lesson and was missing for a while. The
+#: comment above knew /usr/bin/chromedriver is a snap shim on Ubuntu; the order
+#: below still reached for it first. On a box with Google Chrome installed from
+#: its .deb and a real driver placed at /usr/local/bin/chromedriver by hand, the
+#: shim won and died with "Status code was: 1" -- a second afternoon lost to the
+#: same file. /usr/local/bin is where an administrator puts something on
+#: purpose, and on this question their deliberate act outranks whatever apt left
+#: behind. `is_snap_driver` below is the belt to this braces.
 _DRIVERS_FOR = {
-    "/usr/bin/google-chrome": ("/usr/bin/chromedriver", "/usr/local/bin/chromedriver"),
-    "/usr/bin/google-chrome-stable": ("/usr/bin/chromedriver", "/usr/local/bin/chromedriver"),
-    "/opt/google/chrome/chrome": ("/usr/bin/chromedriver", "/usr/local/bin/chromedriver"),
+    "/usr/bin/google-chrome": ("/usr/local/bin/chromedriver", "/usr/bin/chromedriver"),
+    "/usr/bin/google-chrome-stable": ("/usr/local/bin/chromedriver", "/usr/bin/chromedriver"),
+    "/opt/google/chrome/chrome": ("/usr/local/bin/chromedriver", "/usr/bin/chromedriver"),
     # The snap ships its own, namespaced. Nothing else can drive it.
     "/snap/bin/chromium": ("/snap/bin/chromium.chromedriver",),
     "/usr/bin/chromium": (
@@ -89,11 +100,98 @@ _DRIVERS_FOR = {
 }
 
 
+def _no_new_privileges() -> bool:
+    """Whether this process may no longer gain privileges through execve().
+
+    Read rather than assumed, because the answer decides which of two very
+    different messages is the true one. Systemd's ``NoNewPrivileges=true`` sets
+    it, and the shipped unit does -- deliberately, since a scraper runs a
+    vendor's JavaScript and is the process on this machine you least want able
+    to escalate.
+    """
+    try:
+        for line in Path("/proc/self/status").read_text(encoding="ascii").splitlines():
+            if line.startswith("NoNewPrivs:"):
+                return line.split()[1] == "1"
+    except OSError:
+        pass
+    return False
+
+
+def _snap_cannot_run_here(binary: str | None) -> bool:
+    """Whether a snap browser has been chosen in a process that cannot start one.
+
+    **A snap is not an ordinary executable.** ``snap-confine`` builds the
+    sandbox before the browser starts, and to do that it needs privileges it
+    picks up from file capabilities -- ``cap_sys_admin`` and ``cap_sys_chroot``
+    among them. ``NoNewPrivileges=true`` is precisely a promise that no
+    executable will ever pick those up, so ``snap-confine`` dies on the spot
+    and Selenium reports only what it saw: "Service /snap/bin/chromium
+    .chromedriver unexpectedly exited. Status code was: 46."
+
+    The unit forbids it twice more for good measure -- ``RestrictNamespaces``
+    denies the mount namespace the sandbox is made of, and
+    ``SystemCallFilter=@system-service`` covers neither ``mount`` nor
+    ``pivot_root``. So this is not a misconfiguration to be tuned around: a
+    snap browser and this service unit cannot both be right, and the hardening
+    is the half worth keeping.
+    """
+    return bool(binary) and str(binary).startswith("/snap/") and _no_new_privileges()
+
+
+def is_snap_driver(path: str) -> bool:
+    """Whether *path* is really the snap's chromedriver wearing another name.
+
+    Ubuntu's ``chromium-chromedriver`` leaves a shim at /usr/bin/chromedriver
+    that hands off to /snap/bin/chromium.chromedriver. It is a perfectly good
+    driver *for the snap* and cannot drive anything else, so pairing it with
+    Google Chrome produces a process that exits immediately and a message that
+    blames the browser.
+
+    Both shapes are checked because both exist: a symlink into /snap, and a
+    small wrapper script that execs the snap. Anything unreadable, or big
+    enough to be a real binary, is taken at face value -- a false "this is a
+    snap" would hide a working driver, which is the worse mistake.
+    """
+    try:
+        target = Path(path).resolve()
+        if str(target).startswith("/snap/"):
+            return True
+        if target.stat().st_size > _SHIM_MAX_BYTES:
+            return False
+        head = target.read_bytes()[:_SHIM_MAX_BYTES]
+    except OSError:
+        return False
+    return head.startswith(b"#!") and b"/snap/" in head
+
+
+#: A wrapper script is a few hundred bytes; a chromedriver is fifteen megabytes.
+#: Anything above this is read as the real thing without opening it.
+_SHIM_MAX_BYTES = 8192
+
+
 def _first_present(paths: tuple[str, ...]) -> str | None:
     """The first of *paths* that exists and can be run."""
     for path in paths:
         if os.access(path, os.X_OK):
             return path
+    return None
+
+
+def _first_usable_driver(browser: str, paths: tuple[str, ...]) -> str | None:
+    """The first driver that exists *and* could plausibly drive *browser*.
+
+    A snap driver is skipped for a browser that is not itself a snap. That is
+    the invariant this module is built on, stated once here rather than trusted
+    to the ordering of a dictionary.
+    """
+    browser_is_snap = browser.startswith("/snap/")
+    for path in paths:
+        if not os.access(path, os.X_OK):
+            continue
+        if is_snap_driver(path) and not browser_is_snap:
+            continue
+        return path
     return None
 
 
@@ -110,7 +208,7 @@ def find_chrome() -> tuple[str | None, str | None]:
     binary = _first_present(_CHROME_BINARIES)
     if binary is None:
         return None, None
-    return binary, _first_present(_DRIVERS_FOR.get(binary, ()))
+    return binary, _first_usable_driver(binary, _DRIVERS_FOR.get(binary, ()))
 
 
 @contextmanager
@@ -150,6 +248,23 @@ def chrome(config: ScrapingConfig) -> Iterator[Any]:
         # success is a message that sends somebody to reinstall the thing they
         # already have -- the browser is there, under a name Selenium does not
         # try.
+        # The snap case first, because when it applies every other sentence
+        # below is a wild goose chase: the paths are right, the driver matches
+        # its browser, and none of that is the problem.
+        if _snap_cannot_run_here(binary):
+            raise BrowserUnavailable(
+                f"could not start headless Chrome: {exc}. The only browser found "
+                f"was the snap at {binary}, and a snap cannot start inside this "
+                f"service: snap-confine needs privileges that the unit's "
+                f"NoNewPrivileges=true forbids it from acquiring, and "
+                f"RestrictNamespaces=true denies the mount namespace its sandbox "
+                f"is made of. Nothing in config.yaml can bridge that. Install a "
+                f"non-snap browser -- Google Chrome's .deb, or chromium from a "
+                f"PPA -- and this will find it at /usr/bin/google-chrome without "
+                f"further configuration. The alternative, loosening the unit, "
+                f"un-hardens the one process on the machine that runs a "
+                f"stranger's JavaScript."
+            ) from exc
         raise BrowserUnavailable(
             f"could not start headless Chrome: {exc}. "
             f"Browser: {binary or 'none found'}; driver: {driver_path or 'none found'}. "

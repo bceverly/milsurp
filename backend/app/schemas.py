@@ -720,6 +720,28 @@ class ManufacturerUpdate(BaseModel):
     country: str | None = Field(default=None, max_length=64)
 
 
+class ArmoryWrite(UTCModel):
+    """What an armory edit did, including what it cost the catalog.
+
+    An edit here is not confined to the row it touches. Approving a model, or
+    adding an alias to a cartridge, re-matches every listing whose text mentions
+    any of the spellings involved -- which is the point of the armory, and is
+    also several hundred listings changing while the admin looks at one dialog.
+
+    So the count travels back with the row. The maker endpoints have reported
+    theirs since they were written; calibers and models computed the same
+    number and dropped it on the floor, so the two most consequential edits on
+    the page were the two that said nothing.
+    """
+
+    caliber: CaliberOut | None = None
+    model: FirearmModelOut | None = None
+    #: Listings re-matched as a result: their armory model link, their caliber,
+    #: or both. Not the whole classification -- country, maker and kind are
+    #: settled elsewhere and `reclassify` remains the way to rebuild those.
+    listings_changed: int = 0
+
+
 class ManufacturerWrite(UTCModel):
     """What an edit did, including what it cost the catalog."""
 

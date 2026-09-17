@@ -2832,6 +2832,55 @@ until they promote it. The numbers above are what promoting them does.
   because with every source still unrecorded it would decline all 11,038 rows
   and prove nothing. It wants a scan cycle's worth of sources first, and then
   the same before-and-after count the rest of these entries carry.
+- **Shipped** — Carrying a curated armory off a running instance. The armory is
+  edited on a live instance and *shipped* from `backend/app/seed/armory.yaml`,
+  so the two drift the moment somebody approves a model in production — and the
+  only way back was a shell on the server, which an administrator using the web
+  pages does not have.
+
+  Two buttons on the Armory page. **Download armory** is a plain link, which
+  works only because the session is a cookie; **Email it to me** sends the file
+  attached, to the requesting admin's own address and no other, because this is
+  the whole curated catalog and a box that could send it anywhere is a way to
+  take it out with one stolen session. Both are the same bytes `milsurp armory
+  export` writes, and there is a test that what comes out of the browser goes
+  back in through `armory sync` with a zero-change plan.
+
+  **The file's own header had been wrong for some time.** Every export told the
+  reader to run `milsurp catalog export` and `milsurp catalog sync` — neither
+  is a command this CLI has, so anyone following the instructions in the file
+  got `invalid choice: 'catalog'`. Now `armory`, pinned by a test, since the
+  header is the only instruction most people will ever see.
+
+  The email says what to do in prose rather than as a command line. The steps
+  are the same on every checkout; the commands are not — branch, remote and
+  whether there is a review step are all site policy, and a message that
+  guessed would be wrong on somebody's machine while looking authoritative.
+  Naming the file to replace is the part nobody can guess.
+- **Shipped** — An armory edit says what it cost the catalog. Approving a
+  model, adding an alias to a cartridge, switching a row off or deleting one
+  re-matches every listing whose text mentions any of the spellings involved —
+  which is the point of the table, and is also several hundred listings
+  changing while somebody looks at one dialog.
+
+  **The count was already being computed and thrown away.** `reprocess()` has
+  returned it since it was written and the maker endpoints have reported theirs
+  throughout; the caliber and model writes dropped it, so the two most
+  consequential edits on the page were the two that said nothing. Each now
+  answers *"3 listing(s) re-matched."* Deleting returns a body rather than 204
+  for the same reason: a dialog that closes on success tells an admin nothing
+  about the rows that just moved underneath it.
+
+  Scoped to the armory's own reach — the model link and the caliber. Country,
+  maker and kind are settled by rules that live elsewhere, and re-deriving them
+  from here would duplicate `_apply_catalog` in a second place, which this
+  codebase has already done twice.
+- **Planned** — Undo for an armory edit. A merge already reverses — it records
+  what it took so it can be given back — and an ordinary edit does not, which
+  is the asymmetry worth closing now that an edit reports how many listings it
+  moved: seeing "412 listing(s) re-matched" is exactly when somebody wants the
+  last five minutes back. The audit log already records who changed what, so
+  the shape is a revert built on it rather than a new history.
 - **Planned** — Cross-site duplicate detection proper. The same rifle listed by
   two vendors should be recognizable — the token index built for field filling
   is the start of this, but a duplicate needs more than a shared model name.
@@ -3702,6 +3751,37 @@ more than one machine still wants the queue below.
   Cloudflare 403 on J&G Sales had already de-listed 64 of them.
 
   After both, 26 of 27 answer, and the 27th recovers on its own inside a minute.
+- **Fixed** — `scripts/security.sh` reporting a network outage as a
+  vulnerability. `npm audit` exits non-zero both for "you have vulnerabilities"
+  and for "I could not reach the registry", and the script read the second as
+  the first — failing the scan with *"npm audit found vulnerable packages"*
+  over a report file that said `audit endpoint returned an error` in as many
+  words. Told apart on the message now, and reported as skipped, which is what
+  the script's own header already promises for a tool it cannot run. A scan
+  that cannot reach its data has not found anything, and saying it has teaches
+  people to ignore the real ones.
+- **Fixed** — A browser failure on production that diagnosed itself as the
+  wrong thing. Royal Tiger reported *"Service /snap/bin/chromium.chromedriver
+  unexpectedly exited. Status code was: 46"*, and the message that followed
+  named six search paths and two config keys — every one of which was already
+  correct. The browser was found and correctly paired with the only driver that
+  can drive it.
+
+  A snap is not an ordinary executable: `snap-confine` builds the sandbox
+  first, using privileges it takes from file capabilities, and
+  `NoNewPrivileges=true` in the shipped unit is precisely a promise that no
+  executable ever will. `RestrictNamespaces=true` denies the mount namespace
+  the sandbox is made of, and `SystemCallFilter=@system-service` covers neither
+  `mount` nor `pivot_root`. Three independent directives, any one of them
+  fatal.
+
+  So the two cannot both be right, and the hardening is the half worth keeping
+  — a scraper runs a stranger's JavaScript and is the last process on the
+  machine that should be able to escalate. The fix is a non-snap browser, which
+  needs no configuration at all. What shipped is the *diagnosis*: the process
+  reads `NoNewPrivs` from `/proc/self/status`, and when the only browser found
+  is under `/snap/` it says so, names the directives, and says plainly that
+  nothing in `config.yaml` can bridge it.
 - **Planned** — Visual regression tests on the screenshots `make screenshots`
   already produces.
 - **Planned** — Load testing of the item list endpoint at realistic row counts.

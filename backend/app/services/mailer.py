@@ -49,8 +49,16 @@ def send_html(
     text_body: str | None = None,
     config: Config | None = None,
     inline_images: dict[str, bytes] | None = None,
+    attachments: dict[str, bytes] | None = None,
 ) -> None:
-    """Send one multipart HTML message. Raises :class:`MailError` on failure."""
+    """Send one multipart HTML message. Raises :class:`MailError` on failure.
+
+    *attachments* is ``{filename: bytes}`` and is distinct from
+    *inline_images*, which the HTML refers to by ``cid:`` and which must hang
+    off the HTML part rather than off the message. An attachment is the other
+    thing: a file the reader saves, hanging off the message where a mail client
+    will offer it as a download.
+    """
     config = config or get_config()
     cfg = config.email
     if not cfg.enabled:
@@ -88,6 +96,17 @@ def send_html(
         html_part = cast("EmailMessage", message.get_body(preferencelist=("html",)))
         for content_id, payload in inline_images.items():
             html_part.add_related(payload, maintype="image", subtype="png", cid=f"<{content_id}>")
+
+    # Attachments hang off the *message*, not off the HTML alternative: a file
+    # the reader saves is not part of how the body renders. Added after the
+    # alternatives, so the message becomes multipart/mixed wrapping the
+    # multipart/alternative rather than losing the plain-text part.
+    #
+    # text/yaml rather than application/octet-stream, so a client shows it
+    # inline and a mail gateway does not treat it as a binary to be stripped.
+    for filename, payload in (attachments or {}).items():
+        subtype = "yaml" if filename.endswith((".yaml", ".yml")) else "plain"
+        message.add_attachment(payload, maintype="text", subtype=subtype, filename=filename)
 
     try:
         server = _connection(cfg)

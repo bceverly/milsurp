@@ -187,7 +187,7 @@ class TestCreatingAModel:
             json={"wikipedia_url": "https://en.wikipedia.org/wiki/M1_Garand"},
             headers=admin_headers,
         ).json()
-        assert updated["wikipedia_url"] == "https://en.wikipedia.org/wiki/M1_Garand"
+        assert updated["model"]["wikipedia_url"] == "https://en.wikipedia.org/wiki/M1_Garand"
 
     def test_a_duplicate_name_is_refused_with_advice(self, client, admin_headers):
         client.post("/api/armory/models", json={"name": "M1 Garand"}, headers=admin_headers)
@@ -298,7 +298,7 @@ class TestTheRestOfThePage:
             json={"country": "Sweden"},
             headers=admin_headers,
         ).json()
-        assert edited["country"] == "Sweden"
+        assert edited["model"]["country"] == "Sweden"
 
     def test_clearing_the_box_stores_nothing_rather_than_an_empty_string(
         self, client, admin_headers
@@ -314,7 +314,7 @@ class TestTheRestOfThePage:
         edited = client.patch(
             f"/api/armory/models/{created['id']}", json={"country": "   "}, headers=admin_headers
         ).json()
-        assert edited["country"] is None
+        assert edited["model"]["country"] is None
 
     def test_search_matches_the_spellings_too(self, client, admin_headers):
         client.post(
@@ -335,7 +335,9 @@ class TestTheRestOfThePage:
         created = client.post(
             "/api/armory/calibers", json={"name": ".45-70"}, headers=admin_headers
         ).json()
-        assert (
-            client.delete(f"/api/armory/calibers/{created['id']}", headers=admin_headers)
-        ).status_code == 204
+        # A body rather than 204: deleting a cartridge unlinks every listing it
+        # explained, and the count is what says so.
+        removed = client.delete(f"/api/armory/calibers/{created['id']}", headers=admin_headers)
+        assert removed.status_code == 200
+        assert removed.json()["listings_changed"] == 0
         assert client.get("/api/armory/calibers", headers=admin_headers).json() == []

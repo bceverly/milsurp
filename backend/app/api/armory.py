@@ -25,13 +25,14 @@ than only un-hiding the row.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
-from ..deps import AdminUser, DbSession
+from ..deps import AdminUser, AppConfig, DbSession
 from ..models import (
     Caliber,
     FirearmKind,
@@ -39,6 +40,7 @@ from ..models import (
     Item,
     Manufacturer,
     firearm_model_calibers,
+    utcnow,
 )
 from ..schemas import (
     ArmoryAction,
@@ -47,6 +49,7 @@ from ..schemas import (
     ArmoryMerge,
     ArmoryPrimaryName,
     ArmorySummary,
+    ArmoryWrite,
     CaliberCreate,
     CaliberOut,
     CaliberUpdate,
@@ -55,7 +58,7 @@ from ..schemas import (
     FirearmModelUpdate,
 )
 from ..services import armory as service
-from ..services import classify
+from ..services import classify, mailer
 
 router = APIRouter(prefix="/armory", tags=["armory"])
 
@@ -278,10 +281,10 @@ def create_caliber(payload: CaliberCreate, _admin: AdminUser, session: DbSession
     return _caliber_out(row, _caliber_counts(session), _models_per_caliber(session))
 
 
-@router.patch("/calibers/{caliber_id}", response_model=CaliberOut)
+@router.patch("/calibers/{caliber_id}", response_model=ArmoryWrite)
 def update_caliber(
     caliber_id: int, payload: CaliberUpdate, _admin: AdminUser, session: DbSession
-) -> CaliberOut:
+) -> ArmoryWrite:
     row = _row(session, Caliber, caliber_id)
     changes = _emptied(payload.model_dump(exclude_unset=True))
     if "name" in changes and changes["name"] != row.name:
@@ -294,20 +297,31 @@ def update_caliber(
         setattr(row, field, value)
     session.flush()
     service.invalidate()
-    service.reprocess(session, [*spellings, *row.spellings])
+    changed = service.reprocess(session, [*spellings, *row.spellings])
     session.commit()
-    return _caliber_out(row, _caliber_counts(session), _models_per_caliber(session))
+    return ArmoryWrite(
+        caliber=_caliber_out(row, _caliber_counts(session), _models_per_caliber(session)),
+        listings_changed=changed,
+    )
 
 
-@router.delete("/calibers/{caliber_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_caliber(caliber_id: int, _admin: AdminUser, session: DbSession) -> None:
+@router.delete("/calibers/{caliber_id}", response_model=ArmoryWrite)
+def delete_caliber(caliber_id: int, _admin: AdminUser, session: DbSession) -> ArmoryWrite:
+    """Remove a cartridge, and say how many listings stopped carrying it.
+
+    A body rather than 204, for the reason the maker endpoints already return
+    one: deleting a row silently unlinks every listing it explained, and a
+    dialog that closes on success tells an admin nothing about the several
+    hundred rows that just changed underneath it.
+    """
     row = _row(session, Caliber, caliber_id)
     spellings = list(row.spellings)
     session.delete(row)
     session.flush()
     service.invalidate()
-    service.reprocess(session, spellings)
+    changed = service.reprocess(session, spellings)
     session.commit()
+    return ArmoryWrite(listings_changed=changed)
 
 
 @router.post("/models", response_model=FirearmModelOut, status_code=status.HTTP_201_CREATED)
@@ -327,10 +341,10 @@ def create_model(
     return _model_out(row)
 
 
-@router.patch("/models/{model_id}", response_model=FirearmModelOut)
+@router.patch("/models/{model_id}", response_model=ArmoryWrite)
 def update_model(
     model_id: int, payload: FirearmModelUpdate, _admin: AdminUser, session: DbSession
-) -> FirearmModelOut:
+) -> ArmoryWrite:
     row = _row(session, FirearmModel, model_id)
     changes = _emptied(payload.model_dump(exclude_unset=True))
     if "name" in changes and changes["name"] != row.name:
@@ -345,13 +359,16 @@ def update_model(
         setattr(row, field, value)
     session.flush()
     service.invalidate()
-    service.reprocess(session, [*spellings, *row.spellings])
+    changed = service.reprocess(session, [*spellings, *row.spellings])
     session.commit()
-    return _model_out(row, _listings_per_model(session).get(row.id, 0))
+    return ArmoryWrite(
+        model=_model_out(row, _listings_per_model(session).get(row.id, 0)),
+        listings_changed=changed,
+    )
 
 
-@router.delete("/models/{model_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_model(model_id: int, _admin: AdminUser, session: DbSession) -> None:
+@router.delete("/models/{model_id}", response_model=ArmoryWrite)
+def delete_model(model_id: int, _admin: AdminUser, session: DbSession) -> ArmoryWrite:
     row = _row(session, FirearmModel, model_id)
     spellings = list(row.spellings)
     session.delete(row)
@@ -361,8 +378,9 @@ def delete_model(model_id: int, _admin: AdminUser, session: DbSession) -> None:
     # is ON DELETE SET NULL, so they would not dangle -- but the ones it used
     # to explain would silently stop being explained by anything, with nothing
     # said about it.
-    service.reprocess(session, spellings)
+    changed = service.reprocess(session, spellings)
     session.commit()
+    return ArmoryWrite(listings_changed=changed)
 
 
 # ---------------------------------------------------------------------------
@@ -486,6 +504,92 @@ def set_primary(
             if restamped
             else f"{payload.name} is now the primary name."
         ),
+    )
+
+
+#: What the email says to do with the file.
+#:
+#: Prose rather than a copy-and-paste command line, deliberately. The steps are
+#: the same on every checkout; the commands are not -- the branch, the remote
+#: and whether there is a review step are all site policy, and a message that
+#: guessed at them would be wrong on somebody's machine while looking
+#: authoritative. Naming the file to replace is the part nobody can guess.
+_EXPORT_STEPS = (
+    (
+        "Replace <code>backend/app/seed/armory.yaml</code> in your checkout "
+        "with the attached file, then read the diff before you commit it."
+    ),
+    (
+        "The diff <em>is</em> the review. The export is ordered by name so it "
+        "shows what changed rather than how the rows came back from the "
+        "database."
+    ),
+    (
+        "It carries the whole armory, including rows that are still awaiting "
+        "approval. Those are usually proposals this instance made from its own "
+        "listings, and they are the ones worth a second look."
+    ),
+)
+
+
+def _export_email(rows: int, when: datetime) -> tuple[str, str]:
+    steps = "".join(f"<li>{step}</li>" for step in _EXPORT_STEPS)
+    html = (
+        "<p>The armory from this instance is attached: "
+        f"<strong>{rows:,}</strong> models and cartridges, exported "
+        f"{when.strftime('%d %B %Y at %H:%M UTC')}.</p>"
+        f"<ol>{steps}</ol>"
+    )
+    return "Armory export", html
+
+
+@router.get("/export")
+def export_armory_file(_admin: AdminUser, session: DbSession) -> Response:
+    """The armory as the file the repository commits.
+
+    A plain link, which only works because the session is a cookie: a bearer
+    token in `sessionStorage` could not authenticate a navigation, and this
+    would have needed fetching as a blob and handing back to the page.
+    """
+    text, _rows = service.export_text(session)
+    return Response(
+        content=text,
+        media_type="text/yaml; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="armory.yaml"'},
+    )
+
+
+@router.post("/export/email", response_model=ArmoryAction)
+def email_armory_file(admin: AdminUser, session: DbSession, config: AppConfig) -> ArmoryAction:
+    """Mail the armory to the administrator who asked for it.
+
+    To their own address and no other: this is a file from inside the
+    application's database, and a box that could send it anywhere is a way to
+    exfiltrate the catalog with one stolen session.
+    """
+    if not admin.email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Your account has no email address to send it to.",
+        )
+    text, rows = service.export_text(session)
+    subject, html = _export_email(rows, utcnow())
+    try:
+        mailer.send_html(
+            admin.email,
+            subject,
+            html,
+            config=config,
+            attachments={"armory.yaml": text.encode("utf-8")},
+        )
+    except mailer.MailError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Could not send it: {exc}",
+        ) from exc
+    return ArmoryAction(
+        changed=rows,
+        message=f"Sent {rows:,} rows to {admin.email}.",
     )
 
 

@@ -656,7 +656,7 @@ def _view_clause(table: Any, view: ArmoryView) -> Any:
 
     **Disabled is a bucket, not an overlay.** A row that is switched off is
     gone from Awaiting approval and from Production, rather than appearing in
-    one of them greyed out. Somebody who turned a row off has finished with
+    one of them grayed out. Somebody who turned a row off has finished with
     it, and leaving it in the queue is what this exists to stop.
 
     **Merging away already switches a row off** (see ``merge_manufacturers``),
@@ -902,6 +902,10 @@ def seed(session: Session, path: Path | None = None) -> SeedReport:
 # ---------------------------------------------------------------------------
 # Two directions, and they are not symmetric.
 #
+# The commands are `milsurp armory export` and `milsurp armory sync`. The
+# header below said `catalog` for both, which is not a command this CLI has --
+# anyone following the instructions in the file got "invalid choice".
+#
 # `export` writes what the database holds, in a stable order, into the same
 # shape the seed file uses -- so a curated armory can be committed, reviewed
 # as a diff, and carried to another instance. Statuses go with it: a row this
@@ -916,14 +920,22 @@ def seed(session: Session, path: Path | None = None) -> SeedReport:
 _EXPORT_HEADER = """\
 # Exported catalog -- models, calibers, and who made what.
 #
-# Written by `milsurp catalog export`. Safe to commit: the order is stable, so
+# Written by `milsurp armory export`. Safe to commit: the order is stable, so
 # a diff shows what actually changed rather than how the rows happened to come
 # back from the database.
 #
-# `milsurp catalog sync --file <this>` reconciles a database with it. That
+# `milsurp armory sync --file <this>` reconciles a database with it. That
 # reads statuses, so a row promoted to production here arrives as production
 # there. Rows in the database and not in this file are left alone unless
 # --prune is given.
+#
+# Getting an admin's edits on a live instance back into this repository: run
+# the export there, copy the file over backend/app/seed/armory.yaml here, and
+# read the diff before committing. It carries the whole armory, pending and
+# merged rows included, so the diff is the review.
+#
+#   sudo -u milsurp env MILSURP_ENV=production /opt/milsurp/.venv/bin/python
+#     /opt/milsurp/backend/cli.py armory export --file /tmp/armory.yaml
 """
 
 
@@ -1333,13 +1345,25 @@ def apply_tidy(session: Session, plan: Iterable[Tidy]) -> tuple[int, int]:
     return filled, retired
 
 
+def export_text(session: Session) -> tuple[str, int]:
+    """The catalog as the file's own text, and how many rows are in it.
+
+    Split out from :func:`write_export` so the same bytes can be handed to a
+    browser or attached to a message without going through the filesystem.
+    An admin on the web pages has no shell, and telling them to get one is not
+    an answer to "how do I keep what I just curated".
+    """
+    data = export_armory(session)
+    body = yaml.safe_dump(data, sort_keys=False, allow_unicode=True, width=100)
+    return _EXPORT_HEADER + "\n" + body, len(data["calibers"]) + len(data["models"])
+
+
 def write_export(session: Session, path: Path) -> int:
     """Write the catalog to *path*. Returns how many rows were written."""
-    data = export_armory(session)
+    text, rows = export_text(session)
     path.parent.mkdir(parents=True, exist_ok=True)
-    body = yaml.safe_dump(data, sort_keys=False, allow_unicode=True, width=100)
-    path.write_text(_EXPORT_HEADER + "\n" + body, encoding="utf-8")
-    return len(data["calibers"]) + len(data["models"])
+    path.write_text(text, encoding="utf-8")
+    return rows
 
 
 def _without_blanks(row: dict[str, Any]) -> dict[str, Any]:

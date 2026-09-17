@@ -27,7 +27,7 @@ import { api } from "../api.js";
 import { useTitle } from "../hooks.js";
 import Modal from "../components/Modal.jsx";
 import Field from "../components/Field.jsx";
-import { Eye, Plus, Refresh, Trash } from "../components/Icons.jsx";
+import { Download, Eye, Mail, Plus, Refresh, Trash } from "../components/Icons.jsx";
 import { fromMap } from "../lookup";
 
 const TABS = [
@@ -150,7 +150,7 @@ function comesBack(row) {
 //: The Showing filter. Not the same list as the row's status, and the
 //: difference is "Disabled": a row somebody switched off has been ruled on, so
 //: it leaves Awaiting approval rather than sitting in the queue forever, and it
-//: leaves Production rather than showing there greyed out. Merging away also
+//: leaves Production rather than showing there grayed out. Merging away also
 //: switches a row off, but those have their own entry and stay out of this one.
 const STATUSES = [
   { value: "pending", label: "Awaiting approval" },
@@ -1375,19 +1375,44 @@ export default function Armory() {
     };
   };
 
+  /**
+   * How many listings an edit moved, said out loud.
+   *
+   * An armory edit is not confined to the row it touches: approving a model,
+   * or adding an alias to a cartridge, re-matches every listing whose text
+   * mentions any of the spellings involved. That is the whole point of the
+   * table — and it is also several hundred listings changing while the admin
+   * is looking at one dialog, with nothing on screen to say so.
+   */
+  const reportEdit = (name, changed) =>
+    setMessage(
+      `Saved ${name}.` +
+        (changed
+          ? ` ${changed.toLocaleString()} listing(s) re-matched.`
+          : " No listing changed."),
+    );
+
   const save = async (payload) => {
     setFormError("");
     try {
+      const name = payload?.name ?? editing?.name ?? SINGULAR[tab];
       if (tab === "manufacturers") {
         // The makers keep their own endpoint: an edit there re-derives the
         // listings it can reach and reports how many, which is a different
         // shape of answer from the armory's own writes.
-        if (editing?.id) await api.updateManufacturer(editing.id, payload);
-        else await api.createManufacturer(payload);
+        const result = editing?.id
+          ? await api.updateManufacturer(editing.id, payload)
+          : await api.createManufacturer(payload);
+        reportEdit(name, result?.listings_changed ?? 0);
       } else if (editing?.id) {
-        await api.updateArmoryRow(tab, editing.id, payload);
+        const result = await api.updateArmoryRow(tab, editing.id, payload);
+        reportEdit(name, result?.listings_changed ?? 0);
       } else {
+        // A create matches nothing yet — it is pending, and a pending row
+        // decides nothing until it is promoted. Saying "0 re-matched" there
+        // would read as a failure rather than as the gate working.
         await api.createArmoryRow(tab, payload);
+        setMessage(`Added ${name}. It is awaiting approval and decides nothing yet.`);
       }
       setEditing(null);
       await load();
@@ -1461,6 +1486,27 @@ export default function Armory() {
           </p>
         </div>
         <div className="page-head__actions">
+          {/* Getting what you curate here back into the repository. The armory
+              is edited on a running instance and shipped from a file in the
+              source tree, so the two drift the moment somebody approves a
+              model — and until now the only way back was a shell on the
+              server, which an administrator using these pages does not have. */}
+          <a
+            className="btn btn--secondary"
+            href={api.armoryExportUrl()}
+            download="armory.yaml"
+          >
+            <Download /> Download armory
+          </a>
+          <button
+            type="button"
+            className="btn btn--secondary"
+            disabled={busy}
+            title="Send it to your own address, with what to do with it"
+            onClick={() => act(() => api.emailArmoryExport())}
+          >
+            <Mail /> Email it to me
+          </button>
           <button
             type="button"
             className="btn btn--secondary"
@@ -2141,8 +2187,12 @@ export default function Armory() {
                       (moved ? ` ${moved} listing(s) re-derived.` : ""),
                   );
                 } else {
-                  await api.deleteArmoryRow(tab, removed.id);
-                  setMessage(`Deleted ${removed.name}.`);
+                  const result = await api.deleteArmoryRow(tab, removed.id);
+                  const moved = result?.listings_changed ?? 0;
+                  setMessage(
+                    `Deleted ${removed.name}.` +
+                      (moved ? ` ${moved.toLocaleString()} listing(s) re-matched.` : ""),
+                  );
                 }
                 setDeleting(null);
                 await load();
@@ -2155,11 +2205,16 @@ export default function Armory() {
               try {
                 const row = deleting;
                 if ("enabled" in row) {
-                  await (tab === "manufacturers"
+                  // Switching a row off is the edit most likely to move
+                  // listings in bulk: everything it used to explain stops
+                  // being explained by it, which is the number worth saying.
+                  const result = await (tab === "manufacturers"
                     ? api.updateManufacturer(row.id, { enabled: false })
                     : api.updateArmoryRow(tab, row.id, { enabled: false }));
+                  const moved = result?.listings_changed ?? 0;
                   setMessage(
-                    `${row.name} is off. It matches nothing and will not be proposed.`,
+                    `${row.name} is off. It matches nothing and will not be proposed.` +
+                      (moved ? ` ${moved.toLocaleString()} listing(s) re-matched.` : ""),
                   );
                 } else {
                   await api.sendArmoryRowsBack(tab, [row.id]);

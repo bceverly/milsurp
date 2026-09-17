@@ -299,6 +299,11 @@ export const api = {
       body: { source_id, target_id },
     }),
   seedArmory: () => request("/api/armory/seed", { method: "POST" }),
+  // A plain link rather than a fetch, like the item export and for the same
+  // reason: the session is a cookie, so the browser authenticates the
+  // navigation itself and the file lands in Downloads instead of in memory.
+  armoryExportUrl: () => "/api/armory/export",
+  emailArmoryExport: () => request("/api/armory/export/email", { method: "POST" }),
 
   // --- email preferences ---
   preferences: () => request("/api/preferences/email"),

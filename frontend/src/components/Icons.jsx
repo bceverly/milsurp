@@ -58,6 +58,14 @@ export const Sieve = (p) => (
   </Svg>
 );
 
+/** An arrow into a tray — saving a file out of the application. */
+export const Download = (p) => (
+  <Svg {...p}>
+    <path d="M12 4v10m0 0l-4-4m4 4l4-4" />
+    <path d="M4 18h16" />
+  </Svg>
+);
+
 /** Crossed rifles — the browse/inventory view. */
 export const Rifle = (p) => (
   <Svg {...p}>

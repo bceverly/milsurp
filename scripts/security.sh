@@ -186,6 +186,19 @@ fi
 if [ -d frontend/node_modules ]; then
   if (cd frontend && npm audit --audit-level=high) >"$REPORTS/npm-audit.txt" 2>&1; then
     ok "npm audit: no high-severity vulnerabilities"
+  # `npm audit` exits non-zero for "you have vulnerabilities" and *also* for
+  # "I could not reach the registry", and the two mean opposite things. Told
+  # apart on the message, because the exit code cannot: a flaky network was
+  # being reported as "npm audit found vulnerable packages" over a report file
+  # that said, in as many words, `audit endpoint returned an error`.
+  #
+  # Skipped rather than failed, which is what this script already does for a
+  # tool it cannot run -- see the header. A scan that cannot reach its data
+  # has not found anything, and saying it has is the kind of false alarm that
+  # teaches people to ignore the real ones.
+  elif grep -qi "audit endpoint returned an error\|ENOTFOUND\|ECONNREFUSED\|ETIMEDOUT\|network" \
+         "$REPORTS/npm-audit.txt"; then
+    skip "npm audit could not reach the registry — not a finding, try again later"
   else
     bad "npm audit found vulnerable packages — see $REPORTS/npm-audit.txt"
     tail -20 "$REPORTS/npm-audit.txt" | sed 's/^/    /'
