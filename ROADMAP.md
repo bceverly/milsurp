@@ -1549,8 +1549,40 @@ before they got nothing.
 - **Planned** — SQLite FTS5 full-text index. The current `LIKE`-per-term search
   is fine at tens of thousands of rows; it will not stay fine at hundreds of
   thousands.
-- **Planned** — Price range slider driven by the actual distribution, rather
-  than free-text min/max.
+- **Shipped** — Price filter in the browse rail: a histogram, two handles and
+  two number boxes. The roadmap line asked for a slider "rather than free-text
+  min/max" and was wrong about the starting point — **there was no price
+  control on screen at all.** `min_price` and `max_price` have been on the API
+  since the beginning and nothing in the rail ever set them.
+
+  **The scale is logarithmic, and that is the whole reason it works.** This
+  catalog runs from a $2 clip pouch to a $750,000 Gatling gun, so on a linear
+  axis every listing but a handful lands in the first column of the histogram
+  and the first pixel of the track. Log-spaced, the shape is legible: a clean
+  peak between $242 and $708 holding 3,582 of the 10,900 priced listings, with
+  the tail visible and not dominating. The handles move linearly in pixels
+  while the value moves by ratio, which is how prices are compared — $200 to
+  $400 is the same kind of step as $2,000 to $4,000.
+
+  **The histogram ignores the price filter itself**, for the reason the kind
+  facet ignores the kind — and more sharply, because this one is a slider.
+  Shaped by its own setting it would redraw as only the slice you chose, and
+  there would be nothing left on screen to widen back towards.
+
+  Native `<input type="range">`, two of them on one track, because a
+  hand-rolled slider is a keyboard trap waiting to happen and these arrive with
+  arrow keys, Home/End and a screen-reader contract already written. The number
+  boxes stay and stay authoritative: they take a figure somebody already has in
+  mind, and the slider is a faster way to the same two values rather than a
+  replacement. Dragging commits on release, not per pixel.
+
+  Three smaller decisions, each because the obvious version misleads. A handle
+  at the end of the track means *no bound* rather than "the cheapest listing in
+  the catalog today". Values are rounded to something a person would type —
+  $417.8231 makes the box look broken — on a step that grows with the number.
+  And listings with no price at all are counted in the note rather than
+  silently excluded, because "call for price" is common in the trade and any
+  range sets them aside.
 - **Shipped** — "Similar listings" on the detail page. The price spectrum
   above it answers "is this a good deal?" and stopped one step short: it says
   *cheaper than 8% of them* and offered no way to reach the them, so a reader

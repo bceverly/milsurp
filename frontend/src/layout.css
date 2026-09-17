@@ -2622,3 +2622,122 @@
   font-size: 12.5px;
   color: var(--ink-500);
 }
+
+/* --- The price filter: histogram, two handles, two boxes ---------------- */
+
+.price-range__chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+  height: 46px;
+  margin-bottom: 2px;
+}
+
+.price-range__bar {
+  flex: 1;
+  background: var(--navy-100);
+  border-radius: 1px 1px 0 0;
+  min-height: 2px;
+}
+
+/* Outside the chosen range, not hidden: the shape of what you are excluding
+   is how you decide whether to widen again. */
+.price-range__bar--out {
+  background: var(--silver-200);
+}
+
+/* Two native range inputs stacked on one track. Only the thumbs take events —
+   the tracks are transparent and pointer-inert, so the lower handle is
+   reachable where the two overlap. */
+.price-range__track {
+  position: relative;
+  height: 22px;
+}
+
+.price-range__handle {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  width: 100%;
+  margin: 0;
+  height: 22px;
+  background: none;
+  appearance: none;
+  -webkit-appearance: none;
+  pointer-events: none;
+}
+
+.price-range__handle::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--silver-200);
+}
+
+.price-range__handle::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--silver-200);
+}
+
+.price-range__handle::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  pointer-events: auto;
+  width: 15px;
+  height: 15px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--navy-600);
+  cursor: pointer;
+}
+
+.price-range__handle::-moz-range-thumb {
+  pointer-events: auto;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--navy-600);
+  cursor: pointer;
+}
+
+.price-range__handle:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px var(--navy-100);
+}
+
+.price-range__boxes {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.price-range__boxes label {
+  flex: 1;
+  min-width: 0;
+}
+
+.price-range__box-label {
+  display: block;
+  font-size: 11px;
+  color: var(--ink-500);
+  margin-bottom: 2px;
+}
+
+.price-range__dash {
+  padding-bottom: 8px;
+  color: var(--ink-400);
+}
+
+.price-range__note {
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  color: var(--ink-500);
+}
+
+.input--sm {
+  padding: 5px 8px;
+  font-size: 13px;
+}

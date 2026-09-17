@@ -124,7 +124,14 @@ changed — filtered to the sites you care about and capped so it stays readable
 - Keyword search across titles **and** captured descriptions, with multi-term
   matching and quoted phrases.
 - Faceted filters: site, category, caliber, country, manufacturer, type,
-  availability, price range, "reduced only".
+  availability, "reduced only".
+- **Price range as a shape, not two boxes.** A log-scaled histogram of what the
+  current results cost, with two handles over it and the number boxes kept
+  beside them. Logarithmic because the catalog runs from a $2 clip pouch to a
+  $750,000 Gatling gun, and on a linear axis every listing but a handful is in
+  the first column. The histogram deliberately ignores the price filter itself
+  — shaped by its own setting it would redraw as the slice you chose, leaving
+  nothing to widen back towards.
 - Filter state lives in the URL, so a view can be bookmarked and shared.
 - **Saved searches.** Name the filters you have set, run them again from a list,
   and optionally have their results mailed with your digest — capped at a number

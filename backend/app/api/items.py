@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
+import math
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response, status
@@ -24,6 +25,8 @@ from ..schemas import (
     ItemOverrideOut,
     ItemPage,
     PhotoOut,
+    PriceBucketOut,
+    PriceDistributionOut,
     PricePointOut,
     PricePositionOut,
     SimilarListingOut,
@@ -150,6 +153,88 @@ def _labelled(values: list[FacetValue]) -> list[FacetValue]:
     return values
 
 
+#: Columns in the price histogram. Enough to show a shape, few enough that each
+#: is a touch target on a phone rail.
+PRICE_BUCKETS = 24
+
+#: The slider opens on this share of the listings rather than on the full
+#: range: one $750,000 Gatling gun should not decide where the handles start.
+#: The extremes are still reachable -- they are the ends of the track.
+TYPICAL_SPAN = (0.02, 0.98)
+
+
+def _percentile(ordered: list[float], fraction: float) -> float:
+    """Nearest-rank percentile of a sorted list. See services/market.py for
+    why nearest-rank rather than interpolated: these are prices somebody has
+    actually written down."""
+    if not ordered:
+        return 0.0
+    index = max(0, min(len(ordered) - 1, round(fraction * (len(ordered) - 1))))
+    return ordered[index]
+
+
+def _price_distribution(session: DbSession, base: Select) -> PriceDistributionOut | None:
+    """The shape of what the current results cost.
+
+    Read as a list of prices and bucketed in Python rather than with a SQL
+    ``width_bucket``, which is PostgreSQL-only and this schema answers on
+    SQLite too. The cost is one float per matching row, which is the same order
+    as the page of items already being sent.
+
+    **Log-spaced**, because the catalog spans a $20 magazine and a $750,000
+    Gatling gun and a linear axis puts all but a handful of listings in the
+    first column. A histogram nobody can read is worse than none.
+    """
+    prices = sorted(
+        float(value)
+        for (value,) in session.execute(
+            base.with_only_columns(Item.current_price).where(
+                Item.current_price.is_not(None), Item.current_price > 0
+            )
+        ).all()
+    )
+    unpriced = session.execute(
+        base.with_only_columns(func.count(Item.id)).where(
+            or_(Item.current_price.is_(None), Item.current_price <= 0)
+        )
+    ).scalar_one()
+
+    if not prices:
+        return None
+
+    low, high = prices[0], prices[-1]
+    edges = (
+        [
+            math.exp(math.log(low) + (math.log(high) - math.log(low)) * index / PRICE_BUCKETS)
+            for index in range(PRICE_BUCKETS + 1)
+        ]
+        if high > low
+        else [low, high]
+    )
+
+    buckets: list[PriceBucketOut] = []
+    cursor = 0
+    for index in range(len(edges) - 1):
+        start, end = edges[index], edges[index + 1]
+        # The last bucket is closed at the top so the dearest listing is in it
+        # rather than falling off the end of its own histogram.
+        last = index == len(edges) - 2
+        count = 0
+        while cursor < len(prices) and (prices[cursor] <= end if last else prices[cursor] < end):
+            cursor += 1
+            count += 1
+        buckets.append(PriceBucketOut(low=round(start, 2), high=round(end, 2), count=count))
+
+    return PriceDistributionOut(
+        low=low,
+        high=high,
+        typical_low=_percentile(prices, TYPICAL_SPAN[0]),
+        typical_high=_percentile(prices, TYPICAL_SPAN[1]),
+        buckets=buckets,
+        unpriced=int(unpriced),
+    )
+
+
 def _facets(session: DbSession, base: Select) -> ItemFacets:
     """Counts for the filter sidebar, computed over the current result set."""
 
@@ -216,9 +301,12 @@ def _facets(session: DbSession, base: Select) -> ItemFacets:
     )
 
 
-def _with_kinds(session: DbSession, base: Select, without_kind: Select) -> ItemFacets:
+def _with_kinds(
+    session: DbSession, base: Select, without_kind: Select, without_price: Select
+) -> ItemFacets:
     facets = _facets(session, base)
     facets.kinds = _kind_counts(session, without_kind)
+    facets.prices = _price_distribution(session, without_price)
     return facets
 
 
@@ -296,6 +384,28 @@ def list_items(
         new_since_hours=new_since_hours,
         price_drops_only=price_drops_only,
     )
+    # And the price histogram against a query that does not filter by price,
+    # for the same reason the kind facet does not filter by kind -- and more
+    # sharply, because the price control is a *slider*. Shaped by its own
+    # setting, narrowing to $500-$1,000 would redraw the histogram as only that
+    # slice, and there would be nothing on screen to widen back towards.
+    without_price = apply_filters(
+        select(Item),
+        kinds=kind,
+        site_ids=site_id,
+        categories=category,
+        calibers=caliber,
+        countries=country,
+        manufacturers=manufacturer,
+        models=model,
+        forms=form,
+        availability=availability,
+        search=search,
+        min_price=None,
+        max_price=None,
+        new_since_hours=new_since_hours,
+        price_drops_only=price_drops_only,
+    )
 
     total = session.execute(base.with_only_columns(func.count(Item.id))).scalar_one()
     stmt = (
@@ -317,7 +427,7 @@ def list_items(
         page=page,
         per_page=per_page,
         pages=pages,
-        facets=_with_kinds(session, base, without_kind) if include_facets else None,
+        facets=_with_kinds(session, base, without_kind, without_price) if include_facets else None,
     )
 
 

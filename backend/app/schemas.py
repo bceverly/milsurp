@@ -952,6 +952,41 @@ class ItemOverrideOut(UTCModel):
     updated_at: datetime | None = None
 
 
+class PriceBucketOut(BaseModel):
+    """One column of the price histogram."""
+
+    #: The bucket's own span, so the client draws and labels it without
+    #: re-deriving boundaries the server already chose.
+    low: float
+    high: float
+    count: int
+
+
+class PriceDistributionOut(BaseModel):
+    """What the current results cost, as a shape rather than two numbers.
+
+    The rail's price filter had no way to say what a sensible range even was,
+    so the reader had to guess and then correct. This is what it guesses from.
+
+    **Log-spaced buckets**, which is not a flourish: this catalog runs from a
+    $20 magazine to a $750,000 Gatling gun, and on a linear axis every listing
+    but a handful lands in the first column. A histogram nobody can read is a
+    worse answer than no histogram.
+    """
+
+    #: The cheapest and dearest listing in the current results.
+    low: float
+    high: float
+    #: Where the bulk is. The slider opens here rather than at the extremes,
+    #: because one $750,000 listing should not decide the default view.
+    typical_low: float
+    typical_high: float
+    buckets: list[PriceBucketOut] = Field(default_factory=list)
+    #: Listings with no price at all — "call for price" is common in the trade.
+    #: Counted so that narrowing the range can say what it is setting aside.
+    unpriced: int = 0
+
+
 class ItemFacets(BaseModel):
     sites: list[FacetValue] = Field(default_factory=list)
     categories: list[FacetValue] = Field(default_factory=list)
@@ -970,6 +1005,9 @@ class ItemFacets(BaseModel):
     #: from ``kinds``: that one picks which of the five buckets a listing is in,
     #: this one narrows within it. See Item.kind.
     forms: list[FacetValue] = Field(default_factory=list)
+    #: The price shape of the current results. Absent when nothing in them has
+    #: a price, which is a real state on a catalog full of "call for price".
+    prices: PriceDistributionOut | None = None
     total: int = 0
 
 

@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api.js";
 import { useDebounced, useOptimisticSearchParams, useTitle } from "../hooks.js";
+import PriceRange from "../components/PriceRange.jsx";
 import { formatMoney, formatRelative, timeTitle } from "../format.js";
 import AuthImage from "../components/AuthImage.jsx";
 import {
@@ -450,6 +451,8 @@ export default function Browse() {
     [data],
   );
   const priceState = params.get("price_drops_only") === "true" ? "true" : "";
+  const minPrice = params.get("min_price") ? Number(params.get("min_price")) : null;
+  const maxPrice = params.get("max_price") ? Number(params.get("max_price")) : null;
   const perPage = PER_PAGE_CHOICES.includes(Number(params.get("per_page")))
     ? Number(params.get("per_page"))
     : DEFAULT_PER_PAGE;
@@ -475,12 +478,16 @@ export default function Browse() {
       price_drops_only: priceState === "true",
       kind: kind ? [kind] : [],
     };
+    // Omitted rather than sent as null: `qs` drops an empty value, and a
+    // min_price of 0 is a real bound somebody may have typed.
+    if (minPrice !== null) built.min_price = minPrice;
+    if (maxPrice !== null) built.max_price = maxPrice;
     for (const { param } of FACETS) {
       const values = params.getAll(param);
       if (values.length) built[param] = values;
     }
     return built;
-  }, [params, page, sort, availability, kind, priceState, perPage]);
+  }, [params, page, sort, availability, kind, priceState, perPage, minPrice, maxPrice]);
 
   useEffect(() => {
     let canceled = false;
@@ -575,10 +582,25 @@ export default function Browse() {
         clear: () => update((next) => next.delete("price_drops_only")),
       });
     }
+    // One chip for both bounds: they are one filter, and clearing half of a
+    // range from the summary row is not something anybody means to do.
+    if (minPrice !== null || maxPrice !== null) {
+      const from = minPrice !== null ? formatMoney(minPrice) : "any";
+      const to = maxPrice !== null ? formatMoney(maxPrice) : "any";
+      chips.push({
+        key: "price",
+        label: `Price: ${from} – ${to}`,
+        clear: () =>
+          update((next) => {
+            next.delete("min_price");
+            next.delete("max_price");
+          }),
+      });
+    }
     return chips;
     // `kind` is read off `params`, so it cannot change without params changing;
     // it is listed because the rule is right that the memo reads it.
-  }, [params, kind, data, toggleMulti, update]);
+  }, [params, kind, data, toggleMulti, update, minPrice, maxPrice]);
 
   const clearAll = () => {
     setSearchText("");
@@ -768,6 +790,27 @@ export default function Browse() {
               </label>
             ))}
           </Collapsible>
+
+          {data?.facets?.prices && (
+            <Collapsible
+              title="Price"
+              defaultOpen={minPrice !== null || maxPrice !== null}
+            >
+              <PriceRange
+                distribution={data.facets.prices}
+                min={minPrice}
+                max={maxPrice}
+                onChange={({ min, max }) =>
+                  update((next) => {
+                    if (min === null || min === undefined) next.delete("min_price");
+                    else next.set("min_price", String(min));
+                    if (max === null || max === undefined) next.delete("max_price");
+                    else next.set("max_price", String(max));
+                  })
+                }
+              />
+            </Collapsible>
+          )}
 
           <Collapsible title="Type" defaultOpen={Boolean(kind)}>
             {KINDS.map((option) => (
