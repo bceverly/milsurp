@@ -110,9 +110,9 @@ class User(Base, TimestampMixin):
     #: app/totp.py: a stolen database alone must not hand over both factors.
     totp_secret: Mapped[str | None] = mapped_column(Text)
     #: Whether a code is demanded at sign-in. Separate from holding a secret,
-    #: because enrolment has a middle state: a secret is issued and shown, and
+    #: because enrollment has a middle state: a secret is issued and shown, and
     #: only a code typed back from the phone turns this on. Without that gap an
-    #: enrolment abandoned halfway locks the account out.
+    #: enrollment abandoned halfway locks the account out.
     totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     totp_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime)
 
@@ -1098,6 +1098,49 @@ class ClassifierKeyword(Base, TimestampMixin):
     match: Mapped[str] = mapped_column(String(16), default="word", nullable=False)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
     notes: Mapped[str | None] = mapped_column(Text)
+
+
+class PushSubscription(Base, TimestampMixin):
+    """One browser, on one device, that has agreed to be notified.
+
+    Not one per user: a person reads this on a phone and a desktop and expects
+    both to buzz, and a browser that has been reinstalled is a new subscription
+    rather than an edit to an old one.
+
+    **The endpoint is the capability.** Anyone holding it can send that browser
+    a notification -- there is no second credential -- so it is unique, it is
+    never shown on a page, and it is the thing that makes this table worth the
+    same care as the sessions table.
+
+    ``p256dh`` and ``auth`` are the browser's half of the encryption: the
+    public key it generated and a shared secret, both base64url. The server
+    holds no private key belonging to a subscription and never could, which is
+    why a stolen database cannot read a message that has already been sent.
+    """
+
+    __tablename__ = "push_subscriptions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    #: Long: a push endpoint is a URL with an opaque identifier in it, and some
+    #: services run to several hundred characters.
+    endpoint: Mapped[str] = mapped_column(String(1024), unique=True, nullable=False)
+    p256dh: Mapped[str] = mapped_column(String(255), nullable=False)
+    auth: Mapped[str] = mapped_column(String(255), nullable=False)
+    #: What the browser called itself when it subscribed, so somebody looking
+    #: at a list of their own devices can tell which is which. Truncated and
+    #: scrubbed on the way in; it is a string from a client.
+    user_agent: Mapped[str | None] = mapped_column(String(255))
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime)
+    #: Consecutive failures. A push service that has stopped answering for a
+    #: subscription is usually telling us it is dead, and 404/410 says so
+    #: outright -- but a run of ordinary errors means the same thing eventually,
+    #: and a subscription nobody prunes is a message sent into nothing forever.
+    failures: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    user: Mapped[User] = relationship()
 
 
 class ItemOverride(Base, TimestampMixin):

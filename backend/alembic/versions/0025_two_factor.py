@@ -14,9 +14,9 @@ passwords offline. Storing the TOTP secret in the clear beside the password
 hashes would hand an attacker both factors at once and make the second one
 decorative.
 
-``totp_enabled`` is separate from having a secret, because enrolment has a
+``totp_enabled`` is separate from having a secret, because enrollment has a
 middle state: a secret is issued and displayed, and only a code typed back from
-the phone turns the flag on. Without that gap, an enrolment abandoned halfway
+the phone turns the flag on. Without that gap, an enrollment abandoned halfway
 -- a mistyped secret, a closed tab -- locks the account out.
 
 ``recovery_codes`` is the way back in when the phone is gone. Ten single-use

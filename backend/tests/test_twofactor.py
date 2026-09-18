@@ -36,37 +36,37 @@ def _code(user, config, offset: float = 0.0) -> str:
     return totp.code_at(totp.unseal(user.totp_secret, config), time.time() + offset)
 
 
-class TestEnrolmentIsTwoSteps:
+class TestEnrollmentIsTwoSteps:
     def test_starting_issues_a_secret_without_turning_it_on(self, clean_db, user, app_config):
         """The gap is the point. Collapsing these into one step means a secret
         mistyped into an authenticator, or a tab closed halfway, locks the
         account out."""
-        secret, uri = twofactor.begin_enrolment(user, app_config)
+        secret, uri = twofactor.begin_enrollment(user, app_config)
         clean_db.commit()
         assert secret in uri
         assert user.totp_secret is not None
         assert twofactor.is_enabled(user) is False
 
     def test_a_correct_code_turns_it_on(self, clean_db, user, app_config):
-        twofactor.begin_enrolment(user, app_config)
-        codes = twofactor.confirm_enrolment(clean_db, user, _code(user, app_config), app_config)
+        twofactor.begin_enrollment(user, app_config)
+        codes = twofactor.confirm_enrollment(clean_db, user, _code(user, app_config), app_config)
         clean_db.commit()
         assert twofactor.is_enabled(user) is True
         assert len(codes) == twofactor.RECOVERY_CODES
 
     def test_a_wrong_one_leaves_everything_alone(self, clean_db, user, app_config):
-        """A mistyped digit during enrolment is the ordinary case and must not
+        """A mistyped digit during enrollment is the ordinary case and must not
         clear the secret somebody has just scanned."""
-        twofactor.begin_enrolment(user, app_config)
+        twofactor.begin_enrollment(user, app_config)
         stored = user.totp_secret
-        assert twofactor.confirm_enrolment(clean_db, user, "000000", app_config) is None
+        assert twofactor.confirm_enrollment(clean_db, user, "000000", app_config) is None
         assert twofactor.is_enabled(user) is False
         assert user.totp_secret == stored
 
     def test_starting_again_replaces_the_secret(self, clean_db, user, app_config):
         """Which is what somebody who closed the tab will do."""
-        first, _uri = twofactor.begin_enrolment(user, app_config)
-        second, _uri = twofactor.begin_enrolment(user, app_config)
+        first, _uri = twofactor.begin_enrollment(user, app_config)
+        second, _uri = twofactor.begin_enrollment(user, app_config)
         assert first != second
         assert totp.unseal(user.totp_secret, app_config) == second
 
@@ -74,8 +74,8 @@ class TestEnrolmentIsTwoSteps:
 class TestSigningIn:
     @pytest.fixture
     def enrolled(self, clean_db, user, app_config):
-        twofactor.begin_enrolment(user, app_config)
-        codes = twofactor.confirm_enrolment(clean_db, user, _code(user, app_config), app_config)
+        twofactor.begin_enrollment(user, app_config)
+        codes = twofactor.confirm_enrollment(clean_db, user, _code(user, app_config), app_config)
         clean_db.commit()
         return user, codes
 
@@ -95,8 +95,8 @@ class TestSigningIn:
 class TestRecoveryCodes:
     @pytest.fixture
     def enrolled(self, clean_db, user, app_config):
-        twofactor.begin_enrolment(user, app_config)
-        codes = twofactor.confirm_enrolment(clean_db, user, _code(user, app_config), app_config)
+        twofactor.begin_enrollment(user, app_config)
+        codes = twofactor.confirm_enrollment(clean_db, user, _code(user, app_config), app_config)
         clean_db.commit()
         return user, codes
 
@@ -152,8 +152,8 @@ class TestTurningItOff:
     def test_the_secret_goes_too(self, clean_db, user, app_config):
         """Not just the flag. A stale secret means turning two-factor back on
         later silently re-enables a code somebody's old phone can produce."""
-        twofactor.begin_enrolment(user, app_config)
-        twofactor.confirm_enrolment(clean_db, user, _code(user, app_config), app_config)
+        twofactor.begin_enrollment(user, app_config)
+        twofactor.confirm_enrollment(clean_db, user, _code(user, app_config), app_config)
         clean_db.commit()
 
         twofactor.disable(clean_db, user)
@@ -162,8 +162,8 @@ class TestTurningItOff:
         assert twofactor.is_enabled(user) is False
 
     def test_and_so_do_the_recovery_codes(self, clean_db, user, app_config):
-        twofactor.begin_enrolment(user, app_config)
-        twofactor.confirm_enrolment(clean_db, user, _code(user, app_config), app_config)
+        twofactor.begin_enrollment(user, app_config)
+        twofactor.confirm_enrollment(clean_db, user, _code(user, app_config), app_config)
         clean_db.commit()
 
         twofactor.disable(clean_db, user)

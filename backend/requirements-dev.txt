@@ -19,3 +19,10 @@ mypy>=2.3.1
 bandit[toml]>=1.9.4      # security-focused static analysis
 types-PyYAML>=6.0.12.20260906
 types-requests>=2.33.0.20260906
+
+# An independent implementation of RFC 8188/8291, used by the web push tests to
+# decrypt what our own encryption produced. It is the cross-check that makes
+# those tests worth anything: a round trip against ourselves would agree with
+# whatever we had misread. Never shipped -- debian/rules deletes this file from
+# the package.
+http-ece>=1.2.1

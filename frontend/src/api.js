@@ -236,6 +236,12 @@ export const api = {
     request(`/api/manufacturers/${id}`, { method: "PATCH", body: patch }),
   deleteManufacturer: (id) => request(`/api/manufacturers/${id}`, { method: "DELETE" }),
 
+  // --- notifications on this browser ---
+  pushStatus: () => request("/api/push"),
+  subscribePush: (payload) => request("/api/push", { method: "POST", body: payload }),
+  deletePushSubscription: (id) => request(`/api/push/${id}`, { method: "DELETE" }),
+  sendTestPush: () => request("/api/push/test", { method: "POST" }),
+
   // --- what a kind of gun goes for, across every dealer at once ---
   market: (params = {}) => request(`/api/market${qs(params)}`),
 

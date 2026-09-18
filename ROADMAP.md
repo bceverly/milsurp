@@ -1797,7 +1797,84 @@ before they got nothing.
   never alerted about — the digest carries it, but it is not a buying
   opportunity, and interrupting somebody to say they missed one is the wrong
   side of useful.
-- **Planned** — Web push notifications as an alternative to email.
+- **Planned** — Decide about Checkpoint Charlie's: make it work, or take it
+  out. What is there now is not workable and should not be left as if it were.
+
+  It answers **429 to every request at every pace and with every set of
+  headers** — the scraper's own docstring says so — so the product pages are
+  already given up on and the listings are built from category pages alone.
+  That much was a deliberate trade and it held. What does not hold is the rest:
+  the cooldown register puts the host in the penalty box on the refusals, the
+  next scan dies on the cooldown rather than on anything the vendor did that
+  morning, and the canary has been reporting `RESTING` since. The first sweep
+  ever run found it had been failing that way for three consecutive days.
+
+  The state today: **9 failed scans against 1 partial**, last success
+  2026-09-08, 24 listings stored and going stale, and the site switched off.
+  A shop nobody can scan is worse than a shop nobody has heard of, because it
+  occupies a row, a canary line and an operator's attention every morning.
+
+  Three honest options, and the measurement that picks between them has not
+  been done:
+
+  * **Find a pace it tolerates.** Nothing tried so far has — but "every pace"
+    in that docstring means every pace *tried*, and a single request every few
+    minutes against the category pages only is a regime nobody has measured.
+  * **Ask them.** Twenty-four listings is a small prize, and a dealer who
+    knows what the traffic is for may simply allow it. No one has written.
+  * **Remove it.** Delete the scraper, the seed row and the stored listings,
+    and stop paying attention to it. This is the option the others have to beat.
+
+  Not a bug to be fixed quietly: which of the three is right is a decision
+  about somebody else's website, and the only wrong answer is the current one,
+  where the application keeps asking and keeps being told no.
+- **Shipped** — Web push notifications, as an alternative to email for the one
+  thing worth interrupting somebody over. Migration 0035,
+  `app/services/webpush.py` (the two RFCs), `app/services/pushnotify.py` (the
+  application), a service worker, and a panel on the Security page.
+
+  **Written against RFC 8291 and RFC 8292 rather than added as a dependency**,
+  which is the call the two-factor code made against RFC 6238 and for the same
+  reasons: the Debian package vendors everything, `pywebpush` brings a
+  transitive tree for work that is a hundred lines of `cryptography` calls, and
+  the subtle parts — the exact info strings, the record delimiter, the JOSE
+  signature encoding — are subtle whoever writes them. The primitives are not
+  hand-rolled: P-256, HKDF, AES-GCM and ECDSA all come from `cryptography`.
+
+  **What makes that safe is the cross-check.** The tests seal a message with
+  our code and open it with `http_ece`, an independent implementation of the
+  same RFCs, held as a development dependency and never shipped. A round trip
+  against ourselves would have agreed with whatever we had misread.
+
+  **`cryptography` was not actually a dependency**, which is the trap that
+  would have shipped. It was in every development virtualenv because semgrep's
+  `pyjwt[crypto]` pin drags it in, so everything worked here — and `pip install
+  -r requirements.txt` on a clean machine did not install it, so the package
+  would have shipped a venv where every push raised ImportError. Now declared.
+
+  Three decisions worth the words:
+
+  * **A subscription belongs to a device, not an account.** The same person on
+    a phone and a desktop has two, and a reinstalled browser has a new one.
+  * **Either channel counts as delivered.** Push runs alongside the email
+    rather than replacing it, and marking the alert on either means an
+    installation with no SMTP can finally be told about a price — where before
+    it would re-send the same alert on every tick forever.
+  * **A dead subscription is deleted, not retried.** 404 and 410 are the push
+    service saying the browser is gone and there is no second opinion worth
+    having; anything else is counted, and eight consecutive failures ages it
+    out, because a message sent into nothing forever is worse than a row nobody
+    misses.
+
+  `milsurp secrets` generates the VAPID pair, and **inserts the settings into a
+  config file that predates them** — refusing would have made the command fail
+  on every already-installed machine, which is all of them.
+
+  The **Send a test** button is not a nicety. Four things must line up —
+  browser support, a secure origin, permission, a registered service worker —
+  and when one is wrong everything still looks right: the switch says On and
+  nothing ever arrives. One notification landing is the only proof worth
+  having.
 
 ### Data quality
 
@@ -3578,7 +3655,7 @@ more than one machine still wants the queue below.
   Three decisions are about locking the owner out rather than keeping an
   attacker out, which is the likelier failure for a self-hosted thing:
 
-  * **Enrolment is two steps.** The secret is issued and shown; only a code
+  * **Enrollment is two steps.** The secret is issued and shown; only a code
     typed back from the phone turns it on. Collapsing them means a mistyped
     secret or a closed tab locks the account out.
   * **Ten recovery codes**, Argon2-hashed because one of them alone is the

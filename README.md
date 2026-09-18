@@ -187,6 +187,16 @@ changed — filtered to the sites you care about and capped so it stays readable
   learned** — calibers, countries and makers whose earliest listing anywhere is
   inside the window, which is new stock, or a classification rule that has
   started matching something it should not.
+- **Notifications on a device**, as an alternative to email for a watch alert —
+  the one thing this application sends that is worth interrupting somebody for.
+  Per device, not per account: the same person on a phone and a desktop turns it
+  on twice. Push runs alongside the email rather than replacing it, and **either
+  channel counts as delivered**, which is what lets an installation with no SMTP
+  be told about a price at all. Written against RFC 8291 and RFC 8292 with
+  `cryptography`, rather than adding `pywebpush` for the Debian package to
+  vendor — and cross-checked in the tests against `http_ece`, an independent
+  implementation, because a round trip against ourselves would agree with
+  whatever we had misread.
 - **Two-factor authentication.** Optional per account, TOTP, so an attacker
   with the password still does not have the six digits. Ten single-use recovery
   codes are shown once when it is turned on, and

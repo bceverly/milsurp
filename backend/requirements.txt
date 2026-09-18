@@ -57,3 +57,11 @@ pytesseract>=0.3.13
 # the system database does not carry, so this fixes the aliases without
 # overriding a host's own, more current, database.
 tzdata>=2026.2
+
+# Web push, which needs P-256 ECDH, HKDF, AES-GCM and ECDSA (RFC 8291 and RFC
+# 8292). Declared here rather than relied on transitively: it was already in
+# every development virtualenv because semgrep's `pyjwt[crypto]` pin drags it
+# in, and *that* is exactly the trap -- `pip install -r requirements.txt` on a
+# clean machine did not install it, so the Debian package would have shipped a
+# venv where every push raised ImportError while every developer's worked.
+cryptography>=46.0.0

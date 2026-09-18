@@ -4,7 +4,7 @@ The admin sign-in is reachable from the internet, and a password was the only
 thing in front of it. This is the second factor; :mod:`app.totp` is the
 arithmetic underneath.
 
-**Enrolment is two steps, and the gap between them is the point.** Starting
+**Enrollment is two steps, and the gap between them is the point.** Starting
 issues a secret and shows it; only a code typed back from the phone turns the
 flag on. Collapsing that into one step means a secret mistyped into an
 authenticator -- or a tab closed halfway -- locks the account out of an
@@ -43,7 +43,7 @@ def is_enabled(user: User) -> bool:
     return bool(user.totp_enabled and user.totp_secret)
 
 
-def begin_enrolment(user: User, config: Config | None = None) -> tuple[str, str]:
+def begin_enrollment(user: User, config: Config | None = None) -> tuple[str, str]:
     """Issue a secret and return ``(secret, otpauth_uri)``.
 
     Stored immediately but **not** enabled: the secret has to exist for the
@@ -59,13 +59,13 @@ def begin_enrolment(user: User, config: Config | None = None) -> tuple[str, str]
     return secret, totp.provisioning_uri(secret, user.username)
 
 
-def confirm_enrolment(
+def confirm_enrollment(
     session: Session, user: User, code: str, config: Config | None = None
 ) -> list[str] | None:
     """Turn it on if *code* is right. Returns the recovery codes, once.
 
     None when the code is wrong, and the flag is left alone -- a mistyped digit
-    during enrolment is the ordinary case and must not clear the secret.
+    during enrollment is the ordinary case and must not clear the secret.
 
     The codes are returned in the clear here and nowhere else. They are shown
     on the screen that asked for them and stored only as hashes; there is

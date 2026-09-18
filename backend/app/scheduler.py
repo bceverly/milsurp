@@ -26,7 +26,7 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from .config import Config, get_config
 from .database import session_scope
 from .models import EmailStatus, User, utcnow
-from .services import backup, digest, scan_service, watchlist, watchpoll
+from .services import backup, digest, pushnotify, scan_service, watchlist, watchpoll
 
 log = logging.getLogger("milsurp.scheduler")
 
@@ -297,15 +297,27 @@ class Scheduler:
                     if not fresh:
                         continue
                     result = digest.send_watch_alert(session, user, fresh, self.config)
-                    if result.status is EmailStatus.SENT:
+                    # And every browser this reader has signed up. Push is the
+                    # alternative channel rather than a second copy of the
+                    # same one: somebody who asked to be told the moment a
+                    # rifle reaches a price is not served by an email they
+                    # read when they next open a laptop.
+                    pushed = pushnotify.send_to_user(
+                        session, user, pushnotify.watch_alert_payload(fresh), self.config
+                    )
+                    # Either channel is enough. Requiring the email would mean
+                    # an installation with no SMTP could never mark an alert
+                    # delivered and would re-send it on every tick forever.
+                    if result.status is EmailStatus.SENT or pushed:
                         now = utcnow()
                         for update in fresh:
                             watchlist.mark_alerted(update.watch, update.item, now)
-                        session.commit()
+                    session.commit()
                     log.info(
-                        "Watch alert for %s: %s (%s listing(s)).",
+                        "Watch alert for %s: email %s, %s device(s) (%s listing(s)).",
                         user.username,
                         result.status.value,
+                        pushed,
                         len(fresh),
                     )
             except Exception:

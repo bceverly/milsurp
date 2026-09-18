@@ -98,6 +98,21 @@ security:
   # Signs session tokens. Changing it signs everyone out.
   jwt_secret: "CHANGE-ME-run-make-secrets"
 
+  # Web push. The pair identifies this server to a browser's push service
+  # (Mozilla's, Google's, Apple's); the public half is handed to every browser
+  # that subscribes and is not secret, the private half signs and is. Leave
+  # them empty and the push feature simply does not offer itself -- nothing
+  # else changes.
+  #
+  # CHANGING THEM INVALIDATES EVERY SUBSCRIPTION: a browser subscribes to one
+  # application server and will not accept another. Everyone has to turn
+  # notifications on again.
+  vapid_private_key: ""
+  vapid_public_key: ""
+  # Where a push service should complain about this sender. A mailto: or an
+  # https: URL; a service that cannot reach anybody may stop delivering.
+  vapid_subject: "mailto:you@example.com"
+
   jwt_algorithm: HS256          # default: HS256
   access_token_minutes: 720     # default: 720 (12 hours)
 

@@ -11,7 +11,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api.js";
 import { usePasswordPolicy, useTitle } from "../hooks.js";
-import { formatDateTime } from "../format.js";
+import { formatDateTime, formatRelative, timeTitle } from "../format.js";
+import * as push from "../push.js";
 
 export default function SecurityPage() {
   useTitle("Security settings");
@@ -21,6 +22,7 @@ export default function SecurityPage() {
         <h1>Security settings</h1>
       </div>
       <TwoFactorPanel />
+      <NotificationsPanel />
       <SessionsPanel />
       <PasswordPanel />
     </div>
@@ -28,9 +30,191 @@ export default function SecurityPage() {
 }
 
 /**
+ * Notifications on this browser.
+ *
+ * Per *device*, not per account, and the wording says so throughout: the same
+ * person reading this on a phone and a desktop has to turn it on twice, and
+ * nothing here would make sense to somebody who thought otherwise.
+ *
+ * The **Send a test** button is not a nicety. Four things have to line up —
+ * browser support, a secure origin, permission, a registered service worker —
+ * and when one of them is wrong everything still looks fine: the switch says
+ * On and no notification ever arrives. One notification landing is the only
+ * proof worth having.
+ */
+function NotificationsPanel() {
+  const [status, setStatus] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  const load = useCallback(() => {
+    api
+      .pushStatus()
+      .then(setStatus)
+      .catch((err) => setError(err.message));
+  }, []);
+
+  useEffect(load, [load]);
+
+  async function turnOn() {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await push.subscribe(status.public_key);
+      setNotice(
+        "This device will be notified when a watched listing reaches your price.",
+      );
+      load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function turnOff(subscriptionId) {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await push.unsubscribe(subscriptionId);
+      setNotice("Stopped. This device will not be notified.");
+      load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function test() {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await api.sendTestPush();
+      setNotice(
+        `Sent to ${result.subscriptions.length} device(s). If nothing appeared, this ` +
+          `browser is blocking notifications for the site.`,
+      );
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!status) return null;
+
+  // Two different "no" answers, and conflating them would send somebody to
+  // change a browser setting over a server that has no keys.
+  if (!status.available) {
+    return (
+      <div className="panel">
+        <div className="panel__head">
+          <h2>Notifications</h2>
+          <span className="chip chip--neutral">Unavailable</span>
+        </div>
+        <div className="panel__body">
+          <p>
+            This server has no push keys, so it cannot send notifications. An
+            administrator can generate a pair with <code>milsurp secrets</code>.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const devices = status.subscriptions || [];
+
+  return (
+    <div className="panel">
+      <div className="panel__head">
+        <h2>Notifications</h2>
+        <span className={`chip ${devices.length ? "chip--success" : "chip--neutral"}`}>
+          {devices.length ? `${devices.length} device(s)` : "Off"}
+        </span>
+      </div>
+      <div className="panel__body">
+        {error && (
+          <div className="alert alert--error" role="alert">
+            {error}
+          </div>
+        )}
+        {notice && <div className="alert alert--success">{notice}</div>}
+
+        <p>
+          Be told the moment a watched listing reaches the price you named, without
+          waiting for the digest. This is per device: turning it on here covers this
+          browser and no other.
+        </p>
+
+        {!push.supported() ? (
+          <p className="field__hint">
+            This browser cannot show notifications from a website.
+          </p>
+        ) : (
+          <div className="page-head__actions" style={{ marginBottom: 12 }}>
+            <button className="btn btn--primary" disabled={busy} onClick={turnOn}>
+              Turn on for this device
+            </button>
+            {devices.length > 0 && (
+              <button className="btn btn--secondary" disabled={busy} onClick={test}>
+                Send a test
+              </button>
+            )}
+          </div>
+        )}
+
+        {devices.length > 0 && (
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Device</th>
+                  <th>Added</th>
+                  <th>Last notified</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {devices.map((device) => (
+                  <tr key={device.id}>
+                    <td>{device.user_agent || "Unknown browser"}</td>
+                    <td title={timeTitle(device.created_at)}>
+                      {device.created_at ? formatRelative(device.created_at) : "—"}
+                    </td>
+                    <td title={timeTitle(device.last_used_at)}>
+                      {device.last_used_at
+                        ? formatRelative(device.last_used_at)
+                        : "never"}
+                    </td>
+                    <td className="table__actions">
+                      <button
+                        className="btn btn--ghost btn--sm"
+                        disabled={busy}
+                        onClick={() => turnOff(device.id)}
+                      >
+                        Turn off
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
  * Two-factor authentication.
  *
- * Enrolment is two steps here because it is two steps on the server, and the
+ * Enrollment is two steps here because it is two steps on the server, and the
  * gap is the point: the secret is shown, and only a code typed back from the
  * phone turns it on. Somebody who closes this tab halfway has changed nothing.
  *

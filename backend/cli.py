@@ -62,6 +62,7 @@ from app.services import (
     provenance,
     scan_service,
     twofactor,
+    webpush,
 )
 from app.services import backup as backup_service
 from app.services import digest as digest_service
@@ -114,6 +115,13 @@ def cmd_init(_args: argparse.Namespace) -> int:
 _SECRET_SETTINGS = (
     ("password_pepper", "every existing password stops verifying"),
     ("jwt_secret", "everyone signed in is signed out"),
+    # The VAPID pair is generated together and written as two settings, because
+    # that is how the file holds it. Only the private half is a secret; the
+    # public one is handed to every browser that subscribes. They are listed
+    # together anyway: they are useless apart, and regenerating one without the
+    # other is the mismatch that reads like a network fault.
+    ("vapid_private_key", "every push subscription stops working"),
+    ("vapid_public_key", "every push subscription stops working"),
 )
 
 
@@ -139,6 +147,29 @@ def _is_set(text: str, name: str) -> bool:
         return False
     value = match.group(2).strip().strip("\"'").strip()
     return bool(value) and not value.startswith("CHANGE-ME")
+
+
+#: The block every secret belongs to. Anchoring on it rather than on a sibling
+#: setting means the insert still works in a file where the neighbours have been
+#: reordered, which is a thing people do to their own config.
+_SECURITY_BLOCK = re.compile(r"^(\s*)security:\s*$", re.MULTILINE)
+
+
+def _insert_setting(text: str, name: str, value: str) -> tuple[str, int]:
+    """Add `name: "value"` to the security block. (text, 1) or (text, 0).
+
+    Placed at the top of the block rather than the bottom: the bottom of a YAML
+    block is wherever the indentation stops, which is a harder thing to find
+    correctly than the line after the header, and getting it wrong writes the
+    setting into whatever section came next.
+    """
+    match = _SECURITY_BLOCK.search(text)
+    if match is None:
+        return text, 0
+    indent = match.group(1) + "  "
+    line = f'{indent}{name}: "{value}"\n'
+    at = match.end() + 1
+    return text[:at] + line + text[at:], 1
 
 
 def cmd_secrets(args: argparse.Namespace) -> int:
@@ -179,17 +210,35 @@ def cmd_secrets(args: argparse.Namespace) -> int:
         print("Re-run with --force if that is what you want.", file=sys.stderr)
         return 1
 
+    # The VAPID halves are one key, so they are generated once and written to
+    # the two settings that hold them. Generating each independently would
+    # produce a public key that does not belong to the private one, which is
+    # the mismatch that reads like a network fault at the far end.
+    vapid_private, vapid_public = webpush.generate_keys()
+    values = {"vapid_private_key": vapid_private, "vapid_public_key": vapid_public}
+
     written: set[str] = set()
     for name, _cost in _SECRET_SETTINGS:
         text, count = re.subn(
             _SETTING_LINE.format(name=name),
-            lambda match: f'{match.group(1)}"{generate_secret()}"',
+            lambda match, name=name: f'{match.group(1)}"{values.get(name) or generate_secret()}"',
             text,
             count=1,
             flags=re.MULTILINE,
         )
         if not count:
-            print(f"Could not find a '{name}:' line in {path}.", file=sys.stderr)
+            # A setting added in a later release is simply not in a config file
+            # written by an earlier one, and every upgraded installation has
+            # one of those. Adding the line is the whole fix; refusing is how
+            # `milsurp secrets` would have failed on every machine that already
+            # had a config, which is all of them.
+            text, count = _insert_setting(text, name, values.get(name) or generate_secret())
+        if not count:
+            print(
+                f"Could not find a '{name}:' line in {path}, or a 'security:' "
+                f"block to put one in.",
+                file=sys.stderr,
+            )
             return 1
         written.add(name)
 
@@ -363,7 +412,7 @@ def cmd_twofactor(args: argparse.Namespace) -> int:
     longer has, which is what makes a second factor worth having -- so the last
     resort is shell access to the machine, and that is this.
 
-    Deliberately not a way to *turn it on*: enrolment needs a secret shown to
+    Deliberately not a way to *turn it on*: enrollment needs a secret shown to
     the person holding the phone, which a terminal on the server is not.
     """
     with session_scope() as session:

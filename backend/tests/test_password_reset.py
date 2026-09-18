@@ -124,9 +124,9 @@ class TestItDoesNotWalkPastTwoFactor:
     ):
         """A reset link that skipped the second factor would make a compromised
         mailbox enough to defeat it, which is most of what it is for."""
-        twofactor.begin_enrolment(viewer, app_config)
+        twofactor.begin_enrollment(viewer, app_config)
         secret = totp.unseal(viewer.totp_secret, app_config)
-        twofactor.confirm_enrolment(seeded, viewer, totp.code_at(secret, time.time()), app_config)
+        twofactor.confirm_enrollment(seeded, viewer, totp.code_at(secret, time.time()), app_config)
         issued = passwordreset.issue(seeded, viewer, None, app_config)
         seeded.commit()
 

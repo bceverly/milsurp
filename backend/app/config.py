@@ -92,6 +92,20 @@ class SecurityConfig:
     # so a stolen database alone cannot be attacked offline.
     password_pepper: str = ""
     jwt_secret: str = ""
+    #: The VAPID pair that identifies this server to a push service (RFC 8292).
+    #: The public half is handed to every browser that subscribes and is not a
+    #: secret; the private half signs, and is. They are kept together because
+    #: they are useless apart, and because a mismatched pair is the failure
+    #: that reads like a network problem -- see services/webpush.load_keys.
+    #:
+    #: Changing them invalidates every existing subscription: a browser
+    #: subscribes to one application server and will not accept another.
+    vapid_private_key: str = ""
+    vapid_public_key: str = ""
+    #: Where a push service should complain. RFC 8292 wants a contact, and a
+    #: service that cannot reach anybody is within its rights to stop
+    #: delivering.
+    vapid_subject: str = ""
     jwt_algorithm: str = "HS256"
     access_token_minutes: int = 720
     # Argon2id cost parameters. The defaults follow the OWASP recommendation of
@@ -613,6 +627,9 @@ def load_config(path: Path | None = None, mode: str | None = None) -> Config:
     security = SecurityConfig(
         password_pepper=str(sec.get("password_pepper", "") or ""),
         jwt_secret=str(sec.get("jwt_secret", "") or ""),
+        vapid_private_key=str(sec.get("vapid_private_key", "") or ""),
+        vapid_public_key=str(sec.get("vapid_public_key", "") or ""),
+        vapid_subject=str(sec.get("vapid_subject", "") or ""),
         jwt_algorithm=str(sec.get("jwt_algorithm", "HS256")),
         access_token_minutes=int(sec.get("access_token_minutes", 720)),
         argon2_time_cost=int(sec.get("argon2_time_cost", 2)),

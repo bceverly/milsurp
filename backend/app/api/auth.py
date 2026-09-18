@@ -307,7 +307,7 @@ def redeem_reset_link(payload: PasswordResetRedeem, session: DbSession, config: 
 def totp_start(user: CurrentUser, session: DbSession, config: AppConfig) -> TotpStart:
     """Issue a secret and show it. Does not turn anything on.
 
-    Enrolment is two exchanges on purpose: the secret has to exist for the
+    Enrollment is two exchanges on purpose: the secret has to exist for the
     confirming code to be checked against, and the flag stays off until a code
     comes back from the phone. Collapsing them means a mistyped secret, or a
     closed tab, locks the account out.
@@ -318,9 +318,9 @@ def totp_start(user: CurrentUser, session: DbSession, config: AppConfig) -> Totp
     if twofactor.is_enabled(user):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Two-factor is already on. Turn it off first to enrol a new device.",
+            detail="Two-factor is already on. Turn it off first to enroll a new device.",
         )
-    secret, uri = twofactor.begin_enrolment(user, config)
+    secret, uri = twofactor.begin_enrollment(user, config)
     session.commit()
     return TotpStart(secret=secret, secret_grouped=totp.grouped(secret), otpauth_uri=uri)
 
@@ -330,7 +330,7 @@ def totp_confirm(
     payload: TotpConfirm, user: CurrentUser, session: DbSession, config: AppConfig
 ) -> RecoveryCodesOut:
     """Turn it on, and hand back the recovery codes once."""
-    codes = twofactor.confirm_enrolment(session, user, payload.code, config)
+    codes = twofactor.confirm_enrollment(session, user, payload.code, config)
     if codes is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

@@ -255,8 +255,21 @@ jobs:
           from app.database import Base, get_engine
           from app import models  # noqa: F401  (registers every model)
 
+          # Tables that exist on purpose and are not models. `alembic_version`
+          # is alembic's own. The rest are SQLite's: an FTS5 virtual table
+          # (migration 0034's search index) is backed by four shadow tables the
+          # engine creates and owns -- items_fts_data, _idx, _docsize, _config
+          # -- and declaring any of them to SQLAlchemy would be declaring
+          # somebody else's internals as if we maintained them.
+          NOT_MODELS = {"alembic_version"}
+          FTS_PREFIX = "items_fts"
+
           inspector = sa.inspect(get_engine())
-          in_db = set(inspector.get_table_names()) - {"alembic_version"}
+          in_db = {
+              name
+              for name in inspector.get_table_names()
+              if name not in NOT_MODELS and not name.startswith(FTS_PREFIX)
+          }
           in_models = set(Base.metadata.tables)
 
           problems = []

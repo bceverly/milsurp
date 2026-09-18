@@ -532,6 +532,46 @@ class MarketOut(BaseModel):
     bands: list[MarketBandOut]
 
 
+class PushSubscribeIn(BaseModel):
+    """What a browser's PushSubscription serializes to.
+
+    Taken as given and stored: these are the browser's own values, and there is
+    nothing here to validate beyond their being present. The endpoint is a
+    capability, so it is length-bounded rather than pattern-matched -- a push
+    service may host it anywhere it likes.
+    """
+
+    endpoint: str = Field(min_length=1, max_length=1024)
+    p256dh: str = Field(min_length=1, max_length=255)
+    auth: str = Field(min_length=1, max_length=255)
+
+
+class PushSubscriptionOut(UTCModel):
+    """One of a reader's own devices.
+
+    Deliberately without the endpoint or the keys. Nothing on a page needs
+    them, and the endpoint is the only thing standing between a stranger and
+    the ability to notify that device.
+    """
+
+    id: int
+    user_agent: str | None = None
+    created_at: datetime | None = None
+    last_used_at: datetime | None = None
+    #: Whether this is the subscription just created. The browser knows which
+    #: of its own it is holding; the server cannot tell two apart.
+    current: bool = False
+
+
+class PushStatusOut(UTCModel):
+    available: bool
+    #: The VAPID public key, which is not a secret: every browser that
+    #: subscribes is handed it. Absent when the deployment has no keys, which
+    #: is how the page knows not to offer the button.
+    public_key: str | None = None
+    subscriptions: list[PushSubscriptionOut] = Field(default_factory=list)
+
+
 class ChangeSiteOut(UTCModel):
     """One shop's week."""
 

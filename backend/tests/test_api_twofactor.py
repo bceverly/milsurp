@@ -27,9 +27,11 @@ VIEWER_PASSWORD = "viewer-long-passphrase"
 def enrolled(client, normal_user, seeded, app_config):
     """A normal account with two-factor on, and its recovery codes."""
     user = seeded.query(User).filter_by(username=VIEWER).one()
-    twofactor.begin_enrolment(user, app_config)
+    twofactor.begin_enrollment(user, app_config)
     secret = totp.unseal(user.totp_secret, app_config)
-    codes = twofactor.confirm_enrolment(seeded, user, totp.code_at(secret, time.time()), app_config)
+    codes = twofactor.confirm_enrollment(
+        seeded, user, totp.code_at(secret, time.time()), app_config
+    )
     seeded.commit()
     return user, secret, codes
 
@@ -112,7 +114,7 @@ class TestTheSignInExchange:
         assert "Incorrect username or password" in response.json()["detail"]
 
 
-class TestEnrolment:
+class TestEnrollment:
     def test_starting_returns_a_secret_and_a_uri(self, client, normal_user):
         response = client.post("/api/auth/totp/start", headers=normal_user["headers"])
         assert response.status_code == 200
