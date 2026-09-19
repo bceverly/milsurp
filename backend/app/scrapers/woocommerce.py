@@ -169,10 +169,12 @@ class WooCommerceScraper(SiteScraper):
 
     #: Give up on product pages after this many in a row fail.
     #:
-    #: Some shops serve their catalog happily and refuse every product page —
-    #: Checkpoint Charlie's answers 200 on a category and 429 on /product/, to
-    #: any pace and any headers. Without a limit the scan works patiently
-    #: through the whole catalog discovering that one listing at a time.
+    #: Some shops serve their catalog happily and refuse every product page.
+    #: Checkpoint Charlie's was the example this was built for and is no longer
+    #: one -- their refusal turned out to be a user-agent blocklist at their
+    #: CDN, not a policy about product pages. The limit stays because the shape
+    #: is real: without it, a scan works patiently through a whole catalog
+    #: discovering the same refusal one listing at a time.
     MAX_DETAIL_FAILURES = 3
 
     #: How many product pages have failed since the last one that worked, and
@@ -346,10 +348,13 @@ class WooCommerceScraper(SiteScraper):
             # entry already carries the title, the price and a thumbnail, which
             # is what price watching actually needs.
             #
-            # Checkpoint Charlie's is why this exists. Their category pages
-            # answer 200 and their /product/ pages answer 429 to everything —
-            # any pace, any headers — so the old behavior spent an hour backing
-            # off and then threw away a perfectly good catalog read.
+            # Checkpoint Charlie's is why this exists: their category pages
+            # answered 200 while their product pages answered 429, so the old
+            # behavior spent an hour backing off and then threw away a
+            # perfectly good catalog read. That particular refusal turned out
+            # to be a user-agent blocklist and is fixed, but a shop that serves
+            # a catalog and refuses detail pages is a real shape and this is
+            # still the right answer to it.
             #
             # A shop that refuses every product page would otherwise have its
             # whole catalog walked one pointless request at a time, so after

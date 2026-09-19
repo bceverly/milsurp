@@ -2311,6 +2311,38 @@ every add, every update with the fields that differ, and every deletion it
 on top, because a catalog is curated in two places and a row missing from the
 file is more often unexported than unwanted.
 
+### What this application calls itself
+
+`Mozilla/5.0 (compatible; MilsurpMonitor/1.0; +https://milsurpmonitor.com)` —
+its own name and an address to complain to, rather than an imitation of a
+browser.
+
+**That is not tidiness; it is a bug fix.** The agent used to claim Chrome 124
+on Linux, and Checkpoint Charlie's refused every uncached request for nine
+days because of it. They sit behind Hostinger's CDN, and the CDN was matching
+one exact pair — `X11; Linux x86_64` with `Chrome/124.0.0.0`, the stock string
+of headless scraping tooling. Either half alone passed: Linux with a current
+Chrome was fine, Windows with Chrome 124 was fine.
+
+It read as a rate limit for months, and four measurements took that apart:
+
+- **The first request was refused**, with nothing before it. No pace fixes a
+  limit that starts at one.
+- **The 429 had an empty body and none of the origin's headers** — no
+  `x-powered-by`, no `x-litespeed-cache`, where the working pages had both. It
+  was generated at the edge; their server never saw it.
+- **The same URL answered 200 and 429 depending on the cache.** The catalog was
+  being served from the CDN cache; everything else hit the rule.
+- **Alternating agents on one URL, seconds apart**: ours 429, Firefox 200,
+  ours 429, Firefox 200.
+
+An honest name also cannot go stale the way a pinned version does — claiming
+Chrome 124 two years on is what made it a recognizable signature rather than a
+disguise. The change was verified against **all 28 shops** with the canary
+before it was made, and `backend/tests/test_user_agent.py` pins it, including
+the line in `config.yaml.sample`, which sets the value explicitly and would
+otherwise override whatever the code says.
+
 ### robots.txt
 
 Every scraper obeys it: `Disallow` rules are enforced before a request is made,

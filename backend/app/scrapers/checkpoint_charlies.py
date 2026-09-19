@@ -19,11 +19,18 @@ Their remaining leaves are left alone: `commercial-handguns`,
 sections and `bb-guns-aire-rifles`, along with the whole
 `/firearm-accessories/` tree.
 
-**Their product pages refuse every request** -- 429 to any pace and any
-headers -- so the base class stops asking after three failures in a row and
-takes the rest of the run from the catalog. That makes extra sections cheap
-here in a way they are not elsewhere: each one costs its category pages and
-nothing more.
+**Their product pages used to refuse every request**, and the reason was ours.
+They sit behind Hostinger's CDN, which was refusing one exact user agent --
+``X11; Linux x86_64`` together with ``Chrome/124.0.0.0``, the stock string of
+headless scraping tooling. The refusal came at the edge, on the first request,
+with an empty body and none of the origin's headers, so their server never saw
+any of it; and the same URL answered 200 from the CDN cache and 429 the moment
+it missed, which is what made it look like a rate limit for months. Either half
+of that pair alone passed. See ``ScrapingConfig.user_agent``.
+
+The detail-page fallback in the WooCommerce base class was built here and
+stays: it is right for any shop that serves a catalog and refuses product
+pages, and this one is simply no longer an example of that.
 """
 
 from __future__ import annotations

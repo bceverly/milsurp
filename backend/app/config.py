@@ -375,10 +375,25 @@ class RobotsException:
 
 @dataclass(frozen=True)
 class ScrapingConfig:
-    user_agent: str = (
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/124.0.0.0 Safari/537.36"
-    )
+    #: Who this application says it is.
+    #:
+    #: **It used to claim to be Chrome 124 on Linux, and that exact pair was on
+    #: a blocklist.** Checkpoint Charlie's sits behind Hostinger's CDN, which
+    #: refused it with 429 -- on the first request, at any pace, with an empty
+    #: body and no origin headers, so nothing ever reached their server. The
+    #: same URL answered 200 from the CDN cache and 429 the moment it missed,
+    #: which is what made it look for months like a rate limit. It was not:
+    #: "X11; Linux x86_64" together with "Chrome/124.0.0.0" is the stock user
+    #: agent of headless scraping tooling, and the edge knows it. Either half
+    #: alone was fine -- Linux with a current Chrome passed, Windows with
+    #: Chrome 124 passed -- which is how specific the match was.
+    #:
+    #: So it says what it is now. That is the honest answer, it cannot go stale
+    #: the way a pinned browser version does, and it gives a vendor something to
+    #: allow or refuse on purpose and an address to complain to. Verified
+    #: against **all 28 shops** with the canary before it was changed: every one
+    #: answered, including the one that had been refusing us for nine days.
+    user_agent: str = "Mozilla/5.0 (compatible; MilsurpMonitor/1.0; +https://milsurpmonitor.com)"
     # Honor robots.txt: its Disallow rules and its Crawl-delay. On by default
     # and meant to stay on. It is here as a setting because a vendor may give a
     # deployment explicit permission to ignore their rules, and because a test

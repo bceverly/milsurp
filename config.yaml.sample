@@ -218,7 +218,12 @@ scraping:
   # It changes how long a scan takes. Collectors Firearms asks for ten seconds
   # between requests, which makes their scan half an hour of wall clock.
   obey_robots: true                  # default: true
-  user_agent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+  # Say what we are. Claiming to be a browser looks harmless and is not:
+  # "X11; Linux x86_64 ... Chrome/124.0.0.0" is the stock user agent of
+  # headless scraping tools, and at least one vendor's CDN refuses it
+  # outright with a 429 that never reaches their server. An honest name
+  # also cannot go stale the way a pinned browser version does.
+  user_agent: "Mozilla/5.0 (compatible; MilsurpMonitor/1.0; +https://milsurpmonitor.com)"
   request_timeout: 30                # seconds, default: 30
   request_delay: 1.0                 # politeness delay between requests
   max_retries: 4                     # default: 4

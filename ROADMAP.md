@@ -1797,37 +1797,73 @@ before they got nothing.
   never alerted about — the digest carries it, but it is not a buying
   opportunity, and interrupting somebody to say they missed one is the wrong
   side of useful.
-- **Planned** — Decide about Checkpoint Charlie's: make it work, or take it
-  out. What is there now is not workable and should not be left as if it were.
+- **Fixed** — Checkpoint Charlie's, and it was never about them. The planned
+  entry said to make it work or take it out, and offered three options — find a
+  pace it tolerates, write to the dealer, or delete it. All three were wrong,
+  because every one of them assumed the refusal had something to do with how
+  much we were asking for.
 
-  It answers **429 to every request at every pace and with every set of
-  headers** — the scraper's own docstring says so — so the product pages are
-  already given up on and the listings are built from category pages alone.
-  That much was a deliberate trade and it held. What does not hold is the rest:
-  the cooldown register puts the host in the penalty box on the refusals, the
-  next scan dies on the cooldown rather than on anything the vendor did that
-  morning, and the canary has been reporting `RESTING` since. The first sweep
-  ever run found it had been failing that way for three consecutive days.
+  **The cause was our user agent.** They sit behind Hostinger's CDN, and the
+  CDN was refusing one exact string: `X11; Linux x86_64` together with
+  `Chrome/124.0.0.0`, which is the stock user agent of headless scraping
+  tooling. Either half alone passed — Linux with a current Chrome was fine,
+  Windows with Chrome 124 was fine — so it was a signature match, not a
+  judgment about robots.
 
-  The state today: **9 failed scans against 1 partial**, last success
-  2026-09-08, 24 listings stored and going stale, and the site switched off.
-  A shop nobody can scan is worse than a shop nobody has heard of, because it
-  occupies a row, a canary line and an operator's attention every morning.
+  Four measurements took it apart, and each one killed a theory:
 
-  Three honest options, and the measurement that picks between them has not
-  been done:
+  * **A single request was refused.** Not the tenth, not the hundredth: the
+    first, with nothing before it. No pace can fix a limit that starts at one,
+    which retired "find a pace it tolerates".
+  * **The 429 had an empty body, no `x-powered-by` and no `x-litespeed-cache`
+    header**, where the working pages had all three. It was generated at the
+    edge. Their server never saw any of it, so writing to the dealer would have
+    asked them about traffic they had no record of.
+  * **The same URL answered 200 and 429 depending on the cache.** A cached
+    category page came back 200; the identical URL with a cache-busting query
+    came back 429. That is what made it look like a rate limit for months — the
+    catalog was being served from cache and everything else was hitting the
+    rule.
+  * **Alternating user agents, seconds apart, on the same URL**: ours 429,
+    Firefox 200, ours 429, Firefox 200.
 
-  * **Find a pace it tolerates.** Nothing tried so far has — but "every pace"
-    in that docstring means every pace *tried*, and a single request every few
-    minutes against the category pages only is a regime nobody has measured.
-  * **Ask them.** Twenty-four listings is a small prize, and a dealer who
-    knows what the traffic is for may simply allow it. No one has written.
-  * **Remove it.** Delete the scraper, the seed row and the stored listings,
-    and stop paying attention to it. This is the option the others have to beat.
+  The agent now says what it is —
+  `Mozilla/5.0 (compatible; MilsurpMonitor/1.0; +https://milsurpmonitor.com)`.
+  Honest, it cannot go stale the way a pinned browser version does, and it
+  gives a vendor something to allow or refuse deliberately and an address to
+  complain to. **Verified against all 28 shops with the canary before the
+  change was made**: every one answered, and Checkpoint Charlie's went from
+  `RESTING` to `ok 3 in 1.3s`.
 
-  Not a bug to be fixed quietly: which of the three is right is a decision
-  about somebody else's website, and the only wrong answer is the current one,
-  where the application keeps asking and keeps being told no.
+  `backend/tests/test_user_agent.py` pins it, including the sample config —
+  which sets the value explicitly, so an installation copying it would get
+  whatever that line says whatever the code default is.
+- **Planned** — Read Checkpoint Charlie's through the WooCommerce Store API
+  instead of their category pages. Now that the user agent is fixed,
+  `/wp-json/wc/store/v1/products` answers 200 and returns everything the
+  scraper reconstructs from HTML and then some: name, permalink, SKU, prices,
+  stock, categories, tags, the short description, and **thirteen images** on
+  the first listing tried — at a hundred products per request rather than one
+  page of cards plus one request per listing.
+
+  Worth doing carefully rather than quickly. It is a different shape of scraper
+  from anything here, the description it returns is the short one rather than
+  the body prose the detail page carries, and it should be measured against the
+  current output before being trusted — the same before-and-after count every
+  other entry here carries. It would also apply to any other WooCommerce vendor
+  in the list, which is most of them.
+- **Planned** — A product-page refusal should not be able to end a scan. The
+  cooldown register is keyed by **host**, and the evidence that fills it is
+  often path-specific: a shop whose catalog answers 200 and whose `/product/`
+  pages refuse publishes a host-wide pause, and the *next* section's first
+  catalog page then raises `HostResting` — which `_stream` correctly treats as
+  fatal, because a section that yielded nothing is a failure rather than a
+  partial result.
+
+  That is how Checkpoint Charlie's produced 9 failed scans against 1 partial
+  while the scraper's own `MAX_DETAIL_FAILURES` logic was working exactly as
+  designed. The user agent fix removes today's trigger; the fragility is still
+  there for the next vendor that serves a catalog and refuses detail pages.
 - **Shipped** — Web push notifications, as an alternative to email for the one
   thing worth interrupting somebody over. Migration 0035,
   `app/services/webpush.py` (the two RFCs), `app/services/pushnotify.py` (the
