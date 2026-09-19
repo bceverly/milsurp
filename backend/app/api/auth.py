@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import threading
 import time
 from datetime import timedelta
 
@@ -14,6 +13,7 @@ from .. import sessions, totp
 from ..deps import AppConfig, CurrentUser, DbSession
 from ..logsafe import client_address
 from ..models import User, utcnow
+from ..ratelimit import AttemptRegister
 from ..schemas import (
     LoginRequest,
     PasswordChangeRequest,
@@ -71,8 +71,11 @@ log = logging.getLogger("milsurp.auth")
 # single-process app, so a shared dict is sufficient and needs no Redis.
 MAX_ATTEMPTS = 8
 LOCKOUT_SECONDS = 300
-_attempts: dict[str, list[float]] = {}
-_attempts_lock = threading.Lock()
+
+# Bounded, because the key carries the *submitted* username and an attacker
+# picks that: varying it never trips the per-key lockout, and the old plain
+# dict stranded one entry per guess forever. See app/ratelimit.py.
+_attempts = AttemptRegister(window_seconds=LOCKOUT_SECONDS)
 
 
 def _client_address(request: Request) -> str:
@@ -85,27 +88,22 @@ def _throttle_key(username: str, request: Request) -> str:
 
 
 def _check_throttle(key: str) -> None:
-    now = time.monotonic()
-    with _attempts_lock:
-        recent = [t for t in _attempts.get(key, []) if now - t < LOCKOUT_SECONDS]
-        _attempts[key] = recent
-        if len(recent) >= MAX_ATTEMPTS:
-            wait = int(LOCKOUT_SECONDS - (now - recent[0]))
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"Too many failed sign-in attempts. Try again in {wait} seconds.",
-                headers={"Retry-After": str(max(1, wait))},
-            )
+    recent = _attempts.recent(key)
+    if len(recent) >= MAX_ATTEMPTS:
+        wait = int(LOCKOUT_SECONDS - (time.monotonic() - recent[0]))
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Too many failed sign-in attempts. Try again in {wait} seconds.",
+            headers={"Retry-After": str(max(1, wait))},
+        )
 
 
 def _record_failure(key: str) -> None:
-    with _attempts_lock:
-        _attempts.setdefault(key, []).append(time.monotonic())
+    _attempts.record(key)
 
 
 def _clear_failures(key: str) -> None:
-    with _attempts_lock:
-        _attempts.pop(key, None)
+    _attempts.clear(key)
 
 
 @router.post("/login", response_model=TokenResponse | TwoFactorRequired)

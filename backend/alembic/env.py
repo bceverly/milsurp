@@ -25,7 +25,21 @@ from app import models  # noqa: F401,E402  (import registers every model)
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # disable_existing_loggers=False, against fileConfig's default of True.
+    #
+    # The default disables every logger that already exists and is not named in
+    # alembic.ini -- which is all twenty-six `milsurp.*` loggers, since they are
+    # created when their modules import. Running the chain in-process would then
+    # silently switch off the application's own logging, including the failed
+    # sign-in warnings, and nothing would look wrong: the loggers still exist
+    # and still accept calls, they just discard them.
+    #
+    # It does not happen on a production boot today -- that was checked rather
+    # than assumed -- but it does happen in the test suite, which migrates a
+    # throwaway database through this same chain. That is the same footgun
+    # landing somewhere harmless, and the distance between harmless and not is
+    # one import moving.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 app_config = get_config()
 

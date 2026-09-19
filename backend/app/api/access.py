@@ -14,25 +14,28 @@ from __future__ import annotations
 
 import html
 import logging
-import threading
-import time
 
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr, Field
 
 from ..deps import AppConfig
 from ..logsafe import scrub
+from ..ratelimit import AttemptRegister
 from ..services import mailer
 from ..services.recaptcha import RecaptchaError, verify
 
 router = APIRouter(tags=["access"])
 log = logging.getLogger("milsurp.access")
 
+WINDOW_SECONDS = 3600
+
 # Per-IP submission times. In-process, like the login throttle: this is a
 # single-worker application, and nginx enforces its own limit in front.
-_submissions: dict[str, list[float]] = {}
-_lock = threading.Lock()
-WINDOW_SECONDS = 3600
+# Bounded, for the same reason -- see app/ratelimit.py. The key here is the
+# address rather than anything the caller writes, so a flood costs an attacker
+# an address per entry instead of a keystroke, but the structure grew without
+# limit just the same.
+_submissions = AttemptRegister(window_seconds=WINDOW_SECONDS)
 
 
 class AccessRequest(BaseModel):
@@ -61,23 +64,18 @@ def _client_ip(request: Request) -> str:
 
 
 def _check_rate_limit(ip: str, limit: int) -> None:
-    now = time.monotonic()
-    with _lock:
-        recent = [t for t in _submissions.get(ip, []) if now - t < WINDOW_SECONDS]
-        _submissions[ip] = recent
-        if len(recent) >= limit:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=(
-                    "Too many access requests from this address. "
-                    "Please try again later, or email us directly."
-                ),
-            )
+    if len(_submissions.recent(ip)) >= limit:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                "Too many access requests from this address. "
+                "Please try again later, or email us directly."
+            ),
+        )
 
 
 def _record(ip: str) -> None:
-    with _lock:
-        _submissions.setdefault(ip, []).append(time.monotonic())
+    _submissions.record(ip)
 
 
 @router.get("/access-request/config", response_model=AccessConfigOut)

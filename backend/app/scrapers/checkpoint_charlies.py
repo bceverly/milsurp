@@ -51,6 +51,16 @@ class CheckpointCharliesScraper(WooCommerceScraper):
     requires_browser = False
     default_interval_minutes = 1440
 
+    #: Their descriptions and galleries come from the Store API rather than
+    #: from each product page. Measured on one section, the same twelve
+    #: listings both ways: 13 requests and 89.9s through the product pages
+    #: against 2 requests and 7.9s through the API, with the median description
+    #: 143 characters against 399 and the image count identical at 152. The
+    #: extra text is the point -- their prose is in WooCommerce's *short*
+    #: description and the theme renders only part of it above the fold, so
+    #: scraping the page was losing most of it.
+    store_api_details = True
+
     #: The C&R tag first, because it is the most specific claim the shop makes
     #: about a listing, then the type-named leaves. Counts are what each held
     #: when it was added.

@@ -45,7 +45,7 @@ Cloudflare challenge rather than a rendering problem.
 | [Ancestry Guns](https://www.ancestryguns.com/) | `ancestry-guns` | WooCommerce — one selector (their `h2` is a share widget) |
 | [Axis Arms](https://axisarmsonline.com/) | `axis-arms` | WooCommerce behind an Elementor loop; two sections |
 | [CO Gun Sales](https://cogunsales.com/) | `co-gun-sales` | WooCommerce for text; their photographs are a CSS background and a JSON attribute, with no `<img>` anywhere |
-| [Checkpoint Charlie's](https://checkpointcharlies.com/) | `checkpoint-charlies` | WooCommerce, a product *tag* rather than a category. Catalog only — their `/product/` pages refuse every request |
+| [Checkpoint Charlie's](https://checkpointcharlies.com/) | `checkpoint-charlies` | WooCommerce, a product *tag* rather than a category. Detail comes from the **Store API**, a page of listings per request |
 | [Legacy Collectibles](https://www.legacy-collectibles.com/) | `legacy-collectibles` | BigCommerce base class — `article.card`, `data-entity-id`, query-string pagination. Their spec table supplies the caliber, maker and bore grade; 1,001 listings |
 | [IMA-USA](https://www.ima-usa.com/) | `ima-usa` | Shopify base class — `products.json`, no HTML parsing and no detail fetch |
 | [Centerfire Systems](https://centerfiresystems.com/) | `centerfire-systems` | Shopify; three surplus collections out of a general retailer's catalog |
@@ -157,8 +157,8 @@ mistake a filter for a catalog.*
 **30** — their limiter refuses 10, and refused 20 as well once this scraper grew
 from two sections to nine — so their 473 new listings are something over three
 hours of first-scan wall clock, paid once. The others are minutes —
-Checkpoint Charlie's especially, whose product pages refuse every request
-anyway, so a section there costs its category pages and nothing more.
+Checkpoint Charlie's especially, whose detail arrives through the Store API,
+so a section there costs its category pages and one request per page of cards.
 
 **A browser would not help here, and it is the obvious next idea.** This is
 rate limiting rather than bot detection: they answer plain requests perfectly
@@ -968,13 +968,23 @@ its theme is customized — a couple of selectors in front of the defaults.
 
 **Three findings from the first build that apply to the whole group.**
 
-1. **The WooCommerce Store API is not the shortcut it looks like.** Every shop
-   here publishes `/wp-json/wc/store/v1/products`, which returns exactly the
-   structured data the HTML parsing recovers by hand. Filtering it to a
+1. **The WooCommerce Store API is not a shortcut past the catalog, but it is
+   the right way to read detail.** Every shop here publishes
+   `/wp-json/wc/store/v1/products`. Replacing the *catalog* walk with it is what
+   it looks like it should be good for and mostly is not: filtering to a
    category, or reading past the first ten products, needs a query string — and
-   Collectors Firearms disallows `/*?*`. Their catalog is 207,000 products, so
-   an unfiltered walk is not an alternative. Worth re-checking per shop: where
-   robots permits it, a subclass can override `scrape()` and use the API.
+   Collectors Firearms disallows `/*?*`, against a catalog of 207,000 products,
+   so an unfiltered walk is not an alternative.
+
+   Reading *detail* with it is a different matter, and better than the product
+   pages on every axis measured. The card already carries the product id, so
+   `?include=` fills in a page of listings in one request; on Checkpoint
+   Charlie's that is 13 requests and 90 seconds down to 2 and 8. It also returns
+   **more text than the product page does** — median 399 characters against 143
+   — because the prose lives in the *short* description and the theme renders
+   only part of it above the fold. That is a quiet data-loss bug this group has
+   had all along, and nothing about the scraped pages would have shown it;
+   `store_api_details = True` is the fix, one vendor at a time, each measured.
 2. **robots.txt is now obeyed** (`app/robots.py`), which changes scan planning
    more than anything else here: Collectors Firearms sets `Crawl-delay: 10`, so
    their scan is half an hour of wall clock and almost no bandwidth.
@@ -1007,7 +1017,7 @@ its theme is customized — a couple of selectors in front of the defaults.
 | — | **Ancestry Guns** | `/product-category/curio-relic/` | **Shipped** | Curio & Relic only. Their `h2` is a "Share on:" widget, so the title comes from the `h3` |
 | — | **Axis Arms** | `/product-category/rifles/` + `/handguns/` | **Shipped** | Elementor loop: the `h1` is the name and the `h2` is the price. Cards match twice (article and inner div); de-duplicated by post id |
 | — | **CO Gun Sales** | `/product-category/curio-relics-cr/` | **Shipped** | Stock WooCommerce for titles and prices, and nothing like it for pictures: the page carries no `<img>` at all. The card's photo is a CSS `background-image` and the product gallery is JSON in a `data-wcsvi` attribute, so all 144 listings arrived with no photograph until both fallbacks existed. The old entry URL here said `/page/6/`, which was somebody's browsing position; pagination follows the shop's own "next" link |
-| — | **Checkpoint Charlie's** | `/product-tag/cr/` | **Shipped, but barely** | A product *tag*, which renders the same loop and paginates the same way. Their `/product/` pages answer 429 to any pace and any headers, and after an hour of that they stop answering the category pages too: a full run took 56 minutes to walk 24 listings and save 5. The scan now survives it — catalog-only entries, and a section that stops at the page it got to — but this site is a candidate for the browser path, or for dropping. See "When a shop refuses a page" in the README |
+| — | **Checkpoint Charlie's** | `/product-tag/cr/` | **Shipped** | A product *tag*, which renders the same loop and paginates the same way. This entry read "shipped, but barely" for a long time: their pages answered 429 to any pace and any headers, and a full run took 56 minutes to walk 24 listings and save 5. It was never rate limiting — their CDN refuses one specific user agent string — and it is now the fastest shop here, with detail read a page of listings at a time through the Store API. See "Not rate limiting" below |
 | ~~1~~ | ~~J&G Sales~~ | — | **Shipped** | The HTML observation was right and the conclusion drawn from it was wrong. The catalog is rendered client-side, but the same WordPress install publishes the WooCommerce **Store API** — the whole catalog as JSON, with prices, stock, galleries and descriptions, and no browser. See `scrapers/woo_store_api.py`. The lesson is the one this section already draws about platform inference: what the HTML looks like is not what a site *is* |
 | — | ~~MCT Defense~~ | `/product-category/firearms/` | **Dropped: wholesale only.** The entry URL was found and the Store API answers; see below |
 | — | ~~DK Firearms~~ | `/product-category/surplus/surplus-firearms/` | **Parked — Cloudflare** | Moved to the bottom of the list deliberately. Not a rendering problem and not a scraping problem: the site answers plain HTTP with a `cf-mitigated: challenge` interstitial, so what is being asked for is a way *around* a bot check the operator switched on. Everything else in the queue is a site that will simply answer. **Dropped** on review: asking for a way around a bot check the operator deliberately switched on is not work this project wants to do |
@@ -1758,7 +1768,7 @@ before they got nothing.
   rifle. The same page also carries $29.99 and $199.99 in related-product
   headings. So the search is scoped to the product summary rather than the
   document, a zero is refused outright, and a discounted product's struck-
-  through `<del>` price is passed over in favour of the `<ins>` one: reporting
+  through `<del>` price is passed over in favor of the `<ins>` one: reporting
   a price the shop is not charging is the one mistake that matters to somebody
   waiting on a number.
 
@@ -1838,32 +1848,56 @@ before they got nothing.
   `backend/tests/test_user_agent.py` pins it, including the sample config —
   which sets the value explicitly, so an installation copying it would get
   whatever that line says whatever the code default is.
-- **Planned** — Read Checkpoint Charlie's through the WooCommerce Store API
-  instead of their category pages. Now that the user agent is fixed,
-  `/wp-json/wc/store/v1/products` answers 200 and returns everything the
-  scraper reconstructs from HTML and then some: name, permalink, SKU, prices,
-  stock, categories, tags, the short description, and **thirteen images** on
-  the first listing tried — at a hundred products per request rather than one
-  page of cards plus one request per listing.
+- **Shipped** — Read Checkpoint Charlie's detail through the WooCommerce Store
+  API instead of their product pages. A WooCommerce card already carries the
+  product id — it is the `post-N` class the external key is built from — so a
+  whole page of listings can be filled in with one `?include=` request instead
+  of one product page each. `store_api_details = True` on a scraper turns it
+  on; `WooCommerceScraper._detailed()` asks the batch first and falls back to
+  the old path for anything it cannot answer.
 
-  Worth doing carefully rather than quickly. It is a different shape of scraper
-  from anything here, the description it returns is the short one rather than
-  the body prose the detail page carries, and it should be measured against the
-  current output before being trusted — the same before-and-after count every
-  other entry here carries. It would also apply to any other WooCommerce vendor
-  in the list, which is most of them.
-- **Planned** — A product-page refusal should not be able to end a scan. The
-  cooldown register is keyed by **host**, and the evidence that fills it is
-  often path-specific: a shop whose catalog answers 200 and whose `/product/`
-  pages refuse publishes a host-wide pause, and the *next* section's first
-  catalog page then raises `HostResting` — which `_stream` correctly treats as
-  fatal, because a section that yielded nothing is a failure rather than a
-  partial result.
+  Measured against the live site, one section, the same twelve listings:
+
+  | | requests | time | median description | images |
+  | --- | --- | --- | --- | --- |
+  | product pages | 13 | 89.9s | 143 | 152 |
+  | **Store API** | **2** | **7.9s** | **399** | 152 |
+
+  **The description is the part worth noticing, not the speed.** The prose these
+  shops write lives in WooCommerce's *short* description, and the theme renders
+  only part of it above the fold — so every description scraped from a product
+  page has been quietly losing most of its text, on every WooCommerce vendor in
+  the list, for as long as this has run. The scraper now takes whichever of the
+  two fields is longer, which is the short one on this vendor and could be the
+  other one elsewhere. Image totals are identical, which is the check that the
+  two paths are reading the same thing.
+
+  Only Checkpoint Charlie's has the flag on. It applies to most of the vendors
+  here and each one should be measured the same way before being switched — the
+  before-and-after this file asks of every other entry. `backend/tests/
+  test_store_api_details.py` covers the batching, the longest-field rule, the
+  per-listing fallback, and that a shop without the flag never calls it.
+- **Fixed** — A product-page refusal can no longer end a scan. The cooldown
+  register is keyed by **host**, and the evidence that fills it is often
+  path-specific: a shop whose catalog answers 200 and whose `/product/` pages
+  refuse publishes a host-wide pause, and the *next* section's first catalog
+  page then raised `HostResting` — which `_stream` correctly treated as fatal,
+  because a section that yielded nothing is a failure rather than a partial
+  result.
 
   That is how Checkpoint Charlie's produced 9 failed scans against 1 partial
   while the scraper's own `MAX_DETAIL_FAILURES` logic was working exactly as
-  designed. The user agent fix removes today's trigger; the fragility is still
-  there for the next vendor that serves a catalog and refuses detail pages.
+  designed. The user agent fix removed that trigger; this removes the
+  fragility, for the next vendor that serves a catalog and refuses detail
+  pages.
+
+  `_walk` now catches `HostResting` and treats it as *our* decision rather than
+  the vendor's refusal of that page: the section is marked not-read, the
+  listings already collected are kept, and the walk moves on. A scan in which
+  **every** section was skipped this way still fails loudly — with a message
+  saying so, and saying that nothing was de-listed — because a silent empty
+  scan is the outcome worth being afraid of. `backend/tests/
+  test_resting_sections.py` covers both halves.
 - **Shipped** — Web push notifications, as an alternative to email for the one
   thing worth interrupting somebody over. Migration 0035,
   `app/services/webpush.py` (the two RFCs), `app/services/pushnotify.py` (the
@@ -3672,6 +3706,67 @@ more than one machine still wants the queue below.
 ---
 
 ## 5. Security and compliance
+
+- **Fixed** — The sign-in throttle could be used to exhaust the machine's
+  memory, without credentials and without tripping anything.
+
+  Failed sign-ins are counted in memory per `(username, address)`, which is the
+  right key: it stops one attacker locking a real user out by guessing at their
+  name from elsewhere. But the username half is a string the *attacker* writes,
+  and the register was a plain dict that only ever pruned the key being looked
+  at — writing the pruned list back even when it was empty:
+
+  ```python
+  recent = [t for t in _attempts.get(key, []) if now - t < LOCKOUT_SECONDS]
+  _attempts[key] = recent          # an empty list, kept forever
+  ```
+
+  So a guess against a name nobody would guess twice stranded an entry that
+  nothing would ever revisit, and nothing swept. Varying the username also
+  means the per-key lockout never fires, so the counting worked perfectly while
+  the structure doing it grew without limit. Measured at **171 bytes an entry**:
+  2 MiB a day from a single address at nginx's own ceiling of ten sign-ins a
+  minute, and **2.3 GiB a day from a thousand addresses** — an unremarkable
+  botnet — with nothing in the logs but failed sign-ins.
+
+  `app/ratelimit.py` now holds the invariant both call sites kept getting
+  wrong: the register never exceeds `max_keys`, 50,000 by default, about 8 MiB.
+  Stale keys are swept when it grows; if a sweep cannot get under the ceiling —
+  that many *live* attackers at once — the least recently touched are evicted
+  and **the eviction is logged**, because being at the ceiling is itself the
+  thing worth knowing. Evicting weakens throttling for one key, which is the
+  right way round: unbounded growth takes the site down for everybody.
+
+  The access-request register had the identical bug and is on the same class.
+  It is keyed by address alone, so a flood costs an attacker an address per
+  entry rather than a keystroke — the same defect, one order of magnitude less
+  cheap to exploit.
+
+  **The first version of the fix was worse than the bug.** Evicting exactly one
+  key per insert ran an `O(n log n)` sort on *every request* once the register
+  was full — a CPU cost paid under precisely the flood it defended against.
+  Cutting back to a low-water mark instead amortizes it: 18x on the suite, and
+  `test_a_full_register_does_not_pay_a_sort_per_insert` pins it, because that
+  is not a regression anything else would notice.
+- **Fixed** — The migration chain could switch off the application's own
+  logging. `alembic/env.py` called `logging.config.fileConfig`, which defaults
+  to `disable_existing_loggers=True` and so disables every logger that already
+  exists and is not named in `alembic.ini`. That file names three; the
+  application has twenty-six `milsurp.*` loggers, all created when their modules
+  import.
+
+  It was not happening on a production boot — that was checked directly rather
+  than assumed — but it *was* happening in the test suite, which migrates a
+  throwaway database through the same chain. The same footgun landing somewhere
+  harmless, and the distance between harmless and not is one import moving.
+
+  Worth a fix and a test of its own because of how it fails: nothing raises and
+  nothing is missing. The loggers still exist and still accept every call, and
+  discard them. A failed sign-in would be recorded exactly as carefully as
+  before and land nowhere — and the first you would know is going looking for
+  an attack in a log that had been empty for months. Found by a test that kept
+  passing alone and failing in company, which is usually a flaky test and this
+  time was the test being right.
 
 - **Shipped** — Two-factor authentication (TOTP). The admin sign-in is
   reachable from the internet through haproxy and a password was the only thing

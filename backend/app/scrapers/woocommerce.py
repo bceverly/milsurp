@@ -28,12 +28,14 @@ import json
 import re
 from collections.abc import Iterable, Iterator
 from dataclasses import replace
+from typing import Any
 from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup, Tag
 
 from .base import (
     Disallowed,
+    HostResting,
     ScrapeContext,
     ScrapedItem,
     ScrapeError,
@@ -182,14 +184,38 @@ class WooCommerceScraper(SiteScraper):
     _detail_failures = 0
     _gave_up_on_details = False
 
+    #: Sections skipped this run because the host is in a cooldown. Counted so
+    #: a run that asked for nothing at all can say so rather than reporting an
+    #: empty shop.
+    _sections_resting = 0
+
     def _stream(self, ctx: ScrapeContext) -> Iterator[ScrapedItem]:
         if self.min_request_delay:
             ctx.keep_at_least(self.base_url, self.min_request_delay)
         self._detail_failures = 0
         self._gave_up_on_details = False
+        self._sections_resting = 0
         seen: set[str] = set()
+        opened = 0
         for source in self.sources:
+            before = len(seen)
             yield from self._walk(ctx, source, seen)
+            if len(seen) > before:
+                opened += 1
+
+        # Every section skipped because *we* are resting is not a scan that
+        # found an empty shop -- it is a scan that never asked. Each one has
+        # already been marked not_read, so nothing is de-listed either way;
+        # this is about whether the run reports success.
+        #
+        # Loud only when nothing at all was read. One section resting out of
+        # thirteen is a partial result worth keeping, and the warnings say so.
+        if opened == 0 and self._sections_resting:
+            raise ScrapeError(
+                f"Every section was skipped: this host is in a cooldown from an "
+                f"earlier refusal, with {self._sections_resting} section(s) not "
+                f"asked. Nothing was read and nothing was de-listed."
+            )
 
     def _walk(
         self, ctx: ScrapeContext, source: dict[str, str], seen: set[str]
@@ -221,6 +247,27 @@ class WooCommerceScraper(SiteScraper):
 
             try:
                 soup = BeautifulSoup(ctx.get_text(url), "html.parser")
+            except HostResting as exc:
+                # Our own decision, not this vendor's refusal of this page.
+                #
+                # The cooldown register is keyed by *host*, and the evidence
+                # that fills it is often path-specific: a shop whose catalog
+                # answers 200 and whose product pages refuse publishes a
+                # host-wide pause, and then the next section's first page
+                # arrives here. Treating that as the vendor refusing a catalog
+                # page is a category error, and an expensive one -- it is how
+                # Checkpoint Charlie's produced nine failed scans against one
+                # partial while the detail-page fallback below worked exactly
+                # as designed.
+                #
+                # So it behaves like the robots.txt case above, which is the
+                # same shape of thing: somebody said do not ask, we are not
+                # asking, and the section is a gap rather than a failure.
+                ctx.warn(f"Not asking {url}: {exc}")
+                self._sections_resting += 1
+                if pages == 0:
+                    ctx.not_read(category)
+                return
             except ScrapeError as exc:
                 # The same argument as a refused product page, one level up.
                 # Two pages read and the third refused is two pages of listings
@@ -240,14 +287,38 @@ class WooCommerceScraper(SiteScraper):
             cards = soup.select(self.card_selector)
             ctx.log(f"{category or 'catalog'} page {pages}: {len(cards)} listing(s).")
 
+            found: list[ScrapedItem] = []
             for card in cards:
                 item = self.item_from_card(card, url, category)
                 if item is None or item.external_key in seen:
                     continue
                 seen.add(item.external_key)
-                yield self.with_detail(ctx, item)
+                found.append(item)
+
+            yield from self._detailed(ctx, found)
 
             url = self.next_page(soup, url)
+
+    def _detailed(self, ctx: ScrapeContext, items: list[ScrapedItem]) -> Iterator[ScrapedItem]:
+        """One page of cards, filled in.
+
+        Where the shop offers the Store API, the whole page's descriptions and
+        galleries arrive in a single request. The other path is not an error
+        path: anything the batch did not answer for is asked for the old way,
+        one product page at a time, which is also what every shop without the
+        flag does for all of them.
+        """
+        records = (
+            self._store_api_records(ctx, items)
+            if self.store_api_details and not self._gave_up_on_details
+            else {}
+        )
+        for item in items:
+            record = records.get(item.external_key)
+            if record is not None and ctx.needs_detail(item.external_key):
+                yield self._from_store_api(item, record)
+            else:
+                yield self.with_detail(ctx, item)
 
     def next_page(self, soup: BeautifulSoup, current: str) -> str | None:
         for selector in self.next_page_selectors:
@@ -327,6 +398,101 @@ class WooCommerceScraper(SiteScraper):
         return None
 
     # -- the product page ---------------------------------------------------
+    #: Read the descriptions and galleries from WooCommerce's Store API instead
+    #: of from each product page.
+    #:
+    #: Off by default and turned on per vendor, because it has only been
+    #: measured against the shops it is enabled for. Where it is on it is
+    #: better on both counts that matter:
+    #:
+    #: * **Fewer requests.** The card already carries the product id -- it is
+    #:   the `post-N` class the external key is built from -- so a page of
+    #:   cards resolves in *one* request via `?include=`, against one per
+    #:   listing before.
+    #: * **More of the description.** Measured on Checkpoint Charlie's, the API
+    #:   returned 395, 373 and 363 characters where scraping the same three
+    #:   product pages returned 37, 158 and 26. The prose a shop writes lives in
+    #:   WooCommerce's *short* description, and the themes render only part of
+    #:   it above the fold. Galleries matched exactly: 13, 14 and 16 images
+    #:   either way.
+    store_api_details: bool = False
+
+    #: Where the Store API lives, relative to the site root. Standard across
+    #: every WooCommerce since blocks shipped, and a setting only so a shop
+    #: that has moved it is a one-line subclass rather than a fork.
+    store_api_path: str = "wp-json/wc/store/v1/products"
+
+    #: Ids per `?include=` request. The endpoint's own page size is 100.
+    STORE_API_BATCH = 100
+
+    def _store_api_records(
+        self, ctx: ScrapeContext, items: list[ScrapedItem]
+    ) -> dict[str, dict[str, Any]]:
+        """Fetch the Store API rows for whichever of *items* still need detail.
+
+        Keyed by external key, so the caller does not have to know that the key
+        is the product id wearing a prefix.
+
+        Never raises. A failure here costs the page its descriptions and
+        galleries and nothing else: the caller falls back to asking for the
+        product pages one at a time, which is what it did before this existed.
+        """
+        wanted = {
+            item.external_key: item.external_key.removeprefix("post-")
+            for item in items
+            if item.external_key.startswith("post-") and ctx.needs_detail(item.external_key)
+        }
+        if not wanted:
+            return {}
+
+        found: dict[str, dict[str, Any]] = {}
+        ids = list(wanted.values())
+        for start in range(0, len(ids), self.STORE_API_BATCH):
+            batch = ids[start : start + self.STORE_API_BATCH]
+            url = (
+                f"{self.base_url}{self.store_api_path}"
+                f"?include={','.join(batch)}&per_page={len(batch)}"
+            )
+            try:
+                records = json.loads(ctx.get_text(url))
+            except (ScrapeError, ValueError) as exc:
+                ctx.log(f"Store API unavailable ({exc}); reading product pages instead.")
+                return found
+            if not isinstance(records, list):
+                return found
+            for record in records:
+                key = f"post-{record.get('id')}"
+                found[key] = record
+        return found
+
+    def _from_store_api(self, item: ScrapedItem, record: dict[str, Any]) -> ScrapedItem:
+        """One Store API row onto one listing, in the shape with_detail makes.
+
+        The *short* description is the prose a shop writes; the long one is
+        almost always boilerplate -- "FFL TRANSFER REQUIRED" and nothing else.
+        Taking the longer of the two rather than assuming either way, because
+        a shop that puts real text in the other field should not be punished
+        for it.
+        """
+        descriptions = [
+            text_of(BeautifulSoup(record.get(field) or "", "html.parser"))
+            for field in ("short_description", "description")
+        ]
+        description = max(descriptions, key=len)
+        images = [
+            full_size(str(image.get("src")))
+            for image in record.get("images") or []
+            if image.get("src")
+        ]
+        return replace(
+            item,
+            title=str(record.get("name") or "") or item.title,
+            description=description or item.description,
+            image_urls=images or item.image_urls,
+            images_are_complete=bool(images),
+            extra={**item.extra, "sku": str(record.get("sku") or "")},
+        )
+
     def with_detail(self, ctx: ScrapeContext, item: ScrapedItem) -> ScrapedItem:
         """Fill in the description and the gallery, if they are still needed.
 

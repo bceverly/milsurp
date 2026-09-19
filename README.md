@@ -2530,18 +2530,78 @@ that page, and nothing more. Both storefront base classes apply that twice:
   third refused is two pages of listings worth keeping. The first page is the
   exception: a section that could not be opened at all yielded nothing, and
   nothing is not a partial result.
+- A section we **declined to ask for** is not the same as a section the vendor
+  refused. When an earlier refusal has put the host in a cooldown, the next
+  section raises `HostResting` before any request goes out; that is our own
+  decision, so it costs that section and the walk goes on. A scan where *every*
+  section was skipped that way still fails loudly, and says in as many words
+  that nothing was read and nothing was de-listed — a silent empty scan is the
+  outcome worth being afraid of, because the thing downstream of a scan is
+  de-listing.
 
 All of it goes through `ctx.warn()`, so the run reports PARTIAL and says why.
 
-Checkpoint Charlie's is what paid for these rules, and is worth reading as a
-warning about diagnosing from a single probe. A `curl` comparison said the
-answer plainly — `/product-tag/cr/` returned 200 and `/product/…` returned 429,
-at any pace and with or without browser headers — so the first fix addressed
-product pages alone. The full run then showed the rest of it: after an hour of
-refusals they stop answering *anything*, and the scan died on page 3 of the tag
-having walked 24 listings and saved 5, reporting nothing found. Both rules
-together turn that same hour into a PARTIAL run with the listings it managed to
-read. It is still a bad site to scan, and it may yet need the browser path.
+Checkpoint Charlie's paid for these rules, and then for a larger lesson about
+diagnosing from a single probe. A `curl` comparison seemed to say the answer
+plainly — `/product-tag/cr/` returned 200 and `/product/…` returned 429, at any
+pace and with or without browser headers — so the first fix addressed product
+pages alone. The full run showed more: after an hour of refusals they stopped
+answering *anything*, and the scan died on page 3 having walked 24 listings and
+saved 5, reporting nothing found. Nine failed scans against one partial.
+
+**None of it was rate limiting.** Their CDN refuses one specific user agent
+string — the exact pair `X11; Linux x86_64` and `Chrome/124.0.0.0`, either half
+alone being fine — and had been refusing it since the first request of every
+run, which is the fact that should have ended the rate-limiting theory on day
+one. What proved it: the *first* request of a cold run got a 429; the 429 was
+edge-generated, with an empty body and none of the origin's headers; the same
+URL returned 200 from cache and 429 cache-busted; and two requests seconds
+apart with different user agents came back 429 and 200, twice. The honest bot
+string in `config.yaml` fixed it, verified against all 28 shops — every one
+answered, and Checkpoint Charlie's went from `RESTING` to `ok 3 in 1.3s`.
+
+The general lesson is worth more than the fix: **a symptom that looks like
+volume can be identity.** Backoff, pacing and cooldown logic all quietly assume
+the vendor would say yes to a slower version of the same request, and every one
+of those mechanisms behaved correctly here while making the real cause harder
+to see. The question that settled it was not *how fast are we asking* but *is
+there any version of this request they answer* — which one alternating-pair
+experiment answers in about ten seconds.
+
+`backend/tests/test_user_agent.py` pins the string, including in
+`config.yaml.sample`, which sets it explicitly — so an installation copying the
+sample gets whatever that line says, whatever the code default is.
+
+### Detail through the WooCommerce Store API
+
+A WooCommerce card already carries the product id: it is the `post-N` class the
+external key is built from. So a whole page of listings can be filled in with
+one `?include=` request to `/wp-json/wc/store/v1/products` instead of one
+product page each. A scraper opts in with `store_api_details = True`, and
+`WooCommerceScraper._detailed()` asks the batch first, falling back to the
+product page for anything it cannot answer — a deleted product, a shop that
+turns the endpoint off, a 500. The fallback is the normal path, not an error
+path; it is what every shop without the flag does for all of them.
+
+Measured against Checkpoint Charlie's, one section, the same twelve listings:
+
+| | requests | time | median description | images |
+| --- | --- | --- | --- | --- |
+| product pages | 13 | 89.9s | 143 | 152 |
+| **Store API** | **2** | **7.9s** | **399** | 152 |
+
+**The description column is the part worth noticing, not the speed.** The prose
+these shops write lives in WooCommerce's *short* description, and the theme
+renders only part of it above the fold — so descriptions scraped from product
+pages have been quietly losing most of their text. The scraper takes whichever
+of the two fields is longer, because which one holds the writing is a per-shop
+habit rather than a rule. Identical image totals are the check that both paths
+are reading the same product.
+
+Only Checkpoint Charlie's has the flag on today. It would apply to most of the
+WooCommerce vendors here, and each one should be measured the same way before
+being switched — an endpoint answering 200 is not evidence that its answer is
+better than the page's.
 
 Twenty-eight vendors are read today; none are queued in
 [ROADMAP.md](ROADMAP.md), grouped by the platform they run on because one base
@@ -2557,8 +2617,8 @@ make test-frontend   # Playwright
 
 | Suite | Tool | Tests | Coverage | Gate |
 |---|---|---|---|---|
-| Backend | pytest | 3,136 | 88.0% | 83% |
-| Frontend | Playwright | 180 | 81.9% lines | 77% |
+| Backend | pytest | 3,353 | 88.5% | 83% |
+| Frontend | Playwright | 195 | 80.1% lines | 77% |
 
 Each gate sits a few points under the measured figure. Far enough that a new
 module which is honestly thinner than the average does not fail the build;

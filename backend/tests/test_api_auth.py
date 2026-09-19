@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 from app.api import auth
 from app.models import User
 
@@ -260,7 +262,63 @@ class TestTheSignInLogNeverQuotesTheRequest:
 
     def test_the_failing_request_still_answers_401(self, client):
         """The rule above is only worth anything on the path that uses it."""
-        auth._attempts.clear()
+        auth._attempts.reset()
         response = client.post("/api/auth/login", json={"username": "admin", "password": "wrong"})
         assert response.status_code == 401
         assert response.json()["detail"] == "Incorrect username or password."
+
+
+class TestTheThrottleDoesNotLeak:
+    """The register is keyed by the *submitted* username, which the attacker
+    chooses. Varying it never trips the per-key lockout, so before this the
+    only thing a guessing run accumulated was memory: one stranded entry per
+    guess, 171 bytes each, never released. See app/ratelimit.py.
+    """
+
+    def test_guessing_a_new_name_every_time_does_not_grow_the_register(self, client):
+        auth._attempts.reset()
+        for i in range(400):
+            client.post(
+                "/api/auth/login",
+                json={"username": f"victim{i}", "password": "wrong"},
+            )
+        assert len(auth._attempts) <= auth._attempts.max_keys
+
+    def test_a_real_lockout_still_happens(self, client):
+        """The bound must not have bought memory safety with a throttle that
+        no longer throttles."""
+        auth._attempts.reset()
+        codes = [
+            client.post(
+                "/api/auth/login", json={"username": "admin", "password": "wrong"}
+            ).status_code
+            for _ in range(auth.MAX_ATTEMPTS + 2)
+        ]
+        assert codes[0] == 401
+        assert codes[-1] == 429
+
+    def test_and_a_stale_entry_is_released_rather_than_kept_empty(self, client, monkeypatch):
+        """Keeping the pruned-empty list was the bug itself.
+
+        The key is captured from the real call rather than reconstructed: it is
+        built from the scrubbed client address, so writing it out by hand here
+        would be asserting against a guess.
+        """
+        auth._attempts.reset()
+        monkeypatch.setattr(auth._attempts, "window_seconds", 0.01)
+
+        keys: list[str] = []
+        original = auth._throttle_key
+
+        def capture(username, request):
+            key = original(username, request)
+            keys.append(key)
+            return key
+
+        monkeypatch.setattr(auth, "_throttle_key", capture)
+        client.post("/api/auth/login", json={"username": "someone", "password": "wrong"})
+
+        assert len(auth._attempts) == 1
+        time.sleep(0.02)
+        auth._attempts.recent(keys[0])
+        assert len(auth._attempts) == 0
