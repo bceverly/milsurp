@@ -296,6 +296,32 @@
   flex-wrap: wrap;
 }
 
+/* The other page heading, for the pages whose title is followed by a count
+   rather than by buttons — hot deals, the watchlist, the audit log, security.
+   It is a separate rule and not a second name for `.page-head` because the
+   markup underneath is a different shape: `.page-head` is a block of prose on
+   one side and a row of actions on the other, pushed apart, whereas this is a
+   title with a chip sitting against it. Pushing a count to the far edge of a
+   wide screen only makes the reader hunt for it.
+
+   Without this the four pages that ask for it were getting no heading rule at
+   all: an unstyled h1 at the browser's own 2em, the chip dropped onto its own
+   line, and no space before whatever came next. */
+.page__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.page__head h1 {
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .empty {
   padding: 52px 20px;
   text-align: center;

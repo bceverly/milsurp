@@ -102,9 +102,19 @@ export default function AuthImage({ src, alt, className, loading }) {
     };
   }, [src, wanted]);
 
+  // **The stand-ins wear the caller's class too.** `item-card__noimg` is
+  // `width: 100%; height: 100%`, which is right inside a card's fixed media
+  // frame and ruinous anywhere else: dropped into a flex row it claims the
+  // whole row and shoves the text and the price off to the right, and the
+  // row only straightens out if and when the photo arrives. So the caller's
+  // class rides along and sets the size, exactly as it does on the <img>.
+  // Every such class is declared after `item-card__noimg` in layout.css, so
+  // it wins on width and height without needing to shout about it.
+  const standIn = ["item-card__noimg", className].filter(Boolean).join(" ");
+
   if (!src || failed) {
     return (
-      <div className="item-card__noimg" title="No photo available">
+      <div className={standIn} title="No photo available">
         <ImageIcon size={26} />
       </div>
     );
@@ -113,7 +123,7 @@ export default function AuthImage({ src, alt, className, loading }) {
   // The placeholder carries the ref: it is what the observer watches while
   // the image is still off screen, so it has to be rendered, not skipped.
   if (!objectUrl) {
-    return <div className="item-card__noimg" ref={holder} aria-hidden="true" />;
+    return <div className={standIn} ref={holder} aria-hidden="true" />;
   }
 
   return <img src={objectUrl} alt={alt} className={className} loading={loading} />;

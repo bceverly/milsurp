@@ -74,6 +74,33 @@ test.describe("hot deals", () => {
     await expect(signedIn).toHaveURL(/\/items\/\d+/);
   });
 
+  // The row has to hold its shape while its photo is missing, and that is not
+  // a cosmetic nicety: AuthImage stands in for an absent photo with a box that
+  // fills whatever contains it, which is right inside a card and wrong inside
+  // a row. When the stand-in dropped the caller's class it claimed the whole
+  // row and shoved the title and the price against the right-hand edge, so a
+  // page whose photos were slow to arrive — this one, at a hundred and fifty
+  // rows — looked broken until they did. Every photo is refused here, which is
+  // the same state as one that has not arrived yet.
+  test("a row keeps its shape when the photo does not arrive", async ({ signedIn }) => {
+    await signedIn.route("**/api/items/*/photos/*", (route) => route.abort());
+    await signedIn.reload();
+    await expect(signedIn.locator(".deal").first()).toBeVisible();
+
+    const boxes = await signedIn.locator(".deal").evaluateAll((rows) =>
+      rows.map((row) => ({
+        thumb: row.querySelector(".deal__link > *").getBoundingClientRect().width,
+        text: Math.round(row.querySelector(".deal__text").getBoundingClientRect().left),
+      })),
+    );
+
+    expect(boxes.length).toBeGreaterThan(1);
+    for (const box of boxes) expect(box.thumb).toBe(64);
+    // One left edge for the whole column: the titles line up under each other
+    // rather than each starting wherever its own row happened to leave room.
+    expect(new Set(boxes.map((box) => box.text)).size).toBe(1);
+  });
+
   // The checkbox inside a `.switch` is visually hidden so the track can be
   // styled, so the label is what gets clicked and the input is what gets
   // asserted on — the same split admin.spec.js uses for a site's switch.
