@@ -585,13 +585,28 @@ class HostResting(ScrapeError):
     A subclass of ScrapeError so every existing handler already does something
     sensible with it — the storefront walks fall back to the catalog, and a
     scan reports PARTIAL rather than pretending it read everything.
+
+    **The type is load-bearing and not only the message.** The canary reports a
+    resting host as RESTING rather than BROKE, and the scan service reads
+    ``seconds`` to decide when to come back — so a scraper that has given up
+    because of the register must raise *this*, not a plain ScrapeError carrying
+    a sentence about it. Checkpoint Charlie's is why that is written down: the
+    WooCommerce walk raised ScrapeError when every one of its thirteen sections
+    was skipped, and a shop nobody had asked anything was reported broken every
+    night for a week.
+
+    ``detail`` replaces the generic sentence where the caller knows more about
+    what was given up -- how many sections, and that nothing was de-listed.
     """
 
-    def __init__(self, url: str, seconds: float) -> None:
+    def __init__(self, url: str, seconds: float, detail: str | None = None) -> None:
         self.seconds = seconds
         super().__init__(
-            f"{_host_of(url)} asked to be left alone; {seconds:.0f}s still to wait "
-            f"before anything asks it for {url}"
+            detail
+            or (
+                f"{_host_of(url)} asked to be left alone; {seconds:.0f}s still to wait "
+                f"before anything asks it for {url}"
+            )
         )
 
 

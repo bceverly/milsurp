@@ -407,6 +407,18 @@ class ScrapingConfig:
     headless: bool = True
     chrome_binary: str | None = None
     chromedriver_path: str | None = None
+    #: Where Selenium Manager may keep the drivers it downloads.
+    #:
+    #: It needs somewhere writable, and under the shipped unit almost nowhere
+    #: is: ProtectHome=true hides the account's own ~/.cache, and
+    #: ProtectSystem=strict leaves only the paths named in ReadWritePaths. Its
+    #: default is ~/.cache/selenium, so left alone it fails to cache -- and
+    #: fetching a matching driver is the whole of how this application recovers
+    #: from an apt upgrade that moved Chrome and left the driver behind.
+    #:
+    #: Defaults to <state dir>/selenium: the repository root in dev, and
+    #: /etc/milsurp in production, which the unit already grants.
+    driver_cache_path: Path | None = None
     # Hard ceiling on pages/scroll iterations, so a misbehaving site cannot
     # make a scan run forever.
     max_pages: int = 60
@@ -721,6 +733,11 @@ def load_config(path: Path | None = None, mode: str | None = None) -> Config:
         headless=bool(sel.get("headless", True)),
         chrome_binary=(sel.get("chrome_binary") or None),
         chromedriver_path=(sel.get("chromedriver_path") or None),
+        driver_cache_path=(
+            _resolve_path(sel["driver_cache"], state_dir)
+            if sel.get("driver_cache")
+            else state_dir / "selenium"
+        ),
         max_pages=int(scr.get("max_pages", 60)),
         robots_exceptions=_robots_exceptions(scr.get("robots_exceptions")),
     )

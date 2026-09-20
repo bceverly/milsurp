@@ -46,6 +46,10 @@ from .base import PriceCheck, ScrapeContext, ScrapedItem, ScrapeError, SiteScrap
 
 SITE_BASE = "https://www.ebayonet.com/"
 
+#: Every listing here is one, which is what makes not_read() cover the whole
+#: shop -- see scrape(). Named once so the two uses cannot drift apart.
+CATEGORY = "Bayonet"
+
 #: The catalog, split by the country initial of the bayonet's origin. There is
 #: no index page listing these; they are linked from the site's own frames-era
 #: navigation and are stable enough to name here.
@@ -143,7 +147,7 @@ def parse_page(html_text: str, page: str) -> list[ScrapedItem]:
                 title=title,
                 price=price,
                 description=" ".join(description) or None,
-                category="Bayonet",
+                category=CATEGORY,
                 is_sold=sold,
                 image_urls=list(dict.fromkeys(photos)),
                 images_are_complete=True,
@@ -257,6 +261,8 @@ class EBayonetScraper(SiteScraper):
 
     def scrape(self, ctx: ScrapeContext) -> Iterable[ScrapedItem]:
         items: list[ScrapedItem] = []
+        fetched = 0
+        last_failure: Exception | None = None
         for page in PAGES:
             ctx.check_stop()
             ctx.log(f"Fetching {page}…")
@@ -265,8 +271,20 @@ class EBayonetScraper(SiteScraper):
             except Exception as exc:
                 # One page of five is one country range, not the catalog. The
                 # run reports PARTIAL rather than losing the other four.
+                #
+                # **And the four that were read must not de-list the fifth.**
+                # Everything this site sells is filed under one category, which
+                # is what not_read() is keyed on, so declaring it covers the
+                # whole shop: a run that reached four pages of five reports
+                # what it saw and de-lists nothing at all. That is the right
+                # trade here. The alternative -- de-listing every bayonet on
+                # the page that did not answer -- turns one bad request into
+                # a couple of hundred listings disappearing and coming back.
                 ctx.warn(f"could not fetch {page}: {exc}")
+                ctx.not_read(CATEGORY)
+                last_failure = exc
                 continue
+            fetched += 1
             parsed = parse_page(html_text, page)
             ctx.log(f"Parsed {len(parsed)} listing(s) from {page}.")
             items.extend(parsed)
@@ -276,6 +294,26 @@ class EBayonetScraper(SiteScraper):
         # parse_page can only see one of them at a time.
         items = _without_cross_references(items)
 
-        if not items:
-            raise ScrapeError("every eBayonet page failed to parse")
-        return items
+        if items:
+            return items
+
+        # Nothing came out, and *why* is the whole of what the canary reports.
+        #
+        # This used to say "every eBayonet page failed to parse" whatever had
+        # happened, and on the morning their hosting broke it sent somebody
+        # looking for a parser bug. There was none: the certificate on
+        # ebayonet.com had lapsed to their host's default, every request failed
+        # at TLS, and not one byte of markup was ever read. A shop that is down
+        # and a reader that has gone stale need opposite repairs, and only one
+        # of them is ours.
+        if not fetched:
+            raise ScrapeError(
+                f"no eBayonet page could be fetched, so none was parsed: "
+                f"{len(PAGES)} page(s) tried, all of them failed. "
+                f"Last failure: {last_failure}"
+            )
+        raise ScrapeError(
+            f"{fetched} of {len(PAGES)} eBayonet page(s) were fetched and none of "
+            f"them parsed: the pages answered and no listing could be read out of "
+            f"them, which is this reader rather than the shop."
+        )

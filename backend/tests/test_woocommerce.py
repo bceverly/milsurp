@@ -16,7 +16,7 @@ import responses
 from bs4 import BeautifulSoup
 
 from app.scrapers import ScrapeContext
-from app.scrapers.base import ScrapeError
+from app.scrapers.base import HostResting, ScrapeError
 from app.scrapers.collectors_firearms import CollectorsFirearmsScraper
 from app.scrapers.woocommerce import (
     WooCommerceScraper,
@@ -758,3 +758,82 @@ class TestAPhotographThatIsNotAnImgTag:
         )
 
         assert Shop().gallery(soup, SHOP) == []
+
+
+class TestWhenEverySectionIsResting:
+    """A scan that never asked the vendor anything.
+
+    The cooldown register is keyed by host, and a refusal earned anywhere --
+    a photograph, a watchlist price check, an earlier scan -- pauses every
+    fetcher. A daily scan that starts inside that pause skips each of its
+    sections in turn and ends in under a second having asked for nothing.
+
+    That is a real state and the register is doing its job. What it is *not*
+    is a broken shop, and reporting it as one is what put Checkpoint Charlie's
+    on the canary every morning for a week.
+    """
+
+    class Thirteen(WooCommerceScraper):
+        slug = "resting-shop"
+        name = "Resting Shop"
+        base_url = f"{SHOP}/"
+        description = "A test double with more than one section."
+        sources = tuple(
+            {"category": f"Section {n}", "url": f"{SHOP}/product-category/s{n}/"} for n in range(13)
+        )
+
+    @pytest.fixture
+    def resting(self, monkeypatch):
+        """Every host paused, with twenty minutes still to wait."""
+        monkeypatch.setattr("app.scrapers.base.cooldown.paused_for", lambda _url: 1200.0)
+        monkeypatch.setattr("app.scrapers.woocommerce.cooldown.paused_for", lambda _url: 1200.0)
+
+    def test_it_is_reported_as_resting_and_not_as_broken(self, ctx, resting):
+        """HostResting, not ScrapeError, and the type is the whole point: the
+        canary reads it to say RESTING rather than BROKE, and the scan service
+        reads its seconds to decide when to come back."""
+        with pytest.raises(HostResting) as raised:
+            list(self.Thirteen().scrape(ctx))
+
+        assert raised.value.seconds == 1200.0
+
+    def test_it_says_how_much_was_not_asked(self, ctx, resting):
+        with pytest.raises(HostResting) as raised:
+            list(self.Thirteen().scrape(ctx))
+
+        assert "13 section(s) not asked" in str(raised.value)
+        assert "nothing was de-listed" in str(raised.value)
+
+    def test_and_every_section_is_declared_unread(self, ctx, resting):
+        """Which is what actually keeps the catalog: a run that read nothing
+        must not let the reconcile treat the whole shop as sold out."""
+        with pytest.raises(HostResting):
+            list(self.Thirteen().scrape(ctx))
+
+        assert ctx.unread_categories == {f"Section {n}" for n in range(13)}
+
+    @responses.activate
+    def test_one_resting_section_out_of_many_is_still_a_result(self, ctx, monkeypatch):
+        """Loud only when nothing at all was read. A partial catalog is worth
+        keeping, and the warnings say which part is missing."""
+        paused = {f"{SHOP}/product-category/s0/"}
+        monkeypatch.setattr(
+            "app.scrapers.base.cooldown.paused_for",
+            lambda url: 1200.0 if url in paused else 0.0,
+        )
+        for n in range(1, 13):
+            responses.add(
+                responses.GET,
+                f"{SHOP}/product-category/s{n}/",
+                body=catalog(card(100 + n, f"Rifle {n}")),
+            )
+            responses.add(
+                responses.GET,
+                f"{SHOP}/product/rifle-{n}/",
+                body=product_page(f"Rifle {n}", "prose", [f"{UPLOADS}/a.jpg"]),
+            )
+
+        items = list(self.Thirteen().scrape(ctx))
+
+        assert len(items) == 12
+        assert ctx.unread_categories == {"Section 0"}

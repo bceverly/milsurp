@@ -671,6 +671,39 @@ all. Loosening the unit is the other way to make it start, and it un-hardens the
 one process on the machine that runs a stranger's JavaScript. The error says all
 of this now rather than offering config keys that were already right.
 
+**A driver has to match its browser's *version*, and `apt upgrade` breaks
+that.** Chrome and ChromeDriver ship together, and a driver only drives the
+major version it was built for. Chrome updates itself through apt; a driver an
+administrator unpacked into `/usr/local/bin` by hand does not. So an ordinary
+`sudo apt update && sudo apt upgrade` leaves the two a version apart, Chrome
+exits the moment the driver speaks to it, and Selenium reports its least helpful
+sentence: *"session not created: Chrome instance exited. Examine ChromeDriver
+verbose log to determine the cause."* Every path in that message is correct and
+none of them is the problem. The canary reported Royal Tiger broken that way on
+a machine where Chrome works perfectly well.
+
+So discovery reads what both binaries print and ignores a driver whose major
+version has fallen behind the browser's, which leaves the driver reported as
+*absent* — and absent is the condition Selenium Manager repairs, by downloading
+the matching one. An unknown version is treated as a match: a false mismatch
+would throw away a working driver, which is the worse mistake.
+
+That recovery needs somewhere to put what it downloads, and under the hardened
+unit almost nowhere is: Selenium Manager's default is `~/.cache/selenium`,
+`ProtectHome=true` hides it, and `ProtectSystem=strict` makes the rest of the
+filesystem read-only. So `scraping.selenium.driver_cache` defaults to
+`<state dir>/selenium` — the repository root in dev, `/etc/milsurp` in
+production, which `ReadWritePaths=` already grants — and is exported as
+`SE_CACHE_PATH` unless an administrator has set one. Without it the download
+fails on a machine with a working browser, a network and Selenium, and the
+message blames Chrome.
+
+**A path you name in `config.yaml` is still never second-guessed.** Naming
+`chromedriver_path` is a decision, so a pinned driver is used even when it does
+not match. It will fail — but the message now names both versions and says an
+upgrade that left the driver behind is the usual cause, rather than offering
+config keys that were already right.
+
 ### Backups
 
 The scheduler snapshots the database on a schedule an administrator sets, and
@@ -2540,6 +2573,23 @@ that page, and nothing more. Both storefront base classes apply that twice:
   de-listing.
 
 All of it goes through `ctx.warn()`, so the run reports PARTIAL and says why.
+
+**A run that asked for nothing raises `HostResting`, not `ScrapeError`, and the
+type is load-bearing.** Both were the same sentence for a while and they are not
+the same event. The canary reports a resting host as `RESTING` rather than
+`BROKE`, and `schedule_next()` reads the exception's `seconds` to decide when to
+come back — so a shop whose thirteen sections were all skipped over a plain
+`ScrapeError` was mailed out as broken every morning for a week while the
+register was doing exactly what it was built to do, and the next attempt was set
+for the following day.
+
+It is set for just after the pause instead, floored at five minutes and never
+later than the site's own interval. A run like that takes under a second and
+learns nothing, and the pause it walked into is an hour at the very most —
+spending a whole day of a shop's listings on it is the wrong trade. The floor is
+what stops a host that goes on refusing from turning a daily scan into a retry
+loop: the register doubles its own pause from a minute towards an hour, and the
+retry follows that pause rather than racing it.
 
 Checkpoint Charlie's paid for these rules, and then for a larger lesson about
 diagnosing from a single probe. A `curl` comparison seemed to say the answer

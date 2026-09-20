@@ -238,6 +238,17 @@ scraping:
 
   selenium:
     headless: true                   # default: true
-    # Leave null to let Selenium find them on PATH.
+    # Leave null to let the scraper find them. It pairs each browser with a
+    # driver that can actually drive it, and ignores one whose major version
+    # has fallen behind the browser's -- which is what an `apt upgrade` of
+    # Chrome leaves behind on a machine whose driver was unpacked by hand.
+    # Selenium Manager then fetches the matching one. Naming a path here
+    # overrides all of that: a driver you name is used even when it does not
+    # match, on the grounds that you chose it on purpose.
     chrome_binary: null              # e.g. /usr/bin/google-chrome
     chromedriver_path: null          # e.g. /usr/local/bin/chromedriver
+    # Where Selenium Manager keeps the drivers it downloads. Its own default
+    # is ~/.cache/selenium, which the hardened service unit hides
+    # (ProtectHome=true), so this defaults to <state dir>/selenium instead --
+    # the repository root in dev, /etc/milsurp in production.
+    driver_cache: null               # e.g. /var/cache/milsurp/selenium

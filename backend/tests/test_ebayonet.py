@@ -9,8 +9,11 @@ pinned.
 
 from __future__ import annotations
 
+import pytest
+
 from app.scrapers import get_scraper
-from app.scrapers.ebayonet import EBayonetScraper, parse_page
+from app.scrapers.base import ScrapeError
+from app.scrapers.ebayonet import CATEGORY, PAGES, EBayonetScraper, parse_page
 
 #: The real markup's shape, trimmed. Word writes &nbsp;, splits runs mid-word
 #: with <span>, and types photo URLs into the prose as both a link and its own
@@ -201,3 +204,83 @@ class TestRereadingOneListingsPrice:
             )
             assert found is not None, key
             assert found.price == expected, key
+
+
+class TestWhenTheShopIsDown:
+    """The morning their hosting broke, and what the scan said about it.
+
+    ebayonet.com's certificate lapsed to its host's default -- a wildcard for
+    *.bluehost.com, which matches nothing this scraper asks for -- so every
+    request failed at TLS and not one byte of markup was ever read. The run
+    reported *"every eBayonet page failed to parse"* and the canary carried
+    that sentence to the inbox, which sent somebody looking for a parser bug in
+    a reader that was working perfectly.
+
+    A shop that is down and a reader that has gone stale need opposite repairs,
+    and only one of them is ours. So the two are now said differently.
+    """
+
+    @staticmethod
+    def _answering(ctx_factory, pages):
+        """A context whose pages come from a dict; anything absent raises."""
+        context = ctx_factory()
+
+        def fake_get_text(url, **_kwargs):
+            page = url.rsplit("/", 1)[-1]
+            if page not in pages:
+                raise ScrapeError(f"SSLError: certificate verify failed for {url}")
+            return pages[page]
+
+        context.get_text = fake_get_text  # type: ignore[method-assign]
+        return context
+
+    def test_a_shop_that_answers_nothing_is_not_called_a_parse_failure(self, ctx_factory):
+        ctx = self._answering(ctx_factory, {})
+
+        with pytest.raises(ScrapeError) as raised:
+            list(EBayonetScraper().scrape(ctx))
+
+        message = str(raised.value)
+        assert "no eBayonet page could be fetched" in message
+        assert "certificate verify failed" in message
+        assert "failed to parse" not in message
+
+    def test_and_a_reader_that_has_gone_stale_still_is(self, ctx_factory):
+        """The other half of the pair, and the one that is our bug: the pages
+        arrive and nothing can be read out of them."""
+        ctx = self._answering(ctx_factory, dict.fromkeys(PAGES, "<html><body></body></html>"))
+
+        with pytest.raises(ScrapeError) as raised:
+            list(EBayonetScraper().scrape(ctx))
+
+        assert "none of them parsed" in str(raised.value)
+        assert "this reader rather than the shop" in str(raised.value)
+
+    def test_four_pages_of_five_keeps_the_four(self, ctx_factory):
+        ctx = self._answering(ctx_factory, {PAGES[0]: PAGE})
+
+        items = list(EBayonetScraper().scrape(ctx))
+
+        assert items
+        assert any("could not fetch" in warning for warning in ctx.warnings)
+
+    def test_and_de_lists_nothing_at_all(self, ctx_factory):
+        """The part that matters more than the message.
+
+        Everything this shop sells is filed under one category, which is what
+        not_read() is keyed on -- so declaring it covers the whole shop, and a
+        run that reached four pages of five reports what it saw without the
+        reconcile treating the fifth page's couple of hundred bayonets as sold.
+        """
+        ctx = self._answering(ctx_factory, {PAGES[0]: PAGE})
+
+        list(EBayonetScraper().scrape(ctx))
+
+        assert ctx.unread_categories == {CATEGORY}
+
+    def test_a_run_that_reads_everything_declares_nothing_unread(self, ctx_factory):
+        ctx = self._answering(ctx_factory, dict.fromkeys(PAGES, PAGE))
+
+        list(EBayonetScraper().scrape(ctx))
+
+        assert ctx.unread_categories == set()

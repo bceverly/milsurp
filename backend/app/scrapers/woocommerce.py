@@ -33,6 +33,7 @@ from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup, Tag
 
+from ..services import cooldown
 from .base import (
     Disallowed,
     HostResting,
@@ -210,11 +211,26 @@ class WooCommerceScraper(SiteScraper):
         #
         # Loud only when nothing at all was read. One section resting out of
         # thirteen is a partial result worth keeping, and the warnings say so.
+        #
+        # **HostResting, not ScrapeError**, and that one word is the whole
+        # difference between the two things this can mean. Both the canary and
+        # the scan service already know what to do with a host that is resting
+        # -- report it as resting rather than broken, and come back when the
+        # pause lifts instead of a day later. Raising the base class threw both
+        # of those away and reported the shop broken, which is how Checkpoint
+        # Charlie's came to be on the canary every morning while the register
+        # was quietly doing exactly what it was built to do.
         if opened == 0 and self._sections_resting:
-            raise ScrapeError(
-                f"Every section was skipped: this host is in a cooldown from an "
-                f"earlier refusal, with {self._sections_resting} section(s) not "
-                f"asked. Nothing was read and nothing was de-listed."
+            remaining = cooldown.paused_for(self.base_url)
+            raise HostResting(
+                self.base_url,
+                remaining,
+                detail=(
+                    f"Every section was skipped: this host is in a cooldown from an "
+                    f"earlier refusal, with {self._sections_resting} section(s) not "
+                    f"asked and {remaining:.0f}s still to wait. Nothing was read and "
+                    f"nothing was de-listed."
+                ),
             )
 
     def _walk(

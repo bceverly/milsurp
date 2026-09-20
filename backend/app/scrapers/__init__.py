@@ -19,6 +19,7 @@ from .atlantic_firearms import AtlanticFirearmsScraper
 from .axis_arms import AxisArmsScraper
 from .base import (
     Disallowed,
+    HostResting,
     ScrapeCanceled,
     ScrapeContext,
     ScrapedItem,
@@ -124,6 +125,7 @@ def iter_scrapers() -> list[SiteScraper]:
 __all__ = [
     "SCRAPER_CLASSES",
     "Disallowed",
+    "HostResting",
     "ScrapeCanceled",
     "ScrapeContext",
     "ScrapeError",

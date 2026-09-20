@@ -22,9 +22,10 @@ from app.models import (
     ScanRun,
     ScanStatus,
     Site,
+    as_utc,
     utcnow,
 )
-from app.scrapers import ScrapedItem, ScrapeError, SiteScraper
+from app.scrapers import HostResting, ScrapedItem, ScrapeError, SiteScraper
 from app.services import armory, scan_service
 from app.services.image_store import FetchResult, ImageStore, StoredImage
 
@@ -45,6 +46,9 @@ class FakeScraper(SiteScraper):
     #: opened.
     unread: list[str] = []
     raise_error: str | None = None
+    #: Seconds of cooldown to report, standing in for a run that found every
+    #: one of its sections resting and so asked the vendor for nothing.
+    raise_resting: float | None = None
     warn_with: str | None = None
     #: Yield this many listings, then raise, to model a scan that is cut off
     #: part way through — a restart, a killed process, a network collapse.
@@ -58,6 +62,8 @@ class FakeScraper(SiteScraper):
 
     def scrape(self, ctx):
         type(self).saw_stored_categories = set(ctx.stored_categories)
+        if self.raise_resting is not None:
+            raise HostResting(self.base_url, self.raise_resting)
         if self.raise_error:
             raise ScrapeError(self.raise_error)
         if self.warn_with:
@@ -102,6 +108,7 @@ def fake_site(clean_db, monkeypatch):
     yield site
     FakeScraper.payload = []
     FakeScraper.raise_error = None
+    FakeScraper.raise_resting = None
     FakeScraper.warn_with = None
     FakeScraper.fail_after = None
 
@@ -465,6 +472,62 @@ class TestScheduling:
         clean_db.refresh(stale)
         assert stale.status == ScanStatus.FAILED
         assert "did not finish" in stale.error_message
+
+
+class TestARunThatNeverAskedComesBackSoon:
+    """A scan that skipped every section because the host was resting.
+
+    It took a second, it learned nothing, and the pause it ran into is an hour
+    at the very most -- the register's own ceiling. Scheduling the next attempt
+    a full interval out spends a whole day of a shop's listings on it, which is
+    what Checkpoint Charlie's did: thirteen sections skipped in under a second,
+    every morning, and the next attempt set for tomorrow.
+    """
+
+    def test_the_run_fails_and_says_which_kind_of_failure(self, fake_site, clean_db):
+        FakeScraper.raise_resting = 600.0
+        run = clean_db.get(ScanRun, scan_service.run_scan(fake_site.id))
+        assert run.status == ScanStatus.FAILED
+        assert "HostResting" in run.error_message
+
+    def test_and_the_next_attempt_follows_the_cooldown(self, fake_site, clean_db):
+        FakeScraper.raise_resting = 600.0
+        scan_service.run_scan(fake_site.id)
+        clean_db.refresh(fake_site)
+
+        wait = as_utc(fake_site.next_scan_at) - as_utc(fake_site.last_scan_at)
+        assert timedelta(minutes=10) <= wait <= timedelta(minutes=11)
+
+    def test_a_pause_shorter_than_the_floor_still_waits_the_floor(self, fake_site, clean_db):
+        """A host that goes on refusing must not turn a daily scan into a
+        retry loop. The register doubles its own pause from a minute towards an
+        hour, and the retry follows it rather than racing it."""
+        FakeScraper.raise_resting = 60.0
+        scan_service.run_scan(fake_site.id)
+        clean_db.refresh(fake_site)
+
+        wait = as_utc(fake_site.next_scan_at) - as_utc(fake_site.last_scan_at)
+        assert wait == timedelta(minutes=scan_service.MIN_RETRY_MINUTES)
+
+    def test_and_it_never_lands_later_than_the_ordinary_interval(self, fake_site, clean_db):
+        """MAX_COOLDOWN is an hour; this site's interval is an hour too. A
+        retry is a way to come back *sooner*, never a way to defer."""
+        FakeScraper.raise_resting = 3600.0
+        scan_service.run_scan(fake_site.id)
+        clean_db.refresh(fake_site)
+
+        wait = as_utc(fake_site.next_scan_at) - as_utc(fake_site.last_scan_at)
+        assert wait == timedelta(minutes=fake_site.scan_interval_minutes)
+
+    def test_an_ordinary_failure_waits_its_full_interval(self, fake_site, clean_db):
+        """The vendor answered and something broke. That is worth a day: it
+        will not be fixed by asking again in five minutes."""
+        FakeScraper.raise_error = "vendor returned 503"
+        scan_service.run_scan(fake_site.id)
+        clean_db.refresh(fake_site)
+
+        wait = as_utc(fake_site.next_scan_at) - as_utc(fake_site.last_scan_at)
+        assert wait == timedelta(minutes=fake_site.scan_interval_minutes)
 
 
 class TestInterruptedScanKeepsItsWork:

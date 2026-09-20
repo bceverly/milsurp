@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Iterable
+from unittest import mock
 
 import pytest
 
@@ -99,6 +100,38 @@ class TestWhatEachFailureIsCalled:
         way for three days when the first sweep found it."""
         result = canary.probe(config, _Fake(_raising(HostResting("https://example.test/x", 900))))
         assert result.verdict is Verdict.RESTING
+
+    def test_a_whole_shop_skipped_for_resting_is_resting_too(self, config):
+        """The shape that actually reaches this, rather than a bare
+        HostResting constructed in a test.
+
+        A WooCommerce shop whose every section was skipped used to raise a
+        plain ScrapeError carrying a sentence about the cooldown, and a
+        sentence is not a type: the branch above never fired, and Checkpoint
+        Charlie's was mailed out as BROKE every morning for a week while the
+        register was doing exactly what it was built to do.
+        """
+        from app.scrapers.woocommerce import WooCommerceScraper
+
+        class RestingShop(WooCommerceScraper):
+            slug = "resting-shop"
+            name = "Resting Shop"
+            base_url = "https://example.test/"
+            description = "A test double."
+            sources = tuple(
+                {"category": f"Section {n}", "url": f"https://example.test/c/{n}/"}
+                for n in range(13)
+            )
+
+        with (
+            mock.patch.object(canary.cooldown, "paused_for", return_value=900.0),
+            mock.patch("app.scrapers.base.cooldown.paused_for", return_value=900.0),
+            mock.patch("app.scrapers.woocommerce.cooldown.paused_for", return_value=900.0),
+        ):
+            result = canary.probe(config, RestingShop())
+
+        assert result.verdict is Verdict.RESTING
+        assert "13 section(s) not asked" in result.detail
 
     def test_a_clean_run_with_nothing_in_it_is_empty(self, config):
         """The quiet one: they answered, we parsed, nothing came out."""

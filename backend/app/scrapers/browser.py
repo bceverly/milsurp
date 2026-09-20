@@ -17,6 +17,11 @@ from __future__ import annotations
 
 import contextlib
 import os
+import re
+
+# A browser's and a driver's own `--version`, invoked below with a fixed argv
+# and no shell.
+import subprocess  # nosec B404
 import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -170,6 +175,68 @@ def is_snap_driver(path: str) -> bool:
 _SHIM_MAX_BYTES = 8192
 
 
+#: A version as both binaries print it: "Google Chrome 153.0.8010.36" and
+#: "ChromeDriver 153.0.8010.52 (78e5e45...)".
+_VERSION_RE = re.compile(r"\b(\d+)\.(\d+)\.(\d+)\.(\d+)\b")
+
+#: How long to wait for a ``--version`` to answer. Both binaries print and exit
+#: in under a tenth of a second measured here; anything slower is a hung
+#: process, and a hung process must not hold up a scan.
+_VERSION_TIMEOUT = 10.0
+
+
+def major_version(path: str) -> int | None:
+    """The major version *path* reports, or None when it will not say.
+
+    Deliberately **not** cached. This runs twice per browser scrape, costs
+    about a tenth of a second, and the whole point of it is to notice a change
+    that happened underneath a running process -- which is exactly what
+    ``apt upgrade`` does to Chrome on a machine whose scheduler has been up for
+    a week. A cached answer would be stale precisely when it mattered.
+    """
+    try:
+        # Fixed argv, no shell, and one flag. `path` is a browser or driver
+        # location -- from the tables above, or from config.yaml, which is a
+        # file only root can write on a production install.
+        result = subprocess.run(  # noqa: S603  # nosec B603
+            [path, "--version"],
+            capture_output=True,
+            text=True,
+            timeout=_VERSION_TIMEOUT,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    match = _VERSION_RE.search(f"{result.stdout} {result.stderr}")
+    return int(match.group(1)) if match else None
+
+
+def driver_matches(browser: str, driver: str) -> bool:
+    """Whether *driver* is new enough to drive *browser*.
+
+    **This is the one that `sudo apt upgrade` breaks.** Chrome and ChromeDriver
+    are versioned together and released together, and a driver only drives the
+    major version it was built for. Chrome updates itself through apt; a driver
+    an administrator unpacked into /usr/local/bin by hand does not. So an
+    ordinary upgrade quietly leaves the two a major version apart, Chrome exits
+    the moment the driver speaks to it, and Selenium reports the least helpful
+    sentence it has: *"session not created: Chrome instance exited. Examine
+    ChromeDriver verbose log to determine the cause."* Every path in that
+    message is correct and none of them is the problem -- the canary reported
+    Royal Tiger broken on a machine where Chrome works perfectly well.
+
+    An unknown version is a match. Only a version we *read from both* and found
+    to disagree is rejected: a false mismatch would throw away a working driver
+    on a host whose binaries decline to introduce themselves, and that is the
+    worse mistake. It is the same judgment `is_snap_driver` makes.
+    """
+    theirs = major_version(browser)
+    ours = major_version(driver)
+    if theirs is None or ours is None:
+        return True
+    return theirs == ours
+
+
 def _first_present(paths: tuple[str, ...]) -> str | None:
     """The first of *paths* that exists and can be run."""
     for path in paths:
@@ -184,12 +251,22 @@ def _first_usable_driver(browser: str, paths: tuple[str, ...]) -> str | None:
     A snap driver is skipped for a browser that is not itself a snap. That is
     the invariant this module is built on, stated once here rather than trusted
     to the ordering of a dictionary.
+
+    **And a driver a major version behind its browser is skipped too**, which
+    is the same invariant in its other form: a driver has to match the browser
+    it drives, and "match" is a version as much as it is a packaging. Returning
+    None here is not giving up -- see find_chrome. Selenium Manager fetches a
+    driver that does match, which is the right answer and the one an
+    administrator would otherwise be woken up to perform by hand after every
+    Chrome release.
     """
     browser_is_snap = browser.startswith("/snap/")
     for path in paths:
         if not os.access(path, os.X_OK):
             continue
         if is_snap_driver(path) and not browser_is_snap:
+            continue
+        if not driver_matches(browser, path):
             continue
         return path
     return None
@@ -201,6 +278,10 @@ def find_chrome() -> tuple[str | None, str | None]:
     The browser decides, and the driver follows it -- see _DRIVERS_FOR. A
     browser found with no driver beside it still returns: Selenium Manager can
     fetch a matching one, and letting it try is better than refusing to start.
+    That is also what happens when every driver on the machine is too old for
+    the browser, which is the ordinary state of a host a day after Chrome
+    updated -- the driver is reported as absent rather than as present and
+    broken, because absent is the condition Selenium Manager repairs.
 
     Only consulted where the configuration says nothing, so an installation
     that names its own paths is never second-guessed.
@@ -211,13 +292,70 @@ def find_chrome() -> tuple[str | None, str | None]:
     return binary, _first_usable_driver(binary, _DRIVERS_FOR.get(binary, ()))
 
 
+def _let_selenium_manager_cache(config: ScrapingConfig) -> None:
+    """Point Selenium Manager at somewhere it is actually allowed to write.
+
+    Reached only when no driver was found on the machine, which since the
+    version check above is also the ordinary state of a host whose Chrome has
+    just been upgraded. Selenium Manager downloads the matching driver and
+    keeps it, and that recovery is the whole answer to `apt upgrade` --
+    *provided it has somewhere to keep it*.
+
+    Under the shipped unit it does not. Its default is ~/.cache/selenium;
+    ProtectHome=true hides the account's home, ProtectSystem=strict makes the
+    rest of the filesystem read-only, and only ReadWritePaths survives. So the
+    download would fail on a machine with a working browser, network and
+    Selenium -- and the message would blame Chrome.
+
+    SE_CACHE_PATH is Selenium Manager's own override and is left alone if an
+    administrator has already set one. A directory that cannot be created is
+    not fatal: without it Selenium Manager falls back to its default, which is
+    where it would have looked anyway.
+    """
+    if os.environ.get("SE_CACHE_PATH") or config.driver_cache_path is None:
+        return
+    cache = Path(config.driver_cache_path)
+    try:
+        cache.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return
+    os.environ["SE_CACHE_PATH"] = str(cache)
+
+
+def _version_mismatch(binary: str | None, driver_path: str | None) -> str:
+    """A sentence naming a browser and driver that are a version apart, or "".
+
+    Only ever reached once the start has already failed, so it may run the two
+    binaries again without costing a working scan anything. It exists for the
+    case discovery cannot fix on its own: a driver named in config.yaml is
+    never second-guessed -- somebody chose it -- so a pinned one that has gone
+    stale is still handed to Selenium, still fails, and used to do so behind
+    "Chrome instance exited", which names neither version.
+    """
+    if not binary or not driver_path:
+        return ""
+    theirs = major_version(binary)
+    ours = major_version(driver_path)
+    if theirs is None or ours is None or theirs == ours:
+        return ""
+    return (
+        f" They are {abs(theirs - ours)} major version(s) apart: the browser is "
+        f"{theirs} and the driver is {ours}, and a driver only drives the major "
+        f"version it was built for. An upgrade of Chrome that left the driver "
+        f"behind is the usual cause. Update the driver, or clear "
+        f"scraping.selenium.chromedriver_path so Selenium Manager fetches the "
+        f"matching one."
+    )
+
+
 @contextmanager
 def chrome(config: ScrapingConfig) -> Iterator[Any]:
     """Yield a configured headless Chrome driver, always quitting it after."""
     try:
-        from selenium import webdriver
         from selenium.webdriver.chrome.options import Options
         from selenium.webdriver.chrome.service import Service
+
+        from selenium import webdriver
     except ImportError as exc:  # pragma: no cover - depends on host packages
         raise BrowserUnavailable(
             "selenium is not installed; run 'make install' or disable this site."
@@ -238,6 +376,8 @@ def chrome(config: ScrapingConfig) -> Iterator[Any]:
     driver_path = config.chromedriver_path or found_driver
     if binary:
         options.binary_location = binary
+    if not driver_path:
+        _let_selenium_manager_cache(config)
 
     try:
         service = Service(driver_path) if driver_path else None
@@ -267,7 +407,8 @@ def chrome(config: ScrapingConfig) -> Iterator[Any]:
             ) from exc
         raise BrowserUnavailable(
             f"could not start headless Chrome: {exc}. "
-            f"Browser: {binary or 'none found'}; driver: {driver_path or 'none found'}. "
+            f"Browser: {binary or 'none found'}; driver: {driver_path or 'none found'}."
+            f"{_version_mismatch(binary, driver_path)} "
             f"A driver must match its browser: the snap at /snap/bin/chromium "
             f"is driven only by /snap/bin/chromium.chromedriver. "
             f"Looked in {', '.join(_CHROME_BINARIES)}. Set scraping.selenium."

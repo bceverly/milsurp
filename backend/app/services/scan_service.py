@@ -41,6 +41,7 @@ from ..models import (
     utcnow,
 )
 from ..scrapers import (
+    HostResting,
     ScrapeCanceled,
     ScrapeContext,
     ScrapedItem,
@@ -968,11 +969,43 @@ def reap_stale_runs(session: Session, config: Config | None = None) -> int:
     return count
 
 
-def schedule_next(site: Site, from_time: datetime | None = None) -> None:
-    """Set ``next_scan_at`` from the site's interval."""
+#: The soonest a run that asked the vendor nothing may be tried again.
+#:
+#: A floor, so a host that goes on refusing cannot turn a daily scan into a
+#: retry loop. The cooldown register doubles its own pause from a minute
+#: towards an hour, and a retry follows that pause rather than racing it.
+MIN_RETRY_MINUTES = 5
+
+#: Added to a cooldown's remaining seconds so the retry lands just after it
+#: expires rather than exactly on it, and finds the host free.
+RETRY_MARGIN_SECONDS = 30
+
+
+def schedule_next(
+    site: Site, from_time: datetime | None = None, *, retry_in_seconds: float | None = None
+) -> None:
+    """Set ``next_scan_at`` from the site's interval.
+
+    ``retry_in_seconds`` is for a run that finished without asking the vendor
+    for anything, because the cooldown register said not to. Such a run takes
+    seconds and learns nothing, and scheduling the next one a full interval out
+    spends a day of a shop's listings on a pause that was at most an hour --
+    which is exactly what Checkpoint Charlie's did: thirteen sections skipped
+    in under a second, every morning, and the next attempt set for tomorrow.
+
+    Never later than the ordinary interval, and never sooner than
+    MIN_RETRY_MINUTES.
+    """
     base = from_time or utcnow()
     interval = max(5, site.scan_interval_minutes)
-    site.next_scan_at = base + timedelta(minutes=interval)
+    due = base + timedelta(minutes=interval)
+    if retry_in_seconds is not None:
+        retry = base + max(
+            timedelta(seconds=retry_in_seconds + RETRY_MARGIN_SECONDS),
+            timedelta(minutes=MIN_RETRY_MINUTES),
+        )
+        due = min(due, retry)
+    site.next_scan_at = due
 
 
 def run_scan(  # noqa: PLR0912,PLR0915 - one linear scan lifecycle; see ROADMAP
@@ -1093,6 +1126,9 @@ def run_scan(  # noqa: PLR0912,PLR0915 - one linear scan lifecycle; see ROADMAP
                 stored_categories=stored_categories,
             )
             seen_at = utcnow()
+            #: Set only when the run ended because a host was resting; read in
+            #: the finally to bring the next attempt forward. See schedule_next.
+            retry_in_seconds: float | None = None
 
             try:
                 log(f"Starting {site.name} scan ({trigger}).")
@@ -1222,6 +1258,17 @@ def run_scan(  # noqa: PLR0912,PLR0915 - one linear scan lifecycle; see ROADMAP
                 run.status = ScanStatus.CANCELED
                 run.error_message = "Canceled by an administrator."
                 log("Scan canceled.")
+            except HostResting as exc:
+                # Our own register, not the vendor's answer. A run that never
+                # got to ask is a failure in the sense that it produced
+                # nothing, and it is emphatically not a reason to wait another
+                # whole interval -- the pause it ran into is an hour at the
+                # very most. So it comes back when the pause lifts.
+                run.status = ScanStatus.FAILED
+                run.error_message = f"{type(exc).__name__}: {exc}"
+                retry_in_seconds = exc.seconds
+                log(f"Scan did not ask: {run.error_message}")
+                log(f"Trying again in about {max(exc.seconds, 0) / 60:.0f} minute(s).")
             except (ScrapeError, Exception) as exc:
                 run.status = ScanStatus.FAILED
                 run.error_message = f"{type(exc).__name__}: {exc}"
@@ -1232,7 +1279,7 @@ def run_scan(  # noqa: PLR0912,PLR0915 - one linear scan lifecycle; see ROADMAP
                 run.finished_at = utcnow()
                 run.duration_seconds = round(time.monotonic() - started, 2)
                 site.last_scan_at = run.finished_at
-                schedule_next(site, run.finished_at)
+                schedule_next(site, run.finished_at, retry_in_seconds=retry_in_seconds)
                 log.flush()
                 session.commit()
 
