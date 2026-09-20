@@ -352,10 +352,9 @@ def _version_mismatch(binary: str | None, driver_path: str | None) -> str:
 def chrome(config: ScrapingConfig) -> Iterator[Any]:
     """Yield a configured headless Chrome driver, always quitting it after."""
     try:
+        from selenium import webdriver
         from selenium.webdriver.chrome.options import Options
         from selenium.webdriver.chrome.service import Service
-
-        from selenium import webdriver
     except ImportError as exc:  # pragma: no cover - depends on host packages
         raise BrowserUnavailable(
             "selenium is not installed; run 'make install' or disable this site."

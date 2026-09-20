@@ -692,11 +692,22 @@ That recovery needs somewhere to put what it downloads, and under the hardened
 unit almost nowhere is: Selenium Manager's default is `~/.cache/selenium`,
 `ProtectHome=true` hides it, and `ProtectSystem=strict` makes the rest of the
 filesystem read-only. So `scraping.selenium.driver_cache` defaults to
-`<state dir>/selenium` — the repository root in dev, `/etc/milsurp` in
-production, which `ReadWritePaths=` already grants — and is exported as
-`SE_CACHE_PATH` unless an administrator has set one. Without it the download
+`/etc/milsurp/selenium`, which `ReadWritePaths=` already grants, and is exported
+as `SE_CACHE_PATH` unless an administrator has set one. Without it the download
 fails on a machine with a working browser, a network and Selenium, and the
 message blames Chrome.
+
+**In dev it is `data/selenium`, not the repository root**, for the same reason
+the image store is not `images/` — and this one bites harder than a tidiness
+argument suggests. A directory named `selenium` beside `pyproject.toml` is not
+inert: ruff's isort decides what is first-party by looking for a matching
+directory under its `src` roots, so creating the cache reclassified the real
+`selenium` package and reordered every `from selenium import …` block in the
+tree. Locally that is a lint failure in a file nobody edited; in CI, which has
+no such directory, it is the opposite failure in the file that was "fixed" to
+satisfy it. Any directory sharing a name with a third-party package does the
+same, so the rule is the general one: **runtime state does not go in the
+repository root.**
 
 **A path you name in `config.yaml` is still never second-guessed.** Naming
 `chromedriver_path` is a decision, so a pinned driver is used even when it does

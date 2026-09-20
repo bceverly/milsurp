@@ -114,11 +114,6 @@ frontend/.vite/
 data/
 !data/.gitkeep
 
-# Drivers Selenium Manager downloads when the machine's own chromedriver is
-# missing or has fallen behind its browser. In dev the state directory is the
-# repository root, so the cache lands here.
-/selenium/
-
 # The dev-mode SQLite database lives in the repo root (production keeps it in
 # /etc/milsurp, or wherever database.path in config.yaml points).
 /milsurp.db

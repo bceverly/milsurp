@@ -483,6 +483,32 @@ class Config:
             self.images_path.chmod(SECURE_DIR_MODE)
 
 
+def _driver_cache(configured: Any, mode: str, state_dir: Path) -> Path:
+    """Where Selenium Manager may keep the drivers it downloads.
+
+    **In dev it goes under data/ rather than the repository root** -- the same
+    trap the image store is already kept out of, in a sharper form. A directory
+    named ``selenium`` beside pyproject.toml is not inert: ruff's isort decides
+    what is first-party by looking for a matching directory under ``src`` (the
+    project root, by default), so the first browser scrape to create the cache
+    reclassified the real ``selenium`` package and reordered every ``from
+    selenium import ...`` block in the tree. Locally that reads as a lint
+    failure in a file nobody edited; in CI, which has no such directory, the
+    file "fixed" to satisfy it fails the opposite way. Two green checkmarks
+    that cannot both be earned, and neither one points at a path default.
+
+    Any directory sharing a name with a third-party package would do the same,
+    so the rule is the general one: runtime state does not go in the repository
+    root. Production has no such problem -- nothing imports anything from
+    /etc/milsurp -- and keeps the plain name.
+    """
+    if configured:
+        return _resolve_path(configured, state_dir)
+    if mode == "dev":
+        return ROOT_DIR / "data" / "selenium"
+    return state_dir / "selenium"
+
+
 def _default_state_dir(mode: str) -> Path:
     """Where the database and images live when the YAML file is silent."""
     return ROOT_DIR if mode == "dev" else ETC_DIR
@@ -733,11 +759,7 @@ def load_config(path: Path | None = None, mode: str | None = None) -> Config:
         headless=bool(sel.get("headless", True)),
         chrome_binary=(sel.get("chrome_binary") or None),
         chromedriver_path=(sel.get("chromedriver_path") or None),
-        driver_cache_path=(
-            _resolve_path(sel["driver_cache"], state_dir)
-            if sel.get("driver_cache")
-            else state_dir / "selenium"
-        ),
+        driver_cache_path=_driver_cache(sel.get("driver_cache"), mode, state_dir),
         max_pages=int(scr.get("max_pages", 60)),
         robots_exceptions=_robots_exceptions(scr.get("robots_exceptions")),
     )

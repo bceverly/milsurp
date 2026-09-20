@@ -249,6 +249,8 @@ scraping:
     chromedriver_path: null          # e.g. /usr/local/bin/chromedriver
     # Where Selenium Manager keeps the drivers it downloads. Its own default
     # is ~/.cache/selenium, which the hardened service unit hides
-    # (ProtectHome=true), so this defaults to <state dir>/selenium instead --
-    # the repository root in dev, /etc/milsurp in production.
+    # (ProtectHome=true), so this defaults to data/selenium in dev and
+    # /etc/milsurp/selenium in production. Not the repository root: a directory
+    # there named after a third-party package changes how ruff's isort
+    # classifies that package's imports.
     driver_cache: null               # e.g. /var/cache/milsurp/selenium
