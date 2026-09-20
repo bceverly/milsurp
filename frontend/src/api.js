@@ -245,6 +245,19 @@ export const api = {
   // --- what a kind of gun goes for, across every dealer at once ---
   market: (params = {}) => request(`/api/market${qs(params)}`),
 
+  // --- hot deals: what is cheap for what it is ---
+  //
+  // One call answers the whole page — the deals, the tab counts, this
+  // reader's subscription and (for an admin) the settings behind it — and
+  // every write answers with the same shape, so the page never has to reload
+  // after a change.
+  hotDeals: (params = {}) => request(`/api/hot-deals${qs(params)}`),
+  updateHotDealPreference: (body) =>
+    request("/api/hot-deals/preference", { method: "PATCH", body }),
+  updateHotDealSettings: (body) =>
+    request("/api/hot-deals/settings", { method: "PATCH", body }),
+  refreshHotDeals: () => request("/api/hot-deals/refresh", { method: "POST" }),
+
   // --- a week in review of the catalog, nobody's filters applied ---
   changes: (params = {}) => request(`/api/changes${qs(params)}`),
 

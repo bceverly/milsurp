@@ -39,7 +39,7 @@ from ..models import (
     as_utc,
     utcnow,
 )
-from . import mailer, search, watchlist
+from . import hotdeals, mailer, search, watchlist
 from .image_store import ImageStore, ImageStoreError
 
 log = logging.getLogger("milsurp.digest")
@@ -1130,3 +1130,243 @@ def due_user_ids(session: Session) -> list[int]:
         if aware is None or aware <= now:
             due.append(user_id)
     return due
+
+
+# ---------------------------------------------------------------------------
+# Hot deals
+# ---------------------------------------------------------------------------
+def _deal_row(deal, base_url: str, site_name: str, photo_cid: str | None) -> str:
+    """One hot deal, led by the size of the discount.
+
+    The saving goes first and in colour, for the reason a watch alert leads
+    with its headline: nobody reads this email to browse. They read it to find
+    out whether anything is worth clicking, and "38% below the usual price" is
+    the sentence that answers that.
+
+    The peer group is named underneath. A discount with nothing behind it is a
+    marketing claim, and this one has 53 listings across 5 shops behind it --
+    saying so is what makes it a measurement instead.
+    """
+    item = deal.item
+    price = _money(item.current_price, item.currency)
+    usual = _money(deal.median_price, item.currency)
+    more = (
+        f'<span style="color:{MUTED};font-size:12px;margin-left:8px;">'
+        f"and {deal.duplicate_count - 1} more like it at this shop</span>"
+        if deal.duplicate_count > 1
+        else ""
+    )
+    here = f"{base_url}/items/{item.id}"
+    picture = (
+        f"""
+        <td width="84" valign="top"
+            style="padding:14px 12px 14px 0;border-bottom:1px solid #E3E8F0;">
+          <a href="{_e(here)}" style="text-decoration:none;">
+            <img src="cid:{photo_cid}" width="72" height="72" alt=""
+                 style="display:block;width:72px;height:72px;object-fit:cover;
+                        border-radius:6px;border:1px solid #E3E8F0;" />
+          </a>
+        </td>"""
+        if photo_cid
+        else ""
+    )
+    return f"""
+      <tr>{picture}
+        <td valign="top" style="padding:14px 0;border-bottom:1px solid #E3E8F0;">
+          <div style="font-size:12px;font-weight:700;letter-spacing:.08em;
+               text-transform:uppercase;color:{BLUE};">
+            {round(deal.discount_percent)}% below the usual price</div>
+          <a href="{_e(here)}" style="color:{NAVY};font-weight:600;font-size:15px;
+             text-decoration:none;line-height:1.35;">{_e(truncate(item.title, TITLE_CHARS))}</a>
+          <div style="color:{MUTED};font-size:12px;margin:5px 0 0;">{_e(site_name)}</div>
+          <div style="color:{MUTED};font-size:12px;margin:4px 0 0;">
+            Usually {usual} &middot; {deal.peer_count} listed across
+            {deal.vendor_count} shop{'s' if deal.vendor_count != 1 else ''}
+          </div>
+          <div style="margin:8px 0 0;">
+            <span style="color:{NAVY};font-weight:700;font-size:16px;">{price}</span>{more}
+          </div>
+        </td>
+      </tr>"""
+
+
+def render_hot_deals(
+    user: User,
+    grouped: dict[str, list],
+    sites: dict[int, Site],
+    config: Config,
+) -> tuple[str, str, dict[str, bytes]]:
+    """``(subject, html_body, inline_images)`` for the hot-deals email.
+
+    Its own renderer rather than another section of :func:`render_digest`.
+    That function already takes eight arguments and composes a message about
+    *what changed*; this one is about what is cheap, is triggered by a
+    different clock, and goes to a different list of people. Threading it
+    through the digest would mean a ninth argument and a subject line trying to
+    say two unrelated things.
+
+    Grouped by category rather than by vendor, because the categories are the
+    filters the reader chose. A digest groups by site because a digest is about
+    sites.
+    """
+    base_url = config.server.public_url
+    total = sum(len(rows) for rows in grouped.values())
+
+    # Named where there is one of it, counted where there are several -- the
+    # same judgment the digest's subject makes about a saved search.
+    if total == 1:
+        only = next(rows[0] for rows in grouped.values() if rows)
+        subject = (
+            f"{BRAND}: {truncate(only.item.title, 52)} is "
+            f"{round(only.discount_percent)}% below the usual price"
+        )
+    else:
+        subject = f"{BRAND}: {total} listings well below the usual price"
+
+    images = inline_images()
+    photo_cids: dict[int, str] = {}
+    store = ImageStore(config)
+    budget = MAX_EMAIL_PHOTO_BYTES
+    for rows in grouped.values():
+        for deal in rows:
+            if len(photo_cids) >= MAX_EMAIL_PHOTOS or budget <= 0:
+                break
+            payload = _photo_for(deal.item, store)
+            if payload is None or len(payload) > budget:
+                continue
+            cid = f"item-{deal.item.id}"
+            images[cid] = payload
+            photo_cids[deal.item.id] = cid
+            budget -= len(payload)
+
+    sections = []
+    for bucket, rows in grouped.items():
+        if not rows:
+            continue
+        body_rows = "".join(
+            _deal_row(
+                deal,
+                base_url,
+                _site_name(sites, deal.item),
+                photo_cids.get(deal.item.id),
+            )
+            for deal in rows
+        )
+        sections.append(f"""
+      <tr><td style="padding:26px 24px 0;">
+        <h2 style="margin:0;font-size:17px;color:{INK};font-weight:700;
+            border-left:4px solid {BLUE};padding-left:10px;">{_e(hotdeals.label(bucket))}</h2>
+      </td></tr>
+      <tr><td style="padding:4px 24px 0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+               style="border-collapse:collapse;">{body_rows}</table>
+      </td></tr>""")
+
+    mark = (
+        f'<img src="cid:{MARK_CID}" width="132" height="82" alt="{_e(BRAND)}" '
+        f'style="display:block;margin:0 auto;border:0;outline:none;text-decoration:none;" />'
+        if _mark_bytes() is not None
+        else ""
+    )
+
+    body = f"""<!doctype html>
+<html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{_e(subject)}</title></head>
+<body style="margin:0;padding:0;background:{PAPER};
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+       style="background:{PAPER};padding:24px 12px;">
+<tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+       style="max-width:620px;background:#FFFFFF;border-radius:12px;overflow:hidden;
+              box-shadow:0 1px 3px rgba(10,34,64,.12);">
+
+  <tr><td style="background:{NAVY};padding:24px;text-align:center;">
+    {mark}
+    <div style="color:#FFFFFF;font-size:20px;font-weight:700;letter-spacing:.02em;
+         margin-top:10px;">{BRAND}</div>
+    <div style="color:{SILVER};font-size:12px;margin-top:4px;">Hot deals</div>
+  </td></tr>
+
+  <tr><td style="padding:20px 24px 0;color:{INK};font-size:14px;line-height:1.5;">
+    Hello {_e(user.full_name or user.username)}, these listings are priced well
+    below what the same gun usually sells for across every dealer we read.
+    Each one is compared only against others of the same model and cartridge.
+  </td></tr>
+
+  {''.join(sections)}
+
+  <tr><td style="padding:26px 24px 24px;">
+    <a href="{_e(base_url)}/hot-deals" style="display:inline-block;background:{BLUE};
+       color:#FFFFFF;text-decoration:none;padding:11px 22px;border-radius:6px;
+       font-weight:600;font-size:14px;">See every hot deal</a>
+  </td></tr>
+
+  <tr><td style="background:{NAVY_DEEP};padding:16px 24px;color:{SILVER};font-size:11px;
+      line-height:1.6;">
+    You are receiving this because hot-deal alerts are on for your {BRAND}
+    account. You will not be told about the same listing twice unless its price
+    moves again. Choose which categories, or turn these off, on
+    <a href="{_e(base_url)}/hot-deals" style="color:#FFFFFF;">the Hot deals page</a>.
+  </td></tr>
+
+</table></td></tr></table></body></html>"""
+    return subject, body, images
+
+
+def send_hot_deals(
+    session: Session, user: User, found: list, config: Config | None = None
+) -> EmailLog:
+    """Mail one reader the deals they have not been told about.
+
+    **Out of band, like a watch alert**, and for the same reasons: it touches
+    neither ``next_send_at`` nor ``last_digest_cutoff``, because moving the
+    digest's watermark would silently swallow the week's new listings; and it
+    does not consult ``EmailPreference.enabled``, because "send me a digest on
+    a schedule" and "tell me when something is cheap" are different requests
+    and somebody with digests off has still made the second one.
+
+    Recording what was said is the caller's job, so a send that failed is
+    retried next pass rather than marked delivered. See ``hotdeals.mark_sent``.
+    """
+    config = config or get_config()
+    sites = {
+        site.id: site
+        for site in session.execute(
+            select(Site).where(Site.id.in_({deal.item.site_id for deal in found}))
+        )
+        .scalars()
+        .all()
+    }
+    grouped: dict[str, list] = {bucket: [] for bucket in hotdeals.BUCKETS}
+    for deal in found:
+        grouped.setdefault(deal.bucket, []).append(deal)
+
+    subject, body, images = render_hot_deals(user, grouped, sites, config)
+
+    try:
+        mailer.send_html(user.email, subject, body, config=config, inline_images=images)
+    except mailer.MailError as exc:
+        entry = EmailLog(
+            user_id=user.id,
+            status=EmailStatus.FAILED,
+            subject=subject,
+            error_message=str(exc),
+            body_html=body,
+            body_text=mailer.html_to_text(body),
+        )
+        session.add(entry)
+        session.commit()
+        return entry
+
+    entry = EmailLog(
+        user_id=user.id,
+        status=EmailStatus.SENT,
+        subject=subject,
+        body_html=body,
+        body_text=mailer.html_to_text(body),
+    )
+    session.add(entry)
+    session.commit()
+    return entry

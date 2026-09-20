@@ -174,6 +174,19 @@ changed — filtered to the sites you care about and capped so it stays readable
   with $40 bayonets. Every band says how many shops it came from and what share
   the largest holds — most of them are one dealer, and a median from one shelf
   is that shop's pricing rather than the market's.
+- **Hot deals.** The Market's answer applied to the shelves, at `/hot-deals`:
+  the listings priced well below what the same gun usually sells for, split
+  into Rifles, Handguns and Police surplus. A pass over the whole catalog runs
+  every 8 hours (an administrator sets the cadence and the thresholds) and
+  every row carries its own evidence — what the gun usually costs, how many are
+  listed, across how many shops — because a discount with nothing behind it is
+  a marketing claim. The rule has a **ceiling** on the discount as well as a
+  floor, and that is the part that matters: past about two thirds below the
+  median a listing has stopped being the same object as its peers, and without
+  the ceiling the page opens with a $25 Luger sear. Every reader is subscribed
+  to all three categories by default and is mailed what they have not seen, with
+  the **price** they were told as the watermark, so a listing that drops again
+  comes back round. See [Hot deals](#hot-deals).
 - **"What changed".** A week in review of the whole catalog, at `/changes` and
   open to every signed-in user — and deliberately not the email digest. That
   one is a shopping list: your sites, your price floor, capped so it fits in a
@@ -1842,6 +1855,85 @@ What it does **not** do is adjust for condition, and on antiques condition and
 rarity dominate price. A $6,995 K98k is not the same object as a $125 one. The
 spectrum says where a price sits among listings of the same pattern; it does
 not say the guns are interchangeable.
+
+### Hot deals
+
+The price spectrum answers "is this a good deal" about a listing you are
+already looking at. **Hot deals asks it the other way round**: of everything on
+every shelf, which listings are well under the going rate right now. That is a
+different question and it needed a different mechanism, because answering it
+means placing *every* listing rather than one.
+
+A pass runs on a schedule — every 8 hours by default, set by an administrator —
+and writes what it finds to a table the page reads. It is not a query run per
+page load: placing a listing means finding its peers, sorting them and reading
+off a rank, and done a listing at a time that is a query each against a catalog
+of nine thousand. Done by loading the pool once and grouping it in memory it is
+**half a second for the whole catalog**, so it is a scheduled job writing a
+cache and the page is a plain indexed read.
+
+**The rule is four numbers, and only one of them is obvious.**
+
+Ranking listings purely by how far below their peers they sit produces a page
+of misclassified parts. Measured on the live catalog, the top of that list was
+a $25 `GERMAN LUGER P.08 PISTOL SEAR` reading as 99% below the median — a sear
+matched to the Luger P.08 model, sitting in a group of complete Lugers. Below
+it: a ZFK-55 bolt, a P.08 magazine, a set of grips, a bare 1911A1 frame, a
+non-firing miniature Colt.
+
+None of those is *mispriced*. They are **mismatched**, and no threshold on
+price separates a mismatch from a bargain — except, it turns out, the size of
+the gap:
+
+| below median | what is actually there |
+| --- | --- |
+| 20–35% | real guns, real bargains — an FN 150 Match at $395 against a $595 median |
+| 35–50% | real — a Walther PPK at $1,750 against $2,750 |
+| 50–65% | real, shading into condition: sporters, "gunsmith specials" |
+| 65–80% | mixed; mostly wrecks and sporterized rifles |
+| 80%+ | magazines, bolts, grips, frames, replicas |
+
+So there is a **ceiling** on the discount as well as a floor, and the ceiling is
+the one doing the work. The floor keeps out the merely-slightly-cheaper — in a
+group whose prices sit within a few dollars the cheapest undercuts every one of
+them and is not a deal. The fourth number is the vendor count: one dealer's
+shelf is that dealer's pricing rather than a market, which is the same finding
+the Market page reports as `concentrated`, so a listing undercutting only its
+own shop's other copies is an internal price spread. All four are settings
+rather than constants, because they are policy and the person who should change
+them is an administrator with a browser.
+
+**Identical offers collapse.** Dealers buy surplus by the crate and list it one
+rifle at a time, and a shop with nine W+F Bern K11s at $295 has nine genuinely
+cheap rifles and exactly one thing to tell somebody. Same gun, same shop, same
+price is one row carrying a count — measured on the live catalog, 216 qualifying
+listings are 163 distinct offers, so a quarter of the page was repetition. Two
+K11s at $295 and $325 stay two rows: the price is the thing being reported, so
+a difference in it is a difference that matters.
+
+**Peers are exactly the ones the listing page draws**, sold listings included,
+so a reader who clicks through does not meet a different number under the same
+words. What is narrowed is the pool of *candidates*: a sold listing is never
+itself offered as a deal, because the buying opportunity is over.
+
+The three filters — Rifles, Handguns, Police surplus — are the browse page's own
+buckets under its own names, read from the same table, so a police trade-in
+Glock lands in one place on both pages. Police surplus is a small corner of any
+catalog and is often empty; the tab stays and carries its count anyway, because
+a tab that vanished when it was empty would read as a missing feature.
+
+**The alert's watermark is a price, not a timestamp.** Everybody is subscribed
+to all three categories until they say otherwise — the *absence* of a
+preference row is the default, which is what gives every existing account the
+feature without a backfill and every new one without a signup step. After each
+pass, every subscriber is mailed the deals they have not been told about, and
+what is remembered per reader is the **price they were told**. A timestamp
+answers "have I mentioned this listing", which is the wrong question: a rifle
+that drops again after we mentioned it is news, and a timestamp says it is not.
+A price answers "have I mentioned this *number*", which is the right one, and it
+is the same reasoning — and the same shape — as `WatchedItem.alerted_price`.
+Marking happens only after the send returns, so a failed email is retried on the
+next pass rather than recorded as delivered.
 
 ### The armory
 

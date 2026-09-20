@@ -103,6 +103,11 @@ class User(Base, TimestampMixin):
     email_preference: Mapped["EmailPreference | None"] = relationship(
         back_populates="user", cascade="all, delete-orphan", uselist=False
     )
+    #: Which hot deals to mail this reader. None means all three, which is
+    #: what every account has until it says otherwise -- see HotDealPreference.
+    hot_deal_preference: Mapped["HotDealPreference | None"] = relationship(
+        back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )
     email_logs: Mapped[list["EmailLog"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
@@ -1488,3 +1493,190 @@ class EmailLog(Base):
     body_text: Mapped[str | None] = mapped_column(Text)
 
     user: Mapped["User"] = relationship(back_populates="email_logs")
+
+
+class HotDealSetting(Base, TimestampMixin):
+    """What counts as a hot deal, and how often the catalog is re-read for them.
+
+    **One row, id 1**, for the same reason :class:`BackupSetting` has one: this
+    is a property of the installation, and there is nothing to key it by.
+
+    Every threshold here was measured against the live catalog rather than
+    picked, and the defaults are what that measurement said. Of 9,323 active
+    priced listings, 4,092 have at least three peers of the same model and
+    cartridge; ranking those purely by how far below their peers they sit puts
+    a $25 ``GERMAN LUGER P.08 PISTOL SEAR`` at the top of the page, because a
+    sear matched to the Luger model sits in a group of complete Lugers and
+    reads as 99% below the median. The discount *ceiling* is what keeps the
+    parts, the replicas and the wrecks out, and it is the reason this is four
+    numbers rather than one. See :mod:`app.services.hotdeals`.
+    """
+
+    __tablename__ = "hot_deal_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    #: Hours between passes over the catalog. Measured from ``last_run_at``
+    #: rather than from a timer, so a process that restarts twice a day still
+    #: refreshes on its own cadence -- the same argument backups make.
+    interval_hours: Mapped[int] = mapped_column(Integer, default=8, nullable=False)
+
+    #: How many of its peers a listing must undercut, as a percentage. This is
+    #: ``PricePosition.cheaper_than``, which is the statistic the listing page
+    #: already prints, so a deal here and "cheaper than 84% of them" there are
+    #: the same sentence.
+    min_cheaper_than: Mapped[int] = mapped_column(Integer, default=80, nullable=False)
+
+    #: How far below the group's median the price must be, as a percentage.
+    #: The floor keeps out the merely-slightly-cheaper: in a group whose
+    #: prices all sit within a few dollars, the cheapest undercuts every one
+    #: of them and is not a deal.
+    min_discount_percent: Mapped[int] = mapped_column(Integer, default=20, nullable=False)
+
+    #: ...and the ceiling, which is the one that does the real work. Measured:
+    #: between 20% and 65% below the median the listings are guns, and good
+    #: ones -- an FN 150 Match at $395 against a $595 median, a Walther PPK at
+    #: $1,750 against $2,750. Past about 65% they stop being the same object as
+    #: their peers: a magazine, a bolt, a frame, a non-firing miniature, a
+    #: sporterized wreck. No threshold tells those apart from a bargain,
+    #: because they are not mispriced -- they are mismatched.
+    max_discount_percent: Mapped[int] = mapped_column(Integer, default=65, nullable=False)
+
+    #: How many different shops the peer group must span. One dealer's shelf is
+    #: that dealer's pricing and not a market -- the same finding the Market
+    #: page reports as `concentrated` -- so a listing undercutting only its own
+    #: shop's other copies is an internal price spread rather than a deal.
+    min_vendors: Mapped[int] = mapped_column(Integer, default=2, nullable=False)
+
+    #: What happened last time, so the page can say so without reading a log.
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime)
+    last_status: Mapped[str | None] = mapped_column(String(16))
+    last_error: Mapped[str | None] = mapped_column(String(500))
+    #: How many deals the last pass found, and how many listings it considered.
+    last_deal_count: Mapped[int | None] = mapped_column(Integer)
+    last_considered: Mapped[int | None] = mapped_column(Integer)
+    last_seconds: Mapped[float | None] = mapped_column(Float)
+
+
+class HotDeal(Base):
+    """One listing that is currently cheap for what it is.
+
+    **A cache with a clock, not a record.** Every row is rebuilt from scratch
+    by each pass, so nothing here is a fact worth keeping -- it is the answer
+    to a question that takes a minute to compute and is asked by every page
+    load. ``first_listed_at`` is the exception and is carried across a rebuild:
+    "new since you last looked" needs to survive the recompute that finds the
+    same deal again.
+
+    Keyed by item, one row per listing. The bucket is stored rather than
+    derived on read so the three filters are an indexed column rather than a
+    boolean expression over four flags.
+    """
+
+    __tablename__ = "hot_deals"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    item_id: Mapped[int] = mapped_column(
+        ForeignKey("items.id", ondelete="CASCADE"), unique=True, nullable=False, index=True
+    )
+    #: rifle | pistol | police_surplus. The browse filter's own buckets, from
+    #: :data:`app.services.search.KINDS`, so the two pages cannot disagree
+    #: about where a police trade-in Glock belongs.
+    bucket: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+
+    #: The price this deal was computed from. Compared against the listing's
+    #: live price to tell a stale row from a current one, and it is what an
+    #: alert's watermark is measured against -- see :class:`HotDealNotice`.
+    price: Mapped[float] = mapped_column(Float, nullable=False)
+    median_price: Mapped[float] = mapped_column(Float, nullable=False)
+    #: How far below the median, as a percentage. The sort key for the page:
+    #: the whole point is "show me the best ones first".
+    discount_percent: Mapped[float] = mapped_column(Float, nullable=False, index=True)
+    #: How many peers this undercuts, as a percentage.
+    cheaper_than: Mapped[int] = mapped_column(Integer, nullable=False)
+    peer_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    vendor_count: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    #: How many identical offers this row stands for: the same gun, at the
+    #: same shop, at the same price. One, for nearly all of them.
+    #:
+    #: Dealers buy surplus by the crate and list it one rifle at a time. A
+    #: shop with nine W+F Bern K11s at $295 has nine genuinely cheap rifles
+    #: and one thing to tell somebody, and without this the page opened with
+    #: nine identical rows -- measured, on the catalog as it stands: 216
+    #: qualifying listings are 163 distinct offers.
+    duplicate_count: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+    #: When this listing first became a deal, carried across rebuilds.
+    first_listed_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
+    #: When the pass that wrote this row ran.
+    computed_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
+
+    item: Mapped["Item"] = relationship()
+
+
+class HotDealPreference(Base, TimestampMixin):
+    """Which hot deals one reader wants mailed, and whether they want any.
+
+    **No row means subscribed to all three**, which is how every existing
+    account gets the feature without a backfill and how every new one gets it
+    without a signup step. A row exists only once somebody has changed
+    something. The same shape ``EmailPreferenceSite`` uses for "no rows means
+    every site".
+
+    Separate from :class:`EmailPreference` rather than four more columns on it.
+    That row answers "send me a digest on a schedule" and carries a schedule's
+    worth of machinery -- a frequency, a watermark, a next-send time. This
+    answers "tell me when something is cheap", has no schedule of its own, and
+    fires when the pass that finds them finishes. Somebody with digests off has
+    still asked for these.
+    """
+
+    __tablename__ = "hot_deal_preferences"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False, index=True
+    )
+
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
+    include_rifles: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    include_handguns: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    include_police_surplus: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    last_sent_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    user: Mapped["User"] = relationship(back_populates="hot_deal_preference")
+
+
+class HotDealNotice(Base):
+    """One deal this reader has already been told about, and at what price.
+
+    **The watermark is a price, not a time**, which is the whole of what makes
+    the next email different from the last one. Without a memory of its own,
+    every pass would mail the same hundred listings; with a timestamp, a
+    listing that dropped again after we mentioned it would read as "already
+    told you about that one". A price gets both right, and it is the same
+    reasoning -- and the same shape -- as ``WatchedItem.alerted_price``.
+
+    So a price change clears the notice by contradicting it rather than by
+    deleting it: the row still says "$1,750 was mentioned", the listing now
+    says $1,500, and the two disagreeing is exactly the signal to mail again.
+    """
+
+    __tablename__ = "hot_deal_notices"
+    __table_args__ = (UniqueConstraint("user_id", "item_id", name="uq_hot_deal_notice"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    item_id: Mapped[int] = mapped_column(
+        ForeignKey("items.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    #: The price this reader was told about.
+    price: Mapped[float] = mapped_column(Float, nullable=False)
+    sent_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
+
+    user: Mapped["User"] = relationship()
+    item: Mapped["Item"] = relationship()

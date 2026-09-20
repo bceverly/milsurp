@@ -1330,3 +1330,102 @@ class SystemStatusOut(BaseModel):
 
 TokenResponse.model_rebuild()
 SiteOut.model_rebuild()
+
+
+# ---------------------------------------------------------------------------
+# Hot deals
+# ---------------------------------------------------------------------------
+class HotDealOut(UTCModel):
+    """One listing that is cheap for what it is, with the evidence attached.
+
+    The listing travels whole, as an ``ItemOut``, so the page can render a
+    deal with the same card it renders a search result with. What is added is
+    the *measurement* -- and all of it is added, rather than only the headline
+    percentage, because a discount with nothing behind it is a marketing claim
+    and this one has a peer count and a vendor count behind it.
+    """
+
+    item: ItemOut
+    bucket: str
+    bucket_label: str
+    price: float
+    median_price: float
+    discount_percent: float
+    cheaper_than: int
+    peer_count: int
+    vendor_count: int
+    #: How many identical offers this row stands for -- the same gun, at the
+    #: same shop, at the same price. One, for nearly all of them.
+    duplicate_count: int
+    first_listed_at: datetime
+
+
+class HotDealSettingsOut(UTCModel):
+    """UTCModel for the same reason BackupSettingsOut is: these datetimes are
+    naive-but-UTC, and without the serializer "last run" reaches the browser
+    with no zone and is read as local."""
+
+    enabled: bool
+    interval_hours: int
+    min_cheaper_than: int
+    min_discount_percent: int
+    max_discount_percent: int
+    min_vendors: int
+    last_run_at: datetime | None = None
+    last_status: str | None = None
+    last_error: str | None = None
+    last_deal_count: int | None = None
+    last_considered: int | None = None
+    last_seconds: float | None = None
+
+
+class HotDealSettingsUpdate(BaseModel):
+    """Every field optional: the page sends the one that changed."""
+
+    enabled: bool | None = None
+    interval_hours: int | None = None
+    min_cheaper_than: int | None = None
+    min_discount_percent: int | None = None
+    max_discount_percent: int | None = None
+    min_vendors: int | None = None
+
+
+class HotDealPreferenceOut(BaseModel):
+    """One reader's subscription.
+
+    Always populated, even where no row exists -- the absence *is* the default
+    and means all three categories, so a page that had to distinguish the two
+    would be reading a storage detail. See models.HotDealPreference.
+    """
+
+    enabled: bool
+    include_rifles: bool
+    include_handguns: bool
+    include_police_surplus: bool
+    last_sent_at: datetime | None = None
+
+
+class HotDealPreferenceUpdate(BaseModel):
+    enabled: bool | None = None
+    include_rifles: bool | None = None
+    include_handguns: bool | None = None
+    include_police_surplus: bool | None = None
+
+
+class HotDealsOut(BaseModel):
+    """The page's whole answer: the deals, the tabs, and who is subscribed."""
+
+    bucket: str | None = None
+    deals: list[HotDealOut]
+    #: How many each filter holds, so the tabs can carry counts without three
+    #: more requests.
+    counts: dict[str, int]
+    labels: dict[str, str]
+    #: The order the filters are offered in, decided server-side so the page
+    #: and the email cannot disagree about it.
+    buckets: list[str]
+    preference: HotDealPreferenceOut
+    #: Present for administrators only; None for everybody else, which is what
+    #: the page keys the settings panel off rather than re-deriving the role.
+    settings: HotDealSettingsOut | None = None
+    interval_choices: list[int] | None = None

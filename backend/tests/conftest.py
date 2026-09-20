@@ -206,7 +206,17 @@ def clean_db(_database):
     db = get_session_factory()()
     try:
         # Reverse dependency order so foreign keys never block a delete.
+        #
+        # `hot_deal_settings` is the one that needs naming rather than relying
+        # on a cascade: it is a single policy row belonging to the
+        # installation, so nothing deletes it when the users and items go, and
+        # a test that switched the schedule off or recorded a run left that
+        # sitting there for whatever ran next.
         for table in (
+            "hot_deal_notices",
+            "hot_deal_preferences",
+            "hot_deals",
+            "hot_deal_settings",
             "email_logs",
             "email_preference_sites",
             "email_preferences",

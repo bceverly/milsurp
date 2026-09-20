@@ -10,6 +10,7 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth.jsx";
 import {
   Bookmark,
+  Flame,
   Logout,
   Mail,
   Menu,
@@ -40,6 +41,12 @@ const NAV = [
   // Beside it, because the two are the same instinct at different scales:
   // what moved this week, and what things are worth in general.
   { to: "/market", label: "Market", icon: Sparkle },
+  // And directly under the Market, because it is the Market's answer applied
+  // to the shelves: that page says what a gun is worth, this one says which
+  // listings are well under it. Above the saved searches for the same reason
+  // "What changed" is — it is something the catalog worked out while you were
+  // away, rather than a question you left behind.
+  { to: "/hot-deals", label: "Hot deals", icon: Flame },
   { to: "/saved-searches", label: "Saved searches", icon: Bookmark },
   // Beside saved searches, and after it: a saved search is a standing question
   // about the catalog, a watchlist a standing question about particular guns.

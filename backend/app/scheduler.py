@@ -26,7 +26,15 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from .config import Config, get_config
 from .database import session_scope
 from .models import EmailStatus, User, utcnow
-from .services import backup, digest, pushnotify, scan_service, watchlist, watchpoll
+from .services import (
+    backup,
+    digest,
+    hotdeals,
+    pushnotify,
+    scan_service,
+    watchlist,
+    watchpoll,
+)
 
 log = logging.getLogger("milsurp.scheduler")
 
@@ -138,6 +146,95 @@ class Scheduler:
         # almost every tick.
         self._dispatch_watch_alerts()
         self._dispatch_backup()
+        self._dispatch_hot_deals()
+
+    # -- hot deals ----------------------------------------------------------
+    def _dispatch_hot_deals(self) -> None:
+        """Re-read the catalog for bargains, then tell whoever asked to hear.
+
+        Checked on every tick rather than on a timer of its own, for the reason
+        backups are: what makes a pass due is the age of the last one, recorded
+        on the settings row, and a timer would reset on every restart. The
+        check is a single row read returning False on almost every tick.
+
+        **The mail goes out in the same breath as the pass, not on a clock of
+        its own.** What makes a hot-deal email due is the arrival of a hot deal,
+        and a reader asking to hear about bargains is not asking to hear about
+        them six hours after they were found.
+
+        The pass runs on the tick thread. It is arithmetic over rows already in
+        the database -- measured at half a second against nine thousand
+        listings -- so a worker would be more moving parts than the problem
+        needs. See services/hotdeals.
+        """
+        try:
+            with session_scope() as session:
+                if not hotdeals.is_due(session):
+                    return
+                result = hotdeals.refresh(session)
+                hotdeals.forget_stale_notices(session)
+        except Exception as exc:
+            # Never let this stop the scans. It is logged, recorded on the
+            # settings row for the page to show, and the next tick tries again.
+            log.exception("Hot deals refresh failed")
+            try:
+                with session_scope() as session:
+                    hotdeals.record_failure(session, exc)
+            except Exception:
+                log.exception("Could not record the hot deals failure")
+            return
+
+        log.info(
+            "Hot deals: %s found from %s considered listing(s) in %.2fs.",
+            result.found,
+            result.considered,
+            result.seconds,
+        )
+        self._mail_hot_deals()
+
+    def _mail_hot_deals(self) -> None:
+        """One email per subscriber, each in its own session.
+
+        Two passes like the watch alerts: the first asks only *who*, because
+        the rows it loads belong to a session that closes with it, and the
+        second re-reads inside the session that will do the marking.
+
+        Marked only after the send returns, so a failure is retried on the next
+        pass rather than recorded as delivered -- the one ordering that matters
+        when the thing being promised is an email.
+        """
+        try:
+            with session_scope() as session:
+                user_ids = hotdeals.subscribed_user_ids(session)
+        except Exception:
+            log.exception("Could not determine who wants hot deals")
+            return
+
+        for user_id in user_ids:
+            if self._stop.is_set():
+                return
+            try:
+                with session_scope() as session:
+                    user = session.get(User, user_id)
+                    if user is None:
+                        continue
+                    fresh = hotdeals.unsent_for(session, user)
+                    if not fresh:
+                        continue
+                    result = digest.send_hot_deals(session, user, fresh, self.config)
+                    if result.status is EmailStatus.SENT:
+                        hotdeals.mark_sent(session, user, fresh)
+                        row = hotdeals.preference(session, user)
+                        row.last_sent_at = utcnow()
+                        session.commit()
+                    log.info(
+                        "Hot deals for %s: %s (%s listing(s)).",
+                        user.username,
+                        result.status.value,
+                        len(fresh),
+                    )
+            except Exception:
+                log.exception("Hot deals email for user %s raised", user_id)
 
     # -- backups ------------------------------------------------------------
     def _dispatch_backup(self) -> None:

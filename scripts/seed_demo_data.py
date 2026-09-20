@@ -40,7 +40,7 @@ from app.models import (  # noqa: E402
     Site,
     utcnow,
 )
-from app.services import classify  # noqa: E402
+from app.services import classify, hotdeals  # noqa: E402
 from app.services.image_store import ImageStore  # noqa: E402
 
 # (title, price, category, age_days, sold, previous_price)
@@ -80,6 +80,29 @@ LISTINGS: tuple[tuple[str, float | None, str, int, bool, float | None], ...] = (
     ("Original leather ammo pouch, Wehrmacht", 85.0, "Accessory", 28, False, None),
     ("MOSIN Nagant M38 carbine", None, "Rifle", 3, False, None),
     ("FRENCH MAS 36 rifle, 7.5x54", 795.0, "Rifle", 45, False, None),
+    # --- Enough of each gun for a *hot deal* to exist ----------------------
+    #
+    # A listing is a hot deal when it undercuts 80% of its peers and sits
+    # 20-65% below their median, across at least two shops. The Mosins above
+    # are five listings whose cheapest is 18% below the median -- a spectrum,
+    # which is what they were added for, but not a bargain. These are the
+    # dearer peers that make one: with them the group is nine, the median is
+    # $700, and the $349 refurbished Mosin lands 50% below it.
+    #
+    # Without these the Hot deals page is empty in a demo database and the
+    # tests covering it cover an empty state, which is not a test.
+    ("RUSSIAN Mosin Nagant M91/30 7.62x54R, Izhevsk 1938", 700.0, "Rifle", 17, False, None),
+    ("RUSSIAN Mosin Nagant M91/30 7.62x54R, arsenal marked", 700.0, "Rifle", 19, False, None),
+    ("RUSSIAN Mosin Nagant M91/30 7.62x54R, laminate stock", 700.0, "Rifle", 21, False, None),
+    ("RUSSIAN Mosin Nagant M91/30 7.62x54R, matching bolt", 700.0, "Rifle", 23, False, None),
+    # And the same shape for a handgun, so the page has more than one category
+    # with anything in it. Five at $695 against one at $375.
+    ("RUSSIAN Tokarev TT-33 7.62x25mm, refinished", 375.0, "Handgun", 10, False, None),
+    ("RUSSIAN Tokarev TT-33 7.62x25mm, 1943 Tula", 695.0, "Handgun", 12, False, None),
+    ("RUSSIAN Tokarev TT-33 7.62x25mm, import marked", 695.0, "Handgun", 14, False, None),
+    ("RUSSIAN Tokarev TT-33 7.62x25mm, holster rig", 695.0, "Handgun", 16, False, None),
+    ("RUSSIAN Tokarev TT-33 7.62x25mm, matching numbers", 695.0, "Handgun", 18, False, None),
+    ("RUSSIAN Tokarev TT-33 7.62x25mm, excellent bore", 695.0, "Handgun", 24, False, None),
 )
 
 #: The curated listings above are 28, and the browse grid shows 48 to a page —
@@ -259,32 +282,61 @@ def _make_placeholder_photos(store: ImageStore, item: Item, count: int) -> list[
     return written
 
 
-def _demo_model(session) -> FirearmModel:
-    """One approved armory row, so the item page has a model to open.
+#: The armory rows the seeder creates, and the title text that matches each.
+#:
+#: Two, not one. The first exists so the item page has a model to open its
+#: armory panel from; the second exists so the Hot deals page has a bargain in
+#: more than one category, and a page whose whole job is three filters is not
+#: tested by a fixture that can only fill one of them.
+_DEMO_MODELS: tuple[tuple[str, str, str, str, str], ...] = (
+    (
+        "Mosin-Nagant M91/30",
+        "Mosin Nagant M91/30",
+        "M91/30\n91/30",
+        "Russia",
+        "https://en.wikipedia.org/wiki/Mosin%E2%80%93Nagant",
+    ),
+    (
+        "Tokarev TT-33",
+        "Tokarev TT-33",
+        "TT-33\nTT33",
+        "Russia",
+        "https://en.wikipedia.org/wiki/TT_pistol",
+    ),
+)
+
+
+def _demo_models(session) -> dict[str, FirearmModel]:
+    """Approved armory rows, keyed by the title text that matches them.
 
     Everything else the seeder makes goes through classify.enrich(), which
     never consults the armory -- so without this the "What the armory knows"
     panel is unreachable in a demo database and the test covering it skips
     itself, which is not a test.
     """
-    model = session.execute(
-        select(FirearmModel).where(FirearmModel.name == "Mosin-Nagant M91/30")
-    ).scalar_one_or_none()
-    if model is None:
-        model = FirearmModel(
-            name="Mosin-Nagant M91/30",
-            aliases="M91/30\n91/30",
-            kind=FirearmKind.RIFLE,
-            country="Russia",
-            wikipedia_url="https://en.wikipedia.org/wiki/Mosin%E2%80%93Nagant",
-            status=ArmoryStatus.APPROVED,
-        )
-        session.add(model)
-        session.flush()
-    elif model.status is not ArmoryStatus.APPROVED:
-        model.status = ArmoryStatus.APPROVED
+    found: dict[str, FirearmModel] = {}
+    for name, matches, aliases, country, reference in _DEMO_MODELS:
+        model = session.execute(
+            select(FirearmModel).where(FirearmModel.name == name)
+        ).scalar_one_or_none()
+        if model is None:
+            model = FirearmModel(
+                name=name,
+                aliases=aliases,
+                # The kind follows the name: a TT-33 is a handgun, and saying
+                # so is what keeps it out of the Rifles filter.
+                kind=FirearmKind.PISTOL if "TT-33" in name else FirearmKind.RIFLE,
+                country=country,
+                wikipedia_url=reference,
+                status=ArmoryStatus.APPROVED,
+            )
+            session.add(model)
+            session.flush()
+        elif model.status is not ArmoryStatus.APPROVED:
+            model.status = ArmoryStatus.APPROVED
+        found[matches] = model
     session.commit()
-    return model
+    return found
 
 
 def seed(  # noqa: PLR0912 - a linear fixture builder; branches are per-field
@@ -307,7 +359,7 @@ def seed(  # noqa: PLR0912 - a linear fixture builder; branches are per-field
             if not quiet:
                 print("  Cleared existing listings.")
 
-        model = _demo_model(session)
+        models = _demo_models(session)
 
         created = 0
         for index, (title, price, category, age_days, sold, previous) in enumerate(ALL_LISTINGS):
@@ -368,7 +420,9 @@ def seed(  # noqa: PLR0912 - a linear fixture builder; branches are per-field
                 price_changed_at=(now - timedelta(hours=index + 1)) if previous else None,
                 # Matched the way a scan would match it, so the item page has
                 # a model to open the armory panel from.
-                firearm_model_id=(model.id if "Mosin Nagant M91/30" in title else None),
+                firearm_model_id=next(
+                    (row.id for text, row in models.items() if text in title), None
+                ),
             )
             session.add(item)
             session.flush()
@@ -454,8 +508,19 @@ def seed(  # noqa: PLR0912 - a linear fixture builder; branches are per-field
 
         session.commit()
 
+        # And one pass over what was just seeded, so the Hot deals page has
+        # something on it.
+        #
+        # Needed because the scheduler is switched off in a demo or test
+        # database, and it is the scheduler that normally runs this. A page
+        # that is empty for that reason is indistinguishable from one that is
+        # empty because the rule is broken, which is not a state to leave a
+        # test suite in.
+        found = hotdeals.refresh(session)
+
     if not quiet:
         print(f"  Seeded {created} sample listing(s) across {len(sites)} site(s).")
+        print(f"  Found {found.found} hot deal(s) among them.")
     return 0
 
 

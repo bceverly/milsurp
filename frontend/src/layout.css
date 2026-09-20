@@ -2741,3 +2741,191 @@
   padding: 5px 8px;
   font-size: 13px;
 }
+
+/* --- Hot deals ------------------------------------------------------------
+   A list rather than a grid of cards, and for the same reason the watchlist
+   and the similar-listings strip are lists: the comparison runs *down* the
+   page against a price, and a grid asks the eye to travel sideways to make
+   it. Every row carries its own evidence, so the rows are taller than a
+   watchlist's and the discount has to be readable before the title is. */
+.deal-lede {
+  margin: 8px 0 16px;
+  max-width: 68ch;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.deals {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.deal__link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 8px;
+  border-radius: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.deal__link:hover,
+.deal__link:focus-visible {
+  background: var(--navy-50);
+}
+
+.deal__thumb {
+  width: 64px;
+  height: 48px;
+  flex: 0 0 auto;
+  object-fit: cover;
+  border-radius: 5px;
+  background: var(--silver-100);
+}
+
+.deal__text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+/* The saving, first and loud. Nobody opens this page to browse — they open it
+   to find out whether anything is worth clicking, and this is the sentence
+   that answers that. */
+.deal__headline {
+  align-self: flex-start;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--green-600);
+}
+
+.deal__title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.deal__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 11.5px;
+  color: var(--ink-500);
+}
+
+/* How many identical listings this row stands for. Stated rather than
+   implied: collapsing eight rows into one is a decision, and a page that made
+   it silently would be hiding seven listings. */
+.deal__more {
+  font-weight: 600;
+  color: var(--navy-600);
+}
+
+.deal__price {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.deal__since {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--ink-500);
+}
+
+.deal-panel {
+  margin-top: 18px;
+}
+
+.deal-panel .switch {
+  display: flex;
+}
+
+.deal-panel__note {
+  margin: 10px 0 0;
+  max-width: 64ch;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.deal-panel__cats {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border: 1px solid var(--silver-200);
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+}
+
+.deal-panel__cats legend {
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+
+.deal-panel__cats:disabled {
+  opacity: 0.5;
+}
+
+.deal-panel__field {
+  margin-top: 12px;
+  max-width: 340px;
+}
+
+.deal-panel__last {
+  margin: 16px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 32px;
+}
+
+.deal-panel__last div {
+  margin: 0;
+}
+
+.deal-panel__last dt {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+
+.deal-panel__last dd {
+  margin: 3px 0 0;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .deal__thumb {
+    width: 52px;
+    height: 40px;
+  }
+  .deal__price {
+    align-self: flex-start;
+  }
+}

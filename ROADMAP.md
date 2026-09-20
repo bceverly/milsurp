@@ -3379,6 +3379,51 @@ fact.
   run from −39% to +33%: noise wearing a percent sign. The unweighted version
   looked far better and was worse, reporting an 85% gap for 9mm Luger that was
   entirely a difference in *which dealers* turn over stock.
+- **Shipped** — Hot deals. `app/services/hotdeals.py`, `GET /api/hot-deals`,
+  and a page at `/hot-deals` open to every signed-in user: of everything on
+  every shelf, which listings are well under the going rate. The Market view
+  above says what a gun is worth and the item page's spectrum says where one
+  listing sits; this is those two pointed at the whole catalog at once, which
+  is the question somebody has when they do not yet know what they are looking
+  for.
+
+  **A scheduled pass, not a query.** Placing a listing means finding its peers,
+  sorting them and reading off a rank; a listing at a time that is a query
+  each, against nine thousand listings. Loading the pool once and grouping it
+  in memory is **0.47s for the whole catalog**, so it runs on a cadence (8
+  hours by default), writes a cache table, and the page is a plain indexed
+  read. `test_hotdeals.py` holds the grouped pass to the same answer
+  `pricing.position()` gives listing by listing, because two implementations of
+  one rule is a thing that drifts.
+
+  **The finding came out of building it, and it is the same shape as the
+  Market's.** Ranking by how far below its peers a listing sits produces a page
+  of misclassified parts: the top of that list was a $25 `GERMAN LUGER P.08
+  PISTOL SEAR` at 99% below the median, a sear sitting in a group of complete
+  Lugers, followed by a ZFK-55 bolt, a P.08 magazine, a bare 1911A1 frame and a
+  non-firing miniature Colt. None is *mispriced* — they are **mismatched**, and
+  no threshold on price separates the two. Except the size of the gap: sampled
+  by band, 20–35% below the median is real bargains, 35–65% is real, and past
+  about 65% it is parts and replicas. So there is a **ceiling** on the discount
+  as well as a floor, and the ceiling is the load-bearing half.
+
+  The other two numbers: a floor, because in a group whose prices sit within a
+  few dollars the cheapest undercuts all of them and is not a deal; and a
+  minimum vendor count, because one dealer's shelf is that dealer's pricing
+  rather than a market — the `concentrated` finding above, applied. All four are
+  administrator settings rather than constants, since they are policy.
+
+  **Identical offers collapse.** Dealers buy surplus by the crate and list it a
+  rifle at a time; 216 qualifying listings were 163 distinct offers, so a
+  quarter of the page was nine identical K11s at $295. Same gun, same shop,
+  same price is one row with a count on it.
+
+  **The alert's watermark is a price, not a timestamp**, which is the precedent
+  `WatchedItem.alerted_price` set and the same reasoning: a timestamp answers
+  "have I mentioned this listing", and a rifle that drops again after we
+  mentioned it is news. Everybody is subscribed to all three categories by
+  default, and the default lives in the *absence* of a preference row — which
+  is what gave every existing account the feature without a backfill.
 - **Fixed** — *Unknown timezone 'America/Indianapolis'* when saving the digest
   settings on production. Debian 12 and Ubuntu 23.04 moved the IANA
   backward-compatibility links into a separate `tzdata-legacy` package that

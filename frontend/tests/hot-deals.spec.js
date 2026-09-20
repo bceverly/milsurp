@@ -1,0 +1,150 @@
+/**
+ * The hot deals page.
+ *
+ * What it holds is the shape of the page rather than the arithmetic — the rule
+ * itself is measured in `backend/tests/test_hotdeals.py`, where a fixture can
+ * say what a bargain is without depending on a seeded catalog.
+ *
+ * Three things here are worth pinning. Every row shows its *evidence*, because
+ * a discount with nothing behind it is a marketing claim. The three filters are
+ * always offered with their counts, including the empty one — police surplus is
+ * a small corner of any catalog and a tab that vanished when it was empty would
+ * read as a missing feature. And the operator's panel and the reader's panel
+ * come apart cleanly: everybody chooses their own categories, only an
+ * administrator changes what counts as a deal for everybody.
+ */
+import { test, expect } from "./fixtures.js";
+
+test.describe("hot deals", () => {
+  test.beforeEach(async ({ signedIn }) => {
+    await signedIn.getByRole("link", { name: "Hot deals" }).click();
+    await expect(signedIn.getByRole("heading", { name: "Hot deals" })).toBeVisible();
+  });
+
+  test("lists what is cheap for what it is", async ({ signedIn }) => {
+    const rows = signedIn.locator(".deal");
+    await expect(rows.first()).toBeVisible();
+    // The saving first and in colour: nobody opens this page to browse.
+    await expect(rows.first().locator(".deal__headline")).toContainText(
+      /% below the usual price/,
+    );
+  });
+
+  test("and says what the claim rests on", async ({ signedIn }) => {
+    // "50% off" is a marketing claim. "50% off, 9 listed across 7 shops" is a
+    // measurement, and the difference is the whole point of the page.
+    const meta = signedIn.locator(".deal").first().locator(".deal__meta");
+    await expect(meta).toContainText(/Usually \$/);
+    await expect(meta).toContainText(/listed across \d+ shops?/);
+    await expect(meta).toContainText(/Cheaper than \d+% of them/);
+  });
+
+  test("the three filters are always offered, empty ones included", async ({
+    signedIn,
+  }) => {
+    for (const name of [/^Rifles/, /^Handguns/, /^Police surplus/]) {
+      await expect(signedIn.getByRole("tab", { name })).toBeVisible();
+    }
+    // Police surplus is a small corner of any catalog. A tab that disappeared
+    // when it was empty would read as a missing feature rather than an empty
+    // one, so it stays and carries its count.
+    await expect(signedIn.getByRole("tab", { name: /^Police surplus/ })).toContainText(
+      "(0)",
+    );
+  });
+
+  test("choosing one narrows the list without changing the counts", async ({
+    signedIn,
+  }) => {
+    await signedIn.getByRole("tab", { name: /^Handguns/ }).click();
+    await expect(signedIn.locator(".deal")).toHaveCount(1);
+    // The tabs still describe the whole page, which is the point of a count
+    // on a tab you are not looking at.
+    await expect(signedIn.getByRole("tab", { name: /^Rifles/ })).toContainText("(1)");
+  });
+
+  test("an empty category says why rather than showing nothing", async ({ signedIn }) => {
+    await signedIn.getByRole("tab", { name: /^Police surplus/ }).click();
+    await expect(signedIn.locator(".deal")).toHaveCount(0);
+    await expect(signedIn.getByText(/Nothing here at the moment/)).toBeVisible();
+  });
+
+  test("a deal links through to the listing behind it", async ({ signedIn }) => {
+    await signedIn.locator(".deal__link").first().click();
+    await expect(signedIn).toHaveURL(/\/items\/\d+/);
+  });
+
+  // The checkbox inside a `.switch` is visually hidden so the track can be
+  // styled, so the label is what gets clicked and the input is what gets
+  // asserted on — the same split admin.spec.js uses for a site's switch.
+  const switchFor = (page, name) =>
+    page.locator("label.switch").filter({ hasText: name });
+
+  test("the reader chooses which categories to be mailed about", async ({ signedIn }) => {
+    // On by default, for everybody, without anyone having opted in.
+    await expect(
+      switchFor(signedIn, "Send me hot deals").getByRole("checkbox"),
+    ).toBeChecked();
+
+    const police = switchFor(signedIn, "Police surplus");
+    await expect(police.getByRole("checkbox")).toBeChecked();
+    await police.click();
+    await expect(police.getByRole("checkbox")).not.toBeChecked();
+
+    // It survives a reload, which is the only proof the change was saved
+    // rather than merely rendered.
+    await signedIn.reload();
+    await expect(
+      switchFor(signedIn, "Police surplus").getByRole("checkbox"),
+    ).not.toBeChecked();
+    await switchFor(signedIn, "Police surplus").click();
+    await expect(
+      switchFor(signedIn, "Police surplus").getByRole("checkbox"),
+    ).toBeChecked();
+  });
+
+  test("turning the alert off disables the categories with it", async ({ signedIn }) => {
+    const subscribed = switchFor(signedIn, "Send me hot deals");
+    const rifles = switchFor(signedIn, "Rifles").getByRole("checkbox");
+
+    await subscribed.click();
+    await expect(subscribed.getByRole("checkbox")).not.toBeChecked();
+    await expect(rifles).toBeDisabled();
+
+    await subscribed.click();
+    await expect(rifles).toBeEnabled();
+  });
+
+  test("an administrator can change what counts as a deal", async ({ signedIn }) => {
+    await expect(
+      signedIn.getByRole("heading", { name: "How deals are found" }),
+    ).toBeVisible();
+
+    const every = signedIn.getByLabel("Look again every");
+    await expect(every).toHaveValue("8");
+    await every.selectOption("12");
+    await signedIn.reload();
+    await expect(signedIn.getByLabel("Look again every")).toHaveValue("12");
+    await signedIn.getByLabel("Look again every").selectOption("8");
+  });
+
+  test("and can run a pass without waiting for the schedule", async ({ signedIn }) => {
+    await signedIn.getByRole("button", { name: "Look again now" }).click();
+    // The panel reports what the pass did, so a run that found nothing is
+    // distinguishable from a button that did nothing.
+    await expect(signedIn.getByText(/comparable listings/)).toBeVisible();
+    await expect(signedIn.locator(".deal")).toHaveCount(2);
+  });
+
+  test("a threshold the server refuses is put back rather than left on screen", async ({
+    signedIn,
+  }) => {
+    const floor = signedIn.getByLabel("and be at least");
+    await floor.fill("3");
+    await floor.blur();
+    // 3 is below the allowed floor, so the server says no and the page shows
+    // the truth again instead of a value that was never saved.
+    await expect(signedIn.locator(".alert--error")).toBeVisible();
+    await expect(floor).toHaveValue("20");
+  });
+});

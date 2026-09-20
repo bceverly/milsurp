@@ -195,6 +195,16 @@ export const Sparkle = (p) => (
   </Svg>
 );
 
+// Hot deals. A flame rather than a price tag or a downward arrow: the tag is
+// already the Armory's and the arrow is already "what changed", and this page
+// is neither of those — it is the small set of listings worth hurrying for.
+export const Flame = (p) => (
+  <Svg {...p}>
+    <path d="M12 3c.6 2.6 2 3.8 3.3 5.2A6.9 6.9 0 0 1 17.5 13a5.5 5.5 0 0 1-11 0c0-1.6.7-2.8 1.5-3.7.3 1 .9 1.6 1.7 1.9-.2-2.4.6-4.6 2.3-6.2z" />
+    <path d="M12 20a2.6 2.6 0 0 1-2.6-2.6c0-1.5 1.2-2.3 1.7-3.4.6 1 2 1.6 2.6 2.8.4.8.2 1.8-.3 2.4-.4.5-.9.8-1.4.8z" />
+  </Svg>
+);
+
 // Watching, and not watching. One outline, filled or not: a star that changes
 // colour but not shape keeps the row's alignment steady as it toggles, and the
 // filled state has to be readable at a glance down a list of forty.
