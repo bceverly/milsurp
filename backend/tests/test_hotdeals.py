@@ -547,3 +547,105 @@ class TestOrdering:
         # $500 saved beats $1,000 saved, because 50% beats 25%.
         assert [deal.item_id for deal in found] == [cheap.id, big.id]
         assert found[0].discount_percent > found[1].discount_percent
+
+
+@pytest.fixture
+def disagreeing(clean_db, shop):
+    """Two deals that disagree about every order there is.
+
+    The K31 is $500 against a $1,000 median -- 50% off, $500 saved. The Luger
+    is $3,000 against $4,000 -- 25% off, $1,000 saved. So the deeper discount
+    and the bigger saving are different listings, and so are the cheapest and
+    the dearest. One fixture answers all four price-shaped orders, and none of
+    them can pass by accident.
+    """
+    model, a, b = shop
+    cheap = listing(clean_db, a, model, 500.0, key="cheap")
+    dearer(clean_db, b, model, DEAR_PER_CHEAP)
+
+    pricey = FirearmModel(name="Luger P.08")
+    clean_db.add(pricey)
+    clean_db.flush()
+    big = listing(clean_db, a, pricey, 3000.0, caliber="9mm", key="big")
+    dearer(clean_db, b, pricey, DEAR_PER_CHEAP, 4000.0, caliber="9mm")
+    clean_db.commit()
+    hotdeals.refresh(clean_db)
+    return cheap, big
+
+
+class TestTheOrderCanBeChosen:
+    """Five orders, because "cheap for what it is" is several questions.
+
+    Percent off and dollars off genuinely disagree in a catalog holding both a
+    $300 Mosin and a $3,000 Luger, and which one a reader means depends on
+    whether they are shopping or hunting. The page defaults to percent and
+    offers the rest.
+    """
+
+    def test_the_default_is_still_the_deepest_discount(self, clean_db, disagreeing):
+        cheap, big = disagreeing
+        assert [deal.item_id for deal in hotdeals.deals(clean_db)] == [cheap.id, big.id]
+
+    def test_by_dollars_saved_is_the_other_answer_and_a_different_one(self, clean_db, disagreeing):
+        """$1,000 off the Luger beats $500 off the K31, which is exactly the
+        order the default exists to avoid -- and exactly what somebody asking
+        for "biggest saving" means."""
+        cheap, big = disagreeing
+        found = hotdeals.deals(clean_db, sort="saving")
+        assert [deal.item_id for deal in found] == [big.id, cheap.id]
+        assert found[0].median_price - found[0].price == 1000.0
+
+    def test_by_price_in_both_directions(self, clean_db, disagreeing):
+        cheap, big = disagreeing
+        assert [deal.item_id for deal in hotdeals.deals(clean_db, sort="price_asc")] == [
+            cheap.id,
+            big.id,
+        ]
+        assert [deal.item_id for deal in hotdeals.deals(clean_db, sort="price_desc")] == [
+            big.id,
+            cheap.id,
+        ]
+
+    def test_by_when_it_became_a_deal_rather_than_when_the_pass_ran(self, clean_db, disagreeing):
+        """``computed_at`` is the same on every row a pass writes, so ordering
+        by it would order by nothing. ``first_listed_at`` is carried across a
+        rebuild, which is what makes "new since you last looked" mean anything.
+        """
+        cheap, big = disagreeing
+        rows = {deal.item_id: deal for deal in hotdeals.deals(clean_db)}
+        rows[cheap.id].first_listed_at = utcnow() - timedelta(days=3)
+        rows[big.id].first_listed_at = utcnow()
+        clean_db.commit()
+
+        assert [deal.item_id for deal in hotdeals.deals(clean_db, sort="newest")] == [
+            big.id,
+            cheap.id,
+        ]
+
+    def test_the_order_is_applied_before_the_limit(self, clean_db, disagreeing):
+        """The load-bearing one. The page is capped, so a caller that re-sorted
+        the rows it was handed would be re-sorting the deepest discounts -- and
+        "the cheapest deal" would come back meaning "the cheapest of the ones
+        that were already the best bargains", which is a different listing.
+        """
+        _, big = disagreeing
+        assert [deal.item_id for deal in hotdeals.deals(clean_db, sort="price_desc", limit=1)] == [
+            big.id
+        ]
+
+    def test_a_sort_nobody_offers_falls_back_rather_than_raising(self, clean_db, disagreeing):
+        """The HTTP layer refuses it loudly before it gets here. This is the
+        belt to those braces: a background caller is better served by a sane
+        order than by a traceback."""
+        cheap, big = disagreeing
+        assert [deal.item_id for deal in hotdeals.deals(clean_db, sort="sideways")] == [
+            cheap.id,
+            big.id,
+        ]
+
+    def test_every_offered_order_is_named_and_every_name_is_offered(self):
+        """The page renders the labels the server sends, so a key with no label
+        would render an empty option rather than fail anywhere visible."""
+        assert set(hotdeals.SORT_SEQUENCE) == set(hotdeals.SORTS)
+        assert set(hotdeals.SORT_LABELS) == set(hotdeals.SORTS)
+        assert hotdeals.DEFAULT_SORT in hotdeals.SORTS

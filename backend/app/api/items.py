@@ -740,6 +740,29 @@ def get_photo(
         relative = photo.thumb_filename
         media_type = "image/jpeg" if relative.endswith(".jpg") else media_type
 
+    # **The connection goes back to the pool before a single byte is sent.**
+    #
+    # Everything this endpoint wants from the database is now in the three
+    # locals above; the rest of the request is a file read and a socket. But
+    # the dependency holds the session until the response has been *streamed*,
+    # so without this each in-flight photo pins one of the pool's connections
+    # for as long as the transfer takes -- and a page of thumbnails is not one
+    # request, it is one per thumbnail.
+    #
+    # That is not hypothetical. A hot deals page of 159 rows asked for 159
+    # photos at once against a pool of 15: every connection was held by a
+    # transfer, the rest queued on a 30-second pool timeout, and the whole
+    # worker threadpool filled up behind them. Sessions could not be checked,
+    # so readers were bounced to the login page, and the login could not reach
+    # the database either, so the proxy answered that with a 504. The page that
+    # caused it now defers its images, but any page that asks for a lot of them
+    # should not be able to do this, so the hold is made short rather than the
+    # storm made unlikely.
+    #
+    # `close()` is idempotent and hands the connection back; the dependency's
+    # own close in its `finally` then has nothing left to do.
+    session.close()
+
     store = ImageStore(config)
     try:
         path = store.absolute_path(relative)
@@ -755,7 +778,9 @@ def get_photo(
 
     return FileResponse(
         path,
-        media_type=photo.content_type or "image/jpeg",
+        # The local rather than `photo.content_type`: the row is detached now,
+        # and this is the value the thumb branch above may have corrected.
+        media_type=media_type,
         headers={
             # Revalidated every time, and belt-and-braces at that: the URL now
             # carries a token derived from the file, so a changed image is a

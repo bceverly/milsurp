@@ -28,8 +28,16 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  // **Whether leaving was their idea.** Signing back in returns a reader to
+  // the page they were on, which is right when the session expired underneath
+  // them and wrong when they pressed Sign out -- then the last page they had
+  // open is the one thing they have just said they were finished with, and
+  // reopening it is the app arguing. Defaults to false, so arriving at a deep
+  // link with no session still counts as somewhere they meant to go.
+  const [deliberate, setDeliberate] = useState(false);
 
   const signOut = useCallback(() => {
+    setDeliberate(true);
     // The server has to do it: a cookie belongs to the browser, and only a
     // response can ask it to let go. Forgetting the user locally without this
     // leaves the session alive and the next reload signed straight back in.
@@ -41,7 +49,10 @@ export function AuthProvider({ children }) {
   // Any 401 anywhere in the app drops the session rather than leaving the user
   // clicking around a UI whose requests all fail.
   useEffect(() => {
-    setUnauthorizedHandler(() => setUser(null));
+    setUnauthorizedHandler(() => {
+      setDeliberate(false);
+      setUser(null);
+    });
     return () => setUnauthorizedHandler(null);
   }, []);
 
@@ -77,6 +88,7 @@ export function AuthProvider({ children }) {
     const result = await api.login(username, password, totpCode);
     if (result?.two_factor_required) return null;
     // Nothing to keep: the session and the CSRF token both arrived as cookies.
+    setDeliberate(false);
     setUser(result.user);
     return result.user;
   }, []);
@@ -87,10 +99,14 @@ export function AuthProvider({ children }) {
       loading,
       signIn,
       signOut,
+      //: True only when they pressed Sign out. Every other way of ending up
+      //: signed out -- an expired session, a 401, arriving cold at a deep
+      //: link -- leaves the page they wanted worth coming back to.
+      leftOnPurpose: deliberate,
       isAdmin: user?.role === "admin",
       refresh: () => api.me().then(setUser),
     }),
-    [user, loading, signIn, signOut],
+    [user, loading, deliberate, signIn, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

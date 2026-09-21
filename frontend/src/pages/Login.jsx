@@ -29,7 +29,17 @@ export default function Login() {
       </div>
     );
   }
-  if (user) return <Navigate to={location.state?.from || "/"} replace />;
+  // `restoring` is what tells the shell to watch the next few requests: if the
+  // page they were on is the reason they were thrown out, sending them
+  // straight back to it would land them on the same broken screen.
+  if (user) {
+    const from = location.state?.from;
+    return from ? (
+      <Navigate to={from} replace state={{ restoring: from }} />
+    ) : (
+      <Navigate to="/" replace />
+    );
+  }
 
   async function submit(event) {
     event.preventDefault();

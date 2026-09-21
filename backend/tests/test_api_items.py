@@ -6,7 +6,7 @@ from datetime import timedelta
 
 import pytest
 
-from app.models import Item, ItemPhoto, PriceHistory, Site, utcnow
+from app.models import Item, ItemPhoto, PriceHistory, Site, User, utcnow
 
 
 @pytest.fixture
@@ -390,6 +390,61 @@ class TestPhotoCaching:
         )
         assert response.headers.get("etag")
         assert response.headers.get("last-modified")
+
+
+class TestServingAPhotoDoesNotHoldTheDatabase:
+    """A page of thumbnails is one request per thumbnail, and each one used to
+    pin a pooled connection for the whole transfer.
+
+    That took the site down. A hot deals page of 159 rows asked for 159 photos
+    at once against a pool of 15: the pool emptied, every further request sat
+    on a 30-second timeout, the worker threadpool filled behind them, and then
+    nothing worked -- sessions could not be checked so readers were bounced to
+    the login page, and the login could not reach the database either, so the
+    proxy answered it with a 504. The page defers its images now, but the hold
+    itself is the thing that made one page able to do that.
+    """
+
+    def test_the_connection_is_handed_back_before_the_response_is_built(
+        self, seeded, inventory, tmp_path, app_config
+    ):
+        """Called directly, because this is a fact about the endpoint and not
+        about the transport.
+
+        Going through TestClient cannot see it: that buffers the whole body
+        before handing the response back, so the dependency's own teardown has
+        already run by the time a test could look, and the assertion passes
+        whether or not the endpoint released anything. What is actually being
+        claimed is that ``get_photo`` is holding nothing by the time it returns
+        -- so that is what gets asserted, on the session it was handed.
+        """
+        from app.api.items import get_photo
+
+        photo = TestPhotoCaching().stored_photo(seeded, inventory, tmp_path, app_config)
+        # Any signed-in account: the endpoint takes the user only to require
+        # one, and never looks at it.
+        reader = seeded.query(User).first()
+
+        response = get_photo(inventory[0].id, photo.id, reader, seeded, app_config, size="full")
+
+        assert response.status_code == 200
+        # `session.get` above opened a transaction and checked a connection out
+        # of the pool. Left alone it stays out until the response has finished
+        # streaming; this is the assertion that it does not.
+        assert not seeded.in_transaction()
+
+    def test_and_the_photo_is_still_served_correctly(
+        self, client, admin_headers, seeded, inventory, tmp_path, app_config
+    ):
+        """The row is detached by then, so everything the response needs has to
+        have been read off it first."""
+        photo = TestPhotoCaching().stored_photo(seeded, inventory, tmp_path, app_config)
+        response = client.get(
+            f"/api/items/{inventory[0].id}/photos/{photo.id}", headers=admin_headers
+        )
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("image/png")
+        assert response.headers.get("etag")
 
 
 def _one_pixel_png() -> bytes:

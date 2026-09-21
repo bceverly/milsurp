@@ -28,6 +28,13 @@ const CSRF_HEADER = "X-CSRF-Token";
 const UNSAFE = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 let onUnauthorized = null;
+let onUnreachable = null;
+
+//: The statuses that mean "the server did not answer", as opposed to "the
+//: server answered no". A proxy sends these when whatever is behind it took
+//: too long or is not there, so they say nothing about the request itself and
+//: everything about the state of the site.
+const GATEWAY = new Set([502, 503, 504]);
 
 function csrfToken() {
   // Read at call time rather than cached: signing in replaces it, and a stale
@@ -38,6 +45,24 @@ function csrfToken() {
 
 export function setUnauthorizedHandler(handler) {
   onUnauthorized = handler;
+}
+
+/**
+ * Notified whether the site is answering: `false` for a gateway status or a
+ * connection that never landed, `true` for any call that came back.
+ *
+ * Separate from the 401 handler because it means something different -- a 401
+ * says who you are, this says whether there is anybody home. Both edges are
+ * reported because the interesting question is never a single request: it is
+ * "did this page manage to load", and the answer is the first one of these
+ * that arrives after the page mounts.
+ *
+ * Images are excluded by construction. They are fetched raw and return before
+ * this point, and one thumbnail timing out is not a page failing to load --
+ * which matters here, because a page of thumbnails is where that happens.
+ */
+export function setReachabilityHandler(handler) {
+  onUnreachable = handler;
 }
 
 export class ApiError extends Error {
@@ -72,7 +97,12 @@ async function request(path, { method = "GET", body, signal, raw = false } = {})
     });
   } catch (error) {
     if (error.name === "AbortError") throw error;
+    if (!raw && onUnreachable) onUnreachable(false, path, 0);
     throw new ApiError("Cannot reach the server. Check your connection.", 0, null);
+  }
+
+  if (!raw && onUnreachable) {
+    onUnreachable(!GATEWAY.has(response.status), path, response.status);
   }
 
   if (response.status === 401) {
@@ -251,12 +281,17 @@ export const api = {
   // reader's subscription and (for an admin) the settings behind it — and
   // every write answers with the same shape, so the page never has to reload
   // after a change.
+  // Every one of these answers with the whole page, so each write carries the
+  // view the reader is looking at -- the category and the order. Without that
+  // the response would describe the default view and silently reset the list
+  // under somebody who had only ticked a checkbox.
   hotDeals: (params = {}) => request(`/api/hot-deals${qs(params)}`),
-  updateHotDealPreference: (body) =>
-    request("/api/hot-deals/preference", { method: "PATCH", body }),
-  updateHotDealSettings: (body) =>
-    request("/api/hot-deals/settings", { method: "PATCH", body }),
-  refreshHotDeals: () => request("/api/hot-deals/refresh", { method: "POST" }),
+  updateHotDealPreference: (body, view = {}) =>
+    request(`/api/hot-deals/preference${qs(view)}`, { method: "PATCH", body }),
+  updateHotDealSettings: (body, view = {}) =>
+    request(`/api/hot-deals/settings${qs(view)}`, { method: "PATCH", body }),
+  refreshHotDeals: (view = {}) =>
+    request(`/api/hot-deals/refresh${qs(view)}`, { method: "POST" }),
 
   // --- a week in review of the catalog, nobody's filters applied ---
   changes: (params = {}) => request(`/api/changes${qs(params)}`),

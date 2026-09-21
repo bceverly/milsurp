@@ -6,7 +6,8 @@
  * by CSS. Only the drawer's open/closed state lives in JavaScript.
  */
 import { useEffect, useState } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { setReachabilityHandler } from "../api.js";
 import { useAuth } from "../auth.jsx";
 import {
   Bookmark,
@@ -25,6 +26,7 @@ import {
   Database as DatabaseIcon,
   History as HistoryIcon,
   Users as UsersIcon,
+  Warning,
   X,
 } from "./Icons.jsx";
 import Insignia from "./Insignia.jsx";
@@ -76,7 +78,39 @@ const NAV = [
 export default function Shell() {
   const { user, isAdmin, signOut } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // **Coming back from a forced sign-out, without landing on the same wreck.**
+  //
+  // Being thrown out is usually the site's fault rather than the reader's, so
+  // signing back in returns them to the page they were on. But if that page is
+  // *why* they were thrown out -- it asked for more than the server could give
+  // and the proxy answered with a 504 -- sending them straight back to it
+  // hands them the same dead screen and no way to tell what went wrong.
+  //
+  // So the restored page is watched until it either loads or does not. The
+  // first answer wins: anything that comes back disarms this, and a gateway
+  // status or a dead connection takes them to the inventory with a note
+  // naming the address that would not open. The note travels in the location
+  // rather than in state here, so it survives the navigation that carries it.
+  const restoring = location.state?.restoring;
+  useEffect(() => {
+    if (!restoring) return undefined;
+    setReachabilityHandler((reachable) => {
+      setReachabilityHandler(null);
+      if (reachable) {
+        // It loaded. Drop the marker so a later bad minute on this same page
+        // -- or a plain browser reload of it -- is not treated as this.
+        navigate(location.pathname + location.search, { replace: true, state: null });
+      } else {
+        navigate("/", { replace: true, state: { restoreFailed: restoring } });
+      }
+    });
+    return () => setReachabilityHandler(null);
+  }, [restoring, navigate, location.pathname, location.search]);
+
+  const restoreFailed = location.state?.restoreFailed;
 
   // Any navigation closes the drawer; otherwise it stays over the new page.
   useEffect(() => {
@@ -177,6 +211,13 @@ export default function Shell() {
       </nav>
 
       <main className="content" id="main">
+        {restoreFailed && (
+          <div className="alert alert--warning" role="status">
+            <Warning size={16} /> You were signed back in, but{" "}
+            <code>{restoreFailed}</code> would not load — the server did not answer in
+            time. This is the inventory instead; try that page again in a minute.
+          </div>
+        )}
         <Outlet />
       </main>
     </div>

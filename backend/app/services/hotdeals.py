@@ -64,6 +64,7 @@ import time
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Any
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, selectinload
@@ -97,6 +98,46 @@ BUCKET_LABELS = {
     "rifle": "Rifles",
     "pistol": "Handguns",
     "police_surplus": "Police surplus",
+}
+
+#: The orders the page may be read in. The key is what a query string carries,
+#: the value is what the database is asked for, and the tie-break on ``id`` is
+#: on every one of them so that paging through an order with ties -- and prices
+#: tie constantly in a catalog full of the same rifle at $295 -- is stable
+#: rather than whatever the engine felt like.
+#:
+#: Decided here rather than in the page for the same reason the bucket labels
+#: are: the ordering is part of the answer, and a page that sorted the two
+#: hundred rows it was given would be sorting the top two hundred *by
+#: discount*, which is the wrong two hundred for every order but that one.
+SORTS: dict[str, tuple[Any, ...]] = {
+    "discount": (HotDeal.discount_percent.desc(), HotDeal.id.asc()),
+    # Dollars off, which is a genuinely different question from percent off and
+    # the reason both are offered. The docstring on :func:`deals` explains why
+    # this is not the *default*: a 30% saving is $200 on a Mosin and $2,000 on
+    # a Luger, so this order leads with the expensive guns whatever the bargain
+    # was. That is a fine thing to ask for and a poor thing to assume.
+    "saving": ((HotDeal.median_price - HotDeal.price).desc(), HotDeal.id.asc()),
+    "price_asc": (HotDeal.price.asc(), HotDeal.id.asc()),
+    "price_desc": (HotDeal.price.desc(), HotDeal.id.asc()),
+    # ``first_listed_at`` is carried across a rebuild, so this really is "new
+    # since you last looked" and not "found by the most recent pass", which
+    # every row shares and which would therefore sort by nothing at all.
+    "newest": (HotDeal.first_listed_at.desc(), HotDeal.id.asc()),
+}
+
+#: The order the page offers them in, and the default when none is asked for.
+SORT_SEQUENCE: tuple[str, ...] = ("discount", "saving", "price_asc", "price_desc", "newest")
+DEFAULT_SORT = "discount"
+
+#: What each order is called where a person reads it, server-side for the same
+#: reason :data:`BUCKET_LABELS` is.
+SORT_LABELS = {
+    "discount": "Biggest discount",
+    "saving": "Biggest saving",
+    "price_asc": "Price: low to high",
+    "price_desc": "Price: high to low",
+    "newest": "Newly found",
 }
 
 #: Which preference column governs each bucket.
@@ -401,19 +442,35 @@ def record_failure(session: Session, exc: Exception, *, now: datetime | None = N
 
 # -- reading ----------------------------------------------------------------
 def deals(
-    session: Session, bucket: str | None = None, *, limit: int | None = None
+    session: Session,
+    bucket: str | None = None,
+    *,
+    sort: str = DEFAULT_SORT,
+    limit: int | None = None,
 ) -> list[HotDeal]:
-    """The current deals, deepest discount first.
+    """The current deals, deepest discount first unless asked otherwise.
 
-    Sorted by how far below the median rather than by dollars saved: this is a
-    catalog where a 30% saving is $200 on a Mosin and $2,000 on a Luger, and
-    ordering by the dollars would put every expensive gun above every cheap
-    one whatever the bargain was.
+    The default is how far below the median rather than dollars saved: this is
+    a catalog where a 30% saving is $200 on a Mosin and $2,000 on a Luger, and
+    ordering by the dollars would put every expensive gun above every cheap one
+    whatever the bargain was. It is offered as ``saving`` for the reader who
+    wants exactly that, which is a different question rather than a wrong one.
+
+    **The order is applied before the limit, which is the whole reason this
+    takes a sort at all.** The page is capped, so a caller that asked for two
+    hundred rows and re-ordered them itself would be re-ordering the two
+    hundred deepest discounts -- the right answer for one order out of five,
+    and a quietly wrong one for the other four.
+
+    An unknown sort falls back to the default rather than raising. The HTTP
+    layer refuses it loudly before it ever reaches here; this is the belt to
+    that braces, and a background caller is better served by a sane order than
+    by a traceback.
     """
     statement = (
         select(HotDeal)
         .options(selectinload(HotDeal.item).selectinload(Item.photos))
-        .order_by(HotDeal.discount_percent.desc(), HotDeal.id.asc())
+        .order_by(*SORTS.get(sort, SORTS[DEFAULT_SORT]))
     )
     if bucket:
         statement = statement.where(HotDeal.bucket == bucket)
@@ -570,6 +627,15 @@ def label(bucket: str) -> str:
 def known_bucket(value: str | None) -> str | None:
     """A bucket name from a query string, or None. Raises nothing."""
     return value if value in BUCKETS else None
+
+
+def known_sort(value: str | None) -> str | None:
+    """A sort name from a query string, or None. Raises nothing."""
+    return value if value in SORTS else None
+
+
+def sort_label(sort: str) -> str:
+    return SORT_LABELS.get(sort, sort)
 
 
 def bucket_sequence() -> Sequence[str]:

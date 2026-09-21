@@ -2876,6 +2876,41 @@
   color: var(--ink-500);
 }
 
+/* The category tabs and the sort box on one line: two ways of asking for a
+   different list, so they read as one control strip rather than as a filter
+   and, somewhere else, an option. The sort goes right because the tabs are
+   the thing scanned first and a wandering left edge would cost that. */
+.deal-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.deal-sort {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* Not `justify-content: space-between` on the parent: when the tabs wrap to
+     their own line this has to sit at the left of the next one, not stranded
+     out at the right on its own. */
+  margin-left: auto;
+}
+
+.deal-sort__label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+  white-space: nowrap;
+}
+
+.deal-sort__select {
+  width: auto;
+  flex: 0 0 auto;
+}
+
 .deal-panel {
   margin-top: 18px;
 }
@@ -2953,5 +2988,14 @@
   }
   .deal__price {
     align-self: flex-start;
+  }
+  /* On a phone the tabs already fill the width, so the sort is on its own
+     line; pushed against the left edge it lines up under them instead of
+     floating off on the right by itself. */
+  .deal-sort {
+    margin-left: 0;
+  }
+  .deal-sort__select {
+    flex: 1 1 auto;
   }
 }

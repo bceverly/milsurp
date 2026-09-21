@@ -106,6 +106,115 @@ class TestReadingThePage:
         assert client.get("/api/hot-deals").status_code == 401
 
 
+class TestChoosingTheOrder:
+    """Which order is on offer is the server's answer, like the categories.
+
+    The orders themselves are measured in ``test_hotdeals.py``, where a fixture
+    can build two deals that disagree about every one of them. What matters
+    here is that the parameter is honored, echoed and refused when it is
+    nonsense -- and that the page is told what to put in the box.
+    """
+
+    def test_the_page_is_told_what_the_orders_are_and_what_to_call_them(
+        self, client, admin_headers, stocked
+    ):
+        body = client.get("/api/hot-deals", headers=admin_headers).json()
+        assert body["sorts"] == list(hotdeals.SORT_SEQUENCE)
+        assert body["sort_labels"]["saving"] == "Biggest saving"
+        # Asking for nothing gets the default, said out loud rather than left
+        # for the page to assume.
+        assert body["sort"] == hotdeals.DEFAULT_SORT
+
+    def test_the_chosen_order_comes_back_with_the_answer(self, client, admin_headers, stocked):
+        """Echoed for the reason ``bucket`` is: the page renders the view it
+        was given rather than the one it believes it asked for."""
+        body = client.get("/api/hot-deals?sort=price_asc", headers=admin_headers).json()
+        assert body["sort"] == "price_asc"
+        assert len(body["deals"]) == 1
+
+    def test_an_order_that_does_not_exist_is_refused(self, client, admin_headers, stocked):
+        """Loudly, like an unknown category, and for the same reason: quietly
+        answering in the default order would hide the bug behind a result that
+        looks perfectly fine."""
+        response = client.get("/api/hot-deals?sort=sideways", headers=admin_headers)
+        assert response.status_code == 422
+        assert "sideways" not in response.json()["detail"]
+        assert "price_asc" in response.json()["detail"]
+
+
+class TestAWriteAnswersInTheViewItWasGiven:
+    """Every write returns the whole page, which is what lets the page never
+    reload. That only works if the page it returns is the one on screen.
+
+    Before these, ticking an email checkbox while looking at Rifles sorted by
+    price came back as the whole catalog in the default order: the list reset
+    under the reader, and the tab and the sort box were left describing
+    something that was no longer there.
+    """
+
+    def test_a_preference_change_keeps_the_category_and_the_order(
+        self, client, normal_user, stocked
+    ):
+        body = client.patch(
+            "/api/hot-deals/preference?bucket=pistol&sort=price_asc",
+            json={"enabled": False},
+            headers=normal_user["headers"],
+        ).json()
+
+        assert body["preference"]["enabled"] is False
+        assert body["bucket"] == "pistol"
+        assert body["sort"] == "price_asc"
+        # The one deal in the fixture is a rifle, so the Pistols view is empty
+        # -- which is the proof the filter survived the write.
+        assert body["deals"] == []
+        assert body["counts"]["rifle"] == 1
+
+    def test_a_settings_change_does_too(self, client, admin_headers, stocked):
+        body = client.patch(
+            "/api/hot-deals/settings?bucket=rifle&sort=newest",
+            json={"interval_hours": 24},
+            headers=admin_headers,
+        ).json()
+
+        assert body["settings"]["interval_hours"] == 24
+        assert body["bucket"] == "rifle"
+        assert body["sort"] == "newest"
+        assert len(body["deals"]) == 1
+
+    def test_and_so_does_running_a_pass_by_hand(self, client, admin_headers, stocked):
+        body = client.post(
+            "/api/hot-deals/refresh?bucket=pistol&sort=saving", headers=admin_headers
+        ).json()
+        assert body["bucket"] == "pistol"
+        assert body["sort"] == "saving"
+        assert body["deals"] == []
+
+    def test_asking_for_no_view_still_answers_with_the_whole_page(
+        self, client, normal_user, stocked
+    ):
+        """The parameters are optional, so a caller that does not care -- and
+        every existing one -- gets what it always got."""
+        body = client.patch(
+            "/api/hot-deals/preference", json={"enabled": False}, headers=normal_user["headers"]
+        ).json()
+        assert body["bucket"] is None
+        assert body["sort"] == hotdeals.DEFAULT_SORT
+        assert len(body["deals"]) == 1
+
+    def test_a_nonsense_view_is_refused_before_anything_is_written(
+        self, client, normal_user, stocked
+    ):
+        """The check runs first, so a bad query string cannot save half a
+        change and then fail describing it."""
+        response = client.patch(
+            "/api/hot-deals/preference?sort=sideways",
+            json={"enabled": False},
+            headers=normal_user["headers"],
+        )
+        assert response.status_code == 422
+        assert stocked.query(HotDealPreference).count() == 0
+
+
 class TestWhoSeesTheSettingsPanel:
     def test_an_administrator_does(self, client, admin_headers, stocked):
         body = client.get("/api/hot-deals", headers=admin_headers).json()

@@ -15,6 +15,12 @@
  * The three filters are the browse page's own buckets under its own names, and
  * the server decides both the order and the labels — the email says the same
  * words, and three copies of a list of categories is three chances to drift.
+ *
+ * **The sort is the server's too, and not only for consistency.** The list is
+ * capped, so re-ordering the rows here would be re-ordering the two hundred
+ * deepest discounts — which is the right two hundred for one order out of five
+ * and quietly the wrong one for the rest. "Cheapest first" has to mean the
+ * cheapest deals, so the ordering happens where the limit does.
  */
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -271,26 +277,37 @@ export default function HotDeals() {
   useTitle("Hot deals");
   const { isAdmin } = useAuth();
   const [bucket, setBucket] = useState(null);
+  // Null until the reader chooses, rather than a copy of the server's default
+  // kept here: the same shape `bucket` uses for "everything", and it means the
+  // default lives in exactly one place. What the select shows falls back to
+  // the order the response says it was given.
+  const [sort, setSort] = useState(null);
   const [state, setState] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async (which) => {
+  const load = useCallback(async (which, order) => {
     setError("");
     try {
-      setState(await api.hotDeals(which ? { bucket: which } : {}));
+      setState(await api.hotDeals({ bucket: which, sort: order }));
     } catch (err) {
       setError(err.message);
     }
   }, []);
 
   useEffect(() => {
-    load(bucket);
-  }, [load, bucket]);
+    load(bucket, sort);
+  }, [load, bucket, sort]);
 
   // Every write answers with the whole page, so nothing here reloads: the
   // response *is* the new state, and a second request would leave the two
   // able to disagree for a moment.
+  // The category and order being looked at, handed to every write so the page
+  // it answers with is the page that is on screen. Without it, ticking a
+  // checkbox on the Rifles tab came back as the whole catalog in the default
+  // order and reset the list under the reader.
+  const view = { bucket, sort };
+
   const send = async (call) => {
     setBusy(true);
     setError("");
@@ -302,7 +319,7 @@ export default function HotDeals() {
       // `load` clears the error as it starts, so setting the message before
       // reloading wiped it and the refusal arrived as nothing happening at
       // all. The Playwright spec is what found that.
-      await load(bucket);
+      await load(bucket, sort);
       setError(err.message);
     } finally {
       setBusy(false);
@@ -358,29 +375,51 @@ export default function HotDeals() {
         </div>
       )}
 
-      {/* The Armory's and the Market's tab strip, not a third one. */}
-      <div className="armory-tabs" role="tablist" aria-label="Category">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={bucket === null}
-          className={`btn ${bucket === null ? "btn--primary" : "btn--ghost"} btn--sm`}
-          onClick={() => setBucket(null)}
-        >
-          Everything ({total})
-        </button>
-        {state.buckets.map((key) => (
+      <div className="deal-toolbar">
+        {/* The Armory's and the Market's tab strip, not a third one. */}
+        <div className="armory-tabs" role="tablist" aria-label="Category">
           <button
-            key={key}
             type="button"
             role="tab"
-            aria-selected={bucket === key}
-            className={`btn ${bucket === key ? "btn--primary" : "btn--ghost"} btn--sm`}
-            onClick={() => setBucket(key)}
+            aria-selected={bucket === null}
+            className={`btn ${bucket === null ? "btn--primary" : "btn--ghost"} btn--sm`}
+            onClick={() => setBucket(null)}
           >
-            {state.labels[key]} ({state.counts[key] || 0})
+            Everything ({total})
           </button>
-        ))}
+          {state.buckets.map((key) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={bucket === key}
+              className={`btn ${bucket === key ? "btn--primary" : "btn--ghost"} btn--sm`}
+              onClick={() => setBucket(key)}
+            >
+              {state.labels[key]} ({state.counts[key] || 0})
+            </button>
+          ))}
+        </div>
+
+        {/* Labelled in words rather than by an aria-label alone: there is room
+            for it here, and "Biggest discount" out of context does not say
+            what it is the biggest of. The options and their wording come from
+            the response, so this page and the email cannot drift on either. */}
+        <label className="deal-sort">
+          <span className="deal-sort__label">Sort by</span>
+          <select
+            className="select deal-sort__select"
+            value={sort ?? state.sort}
+            disabled={busy}
+            onChange={(event) => setSort(event.target.value)}
+          >
+            {state.sorts.map((key) => (
+              <option key={key} value={key}>
+                {state.sort_labels[key]}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {state.deals.length === 0 ? (
@@ -411,7 +450,7 @@ export default function HotDeals() {
         labels={state.labels}
         buckets={state.buckets}
         busy={busy}
-        onChange={(body) => send(() => api.updateHotDealPreference(body))}
+        onChange={(body) => send(() => api.updateHotDealPreference(body, view))}
       />
 
       {isAdmin && state.settings && (
@@ -419,8 +458,8 @@ export default function HotDeals() {
           settings={state.settings}
           choices={state.interval_choices}
           busy={busy}
-          onChange={(body) => send(() => api.updateHotDealSettings(body))}
-          onRefresh={() => send(() => api.refreshHotDeals())}
+          onChange={(body) => send(() => api.updateHotDealSettings(body, view))}
+          onRefresh={() => send(() => api.refreshHotDeals(view))}
         />
       )}
     </div>

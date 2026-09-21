@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "./auth.jsx";
 import Shell from "./components/Shell.jsx";
 import Login from "./pages/Login.jsx";
@@ -32,9 +32,20 @@ function FullPageSpinner() {
 
 /** Routes that need any signed-in user. */
 function Protected({ children }) {
-  const { user, loading } = useAuth();
+  const { user, loading, leftOnPurpose } = useAuth();
+  const location = useLocation();
   if (loading) return <FullPageSpinner />;
-  if (!user) return <Navigate to="/login" replace />;
+  // Where they were is carried to the sign-in screen so signing back in
+  // returns them to it. Being dropped is rarely something the reader did on
+  // purpose -- a session expires, or the server has a bad few minutes -- and
+  // landing on the inventory afterwards loses their place every time.
+  //
+  // Pressing Sign out is the exception, and the only one: then the last page
+  // they had open is the thing they have just said they were done with.
+  if (!user) {
+    const from = leftOnPurpose ? null : location.pathname + location.search;
+    return <Navigate to="/login" replace state={from ? { from } : null} />;
+  }
   return children;
 }
 

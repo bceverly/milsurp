@@ -1424,6 +1424,14 @@ class HotDealsOut(BaseModel):
     #: The order the filters are offered in, decided server-side so the page
     #: and the email cannot disagree about it.
     buckets: list[str]
+    #: Which order these deals came back in, echoed for the same reason
+    #: ``bucket`` is: the page renders what it was given rather than what it
+    #: believes it asked for.
+    sort: str
+    #: The orders on offer and what to call them, on the same server-decides
+    #: footing as ``buckets`` and ``labels``.
+    sorts: list[str]
+    sort_labels: dict[str, str]
     preference: HotDealPreferenceOut
     #: Present for administrators only; None for everybody else, which is what
     #: the page keys the settings panel off rather than re-deriving the role.
