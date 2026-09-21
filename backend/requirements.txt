@@ -1,11 +1,11 @@
 # Web framework and server
 fastapi>=0.141.1,<1.0
-uvicorn[standard]>=0.52.4,<1.0
+uvicorn[standard]>=0.53.0,<1.0
 python-multipart>=0.0.32
 email-validator>=2.3.0
 
 # Database
-SQLAlchemy>=2.0.52,<3.0
+SQLAlchemy>=2.0.54,<3.0
 alembic>=1.20.0,<2.0
 # The PostgreSQL driver. Installed unconditionally because the engine is a
 # config.yaml setting rather than a build-time choice: a deployment that starts
@@ -25,7 +25,7 @@ argon2-cffi>=25.1.0
 # two unsatisfiable: whichever requirements file is installed last wins and
 # `pip check` fails either way. Dependabot proposed 2.14.0 and semgrep 1.177.0
 # in the same PR without noticing. Raise this when semgrep relaxes its pin.
-PyJWT>=2.13.0
+PyJWT>=2.14.0
 
 # Image processing (thumbnail generation during scans)
 Pillow>=12.3.0
@@ -56,7 +56,7 @@ pytesseract>=0.3.13
 # `zoneinfo` searches TZPATH first and falls back to this package for a name
 # the system database does not carry, so this fixes the aliases without
 # overriding a host's own, more current, database.
-tzdata>=2026.2
+tzdata>=2026.4
 
 # Web push, which needs P-256 ECDH, HKDF, AES-GCM and ECDSA (RFC 8291 and RFC
 # 8292). Declared here rather than relied on transitively: it was already in
@@ -64,4 +64,4 @@ tzdata>=2026.2
 # in, and *that* is exactly the trap -- `pip install -r requirements.txt` on a
 # clean machine did not install it, so the Debian package would have shipped a
 # venv where every push raised ImportError while every developer's worked.
-cryptography>=46.0.0
+cryptography>=46.0.7
