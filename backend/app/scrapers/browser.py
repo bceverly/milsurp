@@ -21,7 +21,9 @@ import re
 
 # A browser's and a driver's own `--version`, invoked below with a fixed argv
 # and no shell.
+import shutil
 import subprocess  # nosec B404
+import tempfile
 import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -348,9 +350,48 @@ def _version_mismatch(binary: str | None, driver_path: str | None) -> str:
     )
 
 
+#: Environment variables that decide where Chrome writes.
+#:
+#: All of them are pointed at one throwaway directory per session. See
+#: :func:`chrome` for why there has to be one at all.
+_HOME_VARS = ("HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME")
+
+
+def _scratch_env(scratch: Path) -> dict[str, str]:
+    """The driver's environment, with every "where do I write" path redirected.
+
+    Returned rather than applied to ``os.environ``: scans run on worker
+    threads, and a process-wide chdir-alike would leak into whatever else was
+    scraping at the time.
+    """
+    return {**os.environ, **dict.fromkeys(_HOME_VARS, str(scratch))}
+
+
 @contextmanager
 def chrome(config: ScrapingConfig) -> Iterator[Any]:
-    """Yield a configured headless Chrome driver, always quitting it after."""
+    """Yield a configured headless Chrome driver, always quitting it after.
+
+    **Chrome is given a writable home of its own, and it is not optional.**
+    The service runs as a user whose home is ``/opt/milsurp``, which the unit's
+    ``ProtectSystem=strict`` makes read-only -- deliberately: the install
+    directory is the last thing a scraper should be able to write to. Chrome
+    does not take no for an answer. ``--headless=new`` builds a "user data
+    directory container" under ``$HOME`` before it does anything else and dies
+    if it cannot, and the crash handler wants a database under ``$HOME`` and
+    aborts the browser when it has none -- ``chrome_crashpad_handler:
+    --database is required``, then a trace trap, then a driver reporting only
+    ``Chrome instance exited``.
+
+    That message is the whole difficulty. It says nothing about a directory,
+    and it appeared the week Chrome shipped the container step, so a scraper
+    that had run for months began failing with an error that reads like a
+    version mismatch. ``--user-data-dir`` alone does not fix it, because
+    crashpad reads ``$HOME`` and not that flag.
+
+    So one throwaway directory per session serves as home, profile and crash
+    store, and is removed afterwards. Nothing here needs to survive a scan:
+    every cookie and cache this browser collects belongs to a stranger's site.
+    """
     try:
         from selenium import webdriver
         from selenium.webdriver.chrome.options import Options
@@ -360,9 +401,14 @@ def chrome(config: ScrapingConfig) -> Iterator[Any]:
             "selenium is not installed; run 'make install' or disable this site."
         ) from exc
 
+    scratch = Path(tempfile.mkdtemp(prefix="milsurp-chrome-"))
     options = Options()
     if config.headless:
         options.add_argument("--headless=new")
+    # Inside the scratch home rather than left to default, so the profile and
+    # the dumps go with it when it is removed.
+    options.add_argument(f"--user-data-dir={scratch / 'profile'}")
+    options.add_argument(f"--crash-dumps-dir={scratch / 'crashes'}")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
@@ -379,9 +425,13 @@ def chrome(config: ScrapingConfig) -> Iterator[Any]:
         _let_selenium_manager_cache(config)
 
     try:
-        service = Service(driver_path) if driver_path else None
+        # The environment goes to the driver, which passes it to the browser
+        # it starts; there is no other way to tell Chrome where its home is.
+        env = _scratch_env(scratch)
+        service = Service(driver_path, env=env) if driver_path else Service(env=env)
         driver = webdriver.Chrome(options=options, service=service)
     except Exception as exc:  # pragma: no cover - depends on host browser
+        shutil.rmtree(scratch, ignore_errors=True)
         # Say what was looked for. "Unable to obtain driver for chrome" on a
         # machine where `apt install chromium-browser` has just reported
         # success is a message that sends somebody to reinstall the thing they
@@ -423,6 +473,8 @@ def chrome(config: ScrapingConfig) -> Iterator[Any]:
         # quit, and raising here would mask the real scrape failure.
         with contextlib.suppress(Exception):
             driver.quit()
+        # After quit(), so the browser is not still writing into it.
+        shutil.rmtree(scratch, ignore_errors=True)
 
 
 def wait_for_any(driver: Any, selectors: tuple[str, ...], timeout: int = 15) -> str | None:
