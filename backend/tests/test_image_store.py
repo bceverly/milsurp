@@ -255,6 +255,53 @@ class TestDownload:
         session = FakeSession(raises=requests.ConnectionError("refused"))
         assert store.download(session, "site", "https://example.test/x.png") is None
 
+    def test_an_unreachable_host_is_paused_rather_than_re_dialled(self, store, monkeypatch):
+        """Simpson's image host went dark with 53 photographs queued.
+
+        Each one spent the full connect timeout discovering that, so a scan
+        that takes two minutes took twenty-eight to reach the same answer 53
+        times over. The cooldown that already exists for a host answering 429
+        is the right response to a host answering nothing at all -- it backs
+        off, it is shared between processes, and it decays the moment one
+        photograph arrives, so nothing is written off.
+        """
+        monkeypatch.setattr(
+            "app.services.image_store._check_url",
+            lambda _url: image_store.UrlVerdict(True),
+        )
+        paused: list[tuple[str, str]] = []
+        monkeypatch.setattr(
+            image_store.cooldown,
+            "refused",
+            lambda url, reason, retry_after=None: paused.append((url, reason)) or 0.0,
+        )
+        session = FakeSession(raises=requests.ConnectionError("refused"))
+
+        assert store.download(session, "site", "https://example.test/x.png") is None
+
+        assert len(paused) == 1
+        assert paused[0][0] == "https://example.test/x.png"
+        assert "unreachable" in paused[0][1]
+
+    def test_but_a_slow_photograph_is_not_a_dead_host(self, store, monkeypatch):
+        """A read timeout means the host answered and was slow, which is one
+        big photograph. Pausing every other photo on the shop for that would
+        be the cure doing more harm than the illness."""
+        monkeypatch.setattr(
+            "app.services.image_store._check_url",
+            lambda _url: image_store.UrlVerdict(True),
+        )
+        paused: list[str] = []
+        monkeypatch.setattr(
+            image_store.cooldown,
+            "refused",
+            lambda url, reason, retry_after=None: paused.append(url) or 0.0,
+        )
+        session = FakeSession(raises=requests.ReadTimeout("slow"))
+
+        assert store.download(session, "site", "https://example.test/x.png") is None
+        assert paused == []
+
     def test_http_error_returns_none(self, store, monkeypatch):
         monkeypatch.setattr(
             "app.services.image_store._check_url",

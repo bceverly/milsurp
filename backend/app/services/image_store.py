@@ -359,6 +359,22 @@ class ImageStore:
                 # A connection that could not be made says nothing about the
                 # URL, so it is never permanent.
                 log.warning("Could not fetch %s: %s", scrub(source_url), scrub(exc))
+                # ...but it says plenty about the *host*, and a host that will
+                # not accept a connection is as unavailable as one answering
+                # 429. Without this the cooldown only ever heard about
+                # refusals, so a dark image host was re-dialled once per
+                # photograph: Simpson's went off the air with 53 photographs
+                # queued, each one spent the full connect timeout finding that
+                # out, and a two-minute scan took twenty-eight minutes to
+                # arrive at the same answer 53 times. Pausing the host pushes
+                # that back to a handful of honest attempts, and the pause
+                # decays on the first success, so nothing is given up on.
+                #
+                # Only a connection failure. A read timeout means the host did
+                # answer and was slow, which is one big photograph rather than
+                # a host that is gone.
+                if isinstance(exc, requests.ConnectionError):
+                    cooldown.refused(source_url, f"unreachable ({type(exc).__name__})")
                 return None, str(exc), False
 
             self._last_request_at[host] = time.monotonic()
