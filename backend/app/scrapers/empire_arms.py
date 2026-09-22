@@ -197,10 +197,14 @@ class EmpireArmsScraper(SiteScraper):
         one gun's price for another, and the whole point of the watchlist is
         that somebody acts on what it says.
 
-        Like eBayonet, it re-runs the scan's own ``parse_page`` rather than
-        reading the price itself, so the answer is derived the same way the
-        stored one was. Both shops keep a whole catalog on one page, which is
-        why both spend a parse to answer about a single listing.
+        So it re-runs the scan's own ``parse_page`` rather than reading the
+        price itself, and the answer is derived the same way the stored one
+        was. This shop keeps a whole catalog on one page, which is why it is
+        worth spending a parse to answer about a single listing.
+
+        eBayonet used to be the other example of this and no longer is: their
+        WordPress rebuild gave every listing an address of its own, so that
+        reader asks for one and is answered with a number.
         """
         if not key:
             return None

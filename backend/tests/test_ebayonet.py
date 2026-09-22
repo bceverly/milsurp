@@ -1,125 +1,325 @@
-"""eBayonet: five Word-exported pages and no storefront behind them.
+"""eBayonet, after the shop replaced five Word pages with WordPress.
 
-The shape that matters is that **a listing is a run of paragraphs**, not one
-paragraph. Reading only the paragraph that opens a listing finds a price on 11%
-of them; walking to the next stock number finds one on 100%. That was the first
-measurement taken here and it was wrong, which is why it is the first thing
-pinned.
+The old reader walked paragraphs: a listing opened at a five-digit stock
+number, and its price and photographs were whatever prose followed before the
+next one. None of that exists now -- the five ``.htm`` pages redirect to the
+new catalogue and the old photo URLs 404 -- and the plugin behind the new site
+publishes the same facts as fields.
+
+Two things here are worth pinning harder than the rest.
+
+**The slug is the key, and that is what carries the price history across.** For
+743 of the 825 listings the slug is the old stock number, so the series already
+stored continue rather than starting again under a new name. A test that let
+the key drift to the WordPress post id would pass while quietly orphaning every
+chart on the site.
+
+**A failed page declares every category unread.** The old reader could name one
+category and have it cover the shop, because everything was a bayonet. This one
+sells six kinds of thing and pages by id, so the page that failed could have
+held any of them -- and naming only what was seen de-lists whatever was in the
+gap.
 """
 
 from __future__ import annotations
+
+import json
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
 from app.scrapers import get_scraper
 from app.scrapers.base import ScrapeError
-from app.scrapers.ebayonet import CATEGORY, PAGES, EBayonetScraper, parse_page
+from app.scrapers.ebayonet import PAGE_SIZE, EBayonetScraper
 
-#: The real markup's shape, trimmed. Word writes &nbsp;, splits runs mid-word
-#: with <span>, and types photo URLs into the prose as both a link and its own
-#: text -- which is why the same URL appears twice in one paragraph.
-PAGE = """
-<html><body>
-<p class=MsoNormal><span>Some prose about the collection.</span></p>
+CATEGORY_TERMS = [
+    {"id": 79, "name": "Bayonets"},
+    {"id": 77, "name": "Antique Guns, Stocks, Parts + Accessories"},
+]
+COUNTRY_TERMS = [{"id": 1, "name": "Afghanistan"}, {"id": 24, "name": "Great Britain"}]
 
-<p class=MsoNormal>18782 Afghan issued P1903 bayonet with scabbard.
-   WILKINSON-LONDON. Dari marking on both upper and lower tang.</p>
-<p class=MsoNormal><a href="https://ebayonet.com/18700/18782.jpg">
-   https://ebayonet.com/18700/18782.jpg</a></p>
-<p class=MsoNormal><a href="https://ebayonet.com/18700/18782a.jpg">
-   https://ebayonet.com/18700/18782a.jpg</a></p>
-<p class=MsoNormal>$110</p>
-
-<p class=MsoNormal>12063 Argentine M1909/Spanish M1943 bayonet lug adapters,
-   a long enough description to count as one.</p>
-<p class=MsoNormal>http://ebayonet.com/12000/12063EXAMPLE.jpg</p>
-<p class=MsoNormal>$7 each or 3 for $20</p>
-<p class=MsoNormal>I have a scant few of these with the original locking pin $10 each</p>
-
-<p class=MsoNormal>15450 Mukden Mauser bayonet. SEE LISTING UNDER MANCHUKUO.</p>
-
-<p class=MsoNormal>16601 M1950? Hakim bayonet with scabbard. Scabbard does not
-   match but has an Arabic serial number.&nbsp; SOLD</p>
-<p class=MsoNormal>$275</p>
-</body></html>
-"""
+MEDIA = [
+    {"id": 72, "source_url": "https://ebayonet.com/wp-content/uploads/2026/08/18783.jpg"},
+    {"id": 73, "source_url": "https://ebayonet.com/wp-content/uploads/2026/08/18783a.jpg"},
+    {"id": 85, "source_url": "https://ebayonet.com/wp-content/uploads/2026/08/12063.jpg"},
+]
 
 
-def _by_key(page=PAGE, name="bayonetsa_f.htm"):
-    return {item.external_key: item for item in parse_page(page, name)}
+def record(slug, **over):
+    """One ``item`` record, shaped as the REST API returns it."""
+    meta = {
+        "_ebay_stock": slug,
+        "_ebay_price": 100,
+        "_ebay_price_text": "$100",
+        "_ebay_status": "available",
+        "_ebay_gallery": [72, 73],
+        "_ebay_legacy_page": "/https://www.ebayonet.com/bayonetsa_f.htm",
+    }
+    meta.update(over.pop("meta", {}))
+    row = {
+        "id": 5000,
+        "slug": slug,
+        "link": f"https://ebayonet.com/item/{slug}/",
+        "title": {"rendered": "Afghan issue P1907 bayonet with scabbard."},
+        "content": {"rendered": "<p>Dari marking on both tangs.</p>\n"},
+        "featured_media": 0,
+        "item-category": [79],
+        "country": [1],
+        "meta": meta,
+    }
+    row.update(over)
+    return row
+
+
+class FakeApi:
+    """Serves the three endpoints this reader uses, off a list of records."""
+
+    def __init__(self, records, *, fail_page=None, media=MEDIA):
+        self.records = records
+        self.fail_page = fail_page
+        self.media = media
+        self.asked = []
+
+    def get_text(self, url, **_kwargs):
+        self.asked.append(url)
+        # Parsed rather than matched on substrings: `per_page=100` contains
+        # `page=`, and `_fields=...,item-category,country` contains both
+        # taxonomy names, so a fake that reads the URL by eye answers the
+        # wrong endpoint and every test fails for the wrong reason.
+        parts = urlsplit(url)
+        endpoint = parts.path.rsplit("/", 1)[-1]
+        query = parse_qs(parts.query)
+
+        if endpoint == "item-category":
+            return json.dumps(CATEGORY_TERMS)
+        if endpoint == "country":
+            return json.dumps(COUNTRY_TERMS)
+        if endpoint == "media":
+            wanted = {int(one) for one in query.get("include", [""])[0].split(",") if one}
+            return json.dumps([m for m in self.media if m["id"] in wanted])
+        if "slug" in query:
+            wanted_slug = query["slug"][0]
+            return json.dumps([r for r in self.records if r["slug"] == wanted_slug])
+
+        page = int(query.get("page", ["1"])[0])
+        if self.fail_page is not None and page >= self.fail_page:
+            raise RuntimeError("502 Bad Gateway")
+        start = (page - 1) * PAGE_SIZE
+        return json.dumps(self.records[start : start + PAGE_SIZE])
+
+
+@pytest.fixture
+def serving(ctx_factory):
+    def build(records, **kwargs):
+        api = FakeApi(records, **kwargs)
+        context = ctx_factory()
+        context.get_text = api.get_text  # type: ignore[method-assign]
+        return context, api
+
+    return build
+
+
+def only(items):
+    assert len(items) == 1
+    return items[0]
 
 
 class TestReadingAListing:
-    def test_the_stock_number_is_the_key(self):
-        assert set(_by_key()) == {"18782", "12063", "16601"}
+    def test_the_slug_is_the_key_so_the_price_history_survives(self, serving):
+        """743 of the 825 slugs are the stock number the old reader used, and
+        this is the assertion that keeps them that way."""
+        ctx, _ = serving([record("18783")])
+        assert only(list(EBayonetScraper().scrape(ctx))).external_key == "18783"
 
-    def test_the_price_comes_from_a_later_paragraph(self):
-        """The whole shape of this site. In its own paragraph, after the
-        photographs, and with nothing tying it to the listing but order."""
-        assert _by_key()["18782"].price == 110.0
+    def test_the_price_is_the_number_the_shop_already_worked_out(self, serving):
+        ctx, _ = serving([record("18783")])
+        assert only(list(EBayonetScraper().scrape(ctx))).price == 100.0
 
-    def test_photographs_are_read_out_of_the_prose(self):
-        """There is not one <img> tag in a megabyte of this site's HTML."""
-        item = _by_key()["18782"]
-        assert item.image_urls == [
-            "https://ebayonet.com/18700/18782.jpg",
-            "https://ebayonet.com/18700/18782a.jpg",
+    def test_a_listing_priced_by_inquiry_has_no_price_rather_than_a_free_one(self, serving):
+        ctx, _ = serving(
+            [record("parts", meta={"_ebay_price": 0, "_ebay_price_text": "", "_ebay_stock": ""})]
+        )
+        assert only(list(EBayonetScraper().scrape(ctx))).price is None
+
+    def test_the_category_and_country_are_the_shops_own_words(self, serving):
+        ctx, _ = serving([record("18783")])
+        item = only(list(EBayonetScraper().scrape(ctx)))
+        assert item.category == "Bayonets"
+        assert item.country == "Afghanistan"
+
+    def test_photographs_come_out_in_gallery_order(self, serving):
+        ctx, _ = serving([record("18783")])
+        assert only(list(EBayonetScraper().scrape(ctx))).image_urls == [
+            MEDIA[0]["source_url"],
+            MEDIA[1]["source_url"],
         ]
 
-    def test_a_photo_written_twice_is_stored_once(self):
-        """Word writes the URL as the link *and* as its text."""
-        assert len(_by_key()["18782"].image_urls) == 2
+    def test_the_featured_photograph_leads_when_it_is_not_already_in_the_gallery(self, serving):
+        ctx, _ = serving([record("12063", featured_media=85, meta={"_ebay_gallery": [72]})])
+        assert only(list(EBayonetScraper().scrape(ctx))).image_urls == [
+            MEDIA[2]["source_url"],
+            MEDIA[0]["source_url"],
+        ]
 
-    def test_everything_is_a_bayonet(self):
-        assert {item.category for item in parse_page(PAGE, "x.htm")} == {"Bayonet"}
-
-    def test_sold_is_noticed(self):
-        assert _by_key()["16601"].is_sold is True
-
-    def test_the_url_says_which_page_to_look_on(self):
-        """There are no product pages, so this is the only address a listing
-        has."""
-        assert _by_key()["18782"].url.endswith("/bayonetsa_f.htm#18782")
+    def test_a_listing_with_no_photographs_is_still_a_listing(self, serving):
+        ctx, _ = serving([record("parts", featured_media=0, meta={"_ebay_gallery": []})])
+        assert only(list(EBayonetScraper().scrape(ctx))).image_urls == []
 
 
-class TestThePriceOfTheWrongThing:
-    """A listing's prose quotes prices of other things -- "with the original
-    locking pin $10 each" -- so a dollar sign anywhere is not the asking price.
-    """
+class TestThePriceNote:
+    """``$7 each or 3 for $20`` is the rest of the offer; ``$100`` beside a
+    price of 100 is the same fact twice."""
 
-    def test_the_listings_own_price_wins(self):
-        assert _by_key()["12063"].price == 7.0
+    def test_a_price_text_that_says_more_than_the_number_is_kept(self, serving):
+        ctx, _ = serving(
+            [record("12063", meta={"_ebay_price": 7, "_ebay_price_text": "$7 each or 3 for $20"})]
+        )
+        item = only(list(EBayonetScraper().scrape(ctx)))
+        assert item.price == 7.0
+        assert item.extra["price_note"] == "$7 each or 3 for $20"
 
-    def test_a_long_paragraph_is_prose_and_not_a_price(self):
-        item = _by_key()["12063"]
-        assert item.price != 10.0
-        assert "locking pin" in (item.description or "")
+    def test_and_one_that_only_repeats_it_is_not(self, serving):
+        ctx, _ = serving([record("18783")])
+        assert "price_note" not in only(list(EBayonetScraper().scrape(ctx))).extra
 
 
-class TestCrossReferences:
-    """A bayonet carried by two countries is written out on both of their
-    pages: once in full, once as a pointer. Eleven stock numbers are duplicated
-    that way across the live catalog, and the external key is the stock number
-    -- so keeping both means one overwrites the other on upsert, and which one
-    depends on the order the pages were read in.
-    """
+class TestWhetherItIsStillForSale:
+    def test_available_is_for_sale(self, serving):
+        ctx, _ = serving([record("18783")])
+        assert only(list(EBayonetScraper().scrape(ctx))).is_sold is False
 
-    def test_a_pointer_is_not_a_listing(self):
-        assert "15450" not in _by_key()
+    def test_anything_else_is_not(self, serving):
+        """Every one of the 825 says "available" today, so any other word is
+        one this reader has never seen. Of the two ways to be wrong about it,
+        showing a listing as for sale when it is not sends somebody to a dead
+        page; this is the other way round, and the run says so out loud."""
+        ctx, _ = serving([record("18783", meta={"_ebay_status": "reserved"})])
+        items = list(EBayonetScraper().scrape(ctx))
+        assert only(items).is_sold is True
+        assert any("reserved" in warning for warning in ctx.warnings)
 
-    def test_the_richer_row_wins_when_neither_says_so(self):
-        """Three copies of one stock number sit on a single page with no
-        marker between them. A real listing has a price and photographs; a
-        stub has neither."""
-        page = """
-        <p>15379 Post WWI Belgian Made Ersatz bayonet with a full description here.</p>
-        <p>https://ebayonet.com/15300/15379.jpg</p>
-        <p>$200</p>
-        <p>15379 Post WWI Belgian Made Ersatz bayonet with a full description here.</p>
-        """
-        found = parse_page(page, "x.htm")
-        assert len(found) == 1
-        assert found[0].price == 200.0
+    def test_a_word_it_does_know_is_not_complained_about(self, serving):
+        ctx, _ = serving([record("18783")])
+        list(EBayonetScraper().scrape(ctx))
+        assert ctx.warnings == []
+
+
+class TestPagingTheCatalog:
+    def test_it_stops_on_the_first_short_page(self, serving):
+        """Rather than asking for one more and reading the refusal. WordPress
+        answers a page past the end with a 400, and a reader that walks into
+        that every run cannot tell the end of the catalog from a broken shop."""
+        ctx, api = serving([record(str(10000 + n)) for n in range(PAGE_SIZE + 5)])
+        items = list(EBayonetScraper().scrape(ctx))
+        assert len(items) == PAGE_SIZE + 5
+        item_pages = [url for url in api.asked if urlsplit(url).path.rsplit("/", 1)[-1] == "item"]
+        assert len(item_pages) == 2
+
+    def test_an_exactly_full_last_page_costs_one_more_request_and_no_error(self, serving):
+        ctx, _ = serving([record(str(10000 + n)) for n in range(PAGE_SIZE)])
+        assert len(list(EBayonetScraper().scrape(ctx))) == PAGE_SIZE
+
+
+class TestWhenTheCatalogBreaksPartway:
+    RECORDS = [record(str(10000 + n)) for n in range(PAGE_SIZE + 5)]
+
+    def test_what_was_read_is_kept(self, serving):
+        ctx, _ = serving(self.RECORDS, fail_page=2)
+        assert len(list(EBayonetScraper().scrape(ctx))) == PAGE_SIZE
+
+    def test_and_every_category_is_declared_unread(self, serving):
+        """Not only the ones seen. The API pages by id, so the page that failed
+        could have held any category, and naming only what was read would
+        de-list whatever was in the gap."""
+        ctx, _ = serving(self.RECORDS, fail_page=2)
+        list(EBayonetScraper().scrape(ctx))
+        assert ctx.unread_categories == {term["name"] for term in CATEGORY_TERMS}
+
+    def test_a_run_that_reads_everything_declares_nothing_unread(self, serving):
+        ctx, _ = serving([record("18783")])
+        list(EBayonetScraper().scrape(ctx))
+        assert ctx.unread_categories == set()
+
+    def test_a_catalog_that_answers_nothing_at_all_is_the_shop(self, serving):
+        ctx, _ = serving(self.RECORDS, fail_page=1)
+        with pytest.raises(ScrapeError, match="no eBayonet listing could be read"):
+            list(EBayonetScraper().scrape(ctx))
+
+    def test_and_records_that_yield_no_listing_are_this_reader(self, serving):
+        """The shop answered, with rows, and nothing came out of them. That is
+        a different repair from a shop that is down, and saying so is the whole
+        reason the two messages are not one message."""
+        nameless = record("18783")
+        nameless["slug"] = ""
+        nameless["title"] = {"rendered": ""}
+        ctx, _ = serving([nameless])
+        with pytest.raises(ScrapeError, match="this reader rather than the shop"):
+            list(EBayonetScraper().scrape(ctx))
+
+
+class TestPhotographsAreTheSkippableThing:
+    def test_a_media_request_that_fails_costs_pictures_and_not_listings(self, serving):
+        ctx, api = serving([record("18783")])
+        original = api.get_text
+
+        def refuse_media(url, **kwargs):
+            if "/media" in url:
+                raise RuntimeError("504 Gateway Timeout")
+            return original(url, **kwargs)
+
+        ctx.get_text = refuse_media  # type: ignore[method-assign]
+        item = only(list(EBayonetScraper().scrape(ctx)))
+        assert item.image_urls == []
+        assert item.price == 100.0
+        assert any("photograph" in warning for warning in ctx.warnings)
+
+
+class TestRereadingOneListingsPrice:
+    def test_it_asks_for_the_one_slug(self, serving):
+        ctx, api = serving([record("18783")])
+        found = EBayonetScraper().check_price(ctx, "https://ebayonet.com/item/18783/")
+        assert found is not None
+        assert found.price == 100.0
+        assert found.sold_out is False
+        assert len(api.asked) == 1
+
+    def test_a_pre_migration_url_still_works_from_its_fragment(self, serving):
+        """A listing stored before the new site went up has a URL of
+        ``bayonetsa_f.htm#18783``, and that fragment is the stock number, which
+        is now the slug. Without this its next check reads nothing and the
+        watchlist goes quiet between the migration and the next full scan."""
+        ctx, _ = serving([record("18783")])
+        found = EBayonetScraper().check_price(ctx, "https://www.ebayonet.com/bayonetsa_f.htm#18783")
+        assert found is not None
+        assert found.price == 100.0
+
+    def test_the_key_wins_over_the_url(self, serving):
+        ctx, _ = serving([record("18783")])
+        assert EBayonetScraper().check_price(ctx, "https://ebayonet.com/item/nope/", key="18783")
+
+    def test_a_listing_no_longer_in_the_catalog_is_silence(self, serving):
+        ctx, _ = serving([record("18783")])
+        assert EBayonetScraper().check_price(ctx, "https://ebayonet.com/item/19999/") is None
+
+    def test_a_url_naming_nothing_is_refused(self, serving):
+        ctx, _ = serving([record("18783")])
+        assert EBayonetScraper().check_price(ctx, "https://ebayonet.com/") is None
+
+    def test_a_listing_with_no_price_is_silence_rather_than_zero(self, serving):
+        ctx, _ = serving([record("parts", meta={"_ebay_price": 0})])
+        assert EBayonetScraper().check_price(ctx, "https://ebayonet.com/item/parts/") is None
+
+    def test_it_agrees_with_what_a_scan_would_store(self, serving):
+        """The two readings must not be able to drift: a watchlist that priced
+        a listing differently from the scan beside it would mail somebody about
+        a change that never happened."""
+        rows = [record("12063", meta={"_ebay_price": 7, "_ebay_price_text": "$7 each"})]
+        scan_ctx, _ = serving(rows)
+        scanned = only(list(EBayonetScraper().scrape(scan_ctx)))
+        check_ctx, _ = serving(rows)
+        rechecked = EBayonetScraper().check_price(check_ctx, scanned.url)
+        assert rechecked is not None
+        assert rechecked.price == scanned.price
 
 
 class TestItIsRegistered:
@@ -127,160 +327,4 @@ class TestItIsRegistered:
         assert isinstance(get_scraper("ebayonet"), EBayonetScraper)
 
     def test_it_needs_no_browser(self):
-        """Five static files. The roadmap filed this as needing one."""
         assert EBayonetScraper.requires_browser is False
-
-
-class TestRereadingOneListingsPrice:
-    """The watchlist poller's single-page check, on a shop with no pages.
-
-    A listing here is a paragraph on a shared country page, so its URL is that
-    page plus a fragment and the fragment is the only thing that says which
-    bayonet. There is nothing generic to read: no schema.org, no meta tag, no
-    storefront.
-    """
-
-    @staticmethod
-    def _serving(ctx_factory, html_text, seen=None):
-        context = ctx_factory()
-
-        def fake_get_text(url, **_kwargs):
-            if seen is not None:
-                seen.append(url)
-            return html_text
-
-        context.get_text = fake_get_text  # type: ignore[method-assign]
-        return context
-
-    URL = "https://www.ebayonet.com/bayonetsa_f.htm#18782"
-
-    def test_it_finds_the_listing_the_fragment_names(self, ctx_factory):
-        found = EBayonetScraper().check_price(self._serving(ctx_factory, PAGE), self.URL)
-        assert found is not None
-        assert found.price == 110.0
-
-    def test_the_key_wins_over_the_fragment(self, ctx_factory):
-        found = EBayonetScraper().check_price(
-            self._serving(ctx_factory, PAGE), self.URL, key="16601"
-        )
-        assert found is not None
-        assert found.price == 275.0
-
-    def test_a_sold_bayonet_says_so(self, ctx_factory):
-        found = EBayonetScraper().check_price(
-            self._serving(ctx_factory, PAGE), self.URL, key="16601"
-        )
-        assert found is not None
-        assert found.sold_out
-
-    def test_the_fragment_is_not_sent_to_the_shop(self, ctx_factory):
-        """It is a position in a document, not part of the address."""
-        seen: list[str] = []
-        EBayonetScraper().check_price(self._serving(ctx_factory, PAGE, seen), self.URL)
-        assert seen == ["https://www.ebayonet.com/bayonetsa_f.htm"]
-
-    def test_a_listing_no_longer_on_the_page_is_silence(self, ctx_factory):
-        found = EBayonetScraper().check_price(
-            self._serving(ctx_factory, PAGE), self.URL, key="00000"
-        )
-        assert found is None
-
-    def test_a_url_naming_nothing_is_refused(self, ctx_factory):
-        found = EBayonetScraper().check_price(
-            self._serving(ctx_factory, PAGE), "https://www.ebayonet.com/bayonetsa_f.htm"
-        )
-        assert found is None
-
-    def test_it_agrees_with_what_a_scan_would_store(self, ctx_factory):
-        """The point of reusing parse_page. Flattening this page and taking the
-        price nearest an item number matched the stored value on four of
-        sixteen real listings, and twice gave two neighbours each other's."""
-        scanned = {item.external_key: item.price for item in parse_page(PAGE, "bayonetsa_f.htm")}
-        for key, expected in scanned.items():
-            if expected is None:
-                continue
-            found = EBayonetScraper().check_price(
-                self._serving(ctx_factory, PAGE), self.URL, key=key
-            )
-            assert found is not None, key
-            assert found.price == expected, key
-
-
-class TestWhenTheShopIsDown:
-    """The morning their hosting broke, and what the scan said about it.
-
-    ebayonet.com's certificate lapsed to its host's default -- a wildcard for
-    *.bluehost.com, which matches nothing this scraper asks for -- so every
-    request failed at TLS and not one byte of markup was ever read. The run
-    reported *"every eBayonet page failed to parse"* and the canary carried
-    that sentence to the inbox, which sent somebody looking for a parser bug in
-    a reader that was working perfectly.
-
-    A shop that is down and a reader that has gone stale need opposite repairs,
-    and only one of them is ours. So the two are now said differently.
-    """
-
-    @staticmethod
-    def _answering(ctx_factory, pages):
-        """A context whose pages come from a dict; anything absent raises."""
-        context = ctx_factory()
-
-        def fake_get_text(url, **_kwargs):
-            page = url.rsplit("/", 1)[-1]
-            if page not in pages:
-                raise ScrapeError(f"SSLError: certificate verify failed for {url}")
-            return pages[page]
-
-        context.get_text = fake_get_text  # type: ignore[method-assign]
-        return context
-
-    def test_a_shop_that_answers_nothing_is_not_called_a_parse_failure(self, ctx_factory):
-        ctx = self._answering(ctx_factory, {})
-
-        with pytest.raises(ScrapeError) as raised:
-            list(EBayonetScraper().scrape(ctx))
-
-        message = str(raised.value)
-        assert "no eBayonet page could be fetched" in message
-        assert "certificate verify failed" in message
-        assert "failed to parse" not in message
-
-    def test_and_a_reader_that_has_gone_stale_still_is(self, ctx_factory):
-        """The other half of the pair, and the one that is our bug: the pages
-        arrive and nothing can be read out of them."""
-        ctx = self._answering(ctx_factory, dict.fromkeys(PAGES, "<html><body></body></html>"))
-
-        with pytest.raises(ScrapeError) as raised:
-            list(EBayonetScraper().scrape(ctx))
-
-        assert "none of them parsed" in str(raised.value)
-        assert "this reader rather than the shop" in str(raised.value)
-
-    def test_four_pages_of_five_keeps_the_four(self, ctx_factory):
-        ctx = self._answering(ctx_factory, {PAGES[0]: PAGE})
-
-        items = list(EBayonetScraper().scrape(ctx))
-
-        assert items
-        assert any("could not fetch" in warning for warning in ctx.warnings)
-
-    def test_and_de_lists_nothing_at_all(self, ctx_factory):
-        """The part that matters more than the message.
-
-        Everything this shop sells is filed under one category, which is what
-        not_read() is keyed on -- so declaring it covers the whole shop, and a
-        run that reached four pages of five reports what it saw without the
-        reconcile treating the fifth page's couple of hundred bayonets as sold.
-        """
-        ctx = self._answering(ctx_factory, {PAGES[0]: PAGE})
-
-        list(EBayonetScraper().scrape(ctx))
-
-        assert ctx.unread_categories == {CATEGORY}
-
-    def test_a_run_that_reads_everything_declares_nothing_unread(self, ctx_factory):
-        ctx = self._answering(ctx_factory, dict.fromkeys(PAGES, PAGE))
-
-        list(EBayonetScraper().scrape(ctx))
-
-        assert ctx.unread_categories == set()

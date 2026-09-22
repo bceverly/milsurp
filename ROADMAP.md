@@ -61,7 +61,7 @@ Cloudflare challenge rather than a rendering problem.
 | [Officer Store](https://officerstore.com/) | `officer-store` | BigCommerce — 13 LE trade-in Glocks, graded by condition |
 | [Arms Unlimited](https://armsunlimited.com/) | `arms-unlimited` | BigCommerce — 20 used and collectible, twelve of them military; their gear and current-production sections are not read |
 | [AIM Surplus](https://aimsurplus.com/) | `aim-surplus` | Its own JSON API — 162 police trade-ins and 18 curio-and-relic, all priced; the largest *live* police catalog here |
-| [eBayonet](https://www.ebayonet.com/) | `ebayonet` | **No platform at all** — five Word-exported pages, prices and photographs typed into the prose |
+| [eBayonet](https://ebayonet.com/) | `ebayonet` | WordPress with a bespoke plugin, read through its public REST API. Was five Word-exported pages until September 2026 |
 | [Surplus Defense](https://www.surplusdefense.com/) | `surplus-defense` | **Wix Stores base class** — 45 listings and every one collector milsurp |
 | [Joe Salter](https://shop.joesalter.com/) | `joe-salter` | **OpenCart** — 320 collector listings, every one priced; **no photographs, because their robots.txt disallows `/image`** |
 | [GunPrime](https://gunprime.com/) | `gunprime` | **Spree on Rails** — the collector and police trade-in shelves; their six firearm categories are a modern gun shop and are left alone |
@@ -1053,7 +1053,7 @@ OpenCart.
 | **OpenCart** | Joe Salter | `OCSESSID`; not Shift4Shop |
 | **WooCommerce (blocked)** | ~~DK Firearms~~, ~~MCT Defense~~ | See Group A. J&G Sales was here and shipped through the Store API; MCT Defense is dropped — wholesale only |
 | **Unknown** | Simpson Ltd | No marker in headers or cookies, and the home page answers with 2.8 KB — a splash or a client-side shell rather than a catalog. Needs a real entry URL before anything else can be said |
-| **No platform at all** | eBayonet | Apache, hand-written pages saved from Microsoft Word, no `robots.txt`. Static HTML parsing, like Empire Arms |
+| **WordPress (custom post type)** | eBayonet | `/wp-json/wp/v2/item`, with price, status and gallery published as post meta. Was hand-written Word pages until their September 2026 rebuild |
 | **Refused a plain request** | Liberty Tree (403), Fernwood Armory (403 + Cloudflare) | Not identified; both need the browser before anything else can be said |
 
 #### Group B — BigCommerce · base class **shipped**
@@ -1136,7 +1136,7 @@ is the most-visited site on the whole list and is worth building despite that.
 | — | ~~Century Arms~~ | — | Magento | Importer, widely stocked by the others | **Dropped: dealer-only prices.** See Group G |
 | 5 | Joe Salter | https://shop.joesalter.com/CandR-Firearms-curio-and-relic-handguns-rifles | OpenCart | Long-established collector dealer | Not Shift4Shop, which the `-cNNNNNNNNN` URL suffix suggested |
 | 6 | Simpson Ltd. | https://www.simpsonltd.com/ | Unknown | Trading since 1962 | **Needs an entry URL.** The home page is 2.8 KB with no platform marker; whatever the catalog is, it is not there |
-| 7 | eBayonet | https://www.ebayonet.com/bayonetsa_f.htm | Static HTML (Word export) | Specialist; catalog dated 9 Aug 2026 | Bayonets only. See below — it is the closest thing on this list to Empire Arms |
+| 7 | eBayonet | https://ebayonet.com/wp-json/wp/v2/item | WordPress REST API | Specialist; 825 listings | Mostly bayonets (712), plus gun parts, helmets, books and uniforms |
 
 **eBayonet, measured rather than guessed.** No e-commerce platform at all: an
 Apache server, hand-maintained pages, and no `robots.txt` (it 404s, which the

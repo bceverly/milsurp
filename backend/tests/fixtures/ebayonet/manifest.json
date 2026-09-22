@@ -1,22 +1,70 @@
 {
   "slug": "ebayonet",
-  "recorded_at": "2026-09-16T13:45:51+00:00",
+  "recorded_at": "2026-09-22T08:31:10+00:00",
   "pages": [
     {
-      "url": "https://www.ebayonet.com/bayonetsa_f.htm",
+      "url": "https://ebayonet.com/wp-json/wp/v2/item-category?per_page=100&_fields=id%2Cname",
       "file": "0001.html.gz"
     },
     {
-      "url": "https://www.ebayonet.com/bayonetsg.htm",
+      "url": "https://ebayonet.com/wp-json/wp/v2/country?per_page=100&_fields=id%2Cname",
       "file": "0002.html.gz"
     },
     {
-      "url": "https://www.ebayonet.com/bayonetsh_m.htm",
+      "url": "https://ebayonet.com/wp-json/wp/v2/item?per_page=100&page=1&orderby=id&order=asc&_fields=id%2Cslug%2Clink%2Ctitle%2Ccontent%2Cmeta%2Cfeatured_media%2Citem-category%2Ccountry",
       "file": "0003.html.gz"
     },
     {
-      "url": "https://www.ebayonet.com/bayonetsn_s.htm",
+      "url": "https://ebayonet.com/wp-json/wp/v2/item?per_page=100&page=2&orderby=id&order=asc&_fields=id%2Cslug%2Clink%2Ctitle%2Ccontent%2Cmeta%2Cfeatured_media%2Citem-category%2Ccountry",
       "file": "0004.html.gz"
+    },
+    {
+      "url": "https://ebayonet.com/wp-json/wp/v2/item?per_page=100&page=3&orderby=id&order=asc&_fields=id%2Cslug%2Clink%2Ctitle%2Ccontent%2Cmeta%2Cfeatured_media%2Citem-category%2Ccountry",
+      "file": "0005.html.gz"
+    },
+    {
+      "url": "https://ebayonet.com/wp-json/wp/v2/item?per_page=100&page=4&orderby=id&order=asc&_fields=id%2Cslug%2Clink%2Ctitle%2Ccontent%2Cmeta%2Cfeatured_media%2Citem-category%2Ccountry",
+      "file": "0006.html.gz"
+    },
+    {
+      "url": "https://ebayonet.com/wp-json/wp/v2/item?per_page=100&page=5&orderby=id&order=asc&_fields=id%2Cslug%2Clink%2Ctitle%2Ccontent%2Cmeta%2Cfeatured_media%2Citem-category%2Ccountry",
+      "file": "0007.html.gz"
+    },
+    {
+      "url": "https://ebayonet.com/wp-json/wp/v2/item?per_page=100&page=6&orderby=id&order=asc&_fields=id%2Cslug%2Clink%2Ctitle%2Ccontent%2Cmeta%2Cfeatured_media%2Citem-category%2Ccountry",
+      "file": "0008.html.gz"
+    },
+    {
+      "url": "https://ebayonet.com/wp-json/wp/v2/item?per_page=100&page=7&orderby=id&order=asc&_fields=id%2Cslug%2Clink%2Ctitle%2Ccontent%2Cmeta%2Cfeatured_media%2Citem-category%2Ccountry",
+      "file": "0009.html.gz"
+    },
+    {
+      "url": "https://ebayonet.com/wp-json/wp/v2/item?per_page=100&page=8&orderby=id&order=asc&_fields=id%2Cslug%2Clink%2Ctitle%2Ccontent%2Cmeta%2Cfeatured_media%2Citem-category%2Ccountry",
+      "file": "0010.html.gz"
+    },
+    {
+      "url": "https://ebayonet.com/wp-json/wp/v2/item?per_page=100&page=9&orderby=id&order=asc&_fields=id%2Cslug%2Clink%2Ctitle%2Ccontent%2Cmeta%2Cfeatured_media%2Citem-category%2Ccountry",
+      "file": "0011.html.gz"
+    },
+    {
+      "url": "https://ebayonet.com/wp-json/wp/v2/media?include=72%2C73%2C74%2C75%2C76%2C79%2C80%2C81%2C82%2C85%2C88%2C89%2C90%2C91%2C94%2C95%2C96%2C97%2C98%2C101%2C102%2C103%2C104%2C107%2C108%2C109%2C112%2C113%2C114%2C115%2C116%2C117%2C120%2C121%2C122%2C123%2C126%2C127%2C128%2C129%2C137%2C138%2C139%2C140%2C141%2C142%2C143%2C148%2C149%2C150%2C151%2C152%2C155%2C156%2C157%2C160%2C161%2C162%2C170%2C171%2C172%2C173%2C188%2C189%2C190%2C193%2C194%2C195%2C196%2C199%2C200%2C201%2C202%2C203%2C206%2C207%2C208%2C209%2C210%2C211%2C212%2C213%2C224%2C225%2C226%2C227%2C228%2C229%2C232%2C233%2C234%2C235%2C238%2C239%2C240%2C243%2C244%2C245%2C246%2C247&per_page=100&_fields=id%2Csource_url",
+      "file": "0012.html.gz"
+    },
+    {
+      "url": "https://ebayonet.com/wp-json/wp/v2/media?include=254%2C255%2C256%2C257%2C258%2C268%2C269%2C272%2C273%2C274%2C275%2C278%2C279%2C280%2C281%2C282%2C285%2C286%2C287%2C288%2C291%2C292%2C293%2C296%2C297%2C298%2C301%2C302%2C303%2C304%2C305%2C306%2C309%2C310%2C311%2C312%2C315%2C316%2C317%2C320%2C321%2C322%2C325%2C326%2C327%2C328%2C329%2C330%2C331%2C332%2C335%2C336%2C337%2C338%2C339%2C340%2C341%2C350%2C351%2C352%2C353%2C356%2C357%2C358%2C359%2C360%2C361%2C364%2C365%2C366%2C374%2C375%2C376%2C377%2C380%2C381%2C382%2C383%2C384%2C402%2C403%2C404%2C405%2C406%2C407%2C408%2C411%2C412%2C413%2C414%2C417%2C418%2C419%2C420%2C421%2C424%2C425%2C426%2C427%2C430&per_page=100&_fields=id%2Csource_url",
+      "file": "0013.html.gz"
+    },
+    {
+      "url": "https://ebayonet.com/wp-json/wp/v2/media?include=431%2C432%2C435%2C436%2C437%2C438%2C441%2C442%2C443%2C446%2C447%2C450%2C451%2C452%2C453%2C454%2C457%2C458%2C459%2C460%2C463%2C464%2C467%2C468%2C469%2C470%2C473%2C474%2C475%2C476%2C477%2C480%2C481%2C482%2C485%2C486%2C487%2C488%2C491%2C492%2C493%2C494%2C497%2C498%2C499%2C500%2C503%2C504%2C505%2C506%2C509%2C510%2C511%2C512%2C515%2C516%2C517%2C520%2C521%2C522%2C523%2C524%2C525%2C526%2C527%2C530%2C531%2C532%2C533%2C536%2C537%2C538%2C541%2C542%2C543%2C546%2C547%2C548%2C551%2C552%2C553%2C556%2C557%2C558%2C559%2C562%2C563%2C564%2C565%2C568%2C569%2C570%2C571%2C574%2C575%2C576%2C579%2C580%2C581%2C584&per_page=100&_fields=id%2Csource_url",
+      "file": "0014.html.gz"
+    },
+    {
+      "url": "https://ebayonet.com/wp-json/wp/v2/media?include=585%2C586%2C589%2C590%2C591%2C594%2C595%2C596%2C599%2C600%2C601%2C604%2C605%2C606%2C609%2C610%2C611%2C614%2C615%2C616%2C617%2C618%2C619%2C620%2C621%2C624%2C625%2C626%2C627%2C628%2C629%2C632%2C633%2C634%2C635%2C636%2C639%2C640%2C641%2C642%2C643%2C652%2C653%2C654%2C655%2C656%2C659%2C660%2C661%2C662%2C665%2C666%2C667%2C668%2C669%2C670%2C673%2C674%2C675%2C676%2C677%2C680%2C681%2C682%2C683%2C684%2C687%2C688%2C689%2C690%2C691%2C692%2C695%2C696%2C697%2C698%2C701%2C702%2C703%2C710%2C711%2C714%2C715%2C718%2C719%2C726%2C727%2C730%2C731%2C734%2C735%2C738%2C739%2C740%2C743%2C744%2C745%2C748%2C749%2C750&per_page=100&_fields=id%2Csource_url",
+      "file": "0015.html.gz"
+    },
+    {
+      "url": "https://ebayonet.com/wp-json/wp/v2/media?include=751%2C754%2C755%2C756%2C757%2C758%2C761%2C762%2C763%2C764%2C765%2C768%2C769%2C770%2C771%2C772%2C773%2C776%2C777%2C778%2C779%2C780%2C783%2C784%2C785%2C786%2C787%2C788%2C791%2C792%2C793%2C796%2C797%2C798%2C801%2C802%2C803%2C806%2C807%2C808%2C811%2C812%2C815%2C816%2C817%2C818%2C819%2C822%2C823%2C824%2C827%2C828%2C829%2C830%2C833%2C834%2C835%2C836%2C839%2C840%2C841%2C842%2C845%2C846%2C847%2C856%2C857%2C858%2C859%2C862%2C863%2C864%2C865%2C868%2C869%2C870%2C871%2C874%2C875%2C876%2C877%2C880%2C881%2C882%2C883%2C884%2C887%2C888%2C889%2C890%2C891%2C894%2C895%2C896%2C897%2C900%2C901%2C902%2C903%2C906&per_page=100&_fields=id%2Csource_url",
+      "file": "0016.html.gz"
     }
   ]
 }
