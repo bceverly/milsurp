@@ -245,6 +245,14 @@ export const api = {
     request(`/api/sites/${id}`, { method: "PATCH", body: patch }),
   startScan: (id) => request(`/api/sites/${id}/scan`, { method: "POST" }),
   cancelScan: (id) => request(`/api/sites/${id}/scan/cancel`, { method: "POST" }),
+  // Fetch photographs already known about but never downloaded. Re-scrapes
+  // nothing: the URLs are stored, only the bytes are missing.
+  updateSitePhotos: (id) => request(`/api/sites/${id}/photos`, { method: "POST" }),
+  updateAllPhotos: () => request("/api/sites/photos", { method: "POST" }),
+  // Queue a site's product pages to be read again on its next scan. Marks
+  // only; nothing is fetched until the scan runs.
+  refetchDetails: (id, limit) =>
+    request(`/api/sites/${id}/refetch-details${qs({ limit })}`, { method: "POST" }),
   siteScans: (id, params) => request(`/api/sites/${id}/scans${qs(params)}`),
 
   // --- scans ---

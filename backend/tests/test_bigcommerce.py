@@ -56,13 +56,35 @@ def catalog(cards: str, next_href: str | None = None) -> str:
     return f"<html><body><ul class='productGrid'>{cards}</ul>{nav}</body></html>"
 
 
-def product_page(title: str, description: str, images: list[str]) -> str:
+def product_page(
+    title: str,
+    description: str,
+    images: list[str],
+    thumbnails: list[str] | None = None,
+    description_class: str = "productView-description",
+) -> str:
+    """A Stencil product page.
+
+    ``thumbnails`` renders the strip a themed shop puts under the main image.
+    Optional because plenty of themes have none, and that fallthrough is the
+    case the gallery selectors have to keep handling.
+    """
     gallery = "".join(f'<img class="productView-image-img" src="{u}"/>' for u in images)
+    strip = ""
+    if thumbnails:
+        strip = (
+            '<ul class="productView-thumbnails">'
+            + "".join(
+                f'<li class="productView-thumbnail"><img src="{u}"/></li>' for u in thumbnails
+            )
+            + "</ul>"
+        )
     return f"""
     <html><body>
       <h1 class="productView-title">{title}</h1>
       <div class="productView-image">{gallery}</div>
-      <div class="productView-description">{description}</div>
+      {strip}
+      <div class="{description_class}">{description}</div>
       <dd class="productView-info-value--sku">SKU: L-1</dd>
     </body></html>
     """
@@ -292,6 +314,55 @@ class TestWalkingTheCatalog:
         assert item.images_are_complete is True
 
     @responses.activate
+    def test_the_thumbnail_strip_is_the_gallery_not_the_main_image(self, ctx):
+        """The main image always matches, and gallery() stops at the first
+        selector that finds anything -- so with the hero listed first, a
+        listing with a dozen photographs was stored with one.
+
+        Legacy Collectibles is where it showed: measured on twenty of their
+        listings, 251 photographs published and 20 stored.
+        """
+        responses.add(responses.GET, f"{SHOP}/rifles/", body=catalog(card("one", "Rifle")))
+        responses.add(
+            responses.GET,
+            f"{SHOP}/one/",
+            body=product_page(
+                "WWII M1 Garand",
+                "Serial number 1234567.",
+                images=[f"{CDN}/500x659/products/1/2/a.jpg"],
+                thumbnails=[
+                    f"{CDN}/100x100/products/1/2/a.jpg",
+                    f"{CDN}/100x100/products/1/2/b.jpg",
+                    f"{CDN}/100x100/products/1/2/c.jpg",
+                ],
+            ),
+        )
+
+        item = next(iter(Shop().scrape(ctx)))
+
+        assert item.image_urls == [
+            f"{CDN}/original/products/1/2/a.jpg",
+            f"{CDN}/original/products/1/2/b.jpg",
+            f"{CDN}/original/products/1/2/c.jpg",
+        ]
+        assert item.images_are_complete is True
+
+    @responses.activate
+    def test_a_theme_with_no_strip_still_gets_its_main_image(self, ctx):
+        """The fallthrough, which is most of the shops on this platform. Bowman
+        Arms and DuPage Trading were both checked against their recordings when
+        the order changed, and neither moved."""
+        responses.add(responses.GET, f"{SHOP}/rifles/", body=catalog(card("one", "Rifle")))
+        responses.add(
+            responses.GET,
+            f"{SHOP}/one/",
+            body=product_page("Rifle", "Prose.", [f"{CDN}/500x659/products/1/2/a.jpg"]),
+        )
+
+        item = next(iter(Shop().scrape(ctx)))
+        assert item.image_urls == [f"{CDN}/original/products/1/2/a.jpg"]
+
+    @responses.activate
     def test_the_grid_never_claims_to_be_the_gallery(self, ctx_factory):
         responses.add(responses.GET, f"{SHOP}/rifles/", body=catalog(card("one", "Rifle")))
         context = ctx_factory(needs_detail=lambda _key: False)
@@ -301,6 +372,71 @@ class TestWalkingTheCatalog:
             context.close()
 
         assert items[0].images_are_complete is False
+
+
+class TestLegacyCollectiblesWriteProseNow:
+    """They used to publish none, and this reader was built around that.
+
+    The description was assembled out of their specification table instead,
+    because the alternative was a listing with nothing in it. They have since
+    added written descriptions in a container of their own theme's -- not the
+    stock Stencil one -- so the table went on standing in for prose that was
+    sitting on the page. Measured across twenty listings sampled from the
+    catalog: 20 of 20 carry prose, 19 of 20 still carry the table.
+    """
+
+    #: Their page as it is now: an empty stock shell, and the real writing in
+    #: the theme's own block underneath it.
+    PAGE = """
+    <html><body>
+      <h1 class="productView-title">Colt M1911</h1>
+      <div class="productView-description"></div>
+      <div class="custom-description-section"><p>Blued finish, matching parts.</p></div>
+      <table class="productView-custom-fields">
+        <tr><td class="custom-field-label">Maker:</td>
+            <td class="custom-field-value">Colt</td></tr>
+        <tr><td class="custom-field-label">Caliber:</td>
+            <td class="custom-field-value">.45 ACP</td></tr>
+      </table>
+    </body></html>
+    """
+
+    def _described(self, html):
+        from app.scrapers.bigcommerce import custom_fields
+
+        scraper = LegacyCollectiblesScraper()
+        soup = BeautifulSoup(html, "lxml")
+        fields = custom_fields(soup)
+        return scraper._first_text(
+            soup, scraper.detail_description_selectors
+        ) or scraper.description_from(fields)
+
+    def test_their_own_writing_is_read(self):
+        assert "Blued finish, matching parts." in self._described(self.PAGE)
+
+    def test_the_empty_stock_shell_does_not_win(self):
+        """``.productView-description`` is on every one of their pages and is
+        a 52-character shell with nothing in it. It matches before the theme's
+        block would, and is harmless only because the selector walk skips a
+        match with no text -- so the ordering is what keeps working if that
+        ever changes."""
+        described = self._described(self.PAGE)
+        assert "Blued finish" in described
+        # And the table does not get appended behind it: prose wins outright,
+        # or the reader would be pasting the spec sheet onto the end of every
+        # description they write.
+        assert "Maker: Colt" not in described
+
+    def test_the_table_still_answers_when_there_is_no_prose(self):
+        """Which is how this worked for their whole catalog until recently,
+        and still has to work for the listings that carry no writing."""
+        without = self.PAGE.replace(
+            '<div class="custom-description-section"><p>Blued finish, matching parts.</p></div>',
+            "",
+        )
+        described = self._described(without)
+        assert "Maker: Colt" in described
+        assert "Caliber: .45 ACP" in described
 
 
 class TestTheShop:

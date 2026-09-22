@@ -25,7 +25,7 @@ import traceback
 from collections.abc import Callable, Iterable
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, select, update
+from sqlalchemy import case, func, select, update
 from sqlalchemy.orm import Session
 
 from ..config import Config, get_config
@@ -94,8 +94,145 @@ _running: dict[int, int] = {}
 _cancel_flags: dict[int, threading.Event] = {}
 
 
+#: The photo queue, claimed by whoever is draining it.
+#:
+#: One at a time, whatever the scope. Two drains would be working the same
+#: rows and the same host cooldowns, so each would spend its budget being told
+#: to wait by pauses the other had just earned -- and the count of photographs
+#: fetched would mean nothing, because a row the first had already attempted
+#: looks identical to one the second has not reached. A site's own drain and
+#: the all-sites drain overlap completely, so the guard does not distinguish
+#: them.
+_photo_runs: set[int | None] = set()
+
+
 class ScanBusy(RuntimeError):
     """A scan for this site is already in flight."""
+
+
+def photos_running() -> bool:
+    """Whether anything in this process is draining the photo queue."""
+    with _lock:
+        return bool(_photo_runs)
+
+
+def begin_photo_run(site_id: int | None) -> bool:
+    """Claim the photo queue. False when somebody already has it.
+
+    Claimed here rather than inside the worker thread so the caller can answer
+    the request with a refusal instead of accepting it and failing out of
+    sight.
+    """
+    with _lock:
+        if _photo_runs:
+            return False
+        _photo_runs.add(site_id)
+        return True
+
+
+def end_photo_run(site_id: int | None) -> None:
+    with _lock:
+        _photo_runs.discard(site_id)
+
+
+def detail_counts(session: Session) -> dict[int, int]:
+    """Per site id, how many listings have had a product page read.
+
+    Which is the same as how many :func:`mark_for_refetch` could re-queue: a
+    listing that has never had one is already going to be read on the next
+    scan, and clearing a mark it does not carry changes nothing.
+    """
+    rows = session.execute(
+        select(Item.site_id, func.count(Item.id))
+        .where(Item.detail_fetched_at.is_not(None))
+        .group_by(Item.site_id)
+    ).all()
+    return {int(site_id): int(count) for site_id, count in rows}
+
+
+def mark_for_refetch(
+    session: Session,
+    *,
+    site_id: int | None = None,
+    limit: int | None = None,
+    only_unreadable: bool = False,
+    dry_run: bool = False,
+) -> tuple[int, dict[int, int]]:
+    """Clear the detail mark so product pages are read again on the next scan.
+
+    A scan skips the product page of any listing it has already fetched one
+    for, which is what keeps a re-scan cheap -- and what means a fix to how a
+    page is *read* never reaches the listings that were read wrongly. Legacy
+    Collectibles is the case in point: their descriptions and their galleries
+    were both being missed, and correcting the reader fixed only the listings
+    it had not seen before.
+
+    ``limit`` takes the stalest first, by when the product page was last read.
+    It exists because the whole of a site is not always the right bite: one
+    shop here is 976 listings carrying something like twelve photographs each,
+    and re-reading all of it at once queues five figures of downloads.
+
+    ``only_unreadable`` keeps the CLI's default -- the listings whose stored
+    description is markup rather than prose -- which is a different question
+    from "this shop's reader has been fixed" and is why it is not the default
+    here.
+
+    Returns ``(how many, {site id: how many})``. A dry run counts and touches
+    nothing, not even in memory: the caller asked what *would* happen.
+    """
+    from ..scrapers.base import is_prose
+
+    query = select(Item).where(Item.detail_fetched_at.is_not(None))
+    if site_id is not None:
+        query = query.where(Item.site_id == site_id)
+    # Staleness order, so a capped run works through the oldest reads first
+    # and pressing the button twice makes progress rather than re-marking the
+    # same listings. NULLs cannot appear here -- the filter above excludes
+    # them -- so no null ordering is needed.
+    query = query.order_by(Item.detail_fetched_at.asc(), Item.id.asc())
+
+    items = list(session.execute(query).scalars())
+    if only_unreadable:
+        # It has to *have* a description that is not prose. is_prose() answers
+        # "is this worth keeping", so it says False for an empty one too, and
+        # a listing whose product page simply carries no description is not
+        # damaged and must not be re-fetched.
+        items = [item for item in items if item.description and not is_prose(item.description)]
+    if limit is not None and limit > 0:
+        items = items[:limit]
+
+    by_site: dict[int, int] = {}
+    for item in items:
+        if not dry_run:
+            item.detail_fetched_at = None
+        by_site[item.site_id] = by_site.get(item.site_id, 0) + 1
+    if not dry_run:
+        session.commit()
+    return len(items), by_site
+
+
+def pending_photo_counts(session: Session) -> dict[int, tuple[int, int]]:
+    """Per site id, ``(waiting, given up)`` photographs.
+
+    Waiting means a row with no file that is still under the attempt cap;
+    given up means one that has reached it and no scan will try again. They
+    are counted apart because they need different buttons pressed: the first
+    only wants time, and the second wants somebody to decide the cause has
+    been fixed.
+    """
+    rows = session.execute(
+        select(
+            Item.site_id,
+            func.sum(case((ItemPhoto.attempts < MAX_PHOTO_ATTEMPTS, 1), else_=0)),
+            func.sum(case((ItemPhoto.attempts >= MAX_PHOTO_ATTEMPTS, 1), else_=0)),
+        )
+        .join(Item, Item.id == ItemPhoto.item_id)
+        .where(ItemPhoto.filename.is_(None))
+        .group_by(Item.site_id)
+    ).all()
+    return {
+        int(site_id): (int(waiting or 0), int(given_up or 0)) for site_id, waiting, given_up in rows
+    }
 
 
 def is_running(site_id: int) -> bool:

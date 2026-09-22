@@ -87,6 +87,49 @@ test.describe("sites", () => {
     await expect(stop).toBeDisabled();
   });
 
+  test("photographs can be fetched without re-scraping", async ({ signedIn }) => {
+    /*
+     * A scan caps how many photographs it downloads and carries the rest to
+     * the next run, so a shop that gains hundreds of listings at once drains
+     * its backlog a scan at a time. These buttons are that download step on
+     * its own, and they exist in both states for the same reason Scan now and
+     * Stop do: a control that appears only when there is work is a control
+     * nobody can find when they are wondering whether there is any.
+     */
+    await signedIn.goto("/sites");
+    const everywhere = signedIn.getByRole("button", { name: /^Update photos/ }).first();
+    await expect(everywhere).toBeVisible();
+
+    const card = signedIn.locator(".site-card", { hasText: "Demo Vendor" });
+    const forOneSite = card.getByRole("button", { name: /^Update photos/ });
+    await expect(forOneSite).toBeVisible();
+
+    // Nothing is outstanding on a freshly seeded database, so both say so by
+    // being unpressable rather than by disappearing.
+    await expect(forOneSite).toBeDisabled();
+    await expect(forOneSite).toHaveAttribute("title", /already stored/);
+  });
+
+  test("product pages can be queued to be read again", async ({ signedIn }) => {
+    /*
+     * A scan skips the product page of any listing it has already read one
+     * for, so fixing how a page is parsed reaches only the listings it has
+     * never seen. This is the control that says "those ones too" — and it has
+     * to be on the page, because the alternative was a make target on a
+     * production server.
+     */
+    await signedIn.goto("/sites");
+    const card = signedIn.locator(".site-card", { hasText: "Demo Vendor" });
+    const button = card.getByRole("button", { name: /^Re-read details/ });
+
+    await expect(button).toBeVisible();
+    // Nothing on a freshly seeded database has had a product page read, so
+    // the next scan reads them all anyway and there is nothing to queue. It
+    // says so by being unpressable rather than by disappearing.
+    await expect(button).toBeDisabled();
+    await expect(button).toHaveAttribute("title", /reads them all anyway/);
+  });
+
   test("scan now shows progress, then the outcome", async ({ signedIn }) => {
     // Waits on a real scan run, so it needs more than the default 30s budget.
     test.setTimeout(90_000);
@@ -316,6 +359,7 @@ test.describe("navigation", () => {
     for (const [name, heading] of [
       ["Sites", "Sites"],
       ["Armory", "Armory"],
+      ["Classification", "Classification"],
       ["Users", "Users"],
       ["Email digest", "Email digest"],
       ["Security settings", "Security settings"],

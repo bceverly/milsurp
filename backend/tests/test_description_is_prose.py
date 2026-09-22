@@ -136,8 +136,12 @@ class TestFindingTheOnesAlreadyStored:
             yield session
 
         monkeypatch.setattr(cli, "session_scope", scope)
-        args = argparse.Namespace(site=None, all=False, dry_run=False, **kwargs)
-        return cli.cmd_refetch_details(args)
+        # Built as a dict so a test can override any of them. A Namespace
+        # assembled by hand stands in for parsed arguments and has to carry
+        # every flag the parser supplies, or adding one to the command breaks
+        # tests that have nothing to do with it -- which is what --limit did.
+        defaults = {"site": None, "all": False, "dry_run": False, "limit": None, **kwargs}
+        return cli.cmd_refetch_details(argparse.Namespace(**defaults))
 
     def test_a_leaked_stylesheet_is_found(self, monkeypatch, session, shop):
         bad = self.item(session, shop, "bad", "#html-body [data-pb-style=X]{display:flex;")
@@ -176,10 +180,30 @@ class TestFindingTheOnesAlreadyStored:
         self.run(monkeypatch, session)
         assert empty.detail_fetched_at is not None
 
+    def test_a_limit_is_passed_through_and_takes_the_stalest_first(
+        self, monkeypatch, session, shop
+    ):
+        """The seam, not the sorting -- that is pinned against the endpoint in
+        test_api_sites.py. What this checks is that the flag reaches the
+        service at all, which is the part a refactor can drop silently."""
+        from datetime import timedelta
+
+        from app.models import utcnow
+
+        rows = [self.item(session, shop, f"k{n}", "Real prose about a rifle.") for n in range(4)]
+        for n, row in enumerate(rows):
+            row.detail_fetched_at = utcnow() - timedelta(days=4 - n)
+        session.flush()
+
+        assert self.run(monkeypatch, session, site=shop.slug, limit=2) == 0
+
+        cleared = [row.external_key for row in rows if row.detail_fetched_at is None]
+        assert cleared == ["k0", "k1"]
+
     def test_a_dry_run_reports_and_changes_nothing(self, monkeypatch, session, shop):
         bad = self.item(session, shop, "dry", "#html-body [data-pb-style=X]{display:flex;")
 
-        args = argparse.Namespace(site=None, all=False, dry_run=True)
+        args = argparse.Namespace(site=None, all=False, dry_run=True, limit=None)
         import contextlib
 
         @contextlib.contextmanager
@@ -200,5 +224,5 @@ class TestFindingTheOnesAlreadyStored:
             yield session
 
         monkeypatch.setattr(cli, "session_scope", scope)
-        args = argparse.Namespace(site="not-a-shop", all=False, dry_run=False)
+        args = argparse.Namespace(site="not-a-shop", all=False, dry_run=False, limit=None)
         assert cli.cmd_refetch_details(args) == 1

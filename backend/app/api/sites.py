@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import threading
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
@@ -11,6 +12,8 @@ from ..deps import AdminUser, CurrentUser, DbSession
 from ..logsafe import client_address
 from ..models import HostCooldown, Item, ScanRun, Site, as_utc, utcnow
 from ..schemas import (
+    DetailRefetchMarked,
+    PhotoRunStarted,
     PlannedSiteOut,
     ScanRunOut,
     ScanStartResponse,
@@ -19,6 +22,8 @@ from ..schemas import (
 )
 from ..scrapers.planned import PLANNED
 from ..services import audit, cooldown, scan_service
+
+log = logging.getLogger("milsurp.sites")
 
 router = APIRouter(prefix="/sites", tags=["sites"])
 
@@ -34,9 +39,18 @@ def _resting_hosts() -> dict[str, HostCooldown]:
 
 
 def _site_out(
-    session: DbSession, site: Site, resting: dict[str, HostCooldown] | None = None
+    session: DbSession,
+    site: Site,
+    resting: dict[str, HostCooldown] | None = None,
+    photos: dict[int, tuple[int, int]] | None = None,
+    details: dict[int, int] | None = None,
 ) -> SiteOut:
-    """One site plus the roll-ups the admin list shows at a glance."""
+    """One site plus the roll-ups the admin list shows at a glance.
+
+    ``resting`` and ``photos`` are passed in by the list view, which computes
+    each once for every site rather than once per site -- the same reason
+    ``resting`` was already threaded through here.
+    """
     total, active = session.execute(
         select(
             func.count(Item.id),
@@ -60,6 +74,11 @@ def _site_out(
     data.is_scanning = scan_service.is_running(site.id)
     data.last_run = ScanRunOut.model_validate(last_run) if last_run else None
 
+    counts = photos if photos is not None else scan_service.pending_photo_counts(session)
+    data.photos_pending, data.photos_failed = counts.get(site.id, (0, 0))
+    read = details if details is not None else scan_service.detail_counts(session)
+    data.details_fetched = read.get(site.id, 0)
+
     paused = (resting if resting is not None else _resting_hosts()).get(
         cooldown.host_of(site.base_url)
     )
@@ -77,7 +96,9 @@ def list_sites(_user: CurrentUser, session: DbSession) -> list[SiteOut]:
     """Every site with its current status. Readable by any signed-in user."""
     sites = session.execute(select(Site).order_by(Site.name)).scalars().all()
     resting = _resting_hosts()
-    return [_site_out(session, site, resting) for site in sites]
+    photos = scan_service.pending_photo_counts(session)
+    details = scan_service.detail_counts(session)
+    return [_site_out(session, site, resting, photos, details) for site in sites]
 
 
 #: Before ``/{site_id}``, or "planned" is parsed as a site id and 422s.
@@ -90,6 +111,130 @@ def list_planned(_user: CurrentUser) -> list[PlannedSiteOut]:
     every scheduler pass and every digest that asks the database what exists.
     """
     return [PlannedSiteOut(**vars(site)) for site in PLANNED]
+
+
+#: Before ``/{site_id}``, for the same reason ``/planned`` is.
+@router.post("/photos", response_model=PhotoRunStarted, status_code=status.HTTP_202_ACCEPTED)
+def update_all_photos(_admin: AdminUser, session: DbSession) -> PhotoRunStarted:
+    """Fetch every photograph any site is still missing."""
+    return _start_photo_run(session, None)
+
+
+@router.post(
+    "/{site_id}/photos", response_model=PhotoRunStarted, status_code=status.HTTP_202_ACCEPTED
+)
+def update_site_photos(site_id: int, _admin: AdminUser, session: DbSession) -> PhotoRunStarted:
+    """Fetch the photographs this one site is still missing."""
+    site = session.get(Site, site_id)
+    if site is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such site.")
+    return _start_photo_run(session, site)
+
+
+def _start_photo_run(session: DbSession, site: Site | None) -> PhotoRunStarted:
+    """Drain the photo queue off-request, for one site or for all of them.
+
+    **This re-scrapes nothing.** Every URL involved is already stored; what is
+    missing is the bytes behind it, which a scan fetches under a per-run budget
+    and carries the remainder to the next run. On a catalog that gained eight
+    hundred listings at once that is a backlog measured in days of scans, and
+    this is the same download step on its own.
+
+    Photographs already given up on are tried again, which a scheduled run
+    deliberately does not do. The difference is that somebody pressed this:
+    the attempt cap exists so a dead URL cannot eat the budget forever, and a
+    person asking for the photographs now is exactly the case it should not
+    stand in the way of.
+    """
+    site_id = site.id if site else None
+    counts = scan_service.pending_photo_counts(session)
+    if site is not None:
+        waiting, retrying = counts.get(site.id, (0, 0))
+    else:
+        waiting = sum(one for one, _ in counts.values())
+        retrying = sum(other for _, other in counts.values())
+
+    if not waiting and not retrying:
+        where = f"for {site.name}" if site else "anywhere"
+        return PhotoRunStarted(
+            site_id=site_id,
+            waiting=0,
+            retrying=0,
+            message=f"Every photograph {where} is already stored.",
+        )
+
+    # One at a time, whatever the scope: two drains would work the same rows
+    # and earn each other's host pauses.
+    if not scan_service.begin_photo_run(site_id):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Photographs are already being fetched. Wait for that to finish.",
+        )
+
+    slug = site.slug if site else None
+    name = site.name if site else "every site"
+
+    def _run() -> None:
+        try:
+            scan_service.download_pending_photos(site_slug=slug, retry_failed=True)
+        except Exception:
+            # A background thread that dies quietly is a button that appears
+            # to work and never does.
+            log.exception("Fetching photographs for %s failed.", name)
+        finally:
+            scan_service.end_photo_run(site_id)
+
+    threading.Thread(target=_run, name=f"milsurp-photos-{slug or 'all'}", daemon=True).start()
+    return PhotoRunStarted(
+        site_id=site_id,
+        waiting=waiting,
+        retrying=retrying,
+        message=f"Fetching {waiting + retrying} photograph(s) for {name}.",
+    )
+
+
+@router.post(
+    "/{site_id}/refetch-details",
+    response_model=DetailRefetchMarked,
+    status_code=status.HTTP_200_OK,
+)
+def refetch_details(
+    site_id: int,
+    _admin: AdminUser,
+    session: DbSession,
+    limit: int | None = Query(default=None, ge=1, le=100_000),
+) -> DetailRefetchMarked:
+    """Queue this site's product pages to be read again on the next scan.
+
+    **Nothing is fetched here.** A scan skips the product page of any listing
+    it has already read one for, which is what keeps a re-scan cheap -- and
+    what means a fix to how a page is *parsed* never reaches the listings that
+    were parsed wrongly. This clears that mark; the reading happens when the
+    site is next scanned.
+
+    ``limit`` takes the stalest first, so pressing this twice makes progress
+    rather than re-marking the same listings. It is worth having because a
+    whole site is not always the right bite: one shop here is 976 listings of
+    a dozen photographs each, and re-reading all of it at once queues five
+    figures of downloads behind it.
+    """
+    site = session.get(Site, site_id)
+    if site is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such site.")
+
+    marked, _by_site = scan_service.mark_for_refetch(session, site_id=site.id, limit=limit)
+    remaining = scan_service.detail_counts(session).get(site.id, 0)
+
+    if not marked:
+        message = f"No listing of {site.name} has a product page to re-read."
+    elif remaining:
+        message = (
+            f"{marked} listing(s) of {site.name} will be read again on the next scan. "
+            f"{remaining} still to go — press again to queue more."
+        )
+    else:
+        message = f"All {marked} listing(s) of {site.name} will be read again on the next scan."
+    return DetailRefetchMarked(site_id=site.id, marked=marked, remaining=remaining, message=message)
 
 
 @router.get("/{site_id}", response_model=SiteOut)

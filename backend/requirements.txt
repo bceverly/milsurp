@@ -1,11 +1,11 @@
 # Web framework and server
 fastapi>=0.141.1,<1.0
-uvicorn[standard]>=0.52.4,<1.0
+uvicorn[standard]>=0.53.0,<1.0
 python-multipart>=0.0.32
 email-validator>=2.3.0
 
 # Database
-SQLAlchemy>=2.0.52,<3.0
+SQLAlchemy>=2.0.54,<3.0
 alembic>=1.20.0,<2.0
 # The PostgreSQL driver. Installed unconditionally because the engine is a
 # config.yaml setting rather than a build-time choice: a deployment that starts
@@ -13,7 +13,7 @@ alembic>=1.20.0,<2.0
 # the test suite exercises both. Unused, it costs a few megabytes and nothing
 # at runtime. [binary] ships the libpq wheels, so there is no build step and no
 # libpq-dev to install.
-psycopg[binary]>=3.3.5
+psycopg[binary]>=3.3.6
 
 # Configuration
 PyYAML>=6.0.3
@@ -56,12 +56,21 @@ pytesseract>=0.3.13
 # `zoneinfo` searches TZPATH first and falls back to this package for a name
 # the system database does not carry, so this fixes the aliases without
 # overriding a host's own, more current, database.
-tzdata>=2026.2
+tzdata>=2026.4
 
+# **The floor is 50.0.1 and must not be walked back to the 46 series.**
+# 46.0.7 carries four high-severity advisories -- CVE-2026-34180 (fixed 48.0.1),
+# CVE-2026-69248 and CVE-2026-69249 (fixed 49.0.0) and CVE-2026-69247 (fixed
+# 50.0.0). Dependabot proposed 46.0.7 anyway, because the `ignore` rule in
+# .github/dependabot.yml blocks semver-major *version* updates and 46 -> 50 is
+# one; and pip-audit reports the tree clean, because these are not in the
+# database it reads. Snyk is what catches them, so `make security` is the check
+# that matters for this pin.
+#
 # Web push, which needs P-256 ECDH, HKDF, AES-GCM and ECDSA (RFC 8291 and RFC
 # 8292). Declared here rather than relied on transitively: it was already in
 # every development virtualenv because semgrep's `pyjwt[crypto]` pin drags it
 # in, and *that* is exactly the trap -- `pip install -r requirements.txt` on a
 # clean machine did not install it, so the Debian package would have shipped a
 # venv where every push raised ImportError while every developer's worked.
-cryptography>=46.0.0
+cryptography>=50.0.1

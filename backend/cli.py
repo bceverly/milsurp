@@ -44,7 +44,6 @@ from app.models import (
     as_utc,
     utcnow,
 )
-from app.scrapers.base import is_prose
 from app.security import (
     PasswordPolicyError,
     hash_password,
@@ -234,9 +233,20 @@ def cmd_secrets(args: argparse.Namespace) -> int:
             # had a config, which is all of them.
             text, count = _insert_setting(text, name, values.get(name) or generate_secret())
         if not count:
+            # _insert_setting only fails one way: there is no `security:`
+            # block to put the line in. So say that, rather than naming the
+            # setting -- "could not find a 'jwt_secret:' line" sent people
+            # looking for a line that is *supposed* to be missing on an
+            # upgraded config, when what is actually absent is the block.
+            #
+            # It also keeps the names of these settings out of the output
+            # entirely. They are not secrets -- the values are, and those are
+            # never printed, which is the whole design of this command -- but
+            # a scanner cannot tell `"password_pepper"` the identifier from
+            # `"password_pepper"` the credential, and it was right to ask.
             print(
-                f"Could not find a '{name}:' line in {path}, or a 'security:' "
-                f"block to put one in.",
+                f"{path} has no 'security:' block to write these into. Add one "
+                f"(see config.yaml.sample) and run this again.",
                 file=sys.stderr,
             )
             return 1
@@ -1355,32 +1365,24 @@ def cmd_refetch_details(args: argparse.Namespace) -> int:
     has ever been fetched.
     """
     with session_scope() as session:
-        query = select(Item).where(Item.detail_fetched_at.is_not(None))
+        site_id = None
         if args.site:
             site = session.execute(select(Site).where(Site.slug == args.site)).scalar_one_or_none()
             if site is None:
                 print(f"No site with slug '{args.site}'.", file=sys.stderr)
                 return 1
-            query = query.where(Item.site_id == site.id)
+            site_id = site.id
 
-        items = list(session.execute(query).scalars())
-        if not (args.all or args.site):
-            # It has to *have* a description that is not prose. is_prose()
-            # answers "is this text worth keeping", so it says False for an
-            # empty one too -- and a listing whose product page simply carries
-            # no description is not damaged and must not be re-fetched.
-            items = [i for i in items if i.description and not is_prose(i.description)]
-
-        by_site: dict[int, int] = {}
-        for item in items:
-            # A dry run counts and does not touch, not even in memory: the
-            # caller asked what would happen, and a half-applied change in a
-            # live session is not that.
-            if not args.dry_run:
-                item.detail_fetched_at = None
-            by_site[item.site_id] = by_site.get(item.site_id, 0) + 1
-        if not args.dry_run:
-            session.commit()
+        # The marking itself lives in the service, because the Sites page has
+        # a button for it now and two implementations of "which listings" is
+        # two chances to disagree about it.
+        total, by_site = scan_service.mark_for_refetch(
+            session,
+            site_id=site_id,
+            limit=args.limit,
+            only_unreadable=not (args.all or args.site),
+            dry_run=args.dry_run,
+        )
 
         slugs = {
             site.id: site.slug
@@ -1388,10 +1390,10 @@ def cmd_refetch_details(args: argparse.Namespace) -> int:
         }
 
     verb = "Would clear" if args.dry_run else "Cleared"
-    print(f"{verb} the detail mark on {len(items)} listing(s).")
+    print(f"{verb} the detail mark on {total} listing(s).")
     for site_id, count in sorted(by_site.items(), key=lambda pair: -pair[1]):
         print(f"  {count:6d}  {slugs.get(site_id, site_id)}")
-    if items and not args.dry_run:
+    if total and not args.dry_run:
         print("Their product pages are read again on the next scan of each site.")
     return 0
 
@@ -1403,6 +1405,13 @@ def _add_refetch_details_command(sub) -> None:
         "stored description is markup rather than prose).",
     )
     command.add_argument("--site", help="Only this site's listings, whatever their description.")
+    command.add_argument(
+        "--limit",
+        type=int,
+        help="Mark at most this many, stalest product page first. A whole site "
+        "is not always the right bite: re-reading one of 976 listings that "
+        "carry a dozen photographs each queues five figures of downloads.",
+    )
     command.add_argument(
         "--all",
         action="store_true",

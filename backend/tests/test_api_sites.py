@@ -6,7 +6,7 @@ from datetime import timedelta
 
 import pytest
 
-from app.models import Item, ScanRun, ScanStatus, Site, utcnow
+from app.models import Item, ItemPhoto, ScanRun, ScanStatus, Site, utcnow
 from app.scrapers import available_slugs
 
 
@@ -295,3 +295,236 @@ class TestARestingHost:
             f"/api/sites/{site['id']}/resting/clear", headers=normal_user["headers"]
         )
         assert response.status_code == 403
+
+
+class TestUpdatingPhotographs:
+    """Fetching pictures whose addresses are already stored.
+
+    A scan caps how many photographs it downloads so a first pass over a large
+    catalog cannot run for hours, and carries the remainder to the next run.
+    That is right for a schedule and wrong for a shop that has just gained
+    eight hundred listings: the backlog then drains a scan at a time, measured
+    in days. These endpoints are that download step on its own -- no scrape, no
+    de-listing, nothing inserted.
+    """
+
+    @staticmethod
+    def _queue(session, site, *, waiting=0, given_up=0):
+        """Photo rows with no file: some retryable, some given up on."""
+        from app.services.scan_service import MAX_PHOTO_ATTEMPTS
+
+        item = Item(site_id=site.id, external_key="photo-item", url="https://x.test/1", title="T")
+        session.add(item)
+        session.flush()
+        made = 0
+        for attempts, count in ((0, waiting), (MAX_PHOTO_ATTEMPTS, given_up)):
+            for _ in range(count):
+                made += 1
+                session.add(
+                    ItemPhoto(
+                        item_id=item.id,
+                        source_url=f"https://x.test/p{made}.jpg",
+                        attempts=attempts,
+                    )
+                )
+        session.commit()
+        return item
+
+    def test_the_list_says_how_many_each_site_is_missing(self, client, admin_headers, seeded, site):
+        """Both halves, counted apart: one drains by itself as scans run and
+        the other never will, and they want different decisions."""
+        self._queue(seeded, site, waiting=3, given_up=2)
+        row = next(
+            s for s in client.get("/api/sites", headers=admin_headers).json() if s["id"] == site.id
+        )
+        assert row["photos_pending"] == 3
+        assert row["photos_failed"] == 2
+
+    def test_a_site_with_nothing_missing_counts_zero(self, client, admin_headers, site):
+        row = next(
+            s for s in client.get("/api/sites", headers=admin_headers).json() if s["id"] == site.id
+        )
+        assert row["photos_pending"] == 0
+        assert row["photos_failed"] == 0
+
+    def test_one_site_can_be_asked(self, client, admin_headers, seeded, site):
+        self._queue(seeded, site, waiting=2, given_up=1)
+        response = client.post(f"/api/sites/{site.id}/photos", headers=admin_headers)
+        assert response.status_code == 202
+        body = response.json()
+        assert body["site_id"] == site.id
+        assert (body["waiting"], body["retrying"]) == (2, 1)
+
+    def test_and_so_can_every_site_at_once(self, client, admin_headers, seeded, site):
+        self._queue(seeded, site, waiting=2)
+        response = client.post("/api/sites/photos", headers=admin_headers)
+        assert response.status_code == 202
+        assert response.json()["site_id"] is None
+        assert response.json()["waiting"] == 2
+
+    def test_asking_for_nothing_says_so_rather_than_starting_a_job(
+        self, client, admin_headers, site
+    ):
+        """And does not claim the queue: a button that reports "already stored"
+        must not leave the next press refused as a duplicate."""
+        from app.services import scan_service
+
+        response = client.post(f"/api/sites/{site.id}/photos", headers=admin_headers)
+        assert response.status_code == 202
+        assert response.json()["waiting"] == 0
+        assert "already stored" in response.json()["message"]
+        assert scan_service.photos_running() is False
+
+    def test_two_at_once_is_refused(self, client, admin_headers, seeded, site, monkeypatch):
+        """One at a time whatever the scope. Two drains would work the same
+        rows and earn each other's host pauses, and the count each reported
+        would mean nothing."""
+        from app.services import scan_service
+
+        self._queue(seeded, site, waiting=2)
+        monkeypatch.setattr(scan_service, "download_pending_photos", lambda **_k: 0)
+        monkeypatch.setattr(scan_service, "begin_photo_run", lambda _site_id: False)
+
+        response = client.post(f"/api/sites/{site.id}/photos", headers=admin_headers)
+        assert response.status_code == 409
+        assert "already being fetched" in response.json()["detail"]
+
+    def test_an_unknown_site_is_a_404(self, client, admin_headers):
+        assert client.post("/api/sites/999999/photos", headers=admin_headers).status_code == 404
+
+    def test_an_ordinary_reader_cannot_start_one(self, client, normal_user, seeded, site):
+        self._queue(seeded, site, waiting=1)
+        assert (
+            client.post(f"/api/sites/{site.id}/photos", headers=normal_user["headers"]).status_code
+            == 403
+        )
+        assert client.post("/api/sites/photos", headers=normal_user["headers"]).status_code == 403
+
+
+class TestReReadingProductPages:
+    """Queueing product pages a scan would otherwise skip.
+
+    A scan skips the product page of any listing it has already read one for,
+    which is what keeps a re-scan cheap -- and what means a fix to how a page
+    is *parsed* reaches only the listings it has never seen. Legacy
+    Collectibles is the case in point: their descriptions and their galleries
+    were both being misread, and correcting the reader left every listing
+    already stored exactly as wrong as before.
+    """
+
+    @staticmethod
+    def _read(session, site, count, *, start=1):
+        """*count* listings whose product page has been read, oldest first."""
+        made = []
+        for n in range(count):
+            item = Item(
+                site_id=site.id,
+                external_key=f"read-{start + n}",
+                url=f"https://x.test/{start + n}",
+                title=f"Listing {start + n}",
+                detail_fetched_at=utcnow() - timedelta(days=count - n),
+            )
+            session.add(item)
+            made.append(item)
+        session.commit()
+        return made
+
+    def test_the_list_says_how_many_a_scan_would_skip(self, client, admin_headers, seeded, site):
+        self._read(seeded, site, 3)
+        row = next(
+            s for s in client.get("/api/sites", headers=admin_headers).json() if s["id"] == site.id
+        )
+        assert row["details_fetched"] == 3
+
+    def test_a_listing_never_read_is_not_counted(self, client, admin_headers, seeded, site):
+        """It has no mark to clear: the next scan reads it regardless, so
+        offering to re-queue it would be offering to do nothing."""
+        seeded.add(
+            Item(site_id=site.id, external_key="fresh", url="https://x.test/f", title="Fresh")
+        )
+        seeded.commit()
+        row = next(
+            s for s in client.get("/api/sites", headers=admin_headers).json() if s["id"] == site.id
+        )
+        assert row["details_fetched"] == 0
+
+    def test_marking_clears_the_whole_site(self, client, admin_headers, seeded, site):
+        self._read(seeded, site, 4)
+        body = client.post(f"/api/sites/{site.id}/refetch-details", headers=admin_headers).json()
+        assert body["marked"] == 4
+        assert body["remaining"] == 0
+        assert "next scan" in body["message"]
+
+    def test_a_capped_request_takes_the_stalest_first(self, client, admin_headers, seeded, site):
+        """So pressing it twice carries on rather than re-marking the same
+        listings, which is the whole point of having a cap."""
+        made = self._read(seeded, site, 5)
+        oldest_two = {made[0].external_key, made[1].external_key}
+
+        body = client.post(
+            f"/api/sites/{site.id}/refetch-details?limit=2", headers=admin_headers
+        ).json()
+        assert (body["marked"], body["remaining"]) == (2, 3)
+
+        cleared = {
+            item.external_key
+            for item in seeded.query(Item)
+            .filter(Item.site_id == site.id, Item.detail_fetched_at.is_(None))
+            .all()
+        }
+        assert cleared == oldest_two
+
+    def test_and_pressing_again_makes_progress(self, client, admin_headers, seeded, site):
+        self._read(seeded, site, 5)
+        first = client.post(
+            f"/api/sites/{site.id}/refetch-details?limit=2", headers=admin_headers
+        ).json()
+        second = client.post(
+            f"/api/sites/{site.id}/refetch-details?limit=2", headers=admin_headers
+        ).json()
+        assert (first["marked"], second["marked"]) == (2, 2)
+        assert second["remaining"] == 1
+        assert "press again" in second["message"]
+
+    def test_another_sites_listings_are_left_alone(self, client, admin_headers, seeded, site):
+        other = seeded.query(Site).filter(Site.id != site.id).first()
+        self._read(seeded, site, 2)
+        self._read(seeded, other, 3, start=100)
+
+        client.post(f"/api/sites/{site.id}/refetch-details", headers=admin_headers)
+
+        still_marked = (
+            seeded.query(Item)
+            .filter(Item.site_id == other.id, Item.detail_fetched_at.is_not(None))
+            .count()
+        )
+        assert still_marked == 3
+
+    def test_a_site_with_nothing_to_re_read_says_so(self, client, admin_headers, site):
+        body = client.post(f"/api/sites/{site.id}/refetch-details", headers=admin_headers).json()
+        assert body["marked"] == 0
+        assert "No listing" in body["message"]
+
+    def test_an_unknown_site_is_a_404(self, client, admin_headers):
+        response = client.post("/api/sites/999999/refetch-details", headers=admin_headers)
+        assert response.status_code == 404
+
+    def test_an_ordinary_reader_cannot(self, client, normal_user, seeded, site):
+        self._read(seeded, site, 1)
+        response = client.post(
+            f"/api/sites/{site.id}/refetch-details", headers=normal_user["headers"]
+        )
+        assert response.status_code == 403
+
+    def test_nothing_is_fetched_here(self, client, admin_headers, seeded, site, monkeypatch):
+        """It is a marking, not a scan. If this started one, an operator
+        clearing a backlog on a big site would kick off a scrape they did not
+        ask for and could not see."""
+        from app.services import scan_service
+
+        started = []
+        monkeypatch.setattr(scan_service, "run_scan", lambda *a, **k: started.append(a))
+        self._read(seeded, site, 2)
+
+        client.post(f"/api/sites/{site.id}/refetch-details", headers=admin_headers)
+        assert started == []

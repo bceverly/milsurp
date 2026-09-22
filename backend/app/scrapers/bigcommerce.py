@@ -215,7 +215,23 @@ class BigCommerceScraper(SiteScraper):
         ".productView-description",
         "[data-product-description]",
     )
+    #: Where a product page keeps its photographs, best source first.
+    #:
+    #: **The thumbnail strip leads, and the order is the whole of the fix.**
+    #: :meth:`gallery` stops at the first selector that matches anything, and
+    #: the main image always matches -- so with the hero first, a listing with
+    #: twelve photographs was read as having one, on every Stencil shop whose
+    #: theme renders a strip. Legacy Collectibles is where that showed: 1
+    #: photograph stored against 12 published.
+    #:
+    #: The strip is authoritative where it exists, because Stencil renders the
+    #: hero *from* it -- measured on their pages, the main image is always one
+    #: of the thumbnails. A theme with no strip falls through to the hero
+    #: exactly as before, which is what Bowman Arms and DuPage Trading do;
+    #: both were checked against their recordings and neither moved.
     detail_gallery_selectors: tuple[str, ...] = (
+        ".productView-thumbnails img",
+        ".productView-thumbnail img",
         ".productView-image img",
         "[data-image-gallery-main] img",
         ".productView-imageCarousel img",

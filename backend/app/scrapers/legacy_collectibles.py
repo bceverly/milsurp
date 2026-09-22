@@ -13,11 +13,22 @@ The categories are the firearm ones. They also sell collectible gun *parts*
 and a great deal of gear -- holsters, pouches, binoculars, uniforms -- which
 the roadmap's rule leaves alone.
 
-**They publish no prose description, on any of their 258 listings**, and for a
-while that meant 258 listings arriving with nothing in the description at all.
-What they publish instead is a specification table -- BigCommerce's stock
-custom fields -- and it is better than prose would be, because it is the vendor
-*stating* the things this application otherwise guesses at from a title:
+**They write prose now, and they did not used to.** For a long time they
+published none at all, and this reader was built around that: the description
+was assembled out of their specification table instead, because a listing with
+nothing in it was the alternative. They have since added a written description
+to the listing page, in a container of their theme's own -- ``.custom-
+description-section``, which is not the stock Stencil one the base class knows
+about, so it went unread and the table kept standing in for prose that was
+sitting right there.
+
+Measured on twenty listings sampled across the catalog: **20 of 20 carry
+prose**, between 82 and 1,680 characters of it, and 19 of the 20 still carry
+the table as well. So both are read now -- the writing when there is any, the
+table when there is not.
+
+The table is worth having either way, because it is the vendor *stating* the
+things this application otherwise guesses at from a title:
 
     Year: 1911-15   Maker: Mauser   Type: C96
     Caliber: 7.63mm Mauser   Bore: 9/10   Condition: ~94-95%
@@ -117,6 +128,18 @@ class LegacyCollectiblesScraper(BigCommerceScraper):
         ("bore", "condition"),
     )
 
+    #: Their theme's description block, ahead of the stock Stencil ones.
+    #:
+    #: ``.productView-description`` is present on every one of their pages and
+    #: is *empty* -- a 52-character shell. It matches before this would, which
+    #: is harmless only because :meth:`_first_text` skips a match with no text
+    #: in it; if it ever stopped doing that, this ordering is what would keep
+    #: working.
+    detail_description_selectors = (
+        ".custom-description-section",
+        *BigCommerceScraper.detail_description_selectors,
+    )
+
     def description_from(self, fields: dict[str, str]) -> str | None:
         """Their table, restated as the description they do not write.
 
@@ -126,9 +149,12 @@ class LegacyCollectiblesScraper(BigCommerceScraper):
         gains a country. The fields above do the work.
 
         What it is worth is Year and Type -- 1911-15, C96 -- which have no
-        column to go in and which a detail page would otherwise not show at
-        all, on 258 listings that show nothing today. Their own words in their
-        own order, so nothing here is invented.
+        column to go in and which nothing else on the row would show. Their own
+        words in their own order, so nothing here is invented.
+
+        Now a fallback rather than the usual case: they write prose on
+        essentially every listing, and that wins where it exists. This still
+        answers for the ones where it does not.
 
         ``Bore`` is left out: it is on the row already, as the condition, and
         repeating it in the prose only gives the bore grader something to

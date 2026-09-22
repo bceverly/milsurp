@@ -276,6 +276,45 @@ class SiteOut(UTCModel):
     #: is happening.
     resting_seconds: int | None = None
     resting_reason: str | None = None
+    #: Photographs this site has a URL for but no file yet, split by whether
+    #: anything will try again on its own. ``photos_pending`` drains by itself
+    #: as scans run; ``photos_failed`` has reached the attempt cap and needs
+    #: somebody to say the cause is fixed. Two numbers because they want two
+    #: different decisions.
+    photos_pending: int = 0
+    photos_failed: int = 0
+    #: Listings whose product page has already been read, and which therefore
+    #: will *not* be read again on the next scan. This is what a fix to how a
+    #: page is parsed cannot reach on its own, and what "Re-read details"
+    #: re-queues.
+    details_fetched: int = 0
+
+
+class PhotoRunStarted(BaseModel):
+    """What a manual photo drain was asked to do.
+
+    The counts are what was waiting when the request was accepted, not what
+    arrived: the fetching happens off-request, because a few hundred
+    photographs from a shop that wants a second between them is not something
+    to hold an HTTP connection open for.
+    """
+
+    #: None when every site was asked for.
+    site_id: int | None = None
+    waiting: int
+    retrying: int
+    message: str
+
+
+class DetailRefetchMarked(BaseModel):
+    """What a "read these product pages again" request actually marked."""
+
+    site_id: int
+    marked: int
+    #: Still carrying a detail mark afterwards, so a capped request can say
+    #: whether there is more to do.
+    remaining: int
+    message: str
 
 
 class PlannedSiteOut(BaseModel):

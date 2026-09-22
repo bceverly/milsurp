@@ -20,6 +20,26 @@ async function makersAreShowing(page) {
   await expect(page.getByRole("button", { name: /^Expand / }).first()).toBeVisible();
 }
 
+/**
+ * Wait until a named row on the Calibers tab is really on screen.
+ *
+ * Two races in one, and the same answer to both. Clicking a tab does not
+ * clear the previous tab's rows while the new ones load, so `tbody tr` read
+ * straight afterwards can still be the Models tab's -- and `hasText` matches
+ * anywhere in a row, so a caliber name hits a Models row's "Chambered in"
+ * cell. Separately, "Load shipped armory" is still committing while the next
+ * click is being made.
+ *
+ * Polling the row *names* has neither hole, which is the same reasoning the
+ * sort test below already arrived at: waiting for a loading row to be absent
+ * races the reload starting, because it is absent before it begins too.
+ */
+async function caliberRowIsShowing(page, name) {
+  await expect
+    .poll(() => page.locator("tbody tr td:nth-child(2) button").allInnerTexts())
+    .toContain(name);
+}
+
 test.describe("armory", () => {
   test.beforeEach(async ({ signedIn }) => {
     // Exact: a listing card reading "US M1 Garand, Springfield Armory" is
@@ -334,6 +354,7 @@ test.describe("armory", () => {
     await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
     await expect(signedIn.locator(".alert--success")).toBeVisible();
     await signedIn.getByRole("tab", { name: "Calibers" }).click();
+    await caliberRowIsShowing(signedIn, ".32 ACP");
 
     // A row with at least one alias: the control is not offered without one,
     // because there would be nothing to choose between.
@@ -419,7 +440,12 @@ test.describe("armory", () => {
     signedIn,
   }) => {
     await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    // Every other test here waits for this and this one did not, so it was
+    // searching a table the load had not finished filling.
+    await expect(signedIn.locator(".alert--success")).toBeVisible();
     await signedIn.getByRole("tab", { name: "Calibers" }).click();
+    await caliberRowIsShowing(signedIn, ".32 ACP");
+
     await signedIn.getByLabel("Search").fill("7.65mm Browning");
     // Searching by an alias finds the row it belongs to, which is the point.
     await expect(signedIn.locator("tbody tr", { hasText: ".32 ACP" })).toHaveCount(1);
@@ -852,12 +878,20 @@ test.describe("armory", () => {
     // waiting for one row to be visible is no better, because `hasText`
     // matches anywhere in a row and a caliber name appears on the Models tab
     // in a Chambered-in cell. Polling the actual assertion has neither hole.
+    // **Every probe is a name the shipped armory defines**, not a spelling of
+    // one. `7.62x54R` used to be in this list and is an *alias* here -- the
+    // shipped row is named `7.62x54Rmm` -- so the only way a row read
+    // `7.62x54R` was for a scan to have proposed it under that spelling
+    // first. That made this test pass in a full run, where admin.spec.js
+    // scans the demo vendor before the armory spec gets here, and fail
+    // whenever armory.spec.js was run on its own. A test that needs another
+    // spec to have gone first is a test that will eventually be run second.
     const probes = [
       ".30-06 Springfield",
       ".303 British",
       ".32 ACP",
       ".45 ACP",
-      "7.62x54R",
+      "7.62x54Rmm",
       "12 gauge",
     ];
     const readNames = () =>
@@ -883,8 +917,8 @@ test.describe("armory", () => {
     expect(at(".303 British")).toBeLessThan(at(".32 ACP"));
     expect(at(".32 ACP")).toBeLessThan(at(".45 ACP"));
     // Metric after the inch bores, gauges last: different units, kept apart.
-    expect(at(".45 ACP")).toBeLessThan(at("7.62x54R"));
-    expect(at("7.62x54R")).toBeLessThan(at("12 gauge"));
+    expect(at(".45 ACP")).toBeLessThan(at("7.62x54Rmm"));
+    expect(at("7.62x54Rmm")).toBeLessThan(at("12 gauge"));
   });
 
   test("the merge dropdown offers rows the table is not showing", async ({

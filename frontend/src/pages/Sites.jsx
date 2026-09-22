@@ -17,11 +17,13 @@ import {
   parseUtc,
   timeTitle,
 } from "../format.js";
+import Modal from "../components/Modal.jsx";
 import { ScanStatusChip } from "../components/StatusChip.jsx";
 import {
   Browser,
   Check,
   History,
+  Image as ImageIcon,
   Pause,
   Play,
   Refresh,
@@ -126,8 +128,26 @@ function scanTimeDetail(run) {
   return parts.join(" · ");
 }
 
-function SiteCard({ site, result, onChange, onError, onDismissResult }) {
+//: How many product pages one capped "re-read" queues.
+//:
+//: A round number rather than a measured one, and the reason it exists at all
+//: is measured: Legacy Collectibles is 976 listings carrying about a dozen
+//: photographs each, so re-reading the site in one go queues five figures of
+//: downloads behind it. Two hundred and fifty is a bite somebody can watch
+//: finish.
+const REFETCH_BATCH = 250;
+
+function SiteCard({ site, result, onChange, onError, onNotice, onDismissResult }) {
   const [busy, setBusy] = useState(false);
+  // Both halves of the queue, because the button fetches both. A photograph
+  // that has been given up on is still a photograph this site is missing, and
+  // hiding it behind a separate control would leave a site reading "0 waiting"
+  // while its listings show no pictures.
+  const waitingPhotos = (site.photos_pending || 0) + (site.photos_failed || 0);
+  // Listings whose product page has already been read, and which a scan will
+  // therefore skip. This is what a fix to how a page is parsed cannot reach.
+  const alreadyRead = site.details_fetched || 0;
+  const [confirmRefetch, setConfirmRefetch] = useState(false);
 
   async function patch(body) {
     setBusy(true);
@@ -179,6 +199,44 @@ function SiteCard({ site, result, onChange, onError, onDismissResult }) {
     setBusy(true);
     try {
       await api.cancelScan(site.id);
+    } catch (error) {
+      onError(error.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Fetch the photographs this site has URLs for but no files for.
+   *
+   * Not a scan. A scan caps how many photographs it downloads so a first pass
+   * over a large catalog cannot run for hours, and carries the rest to the
+   * next run -- which on a shop that gained eight hundred listings at once is
+   * a backlog measured in days. This is that download step by itself.
+   */
+  async function updatePhotos() {
+    setBusy(true);
+    try {
+      onNotice((await api.updateSitePhotos(site.id)).message);
+    } catch (error) {
+      onError(error.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Queue this site's product pages to be read again on its next scan.
+   *
+   * Marks only. Nothing is fetched here, and nothing happens at all until the
+   * site is scanned -- which is why the message says so rather than leaving
+   * somebody watching for photographs that are not coming yet.
+   */
+  async function refetchDetails(limit) {
+    setBusy(true);
+    setConfirmRefetch(false);
+    try {
+      const marked = await api.refetchDetails(site.id, limit);
+      onNotice(marked.message);
+      onChange({ ...site, details_fetched: marked.remaining });
     } catch (error) {
       onError(error.message);
     } finally {
@@ -397,11 +455,97 @@ function SiteCard({ site, result, onChange, onError, onDismissResult }) {
           </button>
         )}
 
+        {/*
+          Always here, like Scan now and Stop, and carrying its own count so
+          it is not a button that might do nothing. The number is the honest
+          one: photographs this site has an address for and no file for.
+        */}
+        <button
+          className="btn btn--secondary btn--sm"
+          onClick={updatePhotos}
+          disabled={busy || waitingPhotos === 0}
+          title={
+            waitingPhotos === 0
+              ? "Every photograph for this site is already stored."
+              : `Fetch ${waitingPhotos} photograph(s) already listed for this site. ` +
+                "No re-scrape: the addresses are stored, only the pictures are missing."
+          }
+        >
+          <ImageIcon size={14} />
+          Update photos{waitingPhotos ? ` (${waitingPhotos})` : ""}
+        </button>
+
+        {/*
+          A fix to how a product page is *read* reaches only the listings that
+          have not been read yet, because a scan skips a product page it has
+          already fetched. This is the control that says "those ones too" --
+          and the count is the honest one: listings whose page has been read
+          and which a scan would otherwise leave alone.
+        */}
+        <button
+          className="btn btn--secondary btn--sm"
+          onClick={() => setConfirmRefetch(true)}
+          disabled={busy || alreadyRead === 0}
+          title={
+            alreadyRead === 0
+              ? "No listing here has had its product page read yet, so the next scan reads them all anyway."
+              : `Queue ${alreadyRead} product page(s) to be read again on the next scan.`
+          }
+        >
+          <Refresh size={14} />
+          Re-read details{alreadyRead ? ` (${alreadyRead})` : ""}
+        </button>
+
         <Link className="btn btn--secondary btn--sm" to={`/sites/${site.id}`}>
           <History size={14} />
           History
         </Link>
       </div>
+
+      {confirmRefetch && (
+        <Modal
+          title="Re-read product pages"
+          onClose={() => setConfirmRefetch(false)}
+          footer={
+            <>
+              <button
+                className="btn btn--secondary"
+                onClick={() => setConfirmRefetch(false)}
+              >
+                Cancel
+              </button>
+              {alreadyRead > REFETCH_BATCH && (
+                <button
+                  className="btn btn--secondary"
+                  onClick={() => refetchDetails(REFETCH_BATCH)}
+                  disabled={busy}
+                >
+                  Oldest {REFETCH_BATCH}
+                </button>
+              )}
+              <button
+                className="btn btn--primary"
+                onClick={() => refetchDetails(undefined)}
+                disabled={busy}
+              >
+                All {alreadyRead}
+              </button>
+            </>
+          }
+        >
+          <p>
+            {alreadyRead} listing{alreadyRead === 1 ? "" : "s"} on {site.name} have had
+            their product page read already, so the next scan will skip them. Marking them
+            queues those pages to be read again.
+          </p>
+          <p className="muted">
+            Nothing is fetched now — the reading happens on the next scan, and any new
+            photographs it finds are downloaded after that. A large site can mean a lot of
+            both, which is what “Oldest {REFETCH_BATCH}” is for: it takes the stalest
+            first, so pressing it again carries on rather than repeating itself.
+          </p>
+        </Modal>
+      )}
 
       {result && <ScanResult result={result} onDismiss={onDismissResult} />}
 
@@ -478,6 +622,11 @@ export default function Sites() {
   const [sites, setSites] = useState(null);
   const [planned, setPlanned] = useState([]);
   const [error, setError] = useState(null);
+  // What the photo buttons reported. Separate from `error` because it is not
+  // one: the fetching happens off-request, so this line is the only evidence
+  // the button did anything at all.
+  const [notice, setNotice] = useState("");
+  const [photoBusy, setPhotoBusy] = useState(false);
   // siteId -> the ScanRun that just finished, for the outcome banner.
   const [results, setResults] = useState({});
   // Mirrors watchingRef's size into state so a change re-renders and restarts
@@ -491,6 +640,25 @@ export default function Sites() {
   // losing the watch so the outcome banner never appears.
   const watchingRef = useRef(new Set());
   const timersRef = useRef({});
+
+  //: Every photograph any site is missing, whether or not anything would try
+  //: for it again on its own. The button fetches both, so it counts both.
+  const waitingEverywhere = (sites || []).reduce(
+    (total, site) => total + (site.photos_pending || 0) + (site.photos_failed || 0),
+    0,
+  );
+
+  async function updateAllPhotos() {
+    setPhotoBusy(true);
+    setError(null);
+    try {
+      setNotice((await api.updateAllPhotos()).message);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
 
   const dismissResult = useCallback((siteId) => {
     setResults((current) => {
@@ -582,6 +750,26 @@ export default function Sites() {
           </p>
         </div>
         <div className="page-head__actions">
+          {/*
+            The whole backlog at once. Deliberately beside Refresh rather than
+            among the per-site controls: it is an action on the list, and a
+            copy of it on every card would be twenty-eight ways to start the
+            same one job.
+          */}
+          <button
+            className="btn btn--secondary"
+            onClick={updateAllPhotos}
+            disabled={photoBusy || waitingEverywhere === 0}
+            title={
+              waitingEverywhere === 0
+                ? "Every photograph on every site is already stored."
+                : `Fetch ${waitingEverywhere} photograph(s) that are listed but not ` +
+                  "stored, across every site. Nothing is re-scraped."
+            }
+          >
+            <ImageIcon size={16} />
+            Update photos{waitingEverywhere ? ` (${waitingEverywhere})` : ""}
+          </button>
           <button className="btn btn--secondary" onClick={load}>
             <Refresh size={16} />
             Refresh
@@ -592,6 +780,23 @@ export default function Sites() {
       {error && (
         <div className="alert alert--error" role="alert">
           {error}
+        </div>
+      )}
+
+      {/* The photographs arrive in the background, so this is the only thing
+          that says the button did anything. Dismissible, because it stays
+          true for as long as the fetching runs and nobody wants it pinned to
+          the page afterwards. */}
+      {notice && (
+        <div className="alert alert--info" role="status">
+          {notice}
+          <button
+            className="btn btn--ghost btn--sm"
+            onClick={() => setNotice("")}
+            aria-label="Dismiss"
+          >
+            <X size={14} />
+          </button>
         </div>
       )}
 
@@ -628,6 +833,7 @@ export default function Sites() {
                 replace(updated);
               }}
               onError={setError}
+              onNotice={setNotice}
               onDismissResult={() => dismissResult(site.id)}
             />
           ))}

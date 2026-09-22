@@ -53,13 +53,20 @@ class TestWritingTheSecrets:
         assert config_file.stat().st_mode & 0o777 == 0o600
 
     def test_nothing_secret_reaches_the_output(self, config_file, capsys):
-        """The whole point: the values exist only in the file."""
+        """The whole point: the values exist only in the file.
+
+        Both streams, not just stdout. A diagnostic goes to stderr, and a
+        terminal, a scrollback buffer and a support ticket with a screenshot in
+        it do not distinguish the two -- so checking only one half of the
+        output is checking half of the promise.
+        """
         run()
-        printed = capsys.readouterr().out
+        captured = capsys.readouterr()
+        printed = captured.out + captured.err
         text = config_file.read_text()
         for name in ("password_pepper", "jwt_secret"):
             assert _value_of(text, name) not in printed
-        assert "deliberately not printed" in printed
+        assert "deliberately not printed" in captured.out
 
 
 class TestNotClobberingLiveSecrets:
@@ -93,6 +100,45 @@ class TestNotClobberingLiveSecrets:
         config_file.write_text("security:\n  password_pepper:\n  jwt_secret:\n", encoding="utf-8")
         assert run() == 0
         assert "CHANGE-ME" not in config_file.read_text()
+
+
+class TestWhenTheFileHasNowhereToWrite:
+    """A config with no ``security:`` block at all.
+
+    The only way the insert can fail, and it used to be reported as "could not
+    find a 'jwt_secret:' line" -- which sends somebody looking for a line that
+    is *supposed* to be missing on a config written by an earlier release, and
+    says nothing about the block that actually is not there.
+    """
+
+    @pytest.fixture
+    def blockless(self, tmp_path, monkeypatch):
+        path = tmp_path / "config.yaml"
+        path.write_text("server:\n  port: 8730\n", encoding="utf-8")
+        monkeypatch.setattr(cli, "find_config_file", lambda: path)
+        return path
+
+    def test_it_names_the_block_and_the_file(self, blockless, capsys):
+        assert run() == 1
+        printed = capsys.readouterr().err
+        assert "security:" in printed
+        assert str(blockless) in printed
+        assert "config.yaml.sample" in printed
+
+    def test_and_does_not_recite_the_setting_names(self, blockless, capsys):
+        """They are identifiers rather than credentials, so printing one leaks
+        nothing -- but the values are the secrets, nothing here needs the names
+        to be useful, and a scanner cannot tell the two apart. Leaving them out
+        costs the message nothing."""
+        run()
+        printed = capsys.readouterr().err
+        for name, _cost in cli._SECRET_SETTINGS:
+            assert name not in printed
+
+    def test_and_writes_nothing(self, blockless):
+        before = blockless.read_text()
+        run()
+        assert blockless.read_text() == before
 
 
 class TestWhenThereIsNoConfig:

@@ -11,7 +11,12 @@ import { test, expect } from "./fixtures.js";
 
 test.describe("classification", () => {
   test.beforeEach(async ({ signedIn }) => {
-    await signedIn.getByRole("link", { name: "Classification" }).click();
+    // Straight to the page rather than through the nav link. Nine tests do
+    // not each need to prove the link works -- admin.spec.js's reachability
+    // test is where that belongs, and it now names Classification -- and a
+    // click made while the app is still settling can be swallowed, which is
+    // a failure in every one of these tests with a cause in none of them.
+    await signedIn.goto("/classification");
     await expect(signedIn.getByRole("heading", { name: "Classification" })).toBeVisible();
   });
 
