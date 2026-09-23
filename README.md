@@ -1023,9 +1023,16 @@ product, `.card-title`, `.price--withoutTax`, a `rel="next"` link. Two things
 differ from WooCommerce and are worth knowing:
 
 - **The key.** WordPress puts a post id in every card; Stencil themes are
-  inconsistent, so `data-entity-id` is used where it exists and the product's
-  URL path where it does not. Prefer the id: a rename changes the URL, and a
-  path key reads that as one listing de-listed and another appearing.
+  inconsistent, so `data-entity-id` is used where it exists, the same id on an
+  element *inside* the card (a quickview button) where the card itself has
+  none, and the product's URL path only when neither is there. Prefer the id: a
+  rename changes the URL, and a path key reads that as one listing de-listed
+  and another appearing.
+- **Changing a key does not orphan anything.** A card read by id also names the
+  path key it replaces (`ScrapedItem.replaces_keys`), and the scan renames the
+  stored row instead of importing a new one. That is how four shops moved off
+  path keys on an ordinary scan, with their price history intact. Any scraper
+  that learns a better key can do the same.
 - **Pagination is a query string** (`?page=2`), not a path. A shop may disallow
   those in robots.txt, so the walk asks before each page and stops that section
   rather than failing the scan.

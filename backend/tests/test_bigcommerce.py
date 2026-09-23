@@ -138,7 +138,13 @@ class InnerKeyShop(Shop):
     """A shop on a theme that keeps the id inside the card, like Madison Guns."""
 
     slug = "inner-key-shop"
-    key_from_inner_id = True
+
+
+class PathOnlyShop(Shop):
+    """A shop that has opted out of reading the id inside the card."""
+
+    slug = "path-only-shop"
+    key_from_inner_id = False
 
 
 @pytest.fixture(autouse=True)
@@ -183,21 +189,27 @@ class TestTheKey:
         after = self.parse(card("m1-garand-1955", "Correct 1955 M1 Garand", entity_id="46335"))
         assert before.external_key == after.external_key
 
-    def test_an_id_inside_the_card_is_ignored_by_default(self):
-        """Not because it is wrong -- it is the same id -- but because four
-        shops already shipped are keyed by path, and reading it would change
-        the external key of every listing they have. See ``key_from_inner_id``."""
-        parsed = self.parse(card("m1-garand", "M1 Garand", inner_ids=("5948",)))
-        assert parsed.external_key == "path-m1-garand"
-
-    def test_a_shop_can_ask_for_it(self):
+    def test_an_id_inside_the_card_is_read_by_default(self):
         """Madison Guns' theme puts nothing on the card and hangs the id off
-        the quickview button, so a shop starting fresh opts in and gets the
-        key it should have had."""
-        parsed = self.parse(
-            card("m1-garand", "M1 Garand", inner_ids=("5948",)), shop=InnerKeyShop()
-        )
+        the quickview button, and so do four shops that were keyed by path
+        until the scan learned to rename a stored row."""
+        parsed = self.parse(card("m1-garand", "M1 Garand", inner_ids=("5948",)))
         assert parsed.external_key == "bc-5948"
+
+    def test_and_names_the_path_key_it_replaces(self):
+        """What lets the scan adopt the row stored before, rather than de-list
+        it beside a new one and cut its price history loose."""
+        parsed = self.parse(card("m1-garand", "M1 Garand", inner_ids=("5948",)))
+        assert parsed.replaces_keys == ["path-m1-garand"]
+
+    def test_a_path_key_replaces_nothing(self):
+        assert self.parse(card("m1-garand", "M1 Garand")).replaces_keys == []
+
+    def test_a_shop_can_opt_out(self):
+        parsed = self.parse(
+            card("m1-garand", "M1 Garand", inner_ids=("5948",)), shop=PathOnlyShop()
+        )
+        assert parsed.external_key == "path-m1-garand"
 
     def test_two_ids_in_one_card_fall_back(self):
         """A card holding a second product id holds something that is not this

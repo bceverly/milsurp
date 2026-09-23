@@ -52,13 +52,6 @@ class MadisonGunsScraper(BigCommerceScraper):
     requires_browser = False
     default_interval_minutes = 1440
 
-    #: Their theme puts nothing on the card and carries the product id on the
-    #: quickview button inside it, so without this the whole shop would be keyed
-    #: by URL path -- and a shop that renames a product changes its URL. Safe to
-    #: switch on here and nowhere else: this site has nothing stored yet, so
-    #: there is no existing key to orphan. See ``BigCommerceScraper``.
-    key_from_inner_id = True
-
     sources = (
         {"category": "Used Guns", "url": f"{SITE_BASE}ammunition/used-guns/"},
         {

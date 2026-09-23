@@ -12,9 +12,9 @@ BigCommerce is less consistent: some themes carry ``data-entity-id`` on the card
 some hang the same id off a quickview button inside it, and some carry nothing at
 all. So the id is used when the card has one and the product's URL path when it
 does not — which is stable in practice, and is the only other thing a card
-reliably has. A shop whose id is only inside the card can opt into reading it
-there with ``key_from_inner_id``; the four already keyed by path cannot, without
-a migration, and that attribute says why.
+reliably has. A theme that carries the id only *inside* the card is read there
+too (``key_from_inner_id``), and a listing stored under its path key before
+that is renamed in place rather than re-imported.
 
 **Pagination is a query string** — ``?page=2`` — unlike WooCommerce's path form.
 That is worth noticing rather than assuming: a shop that disallows query strings
@@ -208,6 +208,12 @@ def price_now(card: Tag) -> float | None:
     return None
 
 
+def path_key(link: str) -> str:
+    """The key a product gets when nothing better is on offer: its URL path."""
+    path = urlparse(link).path.strip("/")
+    return f"path-{path}" if path else f"path-{link}"
+
+
 class BigCommerceScraper(SiteScraper):
     """One BigCommerce shop. Subclasses supply the slug, name and sources."""
 
@@ -224,18 +230,16 @@ class BigCommerceScraper(SiteScraper):
     #: keyed by URL path while the id it would rather be keyed by is right
     #: there. :meth:`key_for` will take it when this is on.
     #:
-    #: **Off by default, and not because it is unreliable.** Four shops already
-    #: shipped are in exactly this position -- Arms of America, Bowman Arms,
-    #: Recoil Gun Works and Arms Unlimited -- and switching it on for them would
-    #: change the external key of every listing they have. A scan would read
-    #: that as the whole catalog de-listed and an identical one appearing:
-    #: price history, watchlist entries and armory matches all cut loose from
-    #: the listings they belong to. That is a re-keying migration, not a flag,
-    #: and it is worth doing deliberately rather than as a side effect of this.
-    #:
-    #: A *new* shop has nothing stored to orphan, so it should start with the
-    #: better key.
-    key_from_inner_id: bool = False
+    #: **On for every shop.** It was off at first because four shops already
+    #: shipped -- Arms of America, Bowman Arms, Recoil Gun Works and Arms
+    #: Unlimited -- were stored under path keys, and changing a key used to
+    #: read as the whole catalog de-listed and an identical one appearing:
+    #: price history, watchlist entries and armory matches cut loose. Each
+    #: card now also names the path key it replaces (``replaces_keys``), and
+    #: the scan adopts and renames the stored row, so the switch happens on
+    #: each shop's next ordinary scan with nothing orphaned. A shop whose
+    #: cards carry the id on the card itself never reaches this lookup.
+    key_from_inner_id: bool = True
     title_selectors: tuple[str, ...] = (".card-title a", ".card-title", "h4.card-title", "h4")
     link_selectors: tuple[str, ...] = (".card-figure__link", ".card-title a", "a[href]")
     next_page_selectors: tuple[str, ...] = (
@@ -398,8 +402,12 @@ class BigCommerceScraper(SiteScraper):
             for url in image_sources(tag)[:1]
         ]
 
+        key = self.key_for(card, link)
         return ScrapedItem(
-            external_key=self.key_for(card, link),
+            external_key=key,
+            # The path key this shop's listings were stored under before it
+            # read ids, so the switch renames them rather than re-importing.
+            replaces_keys=[] if key.startswith("path-") else [path_key(link)],
             url=link,
             title=title,
             price=price_now(card),
@@ -422,7 +430,7 @@ class BigCommerceScraper(SiteScraper):
         path is the fallback rather than the rule.
 
         Some themes carry the id *inside* the card instead -- see
-        :attr:`key_from_inner_id`, which is off unless a shop asks for it.
+        :attr:`key_from_inner_id`, which is on unless a shop opts out.
         """
         for attribute in ENTITY_ID:
             value = card.get(attribute)
@@ -442,8 +450,7 @@ class BigCommerceScraper(SiteScraper):
             if len(inner) == 1:
                 return f"bc-{inner.pop()}"
 
-        path = urlparse(link).path.strip("/")
-        return f"path-{path}" if path else f"path-{link}"
+        return path_key(link)
 
     def _first_text(self, scope: Tag, selectors: Iterable[str]) -> str:
         for selector in selectors:
@@ -468,7 +475,11 @@ class BigCommerceScraper(SiteScraper):
     # -- the product page ---------------------------------------------------
     def with_detail(self, ctx: ScrapeContext, item: ScrapedItem) -> ScrapedItem:
         """Fill in the description and the gallery, if they are still needed."""
-        if not ctx.needs_detail(item.external_key) or self._gave_up_on_details:
+        if self._gave_up_on_details:
+            return item
+        # A listing renamed from its path key keeps its detail fetch: the page
+        # was read under the old key and the row carries that across.
+        if not all(ctx.needs_detail(key) for key in (item.external_key, *item.replaces_keys)):
             return item
         try:
             soup = BeautifulSoup(ctx.get_text(item.url), "html.parser")

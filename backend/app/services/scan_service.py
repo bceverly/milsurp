@@ -364,6 +364,31 @@ def _fill_from_vendor(item: Item, scraped: ScrapedItem) -> None:
     item.stated_kind = scraped.stated_kind or item.stated_kind
 
 
+def _stored_item(session: Session, site: Site, scraped: ScrapedItem) -> Item | None:
+    """The row this listing is stored under, adopting one under a replaced key.
+
+    A row under a key the scraper no longer builds -- see
+    ``ScrapedItem.replaces_keys`` -- is renamed rather than left to be
+    de-listed beside a new one, which would cut its price history and watchers
+    loose. Only reached when nothing holds the new key, so the rename cannot
+    collide.
+    """
+    item = session.execute(
+        select(Item).where(Item.site_id == site.id, Item.external_key == scraped.external_key)
+    ).scalar_one_or_none()
+    if item is not None or not scraped.replaces_keys:
+        return item
+    item = session.execute(
+        select(Item)
+        .where(Item.site_id == site.id, Item.external_key.in_(scraped.replaces_keys))
+        .order_by(Item.id)
+        .limit(1)
+    ).scalar_one_or_none()
+    if item is not None:
+        item.external_key = scraped.external_key
+    return item
+
+
 def _upsert_item(
     session: Session,
     site: Site,
@@ -372,10 +397,7 @@ def _upsert_item(
     seen_at: datetime,
 ) -> tuple[Item, bool, bool]:
     """Insert or update one listing. Returns ``(item, created, price_dropped)``."""
-    item = session.execute(
-        select(Item).where(Item.site_id == site.id, Item.external_key == scraped.external_key)
-    ).scalar_one_or_none()
-
+    item = _stored_item(session, site, scraped)
     created = item is None
     if item is None:
         item = Item(

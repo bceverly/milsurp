@@ -79,6 +79,13 @@ class ScrapedItem:
     generated_images: list[tuple[str, bytes]] = field(default_factory=list, repr=False)
     # Anything site-specific worth keeping; merged into the description view.
     extra: dict[str, Any] = field(default_factory=dict)
+    #: Keys this listing may already be stored under from before a scraper
+    #: learned a better one. A scan that finds nothing under ``external_key``
+    #: adopts the row stored under one of these and renames it, so the price
+    #: history, watchlist entries and armory match stay with the listing
+    #: rather than being orphaned by a change of key. See
+    #: ``BigCommerceScraper.key_from_inner_id`` for the case that needed it.
+    replaces_keys: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         self.external_key = (self.external_key or "").strip()[:255]

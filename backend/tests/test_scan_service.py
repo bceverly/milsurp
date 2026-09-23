@@ -240,6 +240,58 @@ class TestDelisting:
         assert item.first_seen_at == original
 
 
+class TestAChangedKeyIsAdopted:
+    """A scraper that learns a better key names the one it replaces.
+
+    Four BigCommerce shops were stored under URL-path keys and now read the
+    shop's product id. Without adoption the switch would de-list every one of
+    their listings and import an identical catalog beside it, cutting the
+    price history and watchers loose.
+    """
+
+    def test_the_stored_row_is_renamed_not_replaced(self, fake_site, clean_db):
+        FakeScraper.payload = [listing("path-m1-garand", 900.0)]
+        scan_service.run_scan(fake_site.id)
+        original = clean_db.execute(select(Item)).scalars().one()
+        original_id = original.id
+
+        FakeScraper.payload = [
+            listing("bc-5948", 700.0, replaces_keys=["path-m1-garand"]),
+        ]
+        run = clean_db.get(ScanRun, scan_service.run_scan(fake_site.id))
+        clean_db.expire_all()
+
+        items = clean_db.execute(select(Item)).scalars().all()
+        assert [(i.id, i.external_key) for i in items] == [(original_id, "bc-5948")]
+        assert run.items_new == 0
+        assert run.items_delisted == 0
+        # The history carried across: this is a drop from 900, not a first price.
+        assert items[0].previous_price == 900.0
+        assert items[0].is_active is True
+
+    def test_once_renamed_the_old_key_is_no_longer_needed(self, fake_site, clean_db):
+        FakeScraper.payload = [listing("path-a")]
+        scan_service.run_scan(fake_site.id)
+        FakeScraper.payload = [listing("bc-1", replaces_keys=["path-a"])]
+        scan_service.run_scan(fake_site.id)
+        FakeScraper.payload = [listing("bc-1", replaces_keys=["path-a"])]
+        run = clean_db.get(ScanRun, scan_service.run_scan(fake_site.id))
+        assert run.items_updated == 1
+        assert len(clean_db.execute(select(Item)).scalars().all()) == 1
+
+    def test_a_row_already_under_the_new_key_wins(self, fake_site, clean_db):
+        """Both present means the new key arrived another way first. Renaming
+        the old row onto it would collide, so the old one is left to de-list."""
+        FakeScraper.payload = [listing("path-a"), listing("bc-1")]
+        scan_service.run_scan(fake_site.id)
+        FakeScraper.payload = [listing("bc-1", replaces_keys=["path-a"])]
+        scan_service.run_scan(fake_site.id)
+        clean_db.expire_all()
+
+        keys = {i.external_key: i.is_active for i in clean_db.execute(select(Item)).scalars()}
+        assert keys == {"bc-1": True, "path-a": False}
+
+
 class TestAnUnreadableCatalogIsNotAnEmptyOne:
     """A run that read nothing and warned must not de-list the site.
 

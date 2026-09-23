@@ -278,34 +278,30 @@ else anywhere.
 seconds apiece — a little over an hour, paid once. After that only new arrivals
 need one.
 
-### Four BigCommerce shops keyed by URL path — **Planned**
+### Four BigCommerce shops keyed by URL path — **Shipped**
 
 Found while building Madison Guns, whose Stencil theme puts nothing on the
 `article.card` and hangs the product id off the quickview button one element
-down: `<button class="quickview" data-product-id="5948">`. The base class only
-ever looked at the card itself, so the shop would have been keyed by URL path
-while the id it wants sat one element inside.
+down: `<button class="quickview" data-product-id="5948">`. Four shops already
+shipped were in the same position — Arms of America, Bowman Arms, Recoil Gun
+Works and Arms Unlimited — and had been stored under URL-path keys, which lose
+a listing's price history the day a shop renames the product.
 
-Reading it there is two lines. What stopped it being the new default is that
-**four shops already shipped are in the same position** — Arms of America,
-Bowman Arms, Recoil Gun Works and Arms Unlimited, measured across their
-recorded catalogs at 41, 17, 10 and 19 cards with no id on the card and exactly
-one inside. Switching the lookup on for them would change the external key of
-every listing they hold, and a scan reads a changed key as the whole catalog
-de-listed and an identical one arriving: price history orphaned, watchlist
-entries pointing at dead rows, armory matches cut loose. Recoil Gun Works alone
-is 229 listings.
+**It was planned as a migration that re-read each catalog, and it shipped as
+something smaller.** A migration that fetches from vendors runs inside the
+package install, offline or not. Instead a card read by id also names the path
+key it replaces (`ScrapedItem.replaces_keys`), and the scan adopts the stored
+row and renames it. `key_from_inner_id` is now on for every BigCommerce shop, so
+each of the four converted on its next ordinary scan — dev and production alike
+— with no migration and no extra requests; a product page already read under
+the old key is not read again.
 
-So it is `BigCommerceScraper.key_from_inner_id`, off by default, and Madison
-Guns is the only shop that sets it — a new site has nothing stored to orphan.
-
-**The work, when it is done:** a migration that rewrites `external_key` in
-place for those four, from `path-<slug>` to `bc-<id>`, deriving the id by
-re-reading each catalog once rather than by guessing. It must run before the
-next scan of any of them, and it is not urgent — a path key is stable while a
-shop leaves its product names alone, which is why nobody noticed. It is worth
-doing because the day a shop does rename something is the day the price history
-for it is lost, and there is no sign when that happens.
+Measured on the dev database: Bowman Arms 17 of 17 renamed, Arms of America 45
+of 47, Recoil Gun Works 227 of 234, Arms Unlimited 18 of 18 still listed —
+nothing new imported, nothing de-listed that was still for sale. The nine that
+stayed on path keys are cards carrying no id or two different ones (bundles,
+training pistols), which fall back to the path by design and keep the same key
+every scan.
 
 ### Sold listings on BigCommerce — **Shipped**
 
