@@ -25,8 +25,17 @@ SHOP = "https://shop.test"
 MEDIA = f"{SHOP}/media/catalog/product"
 
 
-def stock_card(product_id: int, title: str, price_html: str = '<span class="price">$600.00</span>'):
-    """Stock Magento, the way Century Arms renders it."""
+def stock_card(
+    product_id: int,
+    title: str,
+    price_html: str = '<span class="price">$600.00</span>',
+    stock: str | None = None,
+):
+    """Stock Magento, the way Century Arms renders it.
+
+    ``stock`` renders ``div.stock.unavailable``, which is what an unthemed
+    Magento puts on a card that cannot be bought.
+    """
     return f"""
     <li class="item product product-item">
       <div class="product-item-info" id="product-item-info_{product_id}">
@@ -38,18 +47,28 @@ def stock_card(product_id: int, title: str, price_html: str = '<span class="pric
           <a class="product-item-link" href="{SHOP}/{title.lower().replace(' ', '-')}.html">{title}</a>
         </strong>
         <div class="product-price-wrapper">{price_html}</div>
+        {'<div class="stock unavailable"><span>' + stock + "</span></div>" if stock else ""}
       </div>
     </li>
     """
 
 
-def themed_card(slug: str, title: str, price_html: str = ""):
+def themed_card(slug: str, title: str, price_html: str = "", stock: str | None = None):
     """A custom theme with no product id anywhere, the way Classic Firearms
-    renders it: the name lives in the photograph's alt text."""
+    renders it: the name lives in the photograph's alt text.
+
+    ``stock`` renders their stock flag -- ``in-stock-btn`` or
+    ``out-of-stock-btn``, both carrying ``stock-status-flag`` -- which is the
+    only thing on the grid that says whether the gun can still be bought.
+    """
+    flag = ""
+    if stock is not None:
+        kind = "out-of-stock-btn" if "out" in stock.lower() else "in-stock-btn"
+        flag = f'<div class="{kind} stock-status-flag"><span>{stock}</span></div>'
     return f"""
     <div class="mb-2 product-card item">
       <a href="{SHOP}/{slug}/"><img src="{MEDIA}/cache/1/small_image/270x170/9df78eab33525d08d6e5fb8d27136e95/2/0/x.png" alt="{title}"/></a>
-      {price_html}
+      {price_html}{flag}
     </div>
     """
 
@@ -603,3 +622,67 @@ class TestWalkingTheFacetsInstead:
         assert ClassicFirearmsScraper.follow_facets is True
         # Off by default: a shop that can page normally should not pay for it.
         assert MagentoScraper.follow_facets is False
+
+
+class TestTheGridSaysWhetherItIsGone:
+    """The signal that was missing, and what it cost.
+
+    A scan fetches a product page **once** -- ``needs_detail`` is
+    ``detail_fetched_at is None`` -- and after that ``with_detail`` hands the
+    catalog record straight back. ``is_sold`` was set only from the product
+    page's JSON-LD, so it was captured on a listing's first scan and then
+    overwritten with the card's default of False on every scan afterwards.
+
+    Measured on Classic Firearms before the fix: 184 listings stored, **not one
+    ever marked sold**, and 13 of 20 sampled were out of stock on the shop's own
+    page. Their grid says so on every tile.
+    """
+
+    def parse(self, card_html):
+        # The same selector the key tests use for a themed card: `catalog()`
+        # wraps cards in `ol.products`, so `.products-grid .item` has no
+        # ancestor to match against.
+        soup = BeautifulSoup(catalog(card_html), "html.parser")
+        card = soup.select_one(".products-grid .item, .product-card, li.product-item")
+        return Shop().item_from_card(card, SHOP, "Surplus")
+
+    def test_a_card_flagged_out_of_stock_is_sold(self):
+        assert self.parse(themed_card("k98", "K98 Mauser", stock="Out of Stock")).is_sold is True
+
+    def test_a_card_flagged_in_stock_is_not(self):
+        assert self.parse(themed_card("k98", "K98 Mauser", stock="In Stock")).is_sold is False
+
+    def test_a_card_that_says_nothing_is_not(self):
+        """Silence is not evidence of a sale, and marking on silence would
+        empty a catalog the first time a theme dropped the element."""
+        assert self.parse(themed_card("k98", "K98 Mauser")).is_sold is False
+
+    def test_stock_magento_markup_works_too(self):
+        """``div.stock.unavailable`` is what an unthemed Magento renders."""
+        assert self.parse(stock_card(41142, "Swiss 1889", stock="Out of stock")).is_sold is True
+
+    def test_the_word_in_a_title_is_not_evidence(self):
+        """Scoped to the flag, never the card's whole text. A rifle described
+        as "sold out of Springfield" would otherwise convict itself."""
+        item = self.parse(themed_card("s", "Rifles sold out of Springfield Armory"))
+        assert item.is_sold is False
+
+
+class TestTheProductPageDoesNotUnSellIt:
+    @responses.activate
+    def test_a_page_with_no_availability_keeps_what_the_grid_said(self, ctx):
+        """The grid is read on every scan and the page only on the first, so a
+        page that publishes nothing must not overrule a card that did."""
+        responses.add(
+            responses.GET,
+            f"{SHOP}/surplus",
+            body=catalog(stock_card(41142, "K98 Mauser", stock="Out of stock")),
+        )
+        responses.add(
+            responses.GET,
+            f"{SHOP}/k98-mauser.html",
+            body="<html><body><h1 class='page-title'>K98 Mauser</h1></body></html>",
+        )
+
+        item = next(iter(Shop().scrape(ctx)))
+        assert item.is_sold is True

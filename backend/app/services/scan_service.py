@@ -53,6 +53,7 @@ from . import (
     armory,
     boilerplate,
     classify,
+    curio,
     discovery,
     manufacturers,
     overrides,
@@ -618,6 +619,24 @@ def _apply_catalog(session: Session, item: Item, trusted: bool) -> None:
     if found.kind is not None and (item.is_rifle or item.is_pistol):
         item.is_rifle = found.kind.is_long_gun
         item.is_pistol = found.kind.is_handgun
+
+    # Curio and relic eligibility, read last because it wants the model.
+    #
+    # `found.model` is the armory's curated name for this pattern, and handing
+    # it over is what keeps the reading honest: a four-digit number in a
+    # milsurp title is usually a designation rather than a date, and the only
+    # reliable way to tell "1891" the pattern from "1943" the year is to know
+    # what the pattern is called. See app.services.curio.
+    #
+    # Evidence is stored, never a verdict -- the fifty-year boundary rolls, so
+    # an answer written now would be wrong within the year. Overwritten on each
+    # scan rather than filled only when blank: unlike a caliber, none of this
+    # is a value a vendor supplied and we are protecting, and a listing whose
+    # description grows a date on its second pass should pick it up.
+    reading = curio.read(item.title, item.description if trusted else None, found.model)
+    item.cr_stated = reading.stated
+    item.manufacture_year = reading.year
+    item.cr_evidence = reading.evidence
 
 
 def _reconcile_photos(session: Session, item: Item, scraped: ScrapedItem) -> None:

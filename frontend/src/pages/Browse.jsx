@@ -173,7 +173,14 @@ const VIEWS = [
  *  thought rather than the first thing in the way.
  */
 const FACETS = [
-  // First, because it is the coarsest cut and the shortest list: a dozen
+  // First, and ahead of Form for once. Three values, and for a collector
+  // working to their own C&R licence it is not one filter among several —
+  // it is the question of whether a listing is reachable at all. "Not known"
+  // is offered alongside the other two on purpose: a third of the catalog
+  // says nothing either way, and hiding those would quietly answer a legal
+  // question this application is in no position to answer.
+  { param: "curio", facet: "curio", title: "C&R" },
+  // Then, because it is the coarsest cut and the shortest list: a dozen
   // values against several hundred makers. The five Type buttons cannot
   // express it — a flintlock pistol and a percussion revolver are both
   // "Handguns" up there — so this is where a search that starts "show me the

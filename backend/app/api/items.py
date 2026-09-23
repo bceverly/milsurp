@@ -31,7 +31,7 @@ from ..schemas import (
     PricePositionOut,
     SimilarListingOut,
 )
-from ..services import audit, overrides, pricing, provenance, similar, watchlist
+from ..services import audit, curio, overrides, pricing, provenance, similar, watchlist
 from ..services.image_store import ImageStore, ImageStoreError
 from ..services.search import (
     KINDS,
@@ -100,6 +100,25 @@ def _blurb(description: str | None) -> str | None:
     return f"{cut[:space] if space > 0 else cut}…"
 
 
+def _checked_curio(wanted: list[str] | None) -> list[str] | None:
+    """Refuse a curio state nothing knows, rather than ignoring it.
+
+    Deliberately stricter than the ``kind`` filter beside it, which drops a
+    value it does not recognise. The failure modes are not comparable: a
+    mistyped kind returns more guns than were asked for, and a mistyped
+    ``curio=eligble`` returns **every** listing -- including the ones that are
+    not eligible -- to somebody filtering on exactly that because of what they
+    are allowed to buy. Silence is the wrong answer to that question.
+    """
+    unknown = [state for state in wanted or [] if state not in curio.STATES]
+    if unknown:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(f"Unknown curio state {unknown[0]!r}. " f"Valid: {', '.join(curio.STATES)}."),
+        )
+    return wanted
+
+
 def _to_out(item: Item, site_names: dict[int, str]) -> ItemOut:
     data = ItemOut.model_validate(item)
     # The name only. `firearm_model` on the row is a relationship and the
@@ -109,6 +128,12 @@ def _to_out(item: Item, site_names: dict[int, str]) -> ItemOut:
     data.site_name = site_names.get(item.site_id)
     data.thumbnail_url = _thumbnail_url(item)
     data.price_drop = item.price_drop_amount
+    # Derived here rather than read off the row: the boundary moves, and the
+    # browse filter derives it the same way from curio.clause().
+    data.curio = curio.status(item.cr_stated, item.manufacture_year)
+    data.curio_label = CURIO_LABELS.get(data.curio)
+    data.curio_evidence = item.cr_evidence
+    data.manufacture_year = item.manufacture_year
     data.blurb = _blurb(item.description)
     return data
 
@@ -136,6 +161,37 @@ def _kind_counts(session: DbSession, base: Select) -> list[FacetValue]:
     row = session.execute(base.with_only_columns(*columns)).one()
     counts = [FacetValue(value=name, count=int(n)) for name, n in zip(KINDS, row, strict=True)]
     return [FacetValue(value="", count=sum(c.count for c in counts)), *counts]
+
+
+#: What each curio state is called where somebody reads it.
+#:
+#: Named server-side for the same reason the finer kinds are: the browse rail,
+#: the item page and anything else that shows one must not drift on the wording
+#: -- and the wording is doing work here. "Not eligible by age" rather than
+#: "Not C&R", because the other two limbs of the definition are invisible to
+#: this application and a gun under fifty may still be a curio.
+CURIO_LABELS = {
+    curio.ELIGIBLE: "C&R eligible",
+    curio.NOT_ELIGIBLE: "Not eligible by age",
+    curio.UNKNOWN: "Not known",
+}
+
+
+def _curio_counts(session: DbSession, base: Select) -> list[FacetValue]:
+    """How many listings each curio state would show, over everything else.
+
+    One pass rather than three, and against a base that does not filter by
+    curio -- the same reasoning as :func:`_kind_counts`: with the filter
+    applied, picking "eligible" would report zero of everything else and the
+    numbers would only describe the choice already made.
+    """
+    states = curio.STATES
+    columns = [func.count(case((curio.clause(state), 1))) for state in states]
+    row = session.execute(base.with_only_columns(*columns)).one()
+    return [
+        FacetValue(value=state, label=CURIO_LABELS[state], count=int(n))
+        for state, n in zip(states, row, strict=True)
+    ]
 
 
 def _labelled(values: list[FacetValue]) -> list[FacetValue]:
@@ -302,10 +358,15 @@ def _facets(session: DbSession, base: Select) -> ItemFacets:
 
 
 def _with_kinds(
-    session: DbSession, base: Select, without_kind: Select, without_price: Select
+    session: DbSession,
+    base: Select,
+    without_kind: Select,
+    without_price: Select,
+    without_curio: Select,
 ) -> ItemFacets:
     facets = _facets(session, base)
     facets.kinds = _kind_counts(session, without_kind)
+    facets.curio = _curio_counts(session, without_curio)
     facets.prices = _price_distribution(session, without_price)
     return facets
 
@@ -326,6 +387,9 @@ def list_items(
     form: list[str] | None = Query(
         default=None,
         description="The finer kind: revolver | carbine | shotgun | percussion_pistol | …",
+    ),
+    curio: list[str] | None = Query(
+        default=None, description="Curio and relic: eligible | not_eligible | unknown"
     ),
     availability: str = Query(default="available"),
     search: str | None = Query(default=None, max_length=200),
@@ -360,6 +424,7 @@ def list_items(
         manufacturers=manufacturer,
         models=model,
         forms=form,
+        curio_states=_checked_curio(curio),
         availability=availability,
         search=search,
         min_price=min_price,
@@ -377,6 +442,7 @@ def list_items(
         manufacturers=manufacturer,
         models=model,
         forms=form,
+        curio_states=_checked_curio(curio),
         availability=availability,
         search=search,
         min_price=min_price,
@@ -399,10 +465,33 @@ def list_items(
         manufacturers=manufacturer,
         models=model,
         forms=form,
+        curio_states=_checked_curio(curio),
         availability=availability,
         search=search,
         min_price=None,
         max_price=None,
+        new_since_hours=new_since_hours,
+        price_drops_only=price_drops_only,
+    )
+
+    # And the curio facet against a query that does not filter by curio, so
+    # each of the three states says what picking it would show rather than
+    # what the current pick already did.
+    without_curio = apply_filters(
+        select(Item),
+        kinds=kind,
+        site_ids=site_id,
+        categories=category,
+        calibers=caliber,
+        countries=country,
+        manufacturers=manufacturer,
+        models=model,
+        forms=form,
+        curio_states=None,
+        availability=availability,
+        search=search,
+        min_price=min_price,
+        max_price=max_price,
         new_since_hours=new_since_hours,
         price_drops_only=price_drops_only,
     )
@@ -427,7 +516,11 @@ def list_items(
         page=page,
         per_page=per_page,
         pages=pages,
-        facets=_with_kinds(session, base, without_kind, without_price) if include_facets else None,
+        facets=(
+            _with_kinds(session, base, without_kind, without_price, without_curio)
+            if include_facets
+            else None
+        ),
     )
 
 
@@ -494,6 +587,7 @@ def export_items(
     model: list[str] | None = Query(default=None, description="Armory model ids."),
     kind: list[str] | None = Query(default=None),
     form: list[str] | None = Query(default=None),
+    curio: list[str] | None = Query(default=None),
     availability: str = Query(default="available"),
     search: str | None = Query(default=None, max_length=200),
     min_price: float | None = Query(default=None, ge=0),
@@ -521,6 +615,7 @@ def export_items(
         manufacturers=manufacturer,
         models=model,
         forms=form,
+        curio_states=_checked_curio(curio),
         kinds=kind,
         availability=availability,
         search=search,

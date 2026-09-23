@@ -14,7 +14,7 @@ from bs4 import BeautifulSoup
 
 from app.scrapers import ScrapeContext
 from app.scrapers.base import ScrapeError
-from app.scrapers.bigcommerce import BigCommerceScraper, full_size, price_now
+from app.scrapers.bigcommerce import BigCommerceScraper, full_size, price_now, sold_from_card
 from app.scrapers.legacy_collectibles import LegacyCollectiblesScraper
 from app.scrapers.storefront import image_sources
 
@@ -28,11 +28,25 @@ def card(
     price_html: str = '<div class="price--withoutTax">$600.00</div>',
     *,
     entity_id: str | None = None,
+    button: str | None = None,
+    label: str | None = None,
 ) -> str:
+    """One Stencil card.
+
+    ``button`` renders the figcaption *button* whose words the theme swaps --
+    "Add to Cart" or "Out of stock" -- and ``label`` renders the figcaption
+    *label* DuPage Trading use instead. Both are real and the two shops split
+    on which, which is why both are read.
+    """
     attrs = f' data-entity-id="{entity_id}"' if entity_id else ""
+    caption = ""
+    if button:
+        caption += f'<a class="card-figcaption-button" href="#">{button}</a>'
+    if label:
+        caption += f'<span class="card-figcaption-label card-figcaption-label--oos">{label}</span>'
     return f"""
     <article class="card"{attrs}>
-      <figure class="card-figure">
+      <figure class="card-figure">{caption}
         <a href="{SHOP}/{slug}/" class="card-figure__link">
           <img class="card-image lazyload"
                data-src="{CDN}/500x659/products/1/2/photo.jpg" alt="{title}"/>
@@ -603,3 +617,40 @@ class TestWhenACatalogPageIsRefused:
 
         with pytest.raises(ScrapeError):
             list(Shop().scrape(ctx))
+
+
+class TestTheGridSaysWhetherItIsGone:
+    """Read on every scan, where the product page is read once.
+
+    DuPage Trading is why the label is in the list. Their grid marks a sold
+    bayonet with ``<span class="card-figcaption-label card-figcaption-label--
+    oos">Out of stock</span>`` rather than swapping the button's words, so the
+    button selector alone caught 4 of the 8 cards on their bayonet page that
+    say it and missed the other 4.
+    """
+
+    def parse(self, **kwargs):
+        soup = BeautifulSoup(card("x", "A Bayonet", **kwargs), "html.parser")
+        return sold_from_card(soup.select_one("article.card"))
+
+    def test_the_button_form(self):
+        assert self.parse(button="Out of stock") is True
+
+    def test_the_label_form(self):
+        assert self.parse(label="Out of stock") is True
+
+    def test_a_card_that_can_be_bought(self):
+        assert self.parse(button="Add to Cart") is False
+
+    def test_a_card_that_says_nothing(self):
+        assert self.parse() is False
+
+    def test_a_label_that_is_not_about_stock(self):
+        """The base class is matched rather than the ``--oos`` modifier, so a
+        theme spelling it differently still works -- and the text inside is
+        what decides, which is why a "Sale" badge cannot convict a card."""
+        assert self.parse(label="Sale") is False
+
+    def test_the_word_in_a_title_is_not_evidence(self):
+        soup = BeautifulSoup(card("x", "Bayonets sold out of Springfield"), "html.parser")
+        assert sold_from_card(soup.select_one("article.card")) is False

@@ -22,6 +22,7 @@ from sqlalchemy import Select, column, or_, select, table, true
 from sqlalchemy.orm import Session
 
 from ..models import Item, utcnow
+from . import curio
 
 log = logging.getLogger("milsurp.search")
 
@@ -226,6 +227,7 @@ def apply_filters(  # noqa: PLR0912 - one branch per filter; splitting it
     models: list[str] | None,
     forms: list[str] | None,
     kinds: list[str] | None,
+    curio_states: list[str] | None,
     availability: str,
     search: str | None,
     min_price: float | None,
@@ -255,6 +257,15 @@ def apply_filters(  # noqa: PLR0912 - one branch per filter; splitting it
         clauses = [_kind_clause(k) for k in kinds if k in KINDS]
         if clauses:
             stmt = stmt.where(or_(*clauses))
+
+    if curio_states:
+        # Built by curio.clause so this and the badge on a listing's own page
+        # are the same judgment. The fifty-year boundary moves, so it is a
+        # comparison against a cut-off computed now rather than a stored
+        # answer -- which is also why manufacture_year carries an index.
+        wanted = [curio.clause(state) for state in curio_states if state in curio.STATES]
+        if wanted:
+            stmt = stmt.where(or_(*wanted))
 
     if availability == "available":
         stmt = stmt.where(Item.is_active.is_(True), Item.is_sold.is_(False))
@@ -320,6 +331,10 @@ QUERY_PARAMS: dict[str, bool] = {
     # question from "kind": that one picks which of the five buckets a listing
     # is in, this one narrows within it. See Item.kind.
     "form": True,
+    # Curio and relic: eligible / not_eligible / unknown. Repeats, because
+    # "eligible or I cannot tell" is a real thing to want -- a collector
+    # clearing their own licence would rather see the maybes than lose them.
+    "curio": True,
     "availability": False,
     "search": False,
     "min_price": False,
@@ -388,6 +403,7 @@ _FILTER_NAMES = {
     "model": "models",
     "kind": "kinds",
     "form": "forms",
+    "curio": "curio_states",
 }
 
 
@@ -421,6 +437,7 @@ def parse_query(query_string: str) -> SearchQuery:  # noqa: PLR0912 - one branch
         "models": None,
         "forms": None,
         "kinds": None,
+        "curio_states": None,
         "availability": DEFAULT_AVAILABILITY,
         "search": None,
         "min_price": None,
@@ -454,6 +471,11 @@ def parse_query(query_string: str) -> SearchQuery:  # noqa: PLR0912 - one branch
         unknown = [k for k in filters["kinds"] if k not in KINDS]
         if unknown:
             raise BadQuery(f"Unknown type {unknown[0]!r}. Valid: {', '.join(sorted(KINDS))}.")
+
+    if filters["curio_states"]:
+        unknown = [c for c in filters["curio_states"] if c not in curio.STATES]
+        if unknown:
+            raise BadQuery(f"Unknown curio state {unknown[0]!r}. Valid: {', '.join(curio.STATES)}.")
 
     return SearchQuery(filters, sort)
 

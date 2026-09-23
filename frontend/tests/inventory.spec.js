@@ -99,6 +99,62 @@ test.describe("inventory", () => {
     await expect(signedIn).not.toHaveURL(/kind=rifle/);
   });
 
+  test("C&R is offered as its own filter, all three states", async ({ signedIn }) => {
+    /*
+     * Three states and no "any" row: they partition the catalog, so clearing
+     * the filter is what any means. "Not known" is offered beside the other
+     * two deliberately — roughly a third of the catalog says nothing either
+     * way, and dropping those would quietly answer a legal question this
+     * application is in no position to answer.
+     */
+    const facet = signedIn.locator(".facet", { hasText: "C&R" }).first();
+    await facet.locator("summary").first().click();
+
+    for (const label of ["C&R eligible", "Not eligible by age", "Not known"]) {
+      await expect(
+        facet.locator(".facet__option-label", { hasText: label }),
+      ).toBeVisible();
+    }
+  });
+
+  test("and choosing a state filters, with a chip to undo it", async ({ signedIn }) => {
+    const facet = signedIn.locator(".facet", { hasText: "C&R" }).first();
+    await facet.locator("summary").first().click();
+    await facet
+      .locator("label.facet__option", { hasText: "C&R eligible" })
+      .getByRole("checkbox")
+      .check();
+
+    await expect(signedIn).toHaveURL(/curio=eligible/);
+    const chip = signedIn.locator(".active-filters__chip", { hasText: "C&R eligible" });
+    await expect(chip).toBeVisible();
+    await chip.getByRole("button").click();
+    await expect(signedIn).not.toHaveURL(/curio=eligible/);
+  });
+
+  test("the count beside a state is not narrowed by choosing it", async ({
+    signedIn,
+  }) => {
+    /*
+     * The property that makes the numbers worth reading. Counted over every
+     * other filter but not over this one, so each entry says what picking it
+     * would show rather than what the current pick already did — the same
+     * reasoning as the Type facet.
+     */
+    const facet = signedIn.locator(".facet", { hasText: "C&R" }).first();
+    await facet.locator("summary").first().click();
+    const counts = () => facet.locator(".facet__option-count").allInnerTexts();
+    const before = await counts();
+
+    await facet
+      .locator("label.facet__option", { hasText: "C&R eligible" })
+      .getByRole("checkbox")
+      .check();
+    await expect(signedIn).toHaveURL(/curio=eligible/);
+
+    await expect.poll(counts).toEqual(before);
+  });
+
   test("Availability and Type collapse and stay collapsed", async ({ signedIn }) => {
     /**
      * Both were `<details open>` with the attribute hard-coded, which makes

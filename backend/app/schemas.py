@@ -899,6 +899,20 @@ class PhotoOut(BaseModel):
 
 
 class ItemOut(UTCModel):
+    #: Curio and relic, worked out when the record is built rather than stored.
+    #: The fifty-year boundary rolls, so a stored answer would be wrong within
+    #: the year; ``cr_evidence`` says which of the three sources answered, so a
+    #: page can show its working instead of asserting a conclusion about a
+    #: regulated purchase. See app.services.curio.
+    curio: str | None = None
+    #: The same wording the browse facet uses, sent rather than mapped in the
+    #: browser: "Not eligible by age" is doing careful work -- the other limbs
+    #: of the definition are invisible here -- and two copies of that sentence
+    #: is two chances for one of them to become "Not C&R".
+    curio_label: str | None = None
+    curio_evidence: str | None = None
+    manufacture_year: int | None = None
+
     id: int
     site_id: int
     site_name: str | None = None
@@ -1118,6 +1132,11 @@ class ItemFacets(BaseModel):
     #: from ``kinds``: that one picks which of the five buckets a listing is in,
     #: this one narrows within it. See Item.kind.
     forms: list[FacetValue] = Field(default_factory=list)
+    #: Curio and relic, counted the way ``kinds`` is -- over every other filter
+    #: but not over this one, so each entry says what choosing it would show.
+    #: Three states that partition the catalog, so there is no "Anything" row:
+    #: clearing the filter is what "any" means here.
+    curio: list[FacetValue] = Field(default_factory=list)
     #: The price shape of the current results. Absent when nothing in them has
     #: a price, which is a real state on a catalog full of "call for price".
     prices: PriceDistributionOut | None = None

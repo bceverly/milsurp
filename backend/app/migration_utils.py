@@ -65,7 +65,41 @@ def add_column_if_missing(table: str, column: sa.Column) -> None:
             batch.add_column(column)
 
 
+def _can_drop_a_column_outright() -> bool:
+    """Whether this engine can ``ALTER TABLE ... DROP COLUMN`` on its own.
+
+    PostgreSQL always could. SQLite gained it in 3.35, and everything this
+    project supports carries a newer one than that.
+    """
+    bind = op.get_bind()
+    if bind.dialect.name != "sqlite":
+        return True
+    # None when the driver will not say. Treated as "cannot", so an engine
+    # nothing can identify takes the rebuild rather than a statement it may
+    # not understand.
+    version = bind.dialect.server_version_info
+    return version is not None and version >= (3, 35)
+
+
 def drop_column_if_present(table: str, column: str) -> None:
-    if column_exists(table, column):
-        with op.batch_alter_table(table) as batch:
-            batch.drop_column(column)
+    """Drop a column, outright where the engine allows it.
+
+    **Not batch mode by default, and the reason is a landmine rather than a
+    preference.** Batch mode rebuilds the table around the change, which SQLite
+    needs for a *constraint* and not for this -- and the rebuild has to
+    reproduce every column's DDL. ``items.search_document`` is a generated
+    column (migration 0034) and the rebuild emits it as invalid SQL, so a
+    downgrade that dropped any column of ``items`` failed with ``near
+    "STORED": syntax error``.
+
+    Nothing hit it for a long time because every column drop in this history
+    predates the generated column. The first one after it was migration 0037,
+    which is an odd place to discover that the helper underneath is unsound.
+    """
+    if not column_exists(table, column):
+        return
+    if _can_drop_a_column_outright():
+        op.drop_column(table, column)
+        return
+    with op.batch_alter_table(table) as batch:  # pragma: no cover - ancient SQLite
+        batch.drop_column(column)

@@ -1398,6 +1398,46 @@ def cmd_refetch_details(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_curio_backfill(args: argparse.Namespace) -> int:
+    """Re-read stored listings for curio and relic evidence.
+
+    The columns are filled by migration 0037 when it runs, so this is for
+    afterwards: the rules in ``app.services.curio`` are regexes over vendor
+    prose and tightening them reaches nothing already stored. ``--recompute``
+    is that case -- it re-reads every listing rather than only the ones
+    carrying no reading yet, which is the same distinction ``reclassify`` makes
+    and for the same reason.
+    """
+    from app.services import curio
+
+    with session_scope() as session:
+        counts = curio.backfill(session, only_missing=not args.recompute)
+
+    print(f"Examined {counts.get('examined', 0)} listing(s).")
+    print(f"  eligible by age      {counts.get(curio.ELIGIBLE, 0)}")
+    print(f"  not eligible by age  {counts.get(curio.NOT_ELIGIBLE, 0)}")
+    print(f"  nothing said         {counts.get(curio.UNKNOWN, 0)}")
+    print(
+        "\nEligibility itself is worked out when it is asked for, against the "
+        "date at the time — these columns hold what the vendor said, not the answer."
+    )
+    return 0
+
+
+def _add_curio_backfill_command(sub) -> None:
+    command = sub.add_parser(
+        "curio-backfill",
+        help="Re-read stored listings for curio and relic evidence.",
+    )
+    command.add_argument(
+        "--recompute",
+        action="store_true",
+        help="Re-read every listing, not only those carrying no reading yet. "
+        "For after the rules in app.services.curio have been changed.",
+    )
+    command.set_defaults(func=cmd_curio_backfill)
+
+
 def _add_refetch_details_command(sub) -> None:
     command = sub.add_parser(
         "refetch-details",
@@ -1662,6 +1702,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     _add_reclassify_command(sub)
     _add_refetch_details_command(sub)
+    _add_curio_backfill_command(sub)
 
     _add_armory_commands(sub)
 

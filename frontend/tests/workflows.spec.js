@@ -408,6 +408,26 @@ test.describe("item detail extras", () => {
     await expect(signedIn.locator(".fact__label").first()).not.toBeEmpty();
   });
 
+  test("every listing says where it stands on C&R", async ({ signedIn }) => {
+    /*
+     * Always, including when the answer is that nothing is known — a third of
+     * the catalog says nothing either way, and a blank there reads as "no".
+     * The chip underneath says how it was arrived at, because this is a
+     * reading of what a shop wrote and not a compliance determination.
+     */
+    await signedIn.locator(".item-card").first().click();
+    const facts = signedIn.locator(".detail__facts");
+    const value = facts
+      .locator("div", { has: signedIn.locator(".fact__label", { hasText: /^C&R$/ }) })
+      .locator(".fact__value")
+      .first();
+
+    await expect(value).toHaveText(/C&R eligible|Not eligible by age|Not known/);
+    // The caveat travels with it rather than living in a footnote nobody
+    // scrolls to.
+    await expect(value).toHaveAttribute("title", /not a compliance determination/);
+  });
+
   test("sold and de-listed listings are reachable through the filters", async ({
     signedIn,
   }) => {

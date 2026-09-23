@@ -802,6 +802,31 @@ class Item(Base, TimestampMixin):
     price_changed_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
     currency: Mapped[str] = mapped_column(String(8), default="USD", nullable=False)
 
+    # -- curio and relic eligibility, stored as evidence rather than a verdict
+    #
+    # The ATF's first limb is a *rolling* fifty years, so "eligible" is a fact
+    # about today and not about the gun: something made in 1977 is not eligible
+    # now and is in 2027. A column holding the answer would be wrong within the
+    # year with nothing having changed, so these two hold the evidence and the
+    # answer is computed from them -- see app.services.curio.
+    #
+    #: The vendor's own assertion. True where they called it a C&R, False where
+    #: they said it is not, None where they were silent. It outranks the year:
+    #: they are looking at the gun and at its proof marks.
+    cr_stated: Mapped[bool | None] = mapped_column(Boolean)
+    #: A manufacture year believed good enough to judge on. Indexed because the
+    #: browse filter compares it against a cut-off on every query.
+    #:
+    #: Deliberately *not* every four-digit number in the text. A year in a
+    #: milsurp title is usually a pattern -- "M1911A1" is 1911 whether the gun
+    #: was made in 1943 or last year -- so curio.read() takes one only when it
+    #: is not in a designation context and does not appear in the name of the
+    #: armory model the listing matched.
+    manufacture_year: Mapped[int | None] = mapped_column(Integer, index=True)
+    #: Which of the three sources answered, so a page can show its working
+    #: instead of asserting a conclusion about a regulated purchase.
+    cr_evidence: Mapped[str | None] = mapped_column(String(16))
+
     site: Mapped["Site"] = relationship(back_populates="items")
     firearm_model: Mapped["FirearmModel | None"] = relationship()
     photos: Mapped[list["ItemPhoto"]] = relationship(

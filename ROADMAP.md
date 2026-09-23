@@ -70,7 +70,7 @@ Cloudflare challenge rather than a rendering problem.
 ### Planned
 
 **This list is now also in the application.** `app/scrapers/planned.py` carries
-the one vendor still queued, and the Sites page shows it under **Coming
+the seven vendors still queued, and the Sites page shows them under **Coming
 soon** with what each is waiting on. It is deliberately narrower than this
 section: only vendors that are still going to be built, never one that was
 measured and refused — Impact Guns, USA Gun Shop, Edelweiss Arms, The Mosin
@@ -82,6 +82,28 @@ Ordered by a rough guess at effort. The platform column matters more than the
 site, because the reusable base class is most of the work: two of them —
 WooCommerce and BigCommerce — are now shipped, and a site on either is a subclass
 of a few lines.
+
+#### The seven now queued — measured September 2026
+
+Every row below was fetched before it was written down, so the platform column
+here is a measurement rather than the URL-shape guess the next paragraph warns
+about. Ordered nearest-to-buildable first, which is also the order
+`planned.py` holds them in.
+
+| Vendor | Slug | Platform | Waiting on |
+| --- | --- | --- | --- |
+| [Madison Guns](https://madisonguns.com/ammunition/used-guns/) | `madison-guns` | BigCommerce | **Nothing but the writing.** Their used-guns page serves 12 cards to a plain request and the shipped BigCommerce class reads every one |
+| [Gideon Tactical](https://gideontactical.com/firearms/used-firearms) | `gideon-tactical` | BigCommerce | **Nothing but the writing.** 12 cards, read directly; robots disallows only cart and account paths |
+| [DBG Firearms](https://www.dbgfirearms.com/category/firearms) | `dbg-firearms` | Wix Stores | **Nothing but the writing** — `wix_stores.py` already reads Surplus Defense. Their robots.txt `Disallow: /` is scoped to **PetalBot**; `User-agent: *` gets `Allow: /`, so the refusal near the top of that file is not aimed at us |
+| [Botach](https://botach.com/) | `botach` | BigCommerce, catalog drawn by **Algolia** | The grid is built in the browser. Their firearms page is 336 KB and holds **zero** BigCommerce cards — Algolia InstantSearch fills it after load. Wants the search endpoint read directly, the way SARCO's Searchanise widget is, not a browser |
+| [King's Firearms](https://www.kingsfirearmsonline.com/le-trade-ins) | `kings-firearms` | Client-rendered, backed by GunBroker | No catalog in the page at all: a 15 KB shell, one `<noscript>`, and a GunBroker reference. Needs a way in that is not the HTML, and a decision about whether reading a marketplace listing is reading a shop |
+| [Clyde Armory](https://clydearmory.com/agency-trade-in/) | `clyde-armory` | BigCommerce | **Their TLS chain is broken.** The server sends its own Sectigo DV certificate without the intermediate, so verification fails — `unable to verify the first certificate` — and every request dies before HTTP. With verification off it is a perfectly ordinary 314 KB BigCommerce grid. Turning verification off is not the fix; this waits on them |
+| [WIS Transfers](https://www.wistransfers.com/) | `wis-transfers` | Unknown — nothing is served | Answers **202 with an empty body**, to the catalog and the home page alike. That is a challenge rather than a shop, and until something comes back there is no platform to identify and nothing to parse |
+
+Two of the seven are a subclass of a few lines each, one is a second Wix shop,
+two need an API found rather than a page parsed, and two cannot be reached at
+all. That ratio is the one this section keeps re-learning: a group of seven is
+not seven cheap sites.
 
 The platform column below was originally **inferred from the URL shape** — a
 `/product-category/` or `/product-tag/` path means WooCommerce, `/collections/`
@@ -3236,6 +3258,68 @@ until they promote it. The numbers above are what promoting them does.
   same way.
 - **Parked** — Optical character recognition of proof marks from photos. Fun,
   but a long way from paying for itself.
+- **Shipped** — C&R eligibility. `app/services/curio.py`, three columns on
+  `items`, migration `0037` to backfill, a `curio=` filter and facet on the
+  browse page, and a line on every listing saying where it stands.
+
+  **The columns hold evidence, not a verdict**, and that is the decision the
+  rest follows from. The ATF's first limb is a *rolling* fifty years, so
+  "eligible" is a statement about today rather than about the gun: something
+  made in 1977 is not eligible now and is in 2027. A column holding the answer
+  would be wrong within the year with nothing having changed. So `cr_stated`
+  and `manufacture_year` hold what the shop actually said, and the verdict is
+  computed when it is asked for — in Python for a listing, as a SQL clause for
+  a filter, from one function each so the browse count cannot disagree with the
+  page it opens. `test_curio.py` asserts they agree over every combination
+  rather than trusting that they were written together.
+
+  **Three states, describing the evidence rather than the law:** eligible by
+  age, not eligible by age, not known. Deliberately not "C&R: no" — the other
+  two limbs are a museum curator's certification and being novel, rare or
+  bizarre, and neither is visible here. A gun under fifty may still be a curio.
+
+  **The number was measured twice, and the first one was wrong.** A naive parse
+  trusting any four-digit year resolves 66% of the catalog — and is wrong on
+  exactly the listings that matter, because a year in a milsurp title is
+  usually a *pattern*: `M1911A1` reads as 1911 whether the gun left Colt in
+  1943 or a reproduction shop in 2020. Refusing bare years entirely is honest
+  and resolves **26%**, which is not a feature. What recovers it is the armory:
+  a year is read as a date only when it is not in a designation context
+  (`Model 1873`, `Mk III`, `91/30`) *and* does not appear in the curated name
+  of the model the listing matched. Measured over 3,919 active listings — 623
+  (16%) where the shop says so outright, 413 (11%) with an explicit
+  manufacture date, 1,532 (39%) with a year that is not the model's own, and
+  1,351 (34%) that say nothing. **66%, arrived at honestly.**
+
+  The backfill runs in the migration rather than in a command somebody has to
+  remember: `debian/milsurp.postinst` applies outstanding migrations before it
+  will start the service, and this is a derivation over text already stored, so
+  there is nothing to re-scrape. 4,072 listings in 0.60s. Re-runnable through
+  `cli.py curio-backfill --recompute` for when the patterns are tightened.
+
+  **An unknown `curio=` value is refused with a 400**, where the `kind` filter
+  beside it drops one it does not recognise. The failure modes are not
+  comparable: a mistyped kind returns more guns than were asked for, and a
+  mistyped `curio=eligble` returns *every* listing — including the ones that
+  are not eligible — to somebody filtering on exactly that because of what
+  they are allowed to buy.
+
+  Three bugs the tests found, one of them nothing to do with this feature:
+
+  * The bulk write worked against a Connection and failed against a Session —
+    the ORM reads `execute(update(Item), [...])` as its own
+    bulk-update-by-primary-key. It goes through the Core table now, which means
+    one thing on both.
+  * A Core write goes around the identity map, so anything the caller already
+    had loaded stayed stale. It matters to neither caller here, which is
+    exactly why it was worth fixing rather than leaving for the next one.
+  * **`drop_column_if_present` was unsound, and had been for three
+    migrations.** Batch mode rebuilds the table, and the rebuild emits invalid
+    DDL for the generated `search_document` column added in `0034` — `near
+    "STORED": syntax error`. Nothing had hit it because every column drop in
+    this history predates that column; `0037` is the first after it. The helper
+    now drops outright where the engine allows it, which is everywhere this
+    project runs.
 
 ### Calibers as a managed list, like makers — **Shipped**
 
@@ -3504,6 +3588,44 @@ fact.
   news: the catalog is full of rounding and shipping recalculations. The
   reduction test matches what the digest means by a price drop, so the two
   never disagree in front of somebody comparing them.
+- **Planned** — Hot deals filtered by a reader's saved searches. The
+  subscription is category-only today — `include_rifles`,
+  `include_handguns`, `include_police_surplus` — so somebody who collects
+  Swiss rifles is mailed every bargain in the catalog, which is how a reader
+  learns to filter the sender.
+
+  Both halves already exist and neither needs inventing: a saved search
+  carries the full filter semantics and already has a per-search email. The
+  intersection has to be evaluated **server-side against the stored query**,
+  through `search.SearchQuery` rather than a second reading of it, or the
+  email and the browse view will eventually disagree about what one saved
+  search means — and the reader will believe the email.
+
+  One thing to get right that the current pass already gets right: a reader
+  with five saved searches gets one email, not five. Group per reader, as the
+  unsent-watermark pass does.
+- **Planned** — How long a gun takes to sell, by model and by caliber. The
+  Market view says what something is worth and Hot deals says which are cheap;
+  neither answers "do I have to decide today". A median of nine days against
+  sixty is the difference between hesitating and not.
+
+  **Two things to settle before building it, both measured rather than
+  assumed:**
+
+  * **The timestamps may not be there.** In the snapshot, 946 listings are
+    sold and **10** carry a `delisted_at`. So the duration probably has to
+    come from the scan run that flipped `is_sold` rather than from a column,
+    and that wants checking before any of this is promised.
+  * **`first_seen_at` is when *we* first saw it, not when the vendor listed
+    it.** For anything that predates our first scan of its site, the duration
+    is a floor and not a measurement. Those listings have to be excluded or
+    reported as "at least", never quietly averaged in — the same mistake the
+    live-versus-sold price comparison made before it was removed.
+
+  And it wants the Market page's honesty about samples: the count behind each
+  figure and the share held by the largest shop. A duration is less exposed to
+  dealer mix than a price is, but "K31s sell in nine days" drawn from one
+  dealer's turnover is that dealer's habits, not the market's.
 
 ---
 

@@ -158,6 +158,7 @@ def _ids(session, query: str) -> set[int]:
         manufacturers=None,
         models=None,
         forms=None,
+        curio_states=None,
         availability="all",
         search=query,
         min_price=None,

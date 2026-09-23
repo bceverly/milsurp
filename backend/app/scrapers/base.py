@@ -794,6 +794,15 @@ _NOT_PROSE = ("style", "script", "noscript", "template")
 #: who marks a collectible that way is saying the same thing.
 _UNAVAILABLE = ("OutOfStock", "SoldOut", "Discontinued")
 
+#: The words a shop writes on a card or a banner to say the same thing.
+#:
+#: Here rather than in one platform's module because two of them need it and a
+#: second copy is a second chance to disagree: BigCommerce reads it out of a
+#: card's stock label, Magento out of its stock flag. Both scope it to that
+#: element and never search a whole card -- a title is free to contain "sold"
+#: in a sentence about something else.
+SOLD_OUT_TEXT = re.compile(r"\bsold\b|out of stock|no longer available", re.I)
+
 
 def product_json_ld(soup: BeautifulSoup) -> dict[str, Any] | None:
     """The schema.org Product node on a product page, if the shop publishes one.

@@ -33,6 +33,7 @@ from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup, Tag
 
 from .base import (
+    SOLD_OUT_TEXT,
     Disallowed,
     ScrapeContext,
     ScrapedItem,
@@ -140,6 +141,45 @@ def _amount(element: Tag) -> float | None:
     if whole is None:
         return None
     return whole + int(digits[:2]) / 100 if digits else whole
+
+
+#: Where a Magento *card* says the product cannot be bought.
+#:
+#: Classic Firearms' theme puts a flag on every tile -- ``in-stock-btn
+#: stock-status-flag`` or ``out-of-stock-btn stock-status-flag`` -- and stock
+#: Magento renders ``div.stock.unavailable``. Both are read, and the text
+#: inside decides, so a theme that reuses the element for "In Stock" cannot be
+#: mistaken for one saying the opposite.
+_SOLD_CARD_SELECTORS = (
+    ".stock-status-flag",
+    ".stock.unavailable",
+    ".availability.unavailable",
+)
+
+
+def sold_from_card(card: Tag) -> bool:
+    """Whether the grid itself says this listing is gone.
+
+    **This is the one that matters on this platform, and it was missing.**
+    The product page is the authority, but a scan fetches a product page
+    *once* -- ``ScrapeContext.needs_detail`` is ``detail_fetched_at is None``
+    -- and after that ``with_detail`` returns the catalog record untouched. So
+    ``is_sold`` came only from the card, the card never set it, and
+    ``scan_service`` writes the result over the stored value on every scan.
+
+    Measured on Classic Firearms: 184 listings stored, **not one ever marked
+    sold**, and 13 of 20 sampled were out of stock on the shop's own page. The
+    grid says so on every one of those tiles, and reading it costs no request.
+
+    Scoped to the elements above and never the card's whole text: a card
+    carries a title, and a rifle described as "sold out of Springfield" would
+    otherwise be evidence against itself.
+    """
+    for selector in _SOLD_CARD_SELECTORS:
+        for element in card.select(selector):
+            if SOLD_OUT_TEXT.search(text_of(element)):
+                return True
+    return False
 
 
 class MagentoScraper(SiteScraper):
@@ -400,6 +440,11 @@ class MagentoScraper(SiteScraper):
                 for tag in card.select("img")
                 for url in image_sources(tag)[:1]
             ][:1],
+            # Read on every scan, unlike the product page below. See
+            # sold_from_card: without this a listing that sells after its page
+            # was read stays available for as long as it stays in the catalog,
+            # which on Classic Firearms was all of them.
+            is_sold=sold_from_card(card),
             images_are_complete=False,
         )
 
@@ -495,7 +540,10 @@ class MagentoScraper(SiteScraper):
             # The card's price is the one that is missing on a MAP listing; the
             # offer's is the one the shop publishes.
             price=price if price is not None else item.price,
-            is_sold=is_sold_out(node),
+            # ``or item.is_sold`` because the card may already have said so,
+            # and a product page that publishes no availability at all must not
+            # un-sell what the grid just reported.
+            is_sold=is_sold_out(node) or item.is_sold,
             image_urls=images or item.image_urls,
             images_are_complete=bool(images),
             extra={**item.extra, "sku": str(sku) if sku else ""},

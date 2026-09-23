@@ -30,6 +30,7 @@ from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup, Tag
 
 from .base import (
+    SOLD_OUT_TEXT,
     Disallowed,
     ScrapeContext,
     ScrapedItem,
@@ -60,7 +61,10 @@ CUSTOM_FIELD_COLUMNS = frozenset({"caliber", "country", "manufacturer", "conditi
 #: The words a shop puts in that banner. ``\bsold\b`` on its own because
 #: Legacy Collectibles' banner says exactly "SOLD" and nothing else -- it is
 #: scoped to the banner, so a bare "sold" there can only be about this product.
-_SOLD_OUT = re.compile(r"\bsold\b|out of stock|no longer available", re.I)
+#:
+#: Shared with the Magento reader through base, which needs the same words for
+#: the same reason.
+_SOLD_OUT = SOLD_OUT_TEXT
 
 
 #: Where a Stencil *card* says the product cannot be bought.
@@ -72,6 +76,14 @@ _SOLD_OUT = re.compile(r"\bsold\b|out of stock|no longer available", re.I)
 #: photograph, which is listed after it as corroboration rather than instead.
 _SOLD_CARD_SELECTORS = (
     "a.card-figcaption-button",
+    # DuPage Trading label the figcaption instead of swapping the button's
+    # words: ``<span class="card-figcaption-label card-figcaption-label--oos">
+    # Out of stock</span>``. Measured on their bayonet grid, the button
+    # selector above caught 4 of the 8 cards that say it and this caught the
+    # rest. Matched on the base class rather than the ``--oos`` modifier, so a
+    # theme that spells the modifier differently still works -- the text
+    # inside is what decides, and a "Sale" or "New" label cannot match it.
+    ".card-figcaption-label",
     ".sold-out-text",
     ".sold-out-flag-sash",
 )

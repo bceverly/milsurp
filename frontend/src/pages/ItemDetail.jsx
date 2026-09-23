@@ -61,6 +61,48 @@ function Source({ source }) {
   );
 }
 
+//: How a curio reading was arrived at, in words, for the chip under it.
+//:
+//: Explanatory prose rather than a classification, which is why it lives here
+//: and the *verdict* wording does not: "Not eligible by age" is sent by the
+//: server so this page and the browse facet cannot come to say different
+//: things, and these three sentences have nothing to drift from.
+const CURIO_WHY = {
+  vendor: ["the shop says so", "The listing itself calls this a C&R."],
+  dated: ["from a stated date", "The listing gives a manufacture date."],
+  year: [
+    "from a year in the listing",
+    "A year in the listing that is not the model's own designation — so it reads as a date rather than a pattern.",
+  ],
+};
+
+//: Why a gun under fifty is not simply "not a C&R".
+const CURIO_CAVEAT =
+  "Worked out from what the shop wrote, against the fifty-year rule, and not a " +
+  "compliance determination. A firearm under fifty may still be a curio — the " +
+  "other tests are a museum curator's certification and being novel, rare or " +
+  "bizarre, and neither is visible here. Check before you buy.";
+
+function CurioFact({ item }) {
+  if (!item.curio) return null;
+  const why = CURIO_WHY[item.curio_evidence];
+  const unknown = item.curio === "unknown";
+  return (
+    <div>
+      <div className="fact__label">C&amp;R</div>
+      <div
+        className={`fact__value ${unknown ? "fact__value--unknown" : ""}`}
+        title={CURIO_CAVEAT}
+      >
+        {item.curio_label}
+      </div>
+      <span className="fact__source" title={why ? why[1] : CURIO_CAVEAT}>
+        {why ? why[0] : "nothing in the listing says"}
+      </span>
+    </div>
+  );
+}
+
 function Fact({ label, children, always = false, source = null }) {
   const empty = children === null || children === undefined || children === "";
   if (empty && !always) return null;
@@ -880,6 +922,10 @@ export default function ItemDetail() {
                 </button>
               </Fact>
             )}
+            {/* Ahead of the rest: for somebody buying to their own licence
+                it decides whether the listing is reachable at all. */}
+            <CurioFact item={item} />
+            <Fact label="Made">{item.manufacture_year}</Fact>
             <Fact label="Manufacturer" always source={sources.manufacturer}>
               {item.manufacturer}
             </Fact>
