@@ -75,6 +75,7 @@ from ..models import (
     HotDealPreference,
     HotDealSetting,
     Item,
+    SavedSearch,
     User,
     as_utc,
     utcnow,
@@ -558,9 +559,19 @@ def unsent_for(session: Session, user: User, *, limit: int = MAX_PER_EMAIL) -> l
         .tuples()
         .all()
     )
+    current = deals(session)
+    # Asked once for every deal rather than once per deal: a reader's saved
+    # searches are a handful of queries, each run over the whole set.
+    matched = (
+        matching_saved_searches(session, user, [deal.item_id for deal in current])
+        if row is not None and row.match_saved_searches
+        else None
+    )
     fresh: list[HotDeal] = []
-    for deal in deals(session):
+    for deal in current:
         if not wants(row, deal.bucket):
+            continue
+        if matched is not None and deal.item_id not in matched:
             continue
         seen = told.get(deal.item_id)
         # Compared in cents. These are dollars stored as floats, and a price
@@ -572,6 +583,60 @@ def unsent_for(session: Session, user: User, *, limit: int = MAX_PER_EMAIL) -> l
         if len(fresh) >= limit:
             break
     return fresh
+
+
+#: Item ids per query when asking a saved search which deals it matches.
+#: SQLite caps a statement at 999 bound variables; the pass can find more deals
+#: than that, and a saved search adds bound values of its own.
+_IDS_PER_QUERY = 500
+
+
+def saved_search_count(session: Session, user: User) -> int:
+    return len(session.execute(select(SavedSearch.id).where(SavedSearch.user_id == user.id)).all())
+
+
+def matching_saved_searches(session: Session, user: User, item_ids: Sequence[int]) -> set[int]:
+    """Which of these listings at least one of this reader's saved searches matches.
+
+    **Run through the search module, never re-read.** Each stored query goes
+    through :func:`search.parse_query` and :func:`search.apply_filters`, the
+    same two calls the browse page and the saved-search email make, so "this
+    deal matches your Swiss rifles search" means exactly what clicking that
+    search shows. A second reading of the query string written here would
+    drift from the first the next time a filter is added, and the reader would
+    believe the email.
+
+    A stored query that no longer parses is skipped and logged rather than
+    raised: this runs unattended after a pass, and one rotted search must not
+    cost the reader every other one. No searches at all matches nothing -- the
+    reader asked for "only my searches", and has none.
+    """
+    from . import search  # here, not at the top: search imports curio and more
+
+    wanted = list(dict.fromkeys(item_ids))
+    if not wanted:
+        return set()
+    matched: set[int] = set()
+    for saved in session.execute(
+        select(SavedSearch).where(SavedSearch.user_id == user.id).order_by(SavedSearch.id)
+    ).scalars():
+        try:
+            query = search.parse_query(saved.query)
+        except search.BadQuery as exc:
+            log.warning(
+                "Saved search %s (%r) no longer parses; skipped for hot deals: %s",
+                saved.id,
+                saved.name,
+                exc,
+            )
+            continue
+        for start in range(0, len(wanted), _IDS_PER_QUERY):
+            chunk = wanted[start : start + _IDS_PER_QUERY]
+            statement = search.apply_filters(select(Item.id), **query.filters).where(
+                Item.id.in_(chunk)
+            )
+            matched.update(session.execute(statement).scalars().all())
+    return matched
 
 
 def mark_sent(

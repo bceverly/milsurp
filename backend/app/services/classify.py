@@ -679,6 +679,21 @@ def _bare_bore(haystack: str) -> str | None:
 #: "BM-59 Paratrooper ... Bipod, Bayonet Lug" are both rifles.
 _BAYONET = re.compile(r"\bbayonets?\b(?!\s+lugs?\b)", re.I)
 
+#: The other collectible blades, which are filed with the bayonets rather than
+#: with the slings and magazines. Surplus Defense sell an SS dagger, an SA
+#: dagger and a Japanese Type 98 sword at $550 to $1,500 apiece, and "Other"
+#: was the wrong place for them: they are the objects a collector is after,
+#: not the kit around one.
+#:
+#: The lookahead keeps out what hangs off a sword rather than the sword: a
+#: knot, a belt, a frog, a hanger, a sling. And like every question in this
+#: bucket it is only asked of a listing that is not already a firearm.
+_EDGED = re.compile(
+    r"\b(?:daggers?|dirks?|swords?|sabres?|sabers?|cutlass(?:es)?)\b"
+    r"(?!\s+(?:knots?|belts?|frogs?|hangers?|slings?|chains?)\b)",
+    re.I,
+)
+
 #: A vendor section that is bayonets. Like the parts-kit heading, it *proposes*
 #: and the listing has to corroborate -- DuPage Trading file bare M8A1
 #: scabbards and a fighting knife under theirs, and none of those is a bayonet.
@@ -807,6 +822,8 @@ _KIT_OF_SOMETHING_ELSE = re.compile(
 
 def _is_a_bayonet(title: str, description: str | None = None, filed_as_edged: bool = False) -> bool:
     found = _BAYONET.search(title or "")
+    if found is None and _EDGED.search(title or "") and not _lacks(title, _EDGED):
+        return True
     if found is None:
         # A scabbard is the bayonet's sheath and belongs with them -- but the
         # word alone will not do it, because a scabbard is also what a rifle
@@ -1032,6 +1049,11 @@ RIFLE_PATTERNS = (
     r"\bak-?\d{2}\b",
     r"\bak\b(?!\d)",
     r"\bar-?15\b",
+    # Smith & Wesson's and Colt's own names for their AR-15s, which a title
+    # can carry without saying rifle: "USED M&P15X 5.56 NATO 16IN TROY QUAD
+    # RAIL", "Colt SPORTER LIGHTWEIGHT 16\" BBL .223, Police Trade".
+    r"\bm&p\s*-?\s*15",
+    r"\bcolt\s+(?:ar-?15\s+)?sporter\b",
     r"\bk\.?98\b",
     r"\bkar\.?98\b",
     r"\benfield\b",
@@ -1138,6 +1160,11 @@ PISTOL_PATTERNS = (
     r"\bpocket\s+hammer(?:less)?\b",
     r"\b(?:vz|cz)\s*[57]0\b",
     r"\btokarev\b",
+    # Ruger's .22 target pistols, which a title names without saying pistol --
+    # and in .22 LR, which the last-resort caliber rule reads as a rifle.
+    # "Ruger" right before the mark, so the M77 Mark II rifle does not match.
+    r"\b22/45\b",
+    r"\brug[ae]r\s+(?:mk|mark)\s*(?:i{1,3}|iv|[1-4])\b",
     # The revolver and pocket-pistol cartridges, which were missing entirely --
     # and _kind_from_caliber falls back to *rifle*, so every one of them was
     # read as a long gun when nothing else in the title settled it. An H&R
@@ -1303,6 +1330,9 @@ _CATEGORY_PISTOL = re.compile(r"\b(?:hand\s*guns?|pistols?|revolvers?|sidearms?)
 #: A section that says "these are guns" without saying which kind. Read only
 #: as a last resort -- see the end of classify_firearm().
 _CATEGORY_FIREARM = re.compile(r"\b(?:firearms?|guns?)\b", re.I)
+
+#: Registered and trademark signs, which shops put inside model names.
+_TRADEMARKS = re.compile(r"[®™©]")
 
 #: A category that is *only* a type word, with nothing else in it.
 #:
@@ -2084,8 +2114,36 @@ def _is_not_a_firearm(title_lower: str) -> bool:
         return True
     if _accessory_leads(title_lower):
         return True
+    if _names_a_gun_then_its_furniture(title_lower):
+        return False
 
     return _looks_like_accessory(title_lower)
+
+
+#: A barrel length followed by the handguard, at the end of the title: "16IN
+#: TROY QUAD RAIL". That is a rifle being described, not a rail being sold --
+#: a rail has no barrel length of its own to state.
+_FURNITURE_AFTER_BARREL = re.compile(
+    r"\b\d{1,2}(?:\.\d+)?\s*(?:in\b|inch(?:es)?\b|[\"”″])\s*"
+    r"(?:[\w&-]+\s+){0,3}(?:quad\s+)?(?:rails?|handguards?|m-?lok|keymod)\s*$",
+    re.I,
+)
+
+#: What a title says when the barrel or half the rifle is the thing for sale.
+_SOLD_AS_PART = re.compile(r"\b(?:barrels?|bbl|uppers?|lowers?|receivers?)\b", re.I)
+
+
+def _names_a_gun_then_its_furniture(title_lower: str) -> bool:
+    """Whether the rail at the end of this title is a feature, not the product.
+
+    All three have to hold: the title names a gun model outright, the rail
+    follows a barrel length, and nothing says a barrel or a half of the gun is
+    what is for sale. "USED M&P15X 5.56 NATO 16IN TROY QUAD RAIL" is a rifle;
+    "M&P15 30 Round Magazine" and "16in barrel w/ quad rail" are not.
+    """
+    if not _FURNITURE_AFTER_BARREL.search(title_lower) or _SOLD_AS_PART.search(title_lower):
+        return False
+    return any(re.search(p, title_lower) for p in RIFLE_PATTERNS + PISTOL_PATTERNS)
 
 
 #: A collection of parts sold as one lot: "AK-100 Series Fire Control Package",
@@ -2327,7 +2385,10 @@ def classify_firearm(  # noqa: PLR0911 - one return per rule class; a single
     stated_kind: str | None = None,
 ) -> tuple[bool, bool]:
     """Return ``(is_rifle, is_pistol)``. Both false means "not a firearm"."""
-    title_lower = (title or "").lower()
+    # Trademark marks out first: "M&P®15X" is an M&P15, and the ® sat between
+    # the two halves of the model name so that nothing could read it.
+    title = _TRADEMARKS.sub("", title or "")
+    title_lower = title.lower()
 
     # A designation somebody has told us about outranks everything, including
     # the vendor's own category: it is the most specific knowledge available.

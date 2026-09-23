@@ -1978,6 +1978,17 @@ is the same reasoning — and the same shape — as `WatchedItem.alerted_price`.
 Marking happens only after the send returns, so a failed email is retried on the
 next pass rather than recorded as delivered.
 
+**A reader can narrow the email to their saved searches.** "Only deals that
+match one of my saved searches" is a switch beside the categories, off by
+default. With it on, a deal goes out only if at least one of the reader's saved
+searches matches it, and the categories still apply on top. Each stored query
+is run through `search.parse_query` and `search.apply_filters` — the same two
+calls the browse page and the saved-search email make — limited to the current
+deals, so "matches your search" means exactly what clicking that search shows.
+A search that no longer parses is skipped and logged, not fatal, and a reader
+with no saved searches and the switch on is sent nothing, which the page warns
+about.
+
 ### The armory
 
 Everything above reads a listing and *guesses*. The catalog is the opposite: a

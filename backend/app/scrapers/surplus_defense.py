@@ -19,13 +19,11 @@ objects this catalog is about, at $550 to $1,500 apiece. `/accessories`,
 `/ammunition`, `/field-gear` and `/flags-and-armbands` are left alone on the
 usual grounds.
 
-**They file under "Other", and that is a gap rather than a decision.** The
-classifier has a bayonet bucket and these are not bayonets, so all five land
-with the accessories. It was measured rather than assumed: every one of the
-five reads as `other`. Whether daggers and swords should join bayonets, or
-whether the browse filter wants an edged-weapons Type of its own, is a
-question for whoever next touches those buckets -- and it wants asking against
-more than five listings.
+**Daggers and swords file with the bayonets.** They used to land under
+"Other" with the slings and magazines, which was a gap rather than a decision;
+in September 2026 the decision was made to put collectible blades in the
+bayonet bucket (``classify._EDGED``). Their fighting knife, a WW2 Ka-Bar, still
+files under "Other": knives were not part of that decision.
 
 **Eighteen of the forty-five are out of stock**, and on this platform that is
 how a shop says sold: the price is removed with the listing's availability, so

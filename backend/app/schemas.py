@@ -1460,6 +1460,10 @@ class HotDealPreferenceOut(BaseModel):
     include_rifles: bool
     include_handguns: bool
     include_police_surplus: bool
+    match_saved_searches: bool = False
+    #: How many saved searches this reader has, so the page can say what the
+    #: switch above would narrow to -- and warn when the answer is nothing.
+    saved_searches: int = 0
     last_sent_at: datetime | None = None
 
 
@@ -1468,6 +1472,7 @@ class HotDealPreferenceUpdate(BaseModel):
     include_rifles: bool | None = None
     include_handguns: bool | None = None
     include_police_surplus: bool | None = None
+    match_saved_searches: bool | None = None
 
 
 class HotDealsOut(BaseModel):

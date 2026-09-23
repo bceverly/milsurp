@@ -198,6 +198,30 @@ test.describe("hot deals", () => {
     ).toBeChecked();
   });
 
+  test("deals can be narrowed to the reader's saved searches", async ({ signedIn }) => {
+    // Off by default: nobody's email changes until they ask.
+    const narrow = switchFor(signedIn, "Only deals that match one of my saved searches");
+    await expect(narrow.getByRole("checkbox")).not.toBeChecked();
+    // The note says what the switch would narrow to, and links to where the
+    // searches live. How many there are depends on what other tests saved.
+    const note = signedIn.getByTestId("saved-search-note");
+    await expect(note).toBeVisible();
+    await expect(note.getByRole("link", { name: /saved search/ })).toHaveAttribute(
+      "href",
+      "/saved-searches",
+    );
+
+    await narrow.click();
+    await expect(narrow.getByRole("checkbox")).toBeChecked();
+    await signedIn.reload();
+    const again = switchFor(signedIn, "Only deals that match one of my saved searches");
+    await expect(again.getByRole("checkbox")).toBeChecked();
+
+    // Put back, so the rest of the file sees the default.
+    await again.click();
+    await expect(again.getByRole("checkbox")).not.toBeChecked();
+  });
+
   test("turning the alert off disables the categories with it", async ({ signedIn }) => {
     const subscribed = switchFor(signedIn, "Send me hot deals");
     const rifles = switchFor(signedIn, "Rifles").getByRole("checkbox");

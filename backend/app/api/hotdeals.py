@@ -61,14 +61,18 @@ def _preference_out(session: DbSession, user: CurrentUser) -> HotDealPreferenceO
     row = session.execute(
         select(HotDealPreference).where(HotDealPreference.user_id == user.id)
     ).scalar_one_or_none()
+    saved = hotdeals.saved_search_count(session, user)
     if row is None:
         return HotDealPreferenceOut(
             enabled=True,
             include_rifles=True,
             include_handguns=True,
             include_police_surplus=True,
+            saved_searches=saved,
         )
-    return HotDealPreferenceOut.model_validate(row, from_attributes=True)
+    out = HotDealPreferenceOut.model_validate(row, from_attributes=True)
+    out.saved_searches = saved
+    return out
 
 
 def _state(

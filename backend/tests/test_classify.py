@@ -2308,3 +2308,89 @@ class TestLebelIsADesignationToo:
 
     def test_the_other_french_designations_still_answer(self):
         assert classify.extract_caliber("Berthier Mle 1907/15 Carbine 8mm") == "8mm Lebel"
+
+
+class TestFirearmsTheSeptember2026ScansMissed:
+    """Three live listings that landed in the wrong bucket, from DBG Firearms
+    and Botach, measured on their first runs."""
+
+    def test_an_m_and_p15_named_with_its_handguard_is_a_rifle(self):
+        """The ® sat between "M&P" and "15", and "rail" is an accessory word."""
+        result = classify.enrich(
+            "USED M&P®15X 5.56 NATO 16IN TROY QUAD RAIL", category="Used Firearms"
+        )
+        assert (result["is_rifle"], result["is_pistol"]) == (True, False)
+
+    def test_a_colt_sporter_is_a_rifle(self):
+        result = classify.enrich(
+            'Colt SPORTER LIGHTWEIGHT 16" BBL .223, Police Trade', category="Police Trade-Ins"
+        )
+        assert (result["is_rifle"], result["is_pistol"]) == (True, False)
+        assert result["is_police_surplus"] is True
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "Ruger 22/45 MK III .22LR, Used",
+            "Ruger MK II .22LR Pistol, Used",
+            "Rugar Mark I - 22LR",
+            "Ruger Mark IV Target .22 LR",
+        ],
+    )
+    def test_a_ruger_mark_series_is_a_handgun(self, title):
+        """Named without "pistol", in .22 LR -- which the last-resort caliber
+        rule reads as a long gun."""
+        result = classify.enrich(title, category="Used Guns")
+        assert (result["is_rifle"], result["is_pistol"]) == (False, True)
+
+    def test_but_the_m77_mark_ii_is_still_a_rifle(self):
+        result = classify.enrich("Ruger M77 Mark II Rifle .30-06", category="Used Guns")
+        assert (result["is_rifle"], result["is_pistol"]) == (True, False)
+
+    def test_a_barrel_with_a_rail_is_still_a_part(self):
+        result = classify.enrich("M&P15 16in Barrel w/ Quad Rail", category="Parts")
+        assert result["is_rifle"] is False
+
+    def test_an_m_and_p15_magazine_is_still_not_a_rifle(self):
+        result = classify.enrich(
+            "S&W M&P15 30 Round 5.56 Magazine", price=19.99, category="Magazines"
+        )
+        assert result["is_rifle"] is False
+
+
+class TestEdgedWeaponsAreFiledWithBayonets:
+    """Surplus Defense's daggers and sword were landing under "Other", with the
+    slings and magazines. They are collectible blades, and the bayonet bucket
+    is where a collector of those looks."""
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "SS Dagger",
+            "SA Dagger by J.P. Sauer und Sohn",
+            "Japanese Imperial Type 98 Sword",
+            "British 1796 Pattern Light Cavalry Sabre",
+            "US Navy Model 1917 Cutlass",
+            "Scottish Dirk",
+        ],
+    )
+    def test_a_blade_is_a_bayonet(self, title):
+        result = classify.enrich(title, price=800.0, category="Edged Weapons")
+        assert result["is_bayonet"] is True
+        assert (result["is_rifle"], result["is_pistol"]) == (False, False)
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "Japanese Army Sword Knot, Leather",
+            "German Officer's Dagger Hanger",
+            "Sword Belt, Victorian",
+        ],
+    )
+    def test_what_hangs_off_one_is_not(self, title):
+        assert classify.enrich(title, price=60.0)["is_bayonet"] is False
+
+    def test_a_rifle_mentioning_a_sword_is_still_a_rifle(self):
+        result = classify.enrich("French Chassepot Rifle with Sword", price=900.0)
+        assert result["is_rifle"] is True
+        assert result["is_bayonet"] is False

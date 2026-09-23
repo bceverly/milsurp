@@ -1668,6 +1668,10 @@ class HotDealPreference(Base, TimestampMixin):
     include_rifles: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     include_handguns: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     include_police_surplus: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    #: Only deals that match at least one of this reader's saved searches.
+    #: Off by default, so turning the feature on changes nothing for anybody
+    #: until they ask. The categories above still apply on top of it.
+    match_saved_searches: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     last_sent_at: Mapped[datetime | None] = mapped_column(DateTime)
 

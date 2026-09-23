@@ -248,6 +248,8 @@ class TestTheSubscription:
             "include_rifles": True,
             "include_handguns": True,
             "include_police_surplus": True,
+            "match_saved_searches": False,
+            "saved_searches": 0,
             "last_sent_at": None,
         }
         assert stocked.query(HotDealPreference).count() == 0
@@ -353,3 +355,25 @@ class TestLookingAgainNow:
         assert (
             client.post("/api/hot-deals/refresh", headers=normal_user["headers"]).status_code == 403
         )
+
+
+class TestNarrowingToSavedSearches:
+    def test_it_is_off_and_the_page_knows_how_many_searches_there_are(
+        self, client, normal_user, stocked
+    ):
+        body = client.get("/api/hot-deals", headers=normal_user["headers"]).json()
+        assert body["preference"]["match_saved_searches"] is False
+        assert body["preference"]["saved_searches"] == 0
+
+    def test_it_can_be_switched_on_and_is_remembered(self, client, normal_user, stocked):
+        headers = normal_user["headers"]
+        made = client.post(
+            "/api/saved-searches", json={"name": "Lugers", "query": "search=luger"}, headers=headers
+        )
+        assert made.status_code in (200, 201), made.text
+        client.patch(
+            "/api/hot-deals/preference", json={"match_saved_searches": True}, headers=headers
+        )
+        body = client.get("/api/hot-deals", headers=headers).json()
+        assert body["preference"]["match_saved_searches"] is True
+        assert body["preference"]["saved_searches"] == 1

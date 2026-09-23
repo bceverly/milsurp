@@ -161,16 +161,23 @@ class TestSurplusDefense:
         catalog is about, not gear."""
         assert any(s["path"] == "edged-weapons" for s in SurplusDefenseScraper.sources)
 
-    def test_but_they_currently_file_under_other(self):
-        """Measured, not assumed, and recorded because it is a gap rather than
-        a decision: the classifier has a bayonet bucket and these are not
-        bayonets, so all five land with the accessories."""
+    def test_their_daggers_and_swords_file_with_the_bayonets(self):
+        """Decided in September 2026: the collectible blades go in the bayonet
+        bucket rather than with the slings and magazines under "Other"."""
         from app.services import classify
 
-        for title in ("SS Dagger", "Japanese Imperial Type 98 Sword", "WW2 Kabar USN MK2"):
+        for title in ("SS Dagger", "Japanese Imperial Type 98 Sword"):
             derived = classify.enrich(title, None, 800.0, category="Edged Weapons")
-            assert not derived["is_bayonet"], f"{title} now reads as a bayonet — update the note"
+            assert derived["is_bayonet"], title
             assert not (derived["is_rifle"] or derived["is_pistol"])
+
+    def test_but_a_fighting_knife_does_not(self):
+        """Daggers and swords were the decision; knives were not. DuPage file a
+        K-Bar under bayonets too, and it was deliberately left out there."""
+        from app.services import classify
+
+        derived = classify.enrich("WW2 Kabar USN MK2", None, 800.0, category="Edged Weapons")
+        assert not derived["is_bayonet"]
 
     @pytest.mark.parametrize(
         "section", ["accessories", "ammunition", "field-gear", "flags-and-armbands"]

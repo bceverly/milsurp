@@ -131,6 +131,33 @@ function Subscription({ preference, labels, buckets, onChange, busy }) {
             </label>
           ))}
         </fieldset>
+        <label className="switch">
+          <input
+            type="checkbox"
+            checked={Boolean(preference.match_saved_searches)}
+            disabled={!preference.enabled || busy}
+            onChange={(event) => onChange({ match_saved_searches: event.target.checked })}
+          />
+          <span className="switch__track" />
+          <span>Only deals that match one of my saved searches</span>
+        </label>
+        <p className="muted deal-panel__note" data-testid="saved-search-note">
+          {preference.saved_searches === 0 ? (
+            <>
+              You have no <Link to="/saved-searches">saved searches</Link> yet, so with
+              this on nothing would be sent. Save a search from the inventory first.
+            </>
+          ) : (
+            <>
+              Each deal is checked against your{" "}
+              <Link to="/saved-searches">
+                {preference.saved_searches} saved search
+                {preference.saved_searches === 1 ? "" : "es"}
+              </Link>{" "}
+              exactly as the inventory would run them. The categories above still apply.
+            </>
+          )}
+        </p>
       </div>
     </div>
   );

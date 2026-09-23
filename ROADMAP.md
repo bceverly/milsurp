@@ -1467,48 +1467,54 @@ source is always one click away.
   than downloading them by URL. `ScrapedItem.generated_images` plus
   `ImageStore.store_bytes()`; used by Hunter's Lodge and available to any other
   flyer- or PDF-based vendor.
-- [ ] **Planned** — A reusable `WooCommerceScraper` base class. **Group A** is
-  ten sites on one platform; the Royal Tiger scraper already has most of the
-  parsing logic and needs generalizing rather than rewriting. This is the
-  single highest-leverage piece of work on this list.
-- [ ] **Planned** — A `ShopifyScraper` base class using `/products.json`.
-  Shopify publishes structured JSON, so all of **Group C** needs no HTML
-  parsing, no browser, and gives reliable prices, variants and image galleries.
-  Cheapest wins on the list after the WooCommerce base.
-- [ ] **Planned** — A `Shift4ShopScraper` base class for **Group D**, whose two
-  sites share the same 3dcart-derived category URLs and markup.
+- [x] **Done** — Reusable platform base classes. What was planned as
+  WooCommerce and Shopify became nine: WooCommerce (HTML and the Store API),
+  BigCommerce, Shopify (`/products.json`), Magento, PrestaShop, Wix Stores,
+  Searchanise and Algolia. A site on any of them is a subclass of a few lines.
+- [x] **Dropped** — A `Shift4ShopScraper` for **Group D**. The `-cNNNNNNNNN`
+  URLs that suggested Shift4Shop belonged to an OpenCart shop; Joe Salter is
+  read that way, and the other site did not survive measurement.
+- [x] **Done** — Per-site `robots.txt` awareness and pacing. Every request asks
+  robots.txt first, a published `Crawl-delay` is honored per host, and each
+  scraper sets its own `min_request_delay` on top of the global one. A 429 or a
+  refusal rests the host (`app/services/cooldown.py`).
+- [x] **Partly done** — Detect when a site's markup changes. The canary
+  (`app/services/canary.py`) runs each scraper for a few listings on a
+  schedule and reports a shop that stops answering or stops parsing, and a
+  scan that reads nothing de-lists nothing. **Still planned:** marking a scan
+  PARTIAL when it returns far fewer listings than the last successful one,
+  rather than de-listing the difference.
 - [ ] **Planned** — A per-site scraper self-test (`make scan site=<slug> --dry-run`)
   that fetches one page and reports what it parsed, without touching the
-  database. Adding a vendor currently means a full scan to find out if the
-  selectors were right.
-- [ ] **Planned** — Detect when a site's markup changes: if a scan returns far fewer
-  items than the last successful run, mark it PARTIAL and alert rather than
-  silently de-listing the whole catalog.
-- [ ] **Planned** — Per-site `robots.txt` awareness and a configurable crawl delay
-  per vendor rather than one global setting.
+  database. `scripts/record-fixtures.py` and a throwaway run against a
+  `ScrapeContext` do the job today, by hand.
 
 ---
 
 ## 2. Packaging and distribution
 
-### Debian packages and a PPA — **Planned**
+### Debian packages and a PPA — **Shipped** for Resolute
 
-Build `.deb` packages for every actively supported Ubuntu release and publish
-them to a Launchpad PPA.
+Production runs from it: `ppa:bceverly/milsurp`, installed with `apt` on the
+home VM since September 2026.
 
-- `debian/` packaging: `control`, `rules`, `changelog`, `postinst`, `postrm`.
+- `debian/` packaging: `control`, `rules`, generated `changelog`, `postinst`,
+  `postrm`, the systemd units and the prune and canary timers.
 - Install layout matching `scripts/install-production.sh`: `/opt/milsurp`,
-  `/etc/milsurp`, the `milsurp` service account, the systemd unit.
-- `postinst` runs `scripts/dbupdate.py` so an upgrade migrates the database.
-- Target every active Ubuntu variant (currently 24.04 LTS, 25.10 and 26.04 LTS),
-  with a source package per series.
-- **Release trigger:** pushing a version tag matching `v1.2.3.4` to GitHub kicks
-  off a workflow that builds the source packages, signs them, and `dput`s them
-  to Launchpad. The tag is the single source of version truth — the workflow
-  derives `debian/changelog` from it, so a release is one `git tag` and one
-  `git push`.
-- Secrets needed in GitHub Actions: the GPG signing key and the Launchpad
-  credentials.
+  `/etc/milsurp`, the `milsurp` service account.
+- `postinst` applies outstanding migrations before it starts the service, so
+  an upgrade migrates the database.
+- **Release trigger:** a `v1.2.3.4` tag runs `.github/workflows/release.yml`,
+  which builds the frontend, vendors the Python wheels, builds and signs the
+  source package, verifies the binary installs, and `dput`s the source to
+  Launchpad. The tag must match `pyproject.toml`.
+- **If an upload does not appear on Launchpad**, re-run the "Publish to
+  Launchpad" job. 3.0.0.1 was uploaded cleanly by `dput` and never reached the
+  queue; the same signed files went through on the second attempt.
+- **Still planned:** other Ubuntu series. `scripts/build-deb.sh` builds for the
+  series it runs on, because the vendored wheels have to match the target's
+  Python ABI, so each further series needs a build per series rather than a
+  second changelog line.
 
 ### Electron desktop app + Snap Store — **Planned** (after production launch)
 
@@ -3618,22 +3624,18 @@ fact.
   news: the catalog is full of rounding and shipping recalculations. The
   reduction test matches what the digest means by a price drop, so the two
   never disagree in front of somebody comparing them.
-- **Planned** — Hot deals filtered by a reader's saved searches. The
-  subscription is category-only today — `include_rifles`,
-  `include_handguns`, `include_police_surplus` — so somebody who collects
-  Swiss rifles is mailed every bargain in the catalog, which is how a reader
-  learns to filter the sender.
+- **Shipped** — Hot deals filtered by a reader's saved searches. A switch on
+  the Hot deals page, "Only deals that match one of my saved searches", off by
+  default (`HotDealPreference.match_saved_searches`, migration `0038`). The
+  category switches still apply on top of it.
 
-  Both halves already exist and neither needs inventing: a saved search
-  carries the full filter semantics and already has a per-search email. The
-  intersection has to be evaluated **server-side against the stored query**,
-  through `search.SearchQuery` rather than a second reading of it, or the
-  email and the browse view will eventually disagree about what one saved
-  search means — and the reader will believe the email.
-
-  One thing to get right that the current pass already gets right: a reader
-  with five saved searches gets one email, not five. Group per reader, as the
-  unsent-watermark pass does.
+  Evaluated **server-side against the stored query**, as planned: each saved
+  search goes through `search.parse_query` and `search.apply_filters`, limited
+  to the current deals, in `hotdeals.matching_saved_searches`. There is no
+  second reading of a query string to drift from the browse page. A reader with
+  five saved searches still gets one email, grouped per reader as before, and
+  the price watermark is untouched. A stored query that no longer parses is
+  skipped and logged rather than costing the reader every other search.
 - **Planned** — How long a gun takes to sell, by model and by caliber. The
   Market view says what something is worth and Hot deals says which are cheap;
   neither answers "do I have to decide today". A median of nine days against

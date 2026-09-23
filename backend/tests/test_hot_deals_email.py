@@ -223,3 +223,68 @@ class TestTheSchedulerLoop:
         assert len(found) == 1
         digest.send_hot_deals(session, reader, found, app_config)
         assert "$700" in sent[-1][2]
+
+
+class TestNarrowedToSavedSearches:
+    """A reader can ask for only the deals their saved searches would find.
+
+    The saved search is run by the search module itself, not re-read here, so
+    "matches your search" means what clicking that search shows."""
+
+    def _narrow(self, session, reader, *queries: str) -> None:
+        from app.models import HotDealPreference, SavedSearch
+
+        for index, query in enumerate(queries):
+            session.add(SavedSearch(user_id=reader.id, name=f"search {index}", query=query))
+        session.add(HotDealPreference(user_id=reader.id, match_saved_searches=True))
+        session.commit()
+
+    def test_off_by_default_nothing_changes(self, world):
+        session, reader, bargain = world
+        assert [d.item_id for d in hotdeals.unsent_for(session, reader)] == [bargain.id]
+
+    def test_a_deal_a_search_matches_is_sent(self, world):
+        session, reader, bargain = world
+        self._narrow(session, reader, "search=Walther")
+        assert [d.item_id for d in hotdeals.unsent_for(session, reader)] == [bargain.id]
+
+    def test_a_deal_no_search_matches_is_not(self, world):
+        session, reader, _bargain = world
+        self._narrow(session, reader, "search=Mosin")
+        assert hotdeals.unsent_for(session, reader) == []
+
+    def test_any_one_search_is_enough(self, world):
+        session, reader, bargain = world
+        self._narrow(session, reader, "search=Mosin", "kind=pistol")
+        assert [d.item_id for d in hotdeals.unsent_for(session, reader)] == [bargain.id]
+
+    def test_the_search_s_own_filters_apply_not_just_its_words(self, world):
+        """kind=rifle is the browse page's Type filter, and this is a pistol."""
+        session, reader, _bargain = world
+        self._narrow(session, reader, "kind=rifle")
+        assert hotdeals.unsent_for(session, reader) == []
+
+    def test_no_saved_searches_means_nothing(self, world):
+        """The reader asked for only their searches and has none."""
+        session, reader, _bargain = world
+        self._narrow(session, reader)
+        assert hotdeals.unsent_for(session, reader) == []
+
+    def test_a_search_that_no_longer_parses_is_skipped_not_fatal(self, world):
+        session, reader, bargain = world
+        self._narrow(session, reader, "sort=not-a-sort", "search=Walther")
+        assert [d.item_id for d in hotdeals.unsent_for(session, reader)] == [bargain.id]
+
+    def test_the_categories_still_apply_on_top(self, world):
+        from sqlalchemy import select
+
+        from app.models import HotDealPreference
+
+        session, reader, _bargain = world
+        self._narrow(session, reader, "search=Walther")
+        row = session.execute(
+            select(HotDealPreference).where(HotDealPreference.user_id == reader.id)
+        ).scalar_one()
+        row.include_handguns = False
+        session.commit()
+        assert hotdeals.unsent_for(session, reader) == []
