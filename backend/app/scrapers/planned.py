@@ -8,8 +8,8 @@ anywhere the application could show it.
 **Every entry is a measurement, not a wish.** Each of these was fetched before
 it was written down, and the ``blocker`` says what the fetch showed. A vendor
 that was measured and *refused* -- Impact Guns, USA Gun Shop, Edelweiss Arms,
-The Mosin Crate, Century Arms -- is not here: refusing one is a decision, and
-listing it as "coming soon" would quietly reverse it. The roadmap keeps those
+The Mosin Crate, Century Arms, Gideon Tactical -- is not here: refusing one is a
+decision, and listing it as "coming soon" would quietly reverse it. The roadmap keeps those
 with the reasoning; this keeps only what is still queued.
 
 Kept beside the scrapers rather than in the web layer because it is the same
@@ -39,46 +39,9 @@ class PlannedSite:
     blocker: str
 
 
-#: Ordered the way the roadmap orders them: what is nearest to buildable first,
-#: what needs a way in after that, and what is blocked at the door last.
+#: Ordered the way the roadmap orders them. Both are blocked at the door today;
+#: a vendor that is buildable goes above them, nearest to buildable first.
 PLANNED: tuple[PlannedSite, ...] = (
-    # -- nearest to buildable: a supported platform, serving its catalog ----
-    PlannedSite(
-        slug="dbg-firearms",
-        name="DBG Firearms",
-        base_url="https://www.dbgfirearms.com/",
-        platform="Wix Stores",
-        blocker=(
-            "Nothing but the writing: Wix is already read for another vendor. "
-            "Their robots.txt refuses PetalBot and allows everything else, so "
-            "the Disallow near the top of it is not about us."
-        ),
-    ),
-    # -- a supported platform, but the catalog is not in the page ----------
-    PlannedSite(
-        slug="botach",
-        name="Botach",
-        base_url="https://botach.com/",
-        platform="BigCommerce, with an Algolia-rendered catalog",
-        blocker=(
-            "The grid is built in the browser. Their firearms page is 336 KB "
-            "and holds zero BigCommerce cards -- Algolia InstantSearch fills "
-            "it after load -- so this wants their search endpoint read "
-            "directly rather than the markup, the way Sarco's is."
-        ),
-    ),
-    PlannedSite(
-        slug="kings-firearms",
-        name="King's Firearms",
-        base_url="https://www.kingsfirearmsonline.com/",
-        platform="Client-rendered, backed by GunBroker",
-        blocker=(
-            "There is no catalog in the page to read: the trade-in listing "
-            "answers with a 15 KB shell, a <noscript> and a GunBroker "
-            "reference. Needs a way in that is not the HTML, and possibly a "
-            "decision about reading a marketplace rather than a shop."
-        ),
-    ),
     # -- blocked at the door -----------------------------------------------
     PlannedSite(
         slug="clyde-armory",

@@ -26,12 +26,14 @@ from .base import (
     ScrapeError,
     SiteScraper,
 )
+from .botach import BotachScraper
 from .bowman_arms import BowmanArmsScraper
 from .centerfire_systems import CenterfireSystemsScraper
 from .checkpoint_charlies import CheckpointCharliesScraper
 from .classic_firearms import ClassicFirearmsScraper
 from .co_gun_sales import CoGunSalesScraper
 from .collectors_firearms import CollectorsFirearmsScraper
+from .dbg_firearms import DbgFirearmsScraper
 from .demo import DemoScraper
 from .dupage_trading import DupageTradingScraper
 from .ebayonet import EBayonetScraper
@@ -99,6 +101,8 @@ SCRAPER_CLASSES: tuple[type[SiteScraper], ...] = (
     JoeSalterScraper,
     SimpsonLtdScraper,
     MadisonGunsScraper,
+    DbgFirearmsScraper,
+    BotachScraper,
 )
 
 _REGISTRY: dict[str, type[SiteScraper]] = {cls.slug: cls for cls in SCRAPER_CLASSES}

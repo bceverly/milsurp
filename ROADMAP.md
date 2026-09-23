@@ -14,25 +14,20 @@ The whole point of the application is breadth. Each new vendor is one subclass
 of `SiteScraper` in `backend/app/scrapers/` plus one line in `SCRAPER_CLASSES`;
 scheduling, admin controls, price history, images and digests all come for free.
 
-**Where this stands: twenty-eight vendors read, none queued, six dropped.**
-Eight of the thirteen are blocked on something no base class can fix — a
-Cloudflare challenge, two missing entry URLs, a shop that publishes no prices,
-two that refuse a plain request, and two Wix pages that turn out to be photo
-galleries rather than stores. They are not simply waiting their turn.
+**Where this stands: thirty-one vendors read, two queued — and both of those
+are blocked at the door** by something no base class can fix: a broken TLS
+chain at Clyde Armory and an empty 202 from WIS Transfers. Nothing buildable is
+waiting.
 
-**The three most recent were added for their parts kits rather than their
-guns**, which is a first for this list: Apex Gun Parts, Arms of America and
-Bowman Arms. **None of them came out of the queue below** — they came out of
-the parts-kit candidate list, which is why the queued count has not moved. See
-**Parts kits as a coverage push** for what each was measured at and, in one
-case, why one of them was refused on measurement.
+**The two most recent came out of the queue:** DBG Firearms, a second Wix
+shop, and Botach, whose catalog is drawn by Algolia and is now read through
+`algolia.py`. See **Planned** below for what each was measured at.
 
-**Two of them left the queue without a browser being written.** J&G Sales and
-SARCO were both filed under "needs a browser" on the same evidence — a catalog
-page with no products in it — and both turned out to be publishing the whole
-catalog as JSON to the widget that draws the grid. See `woo_store_api.py` and
-`searchanise.py`. That leaves exactly one site waiting on Chrome, and it is a
-Cloudflare challenge rather than a rendering problem.
+**Three sites left the queue without a browser being written.** J&G Sales,
+SARCO and Botach were all filed under "needs a browser" on the same evidence — a
+catalog page with no products in it — and all three turned out to be publishing
+the whole catalog as JSON to the widget that draws the grid. See
+`woo_store_api.py`, `searchanise.py` and `algolia.py`.
 
 ### Shipped
 
@@ -67,11 +62,13 @@ Cloudflare challenge rather than a rendering problem.
 | [GunPrime](https://gunprime.com/) | `gunprime` | **Spree on Rails** — the collector and police trade-in shelves; their six firearm categories are a modern gun shop and are left alone |
 | [Simpson Ltd.](https://www.simpsonltd.com/) | `simpson-ltd` | **Firebase Cloud Functions** — the Luger, military rifle, antique, German trainer and bayonet shelves of a 19,201-item shop |
 | [Madison Guns](https://madisonguns.com/) | `madison-guns` | BigCommerce — their whole 164-listing used rack plus the antique shelf, because the surplus in it is not shelved apart. **First shop keyed by an id found *inside* the card** |
+| [DBG Firearms](https://www.dbgfirearms.com/) | `dbg-firearms` | Wix Stores — their 128-listing used rack, where the Mausers, Enfields, Mosins and M1s sit among modern trade-ins. **Taught the Wix class to stop on a repeated page**: their sections serve the last page again for any page past the end |
+| [Botach](https://botach.com/) | `botach` | **Algolia base class** — the search index their widget reads, with its published search-only key. Only the trade-in shelf: 22 published listings, police trade-ins labeled by their own titles |
 
 ### Planned
 
 **This list is now also in the application.** `app/scrapers/planned.py` carries
-the five vendors still queued, and the Sites page shows them under **Coming
+the two vendors still queued, and the Sites page shows them under **Coming
 soon** with what each is waiting on. It is deliberately narrower than this
 section: only vendors that are still going to be built, never one that was
 measured and refused — Impact Guns, USA Gun Shop, Edelweiss Arms, The Mosin
@@ -79,41 +76,30 @@ Crate, Century Arms, Gideon Tactical — because listing a refusal as "coming
 soon" quietly reverses it. `backend/tests/test_planned_sites.py` fails if a planned vendor
 gains a scraper, so a shipped site cannot go on promising itself.
 
-Ordered by a rough guess at effort. The platform column matters more than the
-site, because the reusable base class is most of the work: two of them —
-WooCommerce and BigCommerce — are now shipped, and a site on either is a subclass
-of a few lines.
+The platform column matters more than the site, because the reusable base
+class is most of the work: nine are now shipped — WooCommerce (HTML and Store
+API), BigCommerce, Shopify, Magento, PrestaShop, Wix Stores, Searchanise and
+Algolia — and a site on any of them is a subclass of a few lines.
 
-#### The seven measured in September 2026 — two resolved, five queued
+#### The six measured in September 2026 — four resolved, two blocked
 
 Every row below was fetched before it was written down, so the platform column
 here is a measurement rather than the URL-shape guess the next paragraph warns
-about. Ordered nearest-to-buildable first, which is also the order
-`planned.py` holds them in.
-
-**Two are already off the list.** Madison Guns shipped. Gideon Tactical did
-not, and is the more interesting of the two:
+about.
 
 | Vendor | Outcome |
 | --- | --- |
 | [Madison Guns](https://madisonguns.com/) | **Shipped.** 164 used listings plus one antique shelf; see the table above |
+| [DBG Firearms](https://www.dbgfirearms.com/) | **Shipped.** Their "Mokas Raifusak Surplus" section was the obvious one and was measured and passed over: 27 listings, of which 18 are magazines, slings, pouches and furniture sets and the other nine guns are all on the Used rack. The Firearms section adds only 11 new modern guns. So the Used rack alone is read — 128 listings, every one priced, 125 reading as a rifle or handgun |
+| [Botach](https://botach.com/) | **Shipped**, through the search endpoint as the roadmap said it should be. A 717-firearm tactical retailer of which one shelf, "Trade-In / Used Guns", is surplus. 29 of its 51 records are unpublished (404 pages, eight of them trade-ins at a placeholder $1,000) and are skipped; 22 remain, 7 of them out of stock |
 | [Gideon Tactical](https://gideontactical.com/) | **Refused: it is Officer Store.** Both domains serve the same BigCommerce store — 18 listings each, all 18 titles identical, all 18 product ids identical. Building it would have imported a second copy of a catalog already read, under a second site name. That matters beyond the duplication: the hot-deals rule requires a group of peers to span **at least two shops**, and one shop wearing two names would have manufactured exactly the cross-vendor agreement the rule exists to demand. Refusals are recorded here and never in `planned.py` |
 
-**And the five still waiting:**
+**And the two still waiting, both re-measured on 2026-09-23 and unchanged:**
 
 | Vendor | Slug | Platform | Waiting on |
 | --- | --- | --- | --- |
-| [DBG Firearms](https://www.dbgfirearms.com/category/firearms) | `dbg-firearms` | Wix Stores | **Nothing but the writing** — `wix_stores.py` already reads Surplus Defense. Their robots.txt `Disallow: /` is scoped to **PetalBot**; `User-agent: *` gets `Allow: /`, so the refusal near the top of that file is not aimed at us |
-| [Botach](https://botach.com/) | `botach` | BigCommerce, catalog drawn by **Algolia** | The grid is built in the browser. Their firearms page is 336 KB and holds **zero** BigCommerce cards — Algolia InstantSearch fills it after load. Wants the search endpoint read directly, the way SARCO's Searchanise widget is, not a browser |
-| [King's Firearms](https://www.kingsfirearmsonline.com/le-trade-ins) | `kings-firearms` | Client-rendered, backed by GunBroker | No catalog in the page at all: a 15 KB shell, one `<noscript>`, and a GunBroker reference. Needs a way in that is not the HTML, and a decision about whether reading a marketplace listing is reading a shop |
 | [Clyde Armory](https://clydearmory.com/agency-trade-in/) | `clyde-armory` | BigCommerce | **Their TLS chain is broken.** The server sends its own Sectigo DV certificate without the intermediate, so verification fails — `unable to verify the first certificate` — and every request dies before HTTP. With verification off it is a perfectly ordinary 314 KB BigCommerce grid. Turning verification off is not the fix; this waits on them |
 | [WIS Transfers](https://www.wistransfers.com/) | `wis-transfers` | Unknown — nothing is served | Answers **202 with an empty body**, to the catalog and the home page alike. That is a challenge rather than a shop, and until something comes back there is no platform to identify and nothing to parse |
-
-Of the seven measured, **one shipped, one was a duplicate, one is a second Wix
-shop waiting to be written, two need an API found rather than a page parsed,
-and two cannot be reached at all.** That ratio is the one this section keeps
-re-learning: a group of seven is not seven cheap sites, and two of them were
-not really sites at all.
 
 The platform column below was originally **inferred from the URL shape** — a
 `/product-category/` or `/product-tag/` path means WooCommerce, `/collections/`
@@ -3316,6 +3302,15 @@ until they promote it. The numbers above are what promoting them does.
   age, not eligible by age, not known. Deliberately not "C&R: no" — the other
   two limbs are a museum curator's certification and being novel, rare or
   bizarre, and neither is visible here. A gun under fifty may still be a curio.
+
+  **Firearms only — fixed after it shipped.** The first version gave every
+  listing a verdict, so a 1943 cap, a book or a bayonet read as "C&R eligible"
+  and the facet counted them. C&R is a class of *firearm*: a listing that is
+  neither a rifle nor a handgun, or that is a parts kit (no receiver), now gets
+  no C&R line at all and no filter state picks it up — not "not known", which
+  would say the question is open. The test sits beside the date arithmetic in
+  `curio.applies()` and `curio.clause()`, not in the stored evidence, so a
+  reclassify that moves a listing into the firearm buckets needs no re-read.
 
   **The number was measured twice, and the first one was wrong.** A naive parse
   trusting any four-digit year resolves 66% of the catalog — and is wrong on

@@ -126,6 +126,32 @@ class TestTheBoundaryRolls:
         assert curio.status(None, None, today=TODAY) == curio.UNKNOWN
 
 
+#: Listings that are not firearms, as their flags would have them. A parts kit
+#: is filed as a rifle too, and is still not one: it has no receiver.
+NOT_FIREARMS = (
+    {"is_bayonet": True},
+    {},
+    {"is_rifle": True, "is_parts_kit": True},
+    {"is_pistol": True, "is_parts_kit": True},
+)
+
+
+class TestOnlyFirearms:
+    """C&R is a category of firearm. A cap, a book or a bayonet has no status."""
+
+    def test_a_rifle_or_a_handgun_has_one(self):
+        assert curio.applies(is_rifle=True, is_pistol=False, is_parts_kit=False)
+        assert curio.applies(is_rifle=False, is_pistol=True, is_parts_kit=False)
+
+    @pytest.mark.parametrize("flags", NOT_FIREARMS)
+    def test_nothing_else_does(self, flags):
+        assert not curio.applies(
+            is_rifle=flags.get("is_rifle", False),
+            is_pistol=flags.get("is_pistol", False),
+            is_parts_kit=flags.get("is_parts_kit", False),
+        )
+
+
 class TestTheTwoReadingsAgree:
     """``status()`` for one listing, ``clause()`` for a filter. One judgment."""
 
@@ -152,6 +178,21 @@ class TestTheTwoReadingsAgree:
                     title=f"Listing {n}",
                     cr_stated=stated,
                     manufacture_year=year,
+                    is_rifle=True,
+                )
+            )
+        # And the same evidence on things that are not firearms, which no
+        # state may pick up: C&R is a class of firearm.
+        for n, flags in enumerate(NOT_FIREARMS):
+            session.add(
+                Item(
+                    site_id=site.id,
+                    external_key=f"x{n}",
+                    url=f"https://c.test/x{n}",
+                    title=f"Not a firearm {n}",
+                    cr_stated=True,
+                    manufacture_year=1943,
+                    **flags,
                 )
             )
         session.flush()
@@ -170,8 +211,9 @@ class TestTheTwoReadingsAgree:
         }
         assert by_clause == by_status
 
-    def test_and_between_them_they_cover_everything_once(self, stocked):
-        """No listing in two buckets, none in none of them."""
+    def test_and_between_them_they_cover_every_firearm_once(self, stocked):
+        """No firearm in two buckets, none in none of them -- and nothing else
+        in any of them."""
         session, combinations = stocked
         seen: list[str] = []
         for state in curio.STATES:
@@ -274,8 +316,20 @@ class TestFilteringTheCatalog:
                     title=f"Listing {key}",
                     cr_stated=stated,
                     manufacture_year=year,
+                    is_rifle=True,
                 )
             )
+        seeded.add(
+            Item(
+                site_id=site.id,
+                external_key="bayonet",
+                url="https://f.test/bayonet",
+                title="Listing bayonet",
+                cr_stated=True,
+                manufacture_year=1943,
+                is_bayonet=True,
+            )
+        )
         seeded.commit()
         return seeded
 
@@ -317,6 +371,18 @@ class TestFilteringTheCatalog:
         assert row["curio"] == curio.ELIGIBLE
         assert row["curio_evidence"] is None or isinstance(row["curio_evidence"], str)
         assert row["manufacture_year"] == 1943
+
+    def test_a_bayonet_carries_no_verdict_at_all(self, client, admin_headers, stocked):
+        """Not "unknown", which would say the question is open. None."""
+        body = client.get("/api/items?availability=all", headers=admin_headers).json()
+        row = next(r for r in body["items"] if r["title"] == "Listing bayonet")
+        assert row["curio"] is None
+        assert row["curio_label"] is None
+        assert row["curio_evidence"] is None
+
+    def test_and_no_filter_state_picks_it_up(self, client, admin_headers, stocked):
+        every = "&".join(f"curio={state}" for state in curio.STATES)
+        assert "bayonet" not in self._keys(client, admin_headers, f"{every}&availability=all")
 
     def _facet(self, client, headers, query=""):
         body = client.get(f"/api/items?include_facets=true&{query}", headers=headers).json()

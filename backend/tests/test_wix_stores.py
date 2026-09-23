@@ -16,6 +16,7 @@ import pytest
 from bs4 import BeautifulSoup
 
 from app.scrapers import SCRAPER_CLASSES, get_scraper
+from app.scrapers.dbg_firearms import DbgFirearmsScraper
 from app.scrapers.surplus_defense import SurplusDefenseScraper
 from app.scrapers.wix_stores import CARD, WixStoresScraper, full_size, gallery
 
@@ -225,3 +226,71 @@ class TestAWixShopMayNotUseTheStoreAppItHasInstalled:
 
         assert got == []
         assert len(pages) == 1
+
+
+def _grid(*slugs: str) -> str:
+    cards = "".join(
+        f'<div data-hook="product-item-root">'
+        f'<a data-hook="product-item-product-details-link" href="/product-page/{slug}"></a>'
+        f'<h3 data-hook="product-item-name">{slug}</h3>'
+        f'<span data-hook="product-item-price-to-pay">$100.00</span></div>'
+        for slug in slugs
+    )
+    return f"<html><body>{cards}</body></html>"
+
+
+class TestAPagePastTheEndMayBeTheLastPageAgain:
+    """DBG Firearms serves its last page for any page number past it, so a
+    walk that only stops on an empty grid asks thirty times a scan."""
+
+    def _walk(self, ctx_factory, monkeypatch, pages: dict[int, str], seen=None):
+        scraper = DbgFirearmsScraper()
+        asked: list[str] = []
+
+        def fake_get_text(url, **_kwargs):
+            asked.append(url)
+            number = int(url.rsplit("page=", 1)[1]) if "page=" in url else 1
+            return pages.get(number, pages[max(pages)])
+
+        context = ctx_factory()
+        monkeypatch.setattr(context, "get_text", fake_get_text)
+        monkeypatch.setattr(context, "needs_detail", lambda _key: False)
+        got = list(
+            scraper._walk(context, {"category": "U", "path": "category/used"}, seen or set())
+        )
+        return got, asked
+
+    def test_a_repeated_last_page_ends_the_section(self, ctx_factory, monkeypatch):
+        got, asked = self._walk(ctx_factory, monkeypatch, {1: _grid("a", "b"), 2: _grid("c")})
+        assert [item.external_key for item in got] == ["wix-a", "wix-b", "wix-c"]
+        assert len(asked) == 3
+
+    def test_but_a_page_another_section_already_showed_does_not(self, ctx_factory, monkeypatch):
+        """Repeats are judged within the section. A page whose listings all
+        arrived under an earlier section is new here, and the page after it
+        may hold something that section never had."""
+        got, asked = self._walk(
+            ctx_factory,
+            monkeypatch,
+            {1: _grid("a"), 2: _grid("b"), 3: _grid("b")},
+            seen={"wix-a"},
+        )
+        assert [item.external_key for item in got] == ["wix-b"]
+        assert len(asked) == 3
+
+
+class TestDbgFirearms:
+    def test_it_is_registered(self):
+        assert DbgFirearmsScraper in SCRAPER_CLASSES
+        assert isinstance(get_scraper("dbg-firearms"), DbgFirearmsScraper)
+
+    def test_it_is_a_wix_shop(self):
+        assert issubclass(DbgFirearmsScraper, WixStoresScraper)
+        assert DbgFirearmsScraper.requires_browser is False
+
+    def test_it_reads_the_used_rack(self):
+        assert [s["path"] for s in DbgFirearmsScraper.sources] == ["category/used"]
+
+    @pytest.mark.parametrize("path", ["category/mokas-raifusak-surplus", "category/firearms"])
+    def test_and_not_the_accessory_or_new_gun_sections(self, path):
+        assert path not in {s["path"] for s in DbgFirearmsScraper.sources}

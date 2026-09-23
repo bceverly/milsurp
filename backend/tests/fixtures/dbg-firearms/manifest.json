@@ -1,0 +1,22 @@
+{
+  "slug": "dbg-firearms",
+  "recorded_at": "2026-09-23T16:11:07+00:00",
+  "pages": [
+    {
+      "url": "https://www.dbgfirearms.com/category/used",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://www.dbgfirearms.com/product-page/used-sig-sauer-sig-mpx-copperhead-9mm-3-5in-pistol",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://www.dbgfirearms.com/product-page/bulgarian-circle10-makarov-pistol-9x18mm-makarov",
+      "file": "0003.html.gz"
+    },
+    {
+      "url": "https://www.dbgfirearms.com/product-page/polish-radom-p-83-pistol-9mm-makarov",
+      "file": "0004.html.gz"
+    }
+  ]
+}

@@ -22,6 +22,7 @@ from app.scrapers.searchanise import (
     full_size,
     html_to_text,
     price_now,
+    sold_out,
 )
 
 SHOP = "https://shop.test"
@@ -45,8 +46,9 @@ def product(
     images: int = 2,
     description: str = "Astra 400 9mm largo pistol. Bores are dark but have plenty of ...",
     product_code: str = "GUN023",
+    available: tuple[str, ...] | None = ("1",),
 ) -> dict:
-    return {
+    raw = {
         "product_id": str(product_id),
         "title": title,
         "link": f"{SHOP}/{title.lower().replace(' ', '-')}-{product_id}/",
@@ -60,6 +62,12 @@ def product(
         "image_link": image(1),
         "bigcommerce_images": [image(n) for n in range(1, images + 1)],
     }
+    if available is not None:
+        raw["bigcommerce_variants"] = [
+            {"variant_id": str(product_id * 10 + n), "available": flag}
+            for n, flag in enumerate(available)
+        ]
+    return raw
 
 
 def page(products: list[dict], total: int | None = None) -> str:
@@ -196,6 +204,7 @@ class TestNeitherStockFieldMeansWhatItLooksLike:
     ``inventory_level`` reads like the other half of the answer and is an empty
     string on 151 of them, and was never once observed as zero. Believing
     either would have marked a third of the catalog sold on the first scan.
+    Whether it can be bought comes from the variants instead -- see below.
     """
 
     def parse(self, raw: dict):
@@ -207,9 +216,40 @@ class TestNeitherStockFieldMeansWhatItLooksLike:
     def test_nor_does_an_empty_inventory_level(self):
         assert self.parse(product(1, inventory_level="")).is_sold is False
 
-    def test_nothing_arrives_sold(self):
-        """A sold listing stops arriving; the scan's de-listing handles that."""
+    def test_nor_do_both_together_while_a_variant_is_available(self):
         assert self.parse(product(1, quantity="0", inventory_level="0")).is_sold is False
+
+
+class TestTheVariantsSayWhetherItCanBeBought:
+    """Searchanise does not drop a sold item: it keeps returning it.
+
+    Found on SARCO's BUL Transmark Impact, which this application showed as for
+    sale while the shop's page offered a "notify me when in stock" form in
+    place of the cart button. The one field that agreed with the product page
+    on every listing checked is each variant's ``available``.
+    """
+
+    def parse(self, raw: dict):
+        return Shop().item_from_product(raw, "Shop All Firearms")
+
+    def test_every_variant_unavailable_is_sold(self):
+        assert self.parse(product(1, quantity="0", available=("0",))).is_sold is True
+
+    def test_one_available_variant_is_enough_to_be_for_sale(self):
+        assert self.parse(product(1, available=("0", "1"))).is_sold is False
+
+    def test_an_available_variant_is_for_sale(self):
+        assert self.parse(product(1, available=("1",))).is_sold is False
+
+    @pytest.mark.parametrize("available", [None, ()])
+    def test_silence_is_not_sold(self, available):
+        """No variants listed says nothing, and retiring a listing on nothing
+        would de-list a catalog the day the feed drops the field."""
+        assert self.parse(product(1, available=available)).is_sold is False
+
+    def test_the_helper_ignores_junk_in_the_list(self):
+        assert sold_out({"bigcommerce_variants": ["x", None]}) is False
+        assert sold_out({"bigcommerce_variants": "0"}) is False
 
 
 class TestImages:

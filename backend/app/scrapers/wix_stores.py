@@ -27,6 +27,12 @@ reaches by scrolling are reachable by asking. Check robots.txt allows a query
 string: Surplus Defense disallows only ``*?lightbox=``, but Collectors Firearms
 is the standing reminder that ``Disallow: /*?*`` exists and rules this out.
 
+**Past the end is not always empty.** Some sections answer an out-of-range
+page with an empty grid and some answer it with *the last page again* — DBG
+Firearms' firearms section serves its third page as the fourth, the fifth and
+so on. So a section also ends on a page that offers nothing it has not already
+shown, or it would cost ``max_pages_per_source`` requests every scan.
+
 **Images: strip the transform.** Wix serves every image through a resizing
 path — ``…~mv2.jpg/v1/fill/w_1000,h_750,…/file.jpg`` — and the page never
 references the original. Cutting everything from ``/v1/`` gives it: 1.7MB
@@ -87,6 +93,13 @@ def gallery(markup: str) -> list[str]:
     return seen
 
 
+def _card_slug(card: Tag) -> str | None:
+    """The product-page slug a grid card links to, without building the item."""
+    link = card.select_one(CARD_LINK)
+    found = _SLUG.search(str(link.get("href") or "")) if link else None
+    return found.group(1) if found else None
+
+
 class WixStoresScraper(SiteScraper):
     """One Wix Stores shop. Subclasses supply the slug, name and sources."""
 
@@ -131,6 +144,9 @@ class WixStoresScraper(SiteScraper):
         self, ctx: ScrapeContext, source: dict[str, str], seen: set[str]
     ) -> Iterator[ScrapedItem]:
         label = source["category"]
+        # This section's own, separate from `seen`: a page that is all repeats
+        # of *another* section is still new here, and its successors may not be.
+        shown: set[str] = set()
         page = 1
         while page <= min(self.max_pages_per_source, ctx.scraping.max_pages):
             ctx.check_stop()
@@ -142,6 +158,11 @@ class WixStoresScraper(SiteScraper):
             cards = soup.select(CARD)
             if not cards:
                 break
+            on_page = {slug for slug in map(_card_slug, cards) if slug}
+            if not on_page - shown:
+                # The last page served again. See the module docstring.
+                break
+            shown |= on_page
 
             fresh = 0
             for card in cards:

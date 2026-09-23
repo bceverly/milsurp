@@ -1108,7 +1108,7 @@ unknown sort, a price that is not a number. That check runs when a search is
 
 ### If the vendor sells parts kits
 
-Four of the twenty-eight vendors are here for their **parts kits** rather than
+Four of the thirty-one vendors are here for their **parts kits** rather than
 their guns — Apex Gun Parts, Arms of America and Bowman Arms — and they are the
 first ones where the interesting decision was not the platform but the scope.
 
@@ -1250,10 +1250,11 @@ to see the count first.
 
 ### If the catalog is not in the HTML
 
-Two of the sites here return a category page with no products in it: sixteen
-empty `li.product` elements and not one dollar sign in 394 KB (J&G Sales), and
-zero cards and zero prices in 236 KB (SARCO). Both were filed under "needs a
-browser" on that evidence, and neither needed one.
+Three of the sites here return a category page with no products in it: sixteen
+empty `li.product` elements and not one dollar sign in 394 KB (J&G Sales), zero
+cards and zero prices in 236 KB (SARCO), and zero BigCommerce cards in 336 KB
+(Botach). All three were filed under "needs a browser" on that evidence, and
+none of them needed one.
 
 **A grid drawn in the browser still has to get its products from somewhere**,
 and that somewhere is an HTTP endpoint the page will tell you about. Look for it
@@ -1327,10 +1328,45 @@ Six things to know about it:
 - **The description is truncated to 200 characters,** which is why this base
   class fetches the product page when a subclass says where to look. Bounded by
   `ctx.needs_detail()`, so it is once per listing ever, not once per scan.
-- **Neither stock field means what it looks like.** On SARCO, `quantity` is 0
-  on 157 of 509 live, purchasable firearms and `inventory_level` is an empty
-  string on 151 of them. Nothing is marked sold from either; a sold listing
-  stops arriving, and the scan's de-listing handles that.
+- **Neither product-level stock field means what it looks like.** On SARCO,
+  `quantity` was 0 on 157 of 509 live, purchasable firearms and
+  `inventory_level` is an empty string on 151 of them. **Sold comes from the
+  variants instead:** a listing is sold when every entry in
+  `bigcommerce_variants` has `available: "0"`, which matched the product page's
+  own `instock:false` on every listing checked. Searchanise does *not* drop a
+  sold item from its results — it keeps returning it, and the shop's page shows
+  a "notify me when in stock" form where the cart button was.
+
+**`AlgoliaScraper`** — the same shape with a different vendor: Algolia
+InstantSearch draws the grid, and the page carries the application id, a
+**search-only** public key and the index name in its `algoliaConfig`. A
+section is an Algolia facet filter, exactly as the widget sends it:
+
+```python
+class MyVendorScraper(AlgoliaScraper):
+    app_id = "N6QOFUMLJZ"
+    api_key = "5906d4bef736aeb9088dcd76a5d7424d"   # search-only, published
+    index = "Botach-Main"
+    sources = (
+        {"category": "Used Guns",
+         "facet": "categories.lvl1:Firearms > Trade-In / Used Guns"},
+    )
+    detail_description_selectors = ("#tab-description",)
+```
+
+- **It is a GET,** with the credentials in the query string, so every request
+  goes through `ScrapeContext.get` and its robots check, pacing and retries.
+  The API host serves no robots.txt at all.
+- **`distinct=true` is sent explicitly.** Records are variants; without it a
+  rifle in two finishes is two listings.
+- **A record with `is_visible: false` is not a listing.** It is a product the
+  shop has unpublished and its page is a 404 — at Botach, 29 of the 51 on the
+  trade-in shelf, eight of them placeholder trade-ins at exactly $1,000.
+- **`in_stock: false` is sold,** and the price is `calculated_prices`, the
+  figure after any sale.
+- **Override `label_for()` when a shelf is mixed.** Botach's trade-in shelf
+  also holds used civilian guns, so a listing is filed as a police trade-in only
+  when its own title says so.
 
 **Photographs are fetched through an SSRF guard**, because an image URL comes
 from third-party markup and fetching one is a server-side request driven by
@@ -2798,7 +2834,7 @@ is what 65% had become.
 Every scraper parses markup nobody here controls, and the only thing that
 proves a parser still works is running it against that markup. The suite must
 not ask the vendor — it would be slow, it would fail on their bad days rather
-than ours, and it would put twenty-eight shops' servers in the path of
+than ours, and it would put thirty-one shops' servers in the path of
 `make test`. So the pages are recorded once and replayed.
 
 ```bash

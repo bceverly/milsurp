@@ -39,6 +39,17 @@ claim nothing here can support.
 Trusting bare years without that test resolves the same 66% of the catalog and
 is wrong on the listings that matter; trusting only the first two sources
 leaves 74% unknown, which is not a feature. Hence the three tiers.
+
+**Only a firearm has a C&R status at all.** The classification is a category
+of *firearm*: a bayonet, a helmet, a book or a parts kit with no receiver is
+not something the ATF licenses, and telling a reader a 1943 cap is "C&R
+eligible" is a wrong answer rather than a harmless one. So a listing that is
+neither a rifle nor a handgun, or that is a parts kit, gets no verdict -- not
+"unknown", which would say the question is open -- and no filter state picks
+it up. The test is applied where the verdict is worked out, like the date,
+rather than where the evidence is stored: a reclassify can move a listing in
+or out of the firearm buckets without re-reading its text, and the evidence
+has to be there when it moves in.
 """
 
 from __future__ import annotations
@@ -157,6 +168,16 @@ def _loose_years(text: str, model_name: str | None) -> list[int]:
     return sorted({int(y) for y in _ANY_YEAR.findall(text) if y not in designations})
 
 
+def applies(is_rifle: bool, is_pistol: bool, is_parts_kit: bool) -> bool:
+    """Whether this listing is a firearm, and so has a C&R status to give.
+
+    A parts kit is excluded even though it is also filed as a rifle or a
+    handgun: it is the gun *minus* its receiver, and the receiver is the part
+    the law calls the firearm.
+    """
+    return bool((is_rifle or is_pistol) and not is_parts_kit)
+
+
 def status(stated: bool | None, year: int | None, *, today: date | None = None) -> str:
     """Eligible, not eligible, or unknown -- as of ``today``.
 
@@ -188,19 +209,27 @@ def clause(state: str, *, today: date | None = None):
 
     edge = cutoff(today)
     silent = Item.cr_stated.is_(None)
+    # The same test as applies(), so a bayonet is in none of the three states
+    # rather than quietly in "unknown".
+    firearm = sa_and(
+        sa_or(Item.is_rifle.is_(True), Item.is_pistol.is_(True)),
+        Item.is_parts_kit.is_(False),
+    )
     if state == ELIGIBLE:
-        return sa_or(
+        verdict = sa_or(
             Item.cr_stated.is_(True),
             sa_and(silent, Item.manufacture_year.is_not(None), Item.manufacture_year <= edge),
         )
-    if state == NOT_ELIGIBLE:
-        return sa_or(
+    elif state == NOT_ELIGIBLE:
+        verdict = sa_or(
             Item.cr_stated.is_(False),
             sa_and(silent, Item.manufacture_year.is_not(None), Item.manufacture_year > edge),
         )
-    if state == UNKNOWN:
-        return sa_and(silent, Item.manufacture_year.is_(None))
-    raise ValueError(f"unknown curio state {state!r}")
+    elif state == UNKNOWN:
+        verdict = sa_and(silent, Item.manufacture_year.is_(None))
+    else:
+        raise ValueError(f"unknown curio state {state!r}")
+    return sa_and(firearm, verdict)
 
 
 def backfill(session: object, *, only_missing: bool = True, batch: int = 1000) -> dict[str, int]:

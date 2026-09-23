@@ -408,13 +408,18 @@ test.describe("item detail extras", () => {
     await expect(signedIn.locator(".fact__label").first()).not.toBeEmpty();
   });
 
-  test("every listing says where it stands on C&R", async ({ signedIn }) => {
+  test("every firearm says where it stands on C&R", async ({ signedIn }) => {
     /*
      * Always, including when the answer is that nothing is known — a third of
      * the catalog says nothing either way, and a blank there reads as "no".
      * The chip underneath says how it was arrived at, because this is a
      * reading of what a shop wrote and not a compliance determination.
+     *
+     * Opened through the Type filter rather than as the first card: only a
+     * firearm has a C&R status, and which listing leads the grid depends on
+     * the data.
      */
+    await signedIn.goto("/?kind=rifle");
     await signedIn.locator(".item-card").first().click();
     const facts = signedIn.locator(".detail__facts");
     const value = facts
@@ -426,6 +431,18 @@ test.describe("item detail extras", () => {
     // The caveat travels with it rather than living in a footnote nobody
     // scrolls to.
     await expect(value).toHaveAttribute("title", /not a compliance determination/);
+  });
+
+  test("and anything that is not a firearm has no C&R line at all", async ({ signedIn }) => {
+    /*
+     * C&R is a class of firearm. A bayonet saying "Not known" would suggest
+     * the question is open for it; it is not a question at all.
+     */
+    await signedIn.goto("/?kind=bayonet");
+    await signedIn.locator(".item-card").first().click();
+    const facts = signedIn.locator(".detail__facts");
+    await expect(facts).toBeVisible();
+    await expect(facts.locator(".fact__label", { hasText: /^C&R$/ })).toHaveCount(0);
   });
 
   test("the gallery can be walked with the arrow keys", async ({ signedIn }) => {

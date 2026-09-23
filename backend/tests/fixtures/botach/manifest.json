@@ -1,0 +1,22 @@
+{
+  "slug": "botach",
+  "recorded_at": "2026-09-23T16:11:48+00:00",
+  "pages": [
+    {
+      "url": "https://N6QOFUMLJZ-dsn.algolia.net/1/indexes/Botach-Main?x-algolia-application-id=N6QOFUMLJZ&x-algolia-api-key=5906d4bef736aeb9088dcd76a5d7424d&query=&page=0&hitsPerPage=100&distinct=true&facetFilters=%5B%22categories.lvl1%3AFirearms+%3E+Trade-In+%2F+Used+Guns%22%2C+%22is_visible%3Atrue%22%5D",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://botach.com/colt-sp1-carbine-223-grade-a-police-trade-ksnw/",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://botach.com/black-rain-fallout-15-5-56-cold-war-gray-cerakote-pistol-brand-new-open-box/",
+      "file": "0003.html.gz"
+    },
+    {
+      "url": "https://botach.com/glock-g48-9mm-pistol-w-10-round-magazine-hard-case-police-demo/",
+      "file": "0004.html.gz"
+    }
+  ]
+}

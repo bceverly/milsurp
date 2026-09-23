@@ -129,10 +129,13 @@ def _to_out(item: Item, site_names: dict[int, str]) -> ItemOut:
     data.thumbnail_url = _thumbnail_url(item)
     data.price_drop = item.price_drop_amount
     # Derived here rather than read off the row: the boundary moves, and the
-    # browse filter derives it the same way from curio.clause().
-    data.curio = curio.status(item.cr_stated, item.manufacture_year)
-    data.curio_label = CURIO_LABELS.get(data.curio)
-    data.curio_evidence = item.cr_evidence
+    # browse filter derives it the same way from curio.clause(). Left empty
+    # for anything that is not a firearm -- a bayonet has no C&R status, and
+    # the item page shows no C&R line when this is None.
+    if curio.applies(item.is_rifle, item.is_pistol, item.is_parts_kit):
+        data.curio = curio.status(item.cr_stated, item.manufacture_year)
+        data.curio_label = CURIO_LABELS.get(data.curio)
+        data.curio_evidence = item.cr_evidence
     data.manufacture_year = item.manufacture_year
     data.blurb = _blurb(item.description)
     return data

@@ -59,6 +59,8 @@ _BOILERPLATE = re.compile(
       # Compliance.
       | 18\ +u\.?\ ?s\.?\ ?c | state\ +and\ +local\ +laws
       | comply\ +with\ +all | buyer\ +is\ +responsible\ +for
+      # California's Proposition 65 label, which Botach put on every listing.
+      | known\ +to\ +the\ +state\ +of\ +california | p65warnings
     )
     """,
     re.I | re.X,

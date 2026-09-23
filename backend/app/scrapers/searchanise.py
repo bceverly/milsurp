@@ -124,6 +124,27 @@ def price_now(product: dict[str, Any]) -> float | None:
     return value if value > 0 else None
 
 
+def sold_out(product: dict[str, Any]) -> bool:
+    """Whether every variant the shop offers is marked unavailable.
+
+    ``bigcommerce_variants[].available`` is the field that means what it says.
+    Checked against SARCO's own product pages in September 2026: every product
+    whose variants all read ``"0"`` is ``"instock":false`` and
+    ``schema.org/OutOfStock`` there, with the cart button replaced by a
+    restock-alert form; every one with a ``"1"`` is ``InStock`` with an Add to
+    Cart. That was 172 of 534 firearms reading as for sale when they were not.
+
+    Silence is not sold: a product with no variants listed says nothing, and
+    retiring it on that would de-list a catalog the day the feed drops the
+    field. Neither is ``quantity`` -- see :meth:`item_from_product`.
+    """
+    variants = product.get("bigcommerce_variants")
+    if not isinstance(variants, list):
+        return False
+    flags = [str(v.get("available")) for v in variants if isinstance(v, dict)]
+    return bool(flags) and all(flag == "0" for flag in flags)
+
+
 class SearchaniseScraper(SiteScraper):
     """One Searchanise-backed shop. Subclasses supply the key and the sections."""
 
@@ -354,15 +375,14 @@ class SearchaniseScraper(SiteScraper):
             price=price_now(product),
             description=html_to_text(product.get("description")),
             category=label or None,
-            # Not inferred, deliberately. Neither stock field means what it
-            # looks like: `quantity` is 0 on live, purchasable pistols (157 of
-            # SARCO's 509, alongside a present Add to Cart), and
-            # `inventory_level` is an empty string on 151 of them and was never
-            # once observed as zero. Searchanise drops a sold item from its
-            # results instead, and the scan's own de-listing handles a listing
-            # that stops arriving -- which is the signal that is actually
-            # there.
-            is_sold=False,
+            # From the variants' own flag, not the product-level stock
+            # fields, which do not mean what they look like: `quantity` was
+            # measured at 0 on live, purchasable pistols, and `inventory_level`
+            # is an empty string on most of the catalog. And Searchanise does
+            # *not* drop a sold item from its results, which is what this once
+            # assumed: it keeps returning it, and SARCO's page shows a "notify
+            # me when in stock" form where the cart button was. See sold_out().
+            is_sold=sold_out(product),
             image_urls=[full_size(src) for src in images],
             # The API lists every photograph the shop holds, not the one
             # thumbnail a catalog grid would show.

@@ -27,6 +27,19 @@ class TestWhatItTakesOff:
         out = strip_boilerplate(REAL + " C&R or FFL required.")
         assert out == REAL
 
+    def test_a_trailing_prop_65_warning(self):
+        prose = (
+            "The Glock G48 is a slimline 9mm semi-automatic pistol with a compact, "
+            "lightweight frame and a full-length grip. This Police Demo pistol was carried "
+            "for evaluation and shows light holster wear on the slide. It comes with one "
+            "10-round magazine and the original hard case."
+        )
+        text = (
+            prose + " WARNING This product may contain chemicals known to the State of "
+            "California to cause cancer. For more information, visit www.P65Warnings.ca.gov"
+        )
+        assert strip_boilerplate(text) == prose
+
     def test_a_whole_trailing_block(self):
         out = strip_boilerplate(
             REAL + " Please upload your license at checkout. We ship within two days."
