@@ -30,6 +30,7 @@ def card(
     entity_id: str | None = None,
     button: str | None = None,
     label: str | None = None,
+    inner_ids: tuple[str, ...] = (),
 ) -> str:
     """One Stencil card.
 
@@ -37,9 +38,17 @@ def card(
     "Add to Cart" or "Out of stock" -- and ``label`` renders the figcaption
     *label* DuPage Trading use instead. Both are real and the two shops split
     on which, which is why both are read.
+
+    ``inner_ids`` renders quickview buttons carrying ``data-product-id``, which
+    is where Madison Guns' theme keeps the id the card itself does not have.
+    Several can be given, because a card holding two different ids is the case
+    that must *not* be keyed by either.
     """
     attrs = f' data-entity-id="{entity_id}"' if entity_id else ""
-    caption = ""
+    caption = "".join(
+        f'<button class="quickview" data-product-id="{one}">Quick view</button>'
+        for one in inner_ids
+    )
     if button:
         caption += f'<a class="card-figcaption-button" href="#">{button}</a>'
     if label:
@@ -125,6 +134,13 @@ class Shop(BigCommerceScraper):
     sources = ({"category": "Rifles", "url": f"{SHOP}/rifles/"},)
 
 
+class InnerKeyShop(Shop):
+    """A shop on a theme that keeps the id inside the card, like Madison Guns."""
+
+    slug = "inner-key-shop"
+    key_from_inner_id = True
+
+
 @pytest.fixture(autouse=True)
 def _no_real_waiting(monkeypatch):
     """These scrapers hold themselves to one request every five seconds."""
@@ -146,9 +162,11 @@ class TestTheKey:
     URL path where it does not.
     """
 
-    def parse(self, html: str):
+    def parse(self, html: str, shop: Shop | None = None):
         soup = BeautifulSoup(catalog(html), "html.parser")
-        return Shop().item_from_card(soup.select_one("article.card"), f"{SHOP}/rifles/", "Rifles")
+        return (shop or Shop()).item_from_card(
+            soup.select_one("article.card"), f"{SHOP}/rifles/", "Rifles"
+        )
 
     def test_the_shops_own_id_is_preferred(self):
         assert (
@@ -164,6 +182,39 @@ class TestTheKey:
         before = self.parse(card("m1-garand", "M1 Garand", entity_id="46335"))
         after = self.parse(card("m1-garand-1955", "Correct 1955 M1 Garand", entity_id="46335"))
         assert before.external_key == after.external_key
+
+    def test_an_id_inside_the_card_is_ignored_by_default(self):
+        """Not because it is wrong -- it is the same id -- but because four
+        shops already shipped are keyed by path, and reading it would change
+        the external key of every listing they have. See ``key_from_inner_id``."""
+        parsed = self.parse(card("m1-garand", "M1 Garand", inner_ids=("5948",)))
+        assert parsed.external_key == "path-m1-garand"
+
+    def test_a_shop_can_ask_for_it(self):
+        """Madison Guns' theme puts nothing on the card and hangs the id off
+        the quickview button, so a shop starting fresh opts in and gets the
+        key it should have had."""
+        parsed = self.parse(
+            card("m1-garand", "M1 Garand", inner_ids=("5948",)), shop=InnerKeyShop()
+        )
+        assert parsed.external_key == "bc-5948"
+
+    def test_two_ids_in_one_card_fall_back(self):
+        """A card holding a second product id holds something that is not this
+        product. Guessing which is which is worse than the path."""
+        parsed = self.parse(
+            card("m1-garand", "M1 Garand", inner_ids=("5948", "6021")), shop=InnerKeyShop()
+        )
+        assert parsed.external_key == "path-m1-garand"
+
+    def test_the_card_s_own_id_still_wins(self):
+        """Both present is not a conflict: the card's own attribute is the one
+        the platform documents, and the quickview copy is a copy."""
+        parsed = self.parse(
+            card("m1-garand", "M1 Garand", entity_id="46335", inner_ids=("5948",)),
+            shop=InnerKeyShop(),
+        )
+        assert parsed.external_key == "bc-46335"
 
     def test_a_card_with_no_link_is_not_a_product(self):
         soup = BeautifulSoup(

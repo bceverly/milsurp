@@ -8,10 +8,13 @@ things around; the loop stays put.
 
 **The key is the hard part here.** WooCommerce puts a WordPress post id in every
 card's class list, which is the shop's own primary key and cannot be edited.
-BigCommerce is less consistent: some themes carry ``data-entity-id`` on the card
-and some carry nothing at all. So the id is used when it is there and the
-product's URL path when it is not — which is stable in practice, and is the only
-other thing a card reliably has.
+BigCommerce is less consistent: some themes carry ``data-entity-id`` on the card,
+some hang the same id off a quickview button inside it, and some carry nothing at
+all. So the id is used when the card has one and the product's URL path when it
+does not — which is stable in practice, and is the only other thing a card
+reliably has. A shop whose id is only inside the card can opt into reading it
+there with ``key_from_inner_id``; the four already keyed by path cannot, without
+a migration, and that attribute says why.
 
 **Pagination is a query string** — ``?page=2`` — unlike WooCommerce's path form.
 That is worth noticing rather than assuming: a shop that disallows query strings
@@ -212,6 +215,27 @@ class BigCommerceScraper(SiteScraper):
     sources: tuple[dict[str, str], ...] = ()
 
     card_selector: str = "article.card, li.product article, .productGrid .card"
+
+    #: Take the product id from inside the card when the card itself has none.
+    #:
+    #: Some Stencil themes put nothing on the ``article.card`` and hang the same
+    #: id off the quickview button one element down --
+    #: ``<button class="quickview" data-product-id="5948">`` -- so the shop gets
+    #: keyed by URL path while the id it would rather be keyed by is right
+    #: there. :meth:`key_for` will take it when this is on.
+    #:
+    #: **Off by default, and not because it is unreliable.** Four shops already
+    #: shipped are in exactly this position -- Arms of America, Bowman Arms,
+    #: Recoil Gun Works and Arms Unlimited -- and switching it on for them would
+    #: change the external key of every listing they have. A scan would read
+    #: that as the whole catalog de-listed and an identical one appearing:
+    #: price history, watchlist entries and armory matches all cut loose from
+    #: the listings they belong to. That is a re-keying migration, not a flag,
+    #: and it is worth doing deliberately rather than as a side effect of this.
+    #:
+    #: A *new* shop has nothing stored to orphan, so it should start with the
+    #: better key.
+    key_from_inner_id: bool = False
     title_selectors: tuple[str, ...] = (".card-title a", ".card-title", "h4.card-title", "h4")
     link_selectors: tuple[str, ...] = (".card-figure__link", ".card-title a", "a[href]")
     next_page_selectors: tuple[str, ...] = (
@@ -396,11 +420,28 @@ class BigCommerceScraper(SiteScraper):
         URL, and a key built on the URL would read the rename as one listing
         de-listed and another appearing. Not every theme offers one, so the
         path is the fallback rather than the rule.
+
+        Some themes carry the id *inside* the card instead -- see
+        :attr:`key_from_inner_id`, which is off unless a shop asks for it.
         """
         for attribute in ENTITY_ID:
             value = card.get(attribute)
             if isinstance(value, str) and value.strip().isdigit():
                 return f"bc-{value.strip()}"
+
+        if self.key_from_inner_id:
+            inner: set[str] = set()
+            for attribute in ENTITY_ID:
+                for found in card.select(f"[{attribute}]"):
+                    nested = found.get(attribute)
+                    if isinstance(nested, str) and nested.strip().isdigit():
+                        inner.add(nested.strip())
+            # Only when the card agrees with itself. Two different ids inside
+            # one card means it holds something that is not this product, and
+            # guessing which is which is worse than falling back.
+            if len(inner) == 1:
+                return f"bc-{inner.pop()}"
+
         path = urlparse(link).path.strip("/")
         return f"path-{path}" if path else f"path-{link}"
 

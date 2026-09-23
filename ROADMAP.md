@@ -66,16 +66,17 @@ Cloudflare challenge rather than a rendering problem.
 | [Joe Salter](https://shop.joesalter.com/) | `joe-salter` | **OpenCart** — 320 collector listings, every one priced; **no photographs, because their robots.txt disallows `/image`** |
 | [GunPrime](https://gunprime.com/) | `gunprime` | **Spree on Rails** — the collector and police trade-in shelves; their six firearm categories are a modern gun shop and are left alone |
 | [Simpson Ltd.](https://www.simpsonltd.com/) | `simpson-ltd` | **Firebase Cloud Functions** — the Luger, military rifle, antique, German trainer and bayonet shelves of a 19,201-item shop |
+| [Madison Guns](https://madisonguns.com/) | `madison-guns` | BigCommerce — their whole 164-listing used rack plus the antique shelf, because the surplus in it is not shelved apart. **First shop keyed by an id found *inside* the card** |
 
 ### Planned
 
 **This list is now also in the application.** `app/scrapers/planned.py` carries
-the seven vendors still queued, and the Sites page shows them under **Coming
+the five vendors still queued, and the Sites page shows them under **Coming
 soon** with what each is waiting on. It is deliberately narrower than this
 section: only vendors that are still going to be built, never one that was
 measured and refused — Impact Guns, USA Gun Shop, Edelweiss Arms, The Mosin
-Crate, Century Arms — because listing a refusal as "coming soon" quietly
-reverses it. `backend/tests/test_planned_sites.py` fails if a planned vendor
+Crate, Century Arms, Gideon Tactical — because listing a refusal as "coming
+soon" quietly reverses it. `backend/tests/test_planned_sites.py` fails if a planned vendor
 gains a scraper, so a shipped site cannot go on promising itself.
 
 Ordered by a rough guess at effort. The platform column matters more than the
@@ -83,27 +84,36 @@ site, because the reusable base class is most of the work: two of them —
 WooCommerce and BigCommerce — are now shipped, and a site on either is a subclass
 of a few lines.
 
-#### The seven now queued — measured September 2026
+#### The seven measured in September 2026 — two resolved, five queued
 
 Every row below was fetched before it was written down, so the platform column
 here is a measurement rather than the URL-shape guess the next paragraph warns
 about. Ordered nearest-to-buildable first, which is also the order
 `planned.py` holds them in.
 
+**Two are already off the list.** Madison Guns shipped. Gideon Tactical did
+not, and is the more interesting of the two:
+
+| Vendor | Outcome |
+| --- | --- |
+| [Madison Guns](https://madisonguns.com/) | **Shipped.** 164 used listings plus one antique shelf; see the table above |
+| [Gideon Tactical](https://gideontactical.com/) | **Refused: it is Officer Store.** Both domains serve the same BigCommerce store — 18 listings each, all 18 titles identical, all 18 product ids identical. Building it would have imported a second copy of a catalog already read, under a second site name. That matters beyond the duplication: the hot-deals rule requires a group of peers to span **at least two shops**, and one shop wearing two names would have manufactured exactly the cross-vendor agreement the rule exists to demand. Refusals are recorded here and never in `planned.py` |
+
+**And the five still waiting:**
+
 | Vendor | Slug | Platform | Waiting on |
 | --- | --- | --- | --- |
-| [Madison Guns](https://madisonguns.com/ammunition/used-guns/) | `madison-guns` | BigCommerce | **Nothing but the writing.** Their used-guns page serves 12 cards to a plain request and the shipped BigCommerce class reads every one |
-| [Gideon Tactical](https://gideontactical.com/firearms/used-firearms) | `gideon-tactical` | BigCommerce | **Nothing but the writing.** 12 cards, read directly; robots disallows only cart and account paths |
 | [DBG Firearms](https://www.dbgfirearms.com/category/firearms) | `dbg-firearms` | Wix Stores | **Nothing but the writing** — `wix_stores.py` already reads Surplus Defense. Their robots.txt `Disallow: /` is scoped to **PetalBot**; `User-agent: *` gets `Allow: /`, so the refusal near the top of that file is not aimed at us |
 | [Botach](https://botach.com/) | `botach` | BigCommerce, catalog drawn by **Algolia** | The grid is built in the browser. Their firearms page is 336 KB and holds **zero** BigCommerce cards — Algolia InstantSearch fills it after load. Wants the search endpoint read directly, the way SARCO's Searchanise widget is, not a browser |
 | [King's Firearms](https://www.kingsfirearmsonline.com/le-trade-ins) | `kings-firearms` | Client-rendered, backed by GunBroker | No catalog in the page at all: a 15 KB shell, one `<noscript>`, and a GunBroker reference. Needs a way in that is not the HTML, and a decision about whether reading a marketplace listing is reading a shop |
 | [Clyde Armory](https://clydearmory.com/agency-trade-in/) | `clyde-armory` | BigCommerce | **Their TLS chain is broken.** The server sends its own Sectigo DV certificate without the intermediate, so verification fails — `unable to verify the first certificate` — and every request dies before HTTP. With verification off it is a perfectly ordinary 314 KB BigCommerce grid. Turning verification off is not the fix; this waits on them |
 | [WIS Transfers](https://www.wistransfers.com/) | `wis-transfers` | Unknown — nothing is served | Answers **202 with an empty body**, to the catalog and the home page alike. That is a challenge rather than a shop, and until something comes back there is no platform to identify and nothing to parse |
 
-Two of the seven are a subclass of a few lines each, one is a second Wix shop,
-two need an API found rather than a page parsed, and two cannot be reached at
-all. That ratio is the one this section keeps re-learning: a group of seven is
-not seven cheap sites.
+Of the seven measured, **one shipped, one was a duplicate, one is a second Wix
+shop waiting to be written, two need an API found rather than a page parsed,
+and two cannot be reached at all.** That ratio is the one this section keeps
+re-learning: a group of seven is not seven cheap sites, and two of them were
+not really sites at all.
 
 The platform column below was originally **inferred from the URL shape** — a
 `/product-category/` or `/product-tag/` path means WooCommerce, `/collections/`
@@ -281,6 +291,35 @@ else anywhere.
 **What it costs.** The first scan fetches about 880 new product pages at five
 seconds apiece — a little over an hour, paid once. After that only new arrivals
 need one.
+
+### Four BigCommerce shops keyed by URL path — **Planned**
+
+Found while building Madison Guns, whose Stencil theme puts nothing on the
+`article.card` and hangs the product id off the quickview button one element
+down: `<button class="quickview" data-product-id="5948">`. The base class only
+ever looked at the card itself, so the shop would have been keyed by URL path
+while the id it wants sat one element inside.
+
+Reading it there is two lines. What stopped it being the new default is that
+**four shops already shipped are in the same position** — Arms of America,
+Bowman Arms, Recoil Gun Works and Arms Unlimited, measured across their
+recorded catalogs at 41, 17, 10 and 19 cards with no id on the card and exactly
+one inside. Switching the lookup on for them would change the external key of
+every listing they hold, and a scan reads a changed key as the whole catalog
+de-listed and an identical one arriving: price history orphaned, watchlist
+entries pointing at dead rows, armory matches cut loose. Recoil Gun Works alone
+is 229 listings.
+
+So it is `BigCommerceScraper.key_from_inner_id`, off by default, and Madison
+Guns is the only shop that sets it — a new site has nothing stored to orphan.
+
+**The work, when it is done:** a migration that rewrites `external_key` in
+place for those four, from `path-<slug>` to `bc-<id>`, deriving the id by
+re-reading each catalog once rather than by guessing. It must run before the
+next scan of any of them, and it is not urgent — a path key is stable while a
+shop leaves its product names alone, which is why nobody noticed. It is worth
+doing because the day a shop does rename something is the day the price history
+for it is lost, and there is no sign when that happens.
 
 ### Sold listings on BigCommerce — **Shipped**
 
@@ -3298,7 +3337,7 @@ until they promote it. The numbers above are what promoting them does.
   `cli.py curio-backfill --recompute` for when the patterns are tightened.
 
   **An unknown `curio=` value is refused with a 400**, where the `kind` filter
-  beside it drops one it does not recognise. The failure modes are not
+  beside it drops one it does not recognize. The failure modes are not
   comparable: a mistyped kind returns more guns than were asked for, and a
   mistyped `curio=eligble` returns *every* listing — including the ones that
   are not eligible — to somebody filtering on exactly that because of what

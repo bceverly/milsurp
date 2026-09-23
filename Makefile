@@ -304,7 +304,7 @@ test-backend: $(VENV_PY) ## Run the pytest suite (fails under 83% coverage)
 	@scripts/test-backend.sh
 
 .PHONY: test-frontend
-test-frontend: frontend/node_modules ## Run the Playwright suite (fails under 76% coverage)
+test-frontend: frontend/node_modules ## Run the Playwright suite (fails under 77% coverage)
 	@scripts/test-frontend.sh
 
 .PHONY: coverage

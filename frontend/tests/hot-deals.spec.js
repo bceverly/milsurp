@@ -210,6 +210,39 @@ test.describe("hot deals", () => {
     await expect(rifles).toBeEnabled();
   });
 
+  test("the scheduled look can be switched off without losing its settings", async ({
+    signedIn,
+  }) => {
+    /**
+     * Two different things, and the panel keeps them apart: whether a pass
+     * runs on a timer, and how often it would. Switching the schedule off is
+     * what an administrator does while a vendor is misbehaving, and it must
+     * not take the cadence or the thresholds with it — turning it back on
+     * should resume, not start over.
+     */
+    // The checkbox is visually hidden so the switch can be styled, so the
+    // label is what a person actually presses — the same reason the alert
+    // toggle above and the site switches in admin.spec are clicked this way.
+    const scheduled = switchFor(signedIn, "Look for deals on a schedule");
+    await expect(scheduled.getByRole("checkbox")).toBeChecked();
+    const cadence = await signedIn.getByLabel("Look again every").inputValue();
+
+    await scheduled.click();
+    await signedIn.reload();
+    await expect(
+      switchFor(signedIn, "Look for deals on a schedule").getByRole("checkbox"),
+    ).not.toBeChecked();
+    // Off is off, not forgotten.
+    await expect(signedIn.getByLabel("Look again every")).toHaveValue(cadence);
+
+    await switchFor(signedIn, "Look for deals on a schedule").click();
+    await signedIn.reload();
+    await expect(
+      switchFor(signedIn, "Look for deals on a schedule").getByRole("checkbox"),
+    ).toBeChecked();
+    await expect(signedIn.getByLabel("Look again every")).toHaveValue(cadence);
+  });
+
   test("an administrator can change what counts as a deal", async ({ signedIn }) => {
     await expect(
       signedIn.getByRole("heading", { name: "How deals are found" }),

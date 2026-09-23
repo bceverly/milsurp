@@ -1,0 +1,22 @@
+{
+  "slug": "madison-guns",
+  "recorded_at": "2026-09-23T13:39:24+00:00",
+  "pages": [
+    {
+      "url": "https://madisonguns.com/ammunition/used-guns/",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://madisonguns.com/used-bergara-bmr-22lr-bolt-action-rifle/",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://madisonguns.com/used-steyr-m95-8x56mmr-straight-pull-rifle/",
+      "file": "0003.html.gz"
+    },
+    {
+      "url": "https://madisonguns.com/used-watchtower-apache-commander-9mm-2011-semi-auto-pistol/",
+      "file": "0004.html.gz"
+    }
+  ]
+}

@@ -70,6 +70,14 @@ test.describe("inventory", () => {
   });
 
   test("sorting by price orders the results ascending", async ({ signedIn }) => {
+    // Wait for the first results before touching the sort. The select is drawn
+    // with the shell, before the listings arrive, and choosing an order in that
+    // window can land on a node React replaces as the data lands — the change
+    // event goes with it, the URL never gains `sort`, and the test fails having
+    // found a race it created rather than one a person can hit. Every other
+    // test in this file already waits; this one did not.
+    await expect(signedIn.locator(".item-card").first()).toBeVisible();
+
     await signedIn.getByLabel("Sort listings").selectOption("price_asc");
     await expect(signedIn).toHaveURL(/sort=price_asc/);
     await signedIn.waitForTimeout(800);

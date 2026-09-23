@@ -428,6 +428,61 @@ test.describe("item detail extras", () => {
     await expect(value).toHaveAttribute("title", /not a compliance determination/);
   });
 
+  test("the gallery can be walked with the arrow keys", async ({ signedIn }) => {
+    /*
+     * A gallery of ten is a gallery somebody pages through, and reaching for
+     * the keyboard is what they do after the third thumbnail. Escape closes
+     * the full-size view, for the same reason every other overlay here does.
+     *
+     * Finds a listing with a strip rather than taking the first card: which
+     * listing leads "newest first" depends on whether a scan has run, so the
+     * first card is not reliably one with more than one photograph.
+     */
+    await signedIn.goto("/?availability=all");
+    await expect(signedIn.locator(".item-card").first()).toBeVisible();
+    const hrefs = await signedIn
+      .locator('a[href^="/items/"]')
+      .evaluateAll((links) => [...new Set(links.map((a) => a.getAttribute("href")))]);
+
+    let thumbs = null;
+    for (const href of hrefs.slice(0, 12)) {
+      await signedIn.goto(href);
+      await expect(signedIn.locator(".detail")).toBeVisible();
+      const strip = signedIn.locator(".gallery__thumb");
+      if ((await strip.count()) > 1) {
+        thumbs = strip;
+        break;
+      }
+    }
+    expect(
+      thumbs,
+      "no seeded listing has more than one photograph, so this test cannot " +
+        "show anything — check seed_demo_data.GALLERY_PHOTOS",
+    ).not.toBeNull();
+
+    // Which photograph is showing is stated on the thumbnail, not implied by
+    // a class, so this reads the same thing a screen reader does.
+    await expect(thumbs.nth(0)).toHaveAttribute("aria-current", "true");
+
+    await signedIn.keyboard.press("ArrowRight");
+    await expect(thumbs.nth(1)).toHaveAttribute("aria-current", "true");
+    await expect(thumbs.nth(0)).toHaveAttribute("aria-current", "false");
+
+    await signedIn.keyboard.press("ArrowLeft");
+    await expect(thumbs.nth(0)).toHaveAttribute("aria-current", "true");
+
+    // And it stops at the ends rather than wrapping round or running off.
+    await signedIn.keyboard.press("ArrowLeft");
+    await expect(thumbs.nth(0)).toHaveAttribute("aria-current", "true");
+
+    // Escape closes the full-size view and nothing else.
+    await signedIn.getByRole("button", { name: /^View .* full size$/ }).click();
+    const lightbox = signedIn.getByRole("dialog");
+    await expect(lightbox).toBeVisible();
+    await signedIn.keyboard.press("Escape");
+    await expect(lightbox).toHaveCount(0);
+  });
+
   test("sold and de-listed listings are reachable through the filters", async ({
     signedIn,
   }) => {

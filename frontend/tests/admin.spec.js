@@ -87,6 +87,59 @@ test.describe("sites", () => {
     await expect(stop).toBeDisabled();
   });
 
+  test("a host that refused us is shown resting, and can be woken", async ({
+    signedIn,
+  }) => {
+    /**
+     * A vendor that answers 429 is put down for a while, and every scan and
+     * photo download leaves it alone until then. The page has a whole state
+     * for saying so — a chip counting the wait down, a sentence explaining it,
+     * and a button to lift it — and none of it was reachable in a database
+     * where every vendor is perfectly happy.
+     *
+     * Lifting a pause early is deliberately its own button rather than a
+     * confirmation on "Scan now": the pause exists because *their* server
+     * refused us, so going back before they asked is a decision about them.
+     */
+    await signedIn.goto("/sites");
+
+    // The countdown is phrased as a wait, not measured to a tenth of a second:
+    // the seeder leaves one pause of 45 minutes and two of over an hour, so
+    // both ways of writing one are on the page.
+    const chips = signedIn.locator(".site-card .chip", { hasText: /^Resting/ });
+    await expect(chips.filter({ hasText: /^Resting \d+ min$/ }).first()).toBeVisible();
+    await expect(
+      chips.filter({ hasText: /^Resting \d+h( \d+m)?$/ }).first(),
+    ).toBeVisible();
+
+    // Pinned by the vendor's own name before anything is clicked. Locating it
+    // by "has a Stop resting button" would quietly slide onto the *next*
+    // paused vendor the moment this one stopped having one, and the
+    // assertions after the click would then be about the wrong card.
+    const resting = signedIn
+      .locator(".site-card")
+      .filter({ has: signedIn.getByRole("button", { name: "Stop resting" }) })
+      .first();
+    const name = (await resting.locator(".site-card__name").textContent()).trim();
+    const card = signedIn.locator(".site-card", { hasText: name }).first();
+
+    // Why, not just that: the reason the host gave is what tells somebody
+    // whether it is safe to lift this.
+    await expect(card.locator(".site-card__resting")).toContainText(
+      /leaving this host alone for another/,
+    );
+    await expect(card.locator(".site-card__resting")).toContainText(
+      "429 Too Many Requests",
+    );
+
+    await card.getByRole("button", { name: "Stop resting" }).click();
+
+    // Lifted: no countdown, no explanation, and nothing left to press.
+    await expect(card.locator(".site-card__resting")).toHaveCount(0);
+    await expect(card.locator(".chip", { hasText: /^Resting/ })).toHaveCount(0);
+    await expect(card.getByRole("button", { name: "Stop resting" })).toHaveCount(0);
+  });
+
   test("photographs can be fetched without re-scraping", async ({ signedIn }) => {
     /*
      * A scan caps how many photographs it downloads and carries the rest to
@@ -104,10 +157,57 @@ test.describe("sites", () => {
     const forOneSite = card.getByRole("button", { name: /^Update photos/ });
     await expect(forOneSite).toBeVisible();
 
-    // Nothing is outstanding on a freshly seeded database, so both say so by
+    // Nothing is outstanding on the demo vendor, so its button says so by
     // being unpressable rather than by disappearing.
     await expect(forOneSite).toBeDisabled();
     await expect(forOneSite).toHaveAttribute("title", /already stored/);
+  });
+
+  test("a site owing photographs can be told to fetch them", async ({ signedIn }) => {
+    /*
+     * The other half of the state above, and the half that was never tested:
+     * the seeder leaves one site short of photographs it has the URLs for,
+     * because a suite that only ever sees these buttons unpressable proves
+     * they exist rather than that they do anything.
+     *
+     * Found by the title rather than by vendor name: which site carries the
+     * backlog is a detail of the seeder, and an enabled button is the thing
+     * this is about.
+     */
+    await signedIn.goto("/sites");
+    const owing = signedIn.locator('.site-card button[title^="Fetch "]').first();
+    await expect(owing).toBeEnabled();
+    await owing.click();
+
+    // Nothing visible happens otherwise — the fetching is a background job —
+    // so this banner is the only thing that says the button did anything.
+    const notice = signedIn.locator(".alert--info");
+    await expect(notice).toContainText(/Fetching \d+ photograph/);
+
+    await notice.getByRole("button", { name: "Dismiss" }).click();
+    await expect(notice).toHaveCount(0);
+  });
+
+  test("every site's missing photographs can be fetched at once", async ({
+    signedIn,
+  }) => {
+    /*
+     * The same job across the whole list, which is why it sits by Refresh and
+     * not on a card: a copy of it per site would be twenty-eight ways to start
+     * one job. It counts what is waiting *and* what has been given up on,
+     * because it fetches both.
+     */
+    await signedIn.goto("/sites");
+    const everywhere = signedIn
+      .getByRole("button", { name: /^Update photos \(\d+\)$/ })
+      .first();
+    await expect(everywhere).toBeEnabled();
+    await expect(everywhere).toHaveAttribute("title", /across every site/);
+    await everywhere.click();
+
+    await expect(signedIn.locator(".alert--info")).toContainText(
+      /Fetching \d+ photograph\(s\) for every site/,
+    );
   });
 
   test("product pages can be queued to be read again", async ({ signedIn }) => {
@@ -123,11 +223,68 @@ test.describe("sites", () => {
     const button = card.getByRole("button", { name: /^Re-read details/ });
 
     await expect(button).toBeVisible();
-    // Nothing on a freshly seeded database has had a product page read, so
-    // the next scan reads them all anyway and there is nothing to queue. It
-    // says so by being unpressable rather than by disappearing.
+    // The demo vendor's listings are seeded unread on purpose — it is the one
+    // site the suite really scans, and a scan skips a page already read. So
+    // the next scan reads them all anyway and there is nothing to queue here.
+    // It says so by being unpressable rather than by disappearing.
     await expect(button).toBeDisabled();
     await expect(button).toHaveAttribute("title", /reads them all anyway/);
+  });
+
+  test("queueing product pages asks first, and says what it marked", async ({
+    signedIn,
+  }) => {
+    /*
+     * Every other site is seeded the way a scanned one looks: its listings
+     * carry a description and a gallery, which is what reading a product page
+     * produces. So those cards have something to queue, and this is the path
+     * that actually queues it.
+     *
+     * The confirmation is not ceremony. Marking a large site means its next
+     * scan re-reads every product page it would have skipped, and then
+     * downloads whatever photographs that turns up — so the modal says so
+     * before anything is marked.
+     */
+    await signedIn.goto("/sites");
+    // Whichever site still has pages to queue, pinned by name before anything
+    // is clicked: a locator that means "the first card with something to
+    // queue" slides onto the next vendor the moment this one is emptied, and
+    // the assertion afterwards would be about the wrong card. Choosing it this
+    // way rather than naming a vendor means a CI retry, finding this one
+    // already done, simply takes the next.
+    const queued = signedIn
+      .locator(".site-card")
+      .filter({ has: signedIn.locator('button[title^="Queue "]') })
+      .first();
+    const name = (await queued.locator(".site-card__name").textContent()).trim();
+    const card = signedIn.locator(".site-card", { hasText: name }).first();
+    const button = card.getByRole("button", { name: /^Re-read details \(\d+\)$/ });
+    await expect(button).toBeEnabled();
+
+    const count = Number((await button.textContent()).match(/\((\d+)\)/)[1]);
+    expect(count).toBeGreaterThan(0);
+
+    await button.click();
+    const modal = signedIn.getByRole("dialog");
+    await expect(modal).toContainText("Re-read product pages");
+    // The wording that keeps somebody from watching for photographs that are
+    // not coming yet: nothing is fetched until the next scan.
+    await expect(modal).toContainText(/Nothing is fetched now/);
+
+    // Backing out marks nothing.
+    await modal.getByRole("button", { name: "Cancel" }).click();
+    await expect(modal).toHaveCount(0);
+    await expect(button).toHaveText(`Re-read details (${count})`);
+
+    await button.click();
+    await signedIn.getByRole("button", { name: `All ${count}` }).click();
+
+    await expect(signedIn.locator(".alert--info")).toContainText(
+      /will be read again on the next scan/,
+    );
+    // And the count is now honest: nothing on that site is still marked read,
+    // so there is nothing left to queue.
+    await expect(card.getByRole("button", { name: /^Re-read details/ })).toBeDisabled();
   });
 
   test("scan now shows progress, then the outcome", async ({ signedIn }) => {
@@ -206,11 +363,21 @@ test.describe("sites", () => {
      * that all of them?". Each card says what is standing in the way, because
      * "not written yet" and "cannot get in" are different kinds of waiting.
      */
+    // The queue comes from its own request rather than from the site list, so
+    // which branch this test takes is decided by that response and not by
+    // counting the DOM. `.count()` does not auto-wait: read before the request
+    // lands it says zero, the test takes the "nothing is queued" path, and
+    // then asserts there is no heading while one is rendering behind it.
+    const arrived = signedIn.waitForResponse(
+      (response) => response.url().includes("/api/sites/planned") && response.ok(),
+    );
     await signedIn.goto("/sites");
+    const queued = await (await arrived).json();
+
     const planned = signedIn.locator(".site-card--planned");
     const heading = signedIn.getByRole("heading", { name: "Coming soon" });
 
-    if ((await planned.count()) === 0) {
+    if (queued.length === 0) {
       // The queue emptied for the first time when Simpson Ltd. shipped and the
       // last three were dropped. An empty list must render *nothing* rather
       // than a heading over a gap, which is the only thing left to check here.
@@ -219,6 +386,9 @@ test.describe("sites", () => {
     }
 
     await expect(heading).toBeVisible();
+    // Every vendor the registry holds gets a card — a list that renders some
+    // of them is the same lie as one that renders none.
+    await expect(planned).toHaveCount(queued.length);
     await expect(planned.first()).toBeVisible();
 
     // Nothing to operate: no row behind it, so no controls that could work.
@@ -434,7 +604,7 @@ test.describe("sessions and the audit log", () => {
     /**
      * The first thing anybody looks for, and the reason the list is worth
      * having at all: "which one is this?" Signing yourself out by accident is
-     * the obvious mistake, so the current session is labelled and its button
+     * the obvious mistake, so the current session is labeled and its button
      * says Sign out rather than Revoke.
      */
     await signedIn.goto("/security");

@@ -44,28 +44,6 @@ class PlannedSite:
 PLANNED: tuple[PlannedSite, ...] = (
     # -- nearest to buildable: a supported platform, serving its catalog ----
     PlannedSite(
-        slug="madison-guns",
-        name="Madison Guns",
-        base_url="https://madisonguns.com/",
-        platform="BigCommerce (Stencil)",
-        blocker=(
-            "Nothing but the writing. Their used-guns page serves 12 cards "
-            "straight to a plain request and the existing BigCommerce reader "
-            "finds every one of them."
-        ),
-    ),
-    PlannedSite(
-        slug="gideon-tactical",
-        name="Gideon Tactical",
-        base_url="https://gideontactical.com/",
-        platform="BigCommerce (Stencil)",
-        blocker=(
-            "Nothing but the writing. Their used-firearms page answers with 12 "
-            "cards the existing BigCommerce reader already parses, and robots "
-            "disallows only the cart and account paths."
-        ),
-    ),
-    PlannedSite(
         slug="dbg-firearms",
         name="DBG Firearms",
         base_url="https://www.dbgfirearms.com/",

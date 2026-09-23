@@ -40,7 +40,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-printf '\n\033[1mFrontend tests\033[0m (Playwright, minimum 76%% coverage)\n\n'
+printf '\n\033[1mFrontend tests\033[0m (Playwright, minimum 77%% coverage)\n\n'
 
 # --- Disposable configuration ----------------------------------------------
 # Fresh throwaway secrets per run. Generated rather than hard-coded so that no

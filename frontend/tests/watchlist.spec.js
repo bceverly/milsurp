@@ -125,6 +125,45 @@ test.describe("watchlist", () => {
     await expect(signedIn.getByText("Nothing here yet")).toBeVisible();
   });
 
+  test("and from the listing's own page, where it was started", async ({ signedIn }) => {
+    /**
+     * The other half of the star, and the half nothing covered: the same
+     * button that begins a watch ends it, because it is a state and not an
+     * action. Stopping from the watchlist was tested; stopping from the page
+     * where somebody actually changes their mind was not.
+     *
+     * What it has to put back matters as much as the watch itself — the
+     * target, the note and the alert all go with it, so starting again offers
+     * a clean form rather than last time's numbers.
+     */
+    await openFirstListing(signedIn);
+    await signedIn.getByRole("button", { name: "Watch", exact: true }).click();
+    await signedIn.getByRole("button", { name: "Set a target" }).click();
+    await signedIn.getByLabel("Tell me if it drops below").fill("450");
+    await signedIn.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(signedIn.getByRole("button", { name: /^Target / })).toBeVisible();
+
+    // The same control, pressed again.
+    await signedIn.getByRole("button", { name: "Watching" }).click();
+
+    const watch = signedIn.getByRole("button", { name: "Watch", exact: true });
+    await expect(watch).toBeVisible();
+    await expect(watch).toHaveAttribute("aria-pressed", "false");
+    // The target button belongs to a watch that no longer exists.
+    await expect(
+      signedIn.getByRole("button", { name: /^Target |^Set a target/ }),
+    ).toHaveCount(0);
+
+    await signedIn.getByRole("link", { name: "Watchlist" }).click();
+    await expect(signedIn.locator(".watchlist__row")).toHaveCount(0);
+
+    // And the target went with it rather than waiting to be inherited.
+    await openFirstListing(signedIn);
+    await signedIn.getByRole("button", { name: "Watch", exact: true }).click();
+    await signedIn.getByRole("button", { name: "Set a target" }).click();
+    await expect(signedIn.getByLabel("Tell me if it drops below")).toHaveValue("");
+  });
+
   test("watching twice leaves one watch, not two", async ({ signedIn }) => {
     /**
      * The star is a state and not an event: PUT rather than POST, so a second

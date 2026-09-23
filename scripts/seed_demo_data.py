@@ -32,6 +32,7 @@ from app.models import (  # noqa: E402
     ArmoryStatus,
     FirearmKind,
     FirearmModel,
+    HostCooldown,
     Item,
     ItemPhoto,
     PriceHistory,
@@ -40,8 +41,9 @@ from app.models import (  # noqa: E402
     Site,
     utcnow,
 )
-from app.services import classify, hotdeals  # noqa: E402
+from app.services import classify, cooldown, hotdeals  # noqa: E402
 from app.services.image_store import ImageStore  # noqa: E402
+from app.services.scan_service import MAX_PHOTO_ATTEMPTS  # noqa: E402
 
 # (title, price, category, age_days, sold, previous_price)
 # Chosen to exercise every UI state: new badges, price reductions, sold and
@@ -224,6 +226,113 @@ def _widen_one_gallery(session: Session, store: ImageStore, now: datetime) -> No
                 height=900,
                 position=position,
                 downloaded_at=now,
+            )
+        )
+
+
+#: How many photographs the backlog site is short of, and how they are split
+#: between "waiting" and "given up". Both kinds exist because they are counted
+#: apart and read differently: one only wants time, the other wants somebody to
+#: decide the cause has been fixed.
+BACKLOG_WAITING = 3
+BACKLOG_GIVEN_UP = 2
+
+#: Minutes left on each seeded pause, and they are these three numbers for a
+#: reason: 45 reads as "45 min", 90 as "1h 30m" and 120 as "2h", which is every
+#: shape the countdown knows how to write. All of them are long enough that no
+#: run can outlast one and find the pause gone halfway through.
+#:
+#: Three rather than one so that lifting a pause -- which is a real button that
+#: really clears the row -- leaves two behind for the next test, or for a CI
+#: retry of the same one.
+RESTING_MINUTES = (45, 90, 120)
+
+
+def _seed_resting_hosts(session: Session, sites: list[Site], now: datetime) -> None:
+    """Leave a few vendors paused, the way a rate limiter leaves them.
+
+    A host that refuses us puts itself down for a while, and the Sites page has
+    a whole state for saying so: a chip counting the wait down, a sentence
+    explaining that nothing will ask again until then, and a button to lift it
+    early. None of that is reachable in a seeded database where every vendor is
+    perfectly happy, so none of it was ever exercised.
+
+    Never the demo vendor -- that is the site the suite really scans -- and
+    never the first one, which is already carrying the photo backlog. A card
+    doing two unusual things at once is harder to write a test against than two
+    cards doing one each.
+    """
+    candidates = [one for one in sites if one.slug != DEMO_SITE_SLUG][1:]
+    for site, minutes in zip(reversed(candidates), RESTING_MINUTES, strict=False):
+        host = cooldown.host_of(site.base_url)
+        if session.execute(
+            select(HostCooldown).where(HostCooldown.host == host)
+        ).scalar_one_or_none():
+            continue
+        session.add(
+            HostCooldown(
+                host=host,
+                until=now + timedelta(minutes=minutes),
+                refusals=2,
+                reason="429 Too Many Requests",
+                first_refused_at=now - timedelta(minutes=5),
+                last_refused_at=now,
+            )
+        )
+
+
+def _seed_a_photo_backlog(session: Session, sites: list[Site]) -> None:
+    """Leave one site short of some photographs it has the URLs for.
+
+    A freshly seeded database has every photograph already stored, which is the
+    one state the admin page's photo controls have nothing to say about -- they
+    are correctly unpressable, and a suite that only ever sees them that way
+    proves the buttons exist rather than that they work.
+
+    This is the ordinary state of a real site instead: a scan caps how many
+    images it downloads per run and carries the rest, and a few URLs are simply
+    dead and have been given up on. Never the demo vendor, which is scanned for
+    real by the suite and whose counts would then move underneath a test.
+    """
+    site = next((one for one in sites if one.slug != DEMO_SITE_SLUG), None)
+    if site is None:
+        return
+
+    items = (
+        session.execute(select(Item).where(Item.site_id == site.id).order_by(Item.id))
+        .scalars()
+        .all()
+    )
+    if not items:
+        return
+
+    # Spread over whatever listings the site was given rather than one per
+    # listing: the catalog is dealt out across every registered vendor, so a
+    # site can hold fewer listings than there are photographs to owe.
+    next_position = {
+        item.id: session.execute(
+            select(func.count(ItemPhoto.id)).where(ItemPhoto.item_id == item.id)
+        ).scalar_one()
+        for item in items
+    }
+    attempts = [0] * BACKLOG_WAITING + [MAX_PHOTO_ATTEMPTS] * BACKLOG_GIVEN_UP
+    for offset, tried in enumerate(attempts):
+        item = items[offset % len(items)]
+        position = next_position[item.id]
+        next_position[item.id] = position + 1
+        session.add(
+            ItemPhoto(
+                item_id=item.id,
+                source_url=f"https://example.invalid/demo/{item.id}/missing-{position}.jpg",
+                # No filename and no bytes: the URL is known and the file is
+                # not here, which is exactly what the counts look for. The API
+                # skips a photo with no file, so none of these show in a
+                # gallery.
+                filename=None,
+                position=position,
+                # Past the cap means no scan will try again on its own.
+                attempts=tried,
+                downloaded_at=None,
             )
         )
 
@@ -412,6 +521,16 @@ def seed(  # noqa: PLR0912 - a linear fixture builder; branches are per-field
                 is_active=age_days < 40,
                 first_seen_at=first_seen,
                 last_seen_at=now,
+                # Every one of these carries a description and a gallery,
+                # which is what a product-page read produces -- so saying the
+                # page has never been read would be a lie about the row.
+                #
+                # Except on the demo vendor, and deliberately. That is the one
+                # site a scan actually runs against in the suite, and a scan
+                # skips the product page of any listing already marked read:
+                # leaving its listings unmarked is what keeps the end-to-end
+                # scan exercising the detail path at all.
+                detail_fetched_at=None if site.slug == DEMO_SITE_SLUG else first_seen,
                 delisted_at=None if age_days < 40 else now - timedelta(days=1),
                 current_price=price,
                 previous_price=previous,
@@ -474,6 +593,8 @@ def seed(  # noqa: PLR0912 - a linear fixture builder; branches are per-field
             created += 1
 
         _widen_one_gallery(session, store, now)
+        _seed_a_photo_backlog(session, sites)
+        _seed_resting_hosts(session, sites, now)
 
         # A little scan history, so the admin views are not empty either.
         for site in sites:
