@@ -162,6 +162,14 @@ selenium-debug.log
 *.crt
 *.csr
 certs/
+# ...except the public intermediate CA certificates the scrapers ship, for
+# vendors whose servers leave them out of the chain (see the file's header and
+# base.ca_bundle). Public by definition -- a browser downloads the same ones --
+# and nothing else is let through: the directory is re-included, then only this
+# one file in it. A private key must never be added here.
+!backend/app/scrapers/certs/
+backend/app/scrapers/certs/*
+!backend/app/scrapers/certs/extra-intermediates.pem
 
 # --- Editors / OS ---
 .idea/
