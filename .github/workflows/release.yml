@@ -322,6 +322,76 @@ jobs:
           # Deliberately NOT --unchecked: that skips dput's verification of the
           # signature, which is the one thing standing between a corrupted
           # upload and a rejection twenty minutes later with no explanation.
-          dput "$PPA" "$CHANGES"
-          echo "Uploaded. Launchpad builds asynchronously -- watch it at"
-          echo "  https://launchpad.net/~${PPA#ppa:}/+packages"
+          #
+          # Retried, because Launchpad's FTP endpoint drops the odd connection:
+          # 3.0.0.4 failed with "Connection failed, aborting" while the server
+          # was answering fine a minute later. dput writes its .upload record
+          # only once an upload succeeds, so a retry after a failure is a clean
+          # start rather than a refusal to upload twice.
+          for attempt in 1 2 3; do
+            if dput "$PPA" "$CHANGES"; then
+              echo "Uploaded on attempt $attempt."
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              wait=$((attempt * 30))
+              echo "::warning::Upload attempt $attempt failed; retrying in ${wait}s."
+              sleep "$wait"
+            fi
+          done
+          echo "::error::Upload failed three times. Launchpad may be down; re-run this job later."
+          exit 1
+
+      # dput succeeding is not Launchpad accepting. 3.0.0.1 was uploaded
+      # cleanly and never reached the queue -- no build, no rejection shown
+      # anywhere but an email -- and nothing here noticed. So wait for the
+      # upload to appear in the PPA's queue before calling the release done.
+      - name: Confirm Launchpad received it
+        env:
+          PPA: ${{ vars.LAUNCHPAD_PPA || 'ppa:bceverly/milsurp' }}
+        run: |
+          set -eu
+          CHANGES="$(ls artifacts/milsurp_*_source.changes)"
+          VERSION="$(sed -n 's/^Version: //p' "$CHANGES" | head -1)"
+          SERIES="$(sed -n 's/^Distribution: //p' "$CHANGES" | head -1)"
+          SOURCE="$(sed -n 's/^Source: //p' "$CHANGES" | head -1)"
+          OWNER="${PPA#ppa:}"; OWNER="${OWNER%%/*}"
+          NAME="${PPA##*/}"
+          ARCHIVE="https://api.launchpad.net/devel/~${OWNER}/+archive/ubuntu/${NAME}"
+          echo "Waiting for $SOURCE $VERSION ($SERIES) to appear in $PPA"
+
+          # Launchpad processes its upload directory every few minutes. Twenty
+          # is generous; in practice it has been under ten.
+          for minute in $(seq 1 20); do
+            sleep 60
+            status="$(curl -fsS --get \
+                "https://api.launchpad.net/devel/ubuntu/${SERIES}" \
+                --data-urlencode "ws.op=getPackageUploads" \
+                --data-urlencode "archive=${ARCHIVE}" \
+                --data-urlencode "name=${SOURCE}" \
+                --data-urlencode "ws.size=20" \
+              | VERSION="$VERSION" python3 -c '
+          import json, os, sys
+          wanted = os.environ["VERSION"]
+          for entry in json.load(sys.stdin).get("entries", []):
+              if entry.get("display_version") == wanted:
+                  print(entry.get("status", ""))
+                  break
+          ')" || status=""
+            case "$status" in
+              New|Unapproved|Accepted|Done)
+                echo "Launchpad has it: status $status after ${minute} minute(s)."
+                echo "Builds are at https://launchpad.net/~${OWNER}/+archive/ubuntu/${NAME}/+packages"
+                exit 0
+                ;;
+              Rejected)
+                echo "::error::Launchpad rejected $VERSION. The reason is in the email sent to the signing key's address."
+                exit 1
+                ;;
+              *)
+                echo "Not in the queue yet (minute ${minute})."
+                ;;
+            esac
+          done
+          echo "::error::$VERSION never appeared on Launchpad after 20 minutes. The upload was probably lost or refused before it was queued; check the signing key's email, then re-run this job to upload it again."
+          exit 1
