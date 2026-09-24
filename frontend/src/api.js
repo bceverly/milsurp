@@ -282,6 +282,7 @@ export const api = {
 
   // --- what a kind of gun goes for, across every dealer at once ---
   market: (params = {}) => request(`/api/market${qs(params)}`),
+  timeToSell: (params = {}) => request(`/api/market/time-to-sell${qs(params)}`),
 
   // --- hot deals: what is cheap for what it is ---
   //

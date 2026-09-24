@@ -48,10 +48,10 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass, field
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from ..models import Item
+from ..models import FirearmModel, Item, ScanRun, ScanStatus
 
 #: What a group can be cut by. Each is a column on the listing, so a group is
 #: exactly what the browse filter of the same name would return.
@@ -188,4 +188,150 @@ def summarize(
         thin_groups=len(thin),
         thin_listings=sum(len(prices) for prices in thin.values()),
         bands=bands[:limit],
+    )
+
+
+# ---------------------------------------------------------------------------
+# How long a gun takes to sell
+# ---------------------------------------------------------------------------
+#: What the time-to-sell figures can be grouped by. A model is the finer
+#: question -- "how fast do K31s go" -- and a caliber the one with more data.
+TURNOVER_DIMENSIONS = ("model", "caliber")
+
+
+@dataclass
+class Turnover:
+    """One value of the chosen dimension, and how long its listings lasted."""
+
+    value: str
+    sold: int
+    #: Days on the shelf: the median, and the quarter that went fastest and
+    #: slowest. Quartiles rather than the tenth and ninetieth percentiles the
+    #: price bands use, because these samples are small and the tails of a
+    #: small sample are one listing each.
+    median_days: float
+    fast_days: float
+    slow_days: float
+    sites: int = 0
+    top_site_share: float = 0.0
+
+    @property
+    def concentrated(self) -> bool:
+        return self.top_site_share >= CONCENTRATED
+
+
+@dataclass
+class TurnoverSummary:
+    dimension: str
+    min_sample: int
+    #: Listings whose whole time on the shelf was watched, and went into this.
+    measured: int
+    #: Listings that left the shelf but were already there when we started
+    #: watching their shop. Their duration is a floor, not a measurement, so
+    #: they are counted here and kept out of every figure.
+    floors: int
+    thin_groups: int
+    thin_listings: int
+    rows: list[Turnover] = field(default_factory=list)
+
+
+def _watching_since(session: Session) -> dict[int, object]:
+    """When each site's first completed scan finished.
+
+    A listing first seen *after* this arrived while we were watching, so its
+    time on the shelf is a measurement. One seen by the first scan was already
+    there, for however long, and its duration is only an "at least".
+    """
+    return dict(
+        session.execute(
+            select(ScanRun.site_id, func.min(ScanRun.finished_at))
+            .where(ScanRun.status.in_([ScanStatus.SUCCESS, ScanStatus.PARTIAL]))
+            .group_by(ScanRun.site_id)
+        )
+        .tuples()
+        .all()
+    )
+
+
+def time_to_sell(
+    session: Session,
+    dimension: str = "model",
+    *,
+    min_sample: int = MIN_SAMPLE,
+    limit: int = 60,
+) -> TurnoverSummary:
+    """How long each kind of gun stays on the shelf, fastest first.
+
+    **What counts as leaving the shelf** is whichever came first: the listing
+    marked sold (``sold_at``) or the listing gone from its shop
+    (``delisted_at``). Most shops that sell a gun simply take it down, and a
+    figure built on ``sold_at`` alone would describe only the few that mark
+    one sold and leave it up.
+
+    **What is left out, and counted instead:** a listing already on the shelf
+    when we first scanned its shop (its duration is a floor), one that was
+    already sold the first time we saw it (we never saw it for sale), and
+    anything that is not a firearm, for the reason the price bands give.
+
+    Worked out in Python, as the price bands are, so both engines answer.
+    """
+    if dimension not in TURNOVER_DIMENSIONS:
+        raise ValueError(f"Unknown dimension: {dimension}")
+    watching = _watching_since(session)
+    column = FirearmModel.name if dimension == "model" else Item.caliber
+    statement = select(
+        column, Item.site_id, Item.first_seen_at, Item.sold_at, Item.delisted_at
+    ).where(
+        Item.is_rifle.is_(True) | Item.is_pistol.is_(True),
+        Item.sold_at.is_not(None) | Item.delisted_at.is_not(None),
+        column.is_not(None),
+        column != "",
+    )
+    if dimension == "model":
+        statement = statement.join(FirearmModel, FirearmModel.id == Item.firearm_model_id)
+
+    durations: dict[str, list[float]] = {}
+    by_site: dict[str, Counter[int]] = {}
+    floors = 0
+    for value, site_id, first_seen, sold_at, delisted_at in session.execute(statement).all():
+        left = min(moment for moment in (sold_at, delisted_at) if moment is not None)
+        since = watching.get(site_id)
+        if since is None or first_seen is None or first_seen <= since:
+            floors += 1
+            continue
+        days = (left - first_seen).total_seconds() / 86400
+        if days <= 0:
+            # Already sold, or gone, the first time we saw it.
+            continue
+        name = str(value)
+        durations.setdefault(name, []).append(days)
+        by_site.setdefault(name, Counter())[site_id] += 1
+
+    thin = {value: days for value, days in durations.items() if len(days) < min_sample}
+    rows = []
+    for value, days in durations.items():
+        if len(days) < min_sample:
+            continue
+        days.sort()
+        shops = by_site.get(value, Counter())
+        rows.append(
+            Turnover(
+                value=value,
+                sold=len(days),
+                median_days=round(_percentile(days, 0.50), 1),
+                fast_days=round(_percentile(days, 0.25), 1),
+                slow_days=round(_percentile(days, 0.75), 1),
+                sites=len(shops),
+                top_site_share=round(max(shops.values()) / len(days), 3) if shops else 0.0,
+            )
+        )
+    rows.sort(key=lambda row: (row.median_days, -row.sold))
+    return TurnoverSummary(
+        dimension=dimension,
+        min_sample=min_sample,
+        measured=sum(len(days) for days in durations.values()),
+        floors=floors,
+        thin_groups=len(thin),
+        thin_listings=sum(len(days) for days in thin.values()),
+        rows=rows[:limit],
     )

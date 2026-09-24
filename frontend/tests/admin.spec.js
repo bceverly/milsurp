@@ -544,7 +544,9 @@ test.describe("navigation", () => {
     // Bookmarked and linked from the release notes, so a redirect rather than
     // the inventory fallback that every other unknown route gets.
     await signedIn.goto("/manufacturers");
-    await expect(signedIn.getByRole("heading", { name: "Armory" })).toBeVisible();
+    await expect(
+      signedIn.getByRole("heading", { name: "Armory", exact: true }),
+    ).toBeVisible();
   });
 
   test("an unknown route falls back to the inventory", async ({ signedIn }) => {

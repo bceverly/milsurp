@@ -11,7 +11,9 @@ import { test, expect } from "./fixtures.js";
 test.describe("armory undo", () => {
   test("an edit can be undone, and the undo is itself logged", async ({ signedIn }) => {
     await signedIn.getByRole("link", { name: "Armory", exact: true }).click();
-    await expect(signedIn.getByRole("heading", { name: "Armory" })).toBeVisible();
+    await expect(
+      signedIn.getByRole("heading", { name: "Armory", exact: true }),
+    ).toBeVisible();
     await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
     await expect(signedIn.locator(".alert--success")).toBeVisible();
 

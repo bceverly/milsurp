@@ -49,6 +49,37 @@ class TestFilling:
         assert item.caliber_source is None
 
 
+class TestAdoptingAValueOfUnknownOrigin:
+    """Rows written before provenance existed carry no source, and ``fill``
+    returns early on a filled field -- so without adoption they never gain one,
+    and a recompute (which refuses unknown origins) can never reach them."""
+
+    def test_a_matching_unattributed_value_is_adopted(self, item):
+        item.caliber = "8mm Mauser"
+        assert (
+            provenance.fill(item, "caliber", "8mm Mauser", provenance.DERIVED, adopt=True) is False
+        )
+        assert item.caliber == "8mm Mauser"
+        assert item.caliber_source == provenance.DERIVED
+
+    def test_not_without_being_asked(self, item):
+        """The scan asks only for a vendor whose scraper states no facts."""
+        item.caliber = "8mm Mauser"
+        provenance.fill(item, "caliber", "8mm Mauser", provenance.DERIVED)
+        assert item.caliber_source is None
+
+    def test_a_value_the_rules_would_not_produce_stays_unknown(self, item):
+        item.caliber = "7.92x57mm"
+        provenance.fill(item, "caliber", "8mm Mauser", provenance.DERIVED, adopt=True)
+        assert item.caliber == "7.92x57mm"
+        assert item.caliber_source is None
+
+    def test_a_recorded_source_is_never_replaced(self, item):
+        provenance.fill(item, "caliber", "8mm Mauser", provenance.VENDOR)
+        provenance.fill(item, "caliber", "8mm Mauser", provenance.DERIVED, adopt=True)
+        assert item.caliber_source == provenance.VENDOR
+
+
 class TestRespelling:
     def test_it_changes_the_value_and_keeps_the_source(self, item):
         """A vendor who states "7.65mm Browning" is not being argued with, they

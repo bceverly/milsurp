@@ -774,6 +774,11 @@ class Item(Base, TimestampMixin):
     )
 
     is_sold: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
+    #: When a scan (or the watchlist poller) first saw this listing marked
+    #: sold. Cleared if the shop restocks it. The time-to-sell figures on the
+    #: Market page are built from this and ``first_seen_at``; nothing before
+    #: migration 0039 recorded it, so it only exists for sales seen since.
+    sold_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
     # False once the listing stops appearing in a scan (de-listed).
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
 
@@ -1676,6 +1681,33 @@ class HotDealPreference(Base, TimestampMixin):
     last_sent_at: Mapped[datetime | None] = mapped_column(DateTime)
 
     user: Mapped["User"] = relationship(back_populates="hot_deal_preference")
+
+
+class FlyerNotice(Base):
+    """A flyer somebody has already been told about.
+
+    Hunter's Lodge publish their stock as one scanned advertisement at a time,
+    and a new one is news the day it goes up. This is the memory that makes
+    that email go out **once per flyer**: a re-scan of the same flyer, a
+    recovery re-read after an interrupted scan, or a reader-side retry must not
+    mail it again. Keyed by the flyer's signature -- its Wix media id and issue
+    name -- which is also the prefix of every listing key read from it.
+    """
+
+    __tablename__ = "flyer_notices"
+    __table_args__ = (UniqueConstraint("site_id", "signature", name="uq_flyer_notice"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    site_id: Mapped[int] = mapped_column(
+        ForeignKey("sites.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    signature: Mapped[str] = mapped_column(String(255), nullable=False)
+    #: How many listings the email carried, and how many readers it went to.
+    listings: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    recipients: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    #: The scan read the flyer with warnings, and the email said so.
+    partial: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    sent_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
 
 
 class HotDealNotice(Base):

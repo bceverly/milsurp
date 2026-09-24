@@ -253,6 +253,8 @@ def item_from_record(record: dict[str, Any], label: str) -> ScrapedItem | None:
 
 
 class SimpsonLtdScraper(SiteScraper):
+    #: Hands over the vendor's own caliber, country or maker. See SiteScraper.
+    states_facts = True
     slug = "simpson-ltd"
     name = "Simpson Ltd."
     base_url = SITE_BASE

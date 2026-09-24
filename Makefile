@@ -235,8 +235,10 @@ refetch-details: $(VENV_PY) ## Re-read product pages next scan (default: descrip
 	@$(VENV_PY) backend/cli.py refetch-details $(if $(site),--site "$(site)",) $(if $(all),--all,) $(if $(dry),--dry-run,)
 
 .PHONY: scan
-scan: $(VENV_PY) ## Scan every enabled site now (or one: make scan site=empire-arms)
-	@if [ -n "$(site)" ]; then \
+scan: $(VENV_PY) ## Scan every enabled site now (or one: make scan site=empire-arms; add dry=1 to store nothing)
+	@if [ -n "$(site)" ] && [ -n "$(dry)" ]; then \
+		$(VENV_PY) backend/cli.py scan --site "$(site)" --dry-run --limit "$${limit:-10}"; \
+	elif [ -n "$(site)" ]; then \
 		$(VENV_PY) backend/cli.py scan --site "$(site)"; \
 	else \
 		$(VENV_PY) backend/cli.py scan; \

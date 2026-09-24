@@ -74,6 +74,8 @@ PAGE_SIZE = 60
 
 
 class AimSurplusScraper(SiteScraper):
+    #: Hands over the vendor's own caliber, country or maker. See SiteScraper.
+    states_facts = True
     slug = "aim-surplus"
     name = "AIM Surplus"
     base_url = SITE_BASE

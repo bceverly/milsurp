@@ -55,6 +55,7 @@ from . import (
     classify,
     curio,
     discovery,
+    flyer_alert,
     manufacturers,
     overrides,
     provenance,
@@ -291,6 +292,18 @@ class _RunLog:
         self._last_flush = time.monotonic()
 
 
+def states_facts(site_slug: str) -> bool:
+    """Whether this vendor's scraper ever hands over caliber, country or maker.
+
+    For one that never does, any such value stored on its rows came from the
+    rules or the armory, so a matching re-derivation may record that. See
+    ``provenance.fill(adopt=...)``. An unregistered scraper answers True: with
+    nothing to ask, the cautious answer is that the vendor might have.
+    """
+    scraper = get_scraper_class(site_slug)
+    return True if scraper is None else bool(getattr(scraper, "states_facts", True))
+
+
 def descriptions_are_reliable(site_slug: str) -> bool:
     """Whether this vendor's prose is about the listing it is attached to.
 
@@ -389,6 +402,60 @@ def _stored_item(session: Session, site: Site, scraped: ScrapedItem) -> Item | N
     return item
 
 
+def _fill_derived(
+    session: Session, site: Site, item: Item, derived: classify.EnrichedFields, trusted: bool
+) -> bool:
+    """Fill caliber, country, condition and maker from the rules, where empty.
+
+    Returns ``adopt`` -- whether this vendor states none of these itself, and
+    so whether a matching stored value of unknown origin may be attributed to
+    the rules or the armory. The catalog step that follows needs the same
+    answer.
+    """
+    # And the descriptive fields, where the vendor gave none. Some catalogs
+    # publish the caliber as its own field and some write it into the title;
+    # a WooCommerce shop has nowhere structured to put it at all, so the first
+    # of them read every rifle in as "7.62x54R" in the title and blank in the
+    # column. Only the gaps are filled — a value the vendor stated is theirs.
+    #
+    # ``adopt`` for a vendor that never states these: a stored value of
+    # unknown origin that the rules reproduce is the rules', and saying so is
+    # what lets a later rule fix reach it. See provenance.fill.
+    adopt = not states_facts(site.slug)
+    provenance.fill(item, "caliber", derived["caliber"], provenance.DERIVED, adopt=adopt)
+    provenance.fill(item, "country", derived["country"], provenance.DERIVED, adopt=adopt)
+    provenance.fill(item, "condition", derived["condition"], provenance.DERIVED, adopt=adopt)
+
+    # The maker last, because the caliber is one of the things that names it —
+    # a great many surplus cartridges are called after the firm that designed
+    # them — and the caliber is only settled on the line above. Derived first,
+    # this read a caliber that was not there yet.
+    if not item.manufacturer or (adopt and provenance.source_of(item, "manufacturer") is None):
+        provenance.fill(
+            item,
+            "manufacturer",
+            manufacturers.extract(
+                session,
+                item.title,
+                item.description if trusted else None,
+                item.caliber,
+            ),
+            provenance.DERIVED,
+            adopt=adopt,
+        )
+    # Whichever way it arrived, written the way the table writes it. A vendor
+    # who states "S&W" is not being argued with -- they are being spelled --
+    # and without this the Manufacturer filter offered "S&W" and
+    # "Smith & Wesson" as two firms, 25 listings under one and 53 under the
+    # other, with no way to ask for both.
+    #
+    # Through respell, so it stays a spelling: the field still says whoever
+    # actually had the opinion.
+    provenance.respell(item, "manufacturer", manufacturers.canonical(session, item.manufacturer))
+
+    return adopt
+
+
 def _upsert_item(
     session: Session,
     site: Site,
@@ -432,6 +499,13 @@ def _upsert_item(
     # and `reclassify --recompute` is the way to force a rebuild.
     _fill_from_vendor(item, scraped)
     trusted = descriptions_are_reliable(site.slug)
+    # When it sold, not only whether: the Market page's time-to-sell figures
+    # are built from this. Stamped on the scan that first sees it sold, and
+    # cleared if the shop restocks, so a sale is never dated by a later scan.
+    if scraped.is_sold and not item.is_sold:
+        item.sold_at = seen_at
+    elif not scraped.is_sold:
+        item.sold_at = None
     item.is_sold = scraped.is_sold
     item.currency = scraped.currency
     if scraped.posted_at:
@@ -494,42 +568,8 @@ def _upsert_item(
     item.is_parts_kit = derived["is_parts_kit"]
     item.is_police_surplus = derived["is_police_surplus"]
 
-    # And the descriptive fields, where the vendor gave none. Some catalogs
-    # publish the caliber as its own field and some write it into the title;
-    # a WooCommerce shop has nowhere structured to put it at all, so the first
-    # of them read every rifle in as "7.62x54R" in the title and blank in the
-    # column. Only the gaps are filled — a value the vendor stated is theirs.
-    provenance.fill(item, "caliber", derived["caliber"], provenance.DERIVED)
-    provenance.fill(item, "country", derived["country"], provenance.DERIVED)
-    provenance.fill(item, "condition", derived["condition"], provenance.DERIVED)
-
-    # The maker last, because the caliber is one of the things that names it —
-    # a great many surplus cartridges are called after the firm that designed
-    # them — and the caliber is only settled on the line above. Derived first,
-    # this read a caliber that was not there yet.
-    if not item.manufacturer:
-        provenance.fill(
-            item,
-            "manufacturer",
-            manufacturers.extract(
-                session,
-                item.title,
-                item.description if trusted else None,
-                item.caliber,
-            ),
-            provenance.DERIVED,
-        )
-    # Whichever way it arrived, written the way the table writes it. A vendor
-    # who states "S&W" is not being argued with -- they are being spelled --
-    # and without this the Manufacturer filter offered "S&W" and
-    # "Smith & Wesson" as two firms, 25 listings under one and 53 under the
-    # other, with no way to ask for both.
-    #
-    # Through respell, so it stays a spelling: the field still says whoever
-    # actually had the opinion.
-    provenance.respell(item, "manufacturer", manufacturers.canonical(session, item.manufacturer))
-
-    _apply_catalog(session, item, trusted)
+    adopt = _fill_derived(session, site, item, derived, trusted)
+    _apply_catalog(session, item, trusted, adopt=adopt)
 
     # Last word, after the vendor's fields, the heuristics and the armory.
     # A person who corrected this listing did so knowing what the rules said,
@@ -550,7 +590,7 @@ def _upsert_item(
     return item, created, price_dropped
 
 
-def _apply_catalog(session: Session, item: Item, trusted: bool) -> None:
+def _apply_catalog(session: Session, item: Item, trusted: bool, *, adopt: bool = False) -> None:
     """Let the armory correct and complete what the guesses said.
 
     It outranks them because it is not a guess: somebody who knows the trade
@@ -578,8 +618,10 @@ def _apply_catalog(session: Session, item: Item, trusted: bool) -> None:
         item.caliber,
         stated_kind=item.stated_kind,
         # Nothing a model says is offered to a listing that is not a gun --
-        # see fill_in. The classification above has already settled that.
+        # see fill_in. The classification above has already settled that. A
+        # parts kit is linked to the model it builds, and takes nothing else.
         is_firearm=item.is_rifle or item.is_pistol,
+        is_parts_kit=item.is_parts_kit,
     )
     # Which model, recorded rather than merely used. Without it the armory
     # shaped a listing and left nothing to say it had: no way to browse the
@@ -607,9 +649,12 @@ def _apply_catalog(session: Session, item: Item, trusted: bool) -> None:
         # permission over the vendor's own field, which is the original bug.
         if item.caliber:
             provenance.respell(item, "caliber", found.caliber)
+            # Still unattributed after the rules had their turn means the
+            # armory is where it came from -- for a vendor that states none.
+            provenance.fill(item, "caliber", found.caliber, provenance.CATALOG, adopt=adopt)
         else:
             provenance.fill(item, "caliber", found.caliber, provenance.CATALOG)
-    provenance.fill(item, "manufacturer", found.manufacturer, provenance.CATALOG)
+    provenance.fill(item, "manufacturer", found.manufacturer, provenance.CATALOG, adopt=adopt)
     # Same one-directional fill, and for a sharper reason than the maker. The
     # model's country is where the *pattern* comes from; a listing's is where
     # this particular gun is said to be from, and those genuinely differ -- a
@@ -628,6 +673,7 @@ def _apply_catalog(session: Session, item: Item, trusted: bool) -> None:
         "country",
         found.country or manufacturers.country_for(session, item.manufacturer),
         provenance.CATALOG,
+        adopt=adopt,
     )
     # The kind *refines*, it never promotes. The armory knows what a model is;
     # it does not know whether this listing is selling one. "Early style band
@@ -709,14 +755,18 @@ def _reconcile_photos(session: Session, item: Item, scraped: ScrapedItem) -> Non
             session.delete(stale_photo)
 
 
-def _mark_delisted(
+#: Below this many active listings the shrink guard does not apply. On a shelf
+#: of twelve, selling four is a third of it and entirely ordinary.
+MIN_ACTIVE_FOR_SHRINK_GUARD = 20
+
+
+def _stale_items(
     session: Session,
     site: Site,
     seen_keys: set[str],
-    seen_at: datetime,
     unread_categories: set[str] | None = None,
-) -> int:
-    """De-list active items the scraper did not return this run.
+) -> tuple[int, list[Item]]:
+    """How many listings are active, and which of them this run did not see.
 
     ``unread_categories`` names sections the scraper says it never opened --
     refused by robots.txt, skipped as unchanged, cut short by an error. A
@@ -725,19 +775,45 @@ def _mark_delisted(
     refused scan quietly empties half a catalog.
     """
     skip = unread_categories or set()
-    stale = (
+    active = (
         session.execute(select(Item).where(Item.site_id == site.id, Item.is_active.is_(True)))
         .scalars()
         .all()
     )
-    count = 0
-    for item in stale:
-        if item.external_key in seen_keys or item.category in skip:
-            continue
+    going = [
+        item for item in active if item.external_key not in seen_keys and item.category not in skip
+    ]
+    return len(active), going
+
+
+def _shrink_warning(
+    active: int, going: int, share: float | None, *, slug: str, accepted: bool
+) -> str | None:
+    """Why this run must not de-list what it did not see, or None if it may.
+
+    A run that would remove more than ``share`` of a catalog of any size has,
+    far more often than not, stopped reading it rather than watched it sell.
+    Holding back costs one scan of stale listings; letting it through costs
+    their price history, their watchers and their armory matches.
+    """
+    if accepted or share is None or active < MIN_ACTIVE_FOR_SHRINK_GUARD:
+        return None
+    if going <= share * active:
+        return None
+    return (
+        f"This scan would de-list {going} of {active} active listings "
+        f"({going / active:.0%}), more than the {share:.0%} a normal scan does, so "
+        f"nothing was de-listed. If the shop really did remove them, run "
+        f"`cli.py scan --site {slug} --accept-delist`."
+    )
+
+
+def _mark_delisted(going: list[Item], seen_at: datetime) -> int:
+    """De-list the listings :func:`_stale_items` found missing."""
+    for item in going:
         item.is_active = False
         item.delisted_at = seen_at
-        count += 1
-    return count
+    return len(going)
 
 
 def _store_generated_images(session: Session, item: Item, scraped: ScrapedItem) -> None:
@@ -1187,9 +1263,13 @@ def schedule_next(
 
 
 def run_scan(  # noqa: PLR0912,PLR0915 - one linear scan lifecycle; see ROADMAP
-    site_id: int, trigger: str = "scheduled"
+    site_id: int, trigger: str = "scheduled", *, accept_delist: bool = False
 ) -> int:
     """Scan one site start to finish. Returns the ``ScanRun`` id.
+
+    ``accept_delist`` lets this one run de-list more than the site's
+    ``max_delist_share`` -- the operator saying "yes, they really did remove
+    those". Nothing unattended passes it.
 
     Raises :class:`ScanBusy` when a scan for the site is already in flight.
     """
@@ -1404,11 +1484,23 @@ def run_scan(  # noqa: PLR0912,PLR0915 - one linear scan lifecycle; see ROADMAP
                         + ", ".join(sorted(ctx.unread_categories))
                         + ": those sections were not read this run."
                     )
-                delisted = (
-                    0
-                    if ctx.unchanged or held_back
-                    else _mark_delisted(session, site, seen_keys, seen_at, ctx.unread_categories)
-                )
+                delisted = 0
+                if not (ctx.unchanged or held_back):
+                    active, going = _stale_items(session, site, seen_keys, ctx.unread_categories)
+                    shrunk = _shrink_warning(
+                        active,
+                        len(going),
+                        scraper.max_delist_share,
+                        slug=site.slug,
+                        accepted=accept_delist,
+                    )
+                    if shrunk:
+                        # A warning, so the run finishes PARTIAL and the Sites
+                        # page shows it -- not a failure, because everything
+                        # it did read is good and has been stored.
+                        ctx.warn(shrunk)
+                    else:
+                        delisted = _mark_delisted(going, seen_at)
                 session.commit()
                 log(
                     f"Reconciled: {created} new, {updated} updated, "
@@ -1430,6 +1522,20 @@ def run_scan(  # noqa: PLR0912,PLR0915 - one linear scan lifecycle; see ROADMAP
                 if ctx.warnings:
                     run.error_message = "; ".join(ctx.warnings[:10])
                 site.last_success_at = utcnow()
+                session.commit()
+                # A shop that publishes its stock as one advertisement at a time
+                # has news the day a new one is read, so it is mailed now rather
+                # than left for the digest. Only after listings were stored, and
+                # never allowed to fail the scan that found them: the catalog is
+                # already committed and is the part that matters.
+                if getattr(scraper, "announces_new_catalog", False) and created:
+                    try:
+                        mailed = flyer_alert.announce(session, site, partial=bool(ctx.warnings))
+                        if mailed:
+                            log(f"New catalog mailed to {mailed} reader(s).")
+                    except Exception as exc:  # deliberate: see above
+                        session.rollback()
+                        log(f"Could not mail the new catalog: {type(exc).__name__}: {exc}")
                 log(f"Scan finished: {run.status.value}.")
 
             except ScrapeCanceled:

@@ -224,6 +224,40 @@ class TestAModelOnlyDescribesAGun:
         assert armory.fill_in(seeded, "US M1 Carbine").caliber == ".32 ACP"
 
 
+class TestAPartsKitIsLinkedToTheModelItBuilds:
+    """A kit is the gun minus its receiver, so the model it names is the one it
+    builds -- and linking it is what lets kits be filtered by model. The
+    model's other facts still describe the complete gun and stay put."""
+
+    def test_the_model_is_linked(self, seeded, carbine):
+        found = armory.fill_in(
+            seeded, "US M1 Carbine Parts Kit", is_firearm=False, is_parts_kit=True
+        )
+        assert found.model_id == carbine.id
+
+    def test_and_nothing_else_is_taken_from_it(self, seeded, carbine):
+        found = armory.fill_in(
+            seeded, "US M1 Carbine Parts Kit", is_firearm=False, is_parts_kit=True
+        )
+        assert found.caliber is None
+        assert found.kind is None
+        assert found.manufacturer is None
+        assert found.country is None
+
+    def test_its_own_caliber_is_still_spelled_the_armorys_way(self, seeded, carbine):
+        found = armory.fill_in(
+            seeded,
+            "US M1 Carbine Parts Kit",
+            caliber="7.65mm Browning",
+            is_firearm=False,
+            is_parts_kit=True,
+        )
+        assert found.caliber == ".32 ACP"
+
+    def test_a_bayonet_is_still_not_linked(self, seeded, carbine):
+        assert armory.fill_in(seeded, "US M1 Carbine BAYONET", is_firearm=False).model_id is None
+
+
 class TestTheKindsMapOntoTheBrowseFilter:
     @pytest.mark.parametrize(
         "kind",
@@ -1245,6 +1279,9 @@ class TestAnEditWritesThroughToTheListings:
                     external_key=f"k{n}",
                     url="https://s.test/x",
                     title=title,
+                    # Handguns, because they are: re-linking follows the scan's
+                    # rule, and only a gun or a parts kit takes a model.
+                    is_pistol=True,
                 )
             )
         clean_db.commit()
@@ -1303,6 +1340,36 @@ class TestAnEditWritesThroughToTheListings:
         shelf.commit()
         assert shelf.query(Item).filter(Item.firearm_model_id.is_not(None)).count() == 0
 
+    def test_a_parts_kit_is_linked_and_a_bayonet_is_not(self, shelf):
+        """The scan's rule, applied here too. This used to link anything whose
+        title named the model, bayonets included, and give them its caliber --
+        which the next scan then quietly undid."""
+        from app.models import Item
+
+        site_id = shelf.query(Item).first().site_id
+        kit = Item(
+            site_id=site_id,
+            external_key="kit",
+            url="https://s.test/kit",
+            title="Glock 22 Parts Kit",
+            is_parts_kit=True,
+        )
+        blade = Item(
+            site_id=site_id,
+            external_key="blade",
+            url="https://s.test/blade",
+            title="Glock 22 Bayonet Adapter",
+            is_bayonet=True,
+        )
+        shelf.add_all([kit, blade])
+        shelf.commit()
+
+        row = self._model(shelf)
+        armory.promote(shelf, "models", [row.id])
+        shelf.commit()
+        assert kit.firearm_model_id == row.id
+        assert blade.firearm_model_id is None
+
     def test_it_only_visits_listings_the_change_could_reach(self, shelf):
         """Scoped rather than exhaustive: re-running the whole catalog on every
         edit would be correct and slow. A listing whose text contains none of
@@ -1320,3 +1387,49 @@ class TestAnEditWritesThroughToTheListings:
         clean_db.add(row)
         clean_db.commit()
         assert armory.promote(clean_db, "manufacturers", [row.id]) == (1, 0)
+
+
+class TestPartsKitsCanBeFilteredByModel:
+    """Choosing Parts kits and then a model: the browse page's own Model
+    facet and filter, which work for kits once kits carry the link."""
+
+    def test_the_model_facet_and_filter_answer_for_kits(self, client, admin_headers, seeded):
+        from app.models import Item, Site
+
+        model = FirearmModel(name="MG42", status=ArmoryStatus.APPROVED)
+        site = seeded.query(Site).order_by(Site.id).first()
+        seeded.add(model)
+        seeded.flush()
+        seeded.add_all(
+            [
+                Item(
+                    site_id=site.id,
+                    external_key="kit-1",
+                    url="https://k.test/1",
+                    title="MG42 Parts Kit",
+                    is_parts_kit=True,
+                    firearm_model_id=model.id,
+                    current_price=900.0,
+                ),
+                Item(
+                    site_id=site.id,
+                    external_key="kit-2",
+                    url="https://k.test/2",
+                    title="CETME Model C Parts Kit",
+                    is_parts_kit=True,
+                    current_price=400.0,
+                ),
+            ]
+        )
+        seeded.commit()
+
+        body = client.get(
+            "/api/items?kind=parts_kit&include_facets=true", headers=admin_headers
+        ).json()
+        offered = {row["label"] or row["value"]: row["count"] for row in body["facets"]["models"]}
+        assert offered.get("MG42") == 1
+
+        chosen = client.get(
+            f"/api/items?kind=parts_kit&model={model.id}", headers=admin_headers
+        ).json()
+        assert [row["title"] for row in chosen["items"]] == ["MG42 Parts Kit"]

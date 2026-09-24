@@ -682,6 +682,23 @@ class SiteScraper(abc.ABC):
     #: from being treated as evidence about this listing's caliber, country,
     #: maker and condition.
     descriptions_are_reliable: bool = True
+    #: The largest share of this site's active listings one scan may de-list
+    #: before the scan stops and asks. A normal scan de-lists a few percent --
+    #: measured across 42 dev scans, nothing above 13% that was not a failure
+    #: or a scraper being rewritten -- so a scan that would remove a third of a
+    #: catalog has far more likely stopped *reading* it: a changed page layout,
+    #: a refused section, a selector that matches half the cards. None switches
+    #: the guard off, for a source that replaces its whole catalog at once --
+    #: Hunter's Lodge, whose every new flyer is a new set of listings.
+    max_delist_share: float | None = 0.3
+    #: Whether this scraper ever hands over caliber, country or maker as the
+    #: vendor's own. Most never do -- the values on their rows come from the
+    #: rules and the armory -- and saying so lets a scan attribute a stored
+    #: value of unknown origin to whichever of those reproduces it, which is
+    #: what a later rule fix needs before it may touch it. **Set it True on any
+    #: scraper that fills one of those three fields**, or the vendor's word
+    #: could be mistaken for ours. ``test_states_facts`` checks the source.
+    states_facts: bool = False
     #: Default cadence for a freshly seeded site row, in minutes.
     default_interval_minutes: int = 1440
 

@@ -2649,6 +2649,16 @@
   color: var(--ink-500);
 }
 
+/* A second question on the same page, so it gets room above it rather than
+   running on from the price table's footnote. */
+.market-turnover {
+  margin-top: 36px;
+}
+
+.market-turnover h2 {
+  margin: 0 0 4px;
+}
+
 /* --- The price filter: histogram, two handles, two boxes ---------------- */
 
 .price-range__chart {

@@ -233,6 +233,20 @@ class TestAPatternYearIsNotADate:
         assert "M1903A3" in found.models
         assert not [name for name in found.models if name.endswith(("1943", "1944"))]
 
+    def test_but_a_parts_kit_proposes_the_model_it_builds(self, clean_db, site):
+        """A kit is the gun minus its receiver. 107 MG42 kits matched no model
+        when kits were first read here, so none of them could be filtered."""
+        listing(
+            clean_db,
+            site,
+            "MG42 Parts Kit - WWII Era Original German",
+            is_rifle=False,
+            is_parts_kit=True,
+        )
+        found = discovery.discover(clean_db, clean_db.query(Item).all())
+        clean_db.commit()
+        assert "MG42" in found.models
+
     def test_and_a_bayonet_proposes_nothing(self, clean_db, site):
         """Same rule the whole module runs on: a designation on something that
         is not a gun names what it fits."""

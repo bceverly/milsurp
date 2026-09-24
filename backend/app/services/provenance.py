@@ -86,14 +86,27 @@ def source_of(item: Item, field: str) -> str | None:
     return getattr(item, SOURCE_COLUMNS[field], None)
 
 
-def fill(item: Item, field: str, value: str | None, source: str) -> bool:
+def fill(item: Item, field: str, value: str | None, source: str, *, adopt: bool = False) -> bool:
     """Set *field* only if it is empty, recording who set it.
 
     Returns whether anything was written. This is the shape every one of the
     three steps already had -- ``item.caliber = item.caliber or derived`` --
     made explicit so the source cannot drift away from the value it describes.
+
+    ``adopt`` records the source of a value that is already there, of unknown
+    origin, and identical to the one this step just produced. Without it no
+    row written before migration 0031 ever gained a source -- this returns
+    early on a filled field -- and a recompute, which refuses unknown origins,
+    could never reach them. The caller passes it only for a vendor whose
+    scraper states none of these facts itself, where "the rules produce exactly
+    this" is the whole of how the value can have got there.
     """
-    if not value or getattr(item, field):
+    if not value:
+        return False
+    current = getattr(item, field)
+    if current:
+        if adopt and current == value and source_of(item, field) is None:
+            setattr(item, SOURCE_COLUMNS[field], source)
         return False
     setattr(item, field, value)
     setattr(item, SOURCE_COLUMNS[field], source)

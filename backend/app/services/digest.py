@@ -1370,3 +1370,186 @@ def send_hot_deals(
     session.add(entry)
     session.commit()
     return entry
+
+
+# -- a new flyer --------------------------------------------------------------
+#: Most listings one new-flyer email names. A Hunter's Lodge flyer is about
+#: thirty; the cap is for a shop whose "flyer" turns out to be far larger.
+MAX_FLYER_ROWS = 60
+
+
+def _flyer_row(item: Item, base_url: str, photo_cid: str | None) -> str:
+    """One listing from the flyer: its crop from the scan, its words, its price."""
+    here = f"{base_url}/items/{item.id}"
+    price = _money(item.current_price, item.currency) if item.current_price else "Call for price"
+    picture = (
+        f"""
+        <td width="112" valign="top"
+            style="padding:14px 12px 14px 0;border-bottom:1px solid #E3E8F0;">
+          <a href="{_e(here)}" style="text-decoration:none;">
+            <img src="cid:{photo_cid}" width="100" alt=""
+                 style="display:block;width:100px;height:auto;
+                        border-radius:6px;border:1px solid #E3E8F0;" />
+          </a>
+        </td>"""
+        if photo_cid
+        else ""
+    )
+    return f"""
+      <tr>{picture}
+        <td valign="top" style="padding:14px 0;border-bottom:1px solid #E3E8F0;">
+          <a href="{_e(here)}" style="color:{NAVY};font-weight:600;font-size:15px;
+             text-decoration:none;line-height:1.35;">{_e(truncate(item.title, TITLE_CHARS))}</a>
+          <div style="margin:8px 0 0;">
+            <span style="color:{NAVY};font-weight:700;font-size:16px;">{price}</span>
+          </div>
+        </td>
+      </tr>"""
+
+
+def render_new_flyer(
+    user: User, site: Site, items: list[Item], config: Config, *, partial: bool = False
+) -> tuple[str, str, dict[str, bytes]]:
+    """``(subject, html_body, inline_images)`` for a newly published flyer.
+
+    Every listing, in the order the flyer was read, each with the crop of the
+    scan it came from -- that crop is the only photograph these listings have,
+    and it is what the reader would see on the shop's own page.
+    """
+    base_url = config.server.public_url
+    shown = items[:MAX_FLYER_ROWS]
+    subject = (
+        f"{BRAND}: new {site.name} flyer, {len(items)} listing{'s' if len(items) != 1 else ''}"
+    )
+
+    images = inline_images()
+    photo_cids: dict[int, str] = {}
+    store = ImageStore(config)
+    budget = MAX_EMAIL_PHOTO_BYTES
+    for item in shown:
+        if len(photo_cids) >= MAX_EMAIL_PHOTOS or budget <= 0:
+            break
+        payload = _photo_for(item, store)
+        if payload is None or len(payload) > budget:
+            continue
+        cid = f"item-{item.id}"
+        images[cid] = payload
+        photo_cids[item.id] = cid
+        budget -= len(payload)
+
+    rows = "".join(_flyer_row(item, base_url, photo_cids.get(item.id)) for item in shown)
+    more = (
+        f"""<tr><td style="padding:12px 24px 0;color:{MUTED};font-size:13px;">
+        and {len(items) - len(shown)} more on the site.</td></tr>"""
+        if len(items) > len(shown)
+        else ""
+    )
+    caveat = (
+        f"""<tr><td style="padding:14px 24px 0;color:{MUTED};font-size:13px;line-height:1.5;">
+        The flyer was read with some difficulty, so a listing or two may be missing
+        or misread here. The shop's own page has the scan itself.</td></tr>"""
+        if partial
+        else ""
+    )
+    mark = (
+        f'<img src="cid:{MARK_CID}" width="132" height="82" alt="{_e(BRAND)}" '
+        f'style="display:block;margin:0 auto;border:0;outline:none;text-decoration:none;" />'
+        if _mark_bytes() is not None
+        else ""
+    )
+
+    body = f"""<!doctype html>
+<html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{_e(subject)}</title></head>
+<body style="margin:0;padding:0;background:{PAPER};
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+       style="background:{PAPER};padding:24px 12px;">
+<tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+       style="max-width:620px;background:#FFFFFF;border-radius:12px;overflow:hidden;
+              box-shadow:0 1px 3px rgba(10,34,64,.12);">
+
+  <tr><td style="background:{NAVY};padding:24px;text-align:center;">
+    {mark}
+    <div style="color:#FFFFFF;font-size:20px;font-weight:700;letter-spacing:.02em;
+         margin-top:10px;">{BRAND}</div>
+    <div style="color:{SILVER};font-size:12px;margin-top:4px;">New from {_e(site.name)}</div>
+  </td></tr>
+
+  <tr><td style="padding:20px 24px 0;color:{INK};font-size:14px;line-height:1.5;">
+    Hello {_e(user.full_name or user.username)}, {_e(site.name)} have put up a new
+    advertisement and it has just been read. Their stock turns over by the issue,
+    so here is all of it now rather than in your next digest.
+  </td></tr>
+  {caveat}
+
+  <tr><td style="padding:12px 24px 0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+           style="border-collapse:collapse;">{rows}</table>
+  </td></tr>
+  {more}
+
+  <tr><td style="padding:26px 24px 24px;">
+    <a href="{_e(base_url)}/?site_id={site.id}" style="display:inline-block;background:{BLUE};
+       color:#FFFFFF;text-decoration:none;padding:11px 22px;border-radius:6px;
+       font-weight:600;font-size:14px;">See them all</a>
+    <a href="{_e(site.base_url)}" style="display:inline-block;margin-left:10px;
+       color:{BLUE};text-decoration:none;padding:11px 4px;font-weight:600;font-size:14px;">
+       The flyer on their site</a>
+  </td></tr>
+
+  <tr><td style="background:{NAVY_DEEP};padding:16px 24px;color:{SILVER};font-size:11px;
+      line-height:1.6;">
+    You are receiving this because {_e(site.name)} is one of the sites your {BRAND}
+    account follows. Each flyer is sent once. To stop these, leave {_e(site.name)}
+    out of the sites on <a href="{_e(base_url)}/settings" style="color:#FFFFFF;">your
+    email settings</a>.
+  </td></tr>
+
+</table></td></tr></table></body></html>"""
+    return subject, body, images
+
+
+def send_new_flyer(
+    session: Session,
+    user: User,
+    site: Site,
+    items: list[Item],
+    *,
+    partial: bool = False,
+    config: Config | None = None,
+) -> EmailLog:
+    """Mail one reader a new flyer. Out of band, like a watch alert or hot deals.
+
+    It touches neither the digest's schedule nor its watermark: those listings
+    will still appear in the next digest as new, which is the digest's job, and
+    this email does not get to decide what that one says.
+    """
+    config = config or get_config()
+    subject, body, images = render_new_flyer(user, site, items, config, partial=partial)
+    try:
+        mailer.send_html(user.email, subject, body, config=config, inline_images=images)
+    except mailer.MailError as exc:
+        entry = EmailLog(
+            user_id=user.id,
+            status=EmailStatus.FAILED,
+            subject=subject,
+            error_message=str(exc),
+            body_html=body,
+            body_text=mailer.html_to_text(body),
+        )
+        session.add(entry)
+        session.commit()
+        return entry
+    entry = EmailLog(
+        user_id=user.id,
+        status=EmailStatus.SENT,
+        subject=subject,
+        body_html=body,
+        body_text=mailer.html_to_text(body),
+    )
+    session.add(entry)
+    session.commit()
+    return entry

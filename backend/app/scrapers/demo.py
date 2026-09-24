@@ -33,6 +33,8 @@ CATALOG: tuple[tuple[str, str, float, str], ...] = (
 
 
 class DemoScraper(SiteScraper):
+    #: Hands over the vendor's own caliber, country or maker. See SiteScraper.
+    states_facts = True
     slug = "demo-vendor"
     name = "Demo Vendor"
     base_url = "https://demo.invalid/"

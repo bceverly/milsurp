@@ -291,7 +291,97 @@ def cmd_sites(_args: argparse.Namespace) -> int:
     return 0
 
 
+def _dry_run_scan(slug: str, limit: int) -> int:
+    """Run one scraper for real, print what it parsed, and store nothing.
+
+    The question this answers is the one adding a vendor keeps asking: did the
+    selectors find the listings, with prices, and does the classifier file
+    them where they belong? A full scan answers it too, by writing a catalog
+    you then have to look at and possibly undo. This reads ``limit`` listings
+    through the same ``ScrapeContext`` a scan uses -- robots.txt, pacing, the
+    product-page fetches -- and closes the scraper, which is how the canary
+    probes too. Nothing is written: no scan row, no listings, no photos.
+    """
+    from app.scrapers import ScrapeContext, ScrapeError, get_scraper
+    from app.services import classify
+
+    scraper = get_scraper(slug)
+    if scraper is None:
+        print(f"No scraper is registered for {slug!r}.", file=sys.stderr)
+        return 1
+    print(f"=== Dry run: {scraper.name} (first {limit} listing(s); nothing is stored) ===")
+    ctx = ScrapeContext(get_config(), progress=lambda message: print(f"  · {message}"))
+    stream = iter(scraper.scrape(ctx))
+    items = []
+    try:
+        for item in stream:
+            items.append(item)
+            if len(items) >= limit:
+                break
+    except ScrapeError as exc:
+        print(f"\nThe scraper failed: {exc}", file=sys.stderr)
+        return 1
+    finally:
+        close = getattr(stream, "close", None)
+        if callable(close):
+            close()
+        ctx.close()
+
+    buckets: dict[str, int] = {}
+    print()
+    for item in items:
+        derived = classify.enrich(
+            item.title,
+            item.description,
+            item.price,
+            category=item.category,
+            stated_kind=item.stated_kind,
+            trust_description=scraper.descriptions_are_reliable,
+        )
+        kind = (
+            "parts kit"
+            if derived["is_parts_kit"]
+            else (
+                "rifle"
+                if derived["is_rifle"]
+                else (
+                    "handgun"
+                    if derived["is_pistol"]
+                    else "bayonet" if derived["is_bayonet"] else "other"
+                )
+            )
+        )
+        buckets[kind] = buckets.get(kind, 0) + 1
+        price = f"${item.price:,.2f}" if item.price is not None else "no price"
+        flags = " SOLD" if item.is_sold else ""
+        print(f"  {kind:9} {price:>11}{flags:5}  {item.title[:70]}")
+        print(
+            f"  {'':9} {'':11}       key={item.external_key}  "
+            f"photos={len(item.image_urls) + len(item.generated_images)}  "
+            f"description={'yes' if item.description else 'no'}  "
+            f"category={item.category!r}"
+        )
+
+    print(f"\n{len(items)} listing(s) read.")
+    if items:
+        print("  " + ", ".join(f"{count} {kind}" for kind, count in sorted(buckets.items())))
+        priced = sum(1 for item in items if item.price is not None)
+        described = sum(1 for item in items if item.description)
+        print(f"  {priced} priced, {described} with a description.")
+    if ctx.warnings:
+        print(f"\n{len(ctx.warnings)} warning(s) -- a real scan would finish PARTIAL:")
+        for warning in ctx.warnings:
+            print(f"  ! {warning}")
+    return 0
+
+
 def cmd_scan(args: argparse.Namespace) -> int:
+    if args.dry_run:
+        if not args.site:
+            print("--dry-run needs --site: it reads one vendor.", file=sys.stderr)
+            return 2
+        return _dry_run_scan(args.site, args.limit)
+
     with session_scope() as session:
         if args.site:
             site = session.execute(select(Site).where(Site.slug == args.site)).scalars().first()
@@ -317,7 +407,7 @@ def cmd_scan(args: argparse.Namespace) -> int:
     for site_id, name in targets:
         print(f"\n=== Scanning {name} ===")
         try:
-            run_id = scan_service.run_scan(site_id, trigger="cli")
+            run_id = scan_service.run_scan(site_id, trigger="cli", accept_delist=args.accept_delist)
         except scan_service.ScanBusy as exc:
             print(f"  skipped: {exc}")
             continue
@@ -662,6 +752,7 @@ def cmd_reclassify(args: argparse.Namespace) -> int:
                 # See fill_in: a bayonet naming the model it fits must not take
                 # that model's caliber, maker or country.
                 is_firearm=derived["is_rifle"] or derived["is_pistol"],
+                is_parts_kit=derived["is_parts_kit"],
             )
             caliber = found.caliber or stated or derived["caliber"]
             maker = (
@@ -1080,13 +1171,25 @@ def _catch_up_qualify(dry_run: bool) -> int:
 
 
 def _catch_up_reclassify(dry_run: bool) -> int:
+    """Re-read every listing under this version's rules.
+
+    **With --recompute**, so a rule fix reaches values already stored and not
+    only blanks. That is safe because the recompute is gated on provenance: a
+    value the vendor stated, one a person corrected, and one of unknown origin
+    are all left alone (see ``provenance.may_recompute``). Only values the
+    rules or the armory produced are rebuilt -- and scans record that origin
+    as they re-derive a stored value, so the reach grows with each scan.
+    """
     if dry_run:
         # No --dry-run on reclassify, and inventing one here would mean a
         # second implementation of the thing being checked.
-        print("  listing facts: would re-derive kind, caliber, country and maker.")
+        print(
+            "  listing facts: would re-derive kind, and rebuild caliber, country "
+            "and maker where the rules own them."
+        )
         return 0
     print("  listing facts:")
-    return cmd_reclassify(argparse.Namespace(recompute=False, fields=""))
+    return cmd_reclassify(argparse.Namespace(recompute=True, fields=""))
 
 
 def cmd_running_scans(args: argparse.Namespace) -> int:
@@ -1656,7 +1759,7 @@ def _add_scheduled_parsers(sub: argparse._SubParsersAction) -> None:
     canary_cmd.set_defaults(func=cmd_canary)
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> argparse.ArgumentParser:  # noqa: PLR0915 - a statement per option
     parser = argparse.ArgumentParser(
         prog="milsurp",
         description="Milsurp Monitor administration.",
@@ -1682,6 +1785,26 @@ def build_parser() -> argparse.ArgumentParser:
 
     scan = sub.add_parser("scan", help="Scan one site or every enabled site.")
     scan.add_argument("--site", help="Site slug; omit to scan all enabled sites.")
+    scan.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Read a few listings from --site and print what was parsed. Stores nothing.",
+    )
+    scan.add_argument(
+        "--limit",
+        type=int,
+        default=10,
+        help="How many listings a --dry-run reads (default 10).",
+    )
+    scan.add_argument(
+        "--accept-delist",
+        action="store_true",
+        help=(
+            "Let this scan de-list more than the site's usual share of its "
+            "listings. For after a shop really has cleared its shelves, or a "
+            "scraper has deliberately changed what it reads."
+        ),
+    )
     scan.set_defaults(func=cmd_scan)
 
     sub.add_parser("users", help="List accounts.").set_defaults(func=cmd_users)

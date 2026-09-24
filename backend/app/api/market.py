@@ -12,7 +12,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query, status
 
 from ..deps import CurrentUser, DbSession
-from ..schemas import MarketBandOut, MarketOut
+from ..schemas import MarketBandOut, MarketOut, TurnoverOut, TurnoverRowOut
 from ..services import market
 
 router = APIRouter(prefix="/market", tags=["market"])
@@ -63,5 +63,42 @@ def price_bands(
                 concentrated=band.concentrated,
             )
             for band in result.bands
+        ],
+    )
+
+
+@router.get("/time-to-sell", response_model=TurnoverOut)
+def time_to_sell(
+    _user: CurrentUser,
+    session: DbSession,
+    by: str = Query(default="model"),
+    min_sample: int = Query(default=market.MIN_SAMPLE, ge=2, le=100),
+) -> TurnoverOut:
+    """How long each kind of gun stays on the shelf, fastest first."""
+    if by not in market.TURNOVER_DIMENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Unknown dimension. Valid: {', '.join(market.TURNOVER_DIMENSIONS)}.",
+        )
+    result = market.time_to_sell(session, by, min_sample=min_sample)
+    return TurnoverOut(
+        dimension=result.dimension,
+        min_sample=result.min_sample,
+        measured=result.measured,
+        floors=result.floors,
+        thin_groups=result.thin_groups,
+        thin_listings=result.thin_listings,
+        rows=[
+            TurnoverRowOut(
+                value=row.value,
+                sold=row.sold,
+                median_days=row.median_days,
+                fast_days=row.fast_days,
+                slow_days=row.slow_days,
+                sites=row.sites,
+                top_site_share=row.top_site_share,
+                concentrated=row.concentrated,
+            )
+            for row in result.rows
         ],
     )

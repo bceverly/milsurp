@@ -643,7 +643,12 @@ def discover(session: Session, items: Iterable[Item]) -> Discovered:
         # Models and makers are only read out of something that is a gun. A
         # bayonet listing names the rifle it fits, and proposing that rifle's
         # designation from it teaches the armory nothing it can trust.
-        if not (item.is_rifle or item.is_pistol):
+        #
+        # A parts kit is read, though: it *is* the gun, minus its receiver, so
+        # the model it names is the one it builds. 575 of 714 kits matched no
+        # model when this was added -- 107 of them MG42s -- and they can only
+        # be filtered by model once the armory has a row to link them to.
+        if not (item.is_rifle or item.is_pistol or item.is_parts_kit):
             continue
 
         if not armory.match(session, title).model:

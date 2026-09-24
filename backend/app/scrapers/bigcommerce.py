@@ -217,6 +217,9 @@ def path_key(link: str) -> str:
 class BigCommerceScraper(SiteScraper):
     """One BigCommerce shop. Subclasses supply the slug, name and sources."""
 
+    #: Hands over the vendor's own caliber, country or maker. See SiteScraper.
+    states_facts = True
+
     #: Where to start, one entry per category page to walk.
     sources: tuple[dict[str, str], ...] = ()
 

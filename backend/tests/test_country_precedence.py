@@ -229,7 +229,7 @@ class TestTheMatchIsRedoneOnEveryScan:
         from app.services import scan_service
 
         body = inspect.getsource(scan_service._upsert_item)
-        assert "_apply_catalog(session, item, trusted)" in body
+        assert "_apply_catalog(session, item, trusted" in body
         loop = inspect.getsource(scan_service.run_scan)
         assert "_upsert_item(session, site, entry, run, seen_at)" in loop
 

@@ -97,7 +97,22 @@ class HuntersLodgeScraper(SiteScraper):
     #: Weekly. A new flyer appears every month or two, and a scan that finds the
     #: same one does a single request, so there is nothing to gain from asking
     #: more often and a real cost to the vendor in asking much more.
-    default_interval_minutes = 60 * 24 * 7
+    #: Daily, not weekly. An unchanged flyer costs one page fetch and stops
+    #: (see ``report_unchanged`` below), so looking every day is cheap -- and it
+    #: is what lets the new-flyer email arrive the day the ad goes up.
+    default_interval_minutes = 60 * 24
+    #: A scan that stores listings under a flyer signature nobody has been
+    #: told about mails every reader the new flyer. See app.services.flyer_alert.
+    announces_new_catalog = True
+
+    @staticmethod
+    def catalog_signature(external_key: str) -> str | None:
+        """Which flyer a stored listing was read from. See :func:`signature_of`."""
+        return signature_of(external_key)
+
+    #: A new flyer replaces the whole catalog, so de-listing all of the last
+    #: one is the correct result of a successful scan, not a sign of trouble.
+    max_delist_share = None
 
     def scrape(self, ctx: ScrapeContext) -> Iterable[ScrapedItem]:
         html = ctx.get_text(SITE_BASE)
@@ -143,6 +158,7 @@ class HuntersLodgeScraper(SiteScraper):
 
         taken: dict[str, int] = {}
         for index, listing in enumerate(listings, start=1):
+            doubtful_price(ctx, listing)
             yield self._to_item(signature, issue, index, listing, page, image_url, taken)
 
     # -- the page -----------------------------------------------------------
@@ -271,3 +287,45 @@ class HuntersLodgeScraper(SiteScraper):
             generated_images=[(f"{key}.png", whole)],
             extra={"flyer_url": flyer_url, "issue": issue or ""},
         )
+
+
+#: A listing key is ``<signature>-<10 hex digits>``, with ``-2``, ``-3`` for a
+#: repeated title, or ``<signature>-whole`` when nothing could be read. The
+#: signature itself contains hyphens ("…~mv2-july-2026"), so it is what is left
+#: once the listing's own suffix is taken off the end.
+_KEY_SUFFIX = re.compile(r"-(?:[0-9a-f]{10}(?:-\d+)?|whole)$")
+
+
+def signature_of(external_key: str) -> str | None:
+    """The flyer a listing was read from, or None for a key of another shape."""
+    found = _KEY_SUFFIX.search(external_key or "")
+    return external_key[: found.start()] if found else None
+
+
+#: Below this, a price read off the flyer is not believed. Measured on the
+#: September 2026 flyer: 28 of 29 prices were read at confidence 92 to 96 and
+#: the 29th at 40, just over the floor that keeps a word at all. Nothing sat in
+#: between, so the line is drawn well clear of both.
+DOUBTFUL_PRICE = 80.0
+
+
+def doubtful_price(ctx: ScrapeContext, listing: flyer_reader.FlyerListing) -> bool:
+    """Withhold a price the OCR was unsure of, and say so. Returns whether it did.
+
+    A misread price is not a cosmetic fault: it goes into the price history,
+    it can be a "price drop" that never happened, and it can be mailed. So a
+    doubtful one is dropped -- the listing reads "call for price" -- and the scan
+    warns, which makes it PARTIAL on the Sites page with the figure that was
+    read, for somebody to check against the flyer. The listing's crop is the
+    flyer itself, so the check is one click away.
+    """
+    confidence = listing.price_confidence
+    if listing.price is None or confidence is None or confidence >= DOUBTFUL_PRICE:
+        return False
+    ctx.warn(
+        f"Price for {listing.title!r} was read as ${listing.price:,.2f} at OCR confidence "
+        f"{confidence:.0f}, below {DOUBTFUL_PRICE:.0f}; it has not been recorded. "
+        f"Check it against the flyer."
+    )
+    listing.price = None
+    return True

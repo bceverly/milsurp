@@ -292,6 +292,92 @@ class TestAChangedKeyIsAdopted:
         assert keys == {"bc-1": True, "path-a": False}
 
 
+class TestWhenAListingSoldIsRecorded:
+    def test_the_scan_that_sees_it_sold_dates_the_sale(self, fake_site, clean_db):
+        FakeScraper.payload = [listing("a")]
+        scan_service.run_scan(fake_site.id)
+        FakeScraper.payload = [listing("a", is_sold=True)]
+        scan_service.run_scan(fake_site.id)
+        clean_db.expire_all()
+        item = clean_db.execute(select(Item)).scalars().one()
+        assert item.sold_at is not None
+        first = item.sold_at
+
+        # A later scan that still sees it sold does not move the date.
+        scan_service.run_scan(fake_site.id)
+        clean_db.expire_all()
+        assert clean_db.execute(select(Item)).scalars().one().sold_at == first
+
+    def test_a_restock_clears_it(self, fake_site, clean_db):
+        FakeScraper.payload = [listing("a", is_sold=True)]
+        scan_service.run_scan(fake_site.id)
+        FakeScraper.payload = [listing("a")]
+        scan_service.run_scan(fake_site.id)
+        clean_db.expire_all()
+        assert clean_db.execute(select(Item)).scalars().one().sold_at is None
+
+
+class TestAScanThatSuddenlyReadsFarLessDeListsNothing:
+    """A normal scan de-lists a few percent. One that would remove a third of a
+    catalog has far more likely stopped reading it -- a changed layout, a
+    refused section -- and de-listing on that throws away price history and
+    watchers for listings that are still for sale."""
+
+    def _stock(self, fake_site, count=30):
+        FakeScraper.payload = [listing(f"k{n}") for n in range(count)]
+        scan_service.run_scan(fake_site.id)
+
+    def _active(self, clean_db):
+        clean_db.expire_all()
+        return clean_db.execute(select(Item).where(Item.is_active.is_(True))).scalars().all()
+
+    def test_losing_most_of_the_catalog_is_held_back(self, fake_site, clean_db):
+        self._stock(fake_site)
+        FakeScraper.payload = [listing(f"k{n}") for n in range(10)]
+        run = clean_db.get(ScanRun, scan_service.run_scan(fake_site.id))
+
+        assert run.items_delisted == 0
+        assert len(self._active(clean_db)) == 30
+        assert run.status == ScanStatus.PARTIAL
+        assert "20 of 30" in run.error_message
+        assert "--accept-delist" in run.error_message
+
+    def test_an_ordinary_sell_through_still_de_lists(self, fake_site, clean_db):
+        self._stock(fake_site)
+        FakeScraper.payload = [listing(f"k{n}") for n in range(25)]
+        run = clean_db.get(ScanRun, scan_service.run_scan(fake_site.id))
+        assert run.items_delisted == 5
+        assert run.status == ScanStatus.SUCCESS
+
+    def test_the_operator_can_accept_it(self, fake_site, clean_db):
+        self._stock(fake_site)
+        FakeScraper.payload = [listing(f"k{n}") for n in range(10)]
+        run = clean_db.get(
+            ScanRun, scan_service.run_scan(fake_site.id, trigger="cli", accept_delist=True)
+        )
+        assert run.items_delisted == 20
+        assert run.status == ScanStatus.SUCCESS
+
+    def test_a_small_shelf_is_not_guarded(self, fake_site, clean_db):
+        """Selling four of twelve is a third of the shelf and entirely normal."""
+        self._stock(fake_site, count=12)
+        FakeScraper.payload = [listing(f"k{n}") for n in range(4)]
+        run = clean_db.get(ScanRun, scan_service.run_scan(fake_site.id))
+        assert run.items_delisted == 8
+
+    def test_a_source_that_replaces_its_catalog_is_exempt(self, fake_site, clean_db, monkeypatch):
+        monkeypatch.setattr(FakeScraper, "max_delist_share", None)
+        self._stock(fake_site)
+        FakeScraper.payload = [listing("new-flyer-1")]
+        run = clean_db.get(ScanRun, scan_service.run_scan(fake_site.id))
+        assert run.items_delisted == 30
+
+    def test_hunters_lodge_is_that_source(self):
+        from app.scrapers.hunters_lodge import HuntersLodgeScraper
+
+        assert HuntersLodgeScraper.max_delist_share is None
+
+
 class TestAnUnreadableCatalogIsNotAnEmptyOne:
     """A run that read nothing and warned must not de-list the site.
 

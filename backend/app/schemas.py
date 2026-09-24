@@ -571,6 +571,31 @@ class MarketOut(BaseModel):
     bands: list[MarketBandOut]
 
 
+class TurnoverRowOut(BaseModel):
+    """One kind of gun, and how long its listings lasted."""
+
+    value: str
+    sold: int
+    median_days: float
+    fast_days: float
+    slow_days: float
+    sites: int
+    top_site_share: float
+    concentrated: bool
+
+
+class TurnoverOut(BaseModel):
+    """How long guns take to sell. See ``market.time_to_sell`` for what counts."""
+
+    dimension: str
+    min_sample: int
+    measured: int
+    floors: int
+    thin_groups: int
+    thin_listings: int
+    rows: list[TurnoverRowOut]
+
+
 class PushSubscribeIn(BaseModel):
     """What a browser's PushSubscription serializes to.
 

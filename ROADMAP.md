@@ -609,11 +609,19 @@ recorded at 86 cards and 82 prices; the section is one page of exactly 43
 no price at all. A grep over markup counts markup, not products; the only honest
 count comes from running the scraper.
 
-**One thing to settle before the rest of it**: the browse page currently treats
-"Parts kits" as one of five Types. Several dealers' worth of kits is a different
-proposition from 25 — it is plausibly the largest category in the application —
-and it is worth deciding whether a kit should be filterable by the model it
-builds before there are thousands of them.
+**Settled: a kit is filterable by the model it builds — Shipped.** Choosing
+"Parts kits" and then a model in the Browse rail answers "show me the MG42
+kits". A kit is linked to the armory model its title names, which is the gun
+it *builds* (`armory.fill_in(is_parts_kit=True)`); it takes the link and
+nothing else, because the model's caliber, maker and form describe the complete
+gun. Bayonets are still never linked — they name a model they merely fit — and
+the armory's re-link on approval now follows the same rule, where it used to
+link anything that mentioned a model and give it that model's caliber.
+
+When it shipped, 139 of 714 kits linked (97 AK-47s). The rest name models the
+armory does not have yet, so **discovery now reads kit titles too**: 97
+candidates arrive pending for approval, led by the MG42 with 107 kits, the
+Polish wz. 1958–1965 AKs, the AKM, the HK21 and the AA52.
 
 ### Police surplus — **Four shipped, two refused** of ten measured
 
@@ -1455,11 +1463,27 @@ source is always one click away.
       allowed to cross — and for good reason, since crossing it is what made a
       product quote its neighbor's price. Worth revisiting only with a way to
       tell the two cases apart.
-- [ ] **Confidence handling.** OCR misreads prices. Tesseract reports a
-      per-word confidence that is currently used only as a filter; a listing
-      whose price came from a low-confidence token should mark the scan PARTIAL
-      and flag the item for review rather than quietly writing a wrong number
-      into the price history.
+- [x] **Confidence handling — Done.** Each price word keeps tesseract's
+      confidence (`TextLine.price_confidence`), and a listing carries the
+      confidence of the word its price came from. Below `DOUBTFUL_PRICE` (80)
+      the price is **withheld** — the listing reads "call for price" — and the
+      scan warns with the figure that was read, so it finishes PARTIAL for
+      somebody to check against the flyer. Measured on the September 2026
+      flyer: 28 of 29 prices read at 92–96, and one ("COLT PP .38 FRAMES",
+      $29) at 40, with nothing in between.
+- [x] **Mail a new flyer the moment it is read — Done.** `app/services/flyer_alert.py`.
+      A scan that stores listings under a flyer signature not yet in
+      `flyer_notices` (migration 0040) mails every reader the whole flyer —
+      each listing with its crop from the scan — and records the signature so
+      it is never sent twice. A PARTIAL read still sends and says so; a FAILED
+      one sends nothing, and an unchanged flyer stores nothing and never
+      reaches the mailer. Readers whose digest names its sites and leaves
+      Hunter's Lodge out are skipped. The site is now checked **daily** rather
+      than weekly: the scraper's default changed, and migration 0040 moves an
+      existing row from the old weekly default (a cadence someone chose on
+      purpose is left alone). Only active listings count, so the previous
+      flyer, de-listed by the same scan, is never news again. Any scraper can
+      opt in with `announces_new_catalog` and a `catalog_signature()`.
 
 **Supporting work this implies**
 
@@ -1478,16 +1502,23 @@ source is always one click away.
   robots.txt first, a published `Crawl-delay` is honored per host, and each
   scraper sets its own `min_request_delay` on top of the global one. A 429 or a
   refusal rests the host (`app/services/cooldown.py`).
-- [x] **Partly done** — Detect when a site's markup changes. The canary
+- [x] **Done** — Detect when a site's markup changes. The canary
   (`app/services/canary.py`) runs each scraper for a few listings on a
   schedule and reports a shop that stops answering or stops parsing, and a
-  scan that reads nothing de-lists nothing. **Still planned:** marking a scan
-  PARTIAL when it returns far fewer listings than the last successful one,
-  rather than de-listing the difference.
-- [ ] **Planned** — A per-site scraper self-test (`make scan site=<slug> --dry-run`)
-  that fetches one page and reports what it parsed, without touching the
-  database. `scripts/record-fixtures.py` and a throwaway run against a
-  `ScrapeContext` do the job today, by hand.
+  scan that reads nothing de-lists nothing. **And a scan that would de-list
+  more than 30% of a site's active listings de-lists none of them**, finishing
+  PARTIAL with a warning that says how many and how to accept it
+  (`cli.py scan --site <slug> --accept-delist`). The threshold was measured:
+  across 42 dev scans that de-listed anything, none above 13% was an ordinary
+  sell-through — the larger ones were the J&G Sales outage (100%) and scraper
+  rewrites (Legacy 50%, Royal Tiger 40%). Sites under 20 listings are not
+  guarded, and Hunter's Lodge is exempt (`max_delist_share = None`) because
+  each new flyer replaces its whole catalog.
+- [x] **Done** — A per-site scraper self-test: `make scan site=<slug> dry=1`
+  (or `cli.py scan --site <slug> --dry-run --limit N`). Reads the first N
+  listings through the same `ScrapeContext` a scan uses and prints each one's
+  price, key, photos, category and the bucket the classifier puts it in, plus
+  any warning that would make a real scan PARTIAL. Stores nothing.
 
 ---
 
@@ -3067,14 +3098,32 @@ until they promote it. The numbers above are what promoting them does.
 
   **Deliberately not backfilled**, so it earns nothing on the day it ships. A
   backfill would have to guess which values were the vendor's, and that guess
-  is the thing being fixed. It fills in as each site's next scan rewrites its
-  rows; every site scans daily.
-- **Planned** — Have `catch-up` run a provenance-scoped recompute on upgrade,
-  so a rule fix reaches stored listings without anybody remembering. The gate
-  above makes this safe rather than merely possible — but **not yet measured**,
-  because with every source still unrecorded it would decline all 11,038 rows
-  and prove nothing. It wants a scan cycle's worth of sources first, and then
-  the same before-and-after count the rest of these entries carry.
+  is the thing being fixed. It was meant to fill in as each site's next scan
+  rewrote its rows, and did not until September 2026 — see the next entry.
+- **Shipped** — `catch-up` runs a provenance-scoped recompute on upgrade, so
+  a rule fix reaches stored listings without anybody remembering.
+
+  **The first attempt would have done nothing, and the reason was a bug in
+  the entry above.** It says sources "fill in as each site's next scan
+  rewrites its rows". They did not: `provenance.fill` returned early on any
+  field already holding a value, so no row written before migration 0031 ever
+  gained a source. On the dev database, after weeks of daily scans, 11,039 of
+  11,041 listings still had an unknown caliber origin, and the gate refused
+  every one of them.
+
+  **The fix is `fill(adopt=True)`**: when a scan re-derives a stored value of
+  unknown origin and gets *the same value*, it records where that value came
+  from. That is only safe where the vendor cannot have been the source, so it
+  is asked only for scrapers that state no caliber, country or maker
+  themselves — `SiteScraper.states_facts`, set on the 14 that do, with
+  `test_states_facts.py` reading each scraper's source so a new one that sets
+  a fact cannot forget the flag. A value the rules would *not* produce now
+  stays unknown and untouched.
+
+  Measured: one scan of Axis Arms took it from 83 unknown origins to 1, and
+  the recompute over the whole dev catalog then changed nothing but two
+  blanks, which the old fill-only pass also filled. A second run is a no-op.
+  Its reach grows with each scan, site by site.
 - **Shipped** — Carrying a curated armory off a running instance. The armory is
   edited on a live instance and *shipped* from `backend/app/seed/armory.yaml`,
   so the two drift the moment somebody approves a model in production — and the
@@ -3636,28 +3685,27 @@ fact.
   five saved searches still gets one email, grouped per reader as before, and
   the price watermark is untouched. A stored query that no longer parses is
   skipped and logged rather than costing the reader every other search.
-- **Planned** — How long a gun takes to sell, by model and by caliber. The
-  Market view says what something is worth and Hot deals says which are cheap;
-  neither answers "do I have to decide today". A median of nine days against
-  sixty is the difference between hesitating and not.
+- **Shipped** — How long a gun takes to sell, by model and by caliber. A
+  "How fast they sell" section on the Market page, from
+  `market.time_to_sell` and `GET /api/market/time-to-sell?by=model|caliber`:
+  the median days on the shelf, the quickest and slowest quarter, how many
+  sales, and the share from the largest shop.
 
-  **Two things to settle before building it, both measured rather than
-  assumed:**
+  **Both warnings in the plan held, and both shaped it:**
 
-  * **The timestamps may not be there.** In the snapshot, 946 listings are
-    sold and **10** carry a `delisted_at`. So the duration probably has to
-    come from the scan run that flipped `is_sold` rather than from a column,
-    and that wants checking before any of this is promised.
-  * **`first_seen_at` is when *we* first saw it, not when the vendor listed
-    it.** For anything that predates our first scan of its site, the duration
-    is a floor and not a measurement. Those listings have to be excluded or
-    reported as "at least", never quietly averaged in — the same mistake the
-    live-versus-sold price comparison made before it was removed.
+  * **The sold timestamp was not there**, so it is now: `items.sold_at`
+    (migration 0039), stamped by the scan or watchlist poll that first sees a
+    listing sold and cleared if the shop restocks. Not backfilled — stamping a
+    thousand old sales with today's date would invent them. A listing has
+    left the shelf at whichever comes first of `sold_at` and `delisted_at`,
+    because most shops take a sold gun down rather than mark it.
+  * **`first_seen_at` is a floor for anything already on the shelf** when we
+    first scanned its shop, so those listings are counted as `floors` and kept
+    out of every figure. So is a listing already sold when first seen.
 
-  And it wants the Market page's honesty about samples: the count behind each
-  figure and the share held by the largest shop. A duration is less exposed to
-  dealer mix than a price is, but "K31s sell in nine days" drawn from one
-  dealer's turnover is that dealer's habits, not the market's.
+  It starts thin, and says so: on the dev database 31 sales were watched from
+  start to finish, and two calibers clear the five-sale minimum. It fills in
+  as sales are seen.
 
 ---
 

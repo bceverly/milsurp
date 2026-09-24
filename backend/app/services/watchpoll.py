@@ -162,6 +162,7 @@ def run(session: Session, config: Config, limit: int = MAX_PER_PASS) -> Result:
             continue
         if found.sold_out and not item.is_sold:
             item.is_sold = True
+            item.sold_at = now
             item.price_changed_at = now
             result.sold += 1
         if _record(session, item, found.price, now):

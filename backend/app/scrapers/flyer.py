@@ -216,6 +216,12 @@ class TextLine:
     #: see :func:`_prices_lost_in_the_pictures`. Empty when a line is built by
     #: hand, as the tests do.
     words: list[tuple[int, tuple[int, int, int, int], str]] = field(default_factory=list)
+    #: How sure tesseract was of each price on this line: the amount, mapped to
+    #: the confidence of the word it was read from. A price is the one thing on
+    #: this page a misread turns into a wrong fact, so it is the one thing whose
+    #: confidence is kept after the word is accepted. See
+    #: :attr:`FlyerListing.price_confidence`.
+    price_confidence: dict[float, float] = field(default_factory=dict)
 
     @property
     def is_bulleted(self) -> bool:
@@ -231,6 +237,10 @@ class FlyerListing:
     price: float | None
     box: tuple[int, int, int, int]
     lines: list[str] = field(default_factory=list)
+    #: Tesseract's confidence in the word the price was read from, or None
+    #: when that is not known (a price split across words, or lines built by
+    #: hand). Low means the digits may be wrong -- see ``DOUBTFUL_PRICE``.
+    price_confidence: float | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -361,6 +371,12 @@ def _lines_from(data: dict, ox: int, oy: int) -> list[TextLine]:
     lines: list[TextLine] = []
     for indexes in grouped.values():
         indexes.sort(key=lambda i: data["left"][i])
+        prices: dict[float, float] = {}
+        for i in indexes:
+            amount = parse_price(data["text"][i])
+            if amount is not None:
+                confidence = float(data["conf"][i])
+                prices[amount] = min(confidence, prices.get(amount, confidence))
         text = " ".join(data["text"][i].strip() for i in indexes).strip()
         if not text:
             continue
@@ -387,6 +403,7 @@ def _lines_from(data: dict, ox: int, oy: int) -> list[TextLine]:
                     )
                     for i in indexes
                 ],
+                price_confidence=prices,
             )
         )
     lines.sort(key=lambda line: (line.box[1], line.box[0]))
@@ -447,7 +464,7 @@ def _prices_lost_in_the_pictures(
 
     already = [box for line in lines for _left, box, _text in line.words]
     missing = [
-        (left, box, text)
+        (left, box, text, line.price_confidence.get(parse_price(text) or -1.0))
         for line in second
         for left, box, text in line.words
         if PRICE_PATTERN.search(text) and not any(_overlaps(box, seen) for seen in already)
@@ -461,12 +478,17 @@ def _prices_lost_in_the_pictures(
         return lines
 
     merged = [*lines, *headings]
-    for left, box, text in missing:
+    for left, box, text, confidence in missing:
+        amount = parse_price(text)
+        known = {amount: confidence} if amount is not None and confidence is not None else {}
         home = next((line for line in merged if _overlaps(line.box, box)), None)
         if home is None:
             # Standing on its own over the picture, as "Only $378.88" does.
-            merged.append(TextLine(text=text, box=box, height=box[3] - box[1]))
+            merged.append(
+                TextLine(text=text, box=box, height=box[3] - box[1], price_confidence=known)
+            )
             continue
+        home.price_confidence.update(known)
         home.words = sorted([*home.words, (left, box, text)])
         home.text = " ".join(word for _left, _box, word in home.words)
         home.box = (
@@ -671,6 +693,9 @@ def listings_from_lines(lines: list[TextLine]) -> list[FlyerListing]:
             pending.clear()
             return
 
+        read_with = [
+            line.price_confidence[found[0]] for line in pending if found[0] in line.price_confidence
+        ]
         listings.append(
             FlyerListing(
                 title=title,
@@ -678,6 +703,7 @@ def listings_from_lines(lines: list[TextLine]) -> list[FlyerListing]:
                 price=found[0],
                 box=box,
                 lines=list(text_lines),
+                price_confidence=min(read_with) if read_with else None,
             )
         )
         pending.clear()

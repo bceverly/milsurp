@@ -477,6 +477,7 @@ def fill_in(
     caliber: str | None = None,
     stated_kind: str | None = None,
     is_firearm: bool = True,
+    is_parts_kit: bool = False,
 ) -> Match:
     """The model's facts, with the listing's own caliber normalized and kept.
 
@@ -500,10 +501,20 @@ def fill_in(
     The listing's own caliber still comes back normalized, because that is
     spelling rather than knowledge and a box of .32 ACP ammunition really is
     in .32 ACP.
+
+    **A parts kit gets the model and nothing else.** A kit is the gun minus
+    its serialized part, so the model it names is the one it *builds* -- which
+    is what a reader filtering kits by model is asking -- where a bayonet names
+    one it merely fits. But the model's other facts still describe the
+    complete gun and are not offered: a kit's caliber is the one the dealer
+    states, and it has no maker or form of its own to inherit.
     """
     stated = canonical_caliber(session, caliber) or (caliber.strip() if caliber else None)
     if not is_firearm:
-        return Match(caliber=stated)
+        if not is_parts_kit:
+            return Match(caliber=stated)
+        found = match(session, title, description, stated_kind)
+        return Match(model=found.model, model_id=found.model_id, caliber=stated)
     found = match(session, title, description, stated_kind)
     return Match(
         model=found.model,
@@ -1743,11 +1754,19 @@ def reprocess(session: Session, spellings: Iterable[str]) -> int:
     candidates = session.execute(select(Item).where(or_(*clauses))).scalars().all()
     changed = 0
     for item in candidates:
-        found = match(session, item.title, stated_kind=item.stated_kind)
         stated = canonical_caliber(session, item.caliber) or item.caliber
-        caliber = stated or found.caliber
-        if item.firearm_model_id != found.model_id or item.caliber != caliber:
-            item.firearm_model_id = found.model_id
+        # The scan's rule, not a second one: a firearm takes the model and its
+        # caliber, a parts kit the model alone, and anything else -- a bayonet
+        # naming the rifle it fits -- neither. See fill_in and _apply_catalog.
+        is_firearm = item.is_rifle or item.is_pistol
+        if is_firearm or item.is_parts_kit:
+            found = match(session, item.title, stated_kind=item.stated_kind)
+            model_id = found.model_id
+            caliber = stated or (found.caliber if is_firearm else None)
+        else:
+            model_id, caliber = None, stated
+        if item.firearm_model_id != model_id or item.caliber != caliber:
+            item.firearm_model_id = model_id
             item.caliber = caliber
             changed += 1
     return changed

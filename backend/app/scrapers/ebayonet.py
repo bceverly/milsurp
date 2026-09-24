@@ -142,6 +142,8 @@ def _slug_of(url: str) -> str:
 
 
 class EBayonetScraper(SiteScraper):
+    #: Hands over the vendor's own caliber, country or maker. See SiteScraper.
+    states_facts = True
     slug = "ebayonet"
     name = "eBayonet"
     base_url = SITE_BASE

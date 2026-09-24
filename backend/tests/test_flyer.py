@@ -1145,3 +1145,79 @@ class TestADescriptionBelongsToItsOwnListing:
         """No name found, no bullet after the price: nothing is trimmed."""
         text = "Some prose with no name in it and a price $10.00 and then more prose."
         assert flyer.only_this_listing(text, "NOT PRESENT") == text
+
+
+class TestHowSureTheReaderWasOfAPrice:
+    """A misread price goes into the price history and can be mailed as a drop
+    that never happened, so the confidence behind each price is kept."""
+
+    def data(self, words):
+        """A tesseract word table: one line of (text, confidence) pairs."""
+        return {
+            "text": [text for text, _conf in words],
+            "conf": [conf for _text, conf in words],
+            "block_num": [1] * len(words),
+            "par_num": [1] * len(words),
+            "line_num": [1] * len(words),
+            "left": [i * 60 for i in range(len(words))],
+            "top": [0] * len(words),
+            "width": [50] * len(words),
+            "height": [20] * len(words),
+        }
+
+    def test_each_price_on_a_line_keeps_its_word_s_confidence(self):
+        (line,) = flyer._lines_from(self.data([("Only", 95), ("$29.00", 40)]), 0, 0)
+        assert line.price_confidence == {29.0: 40.0}
+
+    def test_the_listing_carries_the_confidence_of_its_own_price(self):
+        heading = flyer.TextLine(text="COLT PP .38 FRAMES", box=(0, 0, 400, 50), height=50)
+        body = flyer.TextLine(
+            text="Only $29.00. Add $5.00 for a grip.",
+            box=(0, 60, 400, 110),
+            height=30,
+            price_confidence={29.0: 40.0, 5.0: 96.0},
+        )
+        (listing,) = flyer.listings_from_lines([heading, body])
+        assert listing.price == 29.0
+        assert listing.price_confidence == 40.0
+
+    def test_unknown_when_the_lines_were_built_without_it(self):
+        heading = flyer.TextLine(text="VZ24 BAYONET", box=(0, 0, 400, 50), height=50)
+        body = flyer.TextLine(text="Only $28.00.", box=(0, 60, 400, 110), height=30)
+        (listing,) = flyer.listings_from_lines([heading, body])
+        assert listing.price_confidence is None
+
+
+class TestADoubtfulPriceIsWithheld:
+    def listing(self, confidence):
+        return flyer.FlyerListing(
+            title="COLT PP .38 FRAMES",
+            description="",
+            price=29.0,
+            box=(0, 0, 1, 1),
+            price_confidence=confidence,
+        )
+
+    def test_a_low_confidence_price_is_not_recorded_and_the_scan_warns(self, app_config):
+        from app.scrapers import ScrapeContext
+        from app.scrapers.hunters_lodge import doubtful_price
+
+        ctx = ScrapeContext(app_config)
+        listing = self.listing(40.0)
+        assert doubtful_price(ctx, listing) is True
+        assert listing.price is None
+        assert "$29.00" in ctx.warnings[0]
+        assert "COLT PP .38 FRAMES" in ctx.warnings[0]
+        ctx.close()
+
+    @pytest.mark.parametrize("confidence", [96.0, None])
+    def test_a_confident_or_unknown_one_is_kept(self, app_config, confidence):
+        from app.scrapers import ScrapeContext
+        from app.scrapers.hunters_lodge import doubtful_price
+
+        ctx = ScrapeContext(app_config)
+        listing = self.listing(confidence)
+        assert doubtful_price(ctx, listing) is False
+        assert listing.price == 29.0
+        assert ctx.warnings == []
+        ctx.close()

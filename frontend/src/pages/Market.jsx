@@ -26,6 +26,157 @@ const DIMENSIONS = [
   { key: "manufacturer", label: "Maker" },
 ];
 
+const TURNOVER_DIMENSIONS = [
+  { key: "model", label: "Model" },
+  { key: "caliber", label: "Caliber" },
+];
+
+const days = (value) => `${value} day${value === 1 ? "" : "s"}`;
+
+/**
+ * How long each kind of gun stays on the shelf — the question neither the
+ * price bands nor Hot deals answer, which is "do I have to decide today".
+ *
+ * Only listings we watched arrive *and* leave are counted. One already on the
+ * shelf when we first scanned its shop has been there for an unknown time, so
+ * its duration is a floor; those are counted in the footnote and kept out of
+ * every figure, rather than quietly making everything look faster.
+ */
+function TimeToSell() {
+  const [dimension, setDimension] = useState("model");
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let live = true;
+    setResult(null);
+    setError(null);
+    api
+      .timeToSell({ by: dimension })
+      .then((answer) => live && setResult(answer))
+      .catch((err) => live && setError(err.message));
+    return () => {
+      live = false;
+    };
+  }, [dimension]);
+
+  return (
+    <section className="market-turnover" aria-labelledby="turnover-heading">
+      <h2 id="turnover-heading">How fast they sell</h2>
+      <p className="muted">
+        Days from a listing appearing to it being marked sold or taken down. The middle
+        figure is the median; the range is the quickest and slowest quarter.
+      </p>
+      <div className="armory-tabs" role="tablist" aria-label="Group time to sell by">
+        {TURNOVER_DIMENSIONS.map((entry) => (
+          <button
+            key={entry.key}
+            type="button"
+            role="tab"
+            aria-selected={dimension === entry.key}
+            className={`btn ${dimension === entry.key ? "btn--primary" : "btn--ghost"} btn--sm`}
+            onClick={() => setDimension(entry.key)}
+          >
+            {entry.label}
+          </button>
+        ))}
+      </div>
+
+      {error && (
+        <div className="alert alert--error" role="alert">
+          {error}
+        </div>
+      )}
+      {!result && !error && (
+        <div className="loading-row" style={{ padding: 20 }}>
+          <div className="spinner" />
+          Working out how long they last…
+        </div>
+      )}
+
+      {result && result.rows.length === 0 && (
+        <div className="empty" data-testid="turnover-empty">
+          <p>
+            Not enough sales watched from start to finish yet. This fills in as listings
+            that arrived since each shop was first scanned sell or come down —{" "}
+            {result.measured.toLocaleString()} so far, and a{" "}
+            {TURNOVER_DIMENSIONS.find((d) => d.key === dimension).label.toLowerCase()}{" "}
+            needs {result.min_sample} before it is shown.
+          </p>
+        </div>
+      )}
+
+      {result && result.rows.length > 0 && (
+        <div className="panel">
+          <div className="table-wrap">
+            <table className="table" data-testid="turnover-table">
+              <thead>
+                <tr>
+                  <th>{TURNOVER_DIMENSIONS.find((d) => d.key === dimension).label}</th>
+                  <th>Sold</th>
+                  <th>Typical</th>
+                  <th>Range</th>
+                  <th>Shops</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.rows.map((row) => (
+                  <tr key={row.value}>
+                    <td>
+                      {dimension === "caliber" ? (
+                        <Link to={`/?caliber=${encodeURIComponent(row.value)}`}>
+                          {row.value}
+                        </Link>
+                      ) : (
+                        row.value
+                      )}
+                      {row.concentrated && (
+                        <span className="chip chip--warning market-chip">one shop</span>
+                      )}
+                    </td>
+                    <td>{row.sold.toLocaleString()}</td>
+                    <td>
+                      <strong>{days(row.median_days)}</strong>
+                    </td>
+                    <td>
+                      {row.fast_days}–{days(row.slow_days)}
+                    </td>
+                    <td>
+                      {row.sites}
+                      <span className="market-share">
+                        {Math.round(row.top_site_share * 100)}% largest
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {result && (
+        <p className="market-footnote">
+          {result.measured.toLocaleString()} sales watched from start to finish.{" "}
+          {result.floors > 0 && (
+            <>
+              {result.floors.toLocaleString()} more were already listed when we first
+              scanned their shop, so how long they had been there is unknown; they are
+              left out rather than counted as quick.{" "}
+            </>
+          )}
+          {result.thin_groups > 0 && (
+            <>
+              {result.thin_groups.toLocaleString()} groups had fewer than{" "}
+              {result.min_sample} and are not shown.
+            </>
+          )}
+        </p>
+      )}
+    </section>
+  );
+}
+
 /**
  * The band as a bar: tenth percentile to ninetieth, with the median marked.
  *
@@ -218,6 +369,8 @@ export default function Market() {
           </p>
         </>
       )}
+
+      <TimeToSell />
     </div>
   );
 }

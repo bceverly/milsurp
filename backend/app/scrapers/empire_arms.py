@@ -177,6 +177,8 @@ def _source_for(url: str) -> dict[str, str] | None:
 
 
 class EmpireArmsScraper(SiteScraper):
+    #: Hands over the vendor's own caliber, country or maker. See SiteScraper.
+    states_facts = True
     slug = "empire-arms"
     name = "Empire Arms"
     base_url = SITE_BASE

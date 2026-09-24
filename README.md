@@ -54,7 +54,13 @@ changed — filtered to the sites you care about and capped so it stays readable
   is inside one picture. That site is read by OCR — the page is cut into panels
   along its own printed rules, each panel is read separately, and every listing
   carries a crop of the flyer it came from. It checks whether the flyer has
-  changed before doing any of that, so an unchanged month costs one request.
+  changed before doing any of that, so an unchanged month costs one request —
+  which is why it is checked daily. **A new flyer is mailed the day it is
+  read**: every reader gets one email listing the whole ad, once per flyer
+  (`app/services/flyer_alert.py`), unless their digest settings leave the site
+  out. **A price the OCR was unsure of is not recorded**: below confidence 80
+  it is withheld, the listing reads "call for price", and the scan finishes
+  PARTIAL with the figure it read, for somebody to check against the flyer.
 - **Parts kits, not parts.** Three vendors are read for their kits rather than
   their guns. A vendor section called "parts kits" is not taken at its word —
   the listing has to corroborate it — because the alternative is 465 solenoids
@@ -174,6 +180,11 @@ changed — filtered to the sites you care about and capped so it stays readable
   with $40 bayonets. Every band says how many shops it came from and what share
   the largest holds — most of them are one dealer, and a median from one shelf
   is that shop's pricing rather than the market's.
+  Below the prices, **how fast they sell**: median days on the shelf by model
+  or caliber, from listings we watched both arrive and leave (sold, or taken
+  down). One already listed when its shop was first scanned is left out,
+  because its time there is only an "at least". Sale dates are recorded from
+  migration 0039 on, so this starts thin and fills in.
 - **Hot deals.** The Market's answer applied to the shelves, at `/hot-deals`:
   the listings priced well below what the same gun usually sells for, split
   into Rifles, Handguns and Police surplus. A pass over the whole catalog runs
@@ -868,7 +879,16 @@ class MyVendorScraper(SiteScraper):
 SCRAPER_CLASSES = (RoyalTigerScraper, EmpireArmsScraper, MyVendorScraper)
 ```
 
-Restart; the site row is seeded automatically. Then `make scan site=my-vendor`.
+Restart; the site row is seeded automatically. **Try it first with
+`make scan site=my-vendor dry=1`** (add `limit=25` for more): it reads the first
+listings through the same context a scan uses and prints each one's price, key,
+photo count, category and the bucket the classifier files it in, plus any
+warning that would make the scan PARTIAL — and stores nothing. When that looks
+right, `make scan site=my-vendor`.
+
+If the scraper ever hands over the vendor's own caliber, country or maker, set
+`states_facts = True` on it. `test_states_facts.py` reads each scraper's source
+and fails if one sets those fields without saying so.
 
 A few things worth knowing:
 
@@ -1145,6 +1165,13 @@ Three things that rule does not decide on its own:
   "demilitarized". A bare "cut receiver" was tried
   and removed: JRA build their BM-59s on a *billet* cut receiver, which is a
   manufacturing step, not a destruction.
+
+**A kit is filterable by the model it builds.** Choose "Parts kits" in the
+Browse rail and then a model. A kit is linked to the armory model its title
+names — that is the gun it builds — and takes nothing else from it: the model's
+caliber, maker and form describe the complete gun. A bayonet is never linked,
+because the model it names is one it only fits. Discovery reads kit titles
+too, so a kit naming a model the armory lacks proposes it for approval.
 
 So the shape of the work is: read the vendor's own navigation, fetch each
 candidate section, run it through `enrich()`, and count what comes out before
@@ -1832,9 +1859,14 @@ correction until the next scan put it back.
 
 **It is deliberately not backfilled**, which means it earns nothing on the day
 it ships. A backfill would have to guess which stored values were the vendor's,
-and that guess is the thing being fixed. It fills in instead as each site's
-next scan rewrites its rows — every site scans daily, so the cost is bounded
-and is the honest price of not having recorded it from the start.
+and that guess is the thing being fixed. It fills in instead as scans see the
+values again — but only because a scan now **adopts** a stored value of unknown
+origin when it re-derives *the same value* (`provenance.fill(adopt=True)`), and
+only for a vendor whose scraper states no caliber, country or maker itself
+(`states_facts`). Before that, a filled field never gained a source at all, and
+11,039 of 11,041 dev listings were still of unknown origin weeks later.
+`catch-up` runs the gated recompute on every upgrade, so its reach grows with
+each scan.
 
 Measured over 4,566 active listings, 140 change. This reversed a precedence
 this file had deliberately deferred: the note on it said flipping it was a wash
@@ -2952,7 +2984,14 @@ same thing on demand.
 | `ScrapedItem.images_are_complete` | by the scraper | a catalog-grid preview may seed photos but may never prune a gallery it cannot see |
 
 De-listing only happens when the scraper's iterable is exhausted normally, so a
-partial scan can never mark the listings it did not reach as gone. An unchanged
+partial scan can never mark the listings it did not reach as gone. **Nor may a
+completed scan de-list more than 30% of a site's active listings at once**
+(`SiteScraper.max_delist_share`, for sites of 20 or more): a normal scan removes
+a few percent, and one that would remove a third has far more likely stopped
+reading the catalog than watched it sell. It de-lists nothing, finishes PARTIAL,
+and says so; `cli.py scan --site <slug> --accept-delist` lets one run through
+when the shop really has cleared its shelves. Hunter's Lodge is exempt, since
+each new flyer replaces its whole catalog. An unchanged
 gallery — same URLs in the same order — is skipped entirely, so re-scanning a
 static catalog costs no image traffic. `make stop` warns before interrupting a
 scan in flight; `FORCE=1` skips the prompt.

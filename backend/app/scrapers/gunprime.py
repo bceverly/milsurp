@@ -205,6 +205,8 @@ def _description(html_text: str) -> str | None:
 
 
 class GunPrimeScraper(SiteScraper):
+    #: Hands over the vendor's own caliber, country or maker. See SiteScraper.
+    states_facts = True
     slug = "gunprime"
     name = "GunPrime"
     base_url = SITE_BASE

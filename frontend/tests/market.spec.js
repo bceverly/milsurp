@@ -41,7 +41,30 @@ test.describe("market", () => {
   test("it says how much it left out, rather than quietly showing less", async ({
     signedIn,
   }) => {
-    await expect(signedIn.locator(".market-footnote")).toContainText("considered");
+    await expect(signedIn.locator(".market-footnote").first()).toContainText(
+      "considered",
+    );
+  });
+
+  test("how fast things sell is its own section, and says what it counts", async ({
+    signedIn,
+  }) => {
+    const section = signedIn.getByRole("region", { name: "How fast they sell" });
+    await expect(section).toBeVisible();
+    // The sample data has no sales watched from start to finish, and the
+    // section must say so rather than render an empty table.
+    const empty = section.getByTestId("turnover-empty");
+    const table = section.getByTestId("turnover-table");
+    await expect(empty.or(table)).toBeVisible();
+
+    await section.getByRole("tab", { name: "Caliber" }).click();
+    await expect(section.getByRole("tab", { name: "Caliber" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(section.locator(".market-footnote")).toContainText(
+      "sales watched from start to finish",
+    );
   });
 
   test("including accessories is a choice the reader makes", async ({ signedIn }) => {

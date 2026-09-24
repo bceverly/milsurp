@@ -42,10 +42,19 @@ async function caliberRowIsShowing(page, name) {
 
 test.describe("armory", () => {
   test.beforeEach(async ({ signedIn }) => {
-    // Exact: a listing card reading "US M1 Garand, Springfield Armory" is
-    // also a link whose name contains "Armory".
-    await signedIn.getByRole("link", { name: "Armory", exact: true }).click();
-    await expect(signedIn.getByRole("heading", { name: "Armory" })).toBeVisible();
+    // Exact, both the link and the heading: the inventory the test starts on
+    // has a card headed "US M1 Garand, Springfield Armory 1944", which is also
+    // a link. A substring match on the heading passed while still on that page whenever the click was lost
+    // to a re-render -- and the test then waited ten seconds for a button that
+    // was never going to be there. Retried until the URL moves, so a click the
+    // inventory swallowed while it was still rendering is simply made again.
+    await expect(async () => {
+      await signedIn.getByRole("link", { name: "Armory", exact: true }).click();
+      await expect(signedIn).toHaveURL(/\/armory/, { timeout: 2000 });
+    }).toPass();
+    await expect(
+      signedIn.getByRole("heading", { name: "Armory", exact: true }),
+    ).toBeVisible();
   });
 
   test("loads the shipped armory, all of it awaiting approval", async ({ signedIn }) => {
@@ -334,7 +343,9 @@ test.describe("armory", () => {
       await signedIn.goto(`/armory?sort=${key}#model`);
       // The page is still standing and the table still has rows: an unknown
       // column sorts by name rather than throwing.
-      await expect(signedIn.getByRole("heading", { name: "Armory" })).toBeVisible();
+      await expect(
+        signedIn.getByRole("heading", { name: "Armory", exact: true }),
+      ).toBeVisible();
       await expect(signedIn.locator("tbody tr").first()).toBeVisible();
     }
 

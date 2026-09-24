@@ -340,6 +340,8 @@ def scrape_product_detail(ctx: ScrapeContext, url: str) -> tuple[str | None, lis
 
 
 class RoyalTigerScraper(SiteScraper):
+    #: Hands over the vendor's own caliber, country or maker. See SiteScraper.
+    states_facts = True
     slug = "royal-tiger"
     name = "Royal Tiger Imports"
     base_url = SITE_BASE
