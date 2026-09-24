@@ -6,15 +6,25 @@
  * Everything else in the log has no "before", and a button that answers with
  * an error is worse than no button.
  */
-import { test, expect } from "./fixtures.js";
+import { test, expect, openPage } from "./fixtures.js";
+
+/**
+ * Load the shipped armory and wait for it to say it has.
+ *
+ * Every test here starts from it, and not waiting was a race each time: the
+ * load's own reload replaces the table, so a search typed, a row ticked or a
+ * tab chosen before it lands is done to a table about to vanish. Under a
+ * loaded machine that went from rare to four failures in one run.
+ */
+async function loadShipped(page) {
+  await page.getByRole("button", { name: "Load shipped armory" }).click();
+  await expect(page.locator(".alert--success")).toBeVisible();
+}
 
 test.describe("armory undo", () => {
   test("an edit can be undone, and the undo is itself logged", async ({ signedIn }) => {
-    await signedIn.getByRole("link", { name: "Armory", exact: true }).click();
-    await expect(
-      signedIn.getByRole("heading", { name: "Armory", exact: true }),
-    ).toBeVisible();
-    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await openPage(signedIn, "Armory");
+    await loadShipped(signedIn);
     await expect(signedIn.locator(".alert--success")).toBeVisible();
 
     await signedIn.getByRole("tab", { name: "Calibers" }).click();
@@ -31,7 +41,7 @@ test.describe("armory undo", () => {
     // The edit says what it cost, which is what makes somebody want the undo.
     await expect(signedIn.locator(".alert--success")).toContainText("Saved");
 
-    await signedIn.getByRole("link", { name: "Audit log" }).click();
+    await openPage(signedIn, "Audit log");
     const entry = signedIn.locator("tbody tr", { hasText: "Armory row changed" }).first();
     await expect(entry).toBeVisible();
     await entry.getByRole("button", { name: "Undo" }).click();
@@ -48,8 +58,8 @@ test.describe("armory undo", () => {
   });
 
   test("and the name really is back", async ({ signedIn }) => {
-    await signedIn.getByRole("link", { name: "Armory", exact: true }).click();
-    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await openPage(signedIn, "Armory");
+    await loadShipped(signedIn);
     await expect(signedIn.locator(".alert--success")).toBeVisible();
     await signedIn.getByRole("tab", { name: "Calibers" }).click();
 
@@ -60,7 +70,7 @@ test.describe("armory undo", () => {
     await signedIn.getByRole("button", { name: "Save", exact: true }).click();
     await expect(signedIn.getByRole("dialog")).toHaveCount(0);
 
-    await signedIn.getByRole("link", { name: "Audit log" }).click();
+    await openPage(signedIn, "Audit log");
     await signedIn
       .locator("tbody tr", { hasText: "Armory row changed" })
       .first()
@@ -68,7 +78,7 @@ test.describe("armory undo", () => {
       .click();
     await expect(signedIn.locator(".alert--success")).toBeVisible();
 
-    await signedIn.getByRole("link", { name: "Armory", exact: true }).click();
+    await openPage(signedIn, "Armory");
     await signedIn.getByRole("tab", { name: "Calibers" }).click();
     await expect(signedIn.locator("tbody tr td:nth-child(2) button").first()).toHaveText(
       original,

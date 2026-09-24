@@ -6,12 +6,11 @@
  * and a band drawn from one shop is that shop's pricing rather than the
  * market's.
  */
-import { test, expect } from "./fixtures.js";
+import { test, expect, openPage } from "./fixtures.js";
 
 test.describe("market", () => {
   test.beforeEach(async ({ signedIn }) => {
-    await signedIn.getByRole("link", { name: "Market" }).click();
-    await expect(signedIn.getByRole("heading", { name: "Market" })).toBeVisible();
+    await openPage(signedIn, "Market");
   });
 
   test("shows a typical price and a spread for each band", async ({ signedIn }) => {

@@ -13,12 +13,11 @@
  * come apart cleanly: everybody chooses their own categories, only an
  * administrator changes what counts as a deal for everybody.
  */
-import { test, expect } from "./fixtures.js";
+import { test, expect, openPage } from "./fixtures.js";
 
 test.describe("hot deals", () => {
   test.beforeEach(async ({ signedIn }) => {
-    await signedIn.getByRole("link", { name: "Hot deals" }).click();
-    await expect(signedIn.getByRole("heading", { name: "Hot deals" })).toBeVisible();
+    await openPage(signedIn, "Hot deals");
   });
 
   test("lists what is cheap for what it is", async ({ signedIn }) => {

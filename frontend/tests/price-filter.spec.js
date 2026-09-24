@@ -85,4 +85,48 @@ test.describe("price filter", () => {
     await signedIn.keyboard.press("ArrowRight");
     await expect(signedIn).toHaveURL(/min_price=/);
   });
+
+  test("the top handle sets a ceiling, rounded to a price a person would type", async ({
+    signedIn,
+  }) => {
+    const highest = signedIn.getByLabel("Highest price");
+    await highest.focus();
+    for (let step = 0; step < 12; step += 1) await signedIn.keyboard.press("ArrowLeft");
+    await expect(signedIn).toHaveURL(/max_price=\d+/);
+    // Rounded: never "417.8231", always a whole, steady number.
+    const max = Number(new URL(signedIn.url()).searchParams.get("max_price"));
+    expect(Number.isInteger(max)).toBe(true);
+  });
+
+  test("a handle taken back to its end clears the bound instead of pinning it", async ({
+    signedIn,
+  }) => {
+    const lowest = signedIn.getByLabel("Lowest price");
+    await lowest.focus();
+    await signedIn.keyboard.press("ArrowRight");
+    await expect(signedIn).toHaveURL(/min_price=/);
+    await signedIn.keyboard.press("Home");
+    await expect(signedIn).not.toHaveURL(/min_price=/);
+  });
+
+  test("one step off the end is a real bound, not the floor itself", async ({
+    signedIn,
+  }) => {
+    // Rounded away from the end. Rounded to the nearest step it was the
+    // cheapest listing's own price -- a filter that excluded nothing, drawn
+    // with the handle back at the end, where it could not be dragged to clear.
+    const lowest = signedIn.getByLabel("Lowest price");
+    await lowest.focus();
+    await signedIn.keyboard.press("ArrowRight");
+    await expect(signedIn).toHaveURL(/min_price=/);
+    await expect(lowest).not.toHaveValue("0");
+  });
+
+  test("emptying a box removes that bound", async ({ signedIn }) => {
+    const box = signedIn.locator(".price-range__boxes").getByRole("spinbutton").last();
+    await box.fill("900");
+    await expect(signedIn).toHaveURL(/max_price=900/);
+    await box.fill("");
+    await expect(signedIn).not.toHaveURL(/max_price=/);
+  });
 });

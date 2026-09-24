@@ -5,12 +5,11 @@
  * departures are counted, every enabled site appears whether or not it had
  * news, and the window is a closed interval the reader chooses.
  */
-import { test, expect } from "./fixtures.js";
+import { test, expect, openPage } from "./fixtures.js";
 
 test.describe("what changed", () => {
   test.beforeEach(async ({ signedIn }) => {
-    await signedIn.getByRole("link", { name: "What changed" }).click();
-    await expect(signedIn.getByRole("heading", { name: "What changed" })).toBeVisible();
+    await openPage(signedIn, "What changed");
   });
 
   test("leads with the headline numbers, departures included", async ({ signedIn }) => {

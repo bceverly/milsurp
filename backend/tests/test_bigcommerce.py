@@ -717,3 +717,33 @@ class TestTheGridSaysWhetherItIsGone:
     def test_the_word_in_a_title_is_not_evidence(self):
         soup = BeautifulSoup(card("x", "Bayonets sold out of Springfield"), "html.parser")
         assert sold_from_card(soup.select_one("article.card")) is False
+
+
+class TestClydeArmory:
+    def test_it_is_registered_and_off_the_planned_list(self):
+        from app.scrapers import SCRAPER_CLASSES
+        from app.scrapers.clyde_armory import ClydeArmoryScraper
+        from app.scrapers.planned import PLANNED
+
+        assert ClydeArmoryScraper in SCRAPER_CLASSES
+        assert "clyde-armory" not in {site.slug for site in PLANNED}
+
+    def test_it_reads_the_agency_trade_in_shelf(self):
+        from app.scrapers.clyde_armory import ClydeArmoryScraper
+
+        assert [s["url"] for s in ClydeArmoryScraper.sources] == [
+            "https://clydearmory.com/agency-trade-in/"
+        ]
+
+    def test_an_accordion_description_is_read(self):
+        """Clyde's theme has no description tab; it has schema.org microdata."""
+        page = BeautifulSoup(
+            '<div id="accordion--description"><div itemprop="description">'
+            "Agency Trade-In Sig Sauer P320 Full-Size 9mm pistols.</div></div>",
+            "html.parser",
+        )
+        assert (
+            Shop()
+            ._first_text(page, Shop.detail_description_selectors)
+            .startswith("Agency Trade-In Sig Sauer P320")
+        )

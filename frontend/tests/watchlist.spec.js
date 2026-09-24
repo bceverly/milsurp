@@ -6,7 +6,7 @@
  * what somebody has about the rifle they have decided they want and will not
  * pay this week's price for.
  */
-import { test, expect } from "./fixtures.js";
+import { test, expect, openPage } from "./fixtures.js";
 
 async function openFirstListing(page) {
   await page.goto("/?availability=all");
@@ -29,6 +29,11 @@ test.describe("watchlist", () => {
   test.beforeEach(async ({ signedIn }) => {
     await signedIn.goto("/watchlist");
     await expect(signedIn.getByRole("heading", { name: "Watchlist" })).toBeVisible();
+    // Wait for the list itself, not only the heading. Counted while it still
+    // read "Loading…", the count was 0, nothing was cleared, and the next test
+    // found "Watching" where it wanted "Watch" -- which a busy machine turned
+    // from rare into two failures in one run.
+    await expect(signedIn.getByText("Loading…")).toHaveCount(0);
     const stop = signedIn.getByRole("button", { name: /^Stop watching/ });
     for (let left = await stop.count(); left > 0; left -= 1) {
       await stop.first().click();
@@ -55,8 +60,7 @@ test.describe("watchlist", () => {
     await signedIn.getByRole("button", { name: "Watch", exact: true }).click();
     await expect(signedIn.getByRole("button", { name: "Watching" })).toBeVisible();
 
-    await signedIn.getByRole("link", { name: "Watchlist" }).click();
-    await expect(signedIn.getByRole("heading", { name: "Watchlist" })).toBeVisible();
+    await openPage(signedIn, "Watchlist");
     await expect(signedIn.locator(".watchlist__row")).toHaveCount(1);
     await expect(signedIn.locator(".watchlist__title")).toContainText(title.slice(0, 24));
   });
@@ -76,7 +80,7 @@ test.describe("watchlist", () => {
     // The button reads its own state, so it updates without a reload.
     await expect(signedIn.getByRole("button", { name: /^Target/ })).toBeVisible();
 
-    await signedIn.getByRole("link", { name: "Watchlist" }).click();
+    await openPage(signedIn, "Watchlist");
     await expect(signedIn.locator(".watchlist__target")).toContainText("123");
     await expect(signedIn.locator(".watchlist__note")).toContainText(
       "only at this price",
@@ -105,7 +109,7 @@ test.describe("watchlist", () => {
     // saved-searches.spec already spell it this way.
     await signedIn.getByRole("button", { name: "Save", exact: true }).click();
 
-    await signedIn.getByRole("link", { name: "Watchlist" }).click();
+    await openPage(signedIn, "Watchlist");
     await expect(signedIn.locator(".watchlist__alert")).toContainText("Alerts on");
 
     // And it survives a reload, rather than being a thing the page remembered.
@@ -118,7 +122,7 @@ test.describe("watchlist", () => {
     await signedIn.getByRole("button", { name: "Watch", exact: true }).click();
     await expect(signedIn.getByRole("button", { name: "Watching" })).toBeVisible();
 
-    await signedIn.getByRole("link", { name: "Watchlist" }).click();
+    await openPage(signedIn, "Watchlist");
     await expect(signedIn.locator(".watchlist__row")).toHaveCount(1);
     await signedIn.getByRole("button", { name: /^Stop watching/ }).click();
     await expect(signedIn.locator(".watchlist__row")).toHaveCount(0);
@@ -154,7 +158,7 @@ test.describe("watchlist", () => {
       signedIn.getByRole("button", { name: /^Target |^Set a target/ }),
     ).toHaveCount(0);
 
-    await signedIn.getByRole("link", { name: "Watchlist" }).click();
+    await openPage(signedIn, "Watchlist");
     await expect(signedIn.locator(".watchlist__row")).toHaveCount(0);
 
     // And the target went with it rather than waiting to be inherited.
@@ -175,7 +179,7 @@ test.describe("watchlist", () => {
     await signedIn.reload();
     await expect(signedIn.getByRole("button", { name: "Watching" })).toBeVisible();
 
-    await signedIn.getByRole("link", { name: "Watchlist" }).click();
+    await openPage(signedIn, "Watchlist");
     await expect(signedIn.locator(".watchlist__row")).toHaveCount(1);
   });
 });

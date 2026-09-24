@@ -31,6 +31,7 @@ from .bowman_arms import BowmanArmsScraper
 from .centerfire_systems import CenterfireSystemsScraper
 from .checkpoint_charlies import CheckpointCharliesScraper
 from .classic_firearms import ClassicFirearmsScraper
+from .clyde_armory import ClydeArmoryScraper
 from .co_gun_sales import CoGunSalesScraper
 from .collectors_firearms import CollectorsFirearmsScraper
 from .dbg_firearms import DbgFirearmsScraper
@@ -51,6 +52,7 @@ from .royal_tiger import RoyalTigerScraper
 from .sarco import SarcoScraper
 from .simpson_ltd import SimpsonLtdScraper
 from .surplus_defense import SurplusDefenseScraper
+from .what_a_country import WhatACountryScraper
 
 
 def _demo_site_enabled() -> bool:
@@ -103,6 +105,8 @@ SCRAPER_CLASSES: tuple[type[SiteScraper], ...] = (
     MadisonGunsScraper,
     DbgFirearmsScraper,
     BotachScraper,
+    WhatACountryScraper,
+    ClydeArmoryScraper,
 )
 
 _REGISTRY: dict[str, type[SiteScraper]] = {cls.slug: cls for cls in SCRAPER_CLASSES}

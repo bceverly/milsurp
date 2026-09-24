@@ -19,8 +19,12 @@ export default defineConfig({
   workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  timeout: 30_000,
-  expect: { timeout: 10_000 },
+  // Headroom for a loaded machine, not for slow tests. A passing test takes
+  // no longer for these; a run that shares its CPU with a backend suite or a
+  // build (one did, September 2026) ran every test three to five times slower,
+  // and four waits that normally finish inside two seconds crossed ten.
+  timeout: 60_000,
+  expect: { timeout: 15_000 },
   reporter: process.env.CI ? [["list"], ["github"]] : [["list"]],
   // Per-run when the harness says so. Two concurrent runs sharing one output
   // directory delete each other's traces as they start, which fails a test
@@ -34,8 +38,8 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "off",
-    actionTimeout: 10_000,
-    navigationTimeout: 15_000,
+    actionTimeout: 15_000,
+    navigationTimeout: 20_000,
   },
 
   projects: [

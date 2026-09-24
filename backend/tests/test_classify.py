@@ -2394,3 +2394,110 @@ class TestEdgedWeaponsAreFiledWithBayonets:
         result = classify.enrich("French Chassepot Rifle with Sword", price=900.0)
         assert result["is_rifle"] is True
         assert result["is_bayonet"] is False
+
+
+class TestTheWOfSAndWIsWesson:
+    """Read as "with", the W of "S&W" cut every S&W title off at the maker's
+    name, and whatever was left decided the listing."""
+
+    def test_it_is_not_read_as_with(self):
+        assert classify._without_attached_parts("s&w m&p15 30 round magazine").startswith(
+            "s&w m&p15"
+        )
+
+    def test_so_an_s_and_w_magazine_is_not_a_rifle(self):
+        """No price on purpose: the price floor must not be what decides it."""
+        result = classify.enrich("S&W M&P15 30 Round 5.56 Magazine", category="Magazines")
+        assert result["is_rifle"] is False
+
+    def test_and_an_s_and_w_revolver_is_still_a_handgun(self):
+        assert classify.enrich("S&W Model 10 .38 Special Revolver", price=400.0)["is_pistol"]
+
+
+class TestABarrelLengthInPassingDescribesTheGun:
+    """ "3 ¼ inch barrel with a good bore" is a revolver being described. It
+    only looked right before because of the S&W misreading above, which cut
+    the title off before the word "barrel"."""
+
+    def test_a_revolver_whose_title_describes_its_barrel(self):
+        result = classify.enrich(
+            "Published Smith & Wesson 1903 Hand Ejector 2nd Model 1st Change 32 Long "
+            "Serial #45993, .32 S&W Long, 3 ¼ inch barrel with a good bore showing mild "
+            "roughness",
+            price=775.0,
+            category="Curio & Relic",
+        )
+        assert (result["is_rifle"], result["is_pistol"]) == (False, True)
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "3 ¼ inch barrel with a good bore",
+            '7.5" barrel, very good bore',
+            "18 inch barrel and police markings",
+            "5 1/2 in. barrel; blued",
+        ],
+    )
+    def test_the_length_is_recognized_when_more_follows(self, text):
+        assert classify._BARREL_DESCRIBED.search(text)
+
+    @pytest.mark.parametrize("text", ["mauser 98 24 inch barrel", "24 inch barrel"])
+    def test_a_title_ending_on_its_barrel_is_still_selling_one(self, text):
+        assert not classify._BARREL_DESCRIBED.search(text)
+
+
+class TestAPoliceTradeInShelfNamesItsGunsByModel:
+    """Clyde Armory's agency trade-ins: a gun is named by its model and
+    nothing else, and was filed with the optics and lights beside it."""
+
+    @pytest.mark.parametrize(
+        ("title", "kind"),
+        [
+            ("Agency Trade-in Sig Sauer P320 Full Size", "pistol"),
+            ("Agency Trade-in HK VP9 w/Night Sights", "pistol"),
+            ("Agency Trade-In M&P 9 Full Size", "pistol"),
+            ("Agency Trade-in G43X With Trijicon RMRcc", "pistol"),
+            ("Agency Trade-In Colt AR6721", "rifle"),
+            ('Agency Trade-in Sig Sauer 516 Gen 2 10.3" SBR', "rifle"),
+            ("Agency Trade-In Bushmaster XM15-E2S", "rifle"),
+            ("Agency Trade-in LRP-07 .308WIN", "rifle"),
+            ("Agency Trade-In Benelli Supernova Tactical", "rifle"),
+            ("Agency Trade-in USAS-12", "rifle"),
+        ],
+    )
+    def test_the_gun_is_a_gun(self, title, kind):
+        result = classify.enrich(title, price=500.0, category="Agency Trade-In")
+        assert result[f"is_{kind}"] is True
+        assert result["is_police_surplus"] is True
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            'Agency Trade-In Colt 11.5" 6933 Complete Upper Receiver Group',
+            "Agency Trade-In Colt LE6945 Complete Upper Receiver",
+            "Agency Trade-in XPS2-0 Holographic Sight",
+        ],
+    )
+    def test_an_upper_or_an_optic_is_not(self, title):
+        result = classify.enrich(title, price=500.0, category="Agency Trade-In")
+        assert (result["is_rifle"], result["is_pistol"]) == (False, False)
+
+    def test_but_a_lower_is_the_firearm(self):
+        """The serialized half, and the firearm in law -- the same rule as a
+        stripped lower in TestACheapFrameIsStillAFirearm."""
+        result = classify.enrich(
+            "Agency Trade-In Colt LE6940 Complete Lower Receiver",
+            price=559.0,
+            category="Agency Trade-In",
+        )
+        assert result["is_rifle"] is True
+
+    def test_sabre_defence_is_a_company_not_a_sword(self):
+        result = classify.enrich(
+            'Agency Trade-In Sabre Defence 11.5" Complete Upper Receiver Group', price=649.0
+        )
+        assert result["is_bayonet"] is False
+
+    def test_the_m_and_p15_rifle_is_not_read_as_an_m_and_p_pistol(self):
+        result = classify.enrich("S&W M&P15 Sport II 5.56 Rifle", price=700.0)
+        assert (result["is_rifle"], result["is_pistol"]) == (True, False)

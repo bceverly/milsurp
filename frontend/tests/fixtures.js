@@ -58,8 +58,32 @@ export const test = base.extend({
     await page.fill('input[name="password"]', PASSWORD);
     await page.click('button[type="submit"]');
     await expect(page.getByRole("heading", { name: "Inventory" })).toBeVisible();
+    // Settled, not merely drawn: the heading appears before the listings have
+    // loaded, and a test that clicks a nav link in that window has its click
+    // swallowed by the re-render that follows. On a busy machine that window
+    // is long enough to lose a click in most runs.
+    await expect(page.getByText(/listings? match your filters/)).toBeVisible();
     await use(page);
   },
 });
+
+/**
+ * Open a page from the navigation and wait until it is really there.
+ *
+ * Its own heading, matched exactly, is the signal -- the inventory the tests
+ * start on carries headings like "US M1 Garand, Springfield Armory 1944", so
+ * a loose match can pass on the wrong page. And the click is repeated until
+ * the heading arrives: a click that lands while the page underneath is still
+ * re-rendering can be lost, and clicking the link to a page already open is
+ * harmless.
+ */
+export async function openPage(page, link, heading = link) {
+  await expect(async () => {
+    await page.getByRole("link", { name: link, exact: true }).click();
+    await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible({
+      timeout: 3_000,
+    });
+  }).toPass({ timeout: 30_000 });
+}
 
 export { expect };

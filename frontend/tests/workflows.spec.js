@@ -433,7 +433,9 @@ test.describe("item detail extras", () => {
     await expect(value).toHaveAttribute("title", /not a compliance determination/);
   });
 
-  test("and anything that is not a firearm has no C&R line at all", async ({ signedIn }) => {
+  test("and anything that is not a firearm has no C&R line at all", async ({
+    signedIn,
+  }) => {
     /*
      * C&R is a class of firearm. A bayonet saying "Not known" would suggest
      * the question is open for it; it is not a question at all.

@@ -1135,8 +1135,8 @@ unknown sort, a price that is not a number. That check runs when a search is
 
 ### If the vendor sells parts kits
 
-Four of the thirty-one vendors are here for their **parts kits** rather than
-their guns — Apex Gun Parts, Arms of America and Bowman Arms — and they are the
+Five of the thirty-three vendors are here for their **parts kits** rather than
+their guns — Apex Gun Parts, Arms of America, Bowman Arms and What A Country — and they are the
 first ones where the interesting decision was not the platform but the scope.
 
 The standing rule is that the only non-firearm category worth ingesting is a
@@ -2565,6 +2565,23 @@ before it was made, and `backend/tests/test_user_agent.py` pins it, including
 the line in `config.yaml.sample`, which sets the value explicitly and would
 otherwise override whatever the code says.
 
+### A certificate that works in a browser and not here
+
+"unable to verify the first certificate" from a site that shows a padlock in a
+browser is almost always a server that sends its own certificate without the
+intermediate linking it to a trusted root. Browsers fetch the missing one
+themselves, from the address printed in the certificate; Python does not.
+Clyde Armory was off the list for weeks over this.
+
+**Do not switch verification off.** Instead, fetch the intermediate from the
+certificate's "CA Issuers" address (`openssl s_client -showcerts` shows the
+chain, `openssl x509 -ext authorityInfoAccess` the address), check it
+completes the chain with `openssl verify -CAfile $(python -m certifi)
+-untrusted intermediate.pem leaf.pem`, and add it to
+`backend/app/scrapers/certs/extra-intermediates.pem` with a note saying which
+site needs it. Every scrape session trusts certifi's roots plus that file
+(`base.ca_bundle`), so the chain is verified end to end.
+
 ### robots.txt
 
 Every scraper obeys it: `Disallow` rules are enforced before a request is made,
@@ -2884,7 +2901,7 @@ is what 65% had become.
 Every scraper parses markup nobody here controls, and the only thing that
 proves a parser still works is running it against that markup. The suite must
 not ask the vendor — it would be slow, it would fail on their bad days rather
-than ours, and it would put thirty-one shops' servers in the path of
+than ours, and it would put thirty-three shops' servers in the path of
 `make test`. So the pages are recorded once and replayed.
 
 ```bash

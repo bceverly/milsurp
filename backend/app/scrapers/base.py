@@ -16,12 +16,14 @@ from __future__ import annotations
 import abc
 import json
 import logging
+import os
 import re
 import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
@@ -139,6 +141,49 @@ def vendors_answer(exc: Exception) -> bool:
     return getattr(exc, "status", None) in VENDOR_ANSWERS
 
 
+#: Intermediates that some vendors' servers fail to send. See the file itself.
+EXTRA_INTERMEDIATES = Path(__file__).resolve().parent / "certs" / "extra-intermediates.pem"
+
+_ca_bundle_path: str | None = None
+
+
+def ca_bundle() -> str:
+    """A CA bundle: certifi's trusted roots plus :data:`EXTRA_INTERMEDIATES`.
+
+    A browser fetches a missing intermediate itself, from the address printed
+    in the site's certificate, so a shop that sends only its own certificate
+    looks fine in one and fails here with "unable to verify the first
+    certificate". Clyde Armory is that shop. Adding the same public
+    intermediate the browser would download completes the chain to a root
+    certifi already trusts -- nothing about verification is relaxed.
+
+    requests wants a file, so the two are written together once per process,
+    under a name derived from their content so an upgrade of either gets a new
+    file rather than a stale one.
+    """
+    global _ca_bundle_path
+    if _ca_bundle_path and Path(_ca_bundle_path).exists():
+        return _ca_bundle_path
+    import hashlib
+    import tempfile
+
+    import certifi
+
+    roots = Path(certifi.where()).read_bytes()
+    extra = EXTRA_INTERMEDIATES.read_bytes() if EXTRA_INTERMEDIATES.exists() else b""
+    if not extra:
+        _ca_bundle_path = certifi.where()
+        return _ca_bundle_path
+    digest = hashlib.sha256(roots + extra).hexdigest()[:16]
+    target = Path(tempfile.gettempdir()) / f"milsurp-ca-{digest}.pem"
+    if not target.exists():
+        partial = target.with_suffix(f".{os.getpid()}.tmp")
+        partial.write_bytes(roots + b"\n" + extra)
+        partial.replace(target)
+    _ca_bundle_path = str(target)
+    return _ca_bundle_path
+
+
 class ScrapeContext:
     """Services a scraper is handed for one run.
 
@@ -199,6 +244,9 @@ class ScrapeContext:
         self.unchanged = False
         self._last_request_at = 0.0
         self.session = requests.Session()
+        # The standard roots plus the intermediates some vendors forget to
+        # send. Verification stays fully on; see ca_bundle().
+        self.session.verify = ca_bundle()
         self.session.headers.update(
             {
                 "User-Agent": self.scraping.user_agent,

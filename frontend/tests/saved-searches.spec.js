@@ -156,3 +156,79 @@ test.describe("the saved searches page", () => {
     await expect(signedIn.locator(".empty")).toContainText("No saved searches yet");
   });
 });
+
+/**
+ * A saved search as the page describes it, from a stored query using every
+ * filter at once. Answered from a route so the list is exactly this search,
+ * whatever else the suite has saved by the time this runs.
+ */
+test.describe("a saved search, read back", () => {
+  const RICH = {
+    id: 901,
+    name: "Swiss rifles under a thousand",
+    query:
+      "search=K31&kind=rifle&caliber=7.5x55mm&country=Switzerland&manufacturer=W%2BF+Bern" +
+      "&category=Rifles&min_price=300&max_price=1000&price_drops_only=true&availability=sold",
+    sort: "price_asc",
+    email_enabled: true,
+    email_item_limit: 10,
+    match_count: 1,
+    last_emailed_at: "2026-09-20T12:00:00Z",
+  };
+
+  async function show(page, searches) {
+    await page.route("**/api/saved-searches", (route) =>
+      route.request().method() === "GET"
+        ? route.fulfill({ json: searches })
+        : route.fallback(),
+    );
+    await page.goto("/saved-searches");
+  }
+
+  test("every filter is described in words", async ({ signedIn }) => {
+    await show(signedIn, [RICH]);
+    const card = signedIn.locator(".saved-search", { hasText: RICH.name });
+    const filters = card.locator(".saved-search__filters");
+    await expect(filters).toContainText("“K31”");
+    await expect(filters).toContainText("Type: rifle");
+    await expect(filters).toContainText("Caliber: 7.5x55mm");
+    await expect(filters).toContainText("Country: Switzerland");
+    await expect(filters).toContainText("Maker: W+F Bern");
+    await expect(filters).toContainText("Category: Rifles");
+    await expect(filters).toContainText("Price: 300–1000");
+    await expect(filters).toContainText("Price reduced");
+    await expect(filters).toContainText("Availability: sold");
+    // One of them, so "match" rather than "matches".
+    await expect(card.locator(".saved-search__count")).toHaveText("1 match");
+    await expect(card).toContainText("Last emailed");
+  });
+
+  test("a price with only one end says which end is open", async ({ signedIn }) => {
+    await show(signedIn, [{ ...RICH, query: "max_price=500", match_count: 4 }]);
+    await expect(signedIn.locator(".saved-search__filters")).toHaveText("Price: any–500");
+  });
+
+  test("a change the server refuses is put back, and says why", async ({ signedIn }) => {
+    await show(signedIn, [RICH]);
+    await signedIn.route("**/api/saved-searches/901", (route) =>
+      route.request().method() === "PATCH"
+        ? route.fulfill({ status: 400, json: { detail: "That limit is not offered." } })
+        : route.fallback(),
+    );
+    const card = signedIn.locator(".saved-search", { hasText: RICH.name });
+    const toggle = card.getByRole("checkbox");
+    await expect(toggle).toBeChecked();
+    await toggle.uncheck();
+    await expect(card.getByRole("alert")).toContainText("That limit is not offered.");
+    // Optimistic, and so reverted: the box is left saying what the server holds.
+    await expect(toggle).toBeChecked();
+  });
+
+  test("a list that cannot be loaded says so", async ({ signedIn }) => {
+    await signedIn.route("**/api/saved-searches", (route) =>
+      route.fulfill({ status: 500, json: { detail: "The database is busy." } }),
+    );
+    await signedIn.goto("/saved-searches");
+    await expect(signedIn.getByRole("alert")).toContainText("The database is busy.");
+  });
+});

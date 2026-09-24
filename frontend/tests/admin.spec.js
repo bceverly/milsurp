@@ -646,3 +646,34 @@ test.describe("sessions and the audit log", () => {
     await expect(signedIn.getByRole("link", { name: "Audit log" })).toBeVisible();
   });
 });
+
+test.describe("a cadence set outside the page", () => {
+  test("still shows in words, however it was set", async ({ signedIn }) => {
+    /**
+     * The select offers eight cadences, but a site's interval can also come
+     * from config.yaml or the CLI, and a value the list does not hold has to
+     * be shown rather than silently read as the first option. The real site
+     * list is fetched and only the intervals are changed on the way through.
+     */
+    const odd = [30, 90, 120, 4320, 30240];
+    await signedIn.route("**/api/sites", async (route) => {
+      if (route.request().method() !== "GET") return route.fallback();
+      const response = await route.fetch();
+      const sites = await response.json();
+      odd.forEach((minutes, index) => {
+        if (sites[index]) sites[index].scan_interval_minutes = minutes;
+      });
+      return route.fulfill({ response, json: sites });
+    });
+    await signedIn.goto("/sites");
+    for (const label of [
+      "Every 30 min",
+      "Every 1h 30m",
+      "Every 2 hours",
+      "Every 3 days",
+      "Every 3 weeks",
+    ]) {
+      await expect(signedIn.locator("option", { hasText: label }).first()).toBeAttached();
+    }
+  });
+});

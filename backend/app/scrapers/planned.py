@@ -44,29 +44,17 @@ class PlannedSite:
 PLANNED: tuple[PlannedSite, ...] = (
     # -- blocked at the door -----------------------------------------------
     PlannedSite(
-        slug="clyde-armory",
-        name="Clyde Armory",
-        base_url="https://clydearmory.com/",
-        platform="BigCommerce (Stencil)",
-        blocker=(
-            "Their certificate chain is broken. The server sends its own "
-            "Sectigo DV certificate without the intermediate, so verification "
-            "fails with 'unable to verify the first certificate' and every "
-            "request dies at TLS. The page is a perfectly ordinary "
-            "BigCommerce grid behind it. Turning verification off is not the "
-            "answer; this waits for them to fix the chain."
-        ),
-    ),
-    PlannedSite(
         slug="wis-transfers",
         name="WIS Transfers",
         base_url="https://www.wistransfers.com/",
-        platform="Unknown -- nothing is served to look at",
+        platform="PHP shop behind an AWS WAF bot-control rule",
         blocker=(
-            "Answers 202 with an empty body, to the catalog and to the home "
-            "page alike. That is a challenge rather than a shop, and until "
-            "something comes back there is no platform to identify and "
-            "nothing to parse."
+            "The shop is fine; its firewall refuses us. AWS WAF answers our "
+            "honest MilsurpMonitor user agent with a JavaScript challenge "
+            "(x-amzn-waf-action: challenge, 202, empty) -- robots.txt "
+            "included -- while a browser gets the page. Pretending to be a "
+            "browser would be evading their bot control, so this waits on "
+            "WIS allowing the MilsurpMonitor agent."
         ),
     ),
 )

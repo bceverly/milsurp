@@ -44,12 +44,34 @@ function toPrice(position, low, high) {
  * in mind and makes the box look broken. The step grows with the number,
  * because $5 is a meaningful difference at $40 and noise at $40,000.
  */
+function stepFor(price) {
+  if (price < 50) return 1;
+  if (price < 500) return 5;
+  if (price < 5000) return 25;
+  if (price < 50000) return 250;
+  return 1000;
+}
+
 function tidy(price) {
-  if (price < 50) return Math.round(price);
-  if (price < 500) return Math.round(price / 5) * 5;
-  if (price < 5000) return Math.round(price / 25) * 25;
-  if (price < 50000) return Math.round(price / 250) * 250;
-  return Math.round(price / 1000) * 1000;
+  const step = stepFor(price);
+  return Math.round(price / step) * step;
+}
+
+/**
+ * A bound just inside one end, rounded *away* from that end.
+ *
+ * One step off the floor is a hair above it -- $25.40 against a $25 cheapest
+ * listing -- and plain rounding makes that $25, the floor itself: a filter
+ * that excludes nothing, drawn with the handle back at the end, where there
+ * is nowhere left to drag it to clear it. Rounded up to $26 instead, the
+ * handle moves off the end and can be taken back.
+ */
+function tidyInside(price, low, high) {
+  const rounded = tidy(price);
+  const step = stepFor(price);
+  if (rounded <= low) return (Math.floor(low / step) + 1) * step;
+  if (rounded >= high) return (Math.ceil(high / step) - 1) * step;
+  return rounded;
 }
 
 export default function PriceRange({ distribution, min, max, onChange }) {
@@ -74,12 +96,12 @@ export default function PriceRange({ distribution, min, max, onChange }) {
 
   const commit = (nextLow, nextHigh) => {
     setDraft(null);
+    // The ends mean "no bound", so dragging a handle back to the edge clears
+    // the filter rather than pinning it to the cheapest listing that happens
+    // to be in the catalog today.
     onChange({
-      // The ends mean "no bound", so dragging a handle back to the edge clears
-      // the filter rather than pinning it to the cheapest listing that happens
-      // to be in the catalog today.
-      min: nextLow <= low ? null : tidy(nextLow),
-      max: nextHigh >= high ? null : tidy(nextHigh),
+      min: nextLow <= low ? null : tidyInside(nextLow, low, high),
+      max: nextHigh >= high ? null : tidyInside(nextHigh, low, high),
     });
   };
 

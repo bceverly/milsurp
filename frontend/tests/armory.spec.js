@@ -5,7 +5,20 @@
  * arrives awaiting approval, promoting is what moves it into production, and
  * nothing in between is silent about which state a row is in.
  */
-import { test, expect } from "./fixtures.js";
+import { test, expect, openPage } from "./fixtures.js";
+
+/**
+ * Load the shipped armory and wait for it to say it has.
+ *
+ * Every test here starts from it, and not waiting was a race each time: the
+ * load's own reload replaces the table, so a search typed, a row ticked or a
+ * tab chosen before it lands is done to a table about to vanish. Under a
+ * loaded machine that went from rare to four failures in one run.
+ */
+async function loadShipped(page) {
+  await page.getByRole("button", { name: "Load shipped armory" }).click();
+  await expect(page.locator(".alert--success")).toBeVisible();
+}
 
 /**
  * Wait until the *manufacturers* table is the one on screen.
@@ -42,23 +55,12 @@ async function caliberRowIsShowing(page, name) {
 
 test.describe("armory", () => {
   test.beforeEach(async ({ signedIn }) => {
-    // Exact, both the link and the heading: the inventory the test starts on
-    // has a card headed "US M1 Garand, Springfield Armory 1944", which is also
-    // a link. A substring match on the heading passed while still on that page whenever the click was lost
-    // to a re-render -- and the test then waited ten seconds for a button that
-    // was never going to be there. Retried until the URL moves, so a click the
-    // inventory swallowed while it was still rendering is simply made again.
-    await expect(async () => {
-      await signedIn.getByRole("link", { name: "Armory", exact: true }).click();
-      await expect(signedIn).toHaveURL(/\/armory/, { timeout: 2000 });
-    }).toPass();
-    await expect(
-      signedIn.getByRole("heading", { name: "Armory", exact: true }),
-    ).toBeVisible();
+    // See openPage: its exact heading, and the click retried until it lands.
+    await openPage(signedIn, "Armory");
   });
 
   test("loads the shipped armory, all of it awaiting approval", async ({ signedIn }) => {
-    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await loadShipped(signedIn);
     // The success line specifically. A standing banner counts what is
     // awaiting approval and appears only once there is something to count, so
     // a bare ".alert" matches one element or two depending on the timing.
@@ -105,7 +107,7 @@ test.describe("armory", () => {
      * Placed early in this file on purpose: a later test promotes every maker
      * to production, and the list shows the pending queue by default.
      */
-    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await loadShipped(signedIn);
     await expect(signedIn.locator(".alert--success")).toBeVisible();
     await signedIn.getByRole("tab", { name: "Manufacturers" }).click();
     await makersAreShowing(signedIn);
@@ -131,7 +133,7 @@ test.describe("armory", () => {
     /** The shared models/calibers table has had a delete since it existed; what
      *  changed is that it asks first. Pinned per tab because the actions cell
      *  is one block of JSX shared by two tabs with different columns. */
-    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await loadShipped(signedIn);
     await expect(signedIn.locator(".alert--success")).toBeVisible();
 
     for (const tab of ["Models", "Calibers"]) {
@@ -158,7 +160,7 @@ test.describe("armory", () => {
      * status or enabled, so any surviving row stops the name being proposed
      * and a deleted one comes back. The row is the tombstone.
      */
-    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await loadShipped(signedIn);
     await expect(signedIn.locator(".alert--success")).toBeVisible();
     await signedIn.getByRole("tab", { name: "Calibers" }).click();
 
@@ -251,7 +253,7 @@ test.describe("armory", () => {
      * Turning a row off is ruling on it — it matches nothing afterwards,
      * exactly like a pending row — but the filter asked only about status.
      */
-    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await loadShipped(signedIn);
     await expect(signedIn.locator(".alert--success")).toBeVisible();
     await signedIn.getByRole("tab", { name: "Manufacturers" }).click();
     await makersAreShowing(signedIn);
@@ -280,7 +282,7 @@ test.describe("armory", () => {
      * wrong pair should have something to look at rather than an archaeology
      * exercise" — and then offered nothing to do about it.
      */
-    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await loadShipped(signedIn);
     await expect(signedIn.locator(".alert--success")).toBeVisible();
     await signedIn.getByRole("tab", { name: "Manufacturers" }).click();
     await makersAreShowing(signedIn);
@@ -312,7 +314,7 @@ test.describe("armory", () => {
 
   test("un-merge is not offered on a row that was never merged", async ({ signedIn }) => {
     /** On an ordinary row it would read as a second kind of delete. */
-    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await loadShipped(signedIn);
     await expect(signedIn.locator(".alert--success")).toBeVisible();
     await signedIn.getByRole("tab", { name: "Manufacturers" }).click();
     await expect(signedIn.getByRole("button", { name: "Un-merge" })).toHaveCount(0);
@@ -383,7 +385,7 @@ test.describe("armory", () => {
      * then swap the alias — and between them the row either claims a spelling
      * twice or has stopped recognizing one.
      */
-    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await loadShipped(signedIn);
     await expect(signedIn.locator(".alert--success")).toBeVisible();
     await signedIn.getByRole("tab", { name: "Calibers" }).click();
     await caliberRowIsShowing(signedIn, ".32 ACP");
@@ -435,7 +437,11 @@ test.describe("armory", () => {
   test("promoting a row moves it to production and it stops being pending", async ({
     signedIn,
   }) => {
-    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await loadShipped(signedIn);
+    // Let the load report first. Its reload replaces the table, and a row
+    // ticked before that lands is ticked in a table that is about to vanish --
+    // the Promote button was disabled mid-reload and then detached.
+    await expect(signedIn.locator(".alert--success")).toBeVisible();
     // A named row rather than whichever happens to sort first: the name cell
     // also carries a reference link and a chip, so a name read back out of it
     // is not the string it went in as.
@@ -460,7 +466,7 @@ test.describe("armory", () => {
   });
 
   test("a model is one row carrying several makers", async ({ signedIn }) => {
-    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await loadShipped(signedIn);
     await signedIn.getByLabel("Search").fill("M1 Garand");
     const rows = signedIn.locator("tbody tr", { hasText: "M1 Garand" });
     await expect(rows).toHaveCount(1);
@@ -471,7 +477,7 @@ test.describe("armory", () => {
   test("calibers are a separate tab and carry their other spellings", async ({
     signedIn,
   }) => {
-    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await loadShipped(signedIn);
     // Every other test here waits for this and this one did not, so it was
     // searching a table the load had not finished filling.
     await expect(signedIn.locator(".alert--success")).toBeVisible();
@@ -486,7 +492,7 @@ test.describe("armory", () => {
   test("select all approves the whole pending queue in two clicks", async ({
     signedIn,
   }) => {
-    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await loadShipped(signedIn);
     // Wait for real data rather than the first row: while it is fetching, the
     // only row in the table is "Loading…", which is also a visible row.
     await expect(signedIn.locator("tbody tr", { hasText: "M1 Garand" })).toHaveCount(1);
@@ -520,7 +526,7 @@ test.describe("armory", () => {
   });
 
   test("manufacturers can be approved the same way", async ({ signedIn }) => {
-    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await loadShipped(signedIn);
     // Wait for it to report before touching the tab. The click kicks off a
     // POST and a reload, and load() does not cancel an in-flight request, so
     // a filter change made during it can be overwritten by the older response.
@@ -542,7 +548,7 @@ test.describe("armory", () => {
     // chip and approving them changed nothing. The payload carried no status
     // at all, so the page fell through to the chip it shows for one it does
     // not recognize -- while the database said they were all approved.
-    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await loadShipped(signedIn);
     // Wait for it to report before touching the tab. The click kicks off a
     // POST and a reload, and load() does not cancel an in-flight request, so
     // a filter change made during it can be overwritten by the older response.
@@ -568,7 +574,7 @@ test.describe("armory", () => {
   test("the manufacturers tab honors the status filter", async ({ signedIn }) => {
     // It took no status parameter, so it returned every maker whatever the
     // page was set to -- which is what made the whole list look pending.
-    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await loadShipped(signedIn);
     // Wait for it to report before touching the tab. The click kicks off a
     // POST and a reload, and load() does not cancel an in-flight request, so
     // a filter change made during it can be overwritten by the older response.
@@ -605,7 +611,7 @@ test.describe("armory", () => {
   });
 
   test("a maker expands to the models the armory says it built", async ({ signedIn }) => {
-    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await loadShipped(signedIn);
     // Wait for it to report before touching the tab. The click kicks off a
     // POST and a reload, and load() does not cancel an in-flight request, so
     // a filter change made during it can be overwritten by the older response.
@@ -647,7 +653,7 @@ test.describe("armory", () => {
        * easy way to get this wrong.
        */
       await signedIn.setViewportSize({ width: 1024, height: 900 });
-      await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+      await loadShipped(signedIn);
       await expect(signedIn.locator(".alert--success")).toBeVisible();
       await signedIn.getByRole("tab", { name: tab }).click();
       // "Everything", not the default pending queue: an earlier test in this
@@ -699,7 +705,7 @@ test.describe("armory", () => {
      * its right edge at 1451 on a 1440-wide window.
      */
     await signedIn.setViewportSize({ width: 1024, height: 900 });
-    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await loadShipped(signedIn);
     await expect(signedIn.locator(".alert--success")).toBeVisible();
     await signedIn.getByRole("tab", { name: "Models" }).click();
     // See the note above about .loading-row doubling as the empty state.
@@ -727,7 +733,7 @@ test.describe("armory", () => {
      * from here the only route there was to open the row, read its name,
      * switch to the models tab and find it again.
      */
-    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await loadShipped(signedIn);
     await expect(signedIn.locator(".alert--success")).toBeVisible();
     await signedIn.getByRole("tab", { name: "Manufacturers" }).click();
     await signedIn.getByLabel("Showing").selectOption("approved");
@@ -771,7 +777,7 @@ test.describe("armory", () => {
   }) => {
     // The API orders makers by `position` -- the order their matching rules are
     // tried in, which is right for the API and no way to read fifty firms.
-    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await loadShipped(signedIn);
     await expect(signedIn.locator(".alert--success")).toBeVisible();
     await signedIn.getByRole("tab", { name: "Manufacturers" }).click();
     await signedIn.getByLabel("Showing").selectOption("approved");
@@ -790,9 +796,17 @@ test.describe("armory", () => {
   });
 
   test("a column header sorts by it, and again reverses it", async ({ signedIn }) => {
-    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await loadShipped(signedIn);
     await expect(signedIn.locator(".alert--success")).toBeVisible();
     await signedIn.getByRole("tab", { name: "Calibers" }).click();
+    // The Calibers rows, not the Models rows still up while they load: only
+    // a caliber row's eye filters by caliber.
+    await expect(
+      signedIn
+        .locator("tbody tr")
+        .first()
+        .getByRole("link", { name: /^View listings for/ }),
+    ).toHaveAttribute("href", /caliber=/);
 
     const firstName = signedIn.locator("tbody tr td:nth-child(2) button").first();
     await expect(firstName).toBeVisible();
@@ -830,7 +844,7 @@ test.describe("armory", () => {
      * Before this the sort and the search were React state and Back dropped
      * both, landing you on the Models tab sorted by name with an empty box.
      */
-    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await loadShipped(signedIn);
     await expect(signedIn.locator(".alert--success")).toBeVisible();
 
     await signedIn.getByRole("tab", { name: "Calibers" }).click();
@@ -899,7 +913,7 @@ test.describe("armory", () => {
     // The general collator reads ".303" and ".45" as 303 and 45, so it put
     // .303 British after .45 ACP. As bore diameters they are 0.303" and 0.45"
     // and the .303 belongs between .30-06 and .308.
-    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await loadShipped(signedIn);
     await expect(signedIn.locator(".alert--success")).toBeVisible();
     await signedIn.getByRole("tab", { name: "Calibers" }).click();
     await signedIn.getByLabel("Showing").selectOption("");
@@ -965,7 +979,7 @@ test.describe("armory", () => {
     // this file share a database and one of them promotes the whole pending
     // queue, so "some rows are pending" is true or not depending on what ran
     // first. A search for one name hides the rest either way.
-    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await loadShipped(signedIn);
     await expect(signedIn.locator(".alert--success")).toBeVisible();
     await signedIn.getByRole("tab", { name: "Manufacturers" }).click();
     await signedIn.getByLabel("Showing").selectOption("");
@@ -1031,7 +1045,7 @@ test.describe("armory", () => {
     /** The makers tab has had this since it existed, and models was the one
      *  place it was missing — which made "is this row worth filling in?" the
      *  question the page could not answer. */
-    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await loadShipped(signedIn);
     await expect(signedIn.locator(".alert--success")).toBeVisible();
     await signedIn.getByRole("tab", { name: "Models" }).click();
     // Approved rows: a row awaiting approval links nothing and shows how many
@@ -1054,12 +1068,15 @@ test.describe("armory", () => {
      * holding, and before this the only route there was retyping the name
      * into the inventory's search box.
      */
-    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await loadShipped(signedIn);
     await signedIn.getByRole("tab", { name: "Calibers" }).click();
 
     const row = signedIn.locator("tbody tr").first();
     const view = row.getByRole("link", { name: /^View listings for/ });
-    await expect(view).toBeVisible();
+    // Waits for the Calibers table itself: a tab switch leaves the Models rows
+    // up while the calibers load, and their eye links by model, not caliber.
+    // Read straight after the click, a busy machine served the Models row.
+    await expect(view).toHaveAttribute("href", /caliber=/);
 
     const href = await view.getAttribute("href");
     // The filter matches the stored string exactly, and everything rather
@@ -1087,7 +1104,7 @@ test.describe("armory", () => {
      * the shop, so filtering a model by name would miss every listing matched
      * to it under a different spelling.
      */
-    await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    await loadShipped(signedIn);
     // Let the load report before changing the view: its reload is still in
     // flight otherwise, and would overwrite the filter change below.
     await expect(signedIn.locator(".alert--success")).toBeVisible();

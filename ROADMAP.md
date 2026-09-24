@@ -14,10 +14,16 @@ The whole point of the application is breadth. Each new vendor is one subclass
 of `SiteScraper` in `backend/app/scrapers/` plus one line in `SCRAPER_CLASSES`;
 scheduling, admin controls, price history, images and digests all come for free.
 
-**Where this stands: thirty-one vendors read, two queued — and both of those
-are blocked at the door** by something no base class can fix: a broken TLS
-chain at Clyde Armory and an empty 202 from WIS Transfers. Nothing buildable is
+**Where this stands: thirty-three vendors read, one queued — and it is
+blocked at the door:** WIS Transfers' firewall challenges any client that says
+it is not a browser, and this one says so honestly. Nothing buildable is
 waiting.
+
+**Clyde Armory shipped once its certificate problem was understood.** Their
+server sends its own certificate without the intermediate; browsers fetch the
+missing one themselves, Python does not. The same public intermediate now
+ships in `backend/app/scrapers/certs/extra-intermediates.pem`, added to the
+trusted roots, so the chain verifies end to end and nothing is switched off.
 
 **The two most recent came out of the queue:** DBG Firearms, a second Wix
 shop, and Botach, whose catalog is drawn by Algolia and is now read through
@@ -63,6 +69,8 @@ the whole catalog as JSON to the widget that draws the grid. See
 | [Simpson Ltd.](https://www.simpsonltd.com/) | `simpson-ltd` | **Firebase Cloud Functions** — the Luger, military rifle, antique, German trainer and bayonet shelves of a 19,201-item shop |
 | [Madison Guns](https://madisonguns.com/) | `madison-guns` | BigCommerce — their whole 164-listing used rack plus the antique shelf, because the surplus in it is not shelved apart. **First shop keyed by an id found *inside* the card** |
 | [DBG Firearms](https://www.dbgfirearms.com/) | `dbg-firearms` | Wix Stores — their 128-listing used rack, where the Mausers, Enfields, Mosins and M1s sit among modern trade-ins. **Taught the Wix class to stop on a repeated page**: their sections serve the last page again for any page past the end |
+| [Clyde Armory](https://clydearmory.com/agency-trade-in/) | `clyde-armory` | BigCommerce — 44 agency trade-ins (Glocks, a P320, HK VP9 and HK45, Mini-14s, shotguns, SBRs) beside trade-in optics and uppers. **First shop read through a shipped intermediate certificate**, because its server leaves it out |
+| [What A Country](https://whatacountry.com/) | `what-a-country` | Bespoke ASP.NET — thirty surplus parts kits on one page (Colt M16A1, M1 Carbine, AMD-65, Suomi, MG3, HK11, FAL, UZI, DPM, RPD, STENs). The product page is read every scan, because it is the only place a sold kit says so |
 | [Botach](https://botach.com/) | `botach` | **Algolia base class** — the search index their widget reads, with its published search-only key. Only the trade-in shelf: 22 published listings, police trade-ins labeled by their own titles |
 
 ### Planned
@@ -98,8 +106,8 @@ about.
 
 | Vendor | Slug | Platform | Waiting on |
 | --- | --- | --- | --- |
-| [Clyde Armory](https://clydearmory.com/agency-trade-in/) | `clyde-armory` | BigCommerce | **Their TLS chain is broken.** The server sends its own Sectigo DV certificate without the intermediate, so verification fails — `unable to verify the first certificate` — and every request dies before HTTP. With verification off it is a perfectly ordinary 314 KB BigCommerce grid. Turning verification off is not the fix; this waits on them |
-| [WIS Transfers](https://www.wistransfers.com/) | `wis-transfers` | Unknown — nothing is served | Answers **202 with an empty body**, to the catalog and the home page alike. That is a challenge rather than a shop, and until something comes back there is no platform to identify and nothing to parse |
+| ~~[Clyde Armory](https://clydearmory.com/agency-trade-in/)~~ | `clyde-armory` | BigCommerce | **Shipped, 2026-09-24.** The server sends its Sectigo DV certificate without the intermediate (*Sectigo Public Server Authentication CA DV R36*), which browsers fetch for themselves from the certificate's AIA address and Python does not. "Waits on them" was the wrong conclusion: the same public intermediate is shipped with the scrapers and added to certifi's roots, so verification is complete rather than relaxed. 44 agency trade-ins, one page |
+| [WIS Transfers](https://www.wistransfers.com/product-search-results?product_category_group_id=48256) | `wis-transfers` | PHP shop behind **AWS WAF** | **The shop works; its firewall refuses us.** Re-measured 2026-09-24: our MilsurpMonitor user agent gets `x-amzn-waf-action: challenge` (202, empty body) from `awselb` — on robots.txt as well — while a browser's user agent gets the "All Police Trade-Ins" page, 533 KB. The "202, empty" was never an empty shop; it is a bot-control rule. Passing it by claiming to be a browser would be evading a control the site chose, which this application does not do (see the user-agent note in the README). **Waits on WIS allowing the MilsurpMonitor agent**, the same kind of permission Joe Salter gave for `/image/` |
 
 The platform column below was originally **inferred from the URL shape** — a
 `/product-category/` or `/product-tag/` path means WooCommerce, `/collections/`
@@ -592,13 +600,14 @@ call — half of them have changed since:
 | Robert RTG | 200, 33 prices | **Connection reset** at TCP level, on the root as well as the section | **Blocked** |
 | Proteus Armaments | 200, 18 prices | **403** from Cloudflare | **Blocked** |
 | APP Arms Co | 403 from nginx | 403 from nginx, unchanged | **Blocked** |
-| Numrich | client-side | 200, 170KB, 2 prices, no cards — Miva (`mm5-GPC-basket-id`) | Needs its endpoint found before it is worth starting |
-| What A Country | bespoke ASP.NET | 200, 64 prices, product links like `/colt-m16a1-parts-kit.aspx` — a Colt M16A1 kit, an M1 Carbine kit, a Hungarian AK63D underfolder | Real stock behind bespoke markup; its own build, and the pick of what remains |
-| MCT Defense | one product page | unchanged — `/product/` is a product, not a section | Still needs an entry URL |
+| Numrich | client-side | 200, 170KB, 2 prices, no cards — Miva (`mm5-GPC-basket-id`) | **Dropped.** Individual parts only, no complete kits — the recoil-spring case the standing rule keeps out |
+| What A Country | bespoke ASP.NET | 200, 64 prices, product links like `/colt-m16a1-parts-kit.aspx` — a Colt M16A1 kit, an M1 Carbine kit, a Hungarian AK63D underfolder | **Shipped** (`what-a-country`). 30 kits, every one priced and described; half on sale, and the sale price is the one recorded |
+| MCT Defense | one product page | Dealers and importers only — they do not sell to the public | **Dropped.** Wholesale only; see its own entry under Data quality |
 
-So of the thirteen: **four shipped**, **one refused on measurement**, **one
-dropped** (domain gone), **three blocked**, **three needing their own build**,
-and one that was already a vendor.
+So of the thirteen: **five shipped**, **one refused on measurement**, **three
+dropped** (one domain gone, one wholesale only, one parts only), **three
+blocked**, and one that was already a vendor. Nothing on this list is waiting
+to be built.
 
 **Two figures in the tables above were wrong before they were measured
 properly, both in the same direction.** Apex was recorded as "837 product blocks
@@ -660,7 +669,7 @@ sections that say so and leave the rest, exactly as with parts kits.
 | **AIM Surplus** | `/categories/firearm/police-trade-ins` | **Laravel + Vue 3** | **It has an endpoint, and the browser reading would have been wrong a fourth time.** The page is 39KB with zero prices, and `/js/store.js` (507KB) names the routes: `/data/search`, `/data/search/suggestions`, `/data/products/`, `/items/`. `/data/search` answers with JSON — a 500 for a guessed parameter shape, which is an endpoint refusing a bad query rather than a route that is not there. Its robots.txt is `Disallow:` with nothing after it: everything is permitted. **The next one to build**, once the query shape is worked out |
 | ~~**Southern Tactical**~~ | `/firearms/police-trade-in-firearms` | nginx, not identified | 200, 36KB, 3 prices. **Dropped: not viable.** Three prices in 36 KB, no endpoint found, and no evidence the catalog is worth the build |
 | **GovDeals** | `/en/firearms-live-ammunition` | Akamai bot management | 200 but `_abck`/`bm_sz` cookies and no prices. A government *auction* site, not a shop — the price model is bids, which this application has no idea about. Bottom of the list, and arguably out of scope |
-| **Clyde Armory** | `/agency-trade-in/` | — | **TLS handshake fails** from here. Retry later; it may be transient |
+| ~~**Clyde Armory**~~ | `/agency-trade-in/` | BigCommerce | **Shipped.** The handshake failure was a missing intermediate certificate, not a transient; see the queue above |
 | **Palmetto State Armory** | `/guns/used-guns-surplus-firearms-trade-ins.html` | Magento, Cloudflare | **403** to a plain request. Blocked, like APP Arms Co |
 
 **Suggested order**, cheapest first: ~~Recoil Gun Works and Officer Store~~

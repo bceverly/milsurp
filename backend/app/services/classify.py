@@ -690,7 +690,9 @@ _BAYONET = re.compile(r"\bbayonets?\b(?!\s+lugs?\b)", re.I)
 #: bucket it is only asked of a listing that is not already a firearm.
 _EDGED = re.compile(
     r"\b(?:daggers?|dirks?|swords?|sabres?|sabers?|cutlass(?:es)?)\b"
-    r"(?!\s+(?:knots?|belts?|frogs?|hangers?|slings?|chains?)\b)",
+    # Not what hangs off one, and not Sabre Defence, which makes rifles and
+    # whose "Complete Upper Receiver Group" was filed as a blade.
+    r"(?!\s+(?:knots?|belts?|frogs?|hangers?|slings?|chains?|defen[cs]e)\b)",
     re.I,
 )
 
@@ -745,7 +747,9 @@ def _lacks(title: str, thing: re.Pattern[str]) -> bool:
 #: A bare "w" means "with" only when a space follows it. Without that lookahead
 #: it also matches the W of "W+F Bern" — Waffenfabrik Bern — and their K31
 #: Pioneer Sawback Bayonet stopped being a bayonet.
-_COMES_WITH = re.compile(r"\bw/|\bw(?=\s)|\b(?:with|and|plus|incl(?:udes|uding)?)\b", re.I)
+_COMES_WITH = re.compile(
+    r"(?<!&)\bw/|(?<!&)\bw(?=\s)|\b(?:with|and|plus|incl(?:udes|uding)?)\b", re.I
+)
 
 #: More things thrown in, written the way a listing page writes it. A part with
 #: this after it is one line of a bundle, and the bundle is the firearm.
@@ -1054,6 +1058,16 @@ RIFLE_PATTERNS = (
     # RAIL", "Colt SPORTER LIGHTWEIGHT 16\" BBL .223, Police Trade".
     r"\bm&p\s*-?\s*15",
     r"\bcolt\s+(?:ar-?15\s+)?sporter\b",
+    # Police trade-in shelves name the gun by its model and nothing else:
+    # "Agency Trade-In Colt AR6721", "Sig Sauer 516 Gen 2 10.3\" SBR",
+    # "Bushmaster XM15-E2S", "LRP-07 .308WIN". An SBR is a short-barreled rifle.
+    r"\bsbr\b",
+    r"\bxm-?15\b",
+    r"\bcolt\s+(?:ar|le|cr)-?\d{4}\b",
+    r"\blrp-?07\b",
+    # And the shotguns the same shelves carry by name alone.
+    r"\bsupernova\b",
+    r"\busas-?12\b",
     r"\bk\.?98\b",
     r"\bkar\.?98\b",
     r"\benfield\b",
@@ -1164,6 +1178,14 @@ PISTOL_PATTERNS = (
     # and in .22 LR, which the last-resort caliber rule reads as a rifle.
     # "Ruger" right before the mark, so the M77 Mark II rifle does not match.
     r"\b22/45\b",
+    # Service pistols named by model alone on police trade-in shelves: "Sig
+    # Sauer P320 Full Size", "HK VP9 w/Night Sights", "M&P 9 Full Size",
+    # "G43X With Trijicon RMRcc". The M&P needs its caliber after it, or the
+    # M&P15 rifle would match.
+    r"\bsig(?:\s+sauer)?\s+p\d{3}\b",
+    r"\bvp(?:9|40)\b",
+    r"\bm&p\s*(?:9|40|45)\b",
+    r"\bg(?:17|19|19x|20|21|22|23|26|27|43|43x|45|47|48)\b",
     r"\brug[ae]r\s+(?:mk|mark)\s*(?:i{1,3}|iv|[1-4])\b",
     # The revolver and pocket-pistol cartridges, which were missing entirely --
     # and _kind_from_caliber falls back to *rifle*, so every one of them was
@@ -1814,7 +1836,10 @@ _LIST_ENTRY = 26
 #: "New Barrel *and* Free Holster" then reads as a holster for sale, and that
 #: shape is the commoner of the two. One scabbard is filed as a rifle for it.
 _ATTACHED_INTRO = re.compile(
-    r"\b(?:with|w/|w|no|without|w/o|less|minus|missing|sans|plus|and|incl(?:udes|uding)?"
+    # Not after "&": the W of "S&W" is Wesson, not "with". Read as "with" it
+    # cut every S&W title off at the maker's name, and what was left decided
+    # the listing: "S&W M&P15 30 Round Magazine" became a rifle.
+    r"(?<!&)\b(?:with|w/|w|no|without|w/o|less|minus|missing|sans|plus|and|incl(?:udes|uding)?"
     r"|(?:numbers[\s-]?)?matching|original|correct)\b"
     r"|(?<![\d.×x-])\b\d{1,2}\b(?![\d.×x\"”″'])|\+",
     re.I,
@@ -1941,6 +1966,11 @@ _NEVER_A_FIREARM = (
     r"\bbandoli?ers?\b",
     r"\bammo\b",
     r"\b80\s*%",
+    # An AR's upper half sold on its own: "Colt 11.5\" 6933 Complete Upper
+    # Receiver Group". Not a firearm, whatever gun the title names -- unlike
+    # the *lower*, which is the serialized part and is the firearm (see
+    # TestACheapFrameIsStillAFirearm), so lowers are deliberately left out.
+    r"\b(?:complete\s+)?upper\s+(?:receiver|rec)\b",
 )
 
 #: Deactivated, inert, or made to look like a gun without being one.
@@ -2065,7 +2095,7 @@ def _definitely_not_a_firearm(title_lower: str) -> bool:
     where English puts the thing being sold — last, with nothing firearm-shaped
     after it.
     """
-    stripped = _without_attached_parts(title_lower)
+    stripped = _without_parts_mentioned(title_lower)
     if any(re.search(pattern, stripped) for pattern in _NEVER_A_FIREARM):
         return True
     if _ACCESSORY_COMPOUND.search(stripped):
@@ -2087,6 +2117,25 @@ def _definitely_not_a_firearm(title_lower: str) -> bool:
     return any(_is_the_head_noun(stripped, found) for found in candidates)
 
 
+#: A barrel's length, stated in passing: "3 ¼ inch barrel with a good bore",
+#: "18 inch barrel, police trade". That is a gun being described. The
+#: lookahead is the whole rule -- more description has to follow -- because a
+#: title that *ends* on its barrel length is selling the barrel: "Mauser 98 24
+#: inch barrel" is a part and must stay one.
+_BARREL_DESCRIBED = re.compile(
+    r"\b\d{1,2}(?:\.\d+)?(?:\s*[¼½¾]|\s+\d/\d)?\s*(?:inch(?:es)?|in\.?|[\"”″])\s*-?\s*"
+    r"(?:barrel|bbl)\b(?=\s*(?:,|;|\.|with\b|w/|and\b))",
+    re.I,
+)
+
+
+def _without_parts_mentioned(title_lower: str) -> str:
+    """The title less the parts it only mentions: what comes with it, and a
+    barrel length stated in passing. Both accessory tests start from this, so
+    they cannot disagree about what the title is selling."""
+    return _BARREL_DESCRIBED.sub(" ", _without_attached_parts(title_lower))
+
+
 def _is_not_a_firearm(title_lower: str) -> bool:
     r"""True when the *title* says this listing is a part or an accessory.
 
@@ -2103,7 +2152,7 @@ def _is_not_a_firearm(title_lower: str) -> bool:
     # A part the listing says it comes with — or without — is not evidence
     # about what is being sold, so it goes before every test rather than after
     # the first one. "Marlin 444S w/ Ammo" was tripping the bare `ammo` veto.
-    title_lower = _without_attached_parts(title_lower)
+    title_lower = _without_parts_mentioned(title_lower)
 
     if any(re.search(pattern, title_lower) for pattern in NON_FIREARM_PATTERNS):
         return True

@@ -257,6 +257,10 @@ class BigCommerceScraper(SiteScraper):
         "#tab-description",
         ".productView-description",
         "[data-product-description]",
+        # Themes that put the description in an accordion rather than a tab
+        # (Clyde Armory's) still mark it with schema.org's microdata. Last, so
+        # a theme with a tab keeps reading the tab.
+        '[itemprop="description"]',
     )
     #: Where a product page keeps its photographs, best source first.
     #:
