@@ -525,7 +525,7 @@ down, so only the parent is a source.
 Their robots.txt is the stock BigCommerce template — cart, checkout, account
 and their faceted-search parameters. Nothing in the way.
 
-### Parts kits as a coverage push — **Mostly shipped**
+### Parts kits as a coverage push — **Shipped**
 
 That rule had been in this document since the beginning and **no scraper had
 ever followed it.** Audited across the fourteen vendors read at the time: not
@@ -535,9 +535,11 @@ whole site rather than a list of categories, and 3 from `classify` recognizing
 the word "kit" in a title that happened to arrive through a firearms section.
 
 Both jobs below are now done for the vendors worth doing them for: two existing
-shops gained a parts-kit section, and four new shops were added for their kits.
-What remains is the long tail of candidate sites that each need their own
-build, and the browse-filter question at the end.
+shops gained a parts-kit section, and five new shops were added for their kits
+(What A Country the last, in September 2026). The long tail of candidates is
+resolved -- each shipped, dropped or blocked, as the table below records -- and
+the browse-filter question at the end is settled: kits filter by the model they
+build.
 
 **1. Add the section to the vendors already read — done for two of the four,
 and the other two were measured and refused.** Every section below was fetched
@@ -4393,6 +4395,15 @@ more than one machine still wants the queue below.
 - **Shipped** — Raise the coverage floors. **Backend 65% → 83%** against a
   measured 88.0%, **frontend 65% → 76%** statements and 77% lines against
   81.2% and 81.9%, with branches 50% → 70% and functions 55% → 73%.
+
+  **Raised again, September 2026, after a push to 80% on every frontend
+  axis:** statements 88.8%, lines 89.5%, functions 86.1%, branches 80.4%,
+  reached with new end-to-end tests for Security, Email digest, Request
+  access, Saved searches, Backups, the Sites cadence and the price slider --
+  which turned up a real bug, a slider bound that rounded back to the floor
+  and could not be cleared. Floors are now statements 85, lines 86, functions
+  83, and branches **80 exactly**: that one is held at the goal rather than
+  under it, so a change that adds untested branches fails until it is tested.
 
   The suite had been sitting twenty-three points above its own gate, which
   means a floor that number could not fail anything short of deleting a

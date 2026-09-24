@@ -5,7 +5,7 @@
  * a fixed sidebar on desktop and a slide-in drawer on phones, driven entirely
  * by CSS. Only the drawer's open/closed state lives in JavaScript.
  */
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { setReachabilityHandler } from "../api.js";
 import { useAuth } from "../auth.jsx";
@@ -30,6 +30,7 @@ import {
   X,
 } from "./Icons.jsx";
 import Insignia from "./Insignia.jsx";
+import PageLoading from "./PageLoading.jsx";
 
 const NAV = [
   { to: "/", label: "Inventory", icon: Rifle, end: true },
@@ -218,7 +219,12 @@ export default function Shell() {
             time. This is the inventory instead; try that page again in a minute.
           </div>
         )}
-        <Outlet />
+        {/* Pages other than the inventory are fetched when first opened (see
+            App.jsx). Here rather than around the routes, so the navigation
+            stays on screen while one arrives. */}
+        <Suspense fallback={<PageLoading />}>
+          <Outlet />
+        </Suspense>
       </main>
     </div>
   );

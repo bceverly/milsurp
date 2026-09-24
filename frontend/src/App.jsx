@@ -1,25 +1,36 @@
+import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "./auth.jsx";
+import PageLoading from "./components/PageLoading.jsx";
 import Shell from "./components/Shell.jsx";
+// In the first download: the sign-in screen and the inventory everybody
+// lands on after it.
 import Login from "./pages/Login.jsx";
 import Browse from "./pages/Browse.jsx";
-import ItemDetail from "./pages/ItemDetail.jsx";
-import Sites from "./pages/Sites.jsx";
-import SiteDetail from "./pages/SiteDetail.jsx";
-import ScanDetail from "./pages/ScanDetail.jsx";
-import UsersPage from "./pages/Users.jsx";
-import ArmoryPage from "./pages/Armory.jsx";
-import ClassificationPage from "./pages/Classification.jsx";
-import ChangesPage from "./pages/Changes.jsx";
-import HotDealsPage from "./pages/HotDeals.jsx";
-import MarketPage from "./pages/Market.jsx";
-import SettingsPage from "./pages/Settings.jsx";
-import AuditLogPage from "./pages/AuditLog.jsx";
-import BackupsPage from "./pages/Backups.jsx";
-import SavedSearches from "./pages/SavedSearches.jsx";
-import Watchlist from "./pages/Watchlist.jsx";
-import SecurityPage from "./pages/Security.jsx";
-import ResetPassword from "./pages/ResetPassword.jsx";
+
+// Everything else is fetched the first time it is opened. The administrator's
+// pages are most of the code -- the armory alone is over two thousand lines --
+// and a reader who only browses and keeps a watchlist never opens them, so
+// shipping them in the first download was weight every phone paid for nothing.
+// Shell wraps the page area in Suspense, so the navigation stays put while a
+// page loads rather than the whole screen blanking.
+const ItemDetail = lazy(() => import("./pages/ItemDetail.jsx"));
+const Sites = lazy(() => import("./pages/Sites.jsx"));
+const SiteDetail = lazy(() => import("./pages/SiteDetail.jsx"));
+const ScanDetail = lazy(() => import("./pages/ScanDetail.jsx"));
+const UsersPage = lazy(() => import("./pages/Users.jsx"));
+const ArmoryPage = lazy(() => import("./pages/Armory.jsx"));
+const ClassificationPage = lazy(() => import("./pages/Classification.jsx"));
+const ChangesPage = lazy(() => import("./pages/Changes.jsx"));
+const HotDealsPage = lazy(() => import("./pages/HotDeals.jsx"));
+const MarketPage = lazy(() => import("./pages/Market.jsx"));
+const SettingsPage = lazy(() => import("./pages/Settings.jsx"));
+const AuditLogPage = lazy(() => import("./pages/AuditLog.jsx"));
+const BackupsPage = lazy(() => import("./pages/Backups.jsx"));
+const SavedSearches = lazy(() => import("./pages/SavedSearches.jsx"));
+const Watchlist = lazy(() => import("./pages/Watchlist.jsx"));
+const SecurityPage = lazy(() => import("./pages/Security.jsx"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword.jsx"));
 
 function FullPageSpinner() {
   return (
@@ -68,7 +79,14 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       {/* Outside the signed-in shell, like the login page: whoever
           followed this link cannot sign in, which is the point of it. */}
-      <Route path="/reset/:token" element={<ResetPassword />} />
+      <Route
+        path="/reset/:token"
+        element={
+          <Suspense fallback={<PageLoading />}>
+            <ResetPassword />
+          </Suspense>
+        }
+      />
       <Route
         path="/"
         element={

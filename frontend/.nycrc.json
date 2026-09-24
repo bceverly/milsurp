@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/nycrc",
-  "//": "Coverage is collected by Playwright from an istanbul-instrumented build (COVERAGE=1), written to .nyc_output, and reported here. Floors sit a few points below the measured figures (September 2026: statements 81.3%, lines 82.0%, functions 79.6%, branches 74.8%): far enough not to fail an honestly thinner new page, close enough that a real regression cannot pass.",
-  "//2": "They were raised a point in September 2026, after a slide nobody noticed. Four features shipped without e2e tests and the total fell about two points on every axis — still comfortably inside floors set five points low, so the suite stayed green the whole way down. A floor that only catches a collapse is not measuring anything. The margin is deliberately small: what it has to tolerate is one thin new page, not a quarter of unwritten tests.",
+  "//": "Coverage is collected by Playwright from an istanbul-instrumented build (COVERAGE=1), written to .nyc_output, and reported here. Measured September 2026 after the coverage push: statements 88.8%, lines 89.5%, functions 86.1%, branches 80.4%. Floors sit about three points below those, far enough not to fail an honestly thinner new page, close enough that a real regression cannot pass.",
+  "//2": "Branches is held at 80 exactly rather than three points under: 80% on every axis was the stated goal, and a floor below it would let the suite drift back under without anyone noticing. Across the runs that reached it, branches measured 80.36-80.46%, so it passes, but only just -- a change that adds untested branches will fail here, and the answer is a test for them, not a lower floor. The earlier lesson still applies: in September 2026 four features shipped without e2e tests and the total slid two points inside floors set five low, and nobody noticed.",
   "all": false,
   "include": ["src/**/*.{js,jsx}"],
   "exclude": ["src/main.jsx", "tests/**", "**/*.config.js"],
@@ -9,8 +9,8 @@
   "report-dir": "coverage",
   "temp-dir": ".nyc_output",
   "check-coverage": true,
-  "lines": 78,
-  "statements": 77,
-  "functions": 75,
-  "branches": 71
+  "lines": 86,
+  "statements": 85,
+  "functions": 83,
+  "branches": 80
 }
