@@ -48,11 +48,24 @@ bold "Installing in a clean $IMAGE container"
 # `apt install ./file.deb` resolves the dependencies from the archive, which is
 # what a PPA install does too -- so this exercises the real dependency set
 # rather than a --force-depends shortcut.
+#
+# Retried with a fresh index, because right after Ubuntu publishes a security
+# update the index can name a version the mirror has not got yet (a 404), and
+# a minute later it has. The output goes to a file rather than through `tail`:
+# a pipeline's status is its last command's, so `| tail` reported success for
+# an install that had failed.
 "$RUNTIME" exec "$NAME" sh -c '
-  set -e
   export DEBIAN_FRONTEND=noninteractive
-  apt-get update -qq
-  apt-get install -y -qq /tmp/milsurp.deb 2>&1 | tail -30
+  for attempt in 1 2 3; do
+    if apt-get update -qq \
+        && apt-get install -y -qq -o Acquire::Retries=3 /tmp/milsurp.deb >/tmp/apt.log 2>&1; then
+      tail -30 /tmp/apt.log
+      exit 0
+    fi
+    tail -30 /tmp/apt.log
+    [ "$attempt" -lt 3 ] && { echo "apt attempt $attempt failed; retrying in 60s"; sleep 60; }
+  done
+  exit 1
 ' || die "apt install failed"
 
 bold "Checking what the postinst actually did"
