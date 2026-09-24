@@ -176,8 +176,11 @@ class TestTheWalk:
 
         def fake_get_text(url, **_kwargs):
             asked.append(url)
-            if "algolia.net" in url:
-                page = int(parse_qs(urlparse(url).query)["page"][0])
+            parsed = urlparse(url)
+            # The parsed host, not a substring of the URL: CodeQL rightly
+            # points out that "algolia.net" in url also matches a query string.
+            if (parsed.hostname or "").endswith(".algolia.net"):
+                page = int(parse_qs(parsed.query)["page"][0])
                 return json.dumps(pages[page])
             return detail or "<html></html>"
 

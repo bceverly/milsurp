@@ -506,3 +506,72 @@ def run(session: Session, query: SearchQuery, *, limit: int | None = None) -> li
     if limit is not None:
         stmt = stmt.limit(limit)
     return list(session.execute(stmt).scalars().unique().all())
+
+
+def mention_search(name: str) -> str:
+    """The browse search for listings that name *this* phrase, quoted whole.
+
+    Quoted, so "Model 1808" asks for the phrase and not for every listing that
+    says "Model" and, somewhere, "1808". Used by the armory to count what a
+    pending row would explain, and handed to the browse page by its eyeball --
+    one string for both, so the count and the page it opens cannot disagree.
+    """
+    return '"' + " ".join(name.replace('"', " ").split()) + '"'
+
+
+def count_mentions(session: Session, name: str) -> int:
+    """How many stored listings, sold and de-listed included, name this phrase."""
+    from sqlalchemy import func
+
+    stmt = apply_filters(
+        select(func.count(Item.id)),
+        site_ids=None,
+        categories=None,
+        calibers=None,
+        countries=None,
+        manufacturers=None,
+        models=None,
+        forms=None,
+        kinds=None,
+        curio_states=None,
+        availability="all",
+        search=mention_search(name),
+        min_price=None,
+        max_price=None,
+        new_since_hours=None,
+        price_drops_only=False,
+    )
+    return int(session.execute(stmt).scalar_one())
+
+
+def count_mentions_many(session: Session, names: list[str]) -> dict[str, int]:
+    """:func:`count_mentions` for many names at once, in one read of the table.
+
+    The armory page shows a count on every row awaiting approval, and after
+    "Load shipped armory" that is several hundred rows: one query each was
+    seconds of page load. A quoted phrase matches when it appears, ignoring
+    case, in any of the six columns the search reads (``_columns_clause``), so
+    reading those columns once and testing each phrase in memory is the same
+    answer -- ``test_armory_mentions.py`` holds the two to it on a catalog
+    built for the purpose.
+    """
+    wanted = {name: " ".join(name.replace('"', " ").split()).lower() for name in names}
+    counts = dict.fromkeys(names, 0)
+    if not wanted:
+        return counts
+    columns = (
+        Item.title,
+        Item.description,
+        Item.caliber,
+        Item.manufacturer,
+        Item.country,
+        Item.category,
+    )
+    for row in session.execute(select(*columns)):
+        # A separator no phrase can contain, so a phrase never spans two
+        # columns -- which a real search, testing each column apart, cannot.
+        document = "\x00".join((value or "").lower() for value in row)
+        for name, phrase in wanted.items():
+            if phrase and phrase in document:
+                counts[name] += 1
+    return counts

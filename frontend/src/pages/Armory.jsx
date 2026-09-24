@@ -104,7 +104,13 @@ export function tabFromHash(hash) {
  */
 function listingsHref(tab, row) {
   const params = new URLSearchParams();
-  if (tab === "models") {
+  if (tab === "models" && row.mention_count != null) {
+    // A row awaiting approval links nothing, so filtering by it would show an
+    // empty page. It opens the listings that *name* it instead -- the same
+    // quoted search the server counted for the Listings column, so the number
+    // in the table is the number of listings on the page it opens.
+    params.set("search", mentionSearch(row.name));
+  } else if (tab === "models") {
     params.set("model", String(row.id));
   } else {
     const param = tab === "calibers" ? "caliber" : "manufacturer";
@@ -116,6 +122,32 @@ function listingsHref(tab, row) {
   }
   params.set("availability", "all");
   return `/?${params.toString()}`;
+}
+
+/** The browse search for a phrase, quoted whole. Mirrors search.mention_search. */
+function mentionSearch(name) {
+  return `"${name.replace(/"/g, " ").split(/\s+/).filter(Boolean).join(" ")}"`;
+}
+
+/**
+ * The Listings cell for a model row.
+ *
+ * An approved row shows how many listings it is linked to. A row awaiting
+ * approval is linked to none -- that is what awaiting approval means -- so a
+ * flat 0 there said nothing about whether it was worth approving. It shows how
+ * many listings name it instead, marked as mentions so the two are not read
+ * as the same thing.
+ */
+function ListingsCell({ row }) {
+  if (row.mention_count == null) return row.item_count;
+  return (
+    <span
+      className="armory-mentions"
+      title="Awaiting approval, so nothing is linked yet. This is how many listings name it; the eye shows them."
+    >
+      {row.mention_count} mention{row.mention_count === 1 ? "" : "s"}
+    </span>
+  );
 }
 
 //: What the Showing box starts on, and the only value left out of the URL.
@@ -1196,7 +1228,9 @@ export default function Armory() {
     name: (row) => row.name || "",
     status: (row) => row.status || "",
     position: (row) => row.position ?? 0,
-    listings: (row) => row.item_count ?? 0,
+    // Mentions for a pending row, links for an approved one: the number on
+    // screen, whichever it is.
+    listings: (row) => row.mention_count ?? row.item_count ?? 0,
     models: (row) =>
       tab === "manufacturers" ? modelsFor(row).length : (row.model_count ?? 0),
     kind: (row) => kinds.find((kind) => kind.value === row.kind)?.label || "",
@@ -1996,7 +2030,11 @@ export default function Armory() {
                         {row.manufacturers.length ? row.manufacturers.join(", ") : "—"}
                       </td>
                     )}
-                    {tab === "models" && <td>{row.item_count}</td>}
+                    {tab === "models" && (
+                      <td>
+                        <ListingsCell row={row} />
+                      </td>
+                    )}
                     <td>{statusChip(row.status)}</td>
                     <td className="table__actions">
                       <button
@@ -2023,9 +2061,13 @@ export default function Armory() {
                         className="btn btn--ghost btn--sm"
                         to={listingsHref(tab, row)}
                         aria-label={`View listings for ${row.name}`}
-                        title={`Show every listing this ${
-                          tab === "models" ? "model" : "caliber"
-                        } accounts for`}
+                        title={
+                          row.mention_count != null
+                            ? `Show every listing that names ${row.name}`
+                            : `Show every listing this ${
+                                tab === "models" ? "model" : "caliber"
+                              } accounts for`
+                        }
                       >
                         <Eye />
                       </Link>

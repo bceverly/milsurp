@@ -73,6 +73,27 @@ test.describe("armory", () => {
     await expect(chips.first()).toHaveText("Awaiting approval");
   });
 
+  test("a row awaiting approval shows how many listings name it, and the eye opens them", async ({
+    signedIn,
+  }) => {
+    // Straight after the load above, so M1 Garand is still awaiting approval:
+    // a later test promotes the whole queue. A pending row links nothing, so
+    // its count is of listings that *name* it -- and the eye has to open that
+    // same set, or the number in the table is a promise the page breaks.
+    await signedIn.getByLabel("Search").fill("M1 Garand");
+    const row = signedIn.locator("tbody tr", { hasText: "M1 Garand" }).first();
+    const mentions = row.locator(".armory-mentions");
+    await expect(mentions).toHaveText(/^\d+ mentions?$/);
+    const count = Number((await mentions.innerText()).split(" ")[0]);
+    expect(count).toBeGreaterThan(0);
+
+    await row.getByRole("link", { name: "View listings for M1 Garand" }).click();
+    await expect(signedIn).toHaveURL(/search=%22M1\+Garand%22/);
+    await expect(
+      signedIn.getByText(new RegExp(`^${count} listings? match your filters`)),
+    ).toBeVisible();
+  });
+
   test("a maker can be deleted, not only merged away", async ({ signedIn }) => {
     /**
      * The Manufacturers tab had no delete at all while Models and Calibers
@@ -1013,6 +1034,9 @@ test.describe("armory", () => {
     await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
     await expect(signedIn.locator(".alert--success")).toBeVisible();
     await signedIn.getByRole("tab", { name: "Models" }).click();
+    // Approved rows: a row awaiting approval links nothing and shows how many
+    // listings *mention* it instead -- see the test near the top of the file.
+    await signedIn.getByLabel("Showing").selectOption("approved");
 
     await expect(signedIn.getByRole("columnheader", { name: /Listings/ })).toBeVisible();
     const cells = signedIn.locator("tbody tr td").filter({ hasText: /^\d+$/ });
@@ -1064,12 +1088,19 @@ test.describe("armory", () => {
      * to it under a different spelling.
      */
     await signedIn.getByRole("button", { name: "Load shipped armory" }).click();
+    // Let the load report before changing the view: its reload is still in
+    // flight otherwise, and would overwrite the filter change below.
+    await expect(signedIn.locator(".alert--success")).toBeVisible();
     await signedIn.getByRole("tab", { name: "Models" }).click();
+    // An approved row: one awaiting approval has no links to filter by, and
+    // opens the listings that name it instead.
+    await signedIn.getByLabel("Showing").selectOption("approved");
+    // The view reloads without clearing the old rows first, so wait for the
+    // first row to be an approved one before reading its link.
+    const first = signedIn.locator("tbody tr").first();
+    await expect(first.locator(".chip--success")).toHaveText("Production");
 
-    const view = signedIn
-      .locator("tbody tr")
-      .first()
-      .getByRole("link", { name: /^View listings for/ });
+    const view = first.getByRole("link", { name: /^View listings for/ });
     await expect(view).toBeVisible();
     expect(await view.getAttribute("href")).toMatch(/[?&]model=\d+/);
   });

@@ -35,6 +35,7 @@ from sqlalchemy.orm import selectinload
 from ..deps import AdminUser, AppConfig, DbSession
 from ..logsafe import client_address
 from ..models import (
+    ArmoryStatus,
     AuditEvent,
     Caliber,
     FirearmKind,
@@ -61,6 +62,7 @@ from ..schemas import (
 )
 from ..services import armory as service
 from ..services import armoryundo, audit, classify, mailer
+from ..services import search as search_service
 
 router = APIRouter(prefix="/armory", tags=["armory"])
 
@@ -150,7 +152,7 @@ def _caliber_out(row: Caliber, items: dict[str, int], models: dict[int, int]) ->
     )
 
 
-def _model_out(row: FirearmModel, matched: int = 0) -> FirearmModelOut:
+def _model_out(row: FirearmModel, matched: int = 0, mentions: int | None = None) -> FirearmModelOut:
     return FirearmModelOut(
         id=row.id,
         name=row.name,
@@ -169,6 +171,7 @@ def _model_out(row: FirearmModel, matched: int = 0) -> FirearmModelOut:
         first_seen_in=row.first_seen_in,
         merged_into=row.merged_into.name if row.merged_into else None,
         item_count=matched,
+        mention_count=mentions,
     )
 
 
@@ -267,7 +270,20 @@ def list_models(
             FirearmModel.name.ilike(f"%{search}%") | FirearmModel.aliases.ilike(f"%{search}%")
         )
     counts = _listings_per_model(session)
-    return [_model_out(row, counts.get(row.id, 0)) for row in session.execute(stmt).scalars()]
+    rows = list(session.execute(stmt).scalars())
+    # A pending row links nothing, so its link count is always 0 and useless
+    # for deciding whether to approve it. What it would explain is how many
+    # listings name it -- counted for every pending row in one read.
+    pending = [row.name for row in rows if row.status == ArmoryStatus.PENDING]
+    mentions = search_service.count_mentions_many(session, pending)
+    return [
+        _model_out(
+            row,
+            counts.get(row.id, 0),
+            mentions.get(row.name) if row.status == ArmoryStatus.PENDING else None,
+        )
+        for row in rows
+    ]
 
 
 # ---------------------------------------------------------------------------

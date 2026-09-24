@@ -1195,6 +1195,14 @@
   color: var(--ink-500, #6b7280);
 }
 
+/* A pending row's count is of listings that name it, not listings linked to
+   it, and is set apart so the two are not read as the same number. */
+.armory-mentions {
+  color: var(--ink-500);
+  font-style: italic;
+  white-space: nowrap;
+}
+
 /* Pinned to the right edge, because the column that scrolls out of reach is
    the one holding the controls.
  

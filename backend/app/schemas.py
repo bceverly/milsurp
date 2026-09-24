@@ -411,6 +411,12 @@ class FirearmModelOut(UTCModel):
     merged_into: str | None = None
     #: How many stored listings this model currently matches.
     item_count: int = 0
+    #: For a row awaiting approval only: how many listings *name* it. Such a
+    #: row links nothing, so ``item_count`` is always 0 there and says nothing
+    #: about whether it is worth approving; this does. Counted with the same
+    #: search the browse page runs (``search.mention_search``), which is what
+    #: the row's eyeball opens. None on every other row.
+    mention_count: int | None = None
 
 
 class FirearmModelCreate(BaseModel):
