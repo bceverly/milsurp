@@ -47,6 +47,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass, field
+from datetime import datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -235,7 +236,7 @@ class TurnoverSummary:
     rows: list[Turnover] = field(default_factory=list)
 
 
-def _watching_since(session: Session) -> dict[int, object]:
+def _watching_since(session: Session) -> dict[int, datetime | None]:
     """When each site's first completed scan finished.
 
     A listing first seen *after* this arrived while we were watching, so its
@@ -247,9 +248,7 @@ def _watching_since(session: Session) -> dict[int, object]:
             select(ScanRun.site_id, func.min(ScanRun.finished_at))
             .where(ScanRun.status.in_([ScanStatus.SUCCESS, ScanStatus.PARTIAL]))
             .group_by(ScanRun.site_id)
-        )
-        .tuples()
-        .all()
+        ).all()
     )
 
 
@@ -299,12 +298,12 @@ def time_to_sell(
         if since is None or first_seen is None or first_seen <= since:
             floors += 1
             continue
-        days = (left - first_seen).total_seconds() / 86400
-        if days <= 0:
+        elapsed = (left - first_seen).total_seconds() / 86400
+        if elapsed <= 0:
             # Already sold, or gone, the first time we saw it.
             continue
         name = str(value)
-        durations.setdefault(name, []).append(days)
+        durations.setdefault(name, []).append(elapsed)
         by_site.setdefault(name, Counter())[site_id] += 1
 
     thin = {value: days for value, days in durations.items() if len(days) < min_sample}

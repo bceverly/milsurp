@@ -215,9 +215,9 @@ def _kind_clause(kind: str) -> Any:
     return KINDS[kind]
 
 
-def apply_filters(  # noqa: PLR0912 - one branch per filter; splitting it
+def apply_filters[S: Select](  # noqa: PLR0912 - one branch per filter; splitting it
     #                                      would only scatter the same logic
-    stmt: Select,
+    stmt: S,
     *,
     site_ids: list[int] | None,
     categories: list[str] | None,
@@ -234,7 +234,7 @@ def apply_filters(  # noqa: PLR0912 - one branch per filter; splitting it
     max_price: float | None,
     new_since_hours: int | None,
     price_drops_only: bool,
-) -> Select:
+) -> S:
     if site_ids:
         stmt = stmt.where(Item.site_id.in_(site_ids))
     if categories:

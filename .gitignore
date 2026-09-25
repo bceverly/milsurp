@@ -96,6 +96,11 @@ frontend/dist-ssr/
 # The instrumented bundle the Playwright harness builds, kept apart from
 # dist/ so running the tests cannot replace the bundle `make start` serves.
 frontend/dist-coverage/
+# The same for the visual tests' production bundle, and their failure images
+# (expected, actual and diff). The baselines themselves ARE committed, under
+# frontend/tests/visual/baselines/.
+frontend/dist-visual/
+frontend/test-results-visual/
 frontend/.vite/
 .vite/
 *.tsbuildinfo

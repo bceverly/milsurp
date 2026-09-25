@@ -3961,23 +3961,39 @@ One thing the move does not fix on its own: the scheduler still runs scans
 in-process. PostgreSQL removes the single-writer ceiling, but running scans on
 more than one machine still wants the queue below.
 
-### SQLAlchemy 2.1 — **Planned**
+### SQLAlchemy 2.1 — **Shipped**
 
 SQLAlchemy 2.1.0 came out in September 2026. `requirements.txt` allowed
-anything below 3.0, so CI picked it up the same day. On 2.1, mypy failed in 22
-places across nine files, and the backend suite failed with 26 failures and 77
-errors. The first break found was `Result.tuples()`, which 2.1 deprecates now
-that `Row` unpacks as a typed tuple; the suite runs with warnings as errors, so
-every call to it fails. The rest of the test failures were not examined one by
-one. The mypy errors are the new typing: query results mypy used to accept now
-need explicit annotations. For now the
-requirement is capped at `<2.1`, and on 2.0.54 lint and all 3,862 tests pass.
+anything below 3.0, so CI picked it up the same day and failed twice. mypy
+failed in 22 places across nine files. The backend suite had 27 failures and
+104 errors, from two causes:
+- 87 came from `Result.tuples()`, which 2.1 deprecates; the suite runs with
+  warnings as errors, so every call to it fails.
+- 39 were "database is locked", which disappeared once the `.tuples()` calls
+  were fixed, so they were knock-on failures from the first cause.
 
-The migration:
-- Replace the four `.tuples()` calls with plain row unpacking.
-- Annotate the query results mypy now flags.
-- Rerun both suites on SQLite and PostgreSQL.
-- Lift the cap.
+For a day the requirement was capped at `<2.1`. The migration:
+
+- **The three `.tuples()` calls** (two in hot deals, one in market turnover)
+  now pass the rows straight to `dict()`. A 2.1 `Row` is a real typed tuple,
+  which is what `.tuples()` only pretended to give.
+- **Keeping the row type through helpers.** `search.apply_filters` and
+  `armory.filter_by_view` took and returned a bare `Select`, or `Any`, which
+  2.1's stubs cannot see through, so every caller's results lost their type.
+  Both are now generic in the statement, `def apply_filters[S: Select](stmt: S,
+  ...) -> S`, and `similar._base` says it selects `Item`.
+- **Nullable columns, handled explicitly.** Queries that filter `IS NOT NULL`
+  now also skip `None` in Python where the result is used as a key: caliber,
+  country and price. The type checker cannot read a WHERE clause, and the
+  guard costs nothing.
+- **One name meaning two things.** In `market.time_to_sell`, `days` was
+  first a float (one listing's time on the shelf), then reused as a list (one
+  model's durations). It was not a bug, since the two loops never overlap, but
+  2.1's types made mypy see both uses. The float is now `elapsed`.
+
+The requirement is now `>=2.1.0,<3.0`, since the code relies on 2.1's typed
+rows. On 2.1.1, lint is clean and all 3,870 tests pass: 3,787 on SQLite and 83
+on PostgreSQL.
 
 ---
 
@@ -4408,8 +4424,26 @@ The migration:
   path into the audit log: `_what_changed(..., password_set: bool)` used it
   only to append a constant string, so the caller appends it instead. A boolean
   is not a secret, but a static analyzer is right to look twice at that shape.
-- **Planned** — Visual regression tests on the screenshots `make screenshots`
-  already produces.
+- **Shipped** — Visual regression tests: `make test-visual`, and a `visual` job
+  in CI. Ten pages on desktop and three on a phone are compared with baselines
+  under `frontend/tests/visual/baselines/`. They are the same kind of pages
+  `make screenshots` takes, but in their own suite: the README images are
+  retina marketing shots that change whenever someone wants a better picture,
+  and a baseline has to change only when the page does.
+
+  Two things make the comparison stable enough to trust:
+  - **The browser runs in the official Playwright container**, pinned to the
+    installed version, so a laptop and CI render the same fonts.
+  - **Every date is fixed.** The sample data is dated back from a fixed moment
+    (`seed_demo_data.py --now 2026-09-01T15:00:00Z`) and the browser clock is
+    set to match. The moment is in the past on purpose: the server's clock is
+    not frozen, and anything it works out from the real date only moves one
+    way.
+
+  Measured before shipping: two back-to-back runs came out identical. A 1px
+  letter-spacing change on card titles failed the two inventory pages (1-2% of
+  pixels against a 0.2% allowance) and nothing else.
+
 - **Shipped** — Raise the coverage floors. **Backend 65% → 83%** against a
   measured 88.0%, **frontend 65% → 76%** statements and 77% lines against
   81.2% and 81.9%, with branches 50% → 70% and functions 55% → 73%.

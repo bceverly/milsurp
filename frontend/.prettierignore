@@ -1,5 +1,7 @@
 dist
 dist-coverage
+dist-visual
+test-results-visual
 node_modules
 coverage
 .nyc_output

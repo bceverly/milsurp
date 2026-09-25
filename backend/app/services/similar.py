@@ -72,7 +72,7 @@ class Similar:
     rung: Rung
 
 
-def _base(item: Item) -> Select:
+def _base(item: Item) -> Select[Item]:
     """Active listings that are not this one, newest price first later."""
     return (
         select(Item)

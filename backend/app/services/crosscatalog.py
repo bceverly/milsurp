@@ -412,6 +412,8 @@ def makers_by_caliber(session: Session) -> dict[str, str]:
         )
     ).all()
     for caliber, manufacturer, site_id in rows:
+        if caliber is None or manufacturer is None:  # excluded by the query
+            continue
         makers[caliber][manufacturer] += 1
         vendors[caliber].add(site_id)
 

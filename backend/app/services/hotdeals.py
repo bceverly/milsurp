@@ -385,10 +385,8 @@ def refresh(session: Session, *, now: datetime | None = None) -> RefreshResult:
     placed, considered = _place_everything(session)
     keepers = _collapse_duplicates([entry for entry in placed if qualifies(entry, row)])
 
-    # .tuples() rather than the rows themselves: a Row is only tuple-like,
-    # and dict() wants the real thing.
     since: dict[int, datetime] = dict(
-        session.execute(select(HotDeal.item_id, HotDeal.first_listed_at)).tuples().all()
+        session.execute(select(HotDeal.item_id, HotDeal.first_listed_at)).all()
     )
     session.execute(delete(HotDeal))
     session.flush()
@@ -555,9 +553,7 @@ def unsent_for(session: Session, user: User, *, limit: int = MAX_PER_EMAIL) -> l
             select(HotDealNotice.item_id, HotDealNotice.price).where(
                 HotDealNotice.user_id == user.id
             )
-        )
-        .tuples()
-        .all()
+        ).all()
     )
     current = deals(session)
     # Asked once for every deal rather than once per deal: a reader's saved

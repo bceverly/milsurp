@@ -31,14 +31,14 @@ import enum
 import json
 import re
 import threading
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
 import yaml
-from sqlalchemy import and_, delete, func, or_, select, update
+from sqlalchemy import Select, and_, delete, func, or_, select, update
 from sqlalchemy.orm import Session, selectinload
 
 from ..models import (
@@ -683,8 +683,12 @@ def _view_clause(table: Any, view: ArmoryView) -> Any:
     return and_(table.status == status, table.enabled.is_(True))
 
 
-def filter_by_view(stmt: Any, table: Any, view: ArmoryView | None) -> Any:
-    """Apply a Showing setting to a query, or leave it alone for "Everything"."""
+def filter_by_view[S: Select](stmt: S, table: Any, view: ArmoryView | None) -> S:
+    """Apply a Showing setting to a query, or leave it alone for "Everything".
+
+    Generic so the statement keeps its row type: returning ``Any`` left every
+    caller's results untyped, which SQLAlchemy 2.1's stricter stubs reject.
+    """
     return stmt if view is None else stmt.where(_view_clause(table, view))
 
 
@@ -747,7 +751,9 @@ def _restatus(
     next scan. An admin had no way to tell a working change from a no-op.
     """
     model = CURATED[table]
-    rows = session.execute(select(model).where(model.id.in_(list(ids)))).scalars().all()
+    rows: Sequence[Any] = (
+        session.execute(select(model).where(model.id.in_(list(ids)))).scalars().all()
+    )
     moved = [row for row in rows if row.status == was]
     spellings = [text for row in moved for text in row.spellings]
     for row in moved:

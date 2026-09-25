@@ -2869,12 +2869,33 @@ class unlocks a whole group.
 make test            # both suites, both coverage gates
 make test-backend    # pytest
 make test-frontend   # Playwright
+make test-visual     # each main page against its baseline image (needs Docker)
 ```
 
 | Suite | Tool | Tests | Coverage | Gate |
 |---|---|---|---|---|
-| Backend | pytest | 3,353 | 88.5% | 83% |
-| Frontend | Playwright | 195 | 80.1% lines | 77% |
+| Backend | pytest | 3,870 | 89.1% | 83% |
+| Frontend | Playwright | 265 | 89.6% lines | 86% lines |
+| Visual | Playwright | 13 pages | — | 0.2% of pixels |
+
+**Visual regression.** `make test-visual` photographs ten pages on desktop and
+three on a phone, and compares each with the image committed under
+`frontend/tests/visual/baselines/`. It catches what the other suites cannot: a
+page with every element present but in the wrong place, or the wrong color. Two
+things keep the images still from one run to the next:
+
+- **The browser runs in the official Playwright container**, at the version in
+  `package.json`. Fonts render differently on every machine, and a pixel
+  comparison can't tell that apart from a real change. With the container, a
+  baseline made on a laptop matches CI.
+- **Every date is fixed.** The sample listings are dated back from one moment
+  (`seed_demo_data.py --now`), and the browser clock is set to that same
+  moment. Pages read the same next month as they do today.
+
+When a test fails, the expected, actual and diff images are in
+`frontend/test-results-visual/`. If the change was intended,
+`make test-visual-update` rewrites the baselines. The new images go in the same
+commit as the change that caused them, so a reviewer sees the change.
 
 Each gate sits a few points under the measured figure. Far enough that a new
 module which is honestly thinner than the average does not fail the build;
@@ -3047,6 +3068,7 @@ Two workflows, one job per concern, so a red tick names the thing that broke.
 | `ci.yml` | `lint` | `make lint` — black, ruff, mypy, bandit, prettier, eslint, shellcheck |
 | | `test` | three jobs, one per supported Python (3.12, 3.13, 3.14): `make test-backend`, then `make test-frontend`; the frontend step runs even when the backend step fails, so one push reports both, and `fail-fast` is off so one bad interpreter does not hide the others. A PostgreSQL service runs alongside so the portability tests have a real server rather than skipping |
 | | `migrations` | **two jobs, one per engine** (SQLite, PostgreSQL): builds an empty database from the Alembic chain, round-trips it down to base and back up, re-runs it to prove idempotency, and checks the models match |
+| | `visual` | `make test-visual` — the visual regression tests, with the browser in the Playwright container; on failure the diff images are uploaded as an artifact |
 | | `build` | production bundle, and asserts no coverage instrumentation shipped in it |
 | `security.yml` | `security` | installs every scanner, then runs `make security` — the same script you run locally |
 | | `codeql` | Python and JavaScript, `security-extended`; reports into the Security tab |

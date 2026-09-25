@@ -44,7 +44,7 @@ def _counts(session: DbSession) -> dict[str, int]:
         .where(Item.is_active.is_(True), Item.country.is_not(None))
         .group_by(Item.country)
     ).all()
-    return {name: int(n) for name, n in rows}
+    return {name: int(n) for name, n in rows if name is not None}
 
 
 @router.get("", response_model=list[CountryOut])

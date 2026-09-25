@@ -251,6 +251,7 @@ def _price_distribution(session: DbSession, base: Select) -> PriceDistributionOu
                 Item.current_price.is_not(None), Item.current_price > 0
             )
         ).all()
+        if value is not None  # excluded by the query; this tells the type checker
     )
     unpriced = session.execute(
         base.with_only_columns(func.count(Item.id)).where(

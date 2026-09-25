@@ -8,6 +8,9 @@ vendor updated their catalog.
 
     python scripts/seed_demo_data.py            # add sample data
     python scripts/seed_demo_data.py --reset    # wipe listings first
+    python scripts/seed_demo_data.py --now 2026-09-01T15:00:00Z
+                                                # date everything from a fixed
+                                                # moment (the visual tests)
 
 Only ever run this against a disposable or development database; it writes
 fabricated listings that are indistinguishable from scraped ones in the UI.
@@ -17,7 +20,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -449,9 +452,9 @@ def _demo_models(session) -> dict[str, FirearmModel]:
 
 
 def seed(  # noqa: PLR0912 - a linear fixture builder; branches are per-field
-    reset: bool = False, quiet: bool = False
+    reset: bool = False, quiet: bool = False, now: datetime | None = None
 ) -> int:
-    now = utcnow()
+    now = now or utcnow()
     config = get_config()
     config.ensure_directories()
     store = ImageStore(config)
@@ -637,7 +640,7 @@ def seed(  # noqa: PLR0912 - a linear fixture builder; branches are per-field
         # that is empty for that reason is indistinguishable from one that is
         # empty because the rule is broken, which is not a state to leave a
         # test suite in.
-        found = hotdeals.refresh(session)
+        found = hotdeals.refresh(session, now=now)
 
     if not quiet:
         print(f"  Seeded {created} sample listing(s) across {len(sites)} site(s).")
@@ -649,8 +652,24 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Load sample listings for tests and screenshots.")
     parser.add_argument("--reset", action="store_true", help="Delete existing listings first.")
     parser.add_argument("--quiet", action="store_true")
+    parser.add_argument(
+        "--now",
+        type=_instant,
+        help=(
+            "Date the sample data from this UTC instant instead of the present. "
+            "The visual tests use it, with the browser clock set to the same "
+            "moment, so a baseline taken today still matches next month."
+        ),
+    )
     args = parser.parse_args(argv)
-    return seed(reset=args.reset, quiet=args.quiet)
+    return seed(reset=args.reset, quiet=args.quiet, now=args.now)
+
+
+def _instant(text: str) -> datetime:
+    value = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    if value.tzinfo is None:
+        raise argparse.ArgumentTypeError("give a UTC offset, e.g. 2026-09-01T15:00:00Z")
+    return value.astimezone(UTC)
 
 
 if __name__ == "__main__":

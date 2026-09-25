@@ -309,6 +309,14 @@ test-backend: $(VENV_PY) ## Run the pytest suite (fails under 83% coverage)
 test-frontend: frontend/node_modules ## Run the Playwright suite (fails under 77% coverage)
 	@scripts/test-frontend.sh
 
+.PHONY: test-visual
+test-visual: frontend/node_modules ## Compare each main page with its baseline image (needs Docker)
+	@scripts/test-visual.sh $(ARGS)
+
+.PHONY: test-visual-update
+test-visual-update: frontend/node_modules ## Rewrite the visual baselines after an intended change
+	@scripts/test-visual.sh --update-snapshots $(ARGS)
+
 .PHONY: coverage
 coverage: ## Regenerate the README coverage badges from the last test run
 	@$(VENV_PY) scripts/coverage_badges.py

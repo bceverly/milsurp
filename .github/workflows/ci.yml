@@ -161,6 +161,49 @@ jobs:
           if-no-files-found: ignore
 
   # ==========================================================================
+  # Each main page compared with its committed baseline image. The browser
+  # runs in the official Playwright container (scripts/test-visual.sh starts
+  # it), which is why a baseline made on a laptop matches here: both rendered
+  # in the same image. One job, not one per Python version -- the pixels do
+  # not depend on it.
+  visual:
+    name: Visual regression
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --quiet --upgrade pip
+          .venv/bin/pip install --quiet -r backend/requirements.txt
+          cd frontend && npm ci --no-audit --no-fund
+
+      - name: Visual tests
+        run: make test-visual
+
+      - name: Upload the expected, actual and diff images
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: visual-diffs
+          path: frontend/test-results-visual/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  # ==========================================================================
   # The schema has to build, re-build and round-trip on *both* engines: SQLite
   # is what development and the test suite use, PostgreSQL is what a deployment
   # that has outgrown one writer uses. A default that only one of them accepts
