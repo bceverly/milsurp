@@ -3961,6 +3961,24 @@ One thing the move does not fix on its own: the scheduler still runs scans
 in-process. PostgreSQL removes the single-writer ceiling, but running scans on
 more than one machine still wants the queue below.
 
+### SQLAlchemy 2.1 — **Planned**
+
+SQLAlchemy 2.1.0 came out in September 2026. `requirements.txt` allowed
+anything below 3.0, so CI picked it up the same day. On 2.1, mypy failed in 22
+places across nine files, and the backend suite failed with 26 failures and 77
+errors. The first break found was `Result.tuples()`, which 2.1 deprecates now
+that `Row` unpacks as a typed tuple; the suite runs with warnings as errors, so
+every call to it fails. The rest of the test failures were not examined one by
+one. The mypy errors are the new typing: query results mypy used to accept now
+need explicit annotations. For now the
+requirement is capped at `<2.1`, and on 2.0.54 lint and all 3,862 tests pass.
+
+The migration:
+- Replace the four `.tuples()` calls with plain row unpacking.
+- Annotate the query results mypy now flags.
+- Rerun both suites on SQLite and PostgreSQL.
+- Lift the cap.
+
 ---
 
 ## 5. Security and compliance

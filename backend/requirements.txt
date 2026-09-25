@@ -5,7 +5,11 @@ python-multipart>=0.0.32
 email-validator>=2.3.0
 
 # Database
-SQLAlchemy>=2.0.54,<3.0
+# Capped below 2.1 until the code is migrated to it. 2.1.0 (September 2026)
+# deprecates Result.tuples(), which the suite's warnings-as-errors turns into
+# test failures, and changes the typing enough to fail mypy in 22 places. A
+# ">=2.0,<3.0" range picked it up in CI the day it was released.
+SQLAlchemy>=2.0.54,<2.1
 alembic>=1.20.0,<2.0
 # The PostgreSQL driver. Installed unconditionally because the engine is a
 # config.yaml setting rather than a build-time choice: a deployment that starts
