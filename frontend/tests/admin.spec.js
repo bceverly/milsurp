@@ -462,6 +462,18 @@ test.describe("sites", () => {
     await expect(panel.getByText("2 links followed")).toBeVisible();
     await expect(panel.getByText("— new price")).toBeVisible();
 
+    // The sale it announced, in words, on the email's line.
+    await expect(panel.getByText("15% off, code SURPLUS15")).toBeVisible();
+
+    // And on the page of the listing it named: the offer, never the price.
+    await panel.locator(".mailing-panel__listings a").first().click();
+    const offers = signedIn.locator(".offers-panel");
+    await expect(offers).toContainText("15% off");
+    await expect(offers).toContainText("SURPLUS15");
+    await expect(offers).toContainText("regular priced items only");
+    await signedIn.goBack();
+    await expect(panel).toBeVisible();
+
     // Which shops' mail has been followed, which to look at, which to wait on.
     const shops = panel.locator("details");
     await expect(shops.locator("summary")).toContainText(

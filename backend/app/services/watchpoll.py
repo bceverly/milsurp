@@ -92,7 +92,9 @@ def watched_items(session: Session) -> list[Item]:
 _EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
 
-def record_price(session: Session, item: Item, price: float, when: datetime) -> bool:
+def record_price(
+    session: Session, item: Item, price: float, when: datetime, *, source: str = "watch"
+) -> bool:
     """Store a new price the way a scan does. True when it actually moved.
 
     Deliberately the same columns and the same history row -- the watchlist,
@@ -116,6 +118,7 @@ def record_price(session: Session, item: Item, price: float, when: datetime) -> 
             price=price,
             currency=item.currency,
             observed_at=when,
+            source=source,
         )
     )
     return True

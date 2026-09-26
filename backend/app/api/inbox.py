@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
 from ..deps import AdminUser, AppConfig, DbSession
-from ..models import Site
+from ..models import Site, VendorOffer
 from ..schemas import (
     EmailListingOut,
     InboxSettingsOut,
@@ -26,8 +26,23 @@ from ..services import inbox
 router = APIRouter(prefix="/admin/inbox", tags=["inbox"])
 
 
+def _offer_words(offer: VendorOffer) -> str:
+    words = [offer.discount or "an offer"]
+    if offer.code:
+        words.append(f"code {offer.code}")
+    if offer.ends_at:
+        words.append(f"until {offer.ends_at:%b} {offer.ends_at.day}")
+    if offer.personal:
+        words.append("personal to this account")
+    return ", ".join(words)
+
+
 def _state(session: DbSession, config: AppConfig) -> InboxStateOut:
     mail = config.email
+    offers = {
+        offer.email_id: _offer_words(offer)
+        for offer in session.execute(select(VendorOffer)).scalars()
+    }
     return InboxStateOut(
         settings=InboxSettingsOut.model_validate(inbox.settings(session), from_attributes=True),
         configured=bool(mail.username and mail.password),
@@ -42,6 +57,7 @@ def _state(session: DbSession, config: AppConfig) -> InboxStateOut:
                 subject=row.subject,
                 asks_to_confirm=row.asks_to_confirm,
                 received_at=row.received_at,
+                offer=offers.get(row.id),
                 links_followed=(
                     sum(1 for link in row.links if link.url) if row.links_read_at else None
                 ),

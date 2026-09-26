@@ -53,6 +53,7 @@ from .sarco import SarcoScraper
 from .simpson_ltd import SimpsonLtdScraper
 from .sportsmans_outdoor import SportsmansOutdoorScraper
 from .surplus_defense import SurplusDefenseScraper
+from .target_sports_usa import TargetSportsUsaScraper
 from .what_a_country import WhatACountryScraper
 
 
@@ -109,6 +110,7 @@ SCRAPER_CLASSES: tuple[type[SiteScraper], ...] = (
     WhatACountryScraper,
     ClydeArmoryScraper,
     SportsmansOutdoorScraper,
+    TargetSportsUsaScraper,
 )
 
 _REGISTRY: dict[str, type[SiteScraper]] = {cls.slug: cls for cls in SCRAPER_CLASSES}

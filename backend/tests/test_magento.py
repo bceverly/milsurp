@@ -659,7 +659,42 @@ class TestWalkingTheFacetsInstead:
         items = list(Faceted().scrape(ctx))
 
         assert sorted(item.external_key for item in items) == ["magento-1", "magento-2"]
-        assert any("can still miss a few" in warning for warning in ctx.warnings)
+        # Two of a section that counts sixty: well short, so a warning.
+        assert any("reached 2 of 60" in warning for warning in ctx.warnings)
+
+    @responses.activate
+    def test_a_walk_that_reaches_nearly_everything_is_not_a_warning(self, ctx):
+        """Classic's police handguns: no group fits, every value is walked, and
+        60 of 63 is what that reaches. That made every Classic scan PARTIAL; a
+        site that is always partial teaches people to ignore partial."""
+
+        class Faceted(Shop):
+            follow_facets = True
+            facet_page_size = 2
+
+        nav = facet_nav({"Action": [("bolt", 3)]})
+        responses.add(
+            responses.GET,
+            f"{SHOP}/surplus",
+            body=catalog(
+                stock_card(1, "One") + stock_card(2, "Two"), next_href=f"{SHOP}/surplus?p=2"
+            ).replace("</body>", f"{nav}</body>"),
+        )
+        responses.add(
+            responses.GET,
+            f"{SHOP}/surplus/bolt/",
+            body=catalog(stock_card(2, "Two") + stock_card(3, "Three")),
+        )
+        for slug in ("one", "two", "three"):
+            responses.add(responses.GET, f"{SHOP}/{slug}.html", body=product_page(slug.title()))
+
+        logged: list[str] = []
+        ctx.log = logged.append  # type: ignore[method-assign]
+        items = list(Faceted().scrape(ctx))
+
+        assert len(items) == 3
+        assert not ctx.warnings
+        assert any("reached 3 of 3" in line for line in logged)
 
     def test_a_small_group_that_fits_does_not_beat_whole_ones_that_do_not(self):
         """Classic Firearms' police handguns: 63 listings, a "Caliber" group
@@ -675,7 +710,7 @@ class TestWalkingTheFacetsInstead:
         )
         soup = BeautifulSoup(f"<html><body>{nav}</body></html>", "html.parser")
 
-        urls, complete = MagentoScraper()._facets_to_walk(soup, f"{SHOP}/surplus/", 24)
+        urls, complete, _whole = MagentoScraper()._facets_to_walk(soup, f"{SHOP}/surplus/", 24)
 
         assert complete is False
         assert len(urls) == 7
@@ -689,7 +724,7 @@ class TestWalkingTheFacetsInstead:
         )
         soup = BeautifulSoup(f"<html><body>{nav}</body></html>", "html.parser")
 
-        urls, complete = MagentoScraper()._facets_to_walk(soup, f"{SHOP}/surplus/", 24)
+        urls, complete, _whole = MagentoScraper()._facets_to_walk(soup, f"{SHOP}/surplus/", 24)
 
         assert complete is True
         assert urls == [f"{SHOP}/surplus/30_06/", f"{SHOP}/surplus/8mm/"]

@@ -601,3 +601,151 @@ class TestOneCheckAtATime:
         finally:
             inbox._busy.release()
         assert inbox.is_checking() is False
+
+
+class TestOffers:
+    """Offers read from the email text, shown while they last, and a sale's end
+    looked at again."""
+
+    SALE = (
+        "<p>Labor Day sale: 15% off everything with code LABOR15 through 9/30. "
+        '<a href="https://ctrk.klclick1.com/l/A_1">Shop now</a></p>'
+    )
+
+    def test_an_email_s_offer_is_stored_and_shown_to_everyone(self, clean_db, shops, signed_in):
+        from test_maillinks import Redirects
+
+        sale = headers("Classic Firearms <deals@classicfirearms.com>", "Labor Day Sale")
+        check(
+            clean_db,
+            signed_in,
+            with_body(sale, self.SALE),
+            get=Redirects({"https://ctrk.klclick1.com/l/A_1": "https://www.classicfirearms.com/"}),
+        )
+        offer = clean_db.query(inbox.VendorOffer).one()
+        assert (offer.discount, offer.code, offer.personal) == ("15% off", "LABOR15", False)
+        site_id = shops["classic-firearms"].id
+        # Asked as of the day the email came, and after its end: gone then.
+        assert inbox.active_offers(clean_db, site_id, include_personal=False, now=NOW) == [offer]
+        after = NOW + timedelta(days=5)
+        assert inbox.active_offers(clean_db, site_id, include_personal=False, now=after) == []
+
+    def test_a_personal_code_is_for_administrators_only(self, clean_db, shops):
+        mail = VendorEmail(
+            message_id="<welcome@x>",
+            site_id=shops["classic-firearms"].id,
+            from_address="a@classicfirearms.com",
+            subject="Welcome! Here's 5% off",
+            received_at=utcnow().replace(tzinfo=None),
+            body_text="Use code WELCOME5X for 5% off your first order",
+        )
+        clean_db.add(mail)
+        clean_db.commit()
+        inbox.record_offer(clean_db, mail, utcnow())
+        clean_db.commit()
+        site_id = shops["classic-firearms"].id
+        assert len(inbox.active_offers(clean_db, site_id, include_personal=True)) == 1
+        assert inbox.active_offers(clean_db, site_id, include_personal=False) == []
+
+    def test_a_confirmation_request_offers_nothing(self, clean_db, shops):
+        mail = VendorEmail(
+            message_id="<ask@x>",
+            site_id=shops["jg-sales"].id,
+            from_address="news@jgsales.com",
+            subject="Please Confirm Subscription",
+            asks_to_confirm=True,
+            received_at=utcnow().replace(tzinfo=None),
+            body_text="Confirm to get 10% off with code JOIN10X",
+        )
+        clean_db.add(mail)
+        clean_db.commit()
+        assert inbox.record_offer(clean_db, mail, utcnow()) is None
+
+    def test_after_a_sale_ends_the_shop_is_looked_at_again(
+        self, clean_db, shops, signed_in, monkeypatch
+    ):
+        """A "4 days only" price must not read as current on day 5."""
+        from app.models import Item
+        from app.scrapers.base import PriceCheck
+
+        site = shops["classic-firearms"]
+        item = Item(
+            site_id=site.id,
+            external_key="m96",
+            url="https://www.classicfirearms.com/m96/",
+            title="Swedish M96",
+            current_price=585.0,
+            is_rifle=True,
+        )
+        clean_db.add(item)
+        mail = VendorEmail(
+            message_id="<sale@x>",
+            site_id=site.id,
+            from_address="deals@classicfirearms.com",
+            subject="72 hours only",
+            received_at=(NOW - timedelta(days=4)).replace(tzinfo=None),
+        )
+        clean_db.add(mail)
+        clean_db.flush()
+        clean_db.add(
+            inbox.VendorEmailLink(
+                email_id=mail.id, link="x", text="", url=item.url, how="resolved", item_id=item.id
+            )
+        )
+        clean_db.add(
+            inbox.VendorOffer(
+                site_id=site.id,
+                email_id=mail.id,
+                discount="10% off",
+                ends_at=(NOW - timedelta(hours=2)).replace(tzinfo=None),
+                shown_until=(NOW - timedelta(hours=2)).replace(tzinfo=None),
+            )
+        )
+        clean_db.commit()
+
+        class Scraper:
+            def check_price(self, _ctx, _url, *, key=None):
+                return PriceCheck(price=650.0)
+
+        monkeypatch.setattr(inbox, "get_scraper", lambda _slug: Scraper())
+        assert inbox.settle_ended_offers(clean_db, signed_in, now=NOW) == 1
+        clean_db.refresh(item)
+        clean_db.refresh(site)
+        assert item.current_price == 650.0  # back to its regular price
+        assert site.next_scan_at is not None
+        from app.models import PriceHistory
+
+        history = clean_db.query(PriceHistory).filter_by(item_id=item.id).one()
+        assert history.source == "email"
+        # Settled once, not on every tick.
+        assert inbox.settle_ended_offers(clean_db, signed_in, now=NOW) == 0
+
+
+class TestOffersOnTheListingPage:
+    def test_a_personal_code_reaches_an_administrator_and_no_one_else(
+        self, client, admin_headers, normal_user, clean_db
+    ):
+        from app.models import Item
+
+        site = clean_db.query(Site).filter_by(slug="botach").one()
+        item = Item(site_id=site.id, external_key="t1", url="https://botach.com/x", title="A rifle")
+        clean_db.add(item)
+        mail = VendorEmail(
+            message_id="<welcome@botach.com>",
+            site_id=site.id,
+            from_address="deals@botach.com",
+            subject="Welcome to Botach",
+            received_at=utcnow().replace(tzinfo=None),
+            body_text="here's your 5% off code to use on your first order DQV8UU7PYS541",
+        )
+        clean_db.add(mail)
+        clean_db.commit()
+        inbox.record_offer(clean_db, mail, utcnow())
+        clean_db.commit()
+
+        admin = client.get(f"/api/items/{item.id}", headers=admin_headers).json()
+        assert [o["code"] for o in admin["offers"]] == ["DQV8UU7PYS541"]
+        assert admin["offers"][0]["personal"] is True
+
+        reader = client.get(f"/api/items/{item.id}", headers=normal_user["headers"]).json()
+        assert reader["offers"] == []

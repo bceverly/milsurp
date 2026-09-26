@@ -44,6 +44,7 @@ from app.models import (  # noqa: E402
     Site,
     VendorEmail,
     VendorEmailLink,
+    VendorOffer,
     utcnow,
 )
 from app.services import classify, cooldown, hotdeals  # noqa: E402
@@ -457,8 +458,8 @@ def _seed_mailing_lists(session: Session, sites: list[Site], now: datetime) -> N
     """The Sites page's mailing-list chips, in all three states.
 
     A demo database has no inbox to read, so these stand in for what the
-    reader would record: SARCO's marketing email has arrived and its links were
-    followed (green), J&G has only asked for the subscription to be confirmed
+    reader would record: SARCO's marketing email has arrived, its links were
+    followed and it announced a sale (green), J&G has only asked for the subscription to be confirmed
     (amber), Botach's mail came but no link resolved, and every other shop has
     sent nothing (red).
     """
@@ -488,6 +489,19 @@ def _seed_mailing_lists(session: Session, sites: list[Site], now: datetime) -> N
                     how="resolved",
                     item_id=listing.id if listing else None,
                     outcome="changed" if listing else None,
+                )
+            )
+            # And a sale it announced, for everyone: not a personal welcome code.
+            session.add(
+                VendorOffer(
+                    site_id=site.id,
+                    email=mail,
+                    discount="15% off",
+                    code="SURPLUS15",
+                    terms="regular priced items only",
+                    personal=False,
+                    ends_at=now + timedelta(days=5),
+                    shown_until=now + timedelta(days=5),
                 )
             )
             session.add(

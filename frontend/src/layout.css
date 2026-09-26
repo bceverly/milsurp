@@ -3070,3 +3070,29 @@
   padding-left: 18px;
   line-height: 1.7;
 }
+
+/* An item page's "From the shop's emails" panel. */
+.offers-panel__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.offers-panel__code {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--silver-100);
+  font-size: 13px;
+}
+
+.offers-panel__meta {
+  margin-top: 2px;
+  font-size: 12.5px;
+}
+
+.offers-panel__personal {
+  margin-left: 6px;
+}

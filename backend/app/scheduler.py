@@ -149,6 +149,7 @@ class Scheduler:
         self._dispatch_backup()
         self._dispatch_hot_deals()
         self._dispatch_inbox()
+        self._dispatch_offer_endings()
 
     # -- hot deals ----------------------------------------------------------
     def _dispatch_hot_deals(self) -> None:
@@ -234,6 +235,19 @@ class Scheduler:
         # tick and read the stored price.
         if result.prices_changed:
             self._refresh_hot_deals_now()
+
+    def _dispatch_offer_endings(self) -> None:
+        """Re-look at shops whose emailed sale ended an hour ago. One indexed
+        query that finds nothing on almost every tick; see
+        inbox.settle_ended_offers."""
+        try:
+            with session_scope() as session:
+                settled = inbox.settle_ended_offers(session, self.config)
+        except Exception:
+            log.exception("Settling ended offers failed")
+            return
+        if settled:
+            log.info("Offers: %s ended sale(s) re-checked.", settled)
 
     def _refresh_hot_deals_now(self) -> None:
         try:

@@ -930,6 +930,8 @@ class PricePointOut(UTCModel):
     price: float
     currency: str
     observed_at: datetime
+    #: "email" or "watch" when the price did not come from a scan.
+    source: str | None = None
 
 
 class PhotoOut(BaseModel):
@@ -997,8 +999,26 @@ class ItemOut(UTCModel):
     blurb: str | None = None
 
 
+class OfferOut(UTCModel):
+    """A discount the shop's email offered, shown beside its listings."""
+
+    discount: str | None = None
+    code: str | None = None
+    terms: str | None = None
+    #: A welcome code sent to the notification account. Only an administrator
+    #: is ever sent one of these.
+    personal: bool = False
+    ends_at: datetime | None = None
+    shown_until: datetime
+    #: When the email came, and its subject, for "as their email of … said".
+    received_at: datetime
+    subject: str
+
+
 class ItemDetail(ItemOut):
     description: str | None = None
+    #: What the shop's emails offer right now (see services/offers.py).
+    offers: list["OfferOut"] = Field(default_factory=list)
     photos: list[PhotoOut] = Field(default_factory=list)
     price_history: list[PricePointOut] = Field(default_factory=list)
     #: What the armory knows about the matched model, for the facts panel.
@@ -1583,6 +1603,8 @@ class VendorEmailOut(UTCModel):
     received_at: datetime
     #: Links that reached the shop's site; None until its links were read.
     links_followed: int | None = None
+    #: The offer read from it, in words: "5% off, code X, until Oct 26".
+    offer: str | None = None
     listings: list[EmailListingOut] = []
 
 

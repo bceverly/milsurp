@@ -324,17 +324,15 @@ class MagentoScraper(SiteScraper):
         page_size: int,
     ) -> Iterator[ScrapedItem]:
         """Read a category one facet at a time, for a shop that bars paging."""
-        facets, complete = self._facets_to_walk(soup, page_url, page_size)
+        facets, complete, whole = self._facets_to_walk(soup, page_url, page_size)
         if not facets:
             ctx.warn(f"No facet to walk under {page_url}; this section is the first page only.")
             return
-        if not complete:
-            ctx.warn(
-                f"No facet group under {page_url} fits on one page; walking all "
-                f"{len(facets)} facet values instead, which can still miss a few."
-            )
 
         ctx.log(f"{category or 'catalog'}: walking {len(facets)} facet(s) instead of pages.")
+        # Every card reached, kept or not: a scraper may decline some (Classic's
+        # new "LE edition" rifles), and those were still read.
+        reached = {self._card_link(card, page_url) for card in soup.select(self.card_selector)}
         for url in facets:
             ctx.check_stop()
             if not ctx.allowed(url):
@@ -347,11 +345,41 @@ class MagentoScraper(SiteScraper):
                 ctx.warn(f"Could not read {url}: {exc}. Skipping that facet.")
                 continue
             for card in page.select(self.card_selector):
+                reached.add(self._card_link(card, url))
                 item = self.item_from_card(card, url, category)
                 if item is None or item.external_key in seen:
                     continue
                 seen.add(item.external_key)
                 yield self.with_detail(ctx, item)
+
+        if not complete:
+            self._report_coverage(ctx, page_url, len(reached - {None}), whole)
+
+    #: How much of a section a walk over every facet value must reach before
+    #: its shortfall is a note in the log rather than a warning on the scan.
+    FACET_COVERAGE = 0.9
+
+    def _report_coverage(self, ctx: ScrapeContext, page_url: str, reached: int, whole: int) -> None:
+        """Say how much of the section a walk with no fitting group reached.
+
+        A warning makes the scan PARTIAL, and Classic's police handgun section
+        made every Classic scan PARTIAL: no facet group fits a page there, so
+        the walk reads each value's first page, and reached 60 of 63. A site
+        that is always partial teaches people to ignore partial. So the
+        shortfall is measured against the section's own count: close enough is
+        logged, and only a walk that fell well short is a warning.
+        """
+        message = (
+            f"No facet group under {page_url} fits on one page; walking every value "
+            f"reached {reached} of {whole} listing(s)."
+        )
+        if whole and reached >= self.FACET_COVERAGE * whole:
+            ctx.log(message)
+        else:
+            ctx.warn(message + " Some of this section was not read.")
+
+    def _card_link(self, card: Tag, page_url: str) -> str | None:
+        return self._first_href(card, self.link_selectors, page_url)
 
     def _best_facet(self, soup: BeautifulSoup, page_url: str, page_size: int) -> list[str]:
         """The cheapest facet group that covers the category one page at a time.
@@ -371,8 +399,9 @@ class MagentoScraper(SiteScraper):
 
     def _facets_to_walk(
         self, soup: BeautifulSoup, page_url: str, page_size: int
-    ) -> tuple[list[str], bool]:
-        """The facet pages to read, and whether they are known to cover it all.
+    ) -> tuple[list[str], bool, int]:
+        """The facet pages to read, whether they are known to cover it all, and
+        how many listings the section holds by its own count.
 
         The best case is one group that fits a page per value and covers the
         whole category -- see :meth:`_best_facet`. When no such group exists,
@@ -385,11 +414,11 @@ class MagentoScraper(SiteScraper):
         """
         groups = self._counted_groups(soup)
         if not groups:
-            return [], False
+            return [], False, 0
         whole = max(sum(count for _href, count in group) for group in groups)
         best = self._best_group(groups, page_size)
         if best and sum(count for _href, count in best) >= whole:
-            return [urljoin(page_url, href) for href, _count in best], True
+            return [urljoin(page_url, href) for href, _count in best], True, whole
 
         union: list[str] = []
         for group in groups:
@@ -397,7 +426,7 @@ class MagentoScraper(SiteScraper):
                 url = urljoin(page_url, href)
                 if url not in union:
                     union.append(url)
-        return union, False
+        return union, False, whole
 
     def _counted_groups(self, soup: BeautifulSoup) -> list[list[tuple[str, int]]]:
         """The facet groups that say how many listings each value holds.

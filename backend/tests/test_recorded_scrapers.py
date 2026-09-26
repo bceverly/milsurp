@@ -130,6 +130,11 @@ NOT_RECORDABLE = {
     "royal-tiger": "renders its catalog in JavaScript; its fixture is a rendered page, tested in test_royal_tiger.py",
     "simpson-ltd": "catalog is in Firestore, which refuses an unauthenticated read",
     "hunters-lodge": "reads a PDF flyer through OCR, not HTML — see test_flyer.py",
+    "target-sports-usa": (
+        "every listing was sold out when it was built (2026-09-26) and only in-stock "
+        "listings are read, so a recording would parse nothing; record it when they "
+        "restock. Parsing is tested in test_target_sports_usa.py"
+    ),
 }
 
 

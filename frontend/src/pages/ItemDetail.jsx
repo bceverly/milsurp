@@ -687,6 +687,51 @@ function PriceSparkline({ history }) {
   );
 }
 
+/**
+ * What the shop's emails offer right now: a discount, a code, until when.
+ * Never applied to the price above -- a price you get only at checkout with a
+ * code is not the shelf price. A personal one is a welcome code sent to the
+ * notification account, and only administrators are ever sent those.
+ */
+function ShopOffers({ offers, siteName }) {
+  if (!offers?.length) return null;
+  return (
+    <div className="panel offers-panel" style={{ marginTop: 20 }}>
+      <div className="panel__head">
+        <h2>From {siteName || "the shop"}&apos;s emails</h2>
+      </div>
+      <div className="panel__body">
+        <ul className="offers-panel__list">
+          {offers.map((offer) => (
+            <li key={`${offer.received_at}-${offer.code || offer.discount}`}>
+              <strong>{offer.discount || "An offer"}</strong>
+              {offer.code && (
+                <>
+                  {" "}
+                  with code <code className="offers-panel__code">{offer.code}</code>
+                </>
+              )}
+              {offer.terms && <span className="muted"> — {offer.terms}</span>}
+              <div className="muted offers-panel__meta">
+                {offer.ends_at
+                  ? `Ends ${formatDateTime(offer.ends_at)}.`
+                  : `No end date given; shown until ${formatDateTime(offer.shown_until)}.`}{" "}
+                From their email of {formatRelative(offer.received_at)}, “{offer.subject}
+                ”.
+                {offer.personal && (
+                  <span className="chip chip--neutral offers-panel__personal">
+                    welcome code for the notification account
+                  </span>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 export default function ItemDetail() {
   const { itemId } = useParams();
   const navigate = useNavigate();
@@ -974,6 +1019,8 @@ export default function ItemDetail() {
             <External size={16} />
             View on {item.site_name || "vendor site"}
           </a>
+
+          <ShopOffers offers={item.offers} siteName={item.site_name} />
 
           {item.description && (
             <div className="panel" style={{ marginTop: 20 }}>

@@ -111,9 +111,9 @@ about.
 | [WIS Transfers](https://www.wistransfers.com/product-search-results?product_category_group_id=48256) | `wis-transfers` | PHP shop behind **AWS WAF** | **The shop works; its firewall refuses us.** Re-measured 2026-09-24: our MilsurpMonitor user agent gets `x-amzn-waf-action: challenge` (202, empty body) from `awselb` — on robots.txt as well — while a browser's user agent gets the "All Police Trade-Ins" page, 533 KB. The "202, empty" was never an empty shop; it is a bot-control rule. Passing it by claiming to be a browser would be evading a control the site chose, which this application does not do (see the user-agent note in the README). **Waits on WIS allowing the MilsurpMonitor agent**, the same kind of permission Joe Salter gave for `/image/` |
 
 Two more joined the queue on 2026-09-26, from the police trade-in survey below:
-**Sportsman's Outdoor Superstore** (`sportsmans-outdoor`, shipped the same day)
-and **Target Sports USA** (`target-sports-usa`, buildable and not written
-yet).
+**Sportsman's Outdoor Superstore** (`sportsmans-outdoor`) and **Target Sports
+USA** (`target-sports-usa`), both shipped the same day. WIS Transfers is the
+only vendor left on the coming-soon list.
 
 The platform column below was originally **inferred from the URL shape** — a
 `/product-category/` or `/product-tag/` path means WooCommerce, `/collections/`
@@ -709,7 +709,7 @@ a firearm. Those sections are not pure. Officer Store shelve used Glock
 magazines among the pistols, and Recoil file Federal HST and Speer Gold Dot on
 the parent page above theirs.
 
-#### The second survey, September 2026 — **one shipped, one queued, eight not**
+#### The second survey, September 2026 — **two shipped, eight not**
 
 A web search for police trade-in dealers not already read, then a fetch of each
 one before anything was written down, as before. Every fetch used our honest
@@ -719,7 +719,7 @@ waited 1.5 seconds between pages.
 | Site | Section | Platform | What the fetch showed | Outcome |
 | --- | --- | --- | --- | --- |
 | [Sportsman's Outdoor Superstore](https://www.sportsmansoutdoorsuperstore.com/category.cfm/sportsman/used-firearms) | `/category.cfm/sportsman/police-trade-in-glocks` and `/used-firearms`, paged by `/currentpage/N` | ColdFusion, custom | **Mostly an archive, it turned out.** The survey walk stopped at 40 pages and read 631 and 695 listings. Walked to the end, the two sections hold **1,895 products over 116 pages, and about 20 are in stock.** The rest are "No Longer Available" pages kept up with their last price and no date. Each card has schema.org `Product` microdata, and its "In Stock" label agreed with the product page's structured data 12 times out of 12. Glocks, 870 Police Magnums, Mossberg 590s, Sig P227s, and a Bulgarian Makarov in the used section. robots.txt disallows the `/make/`, `/model/`, `/under/` and `/order_by/` filters, not the categories or `/currentpage/` | **Shipped 2026-09-26: 18 listings on the first dry run.** Only in-stock cards are read. The archive (1,877 listings) is left out, since its prices cannot be dated. A listing we hold whose card goes silent is marked sold rather than de-listed. Police surplus comes from the Glock section's name, and in "Used Guns" from a title saying "Police Trade-In" or "Police Trades"; the Makarov stays plain used. The survey's prices were also slightly high: it read the struck-through "suggested" price instead of `itemprop="price"` |
-| [Target Sports USA](https://www.targetsportsusa.com/used-gunspolice-trade-c-998.aspx) | `/used-gunspolice-trade-c-998.aspx` | AspDotNetStorefront | 200. 17 products (Glock 17/21/22/23/35 trade-ins), but **no prices on the category page**. Each product page has its price in `itemprop` markup. robots.txt allows both | **Queued, second.** Small, and it costs a fetch per listing |
+| [Target Sports USA](https://www.targetsportsusa.com/used-gunspolice-trade-c-998.aspx) | `/used-gunspolice-trade-c-998.aspx` | AspDotNetStorefront | 17 police trade-ins (Glocks, Sig P226/P229s, M&Ps, an XD). The category page shows no price, and every card has the same "Add To Cart" button whatever the stock, so each product page's schema.org microdata is read on every scan: name, price, maker, image, `availability`. **Measured when built: all 17 `SoldOut`.** robots.txt allows both pages | **Shipped 2026-09-26, reading nothing until they restock.** Only in-stock listings are imported, as at Sportsman's. A held listing that sells out is reported sold. It is 17 requests a day to catch a restock the day it lands. It has no recorded fixture yet, since a recording of an all-sold-out section parses nothing (listed in `NOT_RECORDABLE` with that reason) |
 | [KY Gun Co](https://www.kygunco.com/group/police-trade-in) | `/group/police-trade-in` | Nuxt, over a public **Typesense** search (`search.keenesdepot.io`, collection `kygunco_products`) | The endpoint works with the search-only key the page itself uses. It is the cleanest data source in the survey, and the section is empty: `groups.id:=178` returns one listing, out of stock and marked "New". The 160 used guns are general stock with 6 trade-ins | **Refused: empty today.** Worth a recheck. If the group fills, the build is a few lines on the endpoint |
 | [Bud's Gun Shop](https://www.budsgunshop.com/categories/firearms/used) | Police Trade-Ins, category 910 | Laravel + htmx | The old police category now redirects to `/products`. The used section holds 127 guns over six pages, 8 of them police trade-ins (6%) and 3 milsurp. The data is clean (`data-product-name` and `data-product-price` in cents on every card), but there is no section to read | **Refused**, on the same grounds as Impact Guns' 8% |
 | [Birmingham Pistol Wholesale](https://birminghampistol.com/tags/police-trade-in) | `/tags/police-trade-in` | Spree on Rails | **It is GunPrime.** robots.txt is byte-for-byte GunPrime's, down to GunPrime's own sitemap address. All 12 product ids on the police page match GunPrime's. Pages take about 40 seconds to answer | **Refused**, as Gideon Tactical was: a second copy of a catalog already read would forge the two-shop agreement hot deals relies on |
@@ -755,9 +755,13 @@ read **69: 60 handguns and 9 rifles.**
   handgun section has none: 9mm holds 30, Glock 35. The only group that fit
   covered 4 listings, and it would have read 27 of 63. When no fitting group
   covers the whole section, every value of every counted group is now walked
-  (17 pages here), and that reached 60. It warns that it may miss a few. The
-  three sections already read are unaffected, since each has a fitting group
-  that covers it.
+  (17 pages here), and that reached 60. The three sections already read are
+  unaffected, since each has a fitting group that covers it.
+- **And it is measured, not warned about.** At first the walk warned "may
+  miss a few" every time, which made every Classic scan PARTIAL. A site that
+  is always partial teaches people to ignore partial. The walk now counts the
+  cards it reached against the section's own count: 90% or more (61 of 63 here)
+  is logged, and only a real shortfall is a warning, with the numbers.
 
 Madison Guns' Colt 6920 trade-ins already arrive through its used section,
 which is read whole. A listing Classic shelves in both a surplus section and a
@@ -2273,42 +2277,54 @@ until its next newsletter. The amber chip now has a "Mark confirmed" button
 (`sites.newsletter_confirmed_at`, migration 0044, recorded in the audit log).
 A fresh request after it turns the chip amber again.
 
-#### 3. What the email knows that the page does not — **Planned**
+#### 3. What the email knows that the page does not — **Shipped** 2026-09-26
 
-- **Coupon codes.** "10% off all Mausers with code SWEDE10 through Sunday"
-  never changes a product page price. It is stored as a note on the listings
-  it covers (code, discount, end date, source email) and shown on the item
-  page and in notifications. The code is never applied to `current_price`: a
-  price you only get at checkout, with a code, is not the shelf price, and
-  pretending it is would corrupt the price bands and hot deals.
-- **End dates.** "Through Sunday", "ends 9/30", "72 hours only". These are
-  parsed conservatively, only for explicit dates and durations, into an
-  `ends_at` on the note. Anything ambiguous leaves `ends_at` empty rather than
-  guessed.
-- **The note expires itself.** After `ends_at`, or 14 days with no date, the
-  note stops being shown. Stale coupons are worse than none.
+Built before much sale mail had arrived, at the administrator's request, and
+measured against the mail there was: welcome emails.
 
-#### 4. Sale prices that end — **Planned**
+- **An offer is read from each email's text**, with URLs removed first
+  (`services/offers.py`, stored in `vendor_offers`, migration 0046). Only
+  explicit wording is read:
+  - a discount: "5% off", "$10 off", "free shipping";
+  - a code: a token of letters *and* digits following the word "code";
+  - terms: "first order", "orders $150+", "regular priced items only";
+  - an end: "valid for 30 days", "72 hours only", or "through / until / ends"
+    followed by a date or weekday, read as the end of that day in US Eastern.
 
-This one is mostly already true, and needs the parts that are not.
+  Anything vaguer leaves the end empty, and the offer is shown for 14 days.
+- **Measured on the real mail:**
+  - Botach, IMA-USA and Centerfire sent personal welcome codes; Centerfire's
+    "CODE VALID FOR 30 DAYS" gave an end date.
+  - Officer Store sent a free-shipping code.
+  - AIM Surplus sent a discount whose code is behind a link.
+  - Confirmations, plain welcomes and Joe Salter's GunBroker "Ending Time"
+    lines correctly read as no offer.
+- **Personal codes stay private.** A welcome email's code, or one "for your
+  first order", belongs to the notification account: shops send each
+  subscriber their own, often single-use. It is marked personal, shown only to
+  administrators ("welcome code for the notification account"), and never
+  reaches a reader. Every code measured so far is personal.
+- **Shown, never applied.** The listing page has a "From the shop's emails"
+  panel with the shop's live offers, and the Sites panel shows each email's
+  offer in words. No code is ever applied to `current_price`: a price you get
+  only at checkout with a code is not the shelf price.
 
-- **A sale that shows on the page is an ordinary price change.** The re-read
-  in bite 2 records the drop in `price_history`, and the next scan records
-  the return. `current_price` goes down and back up, and the price history
-  shows both, which is correct and needs nothing new.
-- **What is new: re-read when a known sale ends.** When bite 3 found an
-  `ends_at` for a listing, schedule a re-read of just those listings shortly
-  after it passes, instead of waiting up to a day for the regular scan. A
-  "4 days only" price should not be shown as current on day 5.
+#### 4. Sale prices that end — **Shipped** 2026-09-26
+
+- **A sale that shows on the page was already an ordinary price change**, and
+  bite 2 records one found through an email exactly as a scan would.
+- **New: an hour after an offer's end, the shop is looked at again.** The
+  listings its email named are re-read at once, and the shop is queued for a
+  scan (`inbox.settle_ended_offers`, run every scheduler tick, one indexed
+  query). A "4 days only" price does not read as current on day 5. Each offer
+  is settled once (`vendor_offers.ended_checked_at`).
 - **A return to the regular price is never news.** It updates the listing and
-  drops it from hot deals on the next refresh, but it is not a "price drop"
-  and triggers no alert. The price-drop badge, sort and filter already read
-  direction, and that should be checked, not assumed.
-- **Record that a price was a sale.** A `price_history` row reached through a
-  vendor email is marked with that source. The market price bands can then
-  choose whether a 4-day sale counts as a price the gun sold for, and the item
-  page can say "was $X, on sale until Sunday" rather than two unexplained
-  numbers.
+  drops it from hot deals on the next pass, and bite 6's rule means a rise is
+  never mailed.
+- **Where a price came from is recorded.** `price_history.source` is "email"
+  for a price the inbox reader found and "watch" for the watchlist poll (None
+  for a scan), so the price bands can later tell a short sale from a shelf
+  price.
 
 #### 5. Email-sourced deals go out like any other — **Partly shipped** 2026-09-26
 
@@ -2319,7 +2335,8 @@ This one is mostly already true, and needs the parts that are not.
 - **Shipped by bite 2:** a queued scan runs its own usual follow-ups,
   including saved-search matches for new listings.
 - **Still to do:** say *why* in the notification ("on sale through Sunday",
-  "10% off with code SWEDE10"). That needs bite 3's notes.
+  "10% off with code SWEDE10"). Bite 3's offers are now there to say it with,
+  personal ones excepted.
 
 #### 6. Notification memory that does not last forever — **Shipped** 2026-09-26
 

@@ -55,12 +55,13 @@ from ..models import (
     Site,
     VendorEmail,
     VendorEmailLink,
+    VendorOffer,
     as_utc,
     utcnow,
 )
 from ..scrapers import get_scraper, get_scraper_class
 from ..scrapers.base import ScrapeContext
-from . import cooldown, maillinks, watchpoll
+from . import cooldown, maillinks, offers, watchpoll
 
 log = logging.getLogger("milsurp.inbox")
 
@@ -369,6 +370,14 @@ def run(
         if body is not None and email_row.links_read_at is None and email_row.site is not None:
             follower.follow(email_row, body)
 
+    # Emails whose text was stored before offers were read: no mailbox needed.
+    for email_row in session.execute(
+        select(VendorEmail).where(
+            VendorEmail.body_text.is_not(None), VendorEmail.offers_read_at.is_(None)
+        )
+    ).scalars():
+        record_offer(session, email_row, now)
+
     result = RunResult(
         status=Status.OK,
         looked_at=len(fetched),
@@ -507,6 +516,7 @@ class _Follower:
         if elsewhere:
             self.queue_scan(site)
         email_row.links_read_at = self.now.replace(tzinfo=None)
+        record_offer(self.session, email_row, self.now)
 
     def recheck(self, site: Site, item: Item) -> str:
         """Re-read one listing the email named, the way the watch poll does."""
@@ -526,23 +536,112 @@ class _Follower:
             item.is_sold = True
             item.sold_at = self.now.replace(tzinfo=None)
             outcome = "sold"
-        if watchpoll.record_price(self.session, item, found.price, self.now.replace(tzinfo=None)):
+        if watchpoll.record_price(
+            self.session, item, found.price, self.now.replace(tzinfo=None), source="email"
+        ):
             self.changed += 1
             outcome = "changed"
         return outcome
 
-    def queue_scan(self, site: Site) -> None:
-        """Scan this shop soon: the email points at pages we do not hold."""
+    def queue_scan(self, site: Site, *, force: bool = False) -> None:
+        """Scan this shop soon: the email points at pages we do not hold, or
+        (``force``) a sale it announced has ended."""
         if not site.enabled:
             return
         last = as_utc(site.last_scan_at)
-        if last is not None and self.now - last < RESCAN_AFTER:
+        if not force and last is not None and self.now - last < RESCAN_AFTER:
             return
         due = as_utc(site.next_scan_at)
         if due is not None and due <= self.now:
             return
         site.next_scan_at = self.now.replace(tzinfo=None)
         self.queued += 1
+
+
+def record_offer(session: Session, email_row: VendorEmail, now: datetime) -> VendorOffer | None:
+    """Read one email's text for an offer and store it; see :mod:`offers`.
+
+    A confirmation request offers nothing, whatever its text says.
+    """
+    email_row.offers_read_at = now.replace(tzinfo=None)
+    if email_row.asks_to_confirm or not email_row.body_text or email_row.site_id is None:
+        return None
+    sent = email_row.received_at.replace(tzinfo=UTC)
+    found = offers.read(email_row.subject, email_row.body_text, sent)
+    if found is None:
+        return None
+    shown_until = found.ends_at or sent + timedelta(days=offers.UNDATED_DAYS)
+    row = VendorOffer(
+        site_id=email_row.site_id,
+        email=email_row,
+        discount=found.discount,
+        code=found.code,
+        terms=(found.terms or "")[:200] or None,
+        personal=found.personal,
+        ends_at=found.ends_at.replace(tzinfo=None) if found.ends_at else None,
+        shown_until=shown_until.astimezone(UTC).replace(tzinfo=None),
+    )
+    session.add(row)
+    return row
+
+
+def active_offers(
+    session: Session, site_id: int, *, include_personal: bool, now: datetime | None = None
+) -> list[VendorOffer]:
+    """The shop's offers still being shown, newest first. Personal ones (a
+    welcome code sent to the notification account) only when asked for."""
+    moment = (now or utcnow()).replace(tzinfo=None)
+    query = select(VendorOffer).where(
+        VendorOffer.site_id == site_id, VendorOffer.shown_until > moment
+    )
+    if not include_personal:
+        query = query.where(VendorOffer.personal.is_(False))
+    return list(session.execute(query.order_by(VendorOffer.id.desc())).scalars())
+
+
+#: How long after a sale's end the shop is looked at again.
+AFTER_END = timedelta(hours=1)
+
+
+def settle_ended_offers(session: Session, config: Config, *, now: datetime | None = None) -> int:
+    """Re-look at shops whose emailed sale has just ended.
+
+    A "4 days only" price must not be shown as current on day 5, and the next
+    daily scan could be most of a day away. So an hour after an offer's end,
+    the listings its email named are re-read now (the price is stored as a
+    scan stores it, marked as from email), and the shop is queued for a scan
+    for anything else the sale touched. A price going back up is never news:
+    see :mod:`app.services.renotify`. Returns how many offers were settled.
+    """
+    now = now or utcnow()
+    due = list(
+        session.execute(
+            select(VendorOffer).where(
+                VendorOffer.ends_at.is_not(None),
+                VendorOffer.ends_at <= (now - AFTER_END).replace(tzinfo=None),
+                VendorOffer.ended_checked_at.is_(None),
+            )
+        ).scalars()
+    )
+    if not due:
+        return 0
+    follower = _Follower(session, config, now, get=None)
+    try:
+        for offer in due:
+            site = offer.site
+            follower.queue_scan(site, force=True)
+            named = session.execute(
+                select(Item)
+                .join(VendorEmailLink, VendorEmailLink.item_id == Item.id)
+                .where(VendorEmailLink.email_id == offer.email_id)
+            ).scalars()
+            for item in dict.fromkeys(named):
+                follower.recheck(site, item)
+            offer.ended_checked_at = now.replace(tzinfo=None)
+    finally:
+        follower.close()
+    session.commit()
+    return len(due)
 
 
 _URL_IN_TEXT = re.compile(r"https?://[^\s<>\"')]+")

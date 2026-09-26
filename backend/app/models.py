@@ -995,6 +995,10 @@ class PriceHistory(Base):
         DateTime, default=utcnow, nullable=False, index=True
     )
 
+    #: Where the price came from when it was not a scan: "email" for a listing
+    #: an email named and the inbox reader re-read, "watch" for the watchlist
+    #: poll. None for a scan. Lets the price bands tell a short sale apart.
+    source: Mapped[str | None] = mapped_column(String(16))
     item: Mapped["Item"] = relationship(back_populates="prices")
     scan_run: Mapped["ScanRun | None"] = relationship(back_populates="prices")
 
@@ -1765,11 +1769,48 @@ class VendorEmail(Base):
     #: The email's text, capped, for reading coupon codes and end dates later
     #: (ROADMAP, "Vendor mailing lists", bite 3). Vendor marketing only.
     body_text: Mapped[str | None] = mapped_column(Text)
+    #: When its text was read for an offer; None until then (see offers.py).
+    offers_read_at: Mapped[datetime | None] = mapped_column(DateTime)
 
     site: Mapped["Site | None"] = relationship()
     links: Mapped[list["VendorEmailLink"]] = relationship(
         back_populates="email", cascade="all, delete-orphan"
     )
+
+
+class VendorOffer(Base):
+    """A discount a vendor's email offered: what, with which code, until when.
+
+    Read from the email's text (see :mod:`app.services.offers`), because none
+    of it is on a product page. **Never applied to a price** -- a price you
+    get only at checkout with a code is not the shelf price. Shown beside the
+    shop's listings while it lasts; a ``personal`` one (a welcome code sent to
+    the notification account) only to administrators.
+    """
+
+    __tablename__ = "vendor_offers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    site_id: Mapped[int] = mapped_column(
+        ForeignKey("sites.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    email_id: Mapped[int] = mapped_column(
+        ForeignKey("vendor_emails.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    discount: Mapped[str | None] = mapped_column(String(80))
+    code: Mapped[str | None] = mapped_column(String(40))
+    terms: Mapped[str | None] = mapped_column(String(200))
+    personal: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    #: When the email said it ends; None when it did not say.
+    ends_at: Mapped[datetime | None] = mapped_column(DateTime)
+    #: When it stops being shown: ``ends_at``, or a fortnight after the email.
+    shown_until: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    #: When the shop was re-scanned after ``ends_at``, so a sale price that has
+    #: ended is not shown as current until the next daily scan.
+    ended_checked_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    site: Mapped["Site"] = relationship()
+    email: Mapped["VendorEmail"] = relationship()
 
 
 class VendorEmailLink(Base):

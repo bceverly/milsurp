@@ -43,19 +43,6 @@ class PlannedSite:
 #: Ordered the way the roadmap orders them: buildable first, nearest to
 #: buildable at the top, and the ones blocked at the door last.
 PLANNED: tuple[PlannedSite, ...] = (
-    # -- buildable ---------------------------------------------------------
-    PlannedSite(
-        slug="target-sports-usa",
-        name="Target Sports USA",
-        base_url="https://www.targetsportsusa.com/",
-        platform="AspDotNetStorefront (ASP.NET)",
-        blocker=(
-            "Not written yet, and small: 17 listings in its Used Guns & Police "
-            "Trade-In section. The category page names each gun but shows no "
-            "price, so every listing costs a second fetch of its own page, "
-            "where the price is in itemprop markup."
-        ),
-    ),
     # -- blocked at the door -----------------------------------------------
     PlannedSite(
         slug="wis-transfers",

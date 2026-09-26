@@ -305,6 +305,7 @@ function MailingListsPanel({ onChecked }) {
                 {mail.asks_to_confirm && (
                   <span className="chip chip--warning">asks you to confirm</span>
                 )}
+                {mail.offer && <span className="chip chip--success">{mail.offer}</span>}
                 {mail.links_followed !== null && (
                   <span className="muted">
                     {" "}

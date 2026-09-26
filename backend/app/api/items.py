@@ -15,7 +15,7 @@ from sqlalchemy.orm import selectinload
 
 from ..deps import AdminUser, AppConfig, CurrentUser, DbSession
 from ..logsafe import client_address
-from ..models import FirearmModel, Item, ItemPhoto, PriceHistory, Site
+from ..models import FirearmModel, Item, ItemPhoto, PriceHistory, Site, UserRole
 from ..schemas import (
     FacetValue,
     ItemDetail,
@@ -24,6 +24,7 @@ from ..schemas import (
     ItemOverrideIn,
     ItemOverrideOut,
     ItemPage,
+    OfferOut,
     PhotoOut,
     PriceBucketOut,
     PriceDistributionOut,
@@ -31,7 +32,7 @@ from ..schemas import (
     PricePositionOut,
     SimilarListingOut,
 )
-from ..services import audit, curio, overrides, pricing, provenance, similar, watchlist
+from ..services import audit, curio, inbox, overrides, pricing, provenance, similar, watchlist
 from ..services.image_store import ImageStore, ImageStoreError
 from ..services.search import (
     KINDS,
@@ -724,6 +725,21 @@ def get_item(item_id: int, user: CurrentUser, session: DbSession) -> ItemDetail:
         if photo.filename
     ]
     detail.price_history = [PricePointOut.model_validate(point) for point in item.prices]
+    detail.offers = [
+        OfferOut(
+            discount=offer.discount,
+            code=offer.code,
+            terms=offer.terms,
+            personal=offer.personal,
+            ends_at=offer.ends_at,
+            shown_until=offer.shown_until,
+            received_at=offer.email.received_at,
+            subject=offer.email.subject,
+        )
+        for offer in inbox.active_offers(
+            session, item.site_id, include_personal=user.role == UserRole.ADMIN
+        )
+    ]
     return detail
 
 
