@@ -44,6 +44,8 @@ class MadisonGunsScraper(BigCommerceScraper):
     slug = "madison-guns"
     name = "Madison Guns"
     base_url = SITE_BASE
+    newsletter_url = "https://madisonguns.com/"
+    newsletter_note = "Newsletter footer form on the home page"
     description = (
         "A general gun shop with a large used rack. The surplus is mixed in "
         "among modern trade-ins rather than shelved apart, so the whole used "

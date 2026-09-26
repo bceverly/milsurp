@@ -182,6 +182,8 @@ class EmpireArmsScraper(SiteScraper):
     slug = "empire-arms"
     name = "Empire Arms"
     base_url = SITE_BASE
+    newsletter_url = "https://visitor.r20.constantcontact.com/d.jsp?llr=yibfav6ab&p=oi&m=1131354948888&sit=zgihf7ymb&f=b5401aaf-7a66-4844-b5e2-e23f73df91d8"
+    newsletter_note = "Constant Contact signup page, linked from their home page"
     description = "Collector-grade military surplus rifles and handguns (static HTML catalog)."
     requires_browser = False
     default_interval_minutes = 720

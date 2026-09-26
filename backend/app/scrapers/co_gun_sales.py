@@ -19,6 +19,8 @@ class CoGunSalesScraper(WooCommerceScraper):
     slug = "co-gun-sales"
     name = "CO Gun Sales"
     base_url = SITE_BASE
+    newsletter_url = "https://cogunsales.com/"
+    newsletter_note = '"Exclusive Newsletter" form at the foot of the home page'
     description = "Colorado dealer; their Curio & Relic (C&R) section is read."
     requires_browser = False
     default_interval_minutes = 1440

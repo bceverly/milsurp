@@ -35,6 +35,10 @@ class JgSalesScraper(WooStoreApiScraper):
     slug = "jg-sales"
     name = "J&G Sales"
     base_url = SITE_BASE
+    newsletter_url = (
+        "https://jgsales.us12.list-manage.com/subscribe?u=6edb1e07e47a7c211605f3070&id=46ea05eeb3"
+    )
+    newsletter_note = "Mailchimp signup page, linked from their home page"
     description = "Military surplus, C&R and collectible firearms from a Prescott, Arizona dealer."
     default_interval_minutes = 1440
 

@@ -147,6 +147,8 @@ class EBayonetScraper(SiteScraper):
     slug = "ebayonet"
     name = "eBayonet"
     base_url = SITE_BASE
+    newsletter_url = "https://ebayonet.com/mailing-list/"
+    newsletter_note = "Mailing list page"
     description = (
         "Bayonet specialist, with a sideline in antique gun parts, helmets and "
         "militaria. WordPress, read through its public REST API."

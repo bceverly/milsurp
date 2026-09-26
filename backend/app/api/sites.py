@@ -20,6 +20,7 @@ from ..schemas import (
     SiteOut,
     SiteUpdate,
 )
+from ..scrapers import get_scraper_class
 from ..scrapers.planned import PLANNED
 from ..services import audit, cooldown, scan_service
 
@@ -78,6 +79,11 @@ def _site_out(
     data.photos_pending, data.photos_failed = counts.get(site.id, (0, 0))
     read = details if details is not None else scan_service.detail_counts(session)
     data.details_fetched = read.get(site.id, 0)
+
+    scraper = get_scraper_class(site.slug)
+    if scraper is not None:
+        data.newsletter_url = scraper.newsletter_url
+        data.newsletter_note = scraper.newsletter_note
 
     paused = (resting if resting is not None else _resting_hosts()).get(
         cooldown.host_of(site.base_url)

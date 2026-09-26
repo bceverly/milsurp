@@ -324,13 +324,15 @@ class MagentoScraper(SiteScraper):
         page_size: int,
     ) -> Iterator[ScrapedItem]:
         """Read a category one facet at a time, for a shop that bars paging."""
-        facets = self._best_facet(soup, page_url, page_size)
+        facets, complete = self._facets_to_walk(soup, page_url, page_size)
         if not facets:
-            ctx.warn(
-                f"No facet small enough to walk under {page_url}; "
-                f"this section is the first page only."
-            )
+            ctx.warn(f"No facet to walk under {page_url}; this section is the first page only.")
             return
+        if not complete:
+            ctx.warn(
+                f"No facet group under {page_url} fits on one page; walking all "
+                f"{len(facets)} facet values instead, which can still miss a few."
+            )
 
         ctx.log(f"{category or 'catalog'}: walking {len(facets)} facet(s) instead of pages.")
         for url in facets:
@@ -364,18 +366,63 @@ class MagentoScraper(SiteScraper):
         fit but costs 38 requests, and "Action" (largest 60) and "Price"
         (largest 48) do not fit at all.
         """
-        best: list[str] = []
-        best_score: tuple[int, int] | None = None
-        for group in self._facet_groups(soup):
-            counts = [count for _href, count in group]
-            if not counts or min(counts) <= 0 or max(counts) > page_size:
-                continue
-            # Most coverage first, then fewest requests to get it.
-            score = (sum(counts), -len(counts))
-            if best_score is None or score > best_score:
-                best_score = score
-                best = [urljoin(page_url, href) for href, _count in group]
-        return best
+        group = self._best_group(self._counted_groups(soup), page_size)
+        return [urljoin(page_url, href) for href, _count in group]
+
+    def _facets_to_walk(
+        self, soup: BeautifulSoup, page_url: str, page_size: int
+    ) -> tuple[list[str], bool]:
+        """The facet pages to read, and whether they are known to cover it all.
+
+        The best case is one group that fits a page per value and covers the
+        whole category -- see :meth:`_best_facet`. When no such group exists,
+        every value of every counted group is walked instead. A value holding
+        more than a page still yields its first page, and because each group
+        partitions the category differently, one group's overflow is mostly
+        another's short page. Classic Firearms' police handgun section is 63
+        listings: no group fits (9mm is 30, Glock 35), the one group that did
+        covered 4, and the union of all 17 values reaches 61.
+        """
+        groups = self._counted_groups(soup)
+        if not groups:
+            return [], False
+        whole = max(sum(count for _href, count in group) for group in groups)
+        best = self._best_group(groups, page_size)
+        if best and sum(count for _href, count in best) >= whole:
+            return [urljoin(page_url, href) for href, _count in best], True
+
+        union: list[str] = []
+        for group in groups:
+            for href, _count in group:
+                url = urljoin(page_url, href)
+                if url not in union:
+                    union.append(url)
+        return union, False
+
+    def _counted_groups(self, soup: BeautifulSoup) -> list[list[tuple[str, int]]]:
+        """The facet groups that say how many listings each value holds.
+
+        A group without counts -- the Category facet, which lists sibling
+        sections -- is not a partition of this one, and walking it would be
+        guessing at coverage.
+        """
+        return [
+            group
+            for group in self._facet_groups(soup)
+            if group and min(count for _href, count in group) > 0
+        ]
+
+    @staticmethod
+    def _best_group(groups: list[list[tuple[str, int]]], page_size: int) -> list[tuple[str, int]]:
+        """Of the groups whose every value fits on a page, the one to walk:
+        most coverage first, then fewest requests to get it."""
+        fitting = [group for group in groups if max(count for _h, count in group) <= page_size]
+        if not fitting:
+            return []
+        return max(
+            fitting,
+            key=lambda group: (sum(count for _h, count in group), -len(group)),
+        )
 
     def _facet_groups(self, soup: BeautifulSoup) -> Iterator[list[tuple[str, int]]]:
         """Each facet group as its (path, count) pairs.

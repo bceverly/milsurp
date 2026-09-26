@@ -76,11 +76,12 @@ the whole catalog as JSON to the widget that draws the grid. See
 ### Planned
 
 **This list is now also in the application.** `app/scrapers/planned.py` carries
-the two vendors still queued, and the Sites page shows them under **Coming
+the three vendors still queued, and the Sites page shows them under **Coming
 soon** with what each is waiting on. It is deliberately narrower than this
 section: only vendors that are still going to be built, never one that was
 measured and refused — Impact Guns, USA Gun Shop, Edelweiss Arms, The Mosin
-Crate, Century Arms, Gideon Tactical — because listing a refusal as "coming
+Crate, Century Arms, Gideon Tactical, Birmingham Pistol Wholesale, KY Gun Co,
+Bud's Gun Shop — because listing a refusal as "coming
 soon" quietly reverses it. `backend/tests/test_planned_sites.py` fails if a planned vendor
 gains a scraper, so a shipped site cannot go on promising itself.
 
@@ -108,6 +109,10 @@ about.
 | --- | --- | --- | --- |
 | ~~[Clyde Armory](https://clydearmory.com/agency-trade-in/)~~ | `clyde-armory` | BigCommerce | **Shipped, 2026-09-24.** The server sends its Sectigo DV certificate without the intermediate (*Sectigo Public Server Authentication CA DV R36*), which browsers fetch for themselves from the certificate's AIA address and Python does not. "Waits on them" was the wrong conclusion: the same public intermediate is shipped with the scrapers and added to certifi's roots, so verification is complete rather than relaxed. 44 agency trade-ins, one page |
 | [WIS Transfers](https://www.wistransfers.com/product-search-results?product_category_group_id=48256) | `wis-transfers` | PHP shop behind **AWS WAF** | **The shop works; its firewall refuses us.** Re-measured 2026-09-24: our MilsurpMonitor user agent gets `x-amzn-waf-action: challenge` (202, empty body) from `awselb` — on robots.txt as well — while a browser's user agent gets the "All Police Trade-Ins" page, 533 KB. The "202, empty" was never an empty shop; it is a bot-control rule. Passing it by claiming to be a browser would be evading a control the site chose, which this application does not do (see the user-agent note in the README). **Waits on WIS allowing the MilsurpMonitor agent**, the same kind of permission Joe Salter gave for `/image/` |
+
+Two more joined the queue on 2026-09-26, from the police trade-in survey below:
+**Sportsman's Outdoor Superstore** (`sportsmans-outdoor`) and **Target Sports
+USA** (`target-sports-usa`). Both are buildable, and neither is written yet.
 
 The platform column below was originally **inferred from the URL shape** — a
 `/product-category/` or `/product-tag/` path means WooCommerce, `/collections/`
@@ -702,6 +707,61 @@ title distinguishes it — with one condition measurement forced: it must also b
 a firearm. Those sections are not pure. Officer Store shelve used Glock
 magazines among the pistols, and Recoil file Federal HST and Speer Gold Dot on
 the parent page above theirs.
+
+#### The second survey, September 2026 — **two queued, eight not**
+
+A web search for police trade-in dealers not already read, then a fetch of each
+one before anything was written down, as before. Every fetch used our honest
+MilsurpMonitor user agent, and robots.txt was read for each. Multi-page walks
+waited 1.5 seconds between pages.
+
+| Site | Section | Platform | What the fetch showed | Outcome |
+| --- | --- | --- | --- | --- |
+| [Sportsman's Outdoor Superstore](https://www.sportsmansoutdoorsuperstore.com/category.cfm/sportsman/used-firearms) | `/category.cfm/sportsman/police-trade-in-glocks` and `/used-firearms`, paged by `/currentpage/N` | ColdFusion, custom | **The biggest catalog found.** 631 Glocks in the police section and 695 in used, 648 of them trade-ins (93%). Every card priced, and both walks were stopped at 40 pages, not at the end. Glocks, 870 Police Magnums, M9s, LE6920s, Model 64s. The used section also holds surplus guns: Bulgarian Makarovs, a Mosin M91/30, a P08, a PA-63, P-64s. Each card is schema.org `Product` microdata, with `itemprop="name"` and an `Offer` price. robots.txt disallows the `/make/`, `/model/`, `/under/` and `/order_by/` filters, not the categories or `/currentpage/` | **Queued, first.** A small reader of its own, since no platform base class fits |
+| [Target Sports USA](https://www.targetsportsusa.com/used-gunspolice-trade-c-998.aspx) | `/used-gunspolice-trade-c-998.aspx` | AspDotNetStorefront | 200. 17 products (Glock 17/21/22/23/35 trade-ins), but **no prices on the category page**. Each product page has its price in `itemprop` markup. robots.txt allows both | **Queued, second.** Small, and it costs a fetch per listing |
+| [KY Gun Co](https://www.kygunco.com/group/police-trade-in) | `/group/police-trade-in` | Nuxt, over a public **Typesense** search (`search.keenesdepot.io`, collection `kygunco_products`) | The endpoint works with the search-only key the page itself uses. It is the cleanest data source in the survey, and the section is empty: `groups.id:=178` returns one listing, out of stock and marked "New". The 160 used guns are general stock with 6 trade-ins | **Refused: empty today.** Worth a recheck. If the group fills, the build is a few lines on the endpoint |
+| [Bud's Gun Shop](https://www.budsgunshop.com/categories/firearms/used) | Police Trade-Ins, category 910 | Laravel + htmx | The old police category now redirects to `/products`. The used section holds 127 guns over six pages, 8 of them police trade-ins (6%) and 3 milsurp. The data is clean (`data-product-name` and `data-product-price` in cents on every card), but there is no section to read | **Refused**, on the same grounds as Impact Guns' 8% |
+| [Birmingham Pistol Wholesale](https://birminghampistol.com/tags/police-trade-in) | `/tags/police-trade-in` | Spree on Rails | **It is GunPrime.** robots.txt is byte-for-byte GunPrime's, down to GunPrime's own sitemap address. All 12 product ids on the police page match GunPrime's. Pages take about 40 seconds to answer | **Refused**, as Gideon Tactical was: a second copy of a catalog already read would forge the two-shop agreement hot deals relies on |
+| [Guns.com](https://www.guns.com/firearms/police-trade-ins) | `/firearms/police-trade-ins` | Cloudflare | **403**, `cf-mitigated: challenge`, to our agent | **Blocked** |
+| [CDNN Sports](https://www.cdnnsports.com/firearms/collectible-used.html) | `/firearms/collectible-used.html` | Magento behind Cloudflare | **403**, `cf-mitigated: challenge` | **Blocked**. A pity: it is a known liquidator of trade-in lots |
+| [DK Firearms](https://dkfirearms.com/) | Italian police Beretta 92S | Cloudflare | **403**, `cf-mitigated: challenge`, on the home page | **Blocked** |
+| [Ammunition Depot](https://www.ammunitiondepot.com/) | none | Magento | No trade-in section. A search for "LE trade-in" returns Federal LE ammunition and new Colt LE carbines; the one trade-in Model 64 is a single product | **Refused: no section** |
+| [Accurate Tactical (Memphis)](https://accuratetacticalmemphis.com/shop) | none | Odoo | A police-supply store (batons, patches, caps) with the odd trade-in gun among them | **Refused: no section** |
+
+Copper Customs, named in a forum thread about LE6920 trade-ins, did not answer:
+the connection timed out twice. It was not measured.
+
+**Shops already read that sell trade-ins outside what we read — Classic
+Firearms, Shipped 2026-09-26.** Classic shelve police trade-ins in two
+sections of their own, found in their navigation:
+`/firearms/handguns/leo-police-trade-ins/` (63 listings) and
+`/firearms/rifles/leo-police-trade-ins/` (15). Both are now read, under
+category names the police-surplus rule already recognizes. The first live run
+read **69: 60 handguns and 9 rifles.**
+
+- **The rifle section is not all trade-ins.** Six of its fifteen are new guns
+  with a law-enforcement name: Henry's Golden Boy "Law Enforcement Tribute",
+  Hi-Point's "LEOP" Leopard, Savage's 10 GRS LE, FN's PS90 "Law Enforcement
+  Edition", and two Live Free Armory "LEO Carbines". Every real trade-in says
+  so in its title ("Used LE Trade In", "Law Enforcement Turn-In", "Used ...
+  Surplus"), and none of the new ones do. So in those two sections a listing
+  is read only when its title says used, trade-in, turn-in or surplus. That
+  rule decides what we read from this one shop. The police flag still comes
+  from the section alone, as everywhere else.
+- **The facet walk had a gap, now fixed in `MagentoScraper`.** Classic bar
+  their own pagination, so sections are read one facet value at a time, and
+  the walk needed one facet group whose every value fits on a page. The police
+  handgun section has none: 9mm holds 30, Glock 35. The only group that fit
+  covered 4 listings, and it would have read 27 of 63. When no fitting group
+  covers the whole section, every value of every counted group is now walked
+  (17 pages here), and that reached 60. It warns that it may miss a few. The
+  three sections already read are unaffected, since each has a fitting group
+  that covers it.
+
+Madison Guns' Colt 6920 trade-ins already arrive through its used section,
+which is read whole. A listing Classic shelves in both a surplus section and a
+police one (an Italian police Beretta 92S, say) is read once, under whichever
+section comes first, and the surplus sections come first.
 
 #### The first two — **Shipped**
 
@@ -2036,6 +2096,179 @@ before they got nothing.
   and when one is wrong everything still looks right: the switch says On and
   nothing ever arrives. One notification landing is the only proof worth
   having.
+
+### Vendor mailing lists: sales read from the inbox — **Planned**
+
+The outbound notification account is being subscribed to the mailing lists of
+the shops we already read. Their emails announce sales, markdowns and new
+arrivals, often days before a scheduled scan would notice, and some of it (a
+coupon code, an end date) never appears on the product page at all. The
+feature: check that inbox on a schedule, find the vendor emails, follow their
+links to the listings they name, update those listings, and let the usual
+notifications take it from there.
+
+Six bites, each shippable alone, in this order, after the groundwork below.
+
+#### 0. The signup links, and which lists we are on — **Shipped** 2026-09-26
+
+- **Every shop's mailing-list signup, found on the shop's own site.** Each
+  scraper declares `newsletter_url` and a `newsletter_note` saying how to sign
+  up there. 28 of the 33 shops have one:
+  - dedicated signup pages, such as Botach's, AIM Surplus's and Joe Salter's
+    `/mailing-list`;
+  - Mailchimp or Constant Contact pages the shop links to (J&G, Ancestry,
+    Empire, Apex);
+  - most often, a form in the home page footer (every BigCommerce shop);
+  - popups (Klaviyo at Royal Tiger and Recoil, Privy at Clyde).
+
+  Five have no signup anywhere on the site: Hunter's Lodge, Axis Arms,
+  Simpson Ltd., DBG Firearms and What A Country. Apex's Constant Contact page
+  challenges bots, so it opens only in a browser.
+- **Declaring one is part of adding a vendor.** `test_newsletter_signup.py`
+  fails if a scraper leaves it undeclared, and the README's "Adding a vendor
+  site" says so.
+- **The Sites card links it**, as a chip beside the scan status. It is green
+  when `sites.marketing_email_at` (migration 0041) says mail from that shop has
+  arrived, red when it has not, and a gray "No mailing list" where there is
+  none. The red chips are the to-do list for subscribing the notification
+  account.
+- **Every chip is red until bite 1 ships**, because nothing reads the inbox
+  yet. That is accurate: nothing has been received. The demo data marks SARCO
+  as received, so both states can be seen and tested.
+
+#### 1. Reading the inbox — **Planned**
+
+- **IMAP, with the credentials the SMTP settings already hold.** The account
+  is a Gmail account with an app password, and that password opens
+  `imap.gmail.com:993` as well. The IMAP host and port get their own settings,
+  defaulting to Gmail's, so another provider only means changing those two.
+- **How often is an administrator's setting**, on the Settings page next to
+  the scan schedule. It is not a config-file value, following "the schedule is
+  an administrator's, not a file's". Off by default. A sensible default when
+  on is every 2 hours, since mailing lists send a few times a week at most.
+- **Only mail from a shop we read is opened.** Each site gets a list of sender
+  domains (`@classicfirearms.com`, plus the mailing service they send through,
+  such as `klaviyomail.com` on the shop's behalf). Everything else in the
+  inbox is left alone: not read, not marked, not deleted. It is a shared
+  account, and replies to "request access" land there too.
+- **Each message is processed once**, remembered by its `Message-ID` in a new
+  table beside `flyer_notices`, with the site, subject, date, how many links
+  it named, and what came of them. Messages are never deleted or moved.
+  Marking them read in Gmail is optional, since the table is the real record.
+- **Record arrivals on the site**: each vendor message sets
+  `sites.marketing_email_at`, which turns that shop's chip on the Sites card
+  from red to green (bite 0).
+- **An inbox run is audited like a scan**: when it ran, how many messages it
+  looked at, how many were from vendors, and any errors. The Settings page
+  shows the last run. Without that, a wrong password looks exactly like a quiet
+  week.
+
+#### 2. From an email to the listings it names — **Planned**
+
+- **Links, not prose.** A sale email is mostly pictures and links, and the
+  link is the only reliable identifier. The text is kept for context (and for
+  bite 3), but listings are found by URL.
+- **Unwrap tracking links without clicking them.** Mailing services rewrite
+  every link through a click tracker. Following one records a click we did not
+  make and may be counted as a customer's. Where the real address is inside the
+  tracking URL (it usually is, base64- or percent-encoded), it is decoded
+  locally. Where it cannot be decoded, the link is skipped and the skip
+  counted, rather than followed.
+- **Only URLs on the vendor's own domain are fetched**, by that site's own
+  scraper, with robots.txt and the per-host rate limit exactly as a scan
+  applies them. An email is untrusted input: a link to anywhere else is never
+  fetched, which also shuts the door on using the inbox to make the server
+  request arbitrary addresses.
+- **Matching:**
+  - A product link that matches a listing we already hold (by URL, or by the
+    external key its scraper derives) is re-read now instead of at the next
+    scan.
+  - A product link we do not hold is read only if it falls inside a section
+    the scraper reads. The email is not a way around the shop's own
+    boundaries, or the ones we drew: police gear, modern stock.
+  - A link to a sale *collection* ("Surplus Sale — 15% off") is read with the
+    scraper's card parser, as one more section page, for that run only.
+- **The page decides the price, not the email.** Email copy is marketing:
+  "from $399", prices for members only, a figure that ended yesterday. What is
+  stored is what the product page says when we fetch it. The email says where
+  to look and when, and can add what the page never shows (bite 3).
+
+#### 3. What the email knows that the page does not — **Planned**
+
+- **Coupon codes.** "10% off all Mausers with code SWEDE10 through Sunday"
+  never changes a product page price. It is stored as a note on the listings
+  it covers (code, discount, end date, source email) and shown on the item
+  page and in notifications. The code is never applied to `current_price`: a
+  price you only get at checkout, with a code, is not the shelf price, and
+  pretending it is would corrupt the price bands and hot deals.
+- **End dates.** "Through Sunday", "ends 9/30", "72 hours only". These are
+  parsed conservatively, only for explicit dates and durations, into an
+  `ends_at` on the note. Anything ambiguous leaves `ends_at` empty rather than
+  guessed.
+- **The note expires itself.** After `ends_at`, or 14 days with no date, the
+  note stops being shown. Stale coupons are worse than none.
+
+#### 4. Sale prices that end — **Planned**
+
+This one is mostly already true, and needs the parts that are not.
+
+- **A sale that shows on the page is an ordinary price change.** The re-read
+  in bite 2 records the drop in `price_history`, and the next scan records
+  the return. `current_price` goes down and back up, and the price history
+  shows both, which is correct and needs nothing new.
+- **What is new: re-read when a known sale ends.** When bite 3 found an
+  `ends_at` for a listing, schedule a re-read of just those listings shortly
+  after it passes, instead of waiting up to a day for the regular scan. A
+  "4 days only" price should not be shown as current on day 5.
+- **A return to the regular price is never news.** It updates the listing and
+  drops it from hot deals on the next refresh, but it is not a "price drop"
+  and triggers no alert. The price-drop badge, sort and filter already read
+  direction, and that should be checked, not assumed.
+- **Record that a price was a sale.** A `price_history` row reached through a
+  vendor email is marked with that source. The market price bands can then
+  choose whether a 4-day sale counts as a price the gun sold for, and the item
+  page can say "was $X, on sale until Sunday" rather than two unexplained
+  numbers.
+
+#### 5. Email-sourced deals go out like any other — **Planned**
+
+- After an inbox run changes prices, run the same follow-up a scan runs:
+  - the hot-deals refresh,
+  - watchlist target alerts,
+  - saved-search matches for listings that are new.
+- Nothing email-specific is needed downstream. What is needed is that the
+  inbox path *calls* that follow-up, since today it runs only at the end of a
+  scan.
+- **The notification may say why:** "on sale through Sunday", or "10% off with
+  code SWEDE10". That is the one thing an email-found deal has that a
+  scan-found one does not, and it is the reason this feature exists.
+
+#### 6. Notification memory that does not last forever — **Planned**
+
+How "we already told you" works today: both `WatchedItem.alerted_price` and
+`HotDealNotice.price` record **the price** that was mailed, not a flag, so a
+different price mails again. That was deliberate, and it is right for a price
+that keeps falling. **But it goes dark on a recurring sale.** $500, then $450
+(mailed), back to $500, then $450 again: the second $450 equals the watermark,
+so it is never mailed. A shop that runs the same markdown every month is
+announced once, ever. Vendor emails will make that pattern common.
+
+Two changes, both small:
+
+- **Clear the watermark when the price rises past it.** Once the price is back
+  above what we mailed, the old notice no longer describes anything, so it is
+  cleared. The next drop, even to the same number, is news again. This fixes
+  the recurring sale directly.
+- **And let the watermark expire anyway.** A notice older than a set time
+  (default 30 days, adjustable in Settings) stops suppressing. A listing
+  that sits at the same good price for two months is worth one reminder, and
+  no listing should be shut out of notifications forever because of a single
+  email long ago. The expiry uses the existing `alerted_at` and `sent_at`
+  timestamps, so no migration is needed for that half.
+
+Both need tests stated as the stories above: the recurring markdown mailed
+twice, a steady price mailed once and then again after the expiry, and a
+price that only rises mailed never.
 
 ### Data quality
 

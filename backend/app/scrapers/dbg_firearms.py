@@ -38,6 +38,8 @@ class DbgFirearmsScraper(WixStoresScraper):
     slug = "dbg-firearms"
     name = "DBG Firearms"
     base_url = SITE_BASE
+    newsletter_url = None
+    newsletter_note = "No signup found on the site; checked 2026-09-26"
     description = (
         "A general gun shop with a large used rack. Surplus Mausers, Enfields, "
         "Mosins and M1s are mixed in among modern trade-ins, so the whole used "

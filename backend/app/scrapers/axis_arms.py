@@ -20,6 +20,8 @@ class AxisArmsScraper(WooCommerceScraper):
     slug = "axis-arms"
     name = "Axis Arms"
     base_url = SITE_BASE
+    newsletter_url = None
+    newsletter_note = "No signup found on the site; checked 2026-09-26"
     description = "Curio and relic rifles and handguns, listed in two sections."
     requires_browser = False
     default_interval_minutes = 1440

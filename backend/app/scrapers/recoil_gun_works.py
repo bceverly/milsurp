@@ -56,6 +56,10 @@ class RecoilGunWorksScraper(BigCommerceScraper):
     slug = "recoil-gun-works"
     name = "Recoil Gun Works"
     base_url = SITE_BASE
+    newsletter_url = "https://www.recoilgunworks.com/"
+    newsletter_note = (
+        "No form in the page itself; Klaviyo is loaded, so signup is a popup on the home page"
+    )
     description = (
         "Police trade-in firearms: department Glocks and Sigs, patrol rifles and "
         "shotguns. Their gear, magazine and training-ammunition sections are not read."

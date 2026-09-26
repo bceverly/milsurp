@@ -859,6 +859,8 @@ class MyVendorScraper(SiteScraper):
     description = "What this site sells."
     requires_browser = False           # True if the catalog needs JavaScript
     default_interval_minutes = 720
+    newsletter_url = "https://myvendor.example/"  # their mailing-list signup, or None
+    newsletter_note = "Newsletter form in the home page footer"
 
     def scrape(self, ctx: ScrapeContext) -> list[ScrapedItem]:
         html = ctx.get_text(f"{self.base_url}surplus")
@@ -885,6 +887,15 @@ listings through the same context a scan uses and prints each one's price, key,
 photo count, category and the bucket the classifier files it in, plus any
 warning that would make the scan PARTIAL — and stores nothing. When that looks
 right, `make scan site=my-vendor`.
+
+**Find their mailing-list signup while you are on the site.** Every scraper
+declares `newsletter_url`, even as `None`, and `test_newsletter_signup.py` fails
+if one does not. Look for it on the shop's own pages: often a newsletter form in
+the home page footer, sometimes a `/mailing-list` page, a Mailchimp or Constant
+Contact signup page, or a Klaviyo or Privy popup. `newsletter_note` says how to
+sign up there, or why there is no list. The Sites card links it, red until mail
+from that shop reaches the notification account and green after, so an
+administrator can see which lists are still to join.
 
 If the scraper ever hands over the vendor's own caliber, country or maker, set
 `states_facts = True` on it. `test_states_facts.py` reads each scraper's source

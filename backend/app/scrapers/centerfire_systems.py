@@ -28,6 +28,8 @@ class CenterfireSystemsScraper(ShopifyScraper):
     slug = "centerfire-systems"
     name = "Centerfire Systems"
     base_url = SITE_BASE
+    newsletter_url = "https://centerfiresystems.com/#newsletter-signup"
+    newsletter_note = "Newsletter form on the home page"
     description = (
         "General retailer; only their C&R, classic military and certified used "
         "sections are read. Their modern AR and AK stock is not."

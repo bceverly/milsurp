@@ -44,6 +44,8 @@ class CheckpointCharliesScraper(WooCommerceScraper):
     slug = "checkpoint-charlies"
     name = "Checkpoint Charlie's"
     base_url = SITE_BASE
+    newsletter_url = "https://checkpointcharlies.com/"
+    newsletter_note = "Constant Contact form on the home page"
     description = (
         "Collector dealer. Their C&R tag and their military and antique gun "
         "sections are read; their commercial stock and accessories are not."

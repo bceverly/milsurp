@@ -34,6 +34,8 @@ class ArmsOfAmericaScraper(BigCommerceScraper):
     slug = "arms-of-america"
     name = "Arms of America"
     base_url = SITE_BASE
+    newsletter_url = "https://armsofamerica.com/"
+    newsletter_note = "Newsletter footer form on the home page"
     description = (
         "Importer and builder. Their parts kits and four Swiss C&R rifles are "
         "read; their modern AK builds are not."

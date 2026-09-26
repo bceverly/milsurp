@@ -27,6 +27,8 @@ class OfficerStoreScraper(BigCommerceScraper):
     slug = "officer-store"
     name = "Officer Store"
     base_url = SITE_BASE
+    newsletter_url = "https://officerstore.com/"
+    newsletter_note = "Newsletter footer form on the home page"
     description = (
         "Police equipment retailer. Their one firearms section is department "
         "trade-ins, graded by condition and mostly Glocks."

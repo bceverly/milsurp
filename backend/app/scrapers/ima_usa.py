@@ -22,6 +22,8 @@ class ImaUsaScraper(ShopifyScraper):
     slug = "ima-usa"
     name = "IMA-USA"
     base_url = SITE_BASE
+    newsletter_url = "https://www.ima-usa.com/"
+    newsletter_note = '"Join Our Newsletter and Get 5% Off" footer form on the home page'
     description = (
         "International Military Antiques. Their antique and collectible firearm "
         "collections are read; gun parts, holsters and cases are not."

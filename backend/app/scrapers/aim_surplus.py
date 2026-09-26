@@ -79,6 +79,8 @@ class AimSurplusScraper(SiteScraper):
     slug = "aim-surplus"
     name = "AIM Surplus"
     base_url = SITE_BASE
+    newsletter_url = "https://aimsurplus.com/pages/mailing-lists"
+    newsletter_note = "Mailing lists page"
     description = (
         "Ohio surplus dealer. Their police trade-ins and curio-and-relic "
         "firearms are read; their modern, NFA and component sections are not."

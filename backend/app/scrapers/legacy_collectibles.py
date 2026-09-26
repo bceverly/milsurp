@@ -60,6 +60,8 @@ class LegacyCollectiblesScraper(BigCommerceScraper):
     slug = "legacy-collectibles"
     name = "Legacy Collectibles"
     base_url = SITE_BASE
+    newsletter_url = "https://legacy-collectibles.com/"
+    newsletter_note = "Newsletter footer form on the home page"
     description = (
         "High-end WWI and WWII collector pieces. Their handgun and long-gun "
         "catalog is read; their gear, parts and modern retail sections are not."

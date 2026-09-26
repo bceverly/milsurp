@@ -30,6 +30,8 @@ class ArmsUnlimitedScraper(BigCommerceScraper):
     slug = "arms-unlimited"
     name = "Arms Unlimited"
     base_url = SITE_BASE
+    newsletter_url = "https://armsunlimited.com/"
+    newsletter_note = "Newsletter footer form on the home page"
     description = (
         "Police and military supplier. Their used and collectible firearms are "
         "read; their surplus gear and current-production sections are not."

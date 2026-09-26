@@ -77,6 +77,8 @@ class HuntersLodgeScraper(SiteScraper):
     slug = "hunters-lodge"
     name = "Hunter's Lodge"
     base_url = SITE_BASE
+    newsletter_url = None
+    newsletter_note = "No signup found on the site (Wix); checked 2026-09-26"
     description = (
         "Publishes no catalog: one scanned magazine advertisement, replaced every "
         "month or two. Listings are recovered from the image by OCR."

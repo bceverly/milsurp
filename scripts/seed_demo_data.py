@@ -630,6 +630,14 @@ def seed(  # noqa: PLR0912 - a linear fixture builder; branches are per-field
             site.last_scan_at = now - timedelta(hours=1)
             site.last_success_at = now - timedelta(hours=1)
 
+        # One shop whose marketing email has arrived, so the Sites page shows
+        # the mailing-list chip in both states: green here, red everywhere else.
+        # Nothing records arrivals until the inbox reader ships, so without this
+        # the green state could not be seen or tested.
+        for site in sites:
+            if site.slug == "sarco":
+                site.marketing_email_at = now - timedelta(days=2)
+
         session.commit()
 
         # And one pass over what was just seeded, so the Hot deals page has

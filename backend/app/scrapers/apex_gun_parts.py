@@ -36,6 +36,8 @@ class ApexGunPartsScraper(MagentoScraper):
     slug = "apex-gun-parts"
     name = "Apex Gun Parts"
     base_url = SITE_BASE
+    newsletter_url = "https://lp.constantcontactpages.com/sl/oUg3Cn1"
+    newsletter_note = "Constant Contact signup page, linked from their home page (it challenges bots, so it only opens in a browser)"
     description = (
         "Surplus parts kits in quantity — CETME, STEN, FAL, Mauser, Beretta SMG. "
         "They sell parts only; there are no complete firearms to read."

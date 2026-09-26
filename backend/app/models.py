@@ -166,6 +166,10 @@ class Site(Base, TimestampMixin):
     last_scan_at: Mapped[datetime | None] = mapped_column(DateTime)
     last_success_at: Mapped[datetime | None] = mapped_column(DateTime)
     next_scan_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
+    #: When the most recent marketing email from this vendor reached the
+    #: notification account. Set by the inbox reader; None means none has, and
+    #: the Sites card shows the signup link red so somebody joins the list.
+    marketing_email_at: Mapped[datetime | None] = mapped_column(DateTime)
 
     items: Mapped[list["Item"]] = relationship(back_populates="site", cascade="all, delete-orphan")
     scan_runs: Mapped[list["ScanRun"]] = relationship(

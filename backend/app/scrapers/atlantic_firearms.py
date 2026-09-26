@@ -66,6 +66,8 @@ class AtlanticFirearmsScraper(PrestaShopScraper):
     slug = "atlantic-firearms"
     name = "Atlantic Firearms"
     base_url = SITE_BASE
+    newsletter_url = "https://atlanticfirearms.com/social-media"
+    newsletter_note = 'Their "Subscribe" link: a page with the newsletter form'
     description = (
         "Large importer and retailer. Their parts kits, C&R guns and bayonets "
         "are read; their surplus *gear* sections and modern builds are not."

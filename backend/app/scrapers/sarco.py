@@ -61,6 +61,8 @@ class SarcoScraper(SearchaniseScraper):
     slug = "sarco"
     name = "SARCO, Inc."
     base_url = SITE_BASE
+    newsletter_url = "https://www.sarcoinc.com/"
+    newsletter_note = "Newsletter footer form on the home page"
     description = "Military surplus firearms, parts and collectibles from an Easton, Pennsylvania dealer since 1983."
     default_interval_minutes = 1440
 

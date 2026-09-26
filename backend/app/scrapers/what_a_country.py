@@ -95,6 +95,8 @@ class WhatACountryScraper(SiteScraper):
     slug = "what-a-country"
     name = "What A Country"
     base_url = SITE_BASE
+    newsletter_url = None
+    newsletter_note = "No signup found on the site; checked 2026-09-26"
     description = (
         "Parts kit specialist: Colt M16A1, M1 Carbine, Hungarian and Polish AKs, "
         "FAL, Galil, UZI, Suomi, MG3, HK11, STEN and RPD kits."

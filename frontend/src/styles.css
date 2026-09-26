@@ -303,6 +303,15 @@ img {
   background: var(--navy-50);
   color: var(--navy-700);
 }
+/* A chip that is a link (the Sites card's mailing-list signup) keeps the chip
+   look; the underline appears on hover so it still reads as clickable. */
+a.chip {
+  text-decoration: none;
+}
+a.chip:hover,
+a.chip:focus-visible {
+  text-decoration: underline;
+}
 .chip--success {
   background: var(--green-100);
   color: var(--green-600);

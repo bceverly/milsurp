@@ -44,6 +44,8 @@ class BowmanArmsScraper(BigCommerceScraper):
     slug = "bowman-arms"
     name = "Bowman Arms"
     base_url = SITE_BASE
+    newsletter_url = "https://bowmanarms.com/"
+    newsletter_note = "Newsletter footer form on the home page"
     description = "Parts kits only, and all of them surplus. Seventeen listings, every one priced."
     requires_browser = False
     default_interval_minutes = 1440

@@ -35,6 +35,10 @@ class ClydeArmoryScraper(BigCommerceScraper):
     slug = "clyde-armory"
     name = "Clyde Armory"
     base_url = SITE_BASE
+    newsletter_url = "https://clydearmory.com/"
+    newsletter_note = (
+        "No form in the page itself; Privy is loaded, so signup is a popup on the home page"
+    )
     description = (
         "Georgia dealer's agency trade-in shelf: police Glocks, SIGs, HKs, "
         "Mini-14s and shotguns, among trade-in optics and parts."

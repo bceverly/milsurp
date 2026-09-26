@@ -38,6 +38,8 @@ class DemoScraper(SiteScraper):
     slug = "demo-vendor"
     name = "Demo Vendor"
     base_url = "https://demo.invalid/"
+    newsletter_url = None
+    newsletter_note = "The network-free demo vendor has no mailing list"
     description = (
         "A built-in test fixture that performs no network access. Enabled only "
         "when MILSURP_ENABLE_DEMO_SITE is set."

@@ -24,6 +24,7 @@ import {
   Check,
   History,
   Image as ImageIcon,
+  Mail,
   Pause,
   Play,
   Refresh,
@@ -136,6 +137,41 @@ function scanTimeDetail(run) {
 //: downloads behind it. Two hundred and fifty is a bite somebody can watch
 //: finish.
 const REFETCH_BATCH = 250;
+
+/**
+ * The vendor's mailing-list signup, and whether their mail has reached us.
+ *
+ * Green once a marketing email from this shop has arrived at the notification
+ * account, red until then: the red ones are the lists still to join. The inbox
+ * reader that records arrivals is on the roadmap ("Vendor mailing lists"), so
+ * until it runs every shop is red, which is true -- nothing has been received.
+ */
+function MailingListChip({ site }) {
+  if (!site.newsletter_url) {
+    return (
+      <span className="chip chip--neutral" title={site.newsletter_note || undefined}>
+        <Mail size={12} />
+        No mailing list
+      </span>
+    );
+  }
+  const received = Boolean(site.marketing_email_at);
+  const when = received
+    ? `Last marketing email ${formatRelative(site.marketing_email_at)}.`
+    : "No marketing email received yet. Join the list so the inbox reader hears about sales.";
+  return (
+    <a
+      className={`chip ${received ? "chip--success" : "chip--danger"}`}
+      href={site.newsletter_url}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={[site.newsletter_note, when].filter(Boolean).join(" ")}
+    >
+      <Mail size={12} />
+      {received ? "Mailing list" : "Join mailing list"}
+    </a>
+  );
+}
 
 function SiteCard({ site, result, onChange, onError, onNotice, onDismissResult }) {
   const [busy, setBusy] = useState(false);
@@ -316,6 +352,7 @@ function SiteCard({ site, result, onChange, onError, onNotice, onDismissResult }
               </span>
             )}
             {!site.is_available && <span className="chip chip--danger">No scraper</span>}
+            <MailingListChip site={site} />
           </div>
         </div>
 

@@ -258,6 +258,8 @@ class SimpsonLtdScraper(SiteScraper):
     slug = "simpson-ltd"
     name = "Simpson Ltd."
     base_url = SITE_BASE
+    newsletter_url = None
+    newsletter_note = "No signup found on the site; checked 2026-09-26"
     description = (
         "Galesburg, Illinois collector dealer, read through the Cloud "
         "Functions its own site calls. The Luger, military rifle, antique and "

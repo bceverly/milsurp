@@ -10,6 +10,7 @@ the interesting behavior is.
 
 from __future__ import annotations
 
+import html
 import json
 
 import pytest
@@ -446,6 +447,62 @@ class TestTheShops:
         assert ClassicFirearmsScraper.requires_browser is False
 
 
+class TestClassicFirearmsPoliceTradeIns:
+    """Their two police sections, and the new "LE edition" guns shelved in one.
+
+    Titles below are Classic's own, from the rifle section in September 2026.
+    """
+
+    def parse(self, title, category):
+        from app.scrapers.classic_firearms import ClassicFirearmsScraper
+
+        # Escaped as the shop escapes it: these titles carry inch marks, and a
+        # bare one would end the alt attribute early.
+        soup = BeautifulSoup(catalog(themed_card("x", html.escape(title))), "html.parser")
+        card = soup.select_one(".product-card")
+        return ClassicFirearmsScraper().item_from_card(card, SHOP, category)
+
+    def test_both_sections_are_read_under_names_the_classifier_flags(self):
+        from app.scrapers.classic_firearms import POLICE_SECTIONS, ClassicFirearmsScraper
+        from app.services.classify import _is_police_surplus
+
+        read = {source["category"] for source in ClassicFirearmsScraper.sources}
+        assert read >= POLICE_SECTIONS
+        for category in POLICE_SECTIONS:
+            assert _is_police_surplus(category, is_firearm=True), category
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            (
+                'DPMS A-15, AR-15 Semi-Automatic Rifle, .223 Rem/5.56, 16.25" Barrel, '
+                "Used LE Trade In, Good Condition"
+            ),
+            "Colt Defense Canadian Law Enforcement Turn-In AR-15 Carbine 5.56 Nato",
+            "Used Bushmaster XM15 Patrolman, Semi-Auto AR-15 Rifle - Surplus Good Condition",
+            "Glock 19 Gen 4 - Law Enforcement Trade-in - Semi-Automatic Pistol - 9x19mm",
+        ],
+    )
+    def test_a_trade_in_is_read(self, title):
+        assert self.parse(title, "Police Trade-In Rifles") is not None
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            'Henry H004LE Golden Boy Law Enforcement Tribute Lever 22 S/L/LR 20"',
+            'Hi-Point HP-15 Leopard 5.56 Rifle HP15R556LEOP, 16" Barrel, 30-Round',
+            'FN America PS90 Law Enforcement Edition 16" Barrel 5.7X28 50rd Magazine',
+            "Live Free Armory LFLEO80045 LEO Carbine 16 30rd Tungsten",
+        ],
+    )
+    def test_a_new_gun_with_a_law_enforcement_name_is_not(self, title):
+        assert self.parse(title, "Police Trade-In Rifles") is None
+
+    def test_the_rule_is_only_for_the_police_sections(self):
+        """A C&R rifle says nothing about being used, and does not need to."""
+        assert self.parse("Swedish M96 Mauser 6.5x55", "C&R Eligible") is not None
+
+
 def facet_nav(groups: dict[str, list[tuple[str, int]]]) -> str:
     """Magento's layered navigation: a <dt> label and a <dd> list per group."""
     blocks = []
@@ -574,7 +631,11 @@ class TestWalkingTheFacetsInstead:
         assert any("Skipping that facet" in warning for warning in ctx.warnings)
 
     @responses.activate
-    def test_a_section_with_no_walkable_facet_says_so(self, ctx):
+    def test_a_section_with_no_fitting_group_walks_every_value_and_says_so(self, ctx):
+        """No group fits a page per value, so each value's first page is read:
+        more than page one of the section, and the warning says it may not be
+        everything."""
+
         class Faceted(Shop):
             follow_facets = True
             facet_page_size = 24
@@ -587,12 +648,51 @@ class TestWalkingTheFacetsInstead:
                 "</body>", f"{nav}</body>"
             ),
         )
-        responses.add(responses.GET, f"{SHOP}/one.html", body=product_page("One"))
+        responses.add(
+            responses.GET,
+            f"{SHOP}/surplus/bolt/",
+            body=catalog(stock_card(1, "One") + stock_card(2, "Two")),
+        )
+        for slug in ("one", "two"):
+            responses.add(responses.GET, f"{SHOP}/{slug}.html", body=product_page(slug.title()))
 
         items = list(Faceted().scrape(ctx))
 
-        assert len(items) == 1
-        assert any("No facet small enough" in warning for warning in ctx.warnings)
+        assert sorted(item.external_key for item in items) == ["magento-1", "magento-2"]
+        assert any("can still miss a few" in warning for warning in ctx.warnings)
+
+    def test_a_small_group_that_fits_does_not_beat_whole_ones_that_do_not(self):
+        """Classic Firearms' police handguns: 63 listings, a "Caliber" group
+        whose 9mm value holds 30, and a two-value group that fits a page but
+        covers 4. Walking the small one read 27 of 63; walking every value of
+        every group reached 61."""
+        nav = facet_nav(
+            {
+                "Caliber": [("9mm", 30), ("40sw", 15), ("45acp", 18)],
+                "Brand": [("glock", 35), ("sig", 28)],
+                "Finish": [("nickel", 3), ("two-tone", 1)],
+            }
+        )
+        soup = BeautifulSoup(f"<html><body>{nav}</body></html>", "html.parser")
+
+        urls, complete = MagentoScraper()._facets_to_walk(soup, f"{SHOP}/surplus/", 24)
+
+        assert complete is False
+        assert len(urls) == 7
+
+    def test_a_group_that_fits_and_covers_everything_is_still_the_whole_answer(self):
+        nav = facet_nav(
+            {
+                "Caliber": [("30_06", 19), ("8mm", 18)],
+                "Action": [("bolt", 37)],
+            }
+        )
+        soup = BeautifulSoup(f"<html><body>{nav}</body></html>", "html.parser")
+
+        urls, complete = MagentoScraper()._facets_to_walk(soup, f"{SHOP}/surplus/", 24)
+
+        assert complete is True
+        assert urls == [f"{SHOP}/surplus/30_06/", f"{SHOP}/surplus/8mm/"]
 
     @responses.activate
     def test_a_section_that_fits_on_one_page_pays_for_no_facets(self, ctx):

@@ -397,6 +397,35 @@ test.describe("sites", () => {
     await expect(planned.first()).toContainText("Coming soon");
   });
 
+  test("each site links its mailing list, green once their mail has arrived", async ({
+    signedIn,
+  }) => {
+    /**
+     * The notification account joins the shops' mailing lists so the inbox
+     * reader can hear about sales early. Red is a list still to join, green
+     * is one whose mail has reached us, and a shop with no list says so.
+     */
+    await signedIn.goto("/sites");
+    const card = (name) => signedIn.locator(".site-card").filter({ hasText: name });
+
+    // The demo seed marks SARCO's mail as received.
+    const received = card("SARCO, Inc.").getByRole("link", { name: "Mailing list" });
+    await expect(received).toHaveClass(/chip--success/);
+    await expect(received).toHaveAttribute("href", "https://www.sarcoinc.com/");
+    await expect(received).toHaveAttribute("target", "_blank");
+
+    const toJoin = card("Botach").getByRole("link", { name: "Join mailing list" });
+    await expect(toJoin).toHaveClass(/chip--danger/);
+    await expect(toJoin).toHaveAttribute("href", "https://botach.com/mailing-list/");
+
+    // No signup found: a statement, not a link.
+    const none = card("Axis Arms").getByText("No mailing list");
+    await expect(none).toBeVisible();
+    await expect(
+      card("Axis Arms").getByRole("link", { name: /mailing list/i }),
+    ).toHaveCount(0);
+  });
+
   test("scan history is reachable from a site", async ({ signedIn }) => {
     await signedIn.goto("/sites");
     await signedIn

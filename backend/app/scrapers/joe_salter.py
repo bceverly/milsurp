@@ -245,6 +245,8 @@ class JoeSalterScraper(SiteScraper):
     slug = "joe-salter"
     name = "Joe Salter"
     base_url = SITE_BASE
+    newsletter_url = "https://shop.joesalter.com/mailing-list"
+    newsletter_note = "Mailing list page"
     description = (
         "Long-established collector dealer on OpenCart. Curio-and-relic, "
         "antique and British military sections are read; their photographs are "

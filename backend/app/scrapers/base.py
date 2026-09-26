@@ -718,6 +718,20 @@ class SiteScraper(abc.ABC):
     description: str = ""
     #: True when a headless browser is required (Selenium + Chrome).
     requires_browser: bool = False
+    #: Where a person signs up for this vendor's marketing email, for the Sites
+    #: card's mailing-list link. The notification account is subscribed to
+    #: these so the inbox reader (ROADMAP, "Vendor mailing lists") hears about
+    #: sales before a scan would.
+    #:
+    #: **Every scraper declares it, even as None**, and a test enforces that: it
+    #: is part of adding a vendor, the same as ``base_url``. Found by reading
+    #: the shop's own page, never guessed. Often that is the home page, whose
+    #: footer carries the form or whose button opens a popup.
+    newsletter_url: str | None = None
+    #: How to sign up at ``newsletter_url``, or, when it is None, why there is
+    #: none. Required whenever the URL alone does not say it: "Footer form on
+    #: the home page", "Popup (Klaviyo)", "No signup found on the site".
+    newsletter_note: str = ""
     #: Whether this vendor's descriptions are prose about the listing they
     #: belong to. Nearly always true, and false for a source where the text
     #: bleeds: Hunter's Lodge derives its whole catalog from one scanned page,

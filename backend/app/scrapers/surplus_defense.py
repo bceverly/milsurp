@@ -43,6 +43,8 @@ class SurplusDefenseScraper(WixStoresScraper):
     slug = "surplus-defense"
     name = "Surplus Defense"
     base_url = SITE_BASE
+    newsletter_url = "https://www.surplusdefense.com/email-newsletter-signup"
+    newsletter_note = "Email newsletter signup page"
     description = (
         "Small collector dealer, entirely surplus: matching Mosins, Lugers, "
         "Mausers and Carcanos, with a shelf of daggers and swords."

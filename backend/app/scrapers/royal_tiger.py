@@ -345,6 +345,8 @@ class RoyalTigerScraper(SiteScraper):
     slug = "royal-tiger"
     name = "Royal Tiger Imports"
     base_url = SITE_BASE
+    newsletter_url = "https://royaltigerimports.com/"
+    newsletter_note = '"Join Mailing List" button in the home page footer; opens a Klaviyo form'
     description = (
         "Large importer catalog. Needs a headless browser: sections use infinite "
         "scroll, Load More buttons and classic pagination interchangeably."

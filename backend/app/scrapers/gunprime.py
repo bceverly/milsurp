@@ -210,6 +210,8 @@ class GunPrimeScraper(SiteScraper):
     slug = "gunprime"
     name = "GunPrime"
     base_url = SITE_BASE
+    newsletter_url = "https://gunprime.com/"
+    newsletter_note = "Subscribe footer form on the home page"
     description = (
         "Spree storefront. The collector and police trade-in shelves are read; "
         "their six firearm categories are a modern gun shop and are left alone."

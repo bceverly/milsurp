@@ -55,6 +55,8 @@ class DupageTradingScraper(BigCommerceScraper):
     slug = "dupage-trading"
     name = "DuPage Trading"
     base_url = SITE_BASE
+    newsletter_url = "https://dupagetrading.com/"
+    newsletter_note = "Newsletter footer form on the home page"
     description = (
         "M1 Garand and M14 specialists. Their bayonets and their few complete "
         "rifles are read; their parts, stocks and militaria are not."

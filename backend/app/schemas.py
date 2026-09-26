@@ -288,6 +288,14 @@ class SiteOut(UTCModel):
     #: page is parsed cannot reach on its own, and what "Re-read details"
     #: re-queues.
     details_fetched: int = 0
+    #: Where to join this vendor's mailing list, and how, from the scraper
+    #: (``SiteScraper.newsletter_url``). A URL of None comes with a note saying
+    #: why there is none.
+    newsletter_url: str | None = None
+    newsletter_note: str = ""
+    #: When their last marketing email arrived; None means never, and the card
+    #: shows the signup link red.
+    marketing_email_at: datetime | None = None
 
 
 class PhotoRunStarted(BaseModel):

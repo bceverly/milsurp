@@ -46,6 +46,8 @@ class BotachScraper(AlgoliaScraper):
     slug = "botach"
     name = "Botach"
     base_url = SITE_BASE
+    newsletter_url = "https://botach.com/mailing-list/"
+    newsletter_note = "Mailing list page"
     description = (
         "Las Vegas tactical retailer. Only their trade-in and used shelf is read: "
         "police trade-in Colts, Remingtons, SIGs and the occasional Lee-Enfield or K98."

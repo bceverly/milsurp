@@ -28,6 +28,8 @@ class AncestryGunsScraper(WooCommerceScraper):
     slug = "ancestry-guns"
     name = "Ancestry Guns"
     base_url = SITE_BASE
+    newsletter_url = "https://schilbantiquarian.us3.list-manage.com/subscribe?u=0e17978dd6903489935f8a81c&id=e86436ab9b"
+    newsletter_note = "Mailchimp signup page for the list their home page form posts to"
     description = (
         "Missouri collector dealer. Their C&R, handgun and long-gun sections are "
         "read; their militaria is not."

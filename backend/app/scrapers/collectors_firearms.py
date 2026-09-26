@@ -64,6 +64,8 @@ class CollectorsFirearmsScraper(WooCommerceScraper):
     slug = "collectors-firearms"
     name = "Collectors Firearms"
     base_url = SITE_BASE
+    newsletter_url = "https://collectorsfirearms.com/newsletter-signup/"
+    newsletter_note = "Newsletter signup page (Mailchimp)"
     description = (
         "Houston collector dealer trading since 1975. Their military and antique "
         "firearm sections are read; the rest of their general catalog is not."
