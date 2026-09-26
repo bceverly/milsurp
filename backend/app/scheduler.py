@@ -30,6 +30,7 @@ from .services import (
     backup,
     digest,
     hotdeals,
+    inbox,
     pushnotify,
     scan_service,
     watchlist,
@@ -147,6 +148,7 @@ class Scheduler:
         self._dispatch_watch_alerts()
         self._dispatch_backup()
         self._dispatch_hot_deals()
+        self._dispatch_inbox()
 
     # -- hot deals ----------------------------------------------------------
     def _dispatch_hot_deals(self) -> None:
@@ -191,6 +193,35 @@ class Scheduler:
             result.seconds,
         )
         self._mail_hot_deals()
+
+    # -- vendor mailing lists -------------------------------------------------
+    def _dispatch_inbox(self) -> None:
+        """Check the notification account's inbox for the shops' mail, when due.
+
+        Due-ness is one row read, false on almost every tick, like hot deals.
+        The check itself is a read-only IMAP session of a few seconds, run on
+        the tick thread. A failure is recorded on the settings row for the page
+        and never stops the scans. See services/inbox.
+        """
+        try:
+            with session_scope() as session:
+                if not inbox.is_due(session):
+                    return
+                result = inbox.run(session, self.config)
+        except Exception as exc:
+            log.exception("Inbox check failed")
+            try:
+                with session_scope() as session:
+                    inbox.record_failure(session, exc)
+            except Exception:
+                log.exception("Could not record the inbox failure")
+            return
+        log.info(
+            "Inbox: %s (%s message(s) looked at, %s new from the shops).",
+            result.status,
+            result.looked_at,
+            result.recorded,
+        )
 
     def _mail_hot_deals(self) -> None:
         """One email per subscriber, each in its own session.

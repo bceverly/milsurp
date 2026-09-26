@@ -3017,3 +3017,34 @@
     flex: 1 1 auto;
   }
 }
+
+/* The Sites page's inbox reader: the same shape as the hot-deals controls. */
+.mailing-panel {
+  margin-bottom: 18px;
+}
+
+.mailing-panel .switch {
+  display: flex;
+}
+
+.mailing-panel__field {
+  margin-top: 12px;
+  max-width: 340px;
+}
+
+.mailing-panel__status {
+  margin: 14px 0 0;
+  font-size: 13px;
+}
+
+.mailing-panel__recent {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.mailing-panel__recent .chip {
+  margin-left: 6px;
+}

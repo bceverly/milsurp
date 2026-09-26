@@ -296,6 +296,9 @@ class SiteOut(UTCModel):
     #: When their last marketing email arrived; None means never, and the card
     #: shows the signup link red.
     marketing_email_at: datetime | None = None
+    #: When they asked for the subscription to be confirmed, if that is still
+    #: the latest word from them: the card turns amber until real mail follows.
+    confirmation_requested_at: datetime | None = None
 
 
 class PhotoRunStarted(BaseModel):
@@ -1541,3 +1544,40 @@ class HotDealsOut(BaseModel):
     #: the page keys the settings panel off rather than re-deriving the role.
     settings: HotDealSettingsOut | None = None
     interval_choices: list[int] | None = None
+
+
+class InboxSettingsOut(UTCModel):
+    """The vendor-mailing-list reader. UTCModel for its datetimes, as the
+    hot-deal and backup settings are."""
+
+    enabled: bool
+    interval_hours: int
+    last_run_at: datetime | None = None
+    last_status: str | None = None
+    last_error: str | None = None
+    last_looked_at: int | None = None
+    last_recorded: int | None = None
+
+
+class InboxSettingsUpdate(BaseModel):
+    enabled: bool | None = None
+    interval_hours: int | None = None
+
+
+class VendorEmailOut(UTCModel):
+    site_id: int | None = None
+    site_name: str | None = None
+    from_address: str
+    subject: str
+    asks_to_confirm: bool
+    received_at: datetime
+
+
+class InboxStateOut(BaseModel):
+    settings: InboxSettingsOut
+    #: Whether config.yaml has an account to sign in with at all.
+    configured: bool
+    #: Which mailbox is read, for the page to say so. No password, ever.
+    account: str
+    interval_choices: list[int]
+    recent: list[VendorEmailOut]

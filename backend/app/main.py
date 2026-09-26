@@ -49,6 +49,9 @@ from .api import (
     hotdeals as hotdeals_api,
 )
 from .api import (
+    inbox as inbox_api,
+)
+from .api import (
     market as market_api,
 )
 from .api import (
@@ -424,6 +427,7 @@ def create_app() -> FastAPI:
     api.include_router(changes_api.router)
     api.include_router(market_api.router)
     api.include_router(hotdeals_api.router)
+    api.include_router(inbox_api.router)
     api.include_router(push_api.router)
     api.include_router(armory.router)
     api.include_router(scans.router)

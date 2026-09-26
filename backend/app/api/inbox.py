@@ -1,0 +1,71 @@
+"""The vendor-mailing-list reader: its switch, its cadence, and "check now".
+
+Administrator-only. The account and its password stay in config.yaml; this is
+policy (whether, how often) and a view of what has arrived. See
+``app/services/inbox.py``.
+"""
+
+from __future__ import annotations
+
+from fastapi import APIRouter, HTTPException, status
+
+from ..deps import AdminUser, AppConfig, DbSession
+from ..schemas import InboxSettingsOut, InboxSettingsUpdate, InboxStateOut, VendorEmailOut
+from ..services import inbox
+
+router = APIRouter(prefix="/admin/inbox", tags=["inbox"])
+
+
+def _state(session: DbSession, config: AppConfig) -> InboxStateOut:
+    mail = config.email
+    return InboxStateOut(
+        settings=InboxSettingsOut.model_validate(inbox.settings(session), from_attributes=True),
+        configured=bool(mail.username and mail.password),
+        account=mail.username,
+        interval_choices=list(inbox.ALLOWED_INTERVAL_HOURS),
+        recent=[
+            VendorEmailOut(
+                site_id=row.site_id,
+                site_name=row.site.name if row.site else None,
+                from_address=row.from_address,
+                subject=row.subject,
+                asks_to_confirm=row.asks_to_confirm,
+                received_at=row.received_at,
+            )
+            for row in inbox.recent(session)
+        ],
+    )
+
+
+@router.get("", response_model=InboxStateOut)
+def read_inbox(_admin: AdminUser, session: DbSession, config: AppConfig) -> InboxStateOut:
+    return _state(session, config)
+
+
+@router.patch("", response_model=InboxStateOut)
+def update_inbox(
+    payload: InboxSettingsUpdate, _admin: AdminUser, session: DbSession, config: AppConfig
+) -> InboxStateOut:
+    row = inbox.settings(session)
+    if payload.interval_hours is not None:
+        if payload.interval_hours not in inbox.ALLOWED_INTERVAL_HOURS:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                f"interval_hours must be one of {list(inbox.ALLOWED_INTERVAL_HOURS)}",
+            )
+        row.interval_hours = payload.interval_hours
+    if payload.enabled is not None:
+        row.enabled = payload.enabled
+    session.commit()
+    return _state(session, config)
+
+
+@router.post("/check", response_model=InboxStateOut)
+def check_inbox(_admin: AdminUser, session: DbSession, config: AppConfig) -> InboxStateOut:
+    """Check now, whatever the schedule says, and even with it switched off.
+
+    The outcome is recorded on the settings row and shown with the rest, so a
+    wrong password reads as that on the page rather than as a quiet week.
+    """
+    inbox.run(session, config)
+    return _state(session, config)

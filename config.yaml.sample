@@ -158,6 +158,11 @@ email:
   from_address: you@gmail.com
   from_name: "Milsurp Monitor"
   timeout_seconds: 30                # default: 30
+  # Reading the same account's inbox, for the vendor mailing lists it is
+  # subscribed to (switched on from the Sites page). Same username and app
+  # password; SSL only.
+  imap_host: imap.gmail.com          # default: imap.gmail.com
+  imap_port: 993                     # default: 993
 
 # --- Server ----------------------------------------------------------------
 server:

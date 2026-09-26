@@ -152,6 +152,11 @@ class EmailConfig:
     from_address: str = ""
     from_name: str = "Milsurp Watch"
     timeout_seconds: int = 30
+    #: Where the same account's mail is read, for the vendor mailing lists the
+    #: account is subscribed to. Gmail by default; the credentials are the SMTP
+    #: ones above, since a Gmail app password opens both.
+    imap_host: str = "imap.gmail.com"
+    imap_port: int = 993
 
     @property
     def sender(self) -> str:
@@ -714,6 +719,8 @@ def load_config(path: Path | None = None, mode: str | None = None) -> Config:
         from_address=str(mail.get("from_address", "") or ""),
         from_name=str(mail.get("from_name", "Milsurp Watch")),
         timeout_seconds=int(mail.get("timeout_seconds", 30)),
+        imap_host=str(mail.get("imap_host", "imap.gmail.com")),
+        imap_port=int(mail.get("imap_port", 993)),
     )
 
     srv = _section(data, "server")

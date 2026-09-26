@@ -139,6 +139,113 @@ function scanTimeDetail(run) {
 const REFETCH_BATCH = 250;
 
 /**
+ * The inbox reader: whether the notification account's inbox is checked for
+ * the shops' mail, how often, and what the last check found. The account and
+ * its password stay in config.yaml; this is only the switch and the result.
+ */
+function MailingListsPanel({ onChecked }) {
+  const [state, setState] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    api
+      .inbox()
+      .then(setState)
+      .catch((err) => setError(err.message));
+  }, []);
+
+  async function act(call) {
+    setBusy(true);
+    setError(null);
+    try {
+      setState(await call());
+      onChecked();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!state) return error ? <div className="alert alert--error">{error}</div> : null;
+  const { settings } = state;
+  const outcome = {
+    ok: `Looked at ${settings.last_looked_at ?? 0} message(s); ${settings.last_recorded ?? 0} new from the shops.`,
+    not_configured: "There is no email account in config.yaml to sign in with.",
+    failed: `The check failed: ${settings.last_error || "no reason given"}.`,
+  }[settings.last_status];
+
+  return (
+    <section className="panel mailing-panel" aria-labelledby="mailing-heading">
+      <div className="panel__head">
+        <h2 id="mailing-heading">Vendor mailing lists</h2>
+        <button
+          className="btn btn--ghost"
+          type="button"
+          disabled={busy}
+          onClick={() => act(api.checkInbox)}
+        >
+          <Mail size={15} /> Check the inbox now
+        </button>
+      </div>
+      <div className="panel__body">
+        <label className="switch">
+          <input
+            type="checkbox"
+            checked={settings.enabled}
+            disabled={busy}
+            onChange={(event) =>
+              act(() => api.updateInbox({ enabled: event.target.checked }))
+            }
+          />
+          <span className="switch__track" />
+          <span>
+            Check {state.account || "the notification account"} for the shops&apos; mail
+          </span>
+        </label>
+        <label className="field mailing-panel__field">
+          <span className="field__label">Every</span>
+          <select
+            value={settings.interval_hours}
+            disabled={busy}
+            onChange={(event) =>
+              act(() => api.updateInbox({ interval_hours: Number(event.target.value) }))
+            }
+          >
+            {state.interval_choices.map((hours) => (
+              <option key={hours} value={hours}>
+                {hours} hour{hours === 1 ? "" : "s"}
+              </option>
+            ))}
+          </select>
+        </label>
+        {error && <div className="alert alert--error">{error}</div>}
+        <p className="muted mailing-panel__status" role="status">
+          {settings.last_run_at
+            ? `Last checked ${formatRelative(settings.last_run_at)}. ${outcome || ""}`
+            : "Not checked yet."}{" "}
+          Read-only: nothing is marked read, and only mail from the shops is kept.
+        </p>
+        {state.recent.length > 0 && (
+          <ul className="mailing-panel__recent">
+            {state.recent.slice(0, 8).map((mail) => (
+              <li key={`${mail.received_at}-${mail.subject}`}>
+                <span className="muted">{formatRelative(mail.received_at)}</span>{" "}
+                <strong>{mail.site_name}</strong> — {mail.subject}
+                {mail.asks_to_confirm && (
+                  <span className="chip chip--warning">asks you to confirm</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/**
  * The vendor's mailing-list signup, and whether their mail has reached us.
  *
  * Green once a marketing email from this shop has arrived at the notification
@@ -155,20 +262,39 @@ function MailingListChip({ site }) {
       </span>
     );
   }
-  const received = Boolean(site.marketing_email_at);
-  const when = received
-    ? `Last marketing email ${formatRelative(site.marketing_email_at)}.`
-    : "No marketing email received yet. Join the list so the inbox reader hears about sales.";
+  // A double opt-in list sends "please confirm" first, and nothing else until
+  // somebody clicks it. That is its own state: signed up, not yet receiving.
+  const confirming = Boolean(site.confirmation_requested_at);
+  const received = !confirming && Boolean(site.marketing_email_at);
+  const [tone, label, when] = confirming
+    ? [
+        "chip--warning",
+        "Confirm subscription",
+        `They asked ${formatRelative(site.confirmation_requested_at)} for the ` +
+          "subscription to be confirmed. Open that email in the notification " +
+          "account's inbox and follow its link.",
+      ]
+    : received
+      ? [
+          "chip--success",
+          "Mailing list",
+          `Last marketing email ${formatRelative(site.marketing_email_at)}.`,
+        ]
+      : [
+          "chip--danger",
+          "Join mailing list",
+          "No marketing email received yet. Join the list so the inbox reader hears about sales.",
+        ];
   return (
     <a
-      className={`chip ${received ? "chip--success" : "chip--danger"}`}
+      className={`chip ${tone}`}
       href={site.newsletter_url}
       target="_blank"
       rel="noopener noreferrer"
       title={[site.newsletter_note, when].filter(Boolean).join(" ")}
     >
       <Mail size={12} />
-      {received ? "Mailing list" : "Join mailing list"}
+      {label}
     </a>
   );
 }
@@ -850,6 +976,8 @@ export default function Sites() {
           <p>Run `make init` to seed the site list from the scraper registry.</p>
         </div>
       )}
+
+      <MailingListsPanel onChecked={load} />
 
       {sites?.length > 0 && (
         <div className="site-list">

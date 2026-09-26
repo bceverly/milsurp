@@ -418,12 +418,55 @@ test.describe("sites", () => {
     await expect(toJoin).toHaveClass(/chip--danger/);
     await expect(toJoin).toHaveAttribute("href", "https://botach.com/mailing-list/");
 
+    // Signed up, but the shop is waiting for the subscription to be confirmed.
+    const confirm = card("J&G Sales").getByRole("link", { name: "Confirm subscription" });
+    await expect(confirm).toHaveClass(/chip--warning/);
+    await expect(confirm).toHaveAttribute("title", /confirm/i);
+
     // No signup found: a statement, not a link.
     const none = card("Axis Arms").getByText("No mailing list");
     await expect(none).toBeVisible();
     await expect(
       card("Axis Arms").getByRole("link", { name: /mailing list/i }),
     ).toHaveCount(0);
+  });
+
+  test("the inbox reader can be switched on, paced and run by hand", async ({
+    signedIn,
+  }) => {
+    /**
+     * The notification account's inbox is read for the shops' mail. The test
+     * deployment has no account to sign in with, and "Check now" has to say
+     * so rather than report a quiet inbox.
+     */
+    await signedIn.goto("/sites");
+    const panel = signedIn.getByRole("region", { name: "Vendor mailing lists" });
+    await expect(panel).toBeVisible();
+
+    // What the demo data stands in for: mail recorded, one asking to confirm.
+    await expect(panel.getByText("New surplus arrivals this week")).toBeVisible();
+    await expect(panel.getByText("asks you to confirm")).toBeVisible();
+
+    // The checkbox inside a `.switch` is visually hidden, so the label is
+    // what gets clicked and the input is what gets asserted on.
+    const toggleLabel = panel.locator("label.switch");
+    const toggle = toggleLabel.getByRole("checkbox");
+    await expect(toggle).not.toBeChecked();
+    await toggleLabel.click();
+    await expect(toggle).toBeChecked();
+
+    const every = panel.getByRole("combobox");
+    await every.selectOption("6");
+    await expect(every).toHaveValue("6");
+
+    await panel.getByRole("button", { name: "Check the inbox now" }).click();
+    await expect(panel.getByRole("status")).toContainText(
+      "no email account in config.yaml",
+    );
+
+    // Put it back: this database is shared by the whole suite.
+    await toggleLabel.click();
+    await expect(toggle).not.toBeChecked();
   });
 
   test("scan history is reachable from a site", async ({ signedIn }) => {

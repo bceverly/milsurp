@@ -2133,36 +2133,51 @@ Six bites, each shippable alone, in this order, after the groundwork below.
   arrived, red when it has not, and a gray "No mailing list" where there is
   none. The red chips are the to-do list for subscribing the notification
   account.
-- **Every chip is red until bite 1 ships**, because nothing reads the inbox
-  yet. That is accurate: nothing has been received. The demo data marks SARCO
-  as received, so both states can be seen and tested.
+- **The chips were all red until bite 1 shipped** the same day, because
+  nothing read the inbox before that. The demo data marks SARCO as received
+  and J&G as awaiting confirmation, so all three states can be seen and
+  tested.
 
-#### 1. Reading the inbox — **Planned**
+#### 1. Reading the inbox — **Shipped** 2026-09-26
 
-- **IMAP, with the credentials the SMTP settings already hold.** The account
-  is a Gmail account with an app password, and that password opens
-  `imap.gmail.com:993` as well. The IMAP host and port get their own settings,
-  defaulting to Gmail's, so another provider only means changing those two.
-- **How often is an administrator's setting**, on the Settings page next to
-  the scan schedule. It is not a config-file value, following "the schedule is
-  an administrator's, not a file's". Off by default. A sensible default when
-  on is every 2 hours, since mailing lists send a few times a week at most.
-- **Only mail from a shop we read is opened.** Each site gets a list of sender
-  domains (`@classicfirearms.com`, plus the mailing service they send through,
-  such as `klaviyomail.com` on the shop's behalf). Everything else in the
-  inbox is left alone: not read, not marked, not deleted. It is a shared
-  account, and replies to "request access" land there too.
-- **Each message is processed once**, remembered by its `Message-ID` in a new
-  table beside `flyer_notices`, with the site, subject, date, how many links
-  it named, and what came of them. Messages are never deleted or moved.
-  Marking them read in Gmail is optional, since the table is the real record.
-- **Record arrivals on the site**: each vendor message sets
-  `sites.marketing_email_at`, which turns that shop's chip on the Sites card
-  from red to green (bite 0).
-- **An inbox run is audited like a scan**: when it ran, how many messages it
-  looked at, how many were from vendors, and any errors. The Settings page
-  shows the last run. Without that, a wrong password looks exactly like a quiet
-  week.
+- **IMAP, read-only, headers only.** The inbox is opened with `EXAMINE` and
+  headers are fetched with `BODY.PEEK`, so nothing is marked read, moved or
+  deleted. The account is the one in `email:` in config.yaml (a Gmail app
+  password opens IMAP as well as SMTP), plus new `imap_host` and `imap_port`
+  settings that default to Gmail's.
+- **The switch and the cadence are on the Sites page**, in a "Vendor mailing
+  lists" panel beside the chips they turn green. The panel has:
+  - on/off (off by default);
+  - how often (1 to 24 hours, default 2);
+  - "Check the inbox now";
+  - the last result: how many messages were looked at and how many were new
+    from the shops, or why it failed;
+  - the most recent vendor emails.
+- **Only vendor mail is stored** (`vendor_emails`, migration 0043), once per
+  `Message-ID`. The search window overlaps the previous check on purpose, and
+  the ID is what keeps a message from being counted twice. Each one sets its
+  shop's `sites.marketing_email_at`, so the chip turns green.
+- **Whose mail is it — measured on the real inbox, not guessed.** Of the
+  first 13 messages after the signups:
+  - Most shops send from their own domain, sometimes a subdomain.
+  - Apex sends through Constant Contact's *shared* domain,
+    `customerservice-apexgunparts.com@shared1.ccsend.com`, with `Reply-To`
+    their own address.
+  - So a message belongs to a shop when its domain is the From domain, the
+    Reply-To domain, or written into the From address itself. No per-shop
+    setting is needed. A scraper can still name extra sender domains
+    (`newsletter_sender_domains`) for a shop whose mail says neither.
+  - One message was "Brownells via SafeOpt", an opt-in marketer that came
+    along with a signup. It matches no shop and is correctly ignored.
+- **Double opt-in is its own state.** J&G, GunPrime and Centerfire each first
+  sent a "confirm your subscription" request. A confirmation request is
+  recorded but does not turn the chip green. Until real mail follows it, the
+  chip is amber, "Confirm subscription", with a note to open that email and
+  click. "Subscription Confirmed" (Joe Salter) is the list working, not a
+  request. On the first real run, nine shops turned green and J&G amber.
+- **A failure is recorded, not raised.** A refused login or a timeout is
+  stored on the settings row and shown in the panel. A missing account
+  reads as "no email account in config.yaml", not as a quiet week.
 
 #### 2. From an email to the listings it names — **Planned**
 

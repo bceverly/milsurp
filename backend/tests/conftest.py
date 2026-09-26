@@ -212,7 +212,13 @@ def clean_db(_database):
         # installation, so nothing deletes it when the users and items go, and
         # a test that switched the schedule off or recorded a run left that
         # sitting there for whatever ran next.
+        #
+        # `inbox_settings` is the same kind of row, and `vendor_emails` has to
+        # go before `sites`: a check recorded in one test is otherwise the
+        # Message-ID the next test's identical message is refused under.
         for table in (
+            "vendor_emails",
+            "inbox_settings",
             "hot_deal_notices",
             "hot_deal_preferences",
             "hot_deals",

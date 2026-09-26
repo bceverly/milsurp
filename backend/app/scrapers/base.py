@@ -732,6 +732,11 @@ class SiteScraper(abc.ABC):
     #: none. Required whenever the URL alone does not say it: "Footer form on
     #: the home page", "Popup (Klaviyo)", "No signup found on the site".
     newsletter_note: str = ""
+    #: Domains this vendor's marketing email comes from besides its own, for
+    #: the inbox reader. Rarely needed: a shop sending through a shared
+    #: mailing service still names itself in Reply-To or in the address (see
+    #: :mod:`app.services.inbox`). For one whose mail says neither.
+    newsletter_sender_domains: tuple[str, ...] = ()
     #: Whether this vendor's descriptions are prose about the listing they
     #: belong to. Nearly always true, and false for a source where the text
     #: bleeds: Hunter's Lodge derives its whole catalog from one scanned page,

@@ -42,6 +42,7 @@ from app.models import (  # noqa: E402
     ScanRun,
     ScanStatus,
     Site,
+    VendorEmail,
     utcnow,
 )
 from app.services import classify, cooldown, hotdeals  # noqa: E402
@@ -451,6 +452,39 @@ def _demo_models(session) -> dict[str, FirearmModel]:
     return found
 
 
+def _seed_mailing_lists(session: Session, sites: list[Site], now: datetime) -> None:
+    """The Sites page's mailing-list chips, in all three states.
+
+    A demo database has no inbox to read, so these stand in for what the
+    reader would record: SARCO's marketing email has arrived (green), J&G has
+    only asked for the subscription to be confirmed (amber), and every other
+    shop has sent nothing (red).
+    """
+    for site in sites:
+        if site.slug == "sarco":
+            site.marketing_email_at = now - timedelta(days=2)
+            session.add(
+                VendorEmail(
+                    message_id="<demo-sarco@sarcoinc.com>",
+                    site_id=site.id,
+                    from_address="news@sarcoinc.com",
+                    subject="New surplus arrivals this week",
+                    received_at=now - timedelta(days=2),
+                )
+            )
+        elif site.slug == "jg-sales":
+            session.add(
+                VendorEmail(
+                    message_id="<demo-jg@jgsales.com>",
+                    site_id=site.id,
+                    from_address="news@jgsales.com",
+                    subject="J&G Sales News: Please Confirm Subscription",
+                    asks_to_confirm=True,
+                    received_at=now - timedelta(days=1),
+                )
+            )
+
+
 def seed(  # noqa: PLR0912 - a linear fixture builder; branches are per-field
     reset: bool = False, quiet: bool = False, now: datetime | None = None
 ) -> int:
@@ -630,13 +664,7 @@ def seed(  # noqa: PLR0912 - a linear fixture builder; branches are per-field
             site.last_scan_at = now - timedelta(hours=1)
             site.last_success_at = now - timedelta(hours=1)
 
-        # One shop whose marketing email has arrived, so the Sites page shows
-        # the mailing-list chip in both states: green here, red everywhere else.
-        # Nothing records arrivals until the inbox reader ships, so without this
-        # the green state could not be seen or tested.
-        for site in sites:
-            if site.slug == "sarco":
-                site.marketing_email_at = now - timedelta(days=2)
+        _seed_mailing_lists(session, sites, now)
 
         session.commit()
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from sqlalchemy import case, func, select
@@ -22,7 +23,7 @@ from ..schemas import (
 )
 from ..scrapers import get_scraper_class
 from ..scrapers.planned import PLANNED
-from ..services import audit, cooldown, scan_service
+from ..services import audit, cooldown, inbox, scan_service
 
 log = logging.getLogger("milsurp.sites")
 
@@ -45,6 +46,7 @@ def _site_out(
     resting: dict[str, HostCooldown] | None = None,
     photos: dict[int, tuple[int, int]] | None = None,
     details: dict[int, int] | None = None,
+    confirming: dict[int, datetime] | None = None,
 ) -> SiteOut:
     """One site plus the roll-ups the admin list shows at a glance.
 
@@ -84,6 +86,10 @@ def _site_out(
     if scraper is not None:
         data.newsletter_url = scraper.newsletter_url
         data.newsletter_note = scraper.newsletter_note
+    asked = (confirming if confirming is not None else inbox.awaiting_confirmation(session)).get(
+        site.id
+    )
+    data.confirmation_requested_at = asked
 
     paused = (resting if resting is not None else _resting_hosts()).get(
         cooldown.host_of(site.base_url)
@@ -104,7 +110,8 @@ def list_sites(_user: CurrentUser, session: DbSession) -> list[SiteOut]:
     resting = _resting_hosts()
     photos = scan_service.pending_photo_counts(session)
     details = scan_service.detail_counts(session)
-    return [_site_out(session, site, resting, photos, details) for site in sites]
+    confirming = inbox.awaiting_confirmation(session)
+    return [_site_out(session, site, resting, photos, details, confirming) for site in sites]
 
 
 #: Before ``/{site_id}``, or "planned" is parsed as a site id and 422s.

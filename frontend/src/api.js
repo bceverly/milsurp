@@ -219,6 +219,11 @@ export const api = {
   updateBackups: (body) => request("/api/admin/backups", { method: "PATCH", body }),
   runBackup: () => request("/api/admin/backups/run", { method: "POST" }),
 
+  // --- vendor mailing lists (admin) ---
+  inbox: () => request("/api/admin/inbox"),
+  updateInbox: (body) => request("/api/admin/inbox", { method: "PATCH", body }),
+  checkInbox: () => request("/api/admin/inbox/check", { method: "POST" }),
+
   // --- items ---
   items: (params) => request(`/api/items${qs(params)}`),
   item: (id) => request(`/api/items/${id}`),

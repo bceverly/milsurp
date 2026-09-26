@@ -1694,6 +1694,69 @@ class HotDealPreference(Base, TimestampMixin):
     user: Mapped["User"] = relationship(back_populates="hot_deal_preference")
 
 
+class InboxSetting(Base, TimestampMixin):
+    """The vendor-mailing-list reader's switch, cadence and last result.
+
+    One row, like the hot-deal and backup settings. The notification account
+    is subscribed to the mailing lists of the shops we read; this says whether
+    and how often its inbox is checked for their mail. See
+    :mod:`app.services.inbox`.
+    """
+
+    __tablename__ = "inbox_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    #: Off until an administrator turns it on: reading a mailbox is not
+    #: something an install should start doing by itself.
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    #: Hours between checks, measured from ``last_run_at``. Mailing lists send
+    #: a few times a week, so every couple of hours is prompt enough.
+    interval_hours: Mapped[int] = mapped_column(Integer, default=2, nullable=False)
+
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime)
+    last_status: Mapped[str | None] = mapped_column(String(16))
+    last_error: Mapped[str | None] = mapped_column(String(500))
+    #: How many messages the last check looked at, and how many were new mail
+    #: from a shop we read. Without them a wrong password and a quiet week look
+    #: the same.
+    last_looked_at: Mapped[int | None] = mapped_column(Integer)
+    last_recorded: Mapped[int | None] = mapped_column(Integer)
+
+
+class VendorEmail(Base):
+    """One marketing email from a shop we read, recorded once.
+
+    Keyed by the message's own ``Message-ID``, so a message seen again on the
+    next check -- the search window overlaps on purpose -- is not recorded
+    twice. **Only vendor mail is stored.** The notification account is shared
+    (replies to "request access" land there too), and anything not from a
+    shop we read is looked at and left alone.
+
+    The body is not stored yet. Following an email's links to the listings it
+    names is the next step (ROADMAP, "Vendor mailing lists", bite 2).
+    """
+
+    __tablename__ = "vendor_emails"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    message_id: Mapped[str] = mapped_column(String(512), unique=True, nullable=False)
+    site_id: Mapped[int | None] = mapped_column(
+        ForeignKey("sites.id", ondelete="CASCADE"), index=True
+    )
+    from_address: Mapped[str] = mapped_column(String(320), nullable=False)
+    subject: Mapped[str] = mapped_column(String(500), default="", nullable=False)
+    #: A "please confirm your subscription" request rather than marketing.
+    #: Recorded, but it does not count as the list working: until real mail
+    #: follows, the Sites card asks for the confirmation instead of going
+    #: green.
+    asks_to_confirm: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    #: When the vendor sent it, from its Date header; when we recorded it.
+    received_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
+
+    site: Mapped["Site | None"] = relationship()
+
+
 class FlyerNotice(Base):
     """A flyer somebody has already been told about.
 
