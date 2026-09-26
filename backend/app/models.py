@@ -1582,6 +1582,13 @@ class HotDealSetting(Base, TimestampMixin):
     #: shop's other copies is an internal price spread rather than a deal.
     min_vendors: Mapped[int] = mapped_column(Integer, default=2, nullable=False)
 
+    #: Days after which a price we already mailed somebody about may be mailed
+    #: again as a reminder; 0 means never. Covers hot-deal emails *and*
+    #: watchlist target alerts, so one setting answers "how long do we stay
+    #: quiet about the same price". See :mod:`app.services.renotify`: without
+    #: an expiry, one old email could keep a listing silent forever.
+    renotify_after_days: Mapped[int] = mapped_column(Integer, default=30, nullable=False)
+
     #: What happened last time, so the page can say so without reading a log.
     last_run_at: Mapped[datetime | None] = mapped_column(DateTime)
     last_status: Mapped[str | None] = mapped_column(String(16))

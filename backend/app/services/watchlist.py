@@ -30,7 +30,8 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from ..models import Item, User, WatchedItem
+from ..models import Item, User, WatchedItem, utcnow
+from . import renotify
 
 
 class News(str, enum.Enum):
@@ -140,10 +141,10 @@ def due_alerts(session: Session) -> dict[int, list[Update]]:
     **Its watermark is a price, not a time.** An alert runs between digests and
     so has no cutoff to work from -- without a memory of its own it would mail
     the same $650 on every scheduler tick until somebody bought the rifle. What
-    it remembers is the price it last mentioned, which also gets the awkward
-    case right: a vendor who puts a price back up and drops it again has
-    genuinely done something worth a second email, where a timestamp would have
-    said "already told you about that one".
+    it remembers is the price it last mentioned and when, and
+    :mod:`app.services.renotify` decides from those whether a price is news
+    again: a new low, the same low after the price went back up, or a reminder
+    once the notice is older than the administrator's expiry. A rise never is.
     """
     rows = (
         session.execute(
@@ -157,16 +158,31 @@ def due_alerts(session: Session) -> dict[int, list[Update]]:
         .scalars()
         .all()
     )
+    now = utcnow()
+    after_days = renotify.renotify_after_days(session)
+    peaks = renotify.peaks_since(
+        session,
+        [(watch.item_id, watch.alerted_at) for watch in rows if watch.alerted_price is not None],
+    )
     found: dict[int, list[Update]] = {}
     for watch in rows:
         item = watch.item
-        if item is None or not _alert_is_due(watch, item):
+        if item is None or not _alert_is_due(
+            watch, item, peak_since=peaks.get(watch.item_id), now=now, after_days=after_days
+        ):
             continue
         found.setdefault(watch.user_id, []).append(Update(watch=watch, item=item, news=News.TARGET))
     return found
 
 
-def _alert_is_due(watch: WatchedItem, item: Item) -> bool:
+def _alert_is_due(
+    watch: WatchedItem,
+    item: Item,
+    *,
+    peak_since: float | None = None,
+    now: datetime | None = None,
+    after_days: int = renotify.DEFAULT_RENOTIFY_AFTER_DAYS,
+) -> bool:
     """Whether this watch has reached a target it has not yet reported.
 
     A sold or de-listed gun is not alerted about. That is a real event and the
@@ -177,7 +193,14 @@ def _alert_is_due(watch: WatchedItem, item: Item) -> bool:
         return False
     if watch.target_price is None or item.current_price > watch.target_price:
         return False
-    return watch.alerted_price is None or item.current_price != watch.alerted_price
+    return renotify.is_news(
+        item.current_price,
+        watch.alerted_price,
+        watch.alerted_at,
+        peak_since=peak_since,
+        now=now or utcnow(),
+        after_days=after_days,
+    )
 
 
 def mark_alerted(watch: WatchedItem, item: Item, when: datetime) -> None:

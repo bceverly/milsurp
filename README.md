@@ -2870,7 +2870,7 @@ WooCommerce vendors here, and each one should be measured the same way before
 being switched — an endpoint answering 200 is not evidence that its answer is
 better than the page's.
 
-Twenty-eight vendors are read today; none are queued in
+Thirty-four vendors are read today. Two more are queued in
 [ROADMAP.md](ROADMAP.md), grouped by the platform they run on because one base
 class unlocks a whole group.
 

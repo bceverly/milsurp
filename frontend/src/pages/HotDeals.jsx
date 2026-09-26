@@ -197,6 +197,15 @@ function Controls({ settings, choices, onChange, onRefresh, busy }) {
       min: 1,
       max: 5,
     },
+    {
+      // Covers watchlist target alerts as well as these emails: one answer to
+      // "how long do we stay quiet about a price we already mentioned".
+      key: "renotify_after_days",
+      label: "Mention an unchanged price again after",
+      suffix: " days (0 = never; also applies to watchlist alerts)",
+      min: 0,
+      max: 365,
+    },
   ];
 
   return (

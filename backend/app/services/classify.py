@@ -1801,6 +1801,10 @@ _ACCESSORY_NOUN = re.compile(
     r"|hangers?|oilers?|belts?|handbooks?|manuals?|sights?|tools?|keepers?|grips?"
     r"|cartridges?"
     r"|barrels?|stocks?|handguards?|scopes?"
+    # A gun's stock set, as fitted: "Police Trade-In Shotgun with Synthetic
+    # Orange Furniture" (the orange marks a less-lethal 870). Sold alone it is
+    # already caught as a "furniture set" by NON_FIREARM_PATTERNS.
+    r"|furniture"
     # Edged weapons and muzzle devices. These were listed in
     # _HEAD_NOUN_ACCESSORIES from the start and were dead letters there: that
     # one filters a word already *found*, and nothing could find them, because
@@ -1822,7 +1826,13 @@ _ACCESSORY_NOUN = re.compile(
 #: What joins one attached part to the next: "with Two Magazines, Holster & Box".
 #: Stripping only the first left ", holster & box" behind, and a holster at the
 #: end of a title looks exactly like a holster for sale.
-_ALSO = re.compile(r"^\s*(?:[,&+]|and|plus)\s*", re.I)
+#: A slash joins them too: "with Synthetic Orange Furniture/Pistol Grip". So
+#: does a bare space, but only once a list is under way -- once an explicit
+#: joiner has appeared: "w/3 Mags & Leather Pouch Black Grip" lists a grip as
+#: well, and leaving it behind put a grip at the end of a pistol's title, where
+#: it read as a grip for sale. Before any joiner a space is not a list: the
+#: "Belt" of "Type 1 Prairie Cartridge Belt" is the product.
+_ALSO = re.compile(r"^\s*(?:[,&+/]|and|plus)?\s*", re.I)
 
 #: How far back a list entry's own comma may be: room for an adjective or two,
 #: not for a clause.
@@ -1841,7 +1851,10 @@ _ATTACHED_INTRO = re.compile(
     # the listing: "S&W M&P15 30 Round Magazine" became a rifle.
     r"(?<!&)\b(?:with|w/|w|no|without|w/o|less|minus|missing|sans|plus|and|incl(?:udes|uding)?"
     r"|(?:numbers[\s-]?)?matching|original|correct)\b"
-    r"|(?<![\d.×x-])\b\d{1,2}\b(?![\d.×x\"”″'])|\+",
+    # A count ("2 Mags"), but not either half of a designation: "MAS 49/56",
+    # "Swiss 1906/24". Read as counts they stripped the part being sold --
+    # "24 Luger Magazine" -- and left a pistol.
+    r"|(?<![\d.×x/-])\b\d{1,2}\b(?![\d.×x/\"”″'])|\+",
     re.I,
 )
 
@@ -1915,25 +1928,40 @@ def _without_attached_parts(title_lower: str) -> str:
         out.append(title_lower[cursor : part.start() - (len(window) - intro.start())])
         cursor = part.end()
         # And the rest of the list it heads: "Magazines, Holster & Box".
-        while True:
-            joined = _ALSO.match(title_lower[cursor:])
-            if joined is None:
-                break
-            rest = cursor + joined.end()
-            nxt = _ACCESSORY_NOUN.match(title_lower[rest:])
-            if nxt is not None:
-                cursor = rest + nxt.end()
-                continue
-            # Allow one adjective: "& Leather Pouch".
-            spaced = re.match(r"\w+\s+", title_lower[rest:])
-            if spaced is None:
-                break
-            nxt = _ACCESSORY_NOUN.match(title_lower[rest + spaced.end() :])
-            if nxt is None:
-                break
-            cursor = rest + spaced.end() + nxt.end()
+        cursor = _end_of_list(title_lower, cursor)
     out.append(title_lower[cursor:])
     return " ".join("".join(out).split())
+
+
+def _end_of_list(title_lower: str, cursor: int) -> int:
+    """Where a list of attached parts that starts at ``cursor`` ends.
+
+    Each further entry is a part noun, or one adjective and a part noun ("&
+    Leather Pouch"), after a joiner -- or after a bare space once an explicit
+    joiner has appeared. See :data:`_ALSO`.
+    """
+    listed = False
+    while True:
+        joined = _ALSO.match(title_lower[cursor:])
+        if joined is None:
+            return cursor
+        if joined.group(0).strip():
+            listed = True
+        elif not listed:
+            return cursor
+        rest = cursor + joined.end()
+        nxt = _ACCESSORY_NOUN.match(title_lower[rest:])
+        if nxt is not None:
+            cursor = rest + nxt.end()
+            continue
+        # Allow one adjective: "& Leather Pouch".
+        spaced = re.match(r"\w+\s+", title_lower[rest:])
+        if spaced is None:
+            return cursor
+        nxt = _ACCESSORY_NOUN.match(title_lower[rest + spaced.end() :])
+        if nxt is None:
+            return cursor
+        cursor = rest + spaced.end() + nxt.end()
 
 
 def _too_cheap_to_be_one(title_lower: str, price: float | None) -> bool:

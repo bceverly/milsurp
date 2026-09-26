@@ -45,20 +45,6 @@ class PlannedSite:
 PLANNED: tuple[PlannedSite, ...] = (
     # -- buildable ---------------------------------------------------------
     PlannedSite(
-        slug="sportsmans-outdoor",
-        name="Sportsman's Outdoor Superstore",
-        base_url="https://www.sportsmansoutdoorsuperstore.com/",
-        platform="ColdFusion storefront with schema.org product markup",
-        blocker=(
-            "Not written yet. The largest police trade-in catalog measured: "
-            "631 in the police Glock section and 695 used guns, 93% of them "
-            "trade-ins, every one priced (both walks were stopped at 40 pages, "
-            "not at the end). Each card carries its name and price as "
-            "schema.org microdata, so it needs a small reader of its own "
-            "rather than a platform base class."
-        ),
-    ),
-    PlannedSite(
         slug="target-sports-usa",
         name="Target Sports USA",
         base_url="https://www.targetsportsusa.com/",

@@ -1350,12 +1350,44 @@ class TestWhatTheListingIsActuallySelling:
                 "pistol",
             ),
             ("Southern Tactical VZ61 32 ACP Skorpion Pistol w/3 Mags & Leather Pouch", "pistol"),
+            # Joined by a slash, and furniture among them: the orange marks a
+            # less-lethal police 870, which is still a shotgun.
+            (
+                (
+                    "Remington 870 Express Magnum 12GA Police Trade-In Shotgun with "
+                    "Synthetic Orange Furniture/Pistol Grip"
+                ),
+                "rifle",
+            ),
             # The serialized part is the firearm however the title ends.
             ("Berthier barreled action, shortened barrel", "rifle"),
         ],
     )
     def test_a_firearm_that_merely_mentions_a_part_is_still_a_firearm(self, title, expected):
         assert self.kind(title, price=700.0) == expected
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            # Either half of a designation is not a count. Read as "24 Luger
+            # Magazine" or "56 furniture", the part being sold was stripped as
+            # an attachment and what was left was filed as a gun.
+            "LUGER 06/34 MAGAZINE",
+            "SWISS 1906/24 LUGER MAGAZINE",
+            "MAUSER P.08 FXO E/37 MAGAZINE",
+            "FINNISH M/23 LUGER HOLSTER",
+            "Yugo M24/47 Blem Stock C&R",
+            "Mas 49/56 Furniture Set, new production",
+            # And a bare space does not continue a list nothing has started:
+            # "Type 1 Prairie Cartridge" is not a list the "Belt" belongs to.
+            (
+                "Original U.S. Indian Wars M1876 Type 1 \u201cPrairie\u201d Cartridge Belt by "
+                "Watervliet Arsenal with Extremely Rare 1879 Trials Brass Adapter Rings"
+            ),
+        ],
+    )
+    def test_a_part_named_with_a_designation_is_still_the_part(self, title):
+        assert self.kind(title, price=90.0) == "other"
 
     @pytest.mark.parametrize(
         ("title", "category", "expected"),

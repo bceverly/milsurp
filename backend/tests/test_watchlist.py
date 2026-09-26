@@ -19,6 +19,7 @@ import pytest
 from app.models import (
     EmailPreference,
     Item,
+    PriceHistory,
     Site,
     User,
     UserRole,
@@ -383,6 +384,68 @@ class TestTheAlertRemembersWhatItSaid:
         # And the flag goes with it: "tell me the moment it reaches nothing" is
         # not a request.
         assert row.alert_immediately is False
+
+
+class TestARecurringSaleIsNotSilenced:
+    """What counts as news again, told as the stories it has to get right.
+
+    The watermark used to be "any price other than the one mailed", which
+    silenced a recurring sale for good and mailed rises. See
+    app.services.renotify.
+    """
+
+    def _told(self, session, user, site, *, price=650.0, days_ago=3):
+        watch, item = _watched(session, user, site, price=price, target=700)
+        watch.alert_immediately = True
+        told = utcnow() - timedelta(days=days_ago)
+        watchlist.mark_alerted(watch, item, told)
+        session.commit()
+        return watch, item, told
+
+    def _scan_sees(self, session, item, price, when):
+        item.current_price = price
+        session.add(PriceHistory(item_id=item.id, price=price, observed_at=when))
+        session.commit()
+
+    def test_the_markdown_mailed_twice(self, clean_db, watcher):
+        """$650 mailed, back up to $800, then $650 again: the second sale is
+        news. This is the case that used to go dark."""
+        user, site = watcher
+        _watch, item, told = self._told(clean_db, user, site)
+        assert watchlist.due_alerts(clean_db) == {}
+
+        self._scan_sees(clean_db, item, 800.0, told + timedelta(days=1))
+        assert watchlist.due_alerts(clean_db) == {}  # above the target
+
+        self._scan_sees(clean_db, item, 650.0, told + timedelta(days=2))
+        assert list(watchlist.due_alerts(clean_db)) == [user.id]
+
+    def test_a_steady_price_stays_quiet_until_the_expiry(self, clean_db, watcher):
+        user, site = watcher
+        self._told(clean_db, user, site, days_ago=3)
+        assert watchlist.due_alerts(clean_db) == {}
+
+    def test_after_the_expiry_it_is_a_reminder(self, clean_db, watcher):
+        user, site = watcher
+        self._told(clean_db, user, site, days_ago=31)
+        assert list(watchlist.due_alerts(clean_db)) == [user.id]
+
+    def test_a_rise_under_the_target_is_never_mailed(self, clean_db, watcher):
+        """$650 mailed, then $690: still under the $700 target, and worse than
+        what the reader was told. It used to go out because it differed."""
+        user, site = watcher
+        _watch, item, told = self._told(clean_db, user, site)
+        self._scan_sees(clean_db, item, 690.0, told + timedelta(hours=1))
+        assert watchlist.due_alerts(clean_db) == {}
+
+    def test_a_partial_retreat_after_a_rise_is_not_news_either(self, clean_db, watcher):
+        """$650 mailed, up to $800, down to $680: lower than the peak, but not
+        back to the price we mentioned."""
+        user, site = watcher
+        _watch, item, told = self._told(clean_db, user, site)
+        self._scan_sees(clean_db, item, 800.0, told + timedelta(days=1))
+        self._scan_sees(clean_db, item, 680.0, told + timedelta(days=2))
+        assert watchlist.due_alerts(clean_db) == {}
 
 
 class TestTheAlertEmail:

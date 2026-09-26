@@ -111,8 +111,9 @@ about.
 | [WIS Transfers](https://www.wistransfers.com/product-search-results?product_category_group_id=48256) | `wis-transfers` | PHP shop behind **AWS WAF** | **The shop works; its firewall refuses us.** Re-measured 2026-09-24: our MilsurpMonitor user agent gets `x-amzn-waf-action: challenge` (202, empty body) from `awselb` — on robots.txt as well — while a browser's user agent gets the "All Police Trade-Ins" page, 533 KB. The "202, empty" was never an empty shop; it is a bot-control rule. Passing it by claiming to be a browser would be evading a control the site chose, which this application does not do (see the user-agent note in the README). **Waits on WIS allowing the MilsurpMonitor agent**, the same kind of permission Joe Salter gave for `/image/` |
 
 Two more joined the queue on 2026-09-26, from the police trade-in survey below:
-**Sportsman's Outdoor Superstore** (`sportsmans-outdoor`) and **Target Sports
-USA** (`target-sports-usa`). Both are buildable, and neither is written yet.
+**Sportsman's Outdoor Superstore** (`sportsmans-outdoor`, shipped the same day)
+and **Target Sports USA** (`target-sports-usa`, buildable and not written
+yet).
 
 The platform column below was originally **inferred from the URL shape** — a
 `/product-category/` or `/product-tag/` path means WooCommerce, `/collections/`
@@ -708,7 +709,7 @@ a firearm. Those sections are not pure. Officer Store shelve used Glock
 magazines among the pistols, and Recoil file Federal HST and Speer Gold Dot on
 the parent page above theirs.
 
-#### The second survey, September 2026 — **two queued, eight not**
+#### The second survey, September 2026 — **one shipped, one queued, eight not**
 
 A web search for police trade-in dealers not already read, then a fetch of each
 one before anything was written down, as before. Every fetch used our honest
@@ -717,7 +718,7 @@ waited 1.5 seconds between pages.
 
 | Site | Section | Platform | What the fetch showed | Outcome |
 | --- | --- | --- | --- | --- |
-| [Sportsman's Outdoor Superstore](https://www.sportsmansoutdoorsuperstore.com/category.cfm/sportsman/used-firearms) | `/category.cfm/sportsman/police-trade-in-glocks` and `/used-firearms`, paged by `/currentpage/N` | ColdFusion, custom | **The biggest catalog found.** 631 Glocks in the police section and 695 in used, 648 of them trade-ins (93%). Every card priced, and both walks were stopped at 40 pages, not at the end. Glocks, 870 Police Magnums, M9s, LE6920s, Model 64s. The used section also holds surplus guns: Bulgarian Makarovs, a Mosin M91/30, a P08, a PA-63, P-64s. Each card is schema.org `Product` microdata, with `itemprop="name"` and an `Offer` price. robots.txt disallows the `/make/`, `/model/`, `/under/` and `/order_by/` filters, not the categories or `/currentpage/` | **Queued, first.** A small reader of its own, since no platform base class fits |
+| [Sportsman's Outdoor Superstore](https://www.sportsmansoutdoorsuperstore.com/category.cfm/sportsman/used-firearms) | `/category.cfm/sportsman/police-trade-in-glocks` and `/used-firearms`, paged by `/currentpage/N` | ColdFusion, custom | **Mostly an archive, it turned out.** The survey walk stopped at 40 pages and read 631 and 695 listings. Walked to the end, the two sections hold **1,895 products over 116 pages, and about 20 are in stock.** The rest are "No Longer Available" pages kept up with their last price and no date. Each card has schema.org `Product` microdata, and its "In Stock" label agreed with the product page's structured data 12 times out of 12. Glocks, 870 Police Magnums, Mossberg 590s, Sig P227s, and a Bulgarian Makarov in the used section. robots.txt disallows the `/make/`, `/model/`, `/under/` and `/order_by/` filters, not the categories or `/currentpage/` | **Shipped 2026-09-26: 18 listings on the first dry run.** Only in-stock cards are read. The archive (1,877 listings) is left out, since its prices cannot be dated. A listing we hold whose card goes silent is marked sold rather than de-listed. Police surplus comes from the Glock section's name, and in "Used Guns" from a title saying "Police Trade-In" or "Police Trades"; the Makarov stays plain used. The survey's prices were also slightly high: it read the struck-through "suggested" price instead of `itemprop="price"` |
 | [Target Sports USA](https://www.targetsportsusa.com/used-gunspolice-trade-c-998.aspx) | `/used-gunspolice-trade-c-998.aspx` | AspDotNetStorefront | 200. 17 products (Glock 17/21/22/23/35 trade-ins), but **no prices on the category page**. Each product page has its price in `itemprop` markup. robots.txt allows both | **Queued, second.** Small, and it costs a fetch per listing |
 | [KY Gun Co](https://www.kygunco.com/group/police-trade-in) | `/group/police-trade-in` | Nuxt, over a public **Typesense** search (`search.keenesdepot.io`, collection `kygunco_products`) | The endpoint works with the search-only key the page itself uses. It is the cleanest data source in the survey, and the section is empty: `groups.id:=178` returns one listing, out of stock and marked "New". The 160 used guns are general stock with 6 trade-ins | **Refused: empty today.** Worth a recheck. If the group fills, the build is a few lines on the endpoint |
 | [Bud's Gun Shop](https://www.budsgunshop.com/categories/firearms/used) | Police Trade-Ins, category 910 | Laravel + htmx | The old police category now redirects to `/products`. The used section holds 127 guns over six pages, 8 of them police trade-ins (6%) and 3 milsurp. The data is clean (`data-product-name` and `data-product-price` in cents on every card), but there is no section to read | **Refused**, on the same grounds as Impact Guns' 8% |
@@ -2243,32 +2244,47 @@ This one is mostly already true, and needs the parts that are not.
   code SWEDE10". That is the one thing an email-found deal has that a
   scan-found one does not, and it is the reason this feature exists.
 
-#### 6. Notification memory that does not last forever — **Planned**
+#### 6. Notification memory that does not last forever — **Shipped** 2026-09-26
 
-How "we already told you" works today: both `WatchedItem.alerted_price` and
-`HotDealNotice.price` record **the price** that was mailed, not a flag, so a
-different price mails again. That was deliberate, and it is right for a price
-that keeps falling. **But it goes dark on a recurring sale.** $500, then $450
-(mailed), back to $500, then $450 again: the second $450 equals the watermark,
-so it is never mailed. A shop that runs the same markdown every month is
-announced once, ever. Vendor emails will make that pattern common.
+Shipped ahead of the rest, because it was a bug today rather than part of a
+feature: it needs no inbox.
 
-Two changes, both small:
+Both `WatchedItem.alerted_price` and `HotDealNotice.price` recorded the price
+that was mailed, and *any different price* counted as news. That was wrong in
+two ways:
 
-- **Clear the watermark when the price rises past it.** Once the price is back
-  above what we mailed, the old notice no longer describes anything, so it is
-  cleared. The next drop, even to the same number, is news again. This fixes
-  the recurring sale directly.
-- **And let the watermark expire anyway.** A notice older than a set time
-  (default 30 days, adjustable in Settings) stops suppressing. A listing
-  that sits at the same good price for two months is worth one reminder, and
-  no listing should be shut out of notifications forever because of a single
-  email long ago. The expiry uses the existing `alerted_at` and `sent_at`
-  timestamps, so no migration is needed for that half.
+- **A recurring sale went dark.** $500, then $450 (mailed), back to $500, then
+  $450 again: the second $450 equalled the watermark and was never mailed. On
+  the hot-deal side, a notice was already dropped when the listing stopped
+  being a deal, so the recurring sale worked there, but only when the rebound
+  took it out of the deals and a pass ran in between. On the watchlist side
+  nothing ever cleared the watermark.
+- **A rise was mailed.** $650 mailed against a $700 target, then $690: still
+  under the target, different from the watermark, so it went out as though it
+  were good news.
 
-Both need tests stated as the stories above: the recurring markdown mailed
-twice, a steady price mailed once and then again after the expiry, and a
-price that only rises mailed never.
+The rule is now in one place, `services/renotify.py`, used by both. A listing
+that still qualifies is news when:
+
+1. it was never mentioned to this reader;
+2. the notice is older than `renotify_after_days` (a reminder);
+3. it is **a new low**, below the price mentioned; or
+4. it is **back at or below the price mentioned, after going above it** since.
+
+Everything else, including every rise, is not news.
+
+- "Went above it" is read from `price_history`, which already records every
+  price a scan sees, so no new state is written as prices move. It will work
+  unchanged for prices found through vendor emails (bites 2 and 4).
+- **`renotify_after_days`** is on `hot_deal_settings` (migration 0042): 30 by
+  default, 0 for never, and at most 365. It is edited on the Hot deals page
+  and governs watchlist alerts too, so one setting answers "how long do we
+  stay quiet about the same price".
+- Tests follow the stories: the recurring markdown mailed twice, a steady
+  price quiet until the expiry and then reminded, a rise never mailed, a
+  partial retreat after a rise not mailed. One old hot-deal test asserted the
+  "went away and came back is not news" behavior on purpose. It was rewritten,
+  because that behavior is the bug.
 
 ### Data quality
 

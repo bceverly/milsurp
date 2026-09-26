@@ -48,6 +48,9 @@ LIMITS = {
     "min_discount_percent": (5, 60),
     "max_discount_percent": (25, 90),
     "min_vendors": (1, 5),
+    # A year at most: past that a "reminder" is a new message about a listing
+    # nobody remembers. 0 turns reminders off.
+    "renotify_after_days": (0, 365),
 }
 
 

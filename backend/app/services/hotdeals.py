@@ -80,7 +80,7 @@ from ..models import (
     as_utc,
     utcnow,
 )
-from . import pricing
+from . import pricing, renotify
 
 log = logging.getLogger("milsurp.hotdeals")
 
@@ -540,7 +540,8 @@ def unsent_for(session: Session, user: User, *, limit: int = MAX_PER_EMAIL) -> l
     hundred listings; with a timestamp, a listing that dropped again after we
     mentioned it would read as "already told you about that one". A price gets
     both right -- and it is the same reasoning, and the same shape, as
-    ``WatchedItem.alerted_price``.
+    ``WatchedItem.alerted_price``. Whether a price is news again is
+    :func:`app.services.renotify.is_news`, shared with the watchlist alerts.
     """
     row = session.execute(
         select(HotDealPreference).where(HotDealPreference.user_id == user.id)
@@ -548,13 +549,17 @@ def unsent_for(session: Session, user: User, *, limit: int = MAX_PER_EMAIL) -> l
     if row is not None and not row.enabled:
         return []
 
-    told: dict[int, float] = dict(
-        session.execute(
-            select(HotDealNotice.item_id, HotDealNotice.price).where(
+    told: dict[int, tuple[float, datetime]] = {
+        item_id: (price, sent_at)
+        for item_id, price, sent_at in session.execute(
+            select(HotDealNotice.item_id, HotDealNotice.price, HotDealNotice.sent_at).where(
                 HotDealNotice.user_id == user.id
             )
-        ).all()
-    )
+        )
+    }
+    peaks = renotify.peaks_since(session, [(item_id, when) for item_id, (_p, when) in told.items()])
+    after_days = renotify.renotify_after_days(session)
+    now = utcnow()
     current = deals(session)
     # Asked once for every deal rather than once per deal: a reader's saved
     # searches are a handful of queries, each run over the whole set.
@@ -569,11 +574,15 @@ def unsent_for(session: Session, user: User, *, limit: int = MAX_PER_EMAIL) -> l
             continue
         if matched is not None and deal.item_id not in matched:
             continue
-        seen = told.get(deal.item_id)
-        # Compared in cents. These are dollars stored as floats, and a price
-        # round-tripped through a scrape and a column can differ from itself
-        # in the last bits -- which would mail the same listing every pass.
-        if seen is not None and round(seen, 2) == round(deal.price, 2):
+        told_price, told_at = told.get(deal.item_id, (None, None))
+        if not renotify.is_news(
+            deal.price,
+            told_price,
+            told_at,
+            peak_since=peaks.get(deal.item_id),
+            now=now,
+            after_days=after_days,
+        ):
             continue
         fresh.append(deal)
         if len(fresh) >= limit:

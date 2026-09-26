@@ -26,6 +26,7 @@ from app.models import (
     HotDealPreference,
     Item,
     Manufacturer,
+    PriceHistory,
     Site,
     User,
     UserRole,
@@ -460,28 +461,54 @@ class TestTheWatermarkIsAPrice:
 
         assert [deal.item_id for deal in hotdeals.unsent_for(clean_db, reader)] == [one_deal.id]
 
-    def test_including_a_price_that_went_up_and_came_back_down(self, clean_db, reader, one_deal):
-        """A timestamp would swallow this one, which is the case the watchlist
-        alert was rewritten to get right."""
-        hotdeals.mark_sent(clean_db, reader, hotdeals.unsent_for(clean_db, reader))
+    def _scan_sees(self, session, item, price, when):
+        """A price change the way a scan records one: the listing and its
+        history, which is where "it went back up" is read from."""
+        item.current_price = price
+        session.add(PriceHistory(item_id=item.id, price=price, observed_at=when))
+        session.commit()
+        hotdeals.refresh(session)
+
+    def test_the_same_sale_again_after_it_ended_is_news(self, clean_db, reader, one_deal):
+        """The recurring sale. $500 was mailed; the price went back up; now it
+        is $500 again. This used to be swallowed as "already told you", which
+        announced a shop's monthly markdown once, ever."""
+        told = utcnow() - timedelta(days=3)
+        hotdeals.mark_sent(clean_db, reader, hotdeals.unsent_for(clean_db, reader), now=told)
         clean_db.commit()
 
-        one_deal.current_price = 900.0
-        clean_db.commit()
-        hotdeals.refresh(clean_db)
+        self._scan_sees(clean_db, one_deal, 900.0, told + timedelta(days=1))
         assert hotdeals.deals(clean_db) == []
 
-        one_deal.current_price = 500.0
+        self._scan_sees(clean_db, one_deal, 500.0, told + timedelta(days=2))
+        assert [deal.item_id for deal in hotdeals.unsent_for(clean_db, reader)] == [one_deal.id]
+
+    def test_a_rise_that_is_still_a_deal_is_not_news(self, clean_db, reader, one_deal):
+        """$500 was mailed; $520 is still well under its peers, and still a
+        worse price than the one the reader was told about."""
+        told = utcnow() - timedelta(days=1)
+        hotdeals.mark_sent(clean_db, reader, hotdeals.unsent_for(clean_db, reader), now=told)
         clean_db.commit()
-        hotdeals.refresh(clean_db)
-        # Same price as last time -- and still not news, because that is
-        # exactly what the reader was told.
+
+        self._scan_sees(clean_db, one_deal, 520.0, told + timedelta(hours=1))
+        assert [deal.item_id for deal in hotdeals.deals(clean_db)] == [one_deal.id]
         assert hotdeals.unsent_for(clean_db, reader) == []
 
-        one_deal.current_price = 480.0
+    def test_an_old_notice_stops_keeping_it_quiet(self, clean_db, reader, one_deal):
+        """Past the administrator's expiry (30 days by default), a deal that
+        is still a deal at the same price gets one reminder."""
+        hotdeals.mark_sent(
+            clean_db,
+            reader,
+            hotdeals.unsent_for(clean_db, reader),
+            now=utcnow() - timedelta(days=31),
+        )
         clean_db.commit()
-        hotdeals.refresh(clean_db)
-        assert len(hotdeals.unsent_for(clean_db, reader)) == 1
+        assert [deal.item_id for deal in hotdeals.unsent_for(clean_db, reader)] == [one_deal.id]
+
+        hotdeals.settings(clean_db).renotify_after_days = 0
+        clean_db.commit()
+        assert hotdeals.unsent_for(clean_db, reader) == []
 
     def test_a_category_they_dropped_is_never_offered(self, clean_db, reader, one_deal):
         row = hotdeals.preference(clean_db, reader)

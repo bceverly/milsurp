@@ -1468,6 +1468,7 @@ class HotDealSettingsOut(UTCModel):
     min_discount_percent: int
     max_discount_percent: int
     min_vendors: int
+    renotify_after_days: int = 30
     last_run_at: datetime | None = None
     last_status: str | None = None
     last_error: str | None = None
@@ -1485,6 +1486,7 @@ class HotDealSettingsUpdate(BaseModel):
     min_discount_percent: int | None = None
     max_discount_percent: int | None = None
     min_vendors: int | None = None
+    renotify_after_days: int | None = None
 
 
 class HotDealPreferenceOut(BaseModel):
