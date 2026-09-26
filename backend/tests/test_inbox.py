@@ -314,12 +314,22 @@ class TestTheApi:
         )
         assert response.status_code == 400
 
-    def test_check_now_reports_what_happened(self, client, admin_headers):
-        """The test configuration has no account, and the page must say so
-        rather than claim a quiet inbox."""
-        body = client.post("/api/admin/inbox/check", headers=admin_headers).json()
-        assert body["settings"]["last_status"] in {"not_configured", "ok", "failed"}
-        assert body["settings"]["last_run_at"] is not None
+    def test_check_now_starts_one_and_answers_at_once(self, client, admin_headers):
+        """In the background: following links takes minutes, and the proxy
+        in front of the app timed the first real one out with a 504. The
+        test configuration has no account, so the check ends quickly with
+        "not_configured" -- which is what the page must then say."""
+        import time
+
+        response = client.post("/api/admin/inbox/check", headers=admin_headers)
+        assert response.status_code == 202
+        for _ in range(50):
+            body = client.get("/api/admin/inbox", headers=admin_headers).json()
+            if not body["checking"] and body["settings"]["last_run_at"]:
+                break
+            time.sleep(0.1)
+        assert body["checking"] is False
+        assert body["settings"]["last_status"] == "not_configured"
 
     def test_a_reader_cannot(self, client, normal_user):
         assert client.get("/api/admin/inbox", headers=normal_user["headers"]).status_code == 403
@@ -557,3 +567,37 @@ class TestWhichShopsHaveBeenFollowed:
             ),
         )
         assert inbox.link_status(clean_db)[shops["jg-sales"].id].state == "waiting"
+
+
+class TestOneCheckAtATime:
+    def test_a_started_check_is_already_running_when_start_returns(self, signed_in, monkeypatch):
+        """The request answers with ``checking`` straight after starting one.
+        If the thread had not yet taken the lock, that answer was "not
+        checking", and the page never polled for the result."""
+        import threading
+        import time
+
+        release = threading.Event()
+        monkeypatch.setattr(inbox, "run", lambda *_a, **_k: release.wait(5))
+        try:
+            assert inbox.start_check(signed_in) is True
+            assert inbox.is_checking() is True
+        finally:
+            release.set()
+        for _ in range(100):
+            if not inbox.is_checking():
+                break
+            time.sleep(0.05)
+        assert inbox.is_checking() is False
+
+    def test_a_second_check_waits_its_turn(self, clean_db, shops, signed_in):
+        """The scheduler and the page's button share one lock, so the same
+        emails are never followed twice at once."""
+        assert inbox._busy.acquire(blocking=False)
+        try:
+            assert inbox.is_checking() is True
+            assert inbox.run_exclusive(clean_db, signed_in, now=NOW) is None
+            assert inbox.start_check(signed_in) is False
+        finally:
+            inbox._busy.release()
+        assert inbox.is_checking() is False

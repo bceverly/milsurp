@@ -206,6 +206,21 @@ function MailingListsPanel({ onChecked }) {
       .catch((err) => setError(err.message));
   }, []);
 
+  // A check runs in the background (it can take minutes), so while one is
+  // running the panel asks again every couple of seconds, and refreshes the
+  // shops' chips when it is done.
+  useInterval(
+    () =>
+      api
+        .inbox()
+        .then((next) => {
+          setState(next);
+          if (!next.checking) onChecked();
+        })
+        .catch((err) => setError(err.message)),
+    state?.checking ? 2000 : null,
+  );
+
   async function act(call) {
     setBusy(true);
     setError(null);
@@ -234,10 +249,11 @@ function MailingListsPanel({ onChecked }) {
         <button
           className="btn btn--ghost"
           type="button"
-          disabled={busy}
+          disabled={busy || state.checking}
           onClick={() => act(api.checkInbox)}
         >
-          <Mail size={15} /> Check the inbox now
+          <Mail size={15} />{" "}
+          {state.checking ? "Checking the inbox…" : "Check the inbox now"}
         </button>
       </div>
       <div className="panel__body">
@@ -273,9 +289,11 @@ function MailingListsPanel({ onChecked }) {
         </label>
         {error && <div className="alert alert--error">{error}</div>}
         <p className="muted mailing-panel__status" role="status">
-          {settings.last_run_at
-            ? `Last checked ${formatRelative(settings.last_run_at)}. ${outcome || ""}`
-            : "Not checked yet."}{" "}
+          {state.checking
+            ? "Checking now. Following the shops' links can take a few minutes."
+            : settings.last_run_at
+              ? `Last checked ${formatRelative(settings.last_run_at)}. ${outcome || ""}`
+              : "Not checked yet."}{" "}
           Read-only: nothing is marked read, and only mail from the shops is kept.
         </p>
         {state.recent.length > 0 && (

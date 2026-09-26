@@ -1603,6 +1603,8 @@ class InboxStateOut(BaseModel):
     settings: InboxSettingsOut
     #: Whether config.yaml has an account to sign in with at all.
     configured: bool
+    #: A check is running now; the page polls until it is not.
+    checking: bool = False
     #: Which mailbox is read, for the page to say so. No password, ever.
     account: str
     interval_choices: list[int]

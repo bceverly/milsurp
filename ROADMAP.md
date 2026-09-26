@@ -2175,6 +2175,13 @@ Six bites, each shippable alone, in this order, after the groundwork below.
   chip is amber, "Confirm subscription", with a note to open that email and
   click. "Subscription Confirmed" (Joe Salter) is the list working, not a
   request. On the first real run, nine shops turned green and J&G amber.
+- **"Check the inbox now" runs in the background.** It first ran inside the
+  web request. Once link-following arrived (bite 2), a check took minutes, and
+  the proxy in front of the app timed the first production click out with a
+  504 while the work went on and finished. The button now starts the check and
+  returns at once, and the panel shows "Checking the inbox…" and polls until
+  it is done. The scheduler and the button share one lock, so the same emails
+  are never followed twice at once.
 - **A failure is recorded, not raised.** A refused login or a timeout is
   stored on the settings row and shown in the panel. A missing account
   reads as "no email account in config.yaml", not as a quiet week.

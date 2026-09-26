@@ -28,7 +28,9 @@ from __future__ import annotations
 import contextlib
 import email
 import imaplib
+import logging
 import re
+import threading
 import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
@@ -36,14 +38,17 @@ from datetime import UTC, datetime, timedelta
 from email.header import decode_header, make_header
 from email.message import Message
 from email.utils import getaddresses, parsedate_to_datetime
+from typing import Any
 from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..config import Config
+from ..database import session_scope
 from ..models import (
     InboxSetting,
     Item,
@@ -56,6 +61,8 @@ from ..models import (
 from ..scrapers import get_scraper, get_scraper_class
 from ..scrapers.base import ScrapeContext
 from . import cooldown, maillinks, watchpoll
+
+log = logging.getLogger("milsurp.inbox")
 
 #: Choices for how often to check, in hours.
 ALLOWED_INTERVAL_HOURS = (1, 2, 4, 6, 12, 24)
@@ -124,12 +131,21 @@ class RunResult:
 
 # -- settings ------------------------------------------------------------------
 def settings(session: Session) -> InboxSetting:
-    """The one settings row, created if the database lacks it."""
+    """The one settings row, created if the database lacks it.
+
+    Two sessions can race to create it -- a background check and the request
+    that started it -- so losing that race means reading the winner's row.
+    """
     row = session.get(InboxSetting, 1)
     if row is None:
         row = InboxSetting(id=1)
         session.add(row)
-        session.commit()
+        try:
+            session.commit()
+        except IntegrityError:
+            session.rollback()
+            row = session.get(InboxSetting, 1)
+            assert row is not None
     return row
 
 
@@ -539,6 +555,64 @@ def _plain_links(text: str) -> list[maillinks.Link]:
         if url not in seen and not maillinks.is_furniture(url):
             seen.append(url)
     return [maillinks.Link(url=url, text="") for url in seen[: maillinks.MAX_LINKS]]
+
+
+#: One check at a time, whoever asks: the scheduler, or the page's "Check the
+#: inbox now". Two at once would follow the same emails' links twice.
+_busy = threading.Lock()
+
+
+def is_checking() -> bool:
+    """Whether a check is running in this process right now."""
+    return _busy.locked()
+
+
+def run_exclusive(session: Session, config: Config, **kwargs: Any) -> RunResult | None:
+    """:func:`run`, unless one is already running; then None, and nothing done."""
+    if not _busy.acquire(blocking=False):
+        return None
+    try:
+        return run(session, config, **kwargs)
+    finally:
+        _busy.release()
+
+
+def start_check(config: Config) -> bool:
+    """Run a check in the background, for the page's "Check the inbox now".
+
+    **Not inside the web request.** Following a day's links is a few hundred
+    tracker requests spaced a quarter-second apart plus the listings they
+    name -- minutes, not seconds -- and the proxy in front of the app gives up
+    on a request long before that: the first production check with links
+    returned 504 to the browser while the work went on and finished. So the
+    request starts the check and returns, and the page polls until
+    ``is_checking()`` is false. False when a check is already running.
+    """
+    # Taken here, before the thread exists, and released by the thread. Taken
+    # inside the thread instead, the request could answer before the thread
+    # had started -- "not checking, never checked" -- and the page, seeing
+    # nothing running, never asked again. That failed the e2e test on one
+    # machine in two.
+    if not _busy.acquire(blocking=False):
+        return False
+
+    def work() -> None:
+        try:
+            with session_scope() as session:
+                run(session, config)
+        except Exception as exc:
+            log.exception("Inbox check failed")
+            with contextlib.suppress(Exception), session_scope() as session:
+                record_failure(session, exc)
+        finally:
+            _busy.release()
+
+    try:
+        threading.Thread(target=work, name="milsurp-inbox-check", daemon=True).start()
+    except Exception:
+        _busy.release()
+        raise
+    return True
 
 
 def _record(session: Session, row: InboxSetting, result: RunResult, now: datetime) -> None:

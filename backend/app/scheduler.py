@@ -207,7 +207,9 @@ class Scheduler:
             with session_scope() as session:
                 if not inbox.is_due(session):
                     return
-                result = inbox.run(session, self.config)
+                result = inbox.run_exclusive(session, self.config)
+                if result is None:
+                    return  # a check started from the page is running
         except Exception as exc:
             log.exception("Inbox check failed")
             try:

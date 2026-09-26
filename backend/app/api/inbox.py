@@ -31,6 +31,7 @@ def _state(session: DbSession, config: AppConfig) -> InboxStateOut:
     return InboxStateOut(
         settings=InboxSettingsOut.model_validate(inbox.settings(session), from_attributes=True),
         configured=bool(mail.username and mail.password),
+        checking=inbox.is_checking(),
         account=mail.username,
         interval_choices=list(inbox.ALLOWED_INTERVAL_HOURS),
         recent=[
@@ -104,12 +105,15 @@ def update_inbox(
     return _state(session, config)
 
 
-@router.post("/check", response_model=InboxStateOut)
+@router.post("/check", response_model=InboxStateOut, status_code=status.HTTP_202_ACCEPTED)
 def check_inbox(_admin: AdminUser, session: DbSession, config: AppConfig) -> InboxStateOut:
-    """Check now, whatever the schedule says, and even with it switched off.
+    """Start a check now, whatever the schedule says, and even with it off.
 
-    The outcome is recorded on the settings row and shown with the rest, so a
-    wrong password reads as that on the page rather than as a quiet week.
+    Started, not run: following an inbox's links takes minutes and the proxy
+    in front of the app times a request out long before that (see
+    ``inbox.start_check``). The response says ``checking``; the page polls
+    until it is done. The outcome is recorded on the settings row, so a wrong
+    password reads as that rather than as a quiet week.
     """
-    inbox.run(session, config)
+    inbox.start_check(config)
     return _state(session, config)
