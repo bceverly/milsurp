@@ -3048,3 +3048,25 @@
 .mailing-panel__recent .chip {
   margin-left: 6px;
 }
+
+.mailing-panel__listings {
+  margin: 2px 0 4px 18px;
+  padding: 0;
+  font-size: 12.5px;
+}
+
+.mailing-panel__shops {
+  margin-top: 14px;
+  font-size: 13px;
+}
+
+.mailing-panel__shops summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.mailing-panel__shops ul {
+  margin: 8px 0;
+  padding-left: 18px;
+  line-height: 1.7;
+}

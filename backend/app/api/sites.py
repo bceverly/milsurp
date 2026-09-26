@@ -313,6 +313,35 @@ def update_site(
     return _site_out(session, site)
 
 
+@router.post("/{site_id}/newsletter/confirmed", response_model=SiteOut)
+def confirm_newsletter(
+    site_id: int, admin: AdminUser, request: Request, session: DbSession
+) -> SiteOut:
+    """Say the mailing-list subscription is confirmed, for a list that asked
+    for confirmation and has sent nothing since.
+
+    Mailchimp sends a "you're confirmed" message only if the list owner turned
+    it on (J&G has not), so a confirmed list can sit amber until its next
+    newsletter. This clears that. Real mail still arriving is what turns the
+    chip green on its own.
+    """
+    site = session.get(Site, site_id)
+    if site is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such site.")
+    site.newsletter_confirmed_at = utcnow()
+    audit.record(
+        session,
+        actor=admin,
+        action=audit.SITE_NEWSLETTER_CONFIRMED,
+        target_type="site",
+        target_id=site.id,
+        target_label=site.name,
+        ip_address=client_address(request),
+    )
+    session.commit()
+    return _site_out(session, site)
+
+
 # ---------------------------------------------------------------------------
 # Scans
 # ---------------------------------------------------------------------------

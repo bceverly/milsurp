@@ -170,6 +170,11 @@ class Site(Base, TimestampMixin):
     #: notification account. Set by the inbox reader; None means none has, and
     #: the Sites card shows the signup link red so somebody joins the list.
     marketing_email_at: Mapped[datetime | None] = mapped_column(DateTime)
+    #: When an administrator said the subscription is confirmed, for a list
+    #: that asked for confirmation and has sent nothing since. Mailchimp only
+    #: sends a "you're confirmed" message if the list owner turned that on, so
+    #: a confirmed list can stay silent until its next newsletter.
+    newsletter_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime)
 
     items: Mapped[list["Item"]] = relationship(back_populates="site", cascade="all, delete-orphan")
     scan_runs: Mapped[list["ScanRun"]] = relationship(
@@ -1753,8 +1758,53 @@ class VendorEmail(Base):
     #: When the vendor sent it, from its Date header; when we recorded it.
     received_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
     recorded_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
+    #: When its links were followed; None until then. An email recorded before
+    #: link-following existed is picked up by the next check, whose search
+    #: window overlaps.
+    links_read_at: Mapped[datetime | None] = mapped_column(DateTime)
+    #: The email's text, capped, for reading coupon codes and end dates later
+    #: (ROADMAP, "Vendor mailing lists", bite 3). Vendor marketing only.
+    body_text: Mapped[str | None] = mapped_column(Text)
 
     site: Mapped["Site | None"] = relationship()
+    links: Mapped[list["VendorEmailLink"]] = relationship(
+        back_populates="email", cascade="all, delete-orphan"
+    )
+
+
+class VendorEmailLink(Base):
+    """One link in a vendor's email, and where following it led.
+
+    Kept for every link that was not footer, so the page can say what an email
+    pointed at and -- per shop -- whether its mailing service's links have ever
+    been followed successfully. A shop whose mail has arrived but none of whose
+    links resolved is one to look at; one that has sent nothing yet is simply
+    waiting.
+    """
+
+    __tablename__ = "vendor_email_links"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    email_id: Mapped[int] = mapped_column(
+        ForeignKey("vendor_emails.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    #: The link as the email had it (a tracker's address, usually).
+    link: Mapped[str] = mapped_column(String(2048), nullable=False)
+    text: Mapped[str] = mapped_column(String(200), default="", nullable=False)
+    #: Where it led on the shop's site, cleaned of tracking parameters.
+    url: Mapped[str | None] = mapped_column(String(2048))
+    #: direct, decoded, resolved -- or offsite, subscription, failed.
+    how: Mapped[str] = mapped_column(String(16), nullable=False)
+    #: The listing it names, when we hold it.
+    item_id: Mapped[int | None] = mapped_column(
+        ForeignKey("items.id", ondelete="SET NULL"), index=True
+    )
+    #: What re-reading that listing found: "changed", "same", "sold",
+    #: "unreadable", "failed"; None when nothing was re-read.
+    outcome: Mapped[str | None] = mapped_column(String(16))
+
+    email: Mapped["VendorEmail"] = relationship(back_populates="links")
+    item: Mapped["Item | None"] = relationship()
 
 
 class FlyerNotice(Base):

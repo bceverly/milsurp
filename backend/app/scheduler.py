@@ -217,11 +217,33 @@ class Scheduler:
                 log.exception("Could not record the inbox failure")
             return
         log.info(
-            "Inbox: %s (%s message(s) looked at, %s new from the shops).",
+            "Inbox: %s (%s message(s) looked at, %s new from the shops; %s link(s) "
+            "followed, %s listing(s) re-read, %s price(s) changed, %s scan(s) queued).",
             result.status,
             result.looked_at,
             result.recorded,
+            result.links,
+            result.rechecked,
+            result.prices_changed,
+            result.scans_queued,
         )
+        # A price an email moved is news now, not at the next hot-deal pass up
+        # to eight hours away. Watchlist alerts need nothing: they run every
+        # tick and read the stored price.
+        if result.prices_changed:
+            self._refresh_hot_deals_now()
+
+    def _refresh_hot_deals_now(self) -> None:
+        try:
+            with session_scope() as session:
+                if not hotdeals.settings(session).enabled:
+                    return
+                hotdeals.refresh(session)
+                hotdeals.forget_stale_notices(session)
+        except Exception:
+            log.exception("Hot deals refresh after the inbox failed")
+            return
+        self._mail_hot_deals()
 
     def _mail_hot_deals(self) -> None:
         """One email per subscriber, each in its own session.

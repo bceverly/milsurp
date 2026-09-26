@@ -138,6 +138,57 @@ function scanTimeDetail(run) {
 //: finish.
 const REFETCH_BATCH = 250;
 
+//: What re-reading a listing an email named found.
+const OUTCOME = {
+  changed: "new price",
+  same: "price unchanged",
+  sold: "sold",
+  unreadable: "its page publishes no price we can read",
+  failed: "could not be re-read",
+};
+
+/**
+ * Which shops' mail the reader has followed onto their sites, and which it
+ * has not heard from yet. A shop "waiting" has sent no newsletter to test
+ * against; its links are followed as soon as one arrives, and this list is
+ * where to see that it worked.
+ */
+function ShopLinkStatus({ shops }) {
+  if (!shops?.length) return null;
+  const followed = shops.filter((shop) => shop.state === "followed");
+  const unresolved = shops.filter((shop) => shop.state === "unresolved");
+  const waiting = shops.filter((shop) => shop.state === "waiting");
+  return (
+    <details className="mailing-panel__shops">
+      <summary>
+        Links followed for {followed.length} shop{followed.length === 1 ? "" : "s"}
+        {unresolved.length > 0 && `, ${unresolved.length} to look at`}, {waiting.length}{" "}
+        waiting for a first newsletter
+      </summary>
+      {unresolved.length > 0 && (
+        <p>
+          <strong>Mail read, but no link reached the shop:</strong>{" "}
+          {unresolved.map((shop) => shop.site_name).join(", ")}
+        </p>
+      )}
+      <ul>
+        {followed.map((shop) => (
+          <li key={shop.site_id}>
+            <strong>{shop.site_name}</strong> — {shop.followed} link
+            {shop.followed === 1 ? "" : "s"} from {shop.emails} email
+            {shop.emails === 1 ? "" : "s"}, via {shop.services.join(", ")}
+          </li>
+        ))}
+      </ul>
+      {waiting.length > 0 && (
+        <p className="muted">
+          Waiting: {waiting.map((shop) => shop.site_name).join(", ")}
+        </p>
+      )}
+    </details>
+  );
+}
+
 /**
  * The inbox reader: whether the notification account's inbox is checked for
  * the shops' mail, how often, and what the last check found. The account and
@@ -236,10 +287,30 @@ function MailingListsPanel({ onChecked }) {
                 {mail.asks_to_confirm && (
                   <span className="chip chip--warning">asks you to confirm</span>
                 )}
+                {mail.links_followed !== null && (
+                  <span className="muted">
+                    {" "}
+                    · {mail.links_followed} link{mail.links_followed === 1 ? "" : "s"}{" "}
+                    followed
+                  </span>
+                )}
+                {mail.listings.length > 0 && (
+                  <ul className="mailing-panel__listings">
+                    {mail.listings.map((listing) => (
+                      <li key={listing.item_id}>
+                        <Link to={`/items/${listing.item_id}`}>{listing.title}</Link>
+                        {listing.outcome && (
+                          <span className="muted"> — {OUTCOME[listing.outcome]}</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </li>
             ))}
           </ul>
         )}
+        <ShopLinkStatus shops={state.shops} />
       </div>
     </section>
   );
@@ -253,7 +324,7 @@ function MailingListsPanel({ onChecked }) {
  * reader that records arrivals is on the roadmap ("Vendor mailing lists"), so
  * until it runs every shop is red, which is true -- nothing has been received.
  */
-function MailingListChip({ site }) {
+function MailingListChip({ site, onConfirm }) {
   if (!site.newsletter_url) {
     return (
       <span className="chip chip--neutral" title={site.newsletter_note || undefined}>
@@ -265,7 +336,11 @@ function MailingListChip({ site }) {
   // A double opt-in list sends "please confirm" first, and nothing else until
   // somebody clicks it. That is its own state: signed up, not yet receiving.
   const confirming = Boolean(site.confirmation_requested_at);
-  const received = !confirming && Boolean(site.marketing_email_at);
+  // Confirmed by hand, for a list that sends no "you're confirmed" message
+  // (Mailchimp's default) and nothing else until its next newsletter.
+  const confirmedByHand =
+    !site.marketing_email_at && Boolean(site.newsletter_confirmed_at);
+  const received = !confirming && (Boolean(site.marketing_email_at) || confirmedByHand);
   const [tone, label, when] = confirming
     ? [
         "chip--warning",
@@ -278,14 +353,17 @@ function MailingListChip({ site }) {
       ? [
           "chip--success",
           "Mailing list",
-          `Last marketing email ${formatRelative(site.marketing_email_at)}.`,
+          confirmedByHand
+            ? `Marked confirmed ${formatRelative(site.newsletter_confirmed_at)}; ` +
+              "no marketing email yet."
+            : `Last marketing email ${formatRelative(site.marketing_email_at)}.`,
         ]
       : [
           "chip--danger",
           "Join mailing list",
           "No marketing email received yet. Join the list so the inbox reader hears about sales.",
         ];
-  return (
+  const chip = (
     <a
       className={`chip ${tone}`}
       href={site.newsletter_url}
@@ -296,6 +374,20 @@ function MailingListChip({ site }) {
       <Mail size={12} />
       {label}
     </a>
+  );
+  if (!confirming) return chip;
+  return (
+    <>
+      {chip}
+      <button
+        className="btn btn--ghost btn--sm"
+        type="button"
+        onClick={onConfirm}
+        title="Say the subscription is confirmed, for a list that sends nothing until its next newsletter"
+      >
+        <Check size={12} /> Mark confirmed
+      </button>
+    </>
   );
 }
 
@@ -478,7 +570,15 @@ function SiteCard({ site, result, onChange, onError, onNotice, onDismissResult }
               </span>
             )}
             {!site.is_available && <span className="chip chip--danger">No scraper</span>}
-            <MailingListChip site={site} />
+            <MailingListChip
+              site={site}
+              onConfirm={() =>
+                api
+                  .confirmNewsletter(site.id)
+                  .then(onChange)
+                  .catch((err) => onError(err.message))
+              }
+            />
           </div>
         </div>
 

@@ -32,6 +32,7 @@ const LABELS = {
   "user.password_reset_sent": "Reset link sent",
   "site.enabled": "Site enabled",
   "site.disabled": "Site disabled",
+  "site.newsletter_confirmed": "Mailing list marked confirmed",
   "session.revoked": "Session revoked",
   "session.revoked_all": "Other sessions revoked",
   "armory.edited": "Armory row changed",

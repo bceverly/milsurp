@@ -2179,35 +2179,92 @@ Six bites, each shippable alone, in this order, after the groundwork below.
   stored on the settings row and shown in the panel. A missing account
   reads as "no email account in config.yaml", not as a quiet week.
 
-#### 2. From an email to the listings it names — **Planned**
+#### 2. From an email to the listings it names — **Shipped** 2026-09-26
 
-- **Links, not prose.** A sale email is mostly pictures and links, and the
-  link is the only reliable identifier. The text is kept for context (and for
-  bite 3), but listings are found by URL.
-- **Unwrap tracking links without clicking them.** Mailing services rewrite
-  every link through a click tracker. Following one records a click we did not
-  make and may be counted as a customer's. Where the real address is inside the
-  tracking URL (it usually is, base64- or percent-encoded), it is decoded
-  locally. Where it cannot be decoded, the link is skipped and the skip
-  counted, rather than followed.
-- **Only URLs on the vendor's own domain are fetched**, by that site's own
-  scraper, with robots.txt and the per-host rate limit exactly as a scan
-  applies them. An email is untrusted input: a link to anywhere else is never
-  fetched, which also shuts the door on using the inbox to make the server
-  request arbitrary addresses.
-- **Matching:**
-  - A product link that matches a listing we already hold (by URL, or by the
-    external key its scraper derives) is re-read now instead of at the next
-    scan.
-  - A product link we do not hold is read only if it falls inside a section
-    the scraper reads. The email is not a way around the shop's own
-    boundaries, or the ones we drew: police gear, modern stock.
-  - A link to a sale *collection* ("Surplus Sale — 15% off") is read with the
-    scraper's card parser, as one more section page, for that run only.
-- **The page decides the price, not the email.** Email copy is marketing:
-  "from $399", prices for members only, a figure that ended yesterday. What is
-  stored is what the product page says when we fetch it. The email says where
-  to look and when, and can add what the page never shows (bite 3).
+**The plan changed when it was measured.** It said to decode tracking links
+locally and never click them. Then the first mail was measured: every shop but
+AIM Surplus wraps every link in a mailing service's click tracker, and only
+Mailchimp's links carry the real address inside them. Decode-only would have
+read 2 shops of 12. With the administrator's agreement, links are now
+**resolved**:
+
+- **One request per link, to the tracker only, redirects off.** Only the
+  `Location` it answers with is read, the page it points to is never loaded,
+  and requests are 0.25 s apart. It registers a click by the subscribed
+  account.
+- **Cheapest first:**
+  1. a link already on the shop's site is used as it is;
+  2. a link carrying its destination (Mailchimp's `p=` payload, a `url=` or
+     `original_uri=` parameter) is decoded with no request;
+  3. anything else is resolved, up to three hops, each decoded first where
+     possible. Clyde's SendGrid link redirects to a Privy link that carries
+     the shop address in `original_uri`, so only SendGrid is asked.
+- **Only trackers are ever requested.** A tracker is a known mailing-service
+  host, or a click-style subdomain of the shop's own domain (Listrak runs
+  `link.botach.com`, `enews.ima-usa.com`,
+  `link.sportsmansoutdoorsuperstore.com`). That rule came from two bugs the
+  first live run found:
+  - Botach's own-domain tracker links were taken as shop pages, so 30 of them
+    were counted as "followed" without being resolved.
+  - Joe Salter's auction links end at a GunBroker search, and the resolver
+    requested it. Now a chain that lands anywhere that is neither the shop nor
+    a tracker stops there as "offsite".
+- **Footer links are never resolved.** Unsubscribe, preferences, privacy,
+  terms, "view in browser", "forward to a friend" and social icons are
+  recognized by their text or image alt. Subscription-management addresses
+  are recognized by path (`manage.kmail-lists.com`, `list-manage.com/
+  unsubscribe`, `…/subscribe`, Constant Contact's audience pages), including
+  after decoding. The first Mailchimp link decoded in the measurement was an
+  unsubscribe link.
+- **Bodies are read for vendor mail only**, in the same read-only session.
+  Each email's text is kept (capped at 20,000 characters) for bite 3.
+- **A link that names a listing we hold** (matched on the address with and
+  without its query, tracking parameters removed) is re-read now through the
+  shop's `check_price`, the watch poll's single-page read. The price is stored
+  exactly as a scan would store it, and the outcome is recorded: new price,
+  unchanged, sold, unreadable, or failed.
+- **A link to a page we do not hold** queues a scan of that shop now, unless
+  it was scanned in the last six hours. New sale listings are found by the
+  shop's own scraper, within the sections it reads.
+- **Every link is recorded** (`vendor_email_links`, migration 0045) with where
+  it led and how. The panel shows each email's followed-link count and the
+  listings it re-read.
+
+**Which shops' mail has been followed — the running record.** Every shop with
+a mailing list has a state in the panel, computed from what its mail actually
+did:
+- **followed:** its links reached its site;
+- **unresolved:** mail was read but no link resolved, so it needs a look;
+- **waiting:** no newsletter yet. Confirmation requests don't count.
+
+As of 2026-09-26, measured against the real inbox:
+
+| Shop | Mailing service | State |
+| --- | --- | --- |
+| AIM Surplus | plain links | followed |
+| Apex Gun Parts | Constant Contact | followed |
+| Botach | Listrak-style tracker on `link.botach.com` | followed |
+| Centerfire Systems | Klaviyo | followed |
+| Classic Firearms | Klaviyo | followed |
+| Clyde Armory | SendGrid into Privy | followed |
+| GunPrime | Klaviyo | followed |
+| IMA-USA | tracker on `enews.ima-usa.com` | followed |
+| Joe Salter | Mailchimp | followed |
+| Officer Store | Klaviyo | followed |
+| Sportsman's Outdoor Superstore | tracker on `link.sportsmansoutdoorsuperstore.com` | followed |
+| J&G Sales | Mailchimp (confirmation request only) | waiting |
+| Every other shop with a list | — | waiting |
+
+When a waiting shop's first newsletter arrives, its state moves to followed or
+unresolved on its own. An unresolved shop usually means a tracker host this
+code does not know yet, which is one entry in `maillinks._TRACKER_HOSTS`.
+
+**Mark confirmed.** A double opt-in list's chip is amber until real mail
+follows the request. Mailchimp sends no "you're confirmed" message unless the
+list owner turned that on, and J&G has not, so a confirmed list can stay amber
+until its next newsletter. The amber chip now has a "Mark confirmed" button
+(`sites.newsletter_confirmed_at`, migration 0044, recorded in the audit log).
+A fresh request after it turns the chip amber again.
 
 #### 3. What the email knows that the page does not — **Planned**
 
@@ -2246,18 +2303,16 @@ This one is mostly already true, and needs the parts that are not.
   page can say "was $X, on sale until Sunday" rather than two unexplained
   numbers.
 
-#### 5. Email-sourced deals go out like any other — **Planned**
+#### 5. Email-sourced deals go out like any other — **Partly shipped** 2026-09-26
 
-- After an inbox run changes prices, run the same follow-up a scan runs:
-  - the hot-deals refresh,
-  - watchlist target alerts,
-  - saved-search matches for listings that are new.
-- Nothing email-specific is needed downstream. What is needed is that the
-  inbox path *calls* that follow-up, since today it runs only at the end of a
-  scan.
-- **The notification may say why:** "on sale through Sunday", or "10% off with
-  code SWEDE10". That is the one thing an email-found deal has that a
-  scan-found one does not, and it is the reason this feature exists.
+- **Shipped:** when an inbox check changes any price, the hot-deal pass and
+  its emails run at once, instead of at the next scheduled pass up to eight
+  hours away. Watchlist target alerts needed nothing: they run every tick and
+  read the stored price, which bite 2 updates exactly as a scan would.
+- **Shipped by bite 2:** a queued scan runs its own usual follow-ups,
+  including saved-search matches for new listings.
+- **Still to do:** say *why* in the notification ("on sale through Sunday",
+  "10% off with code SWEDE10"). That needs bite 3's notes.
 
 #### 6. Notification memory that does not last forever — **Shipped** 2026-09-26
 

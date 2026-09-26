@@ -299,6 +299,8 @@ class SiteOut(UTCModel):
     #: When they asked for the subscription to be confirmed, if that is still
     #: the latest word from them: the card turns amber until real mail follows.
     confirmation_requested_at: datetime | None = None
+    #: When an administrator marked that subscription confirmed by hand.
+    newsletter_confirmed_at: datetime | None = None
 
 
 class PhotoRunStarted(BaseModel):
@@ -1564,6 +1566,14 @@ class InboxSettingsUpdate(BaseModel):
     interval_hours: int | None = None
 
 
+class EmailListingOut(BaseModel):
+    """A listing an email named, and what re-reading it found."""
+
+    item_id: int
+    title: str
+    outcome: str | None = None
+
+
 class VendorEmailOut(UTCModel):
     site_id: int | None = None
     site_name: str | None = None
@@ -1571,6 +1581,22 @@ class VendorEmailOut(UTCModel):
     subject: str
     asks_to_confirm: bool
     received_at: datetime
+    #: Links that reached the shop's site; None until its links were read.
+    links_followed: int | None = None
+    listings: list[EmailListingOut] = []
+
+
+class ShopLinkStatusOut(BaseModel):
+    """Whether a shop's marketing email has been followed onto its site."""
+
+    site_id: int
+    site_name: str
+    #: "followed", "unresolved" (mail read, no link reached the shop), or
+    #: "waiting" (no newsletter read yet).
+    state: str
+    emails: int
+    followed: int
+    services: list[str]
 
 
 class InboxStateOut(BaseModel):
@@ -1581,3 +1607,5 @@ class InboxStateOut(BaseModel):
     account: str
     interval_choices: list[int]
     recent: list[VendorEmailOut]
+    #: Every shop with a mailing list, and whether its mail has been followed.
+    shops: list[ShopLinkStatusOut] = []

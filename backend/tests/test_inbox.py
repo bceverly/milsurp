@@ -12,7 +12,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from app.models import InboxSetting, Site, VendorEmail
+from app.models import InboxSetting, Site, VendorEmail, utcnow
 from app.services import inbox
 
 NOW = datetime(2026, 9, 26, 18, 0, tzinfo=UTC)
@@ -78,8 +78,20 @@ def signed_in(app_config):
     )
 
 
-def check(session, config, *messages, now=NOW):
-    return inbox.run(session, config, now=now, fetch=lambda _config, _since: list(messages))
+def no_network(url, **_kwargs):
+    raise AssertionError(f"a test tried to reach the network: {url}")
+
+
+def check(session, config, *messages, now=NOW, get=no_network):
+    """A check over these messages. Each is headers alone, or (headers, body).
+
+    ``get`` refuses by default: a test that resolves a link says where it
+    leads, and nothing here ever reaches a real mailing service.
+    """
+    fetched = [m if isinstance(m, tuple) else (m, None) for m in messages]
+    return inbox.run(
+        session, config, now=now, fetch=lambda _config, _since, _wanted: fetched, get=get
+    )
 
 
 class TestWhoseMailItIs:
@@ -180,7 +192,7 @@ class TestACheck:
         assert inbox.settings(clean_db).last_status == "not_configured"
 
     def test_a_mailbox_that_refuses_is_recorded_as_a_failure(self, clean_db, shops, signed_in):
-        def refuse(_config, _since):
+        def refuse(_config, _since, _wanted):
             raise imaplib.IMAP4.error("[AUTHENTICATIONFAILED] Invalid credentials")
 
         result = inbox.run(clean_db, signed_in, now=NOW, fetch=refuse)
@@ -195,7 +207,7 @@ class TestACheck:
     ):
         windows = []
 
-        def spy(_config, since):
+        def spy(_config, since, _wanted):
             windows.append(since)
             return []
 
@@ -254,19 +266,31 @@ class FakeImap:
 
 
 class TestTheMailbox:
-    def test_it_is_opened_read_only_and_only_headers_are_peeked(self, signed_in):
+    def test_it_is_opened_read_only_and_everything_is_peeked(self, signed_in):
         server = FakeImap([CLASSIC, APEX])
-        found = inbox.fetch_headers(signed_in, NOW, connect=server)
-        assert found == [APEX, CLASSIC]  # newest first
+        found = inbox.fetch_messages(signed_in, NOW, lambda _h: False, connect=server)
+        assert [headers for headers, _body in found] == [APEX, CLASSIC]  # newest first
         assert ("select", "INBOX", True) in server.calls
         fetches = [call for call in server.calls if call[0] == "FETCH"]
         assert fetches and all("BODY.PEEK" in call[2] for call in fetches)
         assert ("SEARCH", None, "SINCE", "26-Sep-2026") in server.calls
         assert server.calls[-1] == ("logout",)
 
+    def test_only_wanted_messages_have_their_body_read(self, signed_in):
+        """The shops' mail, never anybody else's."""
+        server = FakeImap([CLASSIC, SAFEOPT])
+        found = inbox.fetch_messages(
+            signed_in, NOW, lambda headers: b"classicfirearms" in headers, connect=server
+        )
+        bodies = dict(found)
+        assert bodies[CLASSIC] is not None
+        assert bodies[SAFEOPT] is None
+        whole = [call for call in server.calls if call[0] == "FETCH" and call[2] == "(BODY.PEEK[])"]
+        assert len(whole) == 1
+
     def test_it_signs_in_with_the_smtp_account(self, signed_in):
         server = FakeImap([])
-        inbox.fetch_headers(signed_in, NOW, connect=server)
+        inbox.fetch_messages(signed_in, NOW, lambda _h: False, connect=server)
         assert ("login", "notify@test") in server.calls
         assert ("connect", "imap.gmail.com", 993) in server.calls
 
@@ -305,3 +329,231 @@ def test_a_database_without_the_row_gets_one(clean_db):
     """The migration seeds it; a database built another way still works."""
     assert clean_db.get(InboxSetting, 1) is None
     assert inbox.settings(clean_db).enabled is False
+
+
+class TestMarkedConfirmedByHand:
+    """For a list that confirms silently: Mailchimp sends no "you're confirmed"
+    message unless the list owner turned it on, so J&G stayed amber after the
+    subscription was confirmed twice."""
+
+    def test_it_settles_a_pending_request(self, clean_db, shops, signed_in):
+        check(clean_db, signed_in, JG_ASKS)
+        shops["jg-sales"].newsletter_confirmed_at = NOW.replace(hour=19, tzinfo=None)
+        clean_db.commit()
+        assert inbox.awaiting_confirmation(clean_db) == {}
+
+    def test_but_a_new_request_after_it_is_pending_again(self, clean_db, shops, signed_in):
+        """Signing up again sends a fresh request, which is news."""
+        shops["jg-sales"].newsletter_confirmed_at = (NOW - timedelta(days=1)).replace(tzinfo=None)
+        clean_db.commit()
+        check(clean_db, signed_in, JG_ASKS)
+        assert shops["jg-sales"].id in inbox.awaiting_confirmation(clean_db)
+
+    def _seeded_jg(self, session):
+        """The ``client`` fixture seeds every registered shop, J&G among them."""
+        return session.query(Site).filter_by(slug="jg-sales").one()
+
+    def test_the_endpoint_records_it_and_says_who(self, client, admin_headers, clean_db):
+        from app.models import AuditEvent
+
+        site = self._seeded_jg(clean_db)
+        clean_db.add(
+            VendorEmail(
+                message_id="<ask@jgsales.com>",
+                site_id=site.id,
+                from_address="news@jgsales.com",
+                subject="J&G Sales News: Please Confirm Subscription",
+                asks_to_confirm=True,
+                # From the real clock: the endpoint stamps the confirmation
+                # with the real time, and the request must come before it.
+                received_at=(utcnow() - timedelta(hours=3)).replace(tzinfo=None),
+            )
+        )
+        clean_db.commit()
+        before = client.get(f"/api/sites/{site.id}", headers=admin_headers).json()
+        assert before["confirmation_requested_at"] is not None
+
+        body = client.post(
+            f"/api/sites/{site.id}/newsletter/confirmed", headers=admin_headers
+        ).json()
+        assert body["confirmation_requested_at"] is None
+        assert body["newsletter_confirmed_at"] is not None
+        actions = [event.action for event in clean_db.query(AuditEvent)]
+        assert "site.newsletter_confirmed" in actions
+
+    def test_a_reader_cannot(self, client, normal_user, clean_db):
+        response = client.post(
+            f"/api/sites/{self._seeded_jg(clean_db).id}/newsletter/confirmed",
+            headers=normal_user["headers"],
+        )
+        assert response.status_code == 403
+
+    def test_an_unknown_site(self, client, admin_headers):
+        response = client.post("/api/sites/999999/newsletter/confirmed", headers=admin_headers)
+        assert response.status_code == 404
+
+
+def with_body(headers_bytes, html):
+    """A whole message: these headers and an HTML body."""
+    return (
+        headers_bytes,
+        headers_bytes.rstrip(b"\r\n")
+        + b"\r\nContent-Type: text/html; charset=utf-8\r\n\r\n"
+        + html.encode(),
+    )
+
+
+class TestFollowingTheLinks:
+    """From an email to the listings it names, and what that changes."""
+
+    LISTING = "https://www.classicfirearms.com/m96-swedish-mauser/"
+
+    @pytest.fixture
+    def held(self, clean_db, shops):
+        from app.models import Item
+
+        item = Item(
+            site_id=shops["classic-firearms"].id,
+            external_key="m96",
+            url=self.LISTING,
+            title="Swedish M96 Mauser",
+            current_price=650.0,
+            is_rifle=True,
+        )
+        clean_db.add(item)
+        clean_db.commit()
+        return item
+
+    @pytest.fixture
+    def shop_page(self, monkeypatch):
+        """Classic's scraper, answering a single-listing re-read."""
+        from app.scrapers.base import PriceCheck
+
+        asked = []
+
+        class Scraper:
+            def check_price(self, _ctx, url, *, key=None):
+                asked.append(url)
+                return PriceCheck(price=585.0)
+
+        monkeypatch.setattr(inbox, "get_scraper", lambda _slug: Scraper())
+        return asked
+
+    def redirects(self, target):
+        from test_maillinks import Redirects
+
+        return Redirects({"https://ctrk.klclick1.com/l/A_1": target})
+
+    EMAIL = (
+        '<a href="https://ctrk.klclick1.com/l/A_1"><img alt="Image of M96 Mauser"></a>'
+        '<a href="https://manage.kmail-lists.com/subscriptions/unsubscribe">Unsubscribe</a>'
+    )
+
+    def test_a_named_listing_is_re_read_and_its_new_price_stored(
+        self, clean_db, shops, held, shop_page, signed_in
+    ):
+        result = check(
+            clean_db,
+            signed_in,
+            with_body(CLASSIC, self.EMAIL),
+            get=self.redirects(f"{self.LISTING}?utm_source=Klaviyo"),
+        )
+        assert (result.links, result.rechecked, result.prices_changed) == (1, 1, 1)
+        assert shop_page == [self.LISTING]
+        clean_db.refresh(held)
+        assert held.current_price == 585.0
+        assert held.previous_price == 650.0
+        link = clean_db.query(inbox.VendorEmailLink).one()
+        assert (link.item_id, link.outcome, link.how) == (held.id, "changed", "resolved")
+
+    def test_a_page_we_do_not_hold_queues_a_scan(self, clean_db, shops, signed_in):
+        """New sale listings are found by the shop's scraper, within the
+        sections it reads -- the email only says to look now."""
+        site = shops["classic-firearms"]
+        site.last_scan_at = (NOW - timedelta(days=1)).replace(tzinfo=None)
+        clean_db.commit()
+        result = check(
+            clean_db,
+            signed_in,
+            with_body(CLASSIC, self.EMAIL),
+            get=self.redirects("https://www.classicfirearms.com/deals-and-rebates/"),
+        )
+        assert result.scans_queued == 1
+        clean_db.refresh(site)
+        assert site.next_scan_at == NOW.replace(tzinfo=None)
+
+    def test_but_not_a_shop_scanned_a_moment_ago(self, clean_db, shops, signed_in):
+        site = shops["classic-firearms"]
+        site.last_scan_at = (NOW - timedelta(hours=1)).replace(tzinfo=None)
+        clean_db.commit()
+        result = check(
+            clean_db,
+            signed_in,
+            with_body(CLASSIC, self.EMAIL),
+            get=self.redirects("https://www.classicfirearms.com/deals-and-rebates/"),
+        )
+        assert result.scans_queued == 0
+
+    def test_an_email_s_links_are_followed_once_and_its_text_kept(self, clean_db, shops, signed_in):
+        get = self.redirects("https://www.classicfirearms.com/deals-and-rebates/")
+        check(clean_db, signed_in, with_body(CLASSIC, self.EMAIL), get=get)
+        check(
+            clean_db,
+            signed_in,
+            with_body(CLASSIC, self.EMAIL),
+            get=get,
+            now=NOW + timedelta(hours=2),
+        )
+        assert len(get.asked) == 1
+        mail = clean_db.query(VendorEmail).one()
+        assert mail.links_read_at is not None
+        assert "M96 Mauser" not in (mail.body_text or "")  # alt text is not body text
+
+    def test_an_email_recorded_before_links_were_followed_is_picked_up(
+        self, clean_db, shops, signed_in
+    ):
+        check(clean_db, signed_in, CLASSIC)  # headers only: recorded, not followed
+        assert clean_db.query(VendorEmail).one().links_read_at is None
+        check(
+            clean_db,
+            signed_in,
+            with_body(CLASSIC, self.EMAIL),
+            get=self.redirects("https://www.classicfirearms.com/deals-and-rebates/"),
+            now=NOW + timedelta(hours=2),
+        )
+        assert clean_db.query(VendorEmail).one().links_read_at is not None
+
+
+class TestWhichShopsHaveBeenFollowed:
+    """The running record of whose mail this reader has actually worked for."""
+
+    def test_followed_unresolved_and_waiting(self, clean_db, shops, signed_in):
+        from test_maillinks import Redirects
+
+        email = '<a href="https://ctrk.klclick1.com/l/A_1">Shop now</a>'
+        check(
+            clean_db,
+            signed_in,
+            with_body(CLASSIC, email),
+            with_body(APEX, '<a href="https://www.credova.com/offer">Finance it</a>'),
+            get=Redirects(
+                {"https://ctrk.klclick1.com/l/A_1": "https://www.classicfirearms.com/deals/"}
+            ),
+        )
+        status = inbox.link_status(clean_db)
+        assert status[shops["classic-firearms"].id].state == "followed"
+        assert status[shops["classic-firearms"].id].services == ("Klaviyo",)
+        assert status[shops["apex-gun-parts"].id].state == "unresolved"
+        assert status[shops["jg-sales"].id].state == "waiting"
+
+    def test_a_confirmation_request_does_not_count(self, clean_db, shops, signed_in):
+        """Its links are confirm and unsubscribe: it says nothing about the
+        shop's newsletters."""
+        check(
+            clean_db,
+            signed_in,
+            with_body(
+                JG_ASKS, '<a href="https://jgsales.us12.list-manage.com/subscribe/confirm">Yes</a>'
+            ),
+        )
+        assert inbox.link_status(clean_db)[shops["jg-sales"].id].state == "waiting"

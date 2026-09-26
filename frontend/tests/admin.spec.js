@@ -414,9 +414,11 @@ test.describe("sites", () => {
     await expect(received).toHaveAttribute("href", "https://www.sarcoinc.com/");
     await expect(received).toHaveAttribute("target", "_blank");
 
-    const toJoin = card("Botach").getByRole("link", { name: "Join mailing list" });
+    const toJoin = card("Arms Unlimited").getByRole("link", {
+      name: "Join mailing list",
+    });
     await expect(toJoin).toHaveClass(/chip--danger/);
-    await expect(toJoin).toHaveAttribute("href", "https://botach.com/mailing-list/");
+    await expect(toJoin).toHaveAttribute("href", "https://armsunlimited.com/");
 
     // Signed up, but the shop is waiting for the subscription to be confirmed.
     const confirm = card("J&G Sales").getByRole("link", { name: "Confirm subscription" });
@@ -428,6 +430,16 @@ test.describe("sites", () => {
     await expect(none).toBeVisible();
     await expect(
       card("Axis Arms").getByRole("link", { name: /mailing list/i }),
+    ).toHaveCount(0);
+
+    // A list that confirms silently (Mailchimp's default) can be marked
+    // confirmed by hand, which settles the amber chip.
+    await card("J&G Sales").getByRole("button", { name: "Mark confirmed" }).click();
+    const settled = card("J&G Sales").getByRole("link", { name: "Mailing list" });
+    await expect(settled).toHaveClass(/chip--success/);
+    await expect(settled).toHaveAttribute("title", /Marked confirmed/);
+    await expect(
+      card("J&G Sales").getByRole("button", { name: "Mark confirmed" }),
     ).toHaveCount(0);
   });
 
@@ -446,6 +458,19 @@ test.describe("sites", () => {
     // What the demo data stands in for: mail recorded, one asking to confirm.
     await expect(panel.getByText("New surplus arrivals this week")).toBeVisible();
     await expect(panel.getByText("asks you to confirm")).toBeVisible();
+    // What following SARCO's links found: a listing re-read at a new price.
+    await expect(panel.getByText("2 links followed")).toBeVisible();
+    await expect(panel.getByText("— new price")).toBeVisible();
+
+    // Which shops' mail has been followed, which to look at, which to wait on.
+    const shops = panel.locator("details");
+    await expect(shops.locator("summary")).toContainText(
+      "Links followed for 1 shop, 1 to look at",
+    );
+    await shops.locator("summary").click();
+    await expect(shops).toContainText("Mail read, but no link reached the shop: Botach");
+    await expect(shops).toContainText("SARCO, Inc.");
+    await expect(shops).toContainText("Waiting:");
 
     // The checkbox inside a `.switch` is visually hidden, so the label is
     // what gets clicked and the input is what gets asserted on.

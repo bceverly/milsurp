@@ -8,9 +8,19 @@ policy (whether, how often) and a view of what has arrived. See
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, status
+from sqlalchemy import select
 
 from ..deps import AdminUser, AppConfig, DbSession
-from ..schemas import InboxSettingsOut, InboxSettingsUpdate, InboxStateOut, VendorEmailOut
+from ..models import Site
+from ..schemas import (
+    EmailListingOut,
+    InboxSettingsOut,
+    InboxSettingsUpdate,
+    InboxStateOut,
+    ShopLinkStatusOut,
+    VendorEmailOut,
+)
+from ..scrapers import get_scraper_class
 from ..services import inbox
 
 router = APIRouter(prefix="/admin/inbox", tags=["inbox"])
@@ -31,10 +41,44 @@ def _state(session: DbSession, config: AppConfig) -> InboxStateOut:
                 subject=row.subject,
                 asks_to_confirm=row.asks_to_confirm,
                 received_at=row.received_at,
+                links_followed=(
+                    sum(1 for link in row.links if link.url) if row.links_read_at else None
+                ),
+                listings=[
+                    EmailListingOut(
+                        item_id=link.item.id, title=link.item.title, outcome=link.outcome
+                    )
+                    for link in row.links
+                    if link.item is not None
+                ][:5],
             )
             for row in inbox.recent(session)
         ],
+        shops=_shops(session),
     )
+
+
+def _shops(session: DbSession) -> list[ShopLinkStatusOut]:
+    """Every shop with a mailing list, followed ones first, then by name."""
+    status = inbox.link_status(session)
+    order = {"unresolved": 0, "followed": 1, "waiting": 2}
+    rows = []
+    for site in session.execute(select(Site).order_by(Site.name)).scalars():
+        scraper = get_scraper_class(site.slug)
+        if scraper is None or not scraper.newsletter_url:
+            continue
+        found = status.get(site.id) or inbox.LinkStatus(state="waiting")
+        rows.append(
+            ShopLinkStatusOut(
+                site_id=site.id,
+                site_name=site.name,
+                state=found.state,
+                emails=found.emails,
+                followed=found.followed,
+                services=list(found.services),
+            )
+        )
+    return sorted(rows, key=lambda row: order.get(row.state, 3))
 
 
 @router.get("", response_model=InboxStateOut)

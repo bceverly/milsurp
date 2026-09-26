@@ -249,6 +249,8 @@ export const api = {
   updateSite: (id, patch) =>
     request(`/api/sites/${id}`, { method: "PATCH", body: patch }),
   startScan: (id) => request(`/api/sites/${id}/scan`, { method: "POST" }),
+  confirmNewsletter: (id) =>
+    request(`/api/sites/${id}/newsletter/confirmed`, { method: "POST" }),
   cancelScan: (id) => request(`/api/sites/${id}/scan/cancel`, { method: "POST" }),
   // Fetch photographs already known about but never downloaded. Re-scrapes
   // nothing: the URLs are stored, only the bytes are missing.

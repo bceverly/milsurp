@@ -43,6 +43,7 @@ from app.models import (  # noqa: E402
     ScanStatus,
     Site,
     VendorEmail,
+    VendorEmailLink,
     utcnow,
 )
 from app.services import classify, cooldown, hotdeals  # noqa: E402
@@ -456,20 +457,46 @@ def _seed_mailing_lists(session: Session, sites: list[Site], now: datetime) -> N
     """The Sites page's mailing-list chips, in all three states.
 
     A demo database has no inbox to read, so these stand in for what the
-    reader would record: SARCO's marketing email has arrived (green), J&G has
-    only asked for the subscription to be confirmed (amber), and every other
-    shop has sent nothing (red).
+    reader would record: SARCO's marketing email has arrived and its links were
+    followed (green), J&G has only asked for the subscription to be confirmed
+    (amber), Botach's mail came but no link resolved, and every other shop has
+    sent nothing (red).
     """
     for site in sites:
         if site.slug == "sarco":
             site.marketing_email_at = now - timedelta(days=2)
+            mail = VendorEmail(
+                message_id="<demo-sarco@sarcoinc.com>",
+                site_id=site.id,
+                from_address="news@sarcoinc.com",
+                subject="New surplus arrivals this week",
+                received_at=now - timedelta(days=2),
+                links_read_at=now - timedelta(days=2),
+            )
+            session.add(mail)
+            # Its links followed: one to a listing we hold, re-read and found
+            # at a new price, and one to a section page.
+            listing = session.execute(
+                select(Item).where(Item.site_id == site.id).order_by(Item.id).limit(1)
+            ).scalar_one_or_none()
             session.add(
-                VendorEmail(
-                    message_id="<demo-sarco@sarcoinc.com>",
-                    site_id=site.id,
-                    from_address="news@sarcoinc.com",
-                    subject="New surplus arrivals this week",
-                    received_at=now - timedelta(days=2),
+                VendorEmailLink(
+                    email=mail,
+                    link="https://link.sarcoinc.com/q/demo-1",
+                    text="Shop now",
+                    url=listing.url if listing else f"{site.base_url}firearms/",
+                    how="resolved",
+                    item_id=listing.id if listing else None,
+                    outcome="changed" if listing else None,
+                )
+            )
+            session.add(
+                VendorEmailLink(
+                    email=mail,
+                    link="https://link.sarcoinc.com/q/demo-2",
+                    text="New arrivals",
+                    url=f"{site.base_url}new-arrivals/",
+                    how="resolved",
                 )
             )
         elif site.slug == "jg-sales":
@@ -481,6 +508,24 @@ def _seed_mailing_lists(session: Session, sites: list[Site], now: datetime) -> N
                     subject="J&G Sales News: Please Confirm Subscription",
                     asks_to_confirm=True,
                     received_at=now - timedelta(days=1),
+                )
+            )
+        elif site.slug == "botach":
+            # Mail read, and none of its links reached the shop: the state the
+            # panel lists as "to look at".
+            site.marketing_email_at = now - timedelta(days=3)
+            mail = VendorEmail(
+                message_id="<demo-botach@botach.com>",
+                site_id=site.id,
+                from_address="deals@botach.com",
+                subject="Weekend deals",
+                received_at=now - timedelta(days=3),
+                links_read_at=now - timedelta(days=3),
+            )
+            session.add(mail)
+            session.add(
+                VendorEmailLink(
+                    email=mail, link="https://example.test/offer", text="Deal", how="offsite"
                 )
             )
 

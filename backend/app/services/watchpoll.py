@@ -92,7 +92,7 @@ def watched_items(session: Session) -> list[Item]:
 _EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
 
-def _record(session: Session, item: Item, price: float, when: datetime) -> bool:
+def record_price(session: Session, item: Item, price: float, when: datetime) -> bool:
     """Store a new price the way a scan does. True when it actually moved.
 
     Deliberately the same columns and the same history row -- the watchlist,
@@ -165,7 +165,7 @@ def run(session: Session, config: Config, limit: int = MAX_PER_PASS) -> Result:
             item.sold_at = now
             item.price_changed_at = now
             result.sold += 1
-        if _record(session, item, found.price, now):
+        if record_price(session, item, found.price, now):
             result.changed += 1
     session.commit()
     return result
