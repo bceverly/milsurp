@@ -22,25 +22,15 @@ from ..schemas import (
 )
 from ..scrapers import get_scraper_class
 from ..services import inbox
+from ..services import offers as offers_service
 
 router = APIRouter(prefix="/admin/inbox", tags=["inbox"])
-
-
-def _offer_words(offer: VendorOffer) -> str:
-    words = [offer.discount or "an offer"]
-    if offer.code:
-        words.append(f"code {offer.code}")
-    if offer.ends_at:
-        words.append(f"until {offer.ends_at:%b} {offer.ends_at.day}")
-    if offer.personal:
-        words.append("personal to this account")
-    return ", ".join(words)
 
 
 def _state(session: DbSession, config: AppConfig) -> InboxStateOut:
     mail = config.email
     offers = {
-        offer.email_id: _offer_words(offer)
+        offer.email_id: offers_service.describe(offer)
         for offer in session.execute(select(VendorOffer)).scalars()
     }
     return InboxStateOut(

@@ -30,6 +30,8 @@ import Field from "../components/Field.jsx";
 import { Download, Eye, Mail, Plus, Refresh, Trash } from "../components/Icons.jsx";
 import { fromMap } from "../lookup";
 
+//: How long the search waits after the last keystroke before it asks again.
+const SEARCH_PAUSE_MS = 300;
 const TABS = [
   { key: "manufacturers", label: "Manufacturers" },
   { key: "models", label: "Models" },
@@ -1168,6 +1170,18 @@ export default function Armory() {
     [setParam],
   );
 
+  // What is in the box right now, applied to the search a moment after the
+  // typing stops. Applied on every keystroke, each letter reloaded the page:
+  // typing "Mauser" sent over fifty requests in a couple of seconds, and the
+  // proxy's per-visitor limit answered the rest with 429.
+  const [typed, setTyped] = useState(search);
+  useEffect(() => setTyped(search), [search]);
+  useEffect(() => {
+    if (typed === search) return undefined;
+    const timer = setTimeout(() => setSearch(typed), SEARCH_PAUSE_MS);
+    return () => clearTimeout(timer);
+  }, [typed, search, setSearch]);
+
   // The sort, written as "key" or "-key". A sort is a deliberate act, so it
   // pushes -- and because each history entry now carries its own, arriving by
   // Back restores the sort that entry had rather than whatever the last click
@@ -1337,6 +1351,31 @@ export default function Armory() {
     setSelected(new Set());
   }, [statusFilter, search]);
 
+  /**
+   * Only what a filter changes: the three filtered lists. The six unfiltered
+   * ones (every model, caliber and maker, the kinds, the countries, the
+   * counts) do not depend on the search or the Showing filter, and fetching
+   * them again on every change was two thirds of what each keystroke cost.
+   * They are read by `load()`, on arrival and after every write.
+   */
+  const loadFiltered = useCallback(async () => {
+    const ticket = ++loadSeq.current;
+    const filters = {};
+    if (statusFilter) filters.status = statusFilter;
+    if (search.trim()) filters.search = search.trim();
+    const [modelRows, caliberRows, makerRows] = await Promise.all([
+      api.armoryModels(filters),
+      api.armoryCalibers(filters),
+      api.manufacturers(filters),
+    ]);
+    if (ticket !== loadSeq.current) return;
+    setModels(modelRows);
+    setCalibers(caliberRows);
+    setMakers(makerRows);
+    setSelected(new Set());
+  }, [statusFilter, search]);
+  const loadedOnce = useRef(false);
+
   // Whatever moved the tab — a click, Back, Forward, or a pasted link. The
   // sort is no longer reset here: it lives in the URL, so each history entry
   // carries the one that belongs to it and Back restores that rather than
@@ -1346,16 +1385,21 @@ export default function Armory() {
     setSelected(new Set());
   }, [tab]);
 
+  // Everything on arrival; after that a changed filter reloads only what it
+  // filters.
   useEffect(() => {
     let canceled = false;
     setLoading(true);
-    load()
+    (loadedOnce.current ? loadFiltered() : load())
+      .then(() => {
+        loadedOnce.current = true;
+      })
       .catch((error) => !canceled && setFailure(error.message))
       .finally(() => !canceled && setLoading(false));
     return () => {
       canceled = true;
     };
-  }, [load]);
+  }, [load, loadFiltered]);
 
   const act = async (run) => {
     setBusy(true);
@@ -1597,8 +1641,8 @@ export default function Armory() {
               aria-describedby={describedBy}
               className="input"
               type="search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              value={typed}
+              onChange={(event) => setTyped(event.target.value)}
             />
           )}
         </Field>

@@ -749,3 +749,59 @@ class TestOffersOnTheListingPage:
 
         reader = client.get(f"/api/items/{item.id}", headers=normal_user["headers"]).json()
         assert reader["offers"] == []
+
+
+class TestOffersInTheNotifications:
+    """Hot-deal and watchlist emails say why: the shop's sale, never a
+    personal welcome code."""
+
+    def _offer(self, session, site, *, personal, code):
+        mail = VendorEmail(
+            message_id=f"<{code}@x>",
+            site_id=site.id,
+            from_address="deals@classicfirearms.com",
+            subject="Sale",
+            received_at=utcnow().replace(tzinfo=None),
+        )
+        session.add(mail)
+        session.flush()
+        session.add(
+            inbox.VendorOffer(
+                site_id=site.id,
+                email_id=mail.id,
+                discount="15% off",
+                code=code,
+                personal=personal,
+                shown_until=(utcnow() + timedelta(days=3)).replace(tzinfo=None),
+            )
+        )
+        session.commit()
+
+    def test_a_shop_s_sale_is_in_the_email(self, clean_db, shops):
+        from app.services import digest
+
+        site = shops["classic-firearms"]
+        self._offer(clean_db, site, personal=False, code="LABOR15")
+        block = digest.offers_section(clean_db, [site.id], {site.id: site})
+        assert "Classic Firearms" in block
+        assert "15% off with code LABOR15" in block
+        assert "do not include them" in block
+
+    def test_a_personal_code_never_is(self, clean_db, shops):
+        from app.services import digest
+
+        site = shops["classic-firearms"]
+        self._offer(clean_db, site, personal=True, code="WELCOME5X")
+        assert digest.offers_section(clean_db, [site.id], {site.id: site}) == ""
+
+    def test_the_hot_deals_email_carries_it(self, clean_db, shops, app_config):
+        from app.services import digest
+
+        rendered = digest.render_hot_deals(
+            type("U", (), {"full_name": "A", "username": "a"})(),
+            {},
+            {},
+            app_config,
+            offers_html="<tr><td>OFFERS-HERE</td></tr>",
+        )
+        assert "OFFERS-HERE" in rendered[1]

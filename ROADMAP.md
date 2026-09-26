@@ -2326,17 +2326,23 @@ measured against the mail there was: welcome emails.
   for a scan), so the price bands can later tell a short sale from a shelf
   price.
 
-#### 5. Email-sourced deals go out like any other — **Partly shipped** 2026-09-26
+#### 5. Email-sourced deals go out like any other — **Shipped** 2026-09-26
 
-- **Shipped:** when an inbox check changes any price, the hot-deal pass and
-  its emails run at once, instead of at the next scheduled pass up to eight
-  hours away. Watchlist target alerts needed nothing: they run every tick and
-  read the stored price, which bite 2 updates exactly as a scan would.
-- **Shipped by bite 2:** a queued scan runs its own usual follow-ups,
-  including saved-search matches for new listings.
-- **Still to do:** say *why* in the notification ("on sale through Sunday",
-  "10% off with code SWEDE10"). Bite 3's offers are now there to say it with,
-  personal ones excepted.
+- **When an inbox check changes any price**, the hot-deal pass and its emails
+  run at once, instead of at the next scheduled pass up to eight hours away.
+  Watchlist target alerts needed nothing: they run every tick and read the
+  stored price, which bite 2 updates exactly as a scan would.
+- **A queued scan runs its own usual follow-ups**, including saved-search
+  matches for new listings.
+- **The notification says why.** Hot-deal and watchlist emails carry a "From
+  these shops' emails" block: each shop behind the listings mailed, with its
+  live offer in words ("15% off with code LABOR15 (regular priced items only),
+  until Oct 1"). It is one block per message, since an offer belongs to the
+  shop, not the gun, and ten Classic listings would otherwise repeat one code
+  ten times. It notes that codes are used at the shop's checkout and are not
+  in the prices shown. **A personal code never appears**, since a welcome code
+  sent to the notification account is not the reader's to use. The Sites panel
+  and the emails word an offer through the same function (`offers.describe`).
 
 #### 6. Notification memory that does not last forever — **Shipped** 2026-09-26
 
@@ -4239,6 +4245,15 @@ fact.
   debhelper reads it as belonging to a package called `milsurp-prune`, finds
   none, and ships nothing — silently. Three attempts went into fixing the
   *enablement* before anyone checked whether the files were in the package.
+- **Fixed** — Searching the armory answered 429. Every keystroke in the
+  armory's search box reloaded the whole page: nine requests, six of them lists
+  the search does not filter. Typing "Mauser" sent over fifty in a couple of
+  seconds, past nginx's per-visitor API limit (120 a minute, burst 40), and the
+  rest came back 429 in production. The search now waits 300 ms after the last
+  keystroke, and a search or filter change fetches only the three lists it
+  filters; the other six load on arrival and after a write. Typing "Mauser" is
+  three requests. An e2e test counts them.
+
 ### PostgreSQL, and the rule that keeps both engines working — **Shipped**
 
 SQLite is right for one machine and stops being right the moment more than one

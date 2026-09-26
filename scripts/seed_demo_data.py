@@ -51,6 +51,51 @@ from app.services import classify, cooldown, hotdeals  # noqa: E402
 from app.services.image_store import ImageStore  # noqa: E402
 from app.services.scan_service import MAX_PHOTO_ATTEMPTS  # noqa: E402
 
+#: The shops the sample listings are spread across, in this order. Fixed so a
+#: newly added shop changes nothing on the pages that show sample listings: the
+#: visual regression baselines, and any test that reads a listing's shop. A new
+#: shop still appears everywhere shops are listed (the Sites page, the digest's
+#: site list), which is where it should. This is the registry's order as of
+#: September 2026, when the list was pinned, so pinning it moved nothing.
+DEMO_SHOPS = (
+    "royal-tiger",
+    "empire-arms",
+    "hunters-lodge",
+    "collectors-firearms",
+    "ancestry-guns",
+    "axis-arms",
+    "co-gun-sales",
+    "checkpoint-charlies",
+    "legacy-collectibles",
+    "ima-usa",
+    "centerfire-systems",
+    "classic-firearms",
+    "jg-sales",
+    "sarco",
+    "apex-gun-parts",
+    "arms-of-america",
+    "bowman-arms",
+    "dupage-trading",
+    "atlantic-firearms",
+    "demo-vendor",
+    "recoil-gun-works",
+    "officer-store",
+    "arms-unlimited",
+    "aim-surplus",
+    "surplus-defense",
+    "ebayonet",
+    "gunprime",
+    "joe-salter",
+    "simpson-ltd",
+    "madison-guns",
+    "dbg-firearms",
+    "botach",
+    "what-a-country",
+    "clyde-armory",
+    "sportsmans-outdoor",
+    "target-sports-usa",
+)
+
 # (title, price, category, age_days, sold, previous_price)
 # Chosen to exercise every UI state: new badges, price reductions, sold and
 # de-listed items, missing prices, rifles, handguns and accessories.
@@ -544,6 +589,17 @@ def _seed_mailing_lists(session: Session, sites: list[Site], now: datetime) -> N
             )
 
 
+def _demo_shops(sites: list[Site]) -> list[Site]:
+    """The shops the sample listings are spread across: a fixed list, not
+    every registered shop. Spread across all of them, each new shop moved
+    every listing to a different shop, and every picture of a page that shows
+    a shop's name -- the inventory, the item page's similar listings -- had to
+    be re-taken for a change that touched none of them. See DEMO_SHOPS."""
+    order = {slug: position for position, slug in enumerate(DEMO_SHOPS)}
+    shops = sorted((site for site in sites if site.slug in order), key=lambda s: order[s.slug])
+    return shops or list(sites)
+
+
 def seed(  # noqa: PLR0912 - a linear fixture builder; branches are per-field
     reset: bool = False, quiet: bool = False, now: datetime | None = None
 ) -> int:
@@ -564,6 +620,8 @@ def seed(  # noqa: PLR0912 - a linear fixture builder; branches are per-field
             if not quiet:
                 print("  Cleared existing listings.")
 
+        shops = _demo_shops(sites)
+
         models = _demo_models(session)
 
         created = 0
@@ -580,8 +638,8 @@ def seed(  # noqa: PLR0912 - a linear fixture builder; branches are per-field
             # to click. Keeping the filler on the vendors nothing scans makes
             # the catalog size independent of test ordering.
             is_filler = index >= len(LISTINGS)
-            eligible = [s for s in sites if s.slug != DEMO_SITE_SLUG] if is_filler else sites
-            site = (eligible or sites)[index % len(eligible or sites)]
+            eligible = [s for s in shops if s.slug != DEMO_SITE_SLUG] if is_filler else shops
+            site = (eligible or shops)[index % len(eligible or shops)]
             key = f"demo-{index:03d}"
 
             existing = session.execute(

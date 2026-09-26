@@ -865,6 +865,9 @@ test.describe("armory", () => {
       .innerText();
     const needle = firstName.slice(0, 3);
     await signedIn.getByRole("searchbox").fill(needle);
+    // The search is applied a moment after typing stops, so wait for it to
+    // reach the URL before reading it.
+    await expect(signedIn).toHaveURL(new RegExp(`q=${encodeURIComponent(needle)}`));
     await expect(signedIn.locator("tbody tr").first()).toBeVisible();
 
     const before = signedIn.url();
@@ -899,12 +902,38 @@ test.describe("armory", () => {
      */
     await signedIn.getByRole("searchbox").fill("mauser");
     await expect(signedIn.getByRole("searchbox")).toHaveValue("mauser");
-    expect(signedIn.url()).toContain("q=mauser");
+    await expect(signedIn).toHaveURL(/q=mauser/);
 
     // Six keystrokes, zero history entries: one Back leaves the armory
     // altogether rather than spelling "mause", "maus", "mau"...
     await signedIn.goBack();
     await expect(signedIn.getByRole("heading", { name: "Inventory" })).toBeVisible();
+  });
+
+  test("typing a search asks the server once, not once per letter", async ({
+    signedIn,
+  }) => {
+    /**
+     * Each keystroke used to reload the whole page: nine requests, six of
+     * them lists the search does not even filter. Typing "Mauser" sent over
+     * fifty in a couple of seconds, and production's proxy answered the rest
+     * with 429. Now the search waits for the typing to stop and reloads only
+     * the three lists it filters.
+     */
+    await signedIn.goto("/armory");
+    await expect(signedIn.getByRole("searchbox")).toBeVisible();
+    await signedIn.waitForLoadState("networkidle");
+
+    const asked = [];
+    signedIn.on("request", (request) => {
+      if (request.url().includes("/api/")) asked.push(request.url());
+    });
+    await signedIn.getByRole("searchbox").pressSequentially("mauser", { delay: 40 });
+    await expect(signedIn).toHaveURL(/q=mauser/);
+    await signedIn.waitForLoadState("networkidle");
+
+    expect(asked.length).toBeLessThanOrEqual(3);
+    expect(asked.every((url) => url.includes("search=mauser"))).toBe(true);
   });
 
   test("calibers sort by bore, not by the digits in their names", async ({

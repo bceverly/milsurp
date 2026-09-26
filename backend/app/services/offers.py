@@ -185,3 +185,21 @@ def read(subject: str, body_text: str, sent: datetime) -> Offer | None:
         personal=bool(_PERSONAL.search(text)),
         ends_at=_ends_at(text, sent),
     )
+
+
+def describe(offer: object, *, with_privacy: bool = True) -> str:
+    """An offer in words: "15% off with code SURPLUS15 (regular priced items
+    only), until Oct 1". ``offer`` is a stored ``VendorOffer``."""
+    words = getattr(offer, "discount", None) or "an offer"
+    code = getattr(offer, "code", None)
+    if code:
+        words += f" with code {code}"
+    terms = getattr(offer, "terms", None)
+    if terms:
+        words += f" ({terms})"
+    ends_at = getattr(offer, "ends_at", None)
+    if ends_at:
+        words += f", until {ends_at:%b} {ends_at.day}"
+    if with_privacy and getattr(offer, "personal", False):
+        words += ", personal to this account"
+    return words

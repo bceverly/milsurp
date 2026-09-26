@@ -463,7 +463,7 @@ test.describe("sites", () => {
     await expect(panel.getByText("— new price")).toBeVisible();
 
     // The sale it announced, in words, on the email's line.
-    await expect(panel.getByText("15% off, code SURPLUS15")).toBeVisible();
+    await expect(panel.getByText("15% off with code SURPLUS15")).toBeVisible();
 
     // And on the page of the listing it named: the offer, never the price.
     await panel.locator(".mailing-panel__listings a").first().click();

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import html
 import logging
+from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 from io import BytesIO
@@ -39,7 +40,7 @@ from ..models import (
     as_utc,
     utcnow,
 )
-from . import hotdeals, mailer, search, watchlist
+from . import hotdeals, inbox, mailer, offers, search, watchlist
 from .image_store import ImageStore, ImageStoreError
 
 log = logging.getLogger("milsurp.digest")
@@ -607,6 +608,8 @@ def render_digest(
     config: Config,
     saved: list[tuple[SavedSearch, list[Item], int]] | None = None,
     watched: list | None = None,
+    *,
+    offers_html: str = "",
 ) -> tuple[str, str, dict[str, bytes]]:
     """Return ``(subject, html_body, inline_images)``.
 
@@ -716,6 +719,7 @@ def render_digest(
   {_section('New listings', new_items, sites, zone, False, photo_cids)}
   {_section('Price reductions', price_drops, sites, zone, True, photo_cids)}
   {_saved_sections(saved, sites, base_url, photo_cids)}
+  {offers_html}
 
   {'' if (new_count or drop_count or watched) else f'''
   <tr><td style="padding:24px;color:{MUTED};font-size:14px;">
@@ -970,6 +974,35 @@ def send_saved_search(
     return entry
 
 
+def offers_section(session: Session, site_ids: Iterable[int], sites: dict[int, Site]) -> str:
+    """What the shops behind these listings are offering by email right now.
+
+    One block for the whole message rather than a line per listing: an offer
+    is the shop's, not the gun's, and ten Classic listings would otherwise
+    repeat the same code ten times. **Never a personal code** -- a welcome
+    code sent to the notification account is not the reader's to use.
+    """
+    rows: list[str] = []
+    for site_id in sorted(set(site_ids), key=lambda i: sites[i].name if i in sites else ""):
+        site = sites.get(site_id)
+        if site is None:
+            continue
+        rows.extend(
+            f"<li><strong>{_e(site.name)}</strong>: {_e(offers.describe(offer))}</li>"
+            for offer in inbox.active_offers(session, site_id, include_personal=False)
+        )
+    if not rows:
+        return ""
+    return f"""
+  <tr><td style="padding:18px 24px 0;color:{INK};font-size:14px;line-height:1.5;">
+    <div style="font-weight:700;color:{NAVY};">From these shops' emails</div>
+    <ul style="margin:6px 0 0;padding-left:18px;">{''.join(rows)}</ul>
+    <div style="color:{MUTED};font-size:12px;margin-top:4px;">
+      Codes are used at the shop's checkout; the prices above do not include them.
+    </div>
+  </td></tr>"""
+
+
 def send_watch_alert(
     session: Session, user: User, updates: list, config: Config | None = None
 ) -> EmailLog:
@@ -1000,7 +1033,17 @@ def send_watch_alert(
         .scalars()
         .all()
     }
-    _subject, body, images = render_digest(user, {}, {}, sites, now, config, [], updates)
+    _subject, body, images = render_digest(
+        user,
+        {},
+        {},
+        sites,
+        now,
+        config,
+        [],
+        updates,
+        offers_html=offers_section(session, sites, sites),
+    )
 
     # Its own subject rather than the digest's. "Milsurp Monitor: 3 new
     # listings" in the notification shade is not what somebody who asked to be
@@ -1195,6 +1238,8 @@ def render_hot_deals(
     grouped: dict[str, list],
     sites: dict[int, Site],
     config: Config,
+    *,
+    offers_html: str = "",
 ) -> tuple[str, str, dict[str, bytes]]:
     """``(subject, html_body, inline_images)`` for the hot-deals email.
 
@@ -1296,6 +1341,7 @@ def render_hot_deals(
   </td></tr>
 
   {''.join(sections)}
+  {offers_html}
 
   <tr><td style="padding:26px 24px 24px;">
     <a href="{_e(base_url)}/hot-deals" style="display:inline-block;background:{BLUE};
@@ -1343,7 +1389,13 @@ def send_hot_deals(
     for deal in found:
         grouped.setdefault(deal.bucket, []).append(deal)
 
-    subject, body, images = render_hot_deals(user, grouped, sites, config)
+    subject, body, images = render_hot_deals(
+        user,
+        grouped,
+        sites,
+        config,
+        offers_html=offers_section(session, (deal.item.site_id for deal in found), sites),
+    )
 
     try:
         mailer.send_html(user.email, subject, body, config=config, inline_images=images)

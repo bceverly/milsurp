@@ -2902,6 +2902,11 @@ things keep the images still from one run to the next:
 - **Every date is fixed.** The sample listings are dated back from one moment
   (`seed_demo_data.py --now`), and the browser clock is set to that same
   moment. Pages read the same next month as they do today.
+- **So is which shop each listing belongs to.** The seed spreads its listings
+  over a fixed list of shops (`DEMO_SHOPS`), not every registered one.
+  Otherwise each new shop moved every listing to a different shop and forced
+  a new picture of every page showing a shop's name. A new shop now changes
+  only the pages that list shops: Sites and the email digest settings.
 
 When a test fails, the expected, actual and diff images are in
 `frontend/test-results-visual/`. If the change was intended,
