@@ -14,11 +14,11 @@ The whole point of the application is breadth. Each new vendor is one subclass
 of `SiteScraper` in `backend/app/scrapers/` plus one line in `SCRAPER_CLASSES`;
 scheduling, admin controls, price history, images and digests all come for free.
 
-**Where this stands: thirty-seven vendors read, three queued.** Two of the
-three are buildable, from the September 2026 military-surplus survey: WW2
-Collectibles and Nickerson Military. The third is blocked at the door: WIS
-Transfers' firewall challenges any client that says it is not a browser, and
-this one says so honestly.
+**Where this stands: thirty-eight vendors read, two queued.** Nickerson
+Military is buildable but weak (one hand-edited price list, from the September
+2026 military-surplus survey). WIS Transfers is blocked at the door: its
+firewall challenges any client that says it is not a browser, and this one
+says so honestly.
 
 **Clyde Armory shipped once its certificate problem was understood.** Their
 server sends its own certificate without the intermediate; browsers fetch the
@@ -76,6 +76,7 @@ the whole catalog as JSON to the widget that draws the grid. See
 | [Sportsman's Outdoor Superstore](https://www.sportsmansoutdoorsuperstore.com/) | `sportsmans-outdoor` | ColdFusion, custom — police trade-in Glocks and the used rack, in-stock cards only; the 1,877-listing archive behind them is left out |
 | [Target Sports USA](https://www.targetsportsusa.com/used-gunspolice-trade-c-998.aspx) | `target-sports-usa` | AspDotNetStorefront — every product page's microdata, because the category page shows no price or stock. Sold out when built; waits for a restock |
 | [Civilian Marksmanship Program](https://thecmp.org/) | `cmp` | Custom — the grade-and-price tables for Garands, 1903s, 1917s, Krags, carbines and 1911s. Never its auctions |
+| [WW2 Collectibles](https://ww2collectibles.com/products/products_list/rifles/) | `ww2-collectibles` | Custom (AppSoft CMS) — 146 collector rifles and pistols, 67 of them sold with their last price; K98 snipers, G43s, SVT-40s, Lugers, Nambus. New-made reproductions and a blank-firer are left out |
 | [Allegheny Arsenal](https://mg34.com/product-category/guns-for-sale) | `allegheny-arsenal` | BigCommerce — the 42 military listings of a 113-listing gun shelf, chosen by title; the new retail stock beside them is left out |
 
 ### Planned
@@ -118,9 +119,9 @@ about.
 Two more joined the queue on 2026-09-26, from the police trade-in survey below:
 **Sportsman's Outdoor Superstore** (`sportsmans-outdoor`) and **Target Sports
 USA** (`target-sports-usa`), both shipped the same day. Three more joined on
-2026-09-27 from the military-surplus survey below: **Allegheny Arsenal**
-(shipped the same day), **WW2 Collectibles** and **Nickerson Military**. WIS
-Transfers is still the only one blocked.
+2026-09-27 from the military-surplus survey below: **Allegheny Arsenal** and
+**WW2 Collectibles** (both shipped the same day) and **Nickerson Military**.
+WIS Transfers is still the only one blocked.
 
 The platform column below was originally **inferred from the URL shape** — a
 `/product-category/` or `/product-tag/` path means WooCommerce, `/collections/`
@@ -1109,7 +1110,7 @@ code and a price, "SOLD OUT" with a date, or "Available at Stores".
   - "Back in stock" is also digest news for every watcher, alongside sold and
     price moves. The alert email's subject says "… is back in stock".
 
-### Military surplus survey, September 2026 — **one shipped, two queued, the rest refused or gone**
+### Military surplus survey, September 2026 — **two shipped, one queued, the rest refused or gone**
 
 A web search for military-surplus and C&R dealers not already read or
 refused, then a fetch of each before anything was written down. Every fetch
@@ -1119,7 +1120,7 @@ multi-page walks waited 1.5 seconds between pages. Measured 2026-09-27.
 | Site | Section | Platform | What the fetch showed | Outcome |
 | --- | --- | --- | --- | --- |
 | [Allegheny Arsenal](https://mg34.com/product-category/guns-for-sale) | `/product-category/guns-for-sale`, paged by `?page=N` | BigCommerce (Stencil) | **113 listings over five pages, every one priced**, the product id on each card (`data-product-id`), "Only 1 left in stock" badges. Mostly surplus and collector pieces: No. 4 Mk1 (T) snipers, an SVT-38, P08 Lugers, a Japanese Type 2 paratrooper rifle, semi-auto belt-feds (Vz.59, PKM, SG-43, Breda M37). But it is mixed: a Nighthawk 1911, a Blaser LRT and a new Franchi sit on the same shelf. The rest of the shop is parts, by weapon. robots.txt disallows only the cart, account and search pages | **Shipped 2026-09-27: 42 of the 113.** A BigCommerce subclass. The shelf is two shops in one, so a listing is read only when its title says it is military: a marker the shop writes on surplus ("C&R", "WWII", "USGI", "Bring Back", "Police Trade In") or a military model name (Mosin, Enfield, P08, Nambu, the belt-feds). That reads the Lugers, Mosins, No. 4 (T)s, a Thompson and the belt-feds on surplus parts, and leaves out 14 closeout Remington 700 barreled actions, POF ARs, Vigilance .50s, a Kriss and a Nighthawk. A Bramit suppressor, a "not available for sale" teaser and a "Trench Gun Conversion Service" name a war and are left out too. "Luger" alone is not a model name, because "9mm Luger" is a caliber |
-| [WW2 Collectibles](https://ww2collectibles.com/products/products_list/rifles/) | `/products/products_list/rifles/` and `/pistols/`, paged by `?pagenum=N` | AppSoft CMS, custom | **Rifles: 89 listings, 50 of them SOLD. Pistols: 64, 22 SOLD.** Each card carries `data-id`, `data-name` and `data-price`, and a SOLD label when it has gone. Arisakas, K98s, Lugers, P38s, CZ 27s. The pistol shelf also holds blank-firing replicas (a Kimar "PPK style" 8mm PAK), which are not firearms. robots.txt disallows nothing | **Queued** (`ww2-collectibles`). A small parser of its own; sold cards are dated prices, as at Recoil |
+| [WW2 Collectibles](https://ww2collectibles.com/products/products_list/rifles/) | `/products/products_list/rifles/` and `/pistols/`, paged by `?pagenum=N` | AppSoft CMS, custom | **Rifles: 89 listings, 50 of them SOLD. Pistols: 64, 22 SOLD.** Each card carries `data-id`, `data-name` and `data-price`, and a SOLD label when it has gone. Arisakas, K98s, Lugers, P38s, CZ 27s. The pistol shelf also holds blank-firing replicas (a Kimar "PPK style" 8mm PAK), which are not firearms. robots.txt disallows nothing | **Shipped 2026-09-27: 146 listings, 67 of them sold.** A parser of its own (`ww2_collectibles.py`). Rifles, Pistols, and Machine Guns Semi-Auto for the three guns found nowhere else (a PPS-43, a Tantal and a 1919A4 on original kits); in that section only a title saying "Semi-Auto" is read, which leaves out its magazines and loaders. Machine Guns, Submachine Guns, Shotguns and Class 3 were measured and add only display pieces, pouches, magazines and repeats. Left out: nine DK Production Group reproductions (new-made MP38s and STG44s) and the blank-firing pistol. Flare pistols stay, as handguns, like everywhere else. Sold cards keep their last price and are read as sold, as at Recoil. The product page gives the description (labeled fields: maker, date, caliber, condition, bore) and a full-size gallery, 12 photos on a typical gun. No mailing list on the site |
 | [Nickerson Military](https://www.nickersonmilitary.com/military-firearms-for-sale/) | `/military-firearms-for-sale/` | WordPress, one hand-written page | **One price list, "UPDATED 09/18/2026"**: 29 lines under era headings ("WORLD WAR II RIFLES"), each a title and a price. Garands, M1 Carbines, M1917s, a Krag, a Reising, a No. 4 (T). No photos, no links, no ids. Two lines are the same Yugo M48 at different prices | **Queued** (`nickerson-military`), last of the three. Keys must come from the title text, and a line's removal is the only sign of a sale |
 | [Victory Arms & Munitions](https://www.victory-arms.com/milsurps) | `/milsurps` | OpenCart | **One listing** ("Showing 1 to 1 of 1"). The shop is mostly surplus accessories and ammunition | **Refused: nearly empty**, as KY Gun Co was. Worth a recheck |
 | [OWS-Ammo](https://ows-ammo.com/product-category/military-surplus/) | `/product-category/military-surplus/` | Cloudflare | **403** to our agent, robots.txt included | **Blocked** |
@@ -4691,6 +4692,19 @@ on PostgreSQL.
   it finds nothing. The configuration still wins where it is set: an install
   that names its own paths has made a decision. `debian/control` recommends
   `chromium-driver` rather than the shim.
+- **Shipped** 2026-09-27 — Chrome and its driver stay in step through
+  `apt upgrade`. Chrome updates from Google's apt repository; a chromedriver
+  unpacked into /usr/local/bin by hand does not, so every Chrome release left
+  the two a major version apart. Discovery already noticed that, rejected the
+  stale driver and handed the job to Selenium Manager, but Selenium Manager
+  prefers a driver on PATH, even a stale one. On the production VM it kept
+  using the 153 driver with Chrome 154, and every canary journal carried its
+  "might not be compatible" warning instead of a download.
+  `_prepare_selenium_manager` now sets `SE_SKIP_DRIVER_IN_PATH`, so Selenium
+  Manager downloads the matching driver into `/etc/milsurp/selenium` once per
+  Chrome release and reuses it after that. Checked on the VM: 153 from PATH
+  without it, 154 downloaded with it. The hand-installed driver can stay; it
+  is simply not used while it lags.
 - **Shipped** 2026-09-27 — Two more false alarms, and one real cost behind
   them. The canary exited failed every morning, for two shops:
   - **Checkpoint Charlie's, "resting", every day.** Its CDN allows a few

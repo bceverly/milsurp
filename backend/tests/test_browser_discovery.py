@@ -199,6 +199,15 @@ class TestSomewhereToPutTheDownloadedDriver:
     browser, network and Selenium -- and the message would blame Chrome.
     """
 
+    @pytest.fixture(autouse=True)
+    def _restore_environment(self, monkeypatch):
+        """The function writes os.environ. Setting each variable through
+        monkeypatch first records how it was, so the writes do not outlive the
+        test; a bare delenv of an absent variable records nothing."""
+        for name in ("SE_SKIP_DRIVER_IN_PATH", "SE_CACHE_PATH"):
+            monkeypatch.setenv(name, "")
+            monkeypatch.delenv(name)
+
     @staticmethod
     def _config(app_config, tmp_path):
         from dataclasses import replace
@@ -208,14 +217,30 @@ class TestSomewhereToPutTheDownloadedDriver:
     def test_it_names_a_directory_and_creates_it(self, app_config, tmp_path, monkeypatch):
         monkeypatch.delenv("SE_CACHE_PATH", raising=False)
         config = self._config(app_config, tmp_path)
-        browser._let_selenium_manager_cache(config)
+        browser._prepare_selenium_manager(config)
         assert browser.os.environ["SE_CACHE_PATH"] == str(tmp_path / "selenium")
         assert (tmp_path / "selenium").is_dir()
 
     def test_an_administrators_own_choice_is_left_alone(self, app_config, tmp_path, monkeypatch):
         monkeypatch.setenv("SE_CACHE_PATH", "/somewhere/else")
-        browser._let_selenium_manager_cache(self._config(app_config, tmp_path))
+        browser._prepare_selenium_manager(self._config(app_config, tmp_path))
         assert browser.os.environ["SE_CACHE_PATH"] == "/somewhere/else"
+
+    def test_it_skips_the_driver_on_path(self, app_config, tmp_path, monkeypatch):
+        """Selenium Manager prefers a driver on PATH over downloading one, even
+        a stale one: on the production VM it took a 153 driver from
+        /usr/local/bin for Chrome 154 and only warned. Discovery has already
+        rejected that driver by the time Selenium Manager is asked."""
+        monkeypatch.delenv("SE_SKIP_DRIVER_IN_PATH", raising=False)
+        monkeypatch.delenv("SE_CACHE_PATH", raising=False)
+        browser._prepare_selenium_manager(self._config(app_config, tmp_path))
+        assert browser.os.environ["SE_SKIP_DRIVER_IN_PATH"] == "true"
+
+    def test_unless_an_administrator_says_otherwise(self, app_config, tmp_path, monkeypatch):
+        monkeypatch.setenv("SE_SKIP_DRIVER_IN_PATH", "false")
+        monkeypatch.delenv("SE_CACHE_PATH", raising=False)
+        browser._prepare_selenium_manager(self._config(app_config, tmp_path))
+        assert browser.os.environ["SE_SKIP_DRIVER_IN_PATH"] == "false"
 
     def test_a_directory_that_cannot_be_made_is_not_fatal(self, app_config, monkeypatch):
         """Without it Selenium Manager falls back to its own default, which is
@@ -224,5 +249,5 @@ class TestSomewhereToPutTheDownloadedDriver:
 
         monkeypatch.delenv("SE_CACHE_PATH", raising=False)
         config = replace(app_config.scraping, driver_cache_path=Path("/proc/nope/selenium"))
-        browser._let_selenium_manager_cache(config)
+        browser._prepare_selenium_manager(config)
         assert "SE_CACHE_PATH" not in browser.os.environ

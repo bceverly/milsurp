@@ -1,0 +1,22 @@
+{
+  "slug": "ww2-collectibles",
+  "recorded_at": "2026-09-27T17:21:00+00:00",
+  "pages": [
+    {
+      "url": "https://ww2collectibles.com/products/products_list/rifles/",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://ww2collectibles.com/products/products_detail/ww2_japanese_arisaka_type_44_calvary_carbine_boltaction_rifle_caliber_6550_original/",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://ww2collectibles.com/products/products_detail/ww2_japanese_matching_type_2_paratrooper_twopiece_takedown_bolt_action_cal_77mm_x_58_mumintact_rifle_original/",
+      "file": "0003.html.gz"
+    },
+    {
+      "url": "https://ww2collectibles.com/products/products_detail/ww2_german_k98_matching_1943_boltaction_caliber_8mm_sniper_rifle_by_jp_sauer_sohn_with_vlb_zf41_sniper_scope_duv_mount_sling_original/",
+      "file": "0004.html.gz"
+    }
+  ]
+}

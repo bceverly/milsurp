@@ -712,6 +712,14 @@ version has fallen behind the browser's, which leaves the driver reported as
 the matching one. An unknown version is treated as a match: a false mismatch
 would throw away a working driver, which is the worse mistake.
 
+**Selenium Manager is told to skip the driver on `PATH`** (`SE_SKIP_DRIVER_IN_PATH`,
+unless an administrator has set it). Left to itself it prefers a driver on
+`PATH` to a download, even a stale one: on the production VM it kept using the
+153 driver in `/usr/local/bin` with Chrome 154 and only logged a warning. By
+the time it is asked, discovery has already rejected that driver, so the
+download is the right answer. It happens once per Chrome release; after that
+the driver is in the cache. The hand-installed driver can stay where it is.
+
 That recovery needs somewhere to put what it downloads, and under the hardened
 unit almost nowhere is: Selenium Manager's default is `~/.cache/selenium`,
 `ProtectHome=true` hides it, and `ProtectSystem=strict` makes the rest of the
@@ -2878,7 +2886,7 @@ WooCommerce vendors here, and each one should be measured the same way before
 being switched — an endpoint answering 200 is not evidence that its answer is
 better than the page's.
 
-Thirty-seven vendors are read today. Three more are queued in
+Thirty-eight vendors are read today. Two more are queued in
 [ROADMAP.md](ROADMAP.md), grouped by the platform they run on because one base
 class unlocks a whole group.
 

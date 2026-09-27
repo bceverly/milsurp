@@ -45,27 +45,15 @@ class PlannedSite:
 PLANNED: tuple[PlannedSite, ...] = (
     # -- buildable, not written yet ----------------------------------------
     PlannedSite(
-        slug="ww2-collectibles",
-        name="WW2 Collectibles",
-        base_url="https://ww2collectibles.com/",
-        platform="AppSoft CMS, custom",
-        blocker=(
-            "Not written yet; needs its own small parser. Rifles and Pistols "
-            "held 153 listings on 2026-09-27, 81 for sale and 72 marked SOLD, "
-            "with id, name and price as data attributes on each card. "
-            "Blank-firing replicas share the pistol shelf and must be left out."
-        ),
-    ),
-    PlannedSite(
         slug="nickerson-military",
         name="Nickerson Military",
         base_url="https://www.nickersonmilitary.com/",
         platform="WordPress page, hand-written",
         blocker=(
-            "Not written yet, and the weaker of the two: one hand-edited "
-            "price list, 29 lines with a price each on 2026-09-27, and no "
-            "photos, links or ids. Keys would come from titles, and a "
-            "removed line is the only sign of a sale."
+            "Not written yet, and the weakest of the military-surplus survey: "
+            "one hand-edited price list, 29 lines with a price each on "
+            "2026-09-27, and no photos, links or ids. Keys would come from "
+            "titles, and a removed line is the only sign of a sale."
         ),
     ),
     # -- blocked at the door -----------------------------------------------

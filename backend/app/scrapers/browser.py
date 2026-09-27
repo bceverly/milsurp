@@ -294,26 +294,40 @@ def find_chrome() -> tuple[str | None, str | None]:
     return binary, _first_usable_driver(binary, _DRIVERS_FOR.get(binary, ()))
 
 
-def _let_selenium_manager_cache(config: ScrapingConfig) -> None:
-    """Point Selenium Manager at somewhere it is actually allowed to write.
+def _prepare_selenium_manager(config: ScrapingConfig) -> None:
+    """Get Selenium Manager ready to fetch the driver discovery could not find.
 
-    Reached only when no driver was found on the machine, which since the
+    Reached only when no driver on the machine matched, which since the
     version check above is also the ordinary state of a host whose Chrome has
     just been upgraded. Selenium Manager downloads the matching driver and
-    keeps it, and that recovery is the whole answer to `apt upgrade` --
-    *provided it has somewhere to keep it*.
+    keeps it, and that recovery is the whole answer to `apt upgrade`. Two
+    things stand in its way, and this removes both.
 
-    Under the shipped unit it does not. Its default is ~/.cache/selenium;
-    ProtectHome=true hides the account's home, ProtectSystem=strict makes the
-    rest of the filesystem read-only, and only ReadWritePaths survives. So the
-    download would fail on a machine with a working browser, network and
-    Selenium -- and the message would blame Chrome.
+    **It prefers a driver on PATH, even a stale one.** Given no driver, it
+    looks on PATH first and uses what it finds there: on the production VM, a
+    153 driver in /usr/local/bin with Chrome 154, and a warning ("might not be
+    compatible ... advised to delete the driver in PATH and retry") in every
+    canary journal instead of a download. Discovery has already tried and
+    rejected every driver it knows about by the time this runs, so the one on
+    PATH is one it rejected. ``SE_SKIP_DRIVER_IN_PATH`` tells Selenium Manager
+    to skip it and fetch the match, which was checked on that VM: 153 from PATH
+    without it, 154 downloaded with it. An administrator's own setting of it
+    is left alone.
 
-    SE_CACHE_PATH is Selenium Manager's own override and is left alone if an
-    administrator has already set one. A directory that cannot be created is
-    not fatal: without it Selenium Manager falls back to its default, which is
-    where it would have looked anyway.
+    **It needs somewhere it is allowed to write.** Its default is
+    ~/.cache/selenium; under the shipped unit ProtectHome=true hides the
+    account's home, ProtectSystem=strict makes the rest of the filesystem
+    read-only, and only ReadWritePaths survives. So the download would fail on
+    a machine with a working browser, network and Selenium -- and the message
+    would blame Chrome. ``SE_CACHE_PATH`` is its own override and is left alone
+    if an administrator has already set one. A directory that cannot be
+    created is not fatal: without it Selenium Manager falls back to its
+    default, which is where it would have looked anyway.
+
+    The download happens once per Chrome release. After that the driver is in
+    the cache, and the next session finds it there.
     """
+    os.environ.setdefault("SE_SKIP_DRIVER_IN_PATH", "true")
     if os.environ.get("SE_CACHE_PATH") or config.driver_cache_path is None:
         return
     cache = Path(config.driver_cache_path)
@@ -422,7 +436,7 @@ def chrome(config: ScrapingConfig) -> Iterator[Any]:
     if binary:
         options.binary_location = binary
     if not driver_path:
-        _let_selenium_manager_cache(config)
+        _prepare_selenium_manager(config)
 
     try:
         # The environment goes to the driver, which passes it to the browser

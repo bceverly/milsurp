@@ -57,6 +57,7 @@ from .sportsmans_outdoor import SportsmansOutdoorScraper
 from .surplus_defense import SurplusDefenseScraper
 from .target_sports_usa import TargetSportsUsaScraper
 from .what_a_country import WhatACountryScraper
+from .ww2_collectibles import Ww2CollectiblesScraper
 
 
 def _demo_site_enabled() -> bool:
@@ -115,6 +116,7 @@ SCRAPER_CLASSES: tuple[type[SiteScraper], ...] = (
     TargetSportsUsaScraper,
     CmpScraper,
     AlleghenyArsenalScraper,
+    Ww2CollectiblesScraper,
 )
 
 _REGISTRY: dict[str, type[SiteScraper]] = {cls.slug: cls for cls in SCRAPER_CLASSES}
