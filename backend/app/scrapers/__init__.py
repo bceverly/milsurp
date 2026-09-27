@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 
 from .aim_surplus import AimSurplusScraper
+from .allegheny_arsenal import AlleghenyArsenalScraper
 from .ancestry_guns import AncestryGunsScraper
 from .apex_gun_parts import ApexGunPartsScraper
 from .arms_of_america import ArmsOfAmericaScraper
@@ -113,6 +114,7 @@ SCRAPER_CLASSES: tuple[type[SiteScraper], ...] = (
     SportsmansOutdoorScraper,
     TargetSportsUsaScraper,
     CmpScraper,
+    AlleghenyArsenalScraper,
 )
 
 _REGISTRY: dict[str, type[SiteScraper]] = {cls.slug: cls for cls in SCRAPER_CLASSES}

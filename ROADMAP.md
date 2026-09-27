@@ -14,10 +14,11 @@ The whole point of the application is breadth. Each new vendor is one subclass
 of `SiteScraper` in `backend/app/scrapers/` plus one line in `SCRAPER_CLASSES`;
 scheduling, admin controls, price history, images and digests all come for free.
 
-**Where this stands: thirty-three vendors read, one queued — and it is
-blocked at the door:** WIS Transfers' firewall challenges any client that says
-it is not a browser, and this one says so honestly. Nothing buildable is
-waiting.
+**Where this stands: thirty-seven vendors read, three queued.** Two of the
+three are buildable, from the September 2026 military-surplus survey: WW2
+Collectibles and Nickerson Military. The third is blocked at the door: WIS
+Transfers' firewall challenges any client that says it is not a browser, and
+this one says so honestly.
 
 **Clyde Armory shipped once its certificate problem was understood.** Their
 server sends its own certificate without the intermediate; browsers fetch the
@@ -72,16 +73,20 @@ the whole catalog as JSON to the widget that draws the grid. See
 | [Clyde Armory](https://clydearmory.com/agency-trade-in/) | `clyde-armory` | BigCommerce — 44 agency trade-ins (Glocks, a P320, HK VP9 and HK45, Mini-14s, shotguns, SBRs) beside trade-in optics and uppers. **First shop read through a shipped intermediate certificate**, because its server leaves it out |
 | [What A Country](https://whatacountry.com/) | `what-a-country` | Bespoke ASP.NET — thirty surplus parts kits on one page (Colt M16A1, M1 Carbine, AMD-65, Suomi, MG3, HK11, FAL, UZI, DPM, RPD, STENs). The product page is read every scan, because it is the only place a sold kit says so |
 | [Botach](https://botach.com/) | `botach` | **Algolia base class** — the search index their widget reads, with its published search-only key. Only the trade-in shelf: 22 published listings, police trade-ins labeled by their own titles |
+| [Sportsman's Outdoor Superstore](https://www.sportsmansoutdoorsuperstore.com/) | `sportsmans-outdoor` | ColdFusion, custom — police trade-in Glocks and the used rack, in-stock cards only; the 1,877-listing archive behind them is left out |
+| [Target Sports USA](https://www.targetsportsusa.com/used-gunspolice-trade-c-998.aspx) | `target-sports-usa` | AspDotNetStorefront — every product page's microdata, because the category page shows no price or stock. Sold out when built; waits for a restock |
+| [Civilian Marksmanship Program](https://thecmp.org/) | `cmp` | Custom — the grade-and-price tables for Garands, 1903s, 1917s, Krags, carbines and 1911s. Never its auctions |
+| [Allegheny Arsenal](https://mg34.com/product-category/guns-for-sale) | `allegheny-arsenal` | BigCommerce — the 42 military listings of a 113-listing gun shelf, chosen by title; the new retail stock beside them is left out |
 
 ### Planned
 
 **This list is now also in the application.** `app/scrapers/planned.py` carries
-the three vendors still queued, and the Sites page shows them under **Coming
+the vendors still queued, and the Sites page shows them under **Coming
 soon** with what each is waiting on. It is deliberately narrower than this
 section: only vendors that are still going to be built, never one that was
 measured and refused — Impact Guns, USA Gun Shop, Edelweiss Arms, The Mosin
 Crate, Century Arms, Gideon Tactical, Birmingham Pistol Wholesale, KY Gun Co,
-Bud's Gun Shop — because listing a refusal as "coming
+Bud's Gun Shop, Victory Arms — because listing a refusal as "coming
 soon" quietly reverses it. `backend/tests/test_planned_sites.py` fails if a planned vendor
 gains a scraper, so a shipped site cannot go on promising itself.
 
@@ -112,8 +117,10 @@ about.
 
 Two more joined the queue on 2026-09-26, from the police trade-in survey below:
 **Sportsman's Outdoor Superstore** (`sportsmans-outdoor`) and **Target Sports
-USA** (`target-sports-usa`), both shipped the same day. WIS Transfers is the
-only vendor left on the coming-soon list.
+USA** (`target-sports-usa`), both shipped the same day. Three more joined on
+2026-09-27 from the military-surplus survey below: **Allegheny Arsenal**
+(shipped the same day), **WW2 Collectibles** and **Nickerson Military**. WIS
+Transfers is still the only one blocked.
 
 The platform column below was originally **inferred from the URL shape** — a
 `/product-category/` or `/product-tag/` path means WooCommerce, `/collections/`
@@ -1101,6 +1108,32 @@ code and a price, "SOLD OUT" with a date, or "Available at Stores".
     not news.
   - "Back in stock" is also digest news for every watcher, alongside sold and
     price moves. The alert email's subject says "… is back in stock".
+
+### Military surplus survey, September 2026 — **one shipped, two queued, the rest refused or gone**
+
+A web search for military-surplus and C&R dealers not already read or
+refused, then a fetch of each before anything was written down. Every fetch
+used our honest MilsurpMonitor user agent, robots.txt was read for each, and
+multi-page walks waited 1.5 seconds between pages. Measured 2026-09-27.
+
+| Site | Section | Platform | What the fetch showed | Outcome |
+| --- | --- | --- | --- | --- |
+| [Allegheny Arsenal](https://mg34.com/product-category/guns-for-sale) | `/product-category/guns-for-sale`, paged by `?page=N` | BigCommerce (Stencil) | **113 listings over five pages, every one priced**, the product id on each card (`data-product-id`), "Only 1 left in stock" badges. Mostly surplus and collector pieces: No. 4 Mk1 (T) snipers, an SVT-38, P08 Lugers, a Japanese Type 2 paratrooper rifle, semi-auto belt-feds (Vz.59, PKM, SG-43, Breda M37). But it is mixed: a Nighthawk 1911, a Blaser LRT and a new Franchi sit on the same shelf. The rest of the shop is parts, by weapon. robots.txt disallows only the cart, account and search pages | **Shipped 2026-09-27: 42 of the 113.** A BigCommerce subclass. The shelf is two shops in one, so a listing is read only when its title says it is military: a marker the shop writes on surplus ("C&R", "WWII", "USGI", "Bring Back", "Police Trade In") or a military model name (Mosin, Enfield, P08, Nambu, the belt-feds). That reads the Lugers, Mosins, No. 4 (T)s, a Thompson and the belt-feds on surplus parts, and leaves out 14 closeout Remington 700 barreled actions, POF ARs, Vigilance .50s, a Kriss and a Nighthawk. A Bramit suppressor, a "not available for sale" teaser and a "Trench Gun Conversion Service" name a war and are left out too. "Luger" alone is not a model name, because "9mm Luger" is a caliber |
+| [WW2 Collectibles](https://ww2collectibles.com/products/products_list/rifles/) | `/products/products_list/rifles/` and `/pistols/`, paged by `?pagenum=N` | AppSoft CMS, custom | **Rifles: 89 listings, 50 of them SOLD. Pistols: 64, 22 SOLD.** Each card carries `data-id`, `data-name` and `data-price`, and a SOLD label when it has gone. Arisakas, K98s, Lugers, P38s, CZ 27s. The pistol shelf also holds blank-firing replicas (a Kimar "PPK style" 8mm PAK), which are not firearms. robots.txt disallows nothing | **Queued** (`ww2-collectibles`). A small parser of its own; sold cards are dated prices, as at Recoil |
+| [Nickerson Military](https://www.nickersonmilitary.com/military-firearms-for-sale/) | `/military-firearms-for-sale/` | WordPress, one hand-written page | **One price list, "UPDATED 09/18/2026"**: 29 lines under era headings ("WORLD WAR II RIFLES"), each a title and a price. Garands, M1 Carbines, M1917s, a Krag, a Reising, a No. 4 (T). No photos, no links, no ids. Two lines are the same Yugo M48 at different prices | **Queued** (`nickerson-military`), last of the three. Keys must come from the title text, and a line's removal is the only sign of a sale |
+| [Victory Arms & Munitions](https://www.victory-arms.com/milsurps) | `/milsurps` | OpenCart | **One listing** ("Showing 1 to 1 of 1"). The shop is mostly surplus accessories and ammunition | **Refused: nearly empty**, as KY Gun Co was. Worth a recheck |
+| [OWS-Ammo](https://ows-ammo.com/product-category/military-surplus/) | `/product-category/military-surplus/` | Cloudflare | **403** to our agent, robots.txt included | **Blocked** |
+| [Hinterland Outfitters](https://www.hinterlandoutfitters.com/) | none | Cloudflare | **403** on the catalog; a general retailer carrying InterOrdnance's new production | **Blocked**, and out of scope anyway |
+| [Champion Firearms](https://www.championfirearms.com/) | none | Volusion | A general retailer. Its only police-sounding category is new Remington 700 Tactical & Police rifles | **Refused: no section** |
+| [InterOrdnance](https://interordnance.com/) | none | WordPress | An importer and defense contractor. No shop, no listings | **Refused: not a retailer** |
+
+**Gone, not measured:** Mitchell's Mausers (the site is offline and the
+company has stopped selling), SOG International / Southern Ohio Gun (closed in
+2018), and SAMCO Global Arms (stopped importing in 2015; the domain does not
+answer). Cherry's Fine Guns answers only over plain HTTP and sells
+commemoratives, not surplus. Marketplaces (GunsInternational, GunBroker,
+Centurion Auctions) were left out by design: they are many sellers and
+auctions, not a shop's prices.
 
 ### The build order
 

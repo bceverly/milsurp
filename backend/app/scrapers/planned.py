@@ -9,7 +9,7 @@ anywhere the application could show it.
 it was written down, and the ``blocker`` says what the fetch showed. A vendor
 that was measured and *refused* -- Impact Guns, USA Gun Shop, Edelweiss Arms,
 The Mosin Crate, Century Arms, Gideon Tactical, Birmingham Pistol Wholesale, KY
-Gun Co, Bud's Gun Shop -- is not here: refusing one is a decision, and listing
+Gun Co, Bud's Gun Shop, Victory Arms -- is not here: refusing one is a decision, and listing
 it as "coming soon" would quietly reverse it. The roadmap keeps those with the
 reasoning; this keeps only what is still queued.
 
@@ -43,6 +43,31 @@ class PlannedSite:
 #: Ordered the way the roadmap orders them: buildable first, nearest to
 #: buildable at the top, and the ones blocked at the door last.
 PLANNED: tuple[PlannedSite, ...] = (
+    # -- buildable, not written yet ----------------------------------------
+    PlannedSite(
+        slug="ww2-collectibles",
+        name="WW2 Collectibles",
+        base_url="https://ww2collectibles.com/",
+        platform="AppSoft CMS, custom",
+        blocker=(
+            "Not written yet; needs its own small parser. Rifles and Pistols "
+            "held 153 listings on 2026-09-27, 81 for sale and 72 marked SOLD, "
+            "with id, name and price as data attributes on each card. "
+            "Blank-firing replicas share the pistol shelf and must be left out."
+        ),
+    ),
+    PlannedSite(
+        slug="nickerson-military",
+        name="Nickerson Military",
+        base_url="https://www.nickersonmilitary.com/",
+        platform="WordPress page, hand-written",
+        blocker=(
+            "Not written yet, and the weaker of the two: one hand-edited "
+            "price list, 29 lines with a price each on 2026-09-27, and no "
+            "photos, links or ids. Keys would come from titles, and a "
+            "removed line is the only sign of a sale."
+        ),
+    ),
     # -- blocked at the door -----------------------------------------------
     PlannedSite(
         slug="wis-transfers",
