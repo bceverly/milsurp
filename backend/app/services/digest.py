@@ -1048,13 +1048,18 @@ def send_watch_alert(
     # Its own subject rather than the digest's. "Milsurp Monitor: 3 new
     # listings" in the notification shade is not what somebody who asked to be
     # interrupted at $700 needs to see.
-    if len(updates) == 1:
+    if len(updates) == 1 and updates[0].news is watchlist.News.BACK:
+        item = updates[0].item
+        subject = f"{BRAND}: {truncate(item.title, 60)} is back in stock"
+    elif len(updates) == 1:
         item = updates[0].item
         subject = (
             f"{BRAND}: {truncate(item.title, 60)} is {_money(item.current_price, item.currency)}"
         )
+    elif all(update.news is watchlist.News.BACK for update in updates):
+        subject = f"{BRAND}: {len(updates)} watched listings are back in stock"
     else:
-        subject = f"{BRAND}: {len(updates)} listings reached your target"
+        subject = f"{BRAND}: {len(updates)} watched listings for you"
 
     try:
         mailer.send_html(user.email, subject, body, config=config, inline_images=images)

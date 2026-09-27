@@ -316,6 +316,23 @@ class TestWhenAListingSoldIsRecorded:
         clean_db.expire_all()
         assert clean_db.execute(select(Item)).scalars().one().sold_at is None
 
+    def test_a_restock_is_dated_for_back_in_stock_alerts(self, fake_site, clean_db):
+        FakeScraper.payload = [listing("a", is_sold=True)]
+        scan_service.run_scan(fake_site.id)
+        clean_db.expire_all()
+        assert clean_db.execute(select(Item)).scalars().one().restocked_at is None
+        FakeScraper.payload = [listing("a")]
+        scan_service.run_scan(fake_site.id)
+        clean_db.expire_all()
+        assert clean_db.execute(select(Item)).scalars().one().restocked_at is not None
+
+    def test_one_that_was_never_sold_is_not_a_restock(self, fake_site, clean_db):
+        FakeScraper.payload = [listing("a")]
+        scan_service.run_scan(fake_site.id)
+        scan_service.run_scan(fake_site.id)
+        clean_db.expire_all()
+        assert clean_db.execute(select(Item)).scalars().one().restocked_at is None
+
 
 class TestAScanThatSuddenlyReadsFarLessDeListsNothing:
     """A normal scan de-lists a few percent. One that would remove a third of a

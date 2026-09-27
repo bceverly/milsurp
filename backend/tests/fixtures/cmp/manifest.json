@@ -1,0 +1,22 @@
+{
+  "slug": "cmp",
+  "recorded_at": "2026-09-26T20:17:37+00:00",
+  "pages": [
+    {
+      "url": "https://thecmp.org/sales-and-service/m1-garand/",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://thecmp.org/sales-and-service/m1903-m1903a3-rifle-information/",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://thecmp.org/sales-and-service/m1917-enfield-rifle-information/",
+      "file": "0003.html.gz"
+    },
+    {
+      "url": "https://thecmp.org/sales-and-service/krag-jorgensen-rifles/",
+      "file": "0004.html.gz"
+    }
+  ]
+}

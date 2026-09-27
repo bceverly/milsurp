@@ -1050,6 +1050,58 @@ rifle, which is unrelated drift and a `make reclassify` away.
 Type in the browse filter, or simply sit among the handguns and rifles. They
 partition cleanly by vendor section, so either is available.
 
+### Civilian Marksmanship Program — **Shipped** 2026-09-26
+
+The CMP (thecmp.org) is the federally chartered seller of U.S. service
+firearms, and so the reference price for them: a Field Grade Garand at a dealer
+means something next to CMP's. It is not a shop with a cart. What it publishes
+is a page per firearm listing the **grades** it is selling, each with CMP's item
+code and a price, "SOLD OUT" with a date, or "Available at Stores".
+`scrapers/cmp.py` reads those, and nothing else.
+
+- **Six pages, once a day:** the M1 Garand, M1903/1903A3, M1917 Enfield,
+  Krag-Jørgensen, M1 Carbine and M1911A1 pages. robots.txt allows everything.
+  **Never read:** CMP's auctions (run on GunBroker) and its forums.
+- **A grade is a listing**, keyed by CMP's item code (`RM1308EXPERTRC`). Its
+  title says what the code says: grade from the code (`EXPERT`, `SG`/`FG`,
+  `RACK`), the Garand's cartridge, and the receiver or finish ("Expert Grade
+  M1 Garand, .308 with an International Harvester receiver"). The grade comes
+  from the code rather than the prose: descriptions say "service grade or
+  higher criteria" and "checked with a FIELD gauge", and taking those as the
+  grade named a 1903A3 Expert a Field Grade.
+- **Sold out is sold, and keeps its last price.** A listing handed over with no
+  price keeps the stored one, so the history shows when each grade was
+  available and at what. "Available at Stores" is in stock with no mail-order
+  price, and says so.
+- **The 1911 page has no table.** Its grades are read from its prose:
+  "Service Grade $1300", "SOLD OUT – Range Grade – $1150".
+- **An empty page is normal, except where it is not.** The Carbine, Krag and
+  1917 pages list rifles only now and then. The Garand and 1911 pages always
+  list grades, so an empty one fails the scan (the layout changed) rather than
+  de-listing every Garand. A page that will not load fails the scan for the
+  same reason.
+- **Every listing says buying from CMP needs eligibility** (U.S. citizenship,
+  a CMP-affiliated club, and more) and links to the requirements.
+- **Photos are CMP's own**, one per firearm (each page's `og:image`). CMP
+  photographs the type, not each grade.
+- **The first live read, 2026-09-26:** 24 grades. Two Expert Garands (.30-06
+  and .308) at $1,150, the 1903A3 Expert at $1,050, and three M1917 grades at
+  the stores. Service, Field and Rack 1911s at $1,300, $1,200 and $1,100.
+  Everything else sold out.
+- **"Back in stock" alerts — Shipped 2026-09-26.** At CMP a grade coming
+  back *is* the event, and a watch used to alert only on a price reaching its
+  target.
+  - A scan that sees a sold-out listing available again stamps
+    `items.restocked_at` (migration 0047). Only a scan does: a single-page
+    re-read reports "sold out" only when the shop publishes it, so silence
+    there is not a restock.
+  - A watch can ask "Email me the moment it is back in stock", with or
+    without a target price (`watched_items.alert_restock`). One return is one
+    email (`restock_alerted_at`), and a return before the watch was made is
+    not news.
+  - "Back in stock" is also digest news for every watcher, alongside sold and
+    price moves. The alert email's subject says "… is back in stock".
+
 ### The build order
 
 Grouped by **backend platform**, because one platform base class unlocks a whole

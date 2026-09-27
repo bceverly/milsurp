@@ -505,6 +505,10 @@ def _upsert_item(
     if scraped.is_sold and not item.is_sold:
         item.sold_at = seen_at
     elif not scraped.is_sold:
+        if item.is_sold:
+            # Back after being sold out: what a "tell me when it is back"
+            # watch is waiting for. See WatchedItem.alert_restock.
+            item.restocked_at = seen_at
         item.sold_at = None
     item.is_sold = scraped.is_sold
     item.currency = scraped.currency

@@ -1042,6 +1042,7 @@ class ItemDetail(ItemOut):
     watch_target_price: float | None = None
     watch_note: str | None = None
     watch_alert_immediately: bool = False
+    watch_alert_restock: bool = False
     #: Whether a person has vouched for the row. A pending row decided nothing
     #: about this listing, and saying so is the difference between "the armory
     #: thinks" and "the armory has been asked and not answered".
@@ -1277,6 +1278,8 @@ class WatchCreate(BaseModel):
     #: Mail me the moment it reaches the target rather than in the next digest.
     #: Meaningless without a target, and ignored when there is none.
     alert_immediately: bool = False
+    #: Mail me the moment it is back in stock. Needs no target.
+    alert_restock: bool = False
 
 
 class WatchOut(UTCModel):
@@ -1292,6 +1295,8 @@ class WatchOut(UTCModel):
     target_price: float | None = None
     note: str | None = None
     alert_immediately: bool = False
+    alert_restock: bool = False
+    restock_alerted_at: datetime | None = None
     #: When this watch last triggered an immediate alert, so the page can say
     #: so rather than leaving somebody wondering whether it works.
     alerted_at: datetime | None = None

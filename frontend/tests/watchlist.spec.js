@@ -117,6 +117,30 @@ test.describe("watchlist", () => {
     await expect(signedIn.locator(".watchlist__alert")).toBeVisible();
   });
 
+  test("a back-in-stock alert needs no target", async ({ signedIn }) => {
+    /**
+     * For a sold-out CMP grade there is no price to wait for, only its return,
+     * so this one is offered whether or not a target is named.
+     */
+    await openFirstListing(signedIn);
+    await signedIn.getByRole("button", { name: "Watch", exact: true }).click();
+    await signedIn.getByRole("button", { name: "Set a target" }).click();
+
+    const back = signedIn.getByRole("checkbox", { name: /back in stock/ });
+    await expect(back).toBeEnabled();
+    await back.check();
+    await signedIn.getByRole("button", { name: "Save", exact: true }).click();
+
+    await openPage(signedIn, "Watchlist");
+    await expect(signedIn.locator(".watchlist__row")).toContainText(
+      "Back-in-stock alert on",
+    );
+    await signedIn.reload();
+    await expect(signedIn.locator(".watchlist__row")).toContainText(
+      "Back-in-stock alert on",
+    );
+  });
+
   test("and it can be stopped from the watchlist", async ({ signedIn }) => {
     await openFirstListing(signedIn);
     await signedIn.getByRole("button", { name: "Watch", exact: true }).click();

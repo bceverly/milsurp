@@ -323,6 +323,10 @@ class TestTheApi:
 
         response = client.post("/api/admin/inbox/check", headers=admin_headers)
         assert response.status_code == 202
+        # Always "checking" in the answer, however fast the check finished: an
+        # answer of "not checking, never checked" left the page never asking
+        # again (one e2e run in two, depending on timing).
+        assert response.json()["checking"] is True
         for _ in range(50):
             body = client.get("/api/admin/inbox", headers=admin_headers).json()
             if not body["checking"] and body["settings"]["last_run_at"]:

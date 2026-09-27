@@ -343,6 +343,7 @@ function WatchControl({ item }) {
   );
   const [note, setNote] = useState(item.watch_note || "");
   const [alertNow, setAlertNow] = useState(Boolean(item.watch_alert_immediately));
+  const [alertBack, setAlertBack] = useState(Boolean(item.watch_alert_restock));
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -353,6 +354,7 @@ function WatchControl({ item }) {
     setTarget(item.watch_target_price == null ? "" : String(item.watch_target_price));
     setNote(item.watch_note || "");
     setAlertNow(Boolean(item.watch_alert_immediately));
+    setAlertBack(Boolean(item.watch_alert_restock));
     setOpen(false);
     setError("");
   }, [
@@ -361,6 +363,7 @@ function WatchControl({ item }) {
     item.watch_target_price,
     item.watch_note,
     item.watch_alert_immediately,
+    item.watch_alert_restock,
   ]);
 
   const save = async (body) => {
@@ -459,6 +462,16 @@ function WatchControl({ item }) {
             />
             <span>Email me the moment it gets there, without waiting for a digest</span>
           </label>
+          {/* No target needed: for a sold-out CMP grade there is no price to
+              wait for, only its return. One email per return. */}
+          <label className="watch__check">
+            <input
+              type="checkbox"
+              checked={alertBack}
+              onChange={(event) => setAlertBack(event.target.checked)}
+            />
+            <span>Email me the moment it is back in stock</span>
+          </label>
           <button
             type="button"
             className="btn btn--primary btn--sm"
@@ -468,6 +481,7 @@ function WatchControl({ item }) {
                 target_price: target === "" ? null : Number(target),
                 note: note || null,
                 alert_immediately: alertNow && target !== "",
+                alert_restock: alertBack,
               }).then(() => setOpen(false))
             }
           >

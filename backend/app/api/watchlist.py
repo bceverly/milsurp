@@ -45,6 +45,8 @@ def _out(watch: WatchedItem, site_names: dict[int, str], since) -> WatchOut:
         target_price=watch.target_price,
         note=watch.note,
         alert_immediately=watch.alert_immediately,
+        alert_restock=watch.alert_restock,
+        restock_alerted_at=watch.restock_alerted_at,
         alerted_at=watch.alerted_at,
         created_at=watch.created_at,
         headline=watchlist.HEADLINES[news] if news else None,
@@ -91,6 +93,7 @@ def watch_item(
     row.target_price = payload.target_price
     row.note = (payload.note or "").strip() or None
     row.alert_immediately = bool(payload.alert_immediately) and payload.target_price is not None
+    row.alert_restock = payload.alert_restock
     session.commit()
     session.refresh(row)
 

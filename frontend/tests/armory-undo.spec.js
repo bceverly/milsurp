@@ -21,6 +21,24 @@ async function loadShipped(page) {
   await expect(page.locator(".alert--success")).toBeVisible();
 }
 
+/**
+ * Wait until the Calibers table has replaced the Models one.
+ *
+ * A tab switch leaves the Models rows up while the calibers load, and reading
+ * the first row's name in that window read a model ("04/43"), renamed it, and
+ * then compared it with the first *caliber* (".17 HMR"). Only a caliber row's
+ * eye filters by caliber, which makes it the signal -- the one armory.spec
+ * waits on for the same race.
+ */
+async function calibersAreShowing(page) {
+  await expect(
+    page
+      .locator("tbody tr")
+      .first()
+      .getByRole("link", { name: /^View listings for/ }),
+  ).toHaveAttribute("href", /caliber=/);
+}
+
 test.describe("armory undo", () => {
   test("an edit can be undone, and the undo is itself logged", async ({ signedIn }) => {
     await openPage(signedIn, "Armory");
@@ -28,6 +46,7 @@ test.describe("armory undo", () => {
     await expect(signedIn.locator(".alert--success")).toBeVisible();
 
     await signedIn.getByRole("tab", { name: "Calibers" }).click();
+    await calibersAreShowing(signedIn);
     // The row's name *is* the edit control on this page; there is no separate
     // Edit button.
     const opener = signedIn.locator("tbody tr td:nth-child(2) button").first();
@@ -62,6 +81,7 @@ test.describe("armory undo", () => {
     await loadShipped(signedIn);
     await expect(signedIn.locator(".alert--success")).toBeVisible();
     await signedIn.getByRole("tab", { name: "Calibers" }).click();
+    await calibersAreShowing(signedIn);
 
     const opener = signedIn.locator("tbody tr td:nth-child(2) button").first();
     const original = (await opener.innerText()).trim();
@@ -80,6 +100,7 @@ test.describe("armory undo", () => {
 
     await openPage(signedIn, "Armory");
     await signedIn.getByRole("tab", { name: "Calibers" }).click();
+    await calibersAreShowing(signedIn);
     await expect(signedIn.locator("tbody tr td:nth-child(2) button").first()).toHaveText(
       original,
     );

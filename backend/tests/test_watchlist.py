@@ -487,3 +487,88 @@ class TestTheAlertEmail:
         # the instant, which is not the question.
         assert as_utc(preference.last_digest_cutoff) == as_utc(before)
         assert preference.next_send_at is None
+
+
+class TestBackInStock:
+    """For a sold-out CMP grade there is no price to wait for, only its return."""
+
+    def _watching_sold(self, session, user, site, *, alert=True, created_days_ago=5):
+        watch, item = _watched(session, user, site, price=1150.0, sold=True)
+        watch.alert_restock = alert
+        watch.created_at = (utcnow() - timedelta(days=created_days_ago)).replace(tzinfo=None)
+        session.commit()
+        return watch, item
+
+    def _restock(self, session, item, *, hours_ago=1):
+        item.is_sold = False
+        item.restocked_at = (utcnow() - timedelta(hours=hours_ago)).replace(tzinfo=None)
+        session.commit()
+
+    def test_a_return_is_due_with_no_target_at_all(self, clean_db, watcher):
+        user, site = watcher
+        _watch, item = self._watching_sold(clean_db, user, site)
+        assert watchlist.due_alerts(clean_db) == {}
+        self._restock(clean_db, item)
+        [update] = watchlist.due_alerts(clean_db)[user.id]
+        assert update.news is News.BACK
+        assert update.headline == "Back in stock"
+
+    def test_one_return_is_one_email(self, clean_db, watcher):
+        user, site = watcher
+        _watch, item = self._watching_sold(clean_db, user, site)
+        self._restock(clean_db, item)
+        [update] = watchlist.due_alerts(clean_db)[user.id]
+        watchlist.mark_update(update, utcnow())
+        clean_db.commit()
+        assert watchlist.due_alerts(clean_db) == {}
+
+    def test_and_the_next_return_is_another(self, clean_db, watcher):
+        user, site = watcher
+        watch, item = self._watching_sold(clean_db, user, site)
+        self._restock(clean_db, item, hours_ago=48)
+        watch.restock_alerted_at = (utcnow() - timedelta(hours=47)).replace(tzinfo=None)
+        clean_db.commit()
+        assert watchlist.due_alerts(clean_db) == {}
+        self._restock(clean_db, item, hours_ago=1)
+        assert list(watchlist.due_alerts(clean_db)) == [user.id]
+
+    def test_a_return_before_the_watch_is_not_news(self, clean_db, watcher):
+        user, site = watcher
+        _watch, item = self._watching_sold(clean_db, user, site, created_days_ago=1)
+        self._restock(clean_db, item, hours_ago=48)
+        assert watchlist.due_alerts(clean_db) == {}
+
+    def test_only_when_asked(self, clean_db, watcher):
+        user, site = watcher
+        _watch, item = self._watching_sold(clean_db, user, site, alert=False)
+        self._restock(clean_db, item)
+        assert watchlist.due_alerts(clean_db) == {}
+
+    def test_the_digest_says_so_for_every_watcher(self, clean_db, watcher):
+        user, site = watcher
+        watch, item = self._watching_sold(clean_db, user, site, alert=False)
+        self._restock(clean_db, item)
+        since = utcnow() - timedelta(days=1)
+        assert watchlist.news_for(watch, item, since) is News.BACK
+
+    def test_the_api_remembers_it(self, client, normal_user, clean_db, watcher):
+        _user, site = watcher
+        item = Item(
+            site_id=site.id,
+            external_key="cmp",
+            url="https://s.test/cmp",
+            title="CMP Expert Grade M1 Garand",
+            current_price=1150,
+            is_rifle=True,
+            is_sold=True,
+        )
+        clean_db.add(item)
+        clean_db.commit()
+        body = client.put(
+            f"/api/watchlist/{item.id}",
+            json={"alert_restock": True},
+            headers=normal_user["headers"],
+        ).json()
+        assert body["alert_restock"] is True
+        detail = client.get(f"/api/items/{item.id}", headers=normal_user["headers"]).json()
+        assert detail["watch_alert_restock"] is True

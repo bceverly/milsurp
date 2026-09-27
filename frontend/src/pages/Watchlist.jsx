@@ -74,6 +74,7 @@ export default function Watchlist() {
                   item,
                   target_price: target,
                   alert_immediately: alerts,
+                  alert_restock: restockAlert,
                   note,
                   headline,
                   created_at: created,
@@ -110,6 +111,11 @@ export default function Watchlist() {
                               interrupted about this one" is the question a
                               watchlist of forty cannot answer otherwise. */}
                           {alerts && <span className="watchlist__alert">Alerts on</span>}
+                          {restockAlert && (
+                            <span className="watchlist__alert">
+                              Back-in-stock alert on
+                            </span>
+                          )}
                         </span>
                         {note && <span className="watchlist__note">{note}</span>}
                       </span>

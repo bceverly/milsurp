@@ -121,5 +121,15 @@ def check_inbox(_admin: AdminUser, session: DbSession, config: AppConfig) -> Inb
     until it is done. The outcome is recorded on the settings row, so a wrong
     password reads as that rather than as a quiet week.
     """
-    inbox.start_check(config)
-    return _state(session, config)
+    started = inbox.start_check(config)
+    # A quick check (no account to sign in with, an empty inbox) can finish
+    # and release the lock before this answers, and this session's snapshot
+    # was taken before it committed: the answer was then "not checking, never
+    # checked", and the page, seeing nothing running, never asked again. So
+    # read afresh, and say "checking" for a check this request started -- the
+    # page's next poll then sees the result.
+    session.rollback()
+    state = _state(session, config)
+    if started:
+        state.checking = True
+    return state

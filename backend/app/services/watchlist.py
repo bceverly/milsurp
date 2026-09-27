@@ -27,10 +27,10 @@ import enum
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from ..models import Item, User, WatchedItem, utcnow
+from ..models import Item, User, WatchedItem, as_utc, utcnow
 from . import renotify
 
 
@@ -39,6 +39,7 @@ class News(str, enum.Enum):
 
     SOLD = "sold"
     GONE = "gone"
+    BACK = "back"
     TARGET = "target"
     CHEAPER = "cheaper"
     DEARER = "dearer"
@@ -49,6 +50,7 @@ class News(str, enum.Enum):
 HEADLINES = {
     News.SOLD: "Sold",
     News.GONE: "No longer listed",
+    News.BACK: "Back in stock",
     News.TARGET: "Reached your target",
     News.CHEAPER: "Price dropped",
     News.DEARER: "Price rose",
@@ -103,6 +105,9 @@ def news_for(  # noqa: PLR0911 - one return per kind of news, which is the shape
         return News.SOLD if _after(item.price_changed_at or item.last_seen_at, since) else None
     if not item.is_active:
         return News.GONE if _after(item.delisted_at or item.last_seen_at, since) else None
+    # Back after being sold out: news to every watcher, whatever their target.
+    if _after(item.restocked_at, since):
+        return News.BACK
 
     if not _after(item.price_changed_at, since):
         return None
@@ -151,8 +156,13 @@ def due_alerts(session: Session) -> dict[int, list[Update]]:
             select(WatchedItem)
             .options(selectinload(WatchedItem.item))
             .where(
-                WatchedItem.alert_immediately.is_(True),
-                WatchedItem.target_price.is_not(None),
+                or_(
+                    and_(
+                        WatchedItem.alert_immediately.is_(True),
+                        WatchedItem.target_price.is_not(None),
+                    ),
+                    WatchedItem.alert_restock.is_(True),
+                )
             )
         )
         .scalars()
@@ -167,12 +177,34 @@ def due_alerts(session: Session) -> dict[int, list[Update]]:
     found: dict[int, list[Update]] = {}
     for watch in rows:
         item = watch.item
-        if item is None or not _alert_is_due(
+        if item is None:
+            continue
+        if watch.alert_restock and restock_is_due(watch, item):
+            news = News.BACK
+        elif watch.alert_immediately and _alert_is_due(
             watch, item, peak_since=peaks.get(watch.item_id), now=now, after_days=after_days
         ):
+            news = News.TARGET
+        else:
             continue
-        found.setdefault(watch.user_id, []).append(Update(watch=watch, item=item, news=News.TARGET))
+        found.setdefault(watch.user_id, []).append(Update(watch=watch, item=item, news=news))
     return found
+
+
+def restock_is_due(watch: WatchedItem, item: Item) -> bool:
+    """Whether this listing has come back since the watch last said so.
+
+    "Since" is the later of the watch being made and the last back-in-stock
+    alert: a listing that came back before somebody watched it is not news to
+    them, and one return is one email.
+    """
+    if not item.is_active or item.is_sold:
+        return False
+    back = as_utc(item.restocked_at)
+    if back is None:
+        return False
+    told = as_utc(watch.restock_alerted_at) or as_utc(watch.created_at)
+    return told is None or back > told
 
 
 def _alert_is_due(
@@ -204,9 +236,17 @@ def _alert_is_due(
 
 
 def mark_alerted(watch: WatchedItem, item: Item, when: datetime) -> None:
-    """Record what an alert said, so it is not said again."""
+    """Record what a target alert said, so it is not said again."""
     watch.alerted_price = item.current_price
     watch.alerted_at = when
+
+
+def mark_update(update: Update, when: datetime) -> None:
+    """Record whichever alert this update was."""
+    if update.news is News.BACK:
+        update.watch.restock_alerted_at = when
+    else:
+        mark_alerted(update.watch, update.item, when)
 
 
 def updates(session: Session, user: User, since: datetime) -> list[Update]:

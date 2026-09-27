@@ -83,6 +83,8 @@ test.describe("armory", () => {
     // its count is of listings that *name* it -- and the eye has to open that
     // same set, or the number in the table is a promise the page breaks.
     await signedIn.getByLabel("Search").fill("M1 Garand");
+    // Applied a moment after typing stops; until then the old table is up.
+    await expect(signedIn).toHaveURL(/[?&]q=/);
     const row = signedIn.locator("tbody tr", { hasText: "M1 Garand" }).first();
     const mentions = row.locator(".armory-mentions");
     await expect(mentions).toHaveText(/^\d+ mentions?$/);
@@ -446,6 +448,8 @@ test.describe("armory", () => {
     // also carries a reference link and a chip, so a name read back out of it
     // is not the string it went in as.
     await signedIn.getByLabel("Search").fill("Karabiner 98k");
+    // Applied a moment after typing stops; until then the old table is up.
+    await expect(signedIn).toHaveURL(/[?&]q=/);
     const name = "Karabiner 98k";
     const target = signedIn.locator("tbody tr", { hasText: name });
     await expect(target).toHaveCount(1);
@@ -468,6 +472,8 @@ test.describe("armory", () => {
   test("a model is one row carrying several makers", async ({ signedIn }) => {
     await loadShipped(signedIn);
     await signedIn.getByLabel("Search").fill("M1 Garand");
+    // Applied a moment after typing stops; until then the old table is up.
+    await expect(signedIn).toHaveURL(/[?&]q=/);
     const rows = signedIn.locator("tbody tr", { hasText: "M1 Garand" });
     await expect(rows).toHaveCount(1);
     // Springfield and Winchester both built it, on the one row.
@@ -485,6 +491,8 @@ test.describe("armory", () => {
     await caliberRowIsShowing(signedIn, ".32 ACP");
 
     await signedIn.getByLabel("Search").fill("7.65mm Browning");
+    // Applied a moment after typing stops; until then the old table is up.
+    await expect(signedIn).toHaveURL(/[?&]q=/);
     // Searching by an alias finds the row it belongs to, which is the point.
     await expect(signedIn.locator("tbody tr", { hasText: ".32 ACP" })).toHaveCount(1);
   });
@@ -1013,13 +1021,18 @@ test.describe("armory", () => {
     await signedIn.getByRole("tab", { name: "Manufacturers" }).click();
     await signedIn.getByLabel("Showing").selectOption("");
     await signedIn.getByLabel("Search").fill("Mauser");
+    // The search is applied a moment after typing stops, and until then the
+    // unfiltered table is still up: a row picked from it can be replaced
+    // under the click. Wait for the search to land and the table to narrow.
+    await expect(signedIn).toHaveURL(/q=Mauser/);
+    await expect(signedIn.locator("tbody tr", { hasText: "Colt" })).toHaveCount(0);
+    await signedIn.waitForLoadState("networkidle");
 
     const row = signedIn
       .locator("tbody tr")
       .filter({ has: signedIn.getByRole("button", { name: "Merge…" }) })
       .first();
     await expect(row).toBeVisible();
-    await expect(signedIn.locator("tbody tr", { hasText: "Colt" })).toHaveCount(0);
 
     await row.getByRole("button", { name: "Merge…" }).click();
     const names = (

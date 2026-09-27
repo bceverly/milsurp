@@ -477,7 +477,7 @@ class Scheduler:
                     if result.status is EmailStatus.SENT or pushed:
                         now = utcnow()
                         for update in fresh:
-                            watchlist.mark_alerted(update.watch, update.item, now)
+                            watchlist.mark_update(update, now)
                     session.commit()
                     log.info(
                         "Watch alert for %s: email %s, %s device(s) (%s listing(s)).",

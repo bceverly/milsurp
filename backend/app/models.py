@@ -788,6 +788,10 @@ class Item(Base, TimestampMixin):
     #: Market page are built from this and ``first_seen_at``; nothing before
     #: migration 0039 recorded it, so it only exists for sales seen since.
     sold_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
+    #: When a scan last saw it come back after being sold out. What a watch's
+    #: "tell me when it is back" asks about: at CMP a grade reappearing is the
+    #: whole event. Set only by a scan, which is the authority on stock.
+    restocked_at: Mapped[datetime | None] = mapped_column(DateTime)
     # False once the listing stops appearing in a scan (de-listed).
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
 
@@ -1434,6 +1438,11 @@ class WatchedItem(Base, TimestampMixin):
     #: "is this a number I have not told you about", and a vendor who reverts a
     #: price and drops it again has genuinely done something worth a second
     #: email.
+    #: Mail me the moment it is back in stock. Independent of a target: for a
+    #: sold-out CMP grade there is no price to wait for, only its return.
+    alert_restock: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    #: When the last back-in-stock alert went out, so one return is one email.
+    restock_alerted_at: Mapped[datetime | None] = mapped_column(DateTime)
     alerted_price: Mapped[float | None] = mapped_column(Float)
     alerted_at: Mapped[datetime | None] = mapped_column(DateTime)
 
