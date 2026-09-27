@@ -1305,9 +1305,17 @@ export default function Armory() {
    * `load()` is also called directly after every write.
    */
   const loadSeq = useRef(0);
+  // A second counter for the filtered lists alone. With one counter, a filter
+  // changed while a full load was in flight made the full load stale and
+  // dropped *all* of its answer -- including the six unfiltered lists only
+  // the full load fetches. The maker drill-down and the merge dropdown then
+  // read lists from before the last write: a CI run lost "Colt" from the
+  // merge list and the models under an expanded maker that way.
+  const filterSeq = useRef(0);
 
   const load = useCallback(async () => {
     const ticket = ++loadSeq.current;
+    const filterTicket = ++filterSeq.current;
     const filters = {};
     if (statusFilter) filters.status = statusFilter;
     if (search.trim()) filters.search = search.trim();
@@ -1337,18 +1345,23 @@ export default function Armory() {
       api.armoryCountries(),
       api.armorySummary(),
     ]);
-    // Anything newer has already been asked for; this answer is out of date.
-    if (ticket !== loadSeq.current) return;
-    setAllModels(everyModel);
-    setModels(modelRows);
-    setCalibers(caliberRows);
-    setAllCalibers(everyCaliber);
-    setMakers(makerRows);
-    setAllMakers(everyMaker);
-    setKinds(kindRows);
-    setCountries(countryNames);
-    setSummary(counts);
-    setSelected(new Set());
+    // Each half is applied unless something newer has replaced that half: the
+    // unfiltered lists only by a newer full load, the filtered ones by any
+    // newer load of them.
+    if (ticket === loadSeq.current) {
+      setAllModels(everyModel);
+      setAllCalibers(everyCaliber);
+      setAllMakers(everyMaker);
+      setKinds(kindRows);
+      setCountries(countryNames);
+      setSummary(counts);
+    }
+    if (filterTicket === filterSeq.current) {
+      setModels(modelRows);
+      setCalibers(caliberRows);
+      setMakers(makerRows);
+      setSelected(new Set());
+    }
   }, [statusFilter, search]);
 
   /**
@@ -1359,7 +1372,7 @@ export default function Armory() {
    * They are read by `load()`, on arrival and after every write.
    */
   const loadFiltered = useCallback(async () => {
-    const ticket = ++loadSeq.current;
+    const ticket = ++filterSeq.current;
     const filters = {};
     if (statusFilter) filters.status = statusFilter;
     if (search.trim()) filters.search = search.trim();
@@ -1368,7 +1381,7 @@ export default function Armory() {
       api.armoryCalibers(filters),
       api.manufacturers(filters),
     ]);
-    if (ticket !== loadSeq.current) return;
+    if (ticket !== filterSeq.current) return;
     setModels(modelRows);
     setCalibers(caliberRows);
     setMakers(makerRows);
@@ -1518,6 +1531,7 @@ export default function Armory() {
       // and the POST is done while that load is still outstanding — which is
       // how this reached CI as a test that failed on one runner in four.
       loadSeq.current += 1;
+      filterSeq.current += 1;
       setAllCalibers((prev) =>
         [...prev, created].sort((a, b) => compareCalibers(a.name, b.name)),
       );
