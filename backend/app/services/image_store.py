@@ -26,6 +26,7 @@ import ipaddress
 import logging
 import mimetypes
 import os
+import shutil
 import socket
 import time
 from collections.abc import Callable
@@ -96,6 +97,18 @@ def _resting_for(url: str) -> float:
     pause on its photo lane holds only them.
     """
     return max(cooldown.paused_for(url), cooldown.paused_for(url, photos=True))
+
+
+#: A gigabyte, as `df -h` counts one.
+GIB = 1024**3
+
+
+def free_bytes(path: Path) -> int | None:
+    """Bytes free on the filesystem holding *path*, or None when it will not say."""
+    try:
+        return shutil.disk_usage(path).free
+    except OSError:
+        return None
 
 
 def _is_permanent(status: int | None) -> bool:
@@ -294,6 +307,24 @@ class ImageStore:
     #: How often a wait looks up to see whether it has been canceled.
     STOP_CHECK_SECONDS = 0.25
 
+    def disk_too_full(self) -> str | None:
+        """Why no photograph should be written now, or None when there is room.
+
+        Asked before every photograph, because a batch can cross the line
+        partway: one call is a statvfs, and photographs are what fill the disk.
+        """
+        floor_gb = self.config.scraping.min_free_disk_gb
+        if floor_gb <= 0:
+            return None
+        free = free_bytes(self.root)
+        if free is None or free >= floor_gb * GIB:
+            return None
+        return (
+            f"Only {free / GIB:.1f} GB is free where photographs are stored, under "
+            f"the {floor_gb:g} GB floor (scraping.min_free_disk_gb), so photo "
+            f"downloads are paused to leave the database room to write"
+        )
+
     def _sleep(self, seconds: float) -> None:
         """Wait, but notice being told to stop. See ScrapeContext.sleep."""
         # Counted down, not measured against the clock -- see
@@ -444,7 +475,9 @@ class ImageStore:
         """The image, or None. Use :meth:`fetch` when the reason matters."""
         return self.fetch(session, site_slug, source_url).image
 
-    def fetch(self, session: requests.Session, site_slug: str, source_url: str) -> FetchResult:
+    def fetch(  # noqa: PLR0911 - one return per way a photograph does not arrive
+        self, session: requests.Session, site_slug: str, source_url: str
+    ) -> FetchResult:
         """Fetch one image, store it, and generate its thumbnail.
 
         Returns the reason alongside the result rather than only ``None``. A
@@ -457,6 +490,13 @@ class ImageStore:
         if not verdict.allowed:
             log.warning("Refusing to fetch %s: %s.", scrub(source_url), verdict.reason)
             return FetchResult(None, verdict.reason, permanent=verdict.permanent)
+
+        # Resting, not failed: nothing was asked, and every photograph after
+        # this one would get the same answer, so the batch stops here.
+        full = self.disk_too_full()
+        if full:
+            log.warning("%s.", full)
+            return FetchResult(None, full, resting=True)
 
         response, error, permanent = self._get_photo(session, source_url)
         if response is None:
@@ -551,6 +591,10 @@ class ImageStore:
         """
         if len(data) > MAX_IMAGE_BYTES:
             log.warning("Generated image for %s is too large to store.", key)
+            return None
+        full = self.disk_too_full()
+        if full:
+            log.warning("Not storing the generated image for %s. %s.", key, full)
             return None
         relative = self._relative_path(site_slug, key, extension)
         target = self.absolute_path(relative)

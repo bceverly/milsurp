@@ -240,6 +240,10 @@ scraping:
   # thousands; the remainder carries to the next run rather than
   # stretching one scan into hours. Raise it to drain a backlog faster.
   max_photo_downloads_per_scan: 400  # default: 400
+  # Photo downloads pause while the disk holding the images has less than
+  # this many GB free, so photographs can never fill the disk the database
+  # needs. The canary warns well before this. 0 turns the guard off.
+  min_free_disk_gb: 5                # default: 5
 
   selenium:
     headless: true                   # default: true

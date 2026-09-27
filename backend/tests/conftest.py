@@ -75,6 +75,9 @@ scheduler:
 scraping:
   request_delay: 0
   download_images: false
+  # Off, so no test depends on how full the machine running it is. The guard
+  # has tests of its own, with a floor they set -- see test_disk_guard.py.
+  min_free_disk_gb: 0
   # The scraper tests mock a vendor's pages, not its robots.txt, and an
   # unmocked robots fetch fails closed by design. Enforcement has tests of its
   # own -- see test_robots.py and TestRobotsIsEnforced in test_scrapers_base.py.

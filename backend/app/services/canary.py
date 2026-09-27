@@ -28,11 +28,13 @@ never reached as gone is precisely the accident :meth:`scrape` warns about.
 from __future__ import annotations
 
 import enum
+import shutil
 import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from http import HTTPStatus
+from pathlib import Path
 
 import requests
 
@@ -48,6 +50,7 @@ from ..scrapers.base import (
     vendors_answer,
 )
 from . import backup, cooldown
+from .image_store import GIB
 
 #: Listings to see before calling a shop healthy. One would do -- the question
 #: is "did anything parse at all" -- but a catalog whose first card is a banner
@@ -405,6 +408,106 @@ def backup_health(config: Config) -> BackupHealth:
     """
     age = backup.offsite_age_hours(config.backups.directory)
     return BackupHealth(age_hours=age, configured=age is not None)
+
+
+# ---------------------------------------------------------------------------
+# Is there room left to write?
+# ---------------------------------------------------------------------------
+#: Warn when a filesystem has less than this share of itself free...
+LOW_DISK_SHARE = 0.10
+
+#: ...or less than this many times the photo floor, whichever is more room.
+#: Twice the floor means the warning arrives while photographs are still being
+#: downloaded, not after they have stopped.
+LOW_DISK_FLOOR_MULTIPLE = 2
+
+#: Where a PostgreSQL on this machine keeps its data, on Debian and Ubuntu.
+#: The server's own ``data_directory`` setting is readable only by a
+#: superuser, and the application does not connect as one.
+LOCAL_POSTGRES_DATA = Path("/var/lib/postgresql")
+
+
+@dataclass(frozen=True)
+class DiskHealth:
+    """How much room one filesystem has left.
+
+    Checked because a full disk fails quietly and then all at once. On
+    2026-09-27 photographs filled the production VM's root filesystem, and
+    PostgreSQL, which lives on the same one, could not write a checkpoint: it
+    crashed and crash-looped until the disk was grown. Nothing had warned.
+    """
+
+    #: What lives there, e.g. "photographs, database".
+    holds: str
+    path: str
+    free: int
+    total: int
+    #: The photo floor in bytes (scraping.min_free_disk_gb); 0 when off.
+    floor: int
+
+    @property
+    def low(self) -> bool:
+        margin = max(self.total * LOW_DISK_SHARE, self.floor * LOW_DISK_FLOOR_MULTIPLE)
+        return self.free < margin
+
+    @property
+    def paused(self) -> bool:
+        """Under the floor, so photo downloads have stopped."""
+        return self.floor > 0 and self.free < self.floor
+
+    @property
+    def headline(self) -> str:
+        used = 1 - self.free / self.total if self.total else 0
+        line = (
+            f"{self.free / GIB:.1f} GB free of {self.total / GIB:.0f} GB "
+            f"({used:.0%} used) on {self.path}, which holds {self.holds}."
+        )
+        if self.paused:
+            line += " Photo downloads are paused until there is more room."
+        elif self.low and self.floor:
+            line += f" Photo downloads pause below {self.floor / GIB:g} GB."
+        return line
+
+
+def disk_health(config: Config) -> list[DiskHealth]:
+    """Room left on each filesystem the application writes to, once each."""
+    places: list[tuple[str, Path]] = [
+        ("photographs", config.images_path),
+        ("backups", config.backups.directory),
+    ]
+    database = config.database
+    if database.engine == "sqlite":
+        places.append(("database", database.path.parent))
+    elif database.host in ("localhost", "127.0.0.1", "::1") and LOCAL_POSTGRES_DATA.exists():
+        places.append(("database", LOCAL_POSTGRES_DATA))
+
+    by_device: dict[int, tuple[list[str], Path]] = {}
+    for holds, path in places:
+        try:
+            device = path.stat().st_dev
+        except OSError:
+            continue
+        what, _first = by_device.setdefault(device, ([], path))
+        if holds not in what:
+            what.append(holds)
+
+    floor = int(config.scraping.min_free_disk_gb * GIB)
+    found: list[DiskHealth] = []
+    for what, path in by_device.values():
+        try:
+            usage = shutil.disk_usage(path)
+        except OSError:
+            continue
+        found.append(
+            DiskHealth(
+                holds=", ".join(what),
+                path=str(path),
+                free=usage.free,
+                total=usage.total,
+                floor=floor if "photographs" in what else 0,
+            )
+        )
+    return found
 
 
 # ---------------------------------------------------------------------------

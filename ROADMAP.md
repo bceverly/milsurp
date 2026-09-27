@@ -2188,7 +2188,7 @@ before they got nothing.
   nothing ever arrives. One notification landing is the only proof worth
   having.
 
-### Vendor mailing lists: sales read from the inbox — **Planned**
+### Vendor mailing lists: sales read from the inbox — **Shipped** 2026-09-26
 
 The outbound notification account is being subscribed to the mailing lists of
 the shops we already read. Their emails announce sales, markdowns and new
@@ -4692,6 +4692,28 @@ on PostgreSQL.
   it finds nothing. The configuration still wins where it is set: an install
   that names its own paths has made a decision. `debian/control` recommends
   `chromium-driver` rather than the shim.
+- **Shipped** 2026-09-27 — A full disk can no longer take the database down
+  quietly. That evening, photographs filled the production VM's root
+  filesystem (48 of its 59 GB were images, 28 of them Simpson Ltd's; the new
+  WW2 Collectibles galleries were the last 1.3 GB). PostgreSQL shares that
+  filesystem, could not write a checkpoint, and crash-looped for about four
+  minutes. The root volume had been using only half of the 128 GB disk the
+  installer gave the VM, so `lvextend -r` grew it online to 124 GB.
+  PostgreSQL recovered by itself with nothing lost. Two guards came of it:
+  - **Photo downloads pause** while the images' filesystem has less than
+    `scraping.min_free_disk_gb` free (default 5, 0 turns it off). A photo
+    that meets the floor is "resting", not failed, so no retry is spent, and
+    the batch stops there. Generated images (Hunter's Lodge's flyer crops) are
+    held back the same way.
+  - **The canary reports low disk space** on every filesystem the application
+    writes to (photographs, backups, and the database: the SQLite file, or a
+    local PostgreSQL's `/var/lib/postgresql`), once per filesystem. It warns
+    under 10% free or under twice the photo floor, whichever is more room, so
+    the warning comes while photographs are still downloading. It leads the
+    report, the subject says "the disk is nearly full", and the run exits 1.
+
+  Found on the way: `scraping.max_photo_downloads_per_scan` was documented in
+  the sample config and never read, so setting it did nothing. It is read now.
 - **Shipped** 2026-09-27 — Chrome and its driver stay in step through
   `apt upgrade`. Chrome updates from Google's apt repository; a chromedriver
   unpacked into /usr/local/bin by hand does not, so every Chrome release left

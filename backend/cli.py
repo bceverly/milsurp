@@ -1266,6 +1266,7 @@ def _canary_report(
     results: list[canary.Probe],
     backups: canary.BackupHealth | None = None,
     site: canary.SiteHealth | None = None,
+    disks: list[canary.DiskHealth] | None = None,
 ) -> str:
     """The failures, as plain text, for a terminal and for an email body."""
     bad = canary.failures(results)
@@ -1275,6 +1276,11 @@ def _canary_report(
         # something that will matter later; this one is about right now, and
         # about the only thing here that visitors can see for themselves.
         lines += [f"SITE: {site.headline}", ""]
+    # Beside the site, because a full disk is how the site went down on
+    # 2026-09-27: the database could not write, and stopped.
+    for disk in disks or []:
+        if disk.low:
+            lines += [f"DISK: {disk.headline}", ""]
     if backups is not None and backups.stale:
         # First, because it is the one nobody else will ever mention. A vendor
         # going quiet shows up as an empty shelf eventually; a backup that
@@ -1317,16 +1323,20 @@ def _mail_canary(
     results: list[canary.Probe],
     backups: canary.BackupHealth | None = None,
     site: canary.SiteHealth | None = None,
+    disks: list[canary.DiskHealth] | None = None,
 ) -> None:
     """Tell the admins. Never raises: a canary that dies in its own alerting
     reports a clean sweep by exiting the same way a clean sweep would."""
     bad = canary.failures(results)
-    text = _canary_report(results, backups, site)
+    text = _canary_report(results, backups, site, disks)
+    low_disk = any(disk.low for disk in disks or [])
     # The subject is what gets read on a phone, so the worst thing wins it.
     if site is not None and site.down:
         subject = "Milsurp canary: THE SITE IS DOWN"
     elif site is not None and site.unhappy:
         subject = "Milsurp canary: the site is struggling"
+    elif low_disk:
+        subject = "Milsurp canary: the disk is nearly full"
     elif backups is not None and backups.stale and not bad:
         subject = "Milsurp canary: backups have stopped"
     else:
@@ -1415,6 +1425,11 @@ def cmd_canary(args: argparse.Namespace) -> int:
     # vendor that stopped answering does -- quietly, with nothing to see.
     backups = canary.backup_health(config)
 
+    # And the room left to write in. Photographs filled the production disk
+    # once, and the database stopped with it.
+    disks = canary.disk_health(config)
+    low_disk = any(disk.low for disk in disks)
+
     # And the site itself, from outside. An application cannot report its own
     # absence, and this process is the only part of the deployment still
     # running when the service is not.
@@ -1422,7 +1437,7 @@ def cmd_canary(args: argparse.Namespace) -> int:
 
     bad = canary.failures(results)
     print()
-    if not bad and not backups.stale and not site.unhappy:
+    if not bad and not backups.stale and not site.unhappy and not low_disk:
         shops = "shop" if len(results) == 1 else "shops"
         print(f"All {len(results)} {shops} answered with listings.")
         for line in _canary_notes(results):
@@ -1430,10 +1445,12 @@ def cmd_canary(args: argparse.Namespace) -> int:
         print(site.headline)
         if backups.configured:
             print(backups.headline)
+        for disk in disks:
+            print(disk.headline)
         return 0
-    print(_canary_report(results, backups, site))
+    print(_canary_report(results, backups, site, disks))
     if args.email:
-        _mail_canary(results, backups, site)
+        _mail_canary(results, backups, site, disks)
     return 1
 
 

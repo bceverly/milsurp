@@ -432,6 +432,13 @@ class ScrapingConfig:
     # the remainder is carried to the next scan. Raise it to drain a backlog
     # faster, at the cost of a longer run and more traffic in one burst.
     max_photo_downloads_per_scan: int = 400
+    # Photo downloads pause while the filesystem holding the images has less
+    # than this many gigabytes free. Photographs are most of what this
+    # application stores, and on a machine where they share a disk with the
+    # database, a full disk stops the database: on 2026-09-27 PostgreSQL could
+    # not write a checkpoint, crashed, and crash-looped until the disk grew.
+    # 0 switches the guard off.
+    min_free_disk_gb: float = 5.0
     # Narrow, deliberate exceptions to individual hosts' robots.txt. Empty by
     # default and meant to stay that way; see RobotsException.
     robots_exceptions: tuple[RobotsException, ...] = ()
@@ -768,6 +775,10 @@ def load_config(path: Path | None = None, mode: str | None = None) -> Config:
         chromedriver_path=(sel.get("chromedriver_path") or None),
         driver_cache_path=_driver_cache(sel.get("driver_cache"), mode, state_dir),
         max_pages=int(scr.get("max_pages", 60)),
+        max_photo_downloads_per_scan=int(
+            scr.get("max_photo_downloads_per_scan", defaults.max_photo_downloads_per_scan)
+        ),
+        min_free_disk_gb=float(scr.get("min_free_disk_gb", defaults.min_free_disk_gb)),
         robots_exceptions=_robots_exceptions(scr.get("robots_exceptions")),
     )
 

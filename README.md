@@ -2816,6 +2816,14 @@ says since when. A shop that times out or errors is probed once more at the end
 of the sweep, and one that answers then also passes with a note.
 `cli.py canary --no-retry` reports the first answer instead.
 
+**Photographs cannot fill the disk.** They are most of what this application
+stores, and on a machine where they share a filesystem with the database, a
+full disk stops the database; that happened in production on 2026-09-27.
+Photo downloads pause while less than `scraping.min_free_disk_gb` (default 5)
+is free where images are kept, and the canary warns when any filesystem it
+writes to (photographs, backups, database) drops under 10% free or twice that
+floor, whichever is more room.
+
 It is set for just after the pause instead, floored at five minutes and never
 later than the site's own interval. A run like that takes under a second and
 learns nothing, and the pause it walked into is an hour at the very most —
