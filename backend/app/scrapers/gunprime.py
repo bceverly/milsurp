@@ -218,6 +218,12 @@ class GunPrimeScraper(SiteScraper):
     )
     requires_browser = False
     default_interval_minutes = 1440
+    #: :meth:`scrape` returns a list rather than yielding: it walks both tags
+    #: before reading any product page, because a listing can carry both and
+    #: is read once. So the canary cannot stop at listing three; the first
+    #: listing arrives only after both tags are walked. That walk took 47s in the scan of 2026-09-26, and the canary
+    #: timed out at 96.6s the next morning against its 90s default.
+    canary_budget = 240.0
 
     def __init__(self) -> None:
         self._detail_failures = 0

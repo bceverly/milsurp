@@ -6,11 +6,20 @@ learns used to die with the process, so the scheduler, the CLI and a
 ``make photos`` run each rediscovered the same rate limit separately, and from
 the vendor's side that is several crawlers ignoring the same instruction.
 
-Two decisions worth stating.
+The decisions worth stating.
 
 **Per host, not per site.** A rate limiter counts requests to a hostname; a
 vendor's catalog pages and their uploads directory are usually the same one,
 and where they are not, the CDN in front of both is what is counting.
+
+**But photographs have a lane of their own.** A refused photograph pauses only
+photo downloads from that host (the register row ``<host> (photos)``), while a
+refused page pauses everything, photographs included. Checkpoint Charlie's is
+why: its CDN allows a few photographs an hour, and when every photo refusal
+paused the whole host, the photo worker kept it resting around the clock. Its
+scans began in a cooldown and the canary reported it every morning, all to
+fetch the least important thing this application reads. A photograph is not
+worth a listing.
 
 **Reads are cached for a moment.** This is consulted before every request, and
 a scan makes thousands. A few seconds of staleness cannot matter — the shortest
@@ -107,6 +116,10 @@ def _rows_affected(result: object) -> int:
     return count if isinstance(count, int) and count > 0 else 0
 
 
+#: What marks a host's photographs-only row in the register.
+PHOTOS_SUFFIX = " (photos)"
+
+
 def host_of(url: str) -> str:
     try:
         return (urlparse(url).hostname or "").lower()
@@ -114,22 +127,29 @@ def host_of(url: str) -> str:
         return ""
 
 
+def _key(url: str, photos: bool) -> str:
+    """The register row a fetch answers to: the host, or its photo lane."""
+    host = host_of(url)
+    return f"{host}{PHOTOS_SUFFIX}" if host and photos else host
+
+
 def _forget(host: str) -> None:
     with _lock:
         _cache.pop(host, None)
 
 
-def paused_for(url: str) -> float:
+def paused_for(url: str, *, photos: bool = False) -> float:
     """Seconds still to wait before this host should be asked for anything.
 
     Zero when the host is free, which is the overwhelmingly common answer and
-    the one that has to be cheap.
+    the one that has to be cheap. ``photos`` asks about the host's photo lane
+    instead, which only the photo downloader consults.
     """
-    remaining, _refusals = _state(url)
+    remaining, _refusals = _state(url, photos)
     return remaining
 
 
-def pace_for(url: str) -> float:
+def pace_for(url: str, *, photos: bool = False) -> float:
     """Seconds a caller should leave between requests to this host.
 
     Zero for a host that has never refused us, which is nearly all of them.
@@ -141,7 +161,7 @@ def pace_for(url: str) -> float:
     starts answering is back to full speed within a handful of requests rather
     than staying throttled forever.
     """
-    _remaining, refusals = _state(url)
+    _remaining, refusals = _state(url, photos)
     return pace_after(refusals)
 
 
@@ -157,9 +177,9 @@ def pace_after(refusals: int) -> float:
     return float(min(MIN_PACE * 2 ** (refusals - 1), MAX_PACE))
 
 
-def _state(url: str) -> tuple[float, int]:
+def _state(url: str, photos: bool = False) -> tuple[float, int]:
     """(seconds still to wait, consecutive refusals), cached for a moment."""
-    host = host_of(url)
+    host = _key(url, photos)
     if not host:
         return 0.0, 0
 
@@ -195,14 +215,17 @@ def _read_row(host: str) -> tuple[datetime | None, int]:
         return None, 0
 
 
-def refused(url: str, reason: str, retry_after: float | None = None) -> float:
+def refused(
+    url: str, reason: str, retry_after: float | None = None, *, photos: bool = False
+) -> float:
     """Record a refusal and return how long everything should now wait.
 
     The wait doubles with each consecutive refusal, and a ``Retry-After`` the
     host actually sent always wins over our own arithmetic — it is the only
-    number in this whole exchange that the vendor chose.
+    number in this whole exchange that the vendor chose. ``photos`` records it
+    against the host's photo lane, so only photo downloads wait.
     """
-    host = host_of(url)
+    host = _key(url, photos)
     if not host:
         return 0.0
 
@@ -238,16 +261,17 @@ def refused(url: str, reason: str, retry_after: float | None = None) -> float:
 
     _forget(host)
     log.warning(
-        "%s refused a request (%s); pausing every fetcher for %.0fs (refusal %d).",
-        host,
+        "%s refused a request (%s); pausing %s for %.0fs (refusal %d).",
+        host_of(url),
         reason,
+        "its photo downloads" if photos else "every fetcher",
         seconds,
         refusals,
     )
     return seconds
 
 
-def succeeded(url: str) -> None:
+def succeeded(url: str, *, photos: bool = False) -> None:
     """Take one step back towards trusting this host.
 
     Called on every successful request, so it has to do nothing at all in the
@@ -260,8 +284,9 @@ def succeeded(url: str) -> None:
     the pause; the row goes only when the count reaches zero. A host that
     refused us eight times has to answer eight times to be trusted at full
     speed again, which on a recovering host is a few minutes rather than never.
+    ``photos`` decays the host's photo lane instead.
     """
-    host = host_of(url)
+    host = _key(url, photos)
     if not host:
         return
     with _lock:
@@ -343,11 +368,16 @@ def tracked() -> list[HostCooldown]:
 
 
 def clear(host: str | None = None) -> int:
-    """Lift a cooldown by hand, or all of them. Returns how many were lifted."""
+    """Lift a cooldown by hand, or all of them. Returns how many were lifted.
+
+    Naming a host lifts its photo lane too: whoever clears a host means "ask
+    it again", and a paused photo lane would still be sitting there.
+    """
     with session_scope() as session:
         statement = delete(HostCooldown)
         if host:
-            statement = statement.where(HostCooldown.host == host.lower())
+            name = host.lower().removesuffix(PHOTOS_SUFFIX)
+            statement = statement.where(HostCooldown.host.in_([name, f"{name}{PHOTOS_SUFFIX}"]))
         removed = _rows_affected(session.execute(statement))
         session.commit()
     with _lock:

@@ -718,6 +718,11 @@ class SiteScraper(abc.ABC):
     description: str = ""
     #: True when a headless browser is required (Selenium + Chrome).
     requires_browser: bool = False
+    #: Seconds the canary (:mod:`app.services.canary`) gives this shop before
+    #: calling it a timeout, for a shop whose first listing cannot arrive
+    #: inside the default. None takes the default. A shop that is merely slow
+    #: today does not need this; one that is slow by construction does.
+    canary_budget: float | None = None
     #: Where a person signs up for this vendor's marketing email, for the Sites
     #: card's mailing-list link. The notification account is subscribed to
     #: these so the inbox reader (ROADMAP, "Vendor mailing lists") hears about

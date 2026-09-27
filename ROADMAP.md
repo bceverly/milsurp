@@ -4691,6 +4691,35 @@ on PostgreSQL.
   it finds nothing. The configuration still wins where it is set: an install
   that names its own paths has made a decision. `debian/control` recommends
   `chromium-driver` rather than the shim.
+- **Shipped** 2026-09-27 — Two more false alarms, and one real cost behind
+  them. The canary exited failed every morning, for two shops:
+  - **Checkpoint Charlie's, "resting", every day.** Its CDN allows a few
+    photographs an hour, and 306 of its 829 were still queued. Each hour the
+    photo worker fetched one to three, got three 429s, and paused *the whole
+    host* for an hour: 40 refusals on record. So the shop was nearly always
+    resting. The canary saw it, and its evening scans began in a cooldown and
+    ended partial. A single request with our agent got a 200 from the same
+    address, so it was never a block, only a low limit. A refused photograph now
+    pauses only that host's photo lane (the register row `<host> (photos)`). A
+    refused page still pauses everything, photographs included, and clearing a
+    host lifts both.
+  - **GunPrime, "timeout", 96.6s against 90.** Its scraper walks both tags
+    before its first listing arrives (47s in the last scan), so the probe
+    cannot stop early. Like the browser shops, it now names its own clock:
+    `canary_budget = 240` on the scraper.
+
+  And the canary itself was made harder to set off:
+  - **Resting is news only when the listings go stale.** A resting shop passes,
+    with a note, while its last scan that read anything (partial included) is
+    within three of its scan intervals or three days, whichever is longer.
+    After that it fails, saying when it was last read (`excuse_resting`).
+  - **A timeout or an error gets a second try**, after every other shop. One
+    that answers passes with a note saying what the first try gave; one that
+    fails twice is reported with both. Refusals, empty parses and rests are not
+    retried: they are a policy, our parser and our own register, and none of
+    them changes in a few minutes. `--no-retry` turns it off.
+  - Notes are listed apart from failures in the report, under "Passed, with a
+    note", so a clean morning stays clean and exits 0.
 - **Shipped** — The canary stops blaming a vendor for our own politeness. A
   host the cooldown register is pacing gets a gap of up to a minute between
   requests, so two requests cannot fit in a ninety-second budget and never

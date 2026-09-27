@@ -29,8 +29,9 @@ from __future__ import annotations
 
 import enum
 import time
-from collections.abc import Callable, Iterable, Sequence
-from dataclasses import dataclass
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from dataclasses import dataclass, replace
+from datetime import datetime, timedelta
 from http import HTTPStatus
 
 import requests
@@ -61,7 +62,7 @@ DEFAULT_BUDGET = 90.0
 
 #: How many paced requests a probe is assumed to need: robots.txt, the catalog,
 #: and a little room. Multiplied by the gap the cooldown register is asking for
-#: and added to the budget -- see sweep().
+#: and added to the budget -- see _allowance().
 PACED_REQUESTS = 4
 
 #: What a scraper needing a headless browser gets instead. Applied per scraper
@@ -80,7 +81,8 @@ BROWSER_BUDGET = 720.0
 
 
 class Verdict(str, enum.Enum):
-    """What the probe found. Only ``OK`` is a pass.
+    """What the probe found. Only ``OK`` is a pass, except a ``RESTING`` shop
+    whose listings are still fresh, which :func:`excuse_resting` lets through.
 
     ``REFUSED`` and ``EMPTY`` are separated because they need different
     repairs and the distinction is invisible in the outcome. Refused is a
@@ -121,10 +123,20 @@ class Probe:
     status: int | None = None
     #: One line a human can act on. Empty when there is nothing to say.
     detail: str = ""
+    #: Resting, but the shop's listings are still fresh; see excuse_resting().
+    excused: bool = False
+    #: The first probe failed and this is the second; see sweep().
+    retried: bool = False
 
     @property
     def healthy(self) -> bool:
-        return self.verdict.healthy
+        return self.verdict.healthy or self.excused
+
+    @property
+    def noteworthy(self) -> bool:
+        """Healthy, but with something worth a line: an excused rest, or a
+        shop that needed its second try."""
+        return self.healthy and (self.excused or self.retried)
 
 
 def probe(  # noqa: PLR0911 - one return per verdict, which is the whole shape
@@ -243,6 +255,16 @@ def _probe(
     )
 
 
+#: Verdicts worth a second probe at the end of the sweep.
+#:
+#: A timeout or an error can be the moment rather than the shop: a slow page,
+#: a dropped connection. Asking again a few minutes later, after every other
+#: shop, costs one page and saves a morning email about nothing. A refusal is
+#: the shop stating a policy, an empty parse is our reading of their markup,
+#: and resting is our own register, so none of those change in five minutes.
+RETRY_VERDICTS = frozenset({Verdict.TIMEOUT, Verdict.BROKE})
+
+
 def sweep(
     config: Config,
     slugs: Sequence[str],
@@ -250,6 +272,7 @@ def sweep(
     want: int = DEFAULT_WANT,
     budget: float = DEFAULT_BUDGET,
     skip_browser: bool = False,
+    retry: bool = True,
     progress: Callable[[Probe], None] | None = None,
 ) -> list[Probe]:
     """Probe each slug in turn, in the order given.
@@ -258,7 +281,64 @@ def sweep(
     delay and the robots cache are per-context, so twenty-eight threads would
     be twenty-eight simultaneous strangers arriving at shops that already
     dislike being crawled. The whole sweep is about a page per vendor.
+
+    With ``retry``, a shop that timed out or broke is probed once more after
+    all the others (see :data:`RETRY_VERDICTS`), and the second answer is the
+    one reported, marked ``retried``.
     """
+    results = _first_pass(config, slugs, want, budget, skip_browser, progress)
+    if not retry:
+        return results
+    for index, first in enumerate(results):
+        if first.verdict not in RETRY_VERDICTS:
+            continue
+        scraper = get_scraper(first.slug)
+        if scraper is None:
+            # An unregistered slug: the first pass has already said so.
+            continue
+        second = probe(config, scraper, want=want, budget=_allowance(scraper, budget))
+        detail = (
+            f"answered on the second try; the first gave {first.verdict.value}"
+            + (f" ({first.detail})" if first.detail else "")
+            if second.healthy
+            else f"failed twice; the first gave {first.verdict.value}"
+            + (f", and then: {second.detail}" if second.detail else "")
+        )
+        results[index] = replace(second, retried=True, detail=detail)
+        if progress is not None:
+            progress(results[index])
+    return results
+
+
+def _allowance(scraper: SiteScraper, budget: float) -> float:
+    """How long this shop's probe may take.
+
+    The budget, raised for a shop that needs longer by construction, plus room
+    for any pace the cooldown register is asking of this host.
+    """
+    allowance = max(budget, BROWSER_BUDGET) if scraper.requires_browser else budget
+    # A shop that cannot yield early says so, the way a browser shop does.
+    if scraper.canary_budget:
+        allowance = max(allowance, scraper.canary_budget)
+    # A host the cooldown register is pacing has to be given time to be
+    # asked slowly. Without this the budget is spent waiting out a delay
+    # *we* imposed and the shop is reported as a timeout -- which is the
+    # canary blaming a vendor for our own politeness, and it happened the
+    # first night this ran in production: checkpointcharlies.com was on a
+    # 60s gap after refusing a run of photo fetches, so two requests could
+    # not fit in ninety seconds and never will.
+    gap = cooldown.pace_for(scraper.base_url)
+    return allowance + gap * PACED_REQUESTS
+
+
+def _first_pass(
+    config: Config,
+    slugs: Sequence[str],
+    want: int,
+    budget: float,
+    skip_browser: bool,
+    progress: Callable[[Probe], None] | None,
+) -> list[Probe]:
     results: list[Probe] = []
     for slug in slugs:
         scraper = get_scraper(slug)
@@ -276,16 +356,7 @@ def sweep(
             continue
         if skip_browser and scraper.requires_browser:
             continue
-        allowance = max(budget, BROWSER_BUDGET) if scraper.requires_browser else budget
-        # A host the cooldown register is pacing has to be given time to be
-        # asked slowly. Without this the budget is spent waiting out a delay
-        # *we* imposed and the shop is reported as a timeout -- which is the
-        # canary blaming a vendor for our own politeness, and it happened the
-        # first night this ran in production: checkpointcharlies.com was on a
-        # 60s gap after refusing a run of photo fetches, so two requests could
-        # not fit in ninety seconds and never will.
-        gap = cooldown.pace_for(scraper.base_url)
-        result = probe(config, scraper, want=want, budget=allowance + gap * PACED_REQUESTS)
+        result = probe(config, scraper, want=want, budget=_allowance(scraper, budget))
         results.append(result)
         if progress is not None:
             progress(result)
@@ -481,6 +552,71 @@ def site_health(config: Config, *, sleep: Callable[[float], None] = time.sleep) 
         failures=failed,
         detail=detail,
     )
+
+
+#: How long a resting shop may go without a good scan before resting is news.
+#:
+#: Resting is our own doing: the shop refused us, and the cooldown register is
+#: keeping every fetcher away for up to an hour. That is the register working,
+#: and reporting it as a failure every morning -- Checkpoint Charlie's was
+#: reported for days while its evening scans kept its listings current --
+#: teaches whoever reads the report to skip that line. What matters is whether
+#: the listings are going stale, so a rest is a failure only once the shop has
+#: gone this many of its scan intervals, or RESTING_GRACE, without a scan that
+#: read anything.
+RESTING_GRACE_SCANS = 3
+RESTING_GRACE = timedelta(days=3)
+
+
+def resting_grace(interval_minutes: int | None) -> timedelta:
+    """How long a shop scanned this often may rest before it is a failure."""
+    every = timedelta(minutes=interval_minutes or 0)
+    return max(RESTING_GRACE, every * RESTING_GRACE_SCANS)
+
+
+def excuse_resting(
+    results: Iterable[Probe],
+    last_success: Mapping[str, datetime | None],
+    intervals: Mapping[str, int | None],
+    now: datetime,
+) -> list[Probe]:
+    """Excuse each resting shop whose listings are still fresh.
+
+    ``last_success`` is each slug's ``sites.last_success_at`` (a partial scan
+    counts: it read listings), and ``intervals`` its scan interval in minutes.
+    A resting shop with no good scan inside its grace stays a failure, and
+    says since when.
+    """
+    judged: list[Probe] = []
+    for result in results:
+        if result.verdict is not Verdict.RESTING:
+            judged.append(result)
+            continue
+        last = last_success.get(result.slug)
+        grace = resting_grace(intervals.get(result.slug))
+        if last is not None and now - last <= grace:
+            judged.append(
+                replace(
+                    result,
+                    excused=True,
+                    detail=f"in our own cooldown; last read {_ago(now - last)} ago",
+                )
+            )
+        else:
+            since = f"since {last:%Y-%m-%d %H:%M} UTC" if last else "ever"
+            judged.append(
+                replace(result, detail=f"{result.detail} No scan has read it {since}.".strip())
+            )
+    return judged
+
+
+def _ago(elapsed: timedelta) -> str:
+    hours = elapsed.total_seconds() / 3600
+    if hours < 1:
+        return f"{max(1, round(hours * 60))} min"
+    if hours < 48:
+        return f"{hours:.0f}h"
+    return f"{hours / 24:.0f} days"
 
 
 def failures(results: Iterable[Probe]) -> list[Probe]:

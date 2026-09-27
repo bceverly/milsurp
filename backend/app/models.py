@@ -916,7 +916,9 @@ class HostCooldown(Base):
 
     Per *host* rather than per site, because that is the unit a rate limiter
     actually works on: a vendor's pages and their uploads directory are usually
-    the same host, and the CDN in front of both is the thing counting.
+    the same host, and the CDN in front of both is the thing counting. A
+    refused *photograph* is recorded under ``<host> (photos)`` instead, and
+    holds back only photo downloads; see :mod:`app.services.cooldown`.
 
     Shared through the database because nothing else is shared. The scheduler,
     the CLI and a `make photos` run are separate processes, and a limit learned

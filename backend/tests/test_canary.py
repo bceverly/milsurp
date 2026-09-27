@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Iterable
+from datetime import UTC, datetime, timedelta
 from unittest import mock
 
 import pytest
@@ -211,6 +212,33 @@ class TestTheSweep:
         )
         canary.sweep(config, ["x"], budget=canary.DEFAULT_BUDGET)
         assert seen == [canary.BROWSER_BUDGET]
+
+    def test_a_shop_that_cannot_yield_early_names_its_own_clock(self, config, monkeypatch):
+        """GunPrime walks both of its tags before its first listing arrives,
+        which took 96.6s against a 90s ceiling one morning while its scans
+        were succeeding."""
+        slow = _Fake(_yielding(3))
+        slow.canary_budget = 240.0
+        seen: list[float] = []
+        monkeypatch.setattr(canary, "get_scraper", lambda _slug: slow)
+        monkeypatch.setattr(canary.cooldown, "pace_for", lambda _url: 0.0)
+        monkeypatch.setattr(
+            canary,
+            "probe",
+            lambda _c, _s, want, budget: (
+                seen.append(budget)
+                or canary.Probe(slug="x", name="x", verdict=Verdict.OK, items=3, seconds=0.0)
+            ),
+        )
+        canary.sweep(config, ["x"], budget=canary.DEFAULT_BUDGET)
+        assert seen == [240.0]
+
+    def test_and_gunprime_does(self):
+        from app.scrapers import get_scraper
+
+        scraper = get_scraper("gunprime")
+        assert scraper is not None
+        assert (scraper.canary_budget or 0) > canary.DEFAULT_BUDGET
 
 
 class TestTheReportReadsWorstFirst:
@@ -431,3 +459,121 @@ class TestTheDetailIsReadable:
 
     def test_newlines_do_not_survive(self):
         assert "\n" not in canary._short("first line\nsecond line")
+
+
+class TestASecondTry:
+    """A timeout or an error can be the moment rather than the shop, so it is
+    asked again once, after every other shop."""
+
+    def _sweep(self, config, monkeypatch, answers):
+        calls: list[str] = []
+        monkeypatch.setattr(canary, "get_scraper", lambda _slug: _Fake(_yielding(3)))
+        monkeypatch.setattr(canary.cooldown, "pace_for", lambda _url: 0.0)
+
+        def fake_probe(_config, _scraper, want, budget):
+            verdict = answers.pop(0)
+            calls.append(verdict.value)
+            return canary.Probe(
+                slug="x", name="X", verdict=verdict, items=3 * verdict.healthy, seconds=1.0
+            )
+
+        monkeypatch.setattr(canary, "probe", fake_probe)
+        return canary.sweep(config, ["x"]), calls
+
+    def test_a_timeout_that_answers_the_second_time_passes_with_a_note(self, config, monkeypatch):
+        results, calls = self._sweep(config, monkeypatch, [Verdict.TIMEOUT, Verdict.OK])
+        assert calls == ["timeout", "ok"]
+        assert results[0].healthy and results[0].retried and results[0].noteworthy
+        assert "second try" in results[0].detail
+        assert canary.failures(results) == []
+
+    def test_one_that_fails_twice_is_still_a_failure(self, config, monkeypatch):
+        results, _calls = self._sweep(config, monkeypatch, [Verdict.BROKE, Verdict.TIMEOUT])
+        assert [r.verdict for r in canary.failures(results)] == [Verdict.TIMEOUT]
+        assert "failed twice" in results[0].detail
+
+    @pytest.mark.parametrize("verdict", [Verdict.REFUSED, Verdict.EMPTY, Verdict.RESTING])
+    def test_but_nothing_else_is_asked_twice(self, config, monkeypatch, verdict):
+        """A refusal is a policy, an empty parse is our reading of their page,
+        and resting is our own register. None of those change in minutes."""
+        _results, calls = self._sweep(config, monkeypatch, [verdict])
+        assert calls == [verdict.value]
+
+    def test_and_retrying_can_be_turned_off(self, config, monkeypatch):
+        monkeypatch.setattr(canary, "get_scraper", lambda _slug: _Fake(_yielding(3)))
+        monkeypatch.setattr(canary.cooldown, "pace_for", lambda _url: 0.0)
+        calls: list[int] = []
+        monkeypatch.setattr(
+            canary,
+            "probe",
+            lambda _c, _s, want, budget: (
+                calls.append(1)
+                or canary.Probe(slug="x", name="X", verdict=Verdict.TIMEOUT, items=0, seconds=1.0)
+            ),
+        )
+        canary.sweep(config, ["x"], retry=False)
+        assert calls == [1]
+
+
+class TestRestingIsOnlyNewsWhenListingsGoStale:
+    """Checkpoint Charlie's was reported resting every morning while its
+    evening scans kept its listings current. Resting is the cooldown register
+    working; what matters is whether the listings are going stale."""
+
+    NOW = datetime(2026, 9, 27, 6, 30, tzinfo=UTC)
+
+    def _resting(self):
+        return canary.Probe(
+            slug="cc", name="CC", verdict=Verdict.RESTING, items=0, seconds=0.8, detail="cooldown"
+        )
+
+    def test_a_shop_read_yesterday_is_excused(self):
+        [judged] = canary.excuse_resting(
+            [self._resting()], {"cc": self.NOW - timedelta(hours=11)}, {"cc": 1440}, self.NOW
+        )
+        assert judged.healthy and judged.excused and judged.noteworthy
+        assert "11h ago" in judged.detail
+        assert canary.failures([judged]) == []
+
+    def test_one_unread_for_longer_than_its_grace_is_a_failure(self):
+        last = self.NOW - timedelta(days=4)
+        [judged] = canary.excuse_resting([self._resting()], {"cc": last}, {"cc": 1440}, self.NOW)
+        assert not judged.healthy
+        assert "2026-09-23" in judged.detail
+
+    def test_as_is_one_never_read(self):
+        [judged] = canary.excuse_resting([self._resting()], {"cc": None}, {"cc": 1440}, self.NOW)
+        assert not judged.healthy
+        assert "ever" in judged.detail
+
+    def test_the_grace_follows_a_slow_schedule(self):
+        """A shop scanned weekly is not stale after three days."""
+        assert canary.resting_grace(1440) == timedelta(days=3)
+        assert canary.resting_grace(7 * 1440) == timedelta(days=21)
+
+    def test_other_verdicts_are_left_alone(self):
+        timeout = canary.Probe(slug="cc", name="CC", verdict=Verdict.TIMEOUT, items=0, seconds=9)
+        assert canary.excuse_resting([timeout], {"cc": self.NOW}, {}, self.NOW) == [timeout]
+
+
+class TestTheReport:
+    def test_notes_are_listed_apart_from_failures_and_the_healthy(self):
+        from cli import _canary_report
+
+        rows = [
+            canary.Probe(slug="ok-shop", name="Ok", verdict=Verdict.OK, items=3, seconds=1),
+            canary.Probe(
+                slug="cc",
+                name="CC",
+                verdict=Verdict.RESTING,
+                items=0,
+                seconds=1,
+                detail="in our own cooldown; last read 11h ago",
+                excused=True,
+            ),
+            canary.Probe(slug="bad", name="Bad", verdict=Verdict.EMPTY, items=0, seconds=1),
+        ]
+        text = _canary_report(rows)
+        assert "1 of 3 shops did not answer" in text
+        assert "CC (cc) -- resting: in our own cooldown" in text
+        assert "Healthy: ok-shop" in text

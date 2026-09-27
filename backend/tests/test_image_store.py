@@ -269,11 +269,13 @@ class TestDownload:
             "app.services.image_store._check_url",
             lambda _url: image_store.UrlVerdict(True),
         )
-        paused: list[tuple[str, str]] = []
+        paused: list[tuple[str, str, bool]] = []
         monkeypatch.setattr(
             image_store.cooldown,
             "refused",
-            lambda url, reason, retry_after=None: paused.append((url, reason)) or 0.0,
+            lambda url, reason, retry_after=None, *, photos=False: (
+                paused.append((url, reason, photos)) or 0.0
+            ),
         )
         session = FakeSession(raises=requests.ConnectionError("refused"))
 
@@ -282,6 +284,9 @@ class TestDownload:
         assert len(paused) == 1
         assert paused[0][0] == "https://example.test/x.png"
         assert "unreachable" in paused[0][1]
+        # The photo lane only: a dark uploads directory is not a reason to
+        # stop reading the shop's pages.
+        assert paused[0][2] is True
 
     def test_but_a_slow_photograph_is_not_a_dead_host(self, store, monkeypatch):
         """A read timeout means the host answered and was slow, which is one
@@ -295,7 +300,7 @@ class TestDownload:
         monkeypatch.setattr(
             image_store.cooldown,
             "refused",
-            lambda url, reason, retry_after=None: paused.append(url) or 0.0,
+            lambda url, reason, retry_after=None, *, photos=False: paused.append(url) or 0.0,
         )
         session = FakeSession(raises=requests.ReadTimeout("slow"))
 

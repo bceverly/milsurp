@@ -89,6 +89,15 @@ TOO_MANY_REQUESTS = 429
 PERMANENT_STATUSES = frozenset({400, 401, 403, 404, 405, 410, 414, 415, 451})
 
 
+def _resting_for(url: str) -> float:
+    """Seconds before a photograph from this host may be asked for.
+
+    A pause on the whole host (a scan was refused) holds photographs too; a
+    pause on its photo lane holds only them.
+    """
+    return max(cooldown.paused_for(url), cooldown.paused_for(url, photos=True))
+
+
 def _is_permanent(status: int | None) -> bool:
     """Whether a failure at this status is worth giving up on."""
     return status is not None and status in PERMANENT_STATUSES
@@ -340,7 +349,7 @@ class ImageStore:
         # Another process may already have been told to go away by this host.
         # Photographs are the most skippable thing the application fetches, so
         # this reports and moves on rather than sleeping through it.
-        resting = cooldown.paused_for(source_url)
+        resting = _resting_for(source_url)
         if resting > 0:
             reason = f"{host} is resting for another {resting:.0f}s"
             log.info("Skipping %s: %s.", scrub(source_url), reason)
@@ -366,15 +375,15 @@ class ImageStore:
                 # photograph: Simpson's went off the air with 53 photographs
                 # queued, each one spent the full connect timeout finding that
                 # out, and a two-minute scan took twenty-eight minutes to
-                # arrive at the same answer 53 times. Pausing the host pushes
-                # that back to a handful of honest attempts, and the pause
-                # decays on the first success, so nothing is given up on.
+                # arrive at the same answer 53 times. Pausing the host's photo
+                # lane pushes that back to a handful of honest attempts, and the
+                # pause decays on the first success, so nothing is given up on.
                 #
                 # Only a connection failure. A read timeout means the host did
                 # answer and was slow, which is one big photograph rather than
                 # a host that is gone.
                 if isinstance(exc, requests.ConnectionError):
-                    cooldown.refused(source_url, f"unreachable ({type(exc).__name__})")
+                    cooldown.refused(source_url, f"unreachable ({type(exc).__name__})", photos=True)
                 return None, str(exc), False
 
             self._last_request_at[host] = time.monotonic()
@@ -386,7 +395,7 @@ class ImageStore:
                     response.close()
                     log.warning("Could not fetch %s: %s", scrub(source_url), scrub(exc))
                     return None, str(exc), _is_permanent(status)
-                cooldown.succeeded(source_url)
+                cooldown.succeeded(source_url, photos=True)
                 return response, None, False
 
             wait = _photo_backoff(response, self._slowed.get(host, 0.0))
@@ -401,9 +410,11 @@ class ImageStore:
         reason = f"{TOO_MANY_REQUESTS} after {PHOTO_ATTEMPTS} attempts"
         log.warning("Gave up on %s: the host kept answering %s.", scrub(source_url), reason)
         # Exhausted, so this is the host refusing rather than asking us to slow
-        # down — and worth telling every other process about, which is the
-        # whole point: a scan starting in a minute should not walk into it too.
-        cooldown.refused(source_url, f"{TOO_MANY_REQUESTS} on photographs")
+        # down -- and worth telling every other photo download about, in every
+        # process. Only the photo lane, though: this once paused the whole host,
+        # and Checkpoint Charlie's photographs then kept its scans and the
+        # canary resting around the clock. See the cooldown module.
+        cooldown.refused(source_url, f"{TOO_MANY_REQUESTS} on photographs", photos=True)
         return None, reason, False
 
     def _wait_for(self, host: str, url: str) -> None:
@@ -416,7 +427,11 @@ class ImageStore:
         be refused within the second -- the loop that kept checkpointcharlies
         .com refused for three days.
         """
-        pace = max(self._slowed.get(host, 0.0), cooldown.pace_for(url))
+        pace = max(
+            self._slowed.get(host, 0.0),
+            cooldown.pace_for(url),
+            cooldown.pace_for(url, photos=True),
+        )
         if not pace:
             return
         since = time.monotonic() - self._last_request_at.get(host, 0.0)
@@ -446,7 +461,7 @@ class ImageStore:
         response, error, permanent = self._get_photo(session, source_url)
         if response is None:
             return FetchResult(
-                None, error, resting=cooldown.paused_for(source_url) > 0, permanent=permanent
+                None, error, resting=_resting_for(source_url) > 0, permanent=permanent
             )
 
         content_type = (response.headers.get("Content-Type") or "").split(";")[0].strip().lower()

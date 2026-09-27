@@ -2800,6 +2800,14 @@ come back — so a shop whose thirteen sections were all skipped over a plain
 register was doing exactly what it was built to do, and the next attempt was set
 for the following day.
 
+**And `RESTING` alone no longer fails the canary.** A resting shop whose last
+scan that read listings (partial counts) is within three of its scan intervals,
+or three days, whichever is longer, passes with a note: "in our own cooldown;
+last read 11h ago". Past that, its listings are going stale, and it fails and
+says since when. A shop that times out or errors is probed once more at the end
+of the sweep, and one that answers then also passes with a note.
+`cli.py canary --no-retry` reports the first answer instead.
+
 It is set for just after the pause instead, floored at five minutes and never
 later than the site's own interval. A run like that takes under a second and
 learns nothing, and the pause it walked into is an hour at the very most —

@@ -1289,11 +1289,28 @@ def _canary_report(
         lines.append(f"  {probe.name} ({probe.slug}) -- {probe.verdict.value}{status}")
         if probe.detail:
             lines.append(f"      {probe.detail}")
-    healthy = sorted(probe.slug for probe in results if probe.healthy)
+    notes = _canary_notes(results)
+    if notes:
+        lines.append("")
+        lines += notes
+    healthy = sorted(probe.slug for probe in results if probe.healthy and not probe.noteworthy)
     if healthy:
         lines.append("")
         lines.append("Healthy: " + ", ".join(healthy))
     return "\n".join(lines)
+
+
+def _canary_notes(results: list[canary.Probe]) -> list[str]:
+    """Shops that passed with something worth one line: a rest excused
+    because their listings are fresh, or a second try that worked."""
+    noted = [probe for probe in results if probe.noteworthy]
+    if not noted:
+        return []
+    lines = ["Passed, with a note:"]
+    for probe in noted:
+        what = "resting" if probe.excused else "second try"
+        lines.append(f"  {probe.name} ({probe.slug}) -- {what}: {probe.detail}")
+    return lines
 
 
 def _mail_canary(
@@ -1359,6 +1376,10 @@ def cmd_canary(args: argparse.Namespace) -> int:
             query = query.where(Site.enabled.is_(True))
         sites = session.execute(query).scalars().all()
         wanted = [(site.slug, site.name) for site in sites]
+        # For excuse_resting(): a shop in our own cooldown is only news once
+        # its listings have gone stale.
+        last_success = {site.slug: as_utc(site.last_success_at) for site in sites}
+        intervals = {site.slug: site.scan_interval_minutes for site in sites}
     if not wanted:
         if args.site:
             print(f"No site with slug {args.site!r}.", file=sys.stderr)
@@ -1371,8 +1392,9 @@ def cmd_canary(args: argparse.Namespace) -> int:
     def show(probe: canary.Probe) -> None:
         status = f" HTTP {probe.status}" if probe.status else ""
         note = f"  {probe.detail}" if probe.detail and not probe.healthy else ""
+        again = " (second try)" if probe.retried else ""
         print(
-            f"  {probe.slug:<{width}}  {_CANARY_MARK[probe.verdict]:<8} "
+            f"  {probe.slug + again:<{width}}  {_CANARY_MARK[probe.verdict]:<8} "
             f"{probe.items:>2} in {probe.seconds:5.1f}s{status}{note}",
             flush=True,
         )
@@ -1383,8 +1405,10 @@ def cmd_canary(args: argparse.Namespace) -> int:
         want=args.items,
         budget=args.budget,
         skip_browser=args.skip_browser,
+        retry=not args.no_retry,
         progress=show,
     )
+    results = canary.excuse_resting(results, last_success, intervals, utcnow())
 
     # The backups are checked too, and reported in the same breath: a copy that
     # stopped leaving this machine four nights ago fails exactly the way a
@@ -1401,6 +1425,8 @@ def cmd_canary(args: argparse.Namespace) -> int:
     if not bad and not backups.stale and not site.unhappy:
         shops = "shop" if len(results) == 1 else "shops"
         print(f"All {len(results)} {shops} answered with listings.")
+        for line in _canary_notes(results):
+            print(line)
         print(site.headline)
         if backups.configured:
             print(backups.headline)
@@ -1752,6 +1778,11 @@ def _add_scheduled_parsers(sub: argparse._SubParsersAction) -> None:
         "--skip-browser",
         action="store_true",
         help="Leave out sites needing Selenium, for a host without Chrome.",
+    )
+    canary_cmd.add_argument(
+        "--no-retry",
+        action="store_true",
+        help="Report a timeout or error at once instead of probing the shop a second time.",
     )
     canary_cmd.add_argument(
         "--email", action="store_true", help="Mail the admins when anything failed."

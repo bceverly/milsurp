@@ -158,6 +158,9 @@ class TestTheLearnedPaceOutlivesTheProcess:
 
         assert "cooldown.pace_for(url)" in inspect.getsource(base.ScrapeContext._delay_for)
         assert "cooldown.pace_for(url)" in inspect.getsource(image_store.ImageStore._wait_for)
+        assert "cooldown.pace_for(url, photos=True)" in inspect.getsource(
+            image_store.ImageStore._wait_for
+        )
 
 
 class TestClearing:
@@ -230,3 +233,65 @@ class TestItNeverBreaksAFetch:
     def test_a_url_with_no_host_is_not_a_host(self):
         assert cooldown.paused_for("not a url") == 0.0
         assert cooldown.refused("not a url", "429") == 0.0
+
+
+PHOTO = "https://vendor.test/wp-content/uploads/a.jpg"
+
+
+class TestThePhotoLane:
+    """A refused photograph pauses photographs, not the shop.
+
+    Checkpoint Charlie's CDN allows a few photographs an hour. When each photo
+    refusal paused the whole host, the photo worker kept it resting around the
+    clock: its scans began in a cooldown and the canary reported it every
+    morning, for the sake of the least important thing we fetch.
+    """
+
+    def test_a_photo_refusal_leaves_the_host_askable(self):
+        cooldown.refused(PHOTO, "429 on photographs", photos=True)
+        cooldown._cache.clear()
+
+        assert cooldown.paused_for(PHOTO, photos=True) > 0
+        assert cooldown.paused_for(URL) == 0.0
+        assert cooldown.pace_for(URL) == 0.0
+
+    def test_it_is_a_row_of_its_own_that_says_so(self):
+        cooldown.refused(PHOTO, "429 on photographs", photos=True)
+
+        assert [row.host for row in cooldown.tracked()] == ["vendor.test (photos)"]
+
+    def test_but_a_page_refusal_is_not_only_the_pages(self):
+        """The photo downloader asks both, so a refused scan still holds
+        photographs back; see image_store._resting_for."""
+        from app.services import image_store
+
+        cooldown.refused(URL, "429")
+        cooldown._cache.clear()
+
+        assert cooldown.paused_for(PHOTO, photos=True) == 0.0
+        assert image_store._resting_for(PHOTO) > 0
+
+    def test_a_photograph_arriving_decays_only_its_lane(self):
+        for _ in range(3):
+            cooldown.refused(URL, "429")
+            cooldown.refused(PHOTO, "429 on photographs", photos=True)
+        cooldown._cache.clear()
+
+        cooldown.succeeded(PHOTO, photos=True)
+        cooldown._cache.clear()
+
+        assert cooldown.pace_for(PHOTO, photos=True) == cooldown.pace_after(2)
+        assert cooldown.pace_for(URL) == cooldown.pace_after(3)
+
+    def test_clearing_a_host_clears_its_photo_lane_too(self):
+        cooldown.refused(URL, "429")
+        cooldown.refused(PHOTO, "429 on photographs", photos=True)
+
+        assert cooldown.clear("vendor.test") == 2
+        cooldown._cache.clear()
+        assert cooldown.paused_for(PHOTO, photos=True) == 0.0
+
+    def test_and_naming_the_lane_itself_works(self):
+        cooldown.refused(PHOTO, "429 on photographs", photos=True)
+
+        assert cooldown.clear("vendor.test (photos)") == 1
