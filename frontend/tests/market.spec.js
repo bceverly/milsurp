@@ -32,6 +32,44 @@ test.describe("market", () => {
     );
   });
 
+  test("the caliber, listings and typical columns sort when clicked", async ({
+    signedIn,
+  }) => {
+    // The price bands are the first table; how-fast-it-sells is the second.
+    const bands = signedIn.locator("table").first();
+    await expect(bands.locator("tbody tr").first()).toBeVisible();
+    const column = (index) =>
+      bands.locator(`tbody tr td:nth-child(${index})`).allInnerTexts();
+    const money = (text) => Number(text.replace(/[^0-9.]/g, ""));
+    const count = (text) => Number(text.replace(/[^0-9]/g, ""));
+    const ascending = (values) => values.every((v, i) => i === 0 || values[i - 1] <= v);
+    const descending = (values) => values.every((v, i) => i === 0 || values[i - 1] >= v);
+
+    // Busiest first until a heading is clicked; clicking it again reverses.
+    expect(descending((await column(2)).map(count))).toBe(true);
+    await bands.getByRole("button", { name: "Listings" }).click();
+    await expect(bands.getByRole("columnheader", { name: "Listings" })).toHaveAttribute(
+      "aria-sort",
+      "ascending",
+    );
+    expect(ascending((await column(2)).map(count))).toBe(true);
+
+    // A price starts from the top.
+    await bands.getByRole("button", { name: "Typical" }).click();
+    await expect(bands.getByRole("columnheader", { name: "Typical" })).toHaveAttribute(
+      "aria-sort",
+      "descending",
+    );
+    expect(descending((await column(3)).map(money))).toBe(true);
+
+    // And the name column, from A.
+    await bands.getByRole("button", { name: "Caliber" }).click();
+    await expect(bands.getByRole("columnheader", { name: "Caliber" })).toHaveAttribute(
+      "aria-sort",
+      "ascending",
+    );
+  });
+
   test("a band links through to the listings behind it", async ({ signedIn }) => {
     await signedIn.locator("tbody tr td:first-child a").first().click();
     await expect(signedIn).toHaveURL(/\/\?caliber=/);

@@ -1859,6 +1859,14 @@
   gap: 0.75rem;
 }
 
+/* The bulk delete's question, asked in the bar rather than in a dialog. */
+.armory-bulk__confirm {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .armory-ref {
   margin-left: 0.5rem;
   font-size: 0.85em;

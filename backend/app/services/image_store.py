@@ -99,6 +99,39 @@ def _resting_for(url: str) -> float:
     return max(cooldown.paused_for(url), cooldown.paused_for(url, photos=True))
 
 
+#: How many of a difference hash's 64 bits two pictures may differ by and still
+#: be the same picture. Re-saving a JPEG moves none or one; a different
+#: photograph differs by around half of them.
+IMAGE_MATCH_DISTANCE = 6
+
+
+def difference_hash(path: Path) -> int | None:
+    """A 64-bit fingerprint of what a picture looks like, or None if unreadable.
+
+    Byte hashes are the wrong tool for recognizing a picture a shop reuses:
+    Madison Guns' "STOP -- you must be 21+" image is 162 files, and one of them
+    differs from the rest by 14 bytes of re-encoding. Comparing brightness
+    between neighbors on a tiny grayscale copy ignores all of that.
+    """
+    try:
+        with Image.open(path) as image:
+            small = image.convert("L").resize((9, 8), Image.Resampling.LANCZOS)
+    except (OSError, UnidentifiedImageError, ValueError):
+        return None
+    pixels = small.tobytes()
+    bits = 0
+    for row in range(8):
+        for column in range(8):
+            left = pixels[row * 9 + column]
+            bits = (bits << 1) | int(left > pixels[row * 9 + column + 1])
+    return bits
+
+
+def looks_like(fingerprint: int | None, known: int) -> bool:
+    """Whether a picture's fingerprint is one of a known picture's."""
+    return fingerprint is not None and (fingerprint ^ known).bit_count() <= IMAGE_MATCH_DISTANCE
+
+
 #: A gigabyte, as `df -h` counts one.
 GIB = 1024**3
 

@@ -138,6 +138,28 @@ class TestTheCollectorShorthands:
     def test_the_shapes_the_collectors_write(self, seeded, title, wanted):
         assert wanted in self.shapes(seeded, title)
 
+    @pytest.mark.parametrize(
+        ("title", "half"),
+        [
+            ("Belgian FN FAL 7.62x51 Parts Kit", "FAL 7"),
+            ("Austrian Steyr AUG 5.56x45 Kit", "AUG 5"),
+            ("Yugo M72B1 RPK 7.62x39 Stamped Parts Kit", "RPK 7"),
+            ("USED Surplus FEG PA7.65 32ACP Semi Auto Pistol", "PA7"),
+            ("USED Walther PPS 40S&W Semi Auto Compact Pistol", "PPS 40S"),
+            ("WBP AKM PARTS KIT-5.56/.223", "KIT-5"),
+        ],
+    )
+    def test_a_match_that_stops_at_a_decimal_point_cut_a_cartridge_in_half(
+        self, seeded, title, half
+    ):
+        """The same mistake as the slash: the number carries on, so what came
+        before the point is not a designation. About twenty rows of the queue
+        on 2026-09-28 were a cartridge cut in half like these."""
+        assert half not in self.shapes(seeded, title)
+
+    def test_but_the_model_before_the_cartridge_survives(self, seeded):
+        assert "M72B1" in self.shapes(seeded, "Yugo M72B1 RPK 7.62x39 Stamped Parts Kit")
+
     def test_a_match_that_stops_at_a_slash_stopped_too_early(self, seeded):
         """The letters-and-digits branch starts further left than the year
         branch and so wins: "WF BERN 96/11" gave "BERN 96"."""

@@ -61,7 +61,7 @@ from ..schemas import (
     FirearmModelUpdate,
 )
 from ..services import armory as service
-from ..services import armoryundo, audit, classify, mailer
+from ..services import armorybulk, armoryundo, audit, classify, mailer
 from ..services import search as search_service
 
 router = APIRouter(prefix="/armory", tags=["armory"])
@@ -499,6 +499,49 @@ def send_back(
             + (f" {touched} listing(s) re-matched." if touched else "")
             if moved
             else "Nothing moved; those rows are already awaiting approval."
+        ),
+    )
+
+
+@router.post("/{table}/disable", response_model=ArmoryAction)
+def disable_rows(
+    table: str, payload: ArmoryIds, admin: AdminUser, request: Request, session: DbSession
+) -> ArmoryAction:
+    """Switch a selection off: out of matching and out of the queue, but kept,
+    so a scan does not propose the same names again. See services/armorybulk."""
+    _known_table(table)
+    moved, touched = armorybulk.disable(
+        session, table, payload.ids, actor=admin, ip_address=client_address(request)
+    )
+    session.commit()
+    return ArmoryAction(
+        changed=moved,
+        items_restamped=touched,
+        message=(
+            f"{moved} switched off." + (f" {touched} listing(s) re-matched." if touched else "")
+            if moved
+            else "Nothing changed; those rows were already off."
+        ),
+    )
+
+
+@router.post("/{table}/delete", response_model=ArmoryAction)
+def delete_rows(
+    table: str, payload: ArmoryIds, admin: AdminUser, request: Request, session: DbSession
+) -> ArmoryAction:
+    """Delete a selection. Each row is audited with the snapshot revert needs."""
+    _known_table(table)
+    gone, touched = armorybulk.delete(
+        session, table, payload.ids, actor=admin, ip_address=client_address(request)
+    )
+    session.commit()
+    return ArmoryAction(
+        changed=gone,
+        items_restamped=touched,
+        message=(
+            f"{gone} deleted." + (f" {touched} listing(s) re-matched." if touched else "")
+            if gone
+            else "Nothing deleted; those rows were already gone."
         ),
     )
 

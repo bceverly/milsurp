@@ -61,7 +61,7 @@ from . import (
     provenance,
     scanalerts,
 )
-from .image_store import ImageStore, StoredImage
+from .image_store import ImageStore, StoredImage, difference_hash, looks_like
 
 #: Progress lines kept per run. Enough to debug a scrape without unbounded growth.
 MAX_LOG_LINES = 500
@@ -584,7 +584,7 @@ def _upsert_item(
 
     # Record photo URLs now; the bytes are fetched in a later pass so a slow
     # image host cannot stall the reconcile.
-    _reconcile_photos(session, item, scraped)
+    _reconcile_photos(session, item, scraped, site.slug)
 
     if scraped.images_are_complete:
         # The record is complete: description and full gallery. This is the
@@ -711,7 +711,7 @@ def _apply_catalog(session: Session, item: Item, trusted: bool, *, adopt: bool =
     item.cr_evidence = reading.evidence
 
 
-def _reconcile_photos(session: Session, item: Item, scraped: ScrapedItem) -> None:
+def _reconcile_photos(session: Session, item: Item, scraped: ScrapedItem, slug: str) -> None:
     """Bring an item's photo rows in line with what the scraper just saw.
 
     Bytes are not fetched here: a row without a filename is a job for
@@ -740,10 +740,12 @@ def _reconcile_photos(session: Session, item: Item, scraped: ScrapedItem) -> Non
         return
 
     by_url = {photo.source_url: photo for photo in stored}
+    added = False
     for position, url in enumerate(scraped.image_urls):
         existing_photo = by_url.pop(url, None)
         if existing_photo is None:
             session.add(ItemPhoto(item_id=item.id, source_url=url, position=position))
+            added = True
         else:
             # Keep display order in sync with the gallery.
             existing_photo.position = position
@@ -757,6 +759,12 @@ def _reconcile_photos(session: Session, item: Item, scraped: ScrapedItem) -> Non
     if not preview_only:
         for stale_photo in by_url.values():
             session.delete(stale_photo)
+
+    # The gallery was just put back in the shop's order, stock picture first.
+    # With every photo already on disk it can be moved again now; a new one
+    # is handled when it is downloaded, since there is no file to look at yet.
+    if not added and _demoted_fingerprints(slug):
+        _demote_placeholders(item, ImageStore(get_config()), slug)
 
 
 #: Below this many active listings the shrink guard does not apply. On a shelf
@@ -874,6 +882,43 @@ def _same_bytes_on_disk(store: ImageStore, photo: ItemPhoto, data: bytes) -> boo
         return store.absolute_path(photo.filename).read_bytes() == data
     except OSError:
         return False
+
+
+def _demoted_fingerprints(slug: str) -> list[int]:
+    """The pictures this site's scraper says belong at the end of a gallery."""
+    scraper_class = get_scraper_class(slug)
+    return [int(value, 16) for value in getattr(scraper_class, "demoted_images", ())]
+
+
+def _demote_placeholders(item: Item, store: ImageStore, slug: str) -> bool:
+    """Move a shop's stock picture to the end of this listing's gallery.
+
+    For a scraper that names one in ``demoted_images`` -- Madison Guns' "you
+    must be 21+" stop sign, which leads their galleries and would otherwise be
+    the thumbnail for every listing it is on. The other photographs keep their
+    order and move up. Returns whether anything moved.
+
+    Needs the files, so it runs after a download and after a gallery is
+    re-ordered, both of which can put the sign back in front.
+    """
+    fingerprints = _demoted_fingerprints(slug)
+    photos = sorted(item.photos, key=lambda photo: photo.position)
+    if not fingerprints or len(photos) < 2:
+        return False
+
+    def is_stock(photo: ItemPhoto) -> bool:
+        if not photo.filename:
+            return False
+        seen = difference_hash(store.absolute_path(photo.filename))
+        return any(looks_like(seen, known) for known in fingerprints)
+
+    stock = [photo for photo in photos if is_stock(photo)]
+    ordered = [photo for photo in photos if photo not in stock] + stock
+    if not stock or ordered == photos:
+        return False
+    for position, photo in enumerate(ordered):
+        photo.position = position
+    return True
 
 
 def _record_stored_photo(photo: ItemPhoto, stored: StoredImage) -> None:
@@ -1049,6 +1094,7 @@ def _download_photos(
             continue
         _record_stored_photo(photo, stored)
         downloaded += 1
+        _demote_placeholders(photo.item, store, site.slug)
         # Same rule: each iteration above went to the network for an image.
         session.commit()
         if (index + 1) % LOG_EVERY_PHOTO == 0:

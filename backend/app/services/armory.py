@@ -90,8 +90,14 @@ class CaliberRegistry:
     "7.62x54R" being read as a bare "7.62".
     """
 
-    def __init__(self, rules: list[tuple[str, re.Pattern[str]]]) -> None:
+    def __init__(
+        self,
+        rules: list[tuple[str, re.Pattern[str]]],
+        exact: dict[str, str] | None = None,
+    ) -> None:
         self.rules = rules
+        #: Every spelling as written, lowercased, to the row it belongs to.
+        self.exact = exact or {}
 
     def __len__(self) -> int:
         return len(self.rules)
@@ -99,13 +105,66 @@ class CaliberRegistry:
     def canonical(self, text: str | None) -> str | None:
         if not text:
             return None
+        # A string that *is* one of a row's spellings belongs to that row,
+        # before any forgiving search gets a say. The search forgives spacing,
+        # so ".32 ACP"'s "7.65mm" also reads "7.65 MM" -- which is a row of its
+        # own, kept apart because 7.65mm alone does not say which 7.65.
+        written = self.exact.get(" ".join(text.split()).lower())
+        if written:
+            return written
         for name, pattern in self.rules:
             if pattern.search(text):
                 return name
         return None
 
 
-def _caliber_rules(session: Session) -> list[tuple[str, re.Pattern[str]]]:
+def _caliber_spelling(text: str) -> str:
+    """One caliber spelling as a pattern that forgives how dealers space it.
+
+    Stricter than nothing and looser than a literal, because a cartridge is
+    written a dozen ways that are all the same string to a reader: "10mm" and
+    "10 mm", "45ACP" and "45 ACP", ".357 Mag" and "357 Mag". The armory used to
+    need an alias for every one of those, and was missing most of them -- a
+    vendor's "10 MM" found nothing until somebody typed that exact alias in.
+
+    * Where a number meets letters, the space between them is optional, and so
+      is one that was not written.
+    * A leading dot is optional when the number is followed by a name: ".357
+      Mag" also matches "357 Mag". Not on a bare number -- ".45" and ".40" need
+      their dots, because without them they are a price or a year.
+    """
+    stripped = text.strip()
+    named = bool(re.search(r"[A-Za-z]", stripped))
+    optional_dot = named and len(stripped) > 1 and stripped[0] == "." and stripped[1].isdigit()
+    body = stripped[1:] if optional_dot else stripped
+    pieces: list[str] = []
+    previous = ""
+    for part in re.findall(r"\s+|\S", body):
+        if part.isspace():
+            pieces.append("\\s*" if previous.isdigit() or previous.isalpha() else "\\s+")
+            previous = " "
+            continue
+        if previous and (
+            (previous.isdigit() and part.isalpha()) or (previous.isalpha() and part.isdigit())
+        ):
+            pieces.append("\\s*")
+        pieces.append(re.escape(part))
+        previous = part
+    return ("\\.?" if optional_dot else "") + "".join(pieces)
+
+
+def caliber_pattern(spellings: list[str]) -> re.Pattern[str]:
+    """Every spelling of one cartridge, as one pattern. See _caliber_spelling."""
+    alternatives = sorted((s for s in spellings if s.strip()), key=len, reverse=True)
+    if not alternatives:
+        return re.compile(r"(?!)")  # matches nothing
+    body = "|".join(_caliber_spelling(text) for text in alternatives)
+    return re.compile(rf"(?<![\w.])(?:{body})(?!\w)", re.IGNORECASE)
+
+
+def _caliber_rules(
+    session: Session,
+) -> tuple[list[tuple[str, re.Pattern[str]]], dict[str, str]]:
     rows = (
         session.execute(
             select(Caliber)
@@ -127,7 +186,13 @@ def _caliber_rules(session: Session) -> list[tuple[str, re.Pattern[str]]]:
     # short but which owns a long alias is still tried before a row that only
     # has short ones.
     ordered = sorted(rows, key=lambda row: max((len(s) for s in row.spellings), default=0))
-    return [(row.name, manufacturers.pattern_for(row.spellings)) for row in reversed(ordered)]
+    exact: dict[str, str] = {}
+    # Longest-spelling rows last, so where two rows share a spelling the one
+    # the search would also have chosen keeps it.
+    for row in ordered:
+        for spelling in row.spellings:
+            exact[" ".join(spelling.split()).lower()] = row.name
+    return [(row.name, caliber_pattern(row.spellings)) for row in reversed(ordered)], exact
 
 
 # ---------------------------------------------------------------------------
@@ -435,7 +500,7 @@ def caliber_registry(session: Session) -> CaliberRegistry:
     global _calibers
     with _lock:
         if _calibers is None:
-            _calibers = CaliberRegistry(_caliber_rules(session))
+            _calibers = CaliberRegistry(*_caliber_rules(session))
         return _calibers
 
 

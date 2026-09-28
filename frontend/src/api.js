@@ -352,6 +352,12 @@ export const api = {
     request(`/api/armory/${table}/promote`, { method: "POST", body: { ids } }),
   sendArmoryRowsBack: (table, ids) =>
     request(`/api/armory/${table}/send-back`, { method: "POST", body: { ids } }),
+  // The bulk reject and the bulk delete. Disable keeps each row, so a scan
+  // cannot propose the name again; delete does not. See services/armorybulk.
+  disableArmoryRows: (table, ids) =>
+    request(`/api/armory/${table}/disable`, { method: "POST", body: { ids } }),
+  deleteArmoryRows: (table, ids) =>
+    request(`/api/armory/${table}/delete`, { method: "POST", body: { ids } }),
   // Promote one of a row's own spellings to be its name. Not a rename: the old
   // name stays as an alias and the listings carrying it are restamped, which
   // is why it is a call of its own rather than a field on the edit form.

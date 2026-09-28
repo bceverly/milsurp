@@ -53,6 +53,11 @@ class MadisonGunsScraper(BigCommerceScraper):
     )
     requires_browser = False
     default_interval_minutes = 1440
+    #: Their red "STOP -- You must be 21+ to purchase this item. Please read the
+    #: ENTIRE description." sign, and its "18+" twin for long guns. Between them
+    #: they led 171 galleries (September 2026), at two sizes and each at its own
+    #: URL, so the sign is recognized by how it looks and moved last.
+    demoted_images = ("61e894a4ece06294",)
 
     sources = (
         {"category": "Used Guns", "url": f"{SITE_BASE}ammunition/used-guns/"},

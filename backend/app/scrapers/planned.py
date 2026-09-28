@@ -43,19 +43,6 @@ class PlannedSite:
 #: Ordered the way the roadmap orders them: buildable first, nearest to
 #: buildable at the top, and the ones blocked at the door last.
 PLANNED: tuple[PlannedSite, ...] = (
-    # -- buildable, not written yet ----------------------------------------
-    PlannedSite(
-        slug="nickerson-military",
-        name="Nickerson Military",
-        base_url="https://www.nickersonmilitary.com/",
-        platform="WordPress page, hand-written",
-        blocker=(
-            "Not written yet, and the weakest of the military-surplus survey: "
-            "one hand-edited price list, 29 lines with a price each on "
-            "2026-09-27, and no photos, links or ids. Keys would come from "
-            "titles, and a removed line is the only sign of a sale."
-        ),
-    ),
     # -- blocked at the door -----------------------------------------------
     PlannedSite(
         slug="wis-transfers",

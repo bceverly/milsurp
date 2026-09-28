@@ -723,6 +723,12 @@ class SiteScraper(abc.ABC):
     #: inside the default. None takes the default. A shop that is merely slow
     #: today does not need this; one that is slow by construction does.
     canary_budget: float | None = None
+    #: Pictures this shop puts on its listings that are not of the gun, as
+    #: 16-hex-digit difference hashes (:func:`app.services.image_store.
+    #: difference_hash`). A photo that looks like one of these is moved to the
+    #: end of its listing's gallery, so the first picture a reader sees is the
+    #: gun. Kept, not deleted: it is still what the shop published.
+    demoted_images: tuple[str, ...] = ()
     #: Where a person signs up for this vendor's marketing email, for the Sites
     #: card's mailing-list link. The notification account is subscribed to
     #: these so the inbox reader (ROADMAP, "Vendor mailing lists") hears about

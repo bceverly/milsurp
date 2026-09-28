@@ -107,7 +107,13 @@ DESIGNATION = re.compile(
     # 96/11" gave "BERN 96" until this was here, because the letters-and-digits
     # branch starts further left than the year branch and so wins. Every branch
     # that legitimately carries a slash consumes it itself.
-    )(?![\w/-])""",
+    #
+    # The same goes for a decimal point with a digit after it, and for "&": the
+    # number carries on, so what came before it is not a designation. "FAL
+    # 7.62x51" proposed "FAL 7", "AUG 5.56" proposed "AUG 5", "PA7.65" proposed
+    # "PA7" and "PPS 40S&W" proposed "PPS 40S" -- about twenty rows of the
+    # queue on 2026-09-28, every one a cartridge cut in half.
+    )(?![\w/&-]|\.\d)""",
     re.X,
 )
 

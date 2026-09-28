@@ -231,6 +231,13 @@ MAKER_CALIBERS: tuple[tuple[str, str], ...] = (
 )
 
 
+#: The dot a cartridge's number may start with, and which a dealer drops
+#: first: "357 mag", "45acp", "40 S&W". Present, it may follow anything --
+#: "Hog Hunter.308win" is a .308. Absent, the number must not follow a letter,
+#: a digit, a dot or a hyphen, so "M1940 S&W" is no .40 and the "30-30" of a
+#: Winchester 94 is no .30 Carbine.
+_DOT = r"(?:\.|(?<![\w.\-]))"
+
 # Explicit caliber spellings, normalized to one canonical label each.
 CALIBER_NORMALIZATIONS: tuple[tuple[str, str], ...] = (
     # Gauges first, so "12 ga" is not mistaken for a metric measurement.
@@ -251,7 +258,11 @@ CALIBER_NORMALIZATIONS: tuple[tuple[str, str], ...] = (
     # not .45 ACP either.
     (r"\.?38\s*super\b", ".38 Super"),
     (r"\.?38\s*s\s*&\s*w\b|\.?38\s*smith\b", ".38 S&W"),
-    (r"\.?45\s*(?:lc\b|long\s+colt\b|colt\b)", ".45 Colt"),
+    # "45 (Long) Colt" is how a Henry Big Boy is sold, parentheses and all.
+    (r"\.?45\s*(?:lc\b|\(?long\)?\s*colt\b|colt\b)", ".45 Colt"),
+    # The British service revolver round, which is a .38 S&W.
+    (rf"{_DOT}38[-/]200\b", ".38 S&W"),
+    (rf"{_DOT}30\s*luger\b", ".30 Luger"),
     (r"\.?44-40\b", ".44-40 Winchester"),
     (r"\.?38-40\b", ".38-40 Winchester"),
     (r"\.?38-55\b", ".38-55 Winchester"),
@@ -260,11 +271,15 @@ CALIBER_NORMALIZATIONS: tuple[tuple[str, str], ...] = (
     (r"\.?45-90\b", ".45-90 Winchester"),
     (r"\.?30-40\s*krag\b|\.?30-40\b", ".30-40 Krag"),
     (r"\.?30-30\b", ".30-30 Winchester"),
-    (r"\.40\s*s\s*&\s*w|\.40\s*sw\b", ".40 S&W"),
+    # The leading dot is optional (see _DOT) on every cartridge spelled with a
+    # word after its number -- "357 mag", "45acp", "40 S&W", "308 Win". A bare
+    # number with nothing after it still needs its dot: "45" alone is a price,
+    # a year or a model.
+    (rf"{_DOT}40\s*s\s*&\s*w|{_DOT}40\s*sw\b", ".40 S&W"),
     (r"\b10\s*mm\s*auto\b|\b10\s*mm\b", "10mm Auto"),
     (r"9\s*[x×]\s*19", "9mm"),
     (r"9\s*[x×]\s*18", "9x18 Makarov"),
-    (r"\.38\s*special", ".38 Special"),
+    (rf"{_DOT}38\s*special", ".38 Special"),
     (r"8\s*[x×]\s*57", "8mm Mauser"),
     # The same cartridge under its metric name, which is how a Yugoslav or
     # Czech rifle is usually described.
@@ -284,7 +299,8 @@ CALIBER_NORMALIZATIONS: tuple[tuple[str, str], ...] = (
     (r"7\.7\s*[x×]\s*58", "7.7x58mm Arisaka"),
     (r"6\.5\s*[x×]\s*50", "6.5x50mm Arisaka"),
     (r"cal\.?\s*\.?303\s+british|\.303\s+british|\.303(?!\s*\d)", ".303 British"),
-    (r"\.45\s*acp", ".45 ACP"),
+    # "45 Auto" is the same cartridge; "45 Auto Rim" is not.
+    (rf"{_DOT}45\s*acp\b|{_DOT}45\s*auto\b(?!\s*rim)", ".45 ACP"),
     # .25 ACP is 6.35x16mm Browning; a dealer writes it either way, and often
     # both at once — "BAYARD MODEL 1908 .25ACP/6.35". No space is required
     # after the dot: that is how it is actually typed.
@@ -335,12 +351,12 @@ CALIBER_NORMALIZATIONS: tuple[tuple[str, str], ...] = (
     # chamber marked "S/L/LR" takes all three.
     (r"\.22\s*lr|\.22(?!\s*\d)", ".22 LR"),
     (r"\.30-06|\b30-06\b|cal\.?\s*30-06", ".30-06"),
-    (r"\.30\s*carbine", ".30 Carbine"),
-    (r"\.308\s*win|\.308\b", ".308 Winchester"),
-    (r"\.357\s*mag", ".357 Magnum"),
-    (r"\.44\s*mag", ".44 Magnum"),
+    (rf"{_DOT}30\s*carbine", ".30 Carbine"),
+    (rf"{_DOT}308\s*win|\.308\b", ".308 Winchester"),
+    (rf"{_DOT}357\s*mag", ".357 Magnum"),
+    (rf"{_DOT}44\s*mag", ".44 Magnum"),
     (r"5\.56\s*[x×]\s*45|\b5\.56\b", "5.56x45mm NATO"),
-    (r"\.50\s*bmg", ".50 BMG"),
+    (rf"{_DOT}50\s*bmg", ".50 BMG"),
     (r"\b9\s*mm\b", "9mm"),
     # Bare "8mm", and it has to come last of all.
     #

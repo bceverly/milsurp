@@ -13,12 +13,14 @@
  * shops it came from, because most of them are one: 7.5x55 Swiss is 94% a
  * single dealer, and a median from one shelf is that dealer's pricing.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api.js";
 import { useTitle } from "../hooks.js";
 import { formatMoney } from "../format.js";
 import { Refresh, Warning } from "../components/Icons.jsx";
+import SortHeader from "../components/SortHeader.jsx";
+import { COLLATOR, compareCalibers } from "../sorting.js";
 
 const DIMENSIONS = [
   { key: "caliber", label: "Caliber" },
@@ -30,6 +32,29 @@ const TURNOVER_DIMENSIONS = [
   { key: "model", label: "Model" },
   { key: "caliber", label: "Caliber" },
 ];
+
+//: The bands arrive busiest first, and that stays the order until a heading is
+//: clicked.
+const DEFAULT_SORT = { key: "listings", direction: "desc" };
+
+//: What each sortable column reads off a band.
+const SORT_VALUES = {
+  value: (band) => band.value || "",
+  listings: (band) => band.listings,
+  median: (band) => band.median,
+};
+
+/**
+ * Where a click on a heading leads. The column already sorted reverses; a new
+ * one starts where it is most use -- names from A, counts and prices from the
+ * top, since "which sells most" and "which costs most" are the questions.
+ */
+function nextSort(current, key) {
+  if (current.key === key) {
+    return { key, direction: current.direction === "asc" ? "desc" : "asc" };
+  }
+  return { key, direction: key === "value" ? "asc" : "desc" };
+}
 
 const days = (value) => `${value} day${value === 1 ? "" : "s"}`;
 
@@ -209,6 +234,24 @@ export default function Market() {
   const [firearmsOnly, setFirearmsOnly] = useState(true);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [sort, setSort] = useState(DEFAULT_SORT);
+  const sortBy = (key) => setSort((current) => nextSort(current, key));
+
+  const bands = useMemo(() => {
+    if (!result) return [];
+    const read = SORT_VALUES[sort.key];
+    // Calibers in bore order, as on the Armory page; everything else by name.
+    const byName = dimension === "caliber" ? compareCalibers : COLLATOR.compare;
+    return [...result.bands].sort((left, right) => {
+      const a = read(left);
+      const b = read(right);
+      const first = typeof a === "number" ? a - b : byName(a, b);
+      // Ties fall back to the name, so equal counts still read alphabetically.
+      return (
+        (sort.direction === "asc" ? first : -first) || byName(left.value, right.value)
+      );
+    });
+  }, [result, sort, dimension]);
 
   const load = useCallback(async () => {
     setResult(null);
@@ -312,15 +355,30 @@ export default function Market() {
               <table className="table">
                 <thead>
                   <tr>
-                    <th>{DIMENSIONS.find((d) => d.key === dimension).label}</th>
-                    <th>Listings</th>
-                    <th>Typical</th>
+                    <SortHeader
+                      label={DIMENSIONS.find((d) => d.key === dimension).label}
+                      sortKey="value"
+                      sort={sort}
+                      onSort={sortBy}
+                    />
+                    <SortHeader
+                      label="Listings"
+                      sortKey="listings"
+                      sort={sort}
+                      onSort={sortBy}
+                    />
+                    <SortHeader
+                      label="Typical"
+                      sortKey="median"
+                      sort={sort}
+                      onSort={sortBy}
+                    />
                     <th>Spread</th>
                     <th>Shops</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {result.bands.map((band) => (
+                  {bands.map((band) => (
                     <tr key={band.value}>
                       <td>
                         <Link to={`/?${dimension}=${encodeURIComponent(band.value)}`}>

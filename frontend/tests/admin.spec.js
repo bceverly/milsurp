@@ -455,27 +455,35 @@ test.describe("sites", () => {
     const panel = signedIn.getByRole("region", { name: "Vendor mailing lists" });
     await expect(panel).toBeVisible();
 
+    // The mail itself is behind a button, so the panel stays short above the
+    // shops' cards.
+    await expect(panel.getByText("New surplus arrivals this week")).toHaveCount(0);
+    await panel.getByRole("button", { name: "Recent mail and links" }).click();
+    let mail = signedIn.getByRole("dialog", { name: "Recent mail from the shops" });
+
     // What the demo data stands in for: mail recorded, one asking to confirm.
-    await expect(panel.getByText("New surplus arrivals this week")).toBeVisible();
-    await expect(panel.getByText("asks you to confirm")).toBeVisible();
+    await expect(mail.getByText("New surplus arrivals this week")).toBeVisible();
+    await expect(mail.getByText("asks you to confirm")).toBeVisible();
     // What following SARCO's links found: a listing re-read at a new price.
-    await expect(panel.getByText("2 links followed")).toBeVisible();
-    await expect(panel.getByText("— new price")).toBeVisible();
+    await expect(mail.getByText("2 links followed")).toBeVisible();
+    await expect(mail.getByText("— new price")).toBeVisible();
 
     // The sale it announced, in words, on the email's line.
-    await expect(panel.getByText("15% off with code SURPLUS15")).toBeVisible();
+    await expect(mail.getByText("15% off with code SURPLUS15")).toBeVisible();
 
     // And on the page of the listing it named: the offer, never the price.
-    await panel.locator(".mailing-panel__listings a").first().click();
+    await mail.locator(".mailing-panel__listings a").first().click();
     const offers = signedIn.locator(".offers-panel");
     await expect(offers).toContainText("15% off");
     await expect(offers).toContainText("SURPLUS15");
     await expect(offers).toContainText("regular priced items only");
     await signedIn.goBack();
     await expect(panel).toBeVisible();
+    await panel.getByRole("button", { name: "Recent mail and links" }).click();
+    mail = signedIn.getByRole("dialog", { name: "Recent mail from the shops" });
 
     // Which shops' mail has been followed, which to look at, which to wait on.
-    const shops = panel.locator("details");
+    const shops = mail.locator("details");
     await expect(shops.locator("summary")).toContainText(
       "Links followed for 1 shop, 1 to look at",
     );
@@ -483,6 +491,8 @@ test.describe("sites", () => {
     await expect(shops).toContainText("Mail read, but no link reached the shop: Botach");
     await expect(shops).toContainText("SARCO, Inc.");
     await expect(shops).toContainText("Waiting:");
+    await signedIn.keyboard.press("Escape");
+    await expect(mail).toHaveCount(0);
 
     // The checkbox inside a `.switch` is visually hidden, so the label is
     // what gets clicked and the input is what gets asserted on.

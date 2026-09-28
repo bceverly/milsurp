@@ -198,6 +198,10 @@ function MailingListsPanel({ onChecked }) {
   const [state, setState] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  // The recent mail and the per-shop link tally, behind a button: the panel
+  // sits above every shop's card, and a dozen emails with their listings
+  // pushed the cards a screen down.
+  const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
     api
@@ -296,40 +300,57 @@ function MailingListsPanel({ onChecked }) {
               : "Not checked yet."}{" "}
           Read-only: nothing is marked read, and only mail from the shops is kept.
         </p>
-        {state.recent.length > 0 && (
-          <ul className="mailing-panel__recent">
-            {state.recent.slice(0, 8).map((mail) => (
-              <li key={`${mail.received_at}-${mail.subject}`}>
-                <span className="muted">{formatRelative(mail.received_at)}</span>{" "}
-                <strong>{mail.site_name}</strong> — {mail.subject}
-                {mail.asks_to_confirm && (
-                  <span className="chip chip--warning">asks you to confirm</span>
-                )}
-                {mail.offer && <span className="chip chip--success">{mail.offer}</span>}
-                {mail.links_followed !== null && (
-                  <span className="muted">
-                    {" "}
-                    · {mail.links_followed} link{mail.links_followed === 1 ? "" : "s"}{" "}
-                    followed
-                  </span>
-                )}
-                {mail.listings.length > 0 && (
-                  <ul className="mailing-panel__listings">
-                    {mail.listings.map((listing) => (
-                      <li key={listing.item_id}>
-                        <Link to={`/items/${listing.item_id}`}>{listing.title}</Link>
-                        {listing.outcome && (
-                          <span className="muted"> — {OUTCOME[listing.outcome]}</span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </li>
-            ))}
-          </ul>
+        <button
+          className="btn btn--secondary btn--sm"
+          type="button"
+          onClick={() => setShowDetails(true)}
+        >
+          <History size={14} />
+          Recent mail and links
+        </button>
+        {showDetails && (
+          <Modal title="Recent mail from the shops" onClose={() => setShowDetails(false)}>
+            {state.recent.length === 0 && (
+              <p className="muted">No mail from the shops yet.</p>
+            )}
+            {state.recent.length > 0 && (
+              <ul className="mailing-panel__recent">
+                {state.recent.slice(0, 8).map((mail) => (
+                  <li key={`${mail.received_at}-${mail.subject}`}>
+                    <span className="muted">{formatRelative(mail.received_at)}</span>{" "}
+                    <strong>{mail.site_name}</strong> — {mail.subject}
+                    {mail.asks_to_confirm && (
+                      <span className="chip chip--warning">asks you to confirm</span>
+                    )}
+                    {mail.offer && (
+                      <span className="chip chip--success">{mail.offer}</span>
+                    )}
+                    {mail.links_followed !== null && (
+                      <span className="muted">
+                        {" "}
+                        · {mail.links_followed} link{mail.links_followed === 1 ? "" : "s"}{" "}
+                        followed
+                      </span>
+                    )}
+                    {mail.listings.length > 0 && (
+                      <ul className="mailing-panel__listings">
+                        {mail.listings.map((listing) => (
+                          <li key={listing.item_id}>
+                            <Link to={`/items/${listing.item_id}`}>{listing.title}</Link>
+                            {listing.outcome && (
+                              <span className="muted"> — {OUTCOME[listing.outcome]}</span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <ShopLinkStatus shops={state.shops} />
+          </Modal>
         )}
-        <ShopLinkStatus shops={state.shops} />
       </div>
     </section>
   );

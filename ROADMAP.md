@@ -14,11 +14,10 @@ The whole point of the application is breadth. Each new vendor is one subclass
 of `SiteScraper` in `backend/app/scrapers/` plus one line in `SCRAPER_CLASSES`;
 scheduling, admin controls, price history, images and digests all come for free.
 
-**Where this stands: thirty-eight vendors read, two queued.** Nickerson
-Military is buildable but weak (one hand-edited price list, from the September
-2026 military-surplus survey). WIS Transfers is blocked at the door: its
-firewall challenges any client that says it is not a browser, and this one
-says so honestly.
+**Where this stands: thirty-nine vendors read, one queued, and it is blocked
+at the door:** WIS Transfers' firewall challenges any client that says it is
+not a browser, and this one says so honestly. Nothing buildable is waiting;
+the September 2026 military-surplus survey's three shops all shipped.
 
 **Clyde Armory shipped once its certificate problem was understood.** Their
 server sends its own certificate without the intermediate; browsers fetch the
@@ -77,6 +76,7 @@ the whole catalog as JSON to the widget that draws the grid. See
 | [Target Sports USA](https://www.targetsportsusa.com/used-gunspolice-trade-c-998.aspx) | `target-sports-usa` | AspDotNetStorefront — every product page's microdata, because the category page shows no price or stock. Sold out when built; waits for a restock |
 | [Civilian Marksmanship Program](https://thecmp.org/) | `cmp` | Custom — the grade-and-price tables for Garands, 1903s, 1917s, Krags, carbines and 1911s. Never its auctions |
 | [WW2 Collectibles](https://ww2collectibles.com/products/products_list/rifles/) | `ww2-collectibles` | Custom (AppSoft CMS) — 146 collector rifles and pistols, 67 of them sold with their last price; K98 snipers, G43s, SVT-40s, Lugers, Nambus. New-made reproductions and a blank-firer are left out |
+| [Nickerson Military](https://www.nickersonmilitary.com/military-firearms-for-sale/) | `nickerson-military` | One hand-edited WordPress page — 29 priced lines under era headings; no photos, links or ids, so each listing is keyed by its own title and a line that disappears is de-listed |
 | [Allegheny Arsenal](https://mg34.com/product-category/guns-for-sale) | `allegheny-arsenal` | BigCommerce — the 42 military listings of a 113-listing gun shelf, chosen by title; the new retail stock beside them is left out |
 
 ### Planned
@@ -120,8 +120,9 @@ Two more joined the queue on 2026-09-26, from the police trade-in survey below:
 **Sportsman's Outdoor Superstore** (`sportsmans-outdoor`) and **Target Sports
 USA** (`target-sports-usa`), both shipped the same day. Three more joined on
 2026-09-27 from the military-surplus survey below: **Allegheny Arsenal** and
-**WW2 Collectibles** (both shipped the same day) and **Nickerson Military**.
-WIS Transfers is still the only one blocked.
+**WW2 Collectibles** (both shipped the same day) and **Nickerson Military**
+(shipped the next). WIS Transfers is the only vendor left on the coming-soon
+list.
 
 The platform column below was originally **inferred from the URL shape** — a
 `/product-category/` or `/product-tag/` path means WooCommerce, `/collections/`
@@ -1110,7 +1111,7 @@ code and a price, "SOLD OUT" with a date, or "Available at Stores".
   - "Back in stock" is also digest news for every watcher, alongside sold and
     price moves. The alert email's subject says "… is back in stock".
 
-### Military surplus survey, September 2026 — **two shipped, one queued, the rest refused or gone**
+### Military surplus survey, September 2026 — **three shipped, the rest refused or gone**
 
 A web search for military-surplus and C&R dealers not already read or
 refused, then a fetch of each before anything was written down. Every fetch
@@ -1121,7 +1122,7 @@ multi-page walks waited 1.5 seconds between pages. Measured 2026-09-27.
 | --- | --- | --- | --- | --- |
 | [Allegheny Arsenal](https://mg34.com/product-category/guns-for-sale) | `/product-category/guns-for-sale`, paged by `?page=N` | BigCommerce (Stencil) | **113 listings over five pages, every one priced**, the product id on each card (`data-product-id`), "Only 1 left in stock" badges. Mostly surplus and collector pieces: No. 4 Mk1 (T) snipers, an SVT-38, P08 Lugers, a Japanese Type 2 paratrooper rifle, semi-auto belt-feds (Vz.59, PKM, SG-43, Breda M37). But it is mixed: a Nighthawk 1911, a Blaser LRT and a new Franchi sit on the same shelf. The rest of the shop is parts, by weapon. robots.txt disallows only the cart, account and search pages | **Shipped 2026-09-27: 42 of the 113.** A BigCommerce subclass. The shelf is two shops in one, so a listing is read only when its title says it is military: a marker the shop writes on surplus ("C&R", "WWII", "USGI", "Bring Back", "Police Trade In") or a military model name (Mosin, Enfield, P08, Nambu, the belt-feds). That reads the Lugers, Mosins, No. 4 (T)s, a Thompson and the belt-feds on surplus parts, and leaves out 14 closeout Remington 700 barreled actions, POF ARs, Vigilance .50s, a Kriss and a Nighthawk. A Bramit suppressor, a "not available for sale" teaser and a "Trench Gun Conversion Service" name a war and are left out too. "Luger" alone is not a model name, because "9mm Luger" is a caliber |
 | [WW2 Collectibles](https://ww2collectibles.com/products/products_list/rifles/) | `/products/products_list/rifles/` and `/pistols/`, paged by `?pagenum=N` | AppSoft CMS, custom | **Rifles: 89 listings, 50 of them SOLD. Pistols: 64, 22 SOLD.** Each card carries `data-id`, `data-name` and `data-price`, and a SOLD label when it has gone. Arisakas, K98s, Lugers, P38s, CZ 27s. The pistol shelf also holds blank-firing replicas (a Kimar "PPK style" 8mm PAK), which are not firearms. robots.txt disallows nothing | **Shipped 2026-09-27: 146 listings, 67 of them sold.** A parser of its own (`ww2_collectibles.py`). Rifles, Pistols, and Machine Guns Semi-Auto for the three guns found nowhere else (a PPS-43, a Tantal and a 1919A4 on original kits); in that section only a title saying "Semi-Auto" is read, which leaves out its magazines and loaders. Machine Guns, Submachine Guns, Shotguns and Class 3 were measured and add only display pieces, pouches, magazines and repeats. Left out: nine DK Production Group reproductions (new-made MP38s and STG44s) and the blank-firing pistol. Flare pistols stay, as handguns, like everywhere else. Sold cards keep their last price and are read as sold, as at Recoil. The product page gives the description (labeled fields: maker, date, caliber, condition, bore) and a full-size gallery, 12 photos on a typical gun. No mailing list on the site |
-| [Nickerson Military](https://www.nickersonmilitary.com/military-firearms-for-sale/) | `/military-firearms-for-sale/` | WordPress, one hand-written page | **One price list, "UPDATED 09/18/2026"**: 29 lines under era headings ("WORLD WAR II RIFLES"), each a title and a price. Garands, M1 Carbines, M1917s, a Krag, a Reising, a No. 4 (T). No photos, no links, no ids. Two lines are the same Yugo M48 at different prices | **Queued** (`nickerson-military`), last of the three. Keys must come from the title text, and a line's removal is the only sign of a sale |
+| [Nickerson Military](https://www.nickersonmilitary.com/military-firearms-for-sale/) | `/military-firearms-for-sale/` | WordPress, one hand-written page | **One price list, "UPDATED 09/18/2026"**: 29 lines under era headings ("WORLD WAR II RIFLES"), each a title and a price. Garands, M1 Carbines, M1917s, a Krag, a Reising, a No. 4 (T). No photos, no links, no ids. Two lines are the same Yugo M48 at different prices | **Shipped 2026-09-28: 29 listings.** `nickerson_military.py` reads the page's paragraphs: a bold one is a heading (the category, title-cased with WWII and the numerals kept), and a line ending in a price is a listing. Each key is the title slugged, a repeated line gets `-2`, and every listing links to the page, as at Empire Arms. A line that disappears is de-listed, and the shrink guard still holds back a page rewritten wholesale. The one air rifle on the list (a Daisy 853 trainer) is left out. Their "Military Surplus" page (boots, blankets, MREs) and "Hunting & Target" page (sporting guns) were opened and are not read. No mailing list; their other outlet is an eBay store |
 | [Victory Arms & Munitions](https://www.victory-arms.com/milsurps) | `/milsurps` | OpenCart | **One listing** ("Showing 1 to 1 of 1"). The shop is mostly surplus accessories and ammunition | **Refused: nearly empty**, as KY Gun Co was. Worth a recheck |
 | [OWS-Ammo](https://ows-ammo.com/product-category/military-surplus/) | `/product-category/military-surplus/` | Cloudflare | **403** to our agent, robots.txt included | **Blocked** |
 | [Hinterland Outfitters](https://www.hinterlandoutfitters.com/) | none | Cloudflare | **403** on the catalog; a general retailer carrying InterOrdnance's new production | **Blocked**, and out of scope anyway |
@@ -2741,6 +2742,121 @@ to match in the first place. The cost was real: `\benfield\b` is the only rifle
 signal in "British Enfield No.4 Mk.I .303", so 51 Lee-Enfield titles would have
 stopped saying "rifle" and `_contradicted` would have lost its guard on them.
 Zero benefit for a real cost is not a trade. Those revolvers want a model row.
+
+#### Bulk switch-off and delete, and a proposer that stops cutting cartridges in half — **Shipped** 2026-09-28
+
+The model queue had reached 157 rows, and about twenty of them were the same
+mistake: a designation read up to a decimal point. "FAL 7.62x51" proposed
+"FAL 7", "AUG 5.56" "AUG 5", "PA7.65" "PA7", "PPS 40S&W" "PPS 40S". The
+designation pattern now refuses to end where a decimal number or an "&"
+carries on. Checked against all 13,029 production titles: 38 kinds of junk
+candidate gone (72 proposals), nothing real lost, nothing new proposed. A
+second guard, against a cartridge word after the number ("GIRK 308 Win"), was
+tried and dropped: "Short", "Long", "Remington" and "S&W" follow too many real
+designations ("Type 38 Short Rifle", "P226 .40 S&W", "M1858 Remington").
+
+**The selection bar gained Switch off and Delete…** on all three tabs, beside
+Promote and Send back (`POST /api/armory/{table}/disable` and `/delete`,
+`services/armorybulk.py`). Switch off is the reject: the row stays, so a scan
+cannot propose the name again. Delete asks first, in the bar, and says that.
+Every row is audited on its own with the snapshot revert needs, so either can
+be undone row by row from the audit log. A single maker delete never recorded
+anything, and through the bulk path it does.
+
+**The queue itself was ruled on** in production the same day, through the
+deployed code's own promote and merge, and the audited switch-off: 123
+approved (190 listings re-matched), 29 switched off (the half-cartridges, item
+codes, production years, and "Model 65" and "Model 52", which three different
+guns share), 4 spelling variants merged (1891/59 into 91/59, SVT38, PM63,
+Mod. 63), and SPM16 left for a person. The makers' queue had already been
+worked through by hand.
+
+#### Production's armory in the repository, and the repository's in production — **Shipped** 2026-09-28
+
+The first export of production's armory was not a superset of the shipped
+file. Nine rows had been fixed in the repository after production loaded its
+armory, and production still had the broken versions: "PSL 7" and "TTC 7" (a
+cartridge cut in half) credited to "CO" (a fragment of "& Co."), "M1865" and
+"U.S. M1864" the same, "Mle 1874" and "10/22" under bare designations,
+M91/30 and M44 unmerged, and two stray aliases ("A111" on the M1911A1, "AV1"
+on the M91/30). Copying the export over the seed file would have undone the
+repository's fixes.
+
+So production was brought into line first, through the application's own
+merge and an audited edit per row: Cugir and Triplett & Scott added, Joslyn
+restored, the six rows renamed to the repository's names and rewritten from
+it, Joslyn M1864 added, the two merges made. 13 listings re-matched. Then
+production was exported again, and that export is the seed file: nothing the
+repository had is missing from it, and what it adds is production's own
+curation (240 models, 21 makers and 21 calibers added, and 25 rows changed,
+mostly by new spellings).
+
+The shipped-armory tests then caught two spellings production's approvals had
+made ambiguous: "M1919" added to the M1919A4 while the Spanish M1919 pistol
+already answered to it, and a bare "Model 320" approved beside the "Israeli
+Model 320" that claims the same string. The alias came off and the bare row
+was switched off, in production, and the file re-exported.
+
+#### Calibers however they are spaced or dotted — **Shipped** 2026-09-28
+
+About 670 of production's 9,945 rifles and pistols had no caliber, and a good
+share of them named one in a form nothing would read: "357 mag", "45acp",
+"40 S&W", "38 Special", "45 (Long) Colt", ".38-200", "30 Luger". Two layers
+were at fault.
+
+- **The classifier's patterns demanded the dot.** They now share one rule,
+  `_DOT`: a cartridge's leading dot is optional when a word follows the number
+  ("357 mag"), may follow anything when present ("Hunter.308win"), and when
+  absent the number may not follow a letter, digit, dot or hyphen, so the
+  "30-30" of a Winchester 94 is no .30 Carbine. A bare number still needs its
+  dot. ".38-200", ".30 Luger" and "45 (Long) Colt" were added. Measured on all
+  12,367 active production listings: 225 more found a caliber, none lost one,
+  and the 49 that changed answer were corrections (P210s and Lugers "chambered
+  in 7.65mm (30 LUGER)" filed as .32 ACP, Enfield No. 2s as .303, Thompson
+  "M1 Carbine 45 ACP"s as .30 Carbine).
+- **The armory's spellings were literal** apart from stretchable spaces, so
+  "10mm" never read "10 mm" and every spacing needed an alias of its own.
+  Caliber spellings now forgive a space where a number meets letters, and a
+  missing leading dot before a name (`armory.caliber_pattern`); maker spellings
+  are unchanged. A spelling can no longer start inside a longer number either:
+  "5.4mm" had read as a 4mm cartridge and "13.5mm" as 5mm.
+- **An exact spelling belongs to its own row.** That fixed a bug older than
+  the rest: ".40"'s alias "40 Caliber" is a longer spelling than ".40 S&W", so
+  the bare-bore row was tried first and matched inside it, and about 110
+  police-trade Glocks and Sigs were filed under ".40" with not one under ".40
+  S&W". ".44 Colt", ".41 Colt", ".44 Henry", ".450/455" and ".32 Colt" were
+  swallowed the same way. It also keeps "7.65 MM", a row kept apart because it
+  does not say which 7.65, from being claimed by .32 ACP's "7.65mm".
+
+The stored values move on each shop's next scan, or at once with `reclassify
+--recompute --fields caliber`.
+
+#### Market bands sort by column — **Shipped** 2026-09-28
+
+The price bands' name, Listings and Typical headings sort when clicked, with
+the Armory's header component (now `components/SortHeader.jsx`) and its bore
+order for calibers (now `sorting.js`). Busiest first until a heading is
+clicked; a name starts from A, a count or a price from the top, and a second
+click reverses.
+
+#### A shop's stock picture goes to the back — **Shipped** 2026-09-28
+
+Madison Guns opened 171 galleries with a red "STOP -- you must be 21+ (or 18+)
+to purchase this item" sign, so it was the thumbnail on every one of those
+listings. Each copy is at its own URL, at two sizes, and one differs from its
+siblings by 14 bytes, so it is recognized by a 64-bit difference hash
+(`image_store.difference_hash`, within 6 bits) rather than by bytes. A scraper
+lists such pictures in `demoted_images`, and a matching photo is moved to the
+end of its gallery after it downloads and whenever a gallery is re-ordered; the
+rest keep their order and move up. Kept rather than deleted, since it is still
+what the shop published. The 171 stored galleries were re-ordered in
+production the same day.
+
+#### The mailing-list panel stays short — **Shipped** 2026-09-28
+
+The Vendor mailing lists panel sits above every shop's card, and its recent
+mail and per-shop link tally had grown to push the cards a screen down. They
+are now behind a "Recent mail and links" button, in a dialog.
 
 #### The armory page keeps its place — **Shipped**
 
