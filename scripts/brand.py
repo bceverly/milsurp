@@ -8,6 +8,9 @@ marketing folder, the browser tab and the app header:
     marketing/images/favicon.svg       heavier devices, for 16px rendering
     frontend/public/favicon.svg        build input for Vite
     frontend/src/components/Insignia.jsx   the in-app header mark
+    backend/app/assets/insignia-email.png  the mark the emails attach
+    frontend/public/no-photo.svg       what a listing with no photo shows
+    backend/app/assets/no-photo-email.png  the same, attached to the emails
 
 The mark is the US Air Force **Senior Airman (E-4)** insignia.
 
@@ -317,7 +320,6 @@ def build_react_component() -> str:
  * writes this alongside marketing/images/logo.svg and the favicon from the
  * same geometry.
  */
-import React from "react";
 
 export default function Insignia({{ size = 30, className }}) {{
   return (
@@ -423,24 +425,29 @@ EMAIL_SCALE = 2
 EMAIL_HEADER_BG = "#0A2240"
 
 
-def build_email_png() -> bytes:
-    """The insignia as a PNG on the navy header, ready to attach to a message."""
-    from io import BytesIO
+def _draw_insignia(
+    image,
+    *,
+    scale: float,
+    offset: tuple[float, float] = (0.0, 0.0),
+    body: str = FIELD_DARK,
+    stripes: str = SILVER,
+    star: str = STAR_OUTLINE,
+) -> None:
+    """Draw the mark onto a Pillow image, from the same geometry as the SVGs.
 
+    *scale* is pixels per unit of the 100 x 62 design space, and *offset* is
+    where that space's origin lands, so the one drawing serves the email mark
+    and the no-photo placeholder alike.
+    """
     from PIL import Image, ImageDraw
 
-    scale = EMAIL_MARK_WIDTH * EMAIL_SCALE / 100.0
-    width = round(100 * scale)
-    height = round(62 * scale)
+    width, height = image.size
 
     def at(point: tuple[float, float]) -> tuple[float, float]:
-        return (point[0] * scale, point[1] * scale)
+        return (offset[0] + point[0] * scale, offset[1] + point[1] * scale)
 
-    # Drawn on the header's own navy rather than on transparency: a client that
-    # ignores the alpha channel would otherwise put the mark on black.
-    image = Image.new("RGB", (width, height), EMAIL_HEADER_BG)
     draw = ImageDraw.Draw(image)
-
     wings = [[at(point) for point in wing_points(right)] for right in (False, True)]
     cx, cy = HUB_CENTER
     hub = [
@@ -449,37 +456,103 @@ def build_email_png() -> bytes:
     ]
 
     for wing in wings:
-        draw.polygon(wing, fill=FIELD_DARK)
-    draw.ellipse(hub, fill=FIELD_DARK)
+        draw.polygon(wing, fill=body)
+    draw.ellipse(hub, fill=body)
 
     # The stripes are clipped to the wings, the way the SVG clips them.
-    stripes = Image.new("RGB", (width, height), FIELD_DARK)
-    stripe_draw = ImageDraw.Draw(stripes)
+    striped = Image.new("RGB", (width, height), body)
+    stripe_draw = ImageDraw.Draw(striped)
     for x1, y1, x2, y2 in stripe_lines():
         stripe_draw.line(
-            [at((x1, y1)), at((x2, y2))], fill=SILVER, width=max(1, round(STRIPE_WIDTH * scale))
+            [at((x1, y1)), at((x2, y2))], fill=stripes, width=max(1, round(STRIPE_WIDTH * scale))
         )
     mask = Image.new("L", (width, height), 0)
     mask_draw = ImageDraw.Draw(mask)
     for wing in wings:
         mask_draw.polygon(wing, fill=255)
-    image.paste(stripes, (0, 0), mask)
+    image.paste(striped, (0, 0), mask)
 
     # The hub goes over the stripes so they stop at its edge, then the star.
     draw = ImageDraw.Draw(image)
-    draw.ellipse(hub, fill=FIELD_DARK)
-    star = [
+    draw.ellipse(hub, fill=body)
+    points = [
         at((float(x), float(y)))
         for x, y in (
             tuple(float(n) for n in pair.split(","))
             for pair in star_points(cx, cy, STAR_OUTER, STAR_INNER).split()
         )
     ]
-    draw.line([*star, star[0]], fill=STAR_OUTLINE, width=max(1, round(1.8 * scale)), joint="curve")
+    draw.line([*points, points[0]], fill=star, width=max(1, round(1.8 * scale)), joint="curve")
+
+
+def _png(image) -> bytes:
+    from io import BytesIO
 
     buffer = BytesIO()
     image.save(buffer, format="PNG", optimize=True)
     return buffer.getvalue()
+
+
+def build_email_png() -> bytes:
+    """The insignia as a PNG on the navy header, ready to attach to a message."""
+    from PIL import Image
+
+    scale = EMAIL_MARK_WIDTH * EMAIL_SCALE / 100.0
+    # Drawn on the header's own navy rather than on transparency: a client that
+    # ignores the alpha channel would otherwise put the mark on black.
+    image = Image.new("RGB", (round(100 * scale), round(62 * scale)), EMAIL_HEADER_BG)
+    _draw_insignia(image, scale=scale)
+    return _png(image)
+
+
+# --- The no-photo placeholder ------------------------------------------------
+#: What a listing shows when it has no photograph: a vendor that publishes none
+#: (Nickerson Military, Joe Salter), or one not downloaded yet. The mark, faded
+#: into a pale square, so an empty frame reads as "nothing to show" rather than
+#: as a broken image -- on the pages and, attached, in the emails.
+NO_PHOTO_BG = "#EEF2F7"
+NO_PHOTO_BODY = "#D3DCE8"
+NO_PHOTO_STAR = "#B3C1D4"
+#: The mark's share of the square's width.
+NO_PHOTO_MARK = 0.62
+#: The email copy, at twice the 72px it is shown at, as the photographs are.
+NO_PHOTO_EMAIL_PX = 144
+NO_PHOTO_SVG = FRONTEND_PUBLIC / "no-photo.svg"
+NO_PHOTO_PNG = REPO_ROOT / "backend" / "app" / "assets" / "no-photo-email.png"
+
+
+def build_no_photo_svg() -> str:
+    scale = NO_PHOTO_MARK
+    dx = (100 - 100 * scale) / 2
+    dy = (100 - 62 * scale) / 2
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img"
+     aria-label="No photo">
+  <title>No photo</title>
+  <rect width="100" height="100" fill="{NO_PHOTO_BG}"/>
+  <g transform="translate({dx:.2f} {dy:.2f}) scale({scale})">
+{_defs()}
+{_silhouette(NO_PHOTO_BODY, NO_PHOTO_BODY, 2.0)}
+{_devices(STRIPE_WIDTH, 1.8, NO_PHOTO_BG, NO_PHOTO_STAR, NO_PHOTO_BODY)}
+  </g>
+</svg>
+"""
+
+
+def build_no_photo_png() -> bytes:
+    from PIL import Image
+
+    size = NO_PHOTO_EMAIL_PX
+    scale = size * NO_PHOTO_MARK / 100.0
+    image = Image.new("RGB", (size, size), NO_PHOTO_BG)
+    _draw_insignia(
+        image,
+        scale=scale,
+        offset=((size - 100 * scale) / 2, (size - 62 * scale) / 2),
+        body=NO_PHOTO_BODY,
+        stripes=NO_PHOTO_BG,
+        star=NO_PHOTO_STAR,
+    )
+    return _png(image)
 
 
 def main() -> int:
@@ -502,6 +575,12 @@ def main() -> int:
     EMAIL_MARK.parent.mkdir(parents=True, exist_ok=True)
     EMAIL_MARK.write_bytes(png)
     print(f"  wrote {EMAIL_MARK.relative_to(REPO_ROOT)} ({len(png):,} bytes)")
+
+    NO_PHOTO_SVG.write_text(build_no_photo_svg(), encoding="utf-8")
+    print(f"  wrote {NO_PHOTO_SVG.relative_to(REPO_ROOT)}")
+    placeholder = build_no_photo_png()
+    NO_PHOTO_PNG.write_bytes(placeholder)
+    print(f"  wrote {NO_PHOTO_PNG.relative_to(REPO_ROOT)} ({len(placeholder):,} bytes)")
     return 0
 
 

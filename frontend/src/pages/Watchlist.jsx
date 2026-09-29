@@ -81,18 +81,11 @@ export default function Watchlist() {
                 }) => (
                   <li key={id} className="watchlist__row">
                     <Link className="watchlist__link" to={`/items/${item.id}`}>
-                      {item.thumbnail_url ? (
-                        <AuthImage
-                          className="watchlist__thumb"
-                          src={item.thumbnail_url}
-                          alt=""
-                        />
-                      ) : (
-                        <span
-                          className="watchlist__thumb watchlist__thumb--empty"
-                          aria-hidden="true"
-                        />
-                      )}
+                      <AuthImage
+                        className="watchlist__thumb"
+                        src={item.thumbnail_url}
+                        alt=""
+                      />
                       <span className="watchlist__text">
                         {/* Only when there is something to say. A row with no
                           headline is the ordinary case and needs no chip

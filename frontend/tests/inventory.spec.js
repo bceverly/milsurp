@@ -28,6 +28,31 @@ test.describe("inventory", () => {
     await expect(first.locator(".item-card__price")).toContainText("$");
   });
 
+  test("a listing with no photo shows the placeholder, not a broken image", async ({
+    signedIn,
+  }) => {
+    // Nickerson Military publishes no photographs at all, and a new listing's
+    // are downloaded after it is stored; both reach the page with no
+    // thumbnail. The first card is made one of those here.
+    await signedIn.route(/\/api\/items\?/, async (route) => {
+      const response = await route.fetch();
+      const body = await response.json();
+      if (body.items?.length) body.items[0].thumbnail_url = null;
+      await route.fulfill({ response, json: body });
+    });
+    await signedIn.reload();
+
+    const placeholder = signedIn.locator(".item-card").first().locator("img.no-photo");
+    await expect(placeholder).toBeVisible();
+    await expect(placeholder).toHaveAttribute("src", /no-photo\.svg$/);
+    // Loaded, which is the whole point: a broken image has no natural size.
+    await expect
+      .poll(() =>
+        placeholder.evaluate((image) => image.complete && image.naturalWidth > 0),
+      )
+      .toBe(true);
+  });
+
   test("the result count matches the heading", async ({ signedIn }) => {
     await expect(signedIn.getByText(/\d+ listings? match your filters/)).toBeVisible();
   });

@@ -2849,6 +2849,25 @@ a different cartridge of the same bore (a Gras as 8x50mmR, Swiss 1893s as
 7.5x55), which no general rule can tell from a correction like ".38 Special"
 to ".38 S&W" -- so a recompute still wants a snapshot and a look at the diff.
 
+#### A placeholder where there is no photograph — **Shipped** 2026-09-29
+
+A listing can have no photograph for good: Nickerson Military's list is text
+and Joe Salter's robots.txt keeps us out of its images. Or it can have none
+yet, while its photos wait in the download queue. The pages drew a gray box
+with an icon, each in its own way (the inventory, Hot Deals, the watchlist,
+similar listings and the detail page all had their own empty style), and the
+emails left the picture cell out, so a photo-less row's title started where
+its neighbors had a photograph and the column went ragged. A listing past the
+email's photo budget looked the same as one with no photo at all.
+
+Now there is one placeholder: the mark, faded into a pale square, drawn by
+`scripts/brand.py` from the same geometry as the favicon.
+`frontend/public/no-photo.svg` is what `components/NoPhoto.jsx` shows, and
+`AuthImage` uses it for a missing or failed photo, so the pages no longer
+special-case an empty thumbnail. `backend/app/assets/no-photo-email.png` (901
+bytes) is attached once to any digest, hot-deals alert or flyer email that has
+a row without a photograph, and every such row points at it.
+
 #### Market bands sort by column — **Shipped** 2026-09-28
 
 The price bands' name, Listings and Typical headings sort when clicked, with

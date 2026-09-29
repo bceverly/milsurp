@@ -347,6 +347,20 @@ class TestListingPhotographs:
         assert f"item-{item.id}" not in images
         assert item.title in body
 
+    def test_and_shows_the_placeholder_rather_than_a_ragged_row(
+        self, seeded, user_with_prefs, app_config
+    ):
+        """A row used to drop its picture cell when there was nothing to put in
+        it, so its title started where its neighbors had a photograph."""
+        site = seeded.query(Site).first()
+        add_items(seeded, site, 3)
+
+        _subject, body, images, *_ = digest.build_digest(seeded, user_with_prefs, app_config)
+
+        assert body.count(f"cid:{digest.NO_PHOTO_CID}") == 3
+        # Attached once, however many rows use it.
+        assert images[digest.NO_PHOTO_CID] == digest.NO_PHOTO_PATH.read_bytes()
+
     def test_an_unreadable_file_costs_the_row_its_picture_and_nothing_else(
         self, seeded, user_with_prefs, app_config
     ):
@@ -389,5 +403,6 @@ class TestListingPhotographs:
 
         _subject, _body, images, *_ = digest.build_digest(seeded, user_with_prefs, app_config)
 
-        # Two listings plus the brand mark.
-        assert len(images) == 3
+        # Two photographs; the other three listings share the one placeholder.
+        assert len([cid for cid in images if cid.startswith("item-")]) == 2
+        assert digest.NO_PHOTO_CID in images

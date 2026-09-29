@@ -702,6 +702,38 @@
   color: var(--silver-400);
 }
 
+/* The no-photo placeholder (components/NoPhoto.jsx). An <img>, sized by the
+   class it is given beside this one, exactly like the photograph it replaces;
+   cover, so the pale square fills a landscape frame edge to edge. */
+.no-photo {
+  display: block;
+  object-fit: cover;
+}
+
+/* A detail page with no photographs: the placeholder in the gallery's frame,
+   with the words under it. */
+.gallery__none {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.gallery__none-image {
+  width: 100%;
+  height: 100%;
+}
+
+.gallery__none figcaption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 14%;
+  text-align: center;
+  color: var(--ink-400);
+  font-size: 0.9rem;
+}
+
 .item-card__badges {
   position: absolute;
   top: 7px;

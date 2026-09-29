@@ -8,6 +8,7 @@ import { useTitle } from "../hooks.js";
 import { useAuth } from "../auth.jsx";
 import { formatDateTime, formatMoney, formatRelative, timeTitle } from "../format.js";
 import AuthImage from "../components/AuthImage.jsx";
+import NoPhoto from "../components/NoPhoto.jsx";
 
 /** "percussion_revolver" as a person would write it.
  *
@@ -528,19 +529,12 @@ function SimilarListings({ rows }) {
                 {/* AuthImage, not <img>: the photo store needs an
                     Authorization header, so a plain src renders a broken
                     icon. See components/AuthImage.jsx. */}
-                {item.thumbnail_url ? (
-                  <AuthImage
-                    className="similar__thumb"
-                    src={item.thumbnail_url}
-                    alt=""
-                    loading="lazy"
-                  />
-                ) : (
-                  <span
-                    className="similar__thumb similar__thumb--empty"
-                    aria-hidden="true"
-                  />
-                )}
+                <AuthImage
+                  className="similar__thumb"
+                  src={item.thumbnail_url}
+                  alt=""
+                  loading="lazy"
+                />
                 <span className="similar__text">
                   <span className="similar__title">{item.title}</span>
                   <span className="similar__meta">
@@ -885,7 +879,10 @@ export default function ItemDetail() {
                 <AuthImage src={current.url} alt={item.title} />
               </button>
             ) : (
-              <div className="item-card__noimg">No photos captured</div>
+              <figure className="gallery__none">
+                <NoPhoto className="gallery__none-image" caption="No photos captured" />
+                <figcaption>No photos captured</figcaption>
+              </figure>
             )}
           </div>
 

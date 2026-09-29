@@ -25,7 +25,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { fetchImageObjectUrl } from "../api.js";
-import { Image as ImageIcon } from "./Icons.jsx";
+import NoPhoto from "./NoPhoto.jsx";
 
 /**
  * How far outside the viewport counts as "near".
@@ -113,11 +113,7 @@ export default function AuthImage({ src, alt, className, loading }) {
   const standIn = ["item-card__noimg", className].filter(Boolean).join(" ");
 
   if (!src || failed) {
-    return (
-      <div className={standIn} title="No photo available">
-        <ImageIcon size={26} />
-      </div>
-    );
+    return <NoPhoto className={standIn} />;
   }
 
   // The placeholder carries the ref: it is what the observer watches while

@@ -37,22 +37,18 @@ function DealRow({ deal }) {
   return (
     <li className="deal">
       <Link className="deal__link" to={`/items/${item.id}`}>
-        {item.thumbnail_url ? (
-          // Deferred, like every other long list of photos here. The whole
-          // catalog's best prices is a page of a hundred and fifty rows, and
-          // fetching all of their photos at once is the request storm that
-          // AuthImage's own notes describe: the server has fifteen database
-          // connections, and the listing you actually wanted is somewhere in
-          // the queue behind them.
-          <AuthImage
-            className="deal__thumb"
-            src={item.thumbnail_url}
-            alt=""
-            loading="lazy"
-          />
-        ) : (
-          <span className="deal__thumb deal__thumb--empty" aria-hidden="true" />
-        )}
+        {/* Deferred, like every other long list of photos here. The whole
+            catalog's best prices is a page of a hundred and fifty rows, and
+            fetching all of their photos at once is the request storm that
+            AuthImage's own notes describe: the server has fifteen database
+            connections, and the listing you actually wanted is somewhere in
+            the queue behind them. No photo shows the placeholder. */}
+        <AuthImage
+          className="deal__thumb"
+          src={item.thumbnail_url}
+          alt=""
+          loading="lazy"
+        />
         <span className="deal__text">
           <span className="deal__headline">
             {Math.round(deal.discount_percent)}% below the usual price
