@@ -508,6 +508,29 @@ def _same_bore(left: str | None, right: str | None) -> bool:
     return bool(first and second and first.group(0) == second.group(0))
 
 
+#: A caliber that is only a bore: ".44", "7mm", "6.5mm", "11 mm", ".40 cal".
+_ONLY_A_BORE = re.compile(r"^\.?\d+(?:\.\d+)?\s*(?:mm|cal(?:iber)?)?$", re.IGNORECASE)
+
+
+def is_vaguer(new: str | None, stored: str | None) -> bool:
+    """Whether *new* says less than *stored* about the same cartridge.
+
+    "7mm" against "7x57mm Mauser", ".44" against ".44 Russian", "8x50mmR"
+    against "8x50mmR Lebel", ".577" against ".577/450 Martini-Henry": the same
+    bore, and the stored answer is the more specific one. Re-reading a title
+    often finds only the bore, where the value it would replace came from a
+    richer source when the listing was scanned -- and replacing one with the
+    other is a loss dressed as a rebuild. See ``reclassify --recompute``.
+
+    A different bore is never "vaguer": ".25 ACP" to ".45 ACP" is a correction.
+    """
+    if not new or not stored or new == stored:
+        return False
+    if stored.lower().startswith(new.lower()):
+        return True
+    return bool(_ONLY_A_BORE.match(new.strip())) and _same_bore(new, stored)
+
+
 def _first_match(table: tuple[tuple[str, str], ...], text: str) -> str | None:
     """The first caliber in the table whose pattern matches, or None.
 

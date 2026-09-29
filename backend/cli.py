@@ -641,6 +641,8 @@ def _permitted(
     filled: dict[str, Any],
     wanted: set[str],
     protected: dict[str, int],
+    *,
+    is_firearm: bool = False,
 ) -> dict[str, Any]:
     """Cut a rebuild down to the fields it is allowed to overwrite.
 
@@ -664,12 +666,32 @@ def _permitted(
     rules would have produced anyway is a row the rules own, and recording that
     is what lets the next fix reach it; without it the unknown rows stay
     unknown forever and this earns nothing beyond what a scan rewrites.
+
+    **And a rebuild may not make a caliber vaguer.** Re-reading a title often
+    finds only the bore, where the stored value came from a richer source when
+    the listing was scanned. On 2026-09-29 a production run turned "7x57mm
+    Mauser" into "7mm", "11mm Mauser" into "11mm" and ".44 Russian" into
+    ".44" -- 54 listings put back by hand. So a caliber the rebuild would make
+    vaguer (see classify.is_vaguer) is kept, with its source, and so is any
+    caliber on a firearm that the rebuild would clear. Clearing stays possible
+    for what is not a firearm, which is the bayonet case above.
     """
     allowed: dict[str, Any] = {}
     for name, value in filled.items():
         if name not in wanted:
             allowed[name] = getattr(item, name) or value
         elif provenance.may_recompute(item, name):
+            stored = getattr(item, name)
+            if (
+                name == "caliber"
+                and stored
+                and (classify.is_vaguer(value, stored) or (value is None and is_firearm))
+            ):
+                allowed[name] = stored
+                protected["caliber kept more specific"] = (
+                    protected.get("caliber kept more specific", 0) + 1
+                )
+                continue
             allowed[name] = value
             setattr(item, provenance.SOURCE_COLUMNS[name], provenance.DERIVED)
         else:
@@ -853,7 +875,13 @@ def cmd_reclassify(args: argparse.Namespace) -> int:
             # demolition: scoped to nothing but the caliber it changed 3,187
             # of 11,038 listings, 2,251 of them to nothing at all.
             if args.recompute:
-                filled = _permitted(item, filled, wanted, protected)
+                filled = _permitted(
+                    item,
+                    filled,
+                    wanted,
+                    protected,
+                    is_firearm=bool(flags["is_rifle"] or flags["is_pistol"]),
+                )
 
             if any(getattr(item, name) != value for name, value in (flags | filled).items()):
                 for name, value in flags.items():
@@ -893,12 +921,20 @@ def cmd_reclassify(args: argparse.Namespace) -> int:
     print(f"Reclassified {changed} of {len(items)} listing(s).")
     print(f"  rifles: {rifles}   handguns: {pistols}   other: {other}")
     print(f"  bayonets: {bayonets}   parts kits: {kits}")
+    _report_protected(protected)
+    return 0
+
+
+def _report_protected(protected: dict[str, int]) -> None:
+    """What a --recompute declined to rebuild, and why."""
+    kept = protected.pop("caliber kept more specific", 0)
+    if kept:
+        print(f"  kept {kept} caliber(s) the rebuild would have made vaguer or cleared")
     if protected:
         detail = ", ".join(f"{name}: {count}" for name, count in sorted(protected.items()))
         print(f"  left alone, stated by the vendor or of unknown origin — {detail}")
         print("  A row's origin is recorded by the scan that writes it, so this")
         print("  number falls as each site is scanned.")
-    return 0
 
 
 def _armory_qualify(args: argparse.Namespace) -> int:

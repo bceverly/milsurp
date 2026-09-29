@@ -2831,6 +2831,24 @@ were at fault.
 The stored values move on each shop's next scan, or at once with `reclassify
 --recompute --fields caliber`.
 
+**Run in production on 2026-09-29, that recompute did harm as well as good.**
+It changed 99 listings: 45 corrections (".40" to ".40 S&W", Thompsons to .45
+ACP, P210s to .30 Luger), and 54 losses, because re-reading a title often
+finds only the bore where the stored value came from a richer source:
+"7x57mm Mauser" became "7mm", "11mm Mauser" "11mm", ".44 Russian" ".44", and
+some firearms lost their caliber entirely. The 54 were put back from a snapshot
+taken first, and the 81 ".40" listings the command may not touch (no recorded
+source, or vendor-stated and mis-filed by the old matcher) were moved to ".40
+S&W" where their titles say so. ".40 S&W" went from 0 listings to 122.
+
+So the rebuild may no longer make a caliber vaguer (`classify.is_vaguer`: a
+bare bore, or a prefix of what is stored), nor clear one from a firearm; the
+stored value is kept with its source and counted. Replayed against that run it
+stops 48 of the 54 and none of the 45. The other six are the classifier naming
+a different cartridge of the same bore (a Gras as 8x50mmR, Swiss 1893s as
+7.5x55), which no general rule can tell from a correction like ".38 Special"
+to ".38 S&W" -- so a recompute still wants a snapshot and a look at the diff.
+
 #### Market bands sort by column — **Shipped** 2026-09-28
 
 The price bands' name, Listings and Typical headings sort when clicked, with
