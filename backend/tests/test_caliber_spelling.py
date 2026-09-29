@@ -99,3 +99,79 @@ class TestAnExactSpellingBelongsToItsRow:
 
     def test_spacing_still_finds_the_row(self):
         assert self.registry().canonical("7.65 mm browning") == ".32 ACP"
+
+
+class TestABoreStatedInWords:
+    """561 production rifles and pistols had no caliber on 2026-09-29, and about
+    230 of them stated one in words. 356 listings found a caliber this way and
+    none lost one."""
+
+    @pytest.mark.parametrize(
+        ("title", "wanted"),
+        [
+            ("U.S. Caswell and Dodge Model 1798 Contract Flintlock Musket .69 Caliber", ".69"),
+            ("A. WURFELEIN .40CAL OVERCOAT PERCUSSION PISTOL, ANTIQUE", ".40"),
+            ("USED Remington 700 50 Cal Muzzle Loader", ".50"),
+            ("Original British 18 Bore Single Barrel Percussion Fowling Piece", "18 Bore"),
+            ("Antique Parker Bros 10 GA GH Dbl Hammerless Grade 2 Shotgun 1889", "10 Gauge"),
+            ("Original U.S. Springfield Trapdoor 32 gauge Saddle Ring Carbine", "32 Gauge"),
+            ("Belgian Model 1844/1860 civil War imported Musket .72 caliber", ".72"),
+            ("SHARPS Model 1851 BOX LOCK SADDLE RING CARBINE .52 Percussion", ".52"),
+        ],
+    )
+    def test_the_ways_it_is_written(self, title, wanted):
+        assert extract_caliber(title) == wanted
+
+    def test_the_06_of_30_06_is_not_a_bore(self):
+        assert extract_caliber("M1 Garand Rifle, Semi-Auto, 30-06 caliber") == ".30-06"
+
+    def test_nor_is_a_bore_condition_grade(self):
+        """ "9/10 bore" is how good the bore is, not how big."""
+        assert extract_caliber("Unmarked rifle", "Bore shows light frosting, 9/10 bore.") is None
+
+    def test_a_black_powder_cartridge_is_read_as_written(self):
+        """ ".40-60-260" is a Colt Lightning cartridge no rule names; the
+        description's passing ".40" had been the answer."""
+        title = "Original U.S. Colt Large Frame Express Lightning .40-60-260 Pump Action Rifle"
+        assert extract_caliber(title) == ".40-60"
+
+    def test_but_a_range_of_years_is_not_one(self):
+        assert extract_caliber("Civil War Era Carbine 1861-1865") is None
+
+
+class TestTheSixTheRecomputeGotWrong:
+    """Six listings on 2026-09-29 where re-reading gave a different cartridge
+    of the same bore: rules the classifier was missing."""
+
+    def test_8x56mmr_with_the_mm_in_it(self):
+        title = "FEG Budapest M95/30 Straight-Pull Bolt Action Carbine 8x56mmR (L2026-10888)"
+        assert extract_caliber(title, "chambered in 8x50mmR") == "8x56mmR"
+
+    def test_and_8x50_without_its_r(self):
+        assert extract_caliber("B GRADE M95 STEYR MANNLICHER RIFLE 8X50") == "8x50mmR"
+
+    def test_but_not_a_binocular(self):
+        assert extract_caliber("Military 8x50 binoculars with case") != "8x50mmR"
+
+    def test_gp90_is_7_5x53_5(self):
+        description = (
+            "chambered in GP90 (7.5×53.5 Swiss). IT IS NOT SAFE TO ATTEMPT TO FIRE GP11 "
+            "(7.5×55 Swiss)."
+        )
+        assert extract_caliber("Swiss Model 1893 Cavalry Carbine", description) == "7.5x53.5mm"
+
+    def test_the_442_in_the_title_beats_the_455_the_description_rules_out(self):
+        title = "Original British Victorian Prototype .442 Centerfire Double Action Revolver"
+        description = "too long for both .476 Enfield or .455 Webley, so we assume .442 Webley"
+        assert extract_caliber(title, description) == ".442 Webley"
+
+    def test_a_police_marking_is_no_cartridge(self):
+        assert extract_caliber("MAUSER 1914 POLICE", "L.K.476 police marking") != ".476 Enfield"
+
+    def test_41_magnum_is_its_own(self):
+        assert extract_caliber("Smith & Wesson Model 57 .41 Magnum N-Frame") == ".41 Magnum"
+
+    def test_the_martini_henry_is_one_cartridge(self):
+        assert extract_caliber("1887 Zulu War British Martini Henry .577-450") == (
+            ".577/450 Martini-Henry"
+        )

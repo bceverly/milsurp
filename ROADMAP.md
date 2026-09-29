@@ -2849,6 +2849,28 @@ a different cartridge of the same bore (a Gras as 8x50mmR, Swiss 1893s as
 7.5x55), which no general rule can tell from a correction like ".38 Special"
 to ".38 S&W" -- so a recompute still wants a snapshot and a look at the diff.
 
+**The six, and the 560 guns with no caliber — Fixed** 2026-09-29. The six
+were rules the classifier lacked, not judgment calls: "8x56mmR" and "8x50mmR"
+with the "mm" written in, "7.5x53.5" and "GP90" for the Swiss 1889/1911
+round, ".442", ".476" and ".577/450" for the Webley, Enfield and
+Martini-Henry. Each has a rule now and a test in `test_caliber_spelling.py`.
+
+The no-caliber firearms were mostly antiques whose bore is stated in words
+or on its own: ".69 caliber", "58 cal", "18 bore", "12 GA", "a .45-70".
+`_worded_bore` reads the first three (bores 4 to 32 only, so "3 bore" in a
+barrel description is not a caliber), `_HYPHENATED` the black-powder
+".NN-NN" family, and the bare-bore list grew from the modern handful to the
+musket and rifle-musket sizes. A dotted cartridge's dot became optional
+where nothing else could mean the same thing (`_DOT`: "45 ACP", "308 Win",
+"30 Carbine"), but never where the number is also a model or a year.
+Measured on production's 12,367 listings: 356 gain a caliber, none lose or
+change one, and 231 of the 561 firearms that had none now have one.
+
+The demo seed now sets each firearm's form (rifle, carbine, pistol) the way a
+scan does. It used to leave it empty, so the Form facet had nothing to show
+until an earlier test in the run had created a listing, and the Inventory
+spec passed or failed depending on which tests ran before it.
+
 #### A placeholder where there is no photograph — **Shipped** 2026-09-29
 
 A listing can have no photograph for good: Nickerson Military's list is text
@@ -4595,6 +4617,17 @@ on PostgreSQL.
 ---
 
 ## 5. Security and compliance
+
+- **Fixed** 2026-09-29 — the security headers never reached the app's own
+  page. nginx inherits `add_header` into a `location` only when that location
+  declares none of its own, and `location /` and `location /assets/` each set
+  `Cache-Control`. So the HTML and the JavaScript bundle were served with no
+  Content-Security-Policy, no `X-Frame-Options` and no `nosniff`, while every
+  `/api/` response had them all. That is the wrong way round: the CSP and the
+  frame protection matter most on the page a browser renders. Both shipped
+  configs, `milsurp.conf` and `milsurp-behind-proxy.conf`, now repeat the
+  headers in those two locations, with a comment saying why. Both pass
+  `nginx -t`.
 
 - **Fixed** 2026-09-29 — PyJWT, which signs and checks every session token,
   was held at 2.13.0 in development and CI, and Snyk failed the security job

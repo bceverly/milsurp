@@ -600,7 +600,7 @@ def _demo_shops(sites: list[Site]) -> list[Site]:
     return shops or list(sites)
 
 
-def seed(  # noqa: PLR0912 - a linear fixture builder; branches are per-field
+def seed(  # noqa: PLR0912, PLR0915 - a linear fixture builder; branches are per-field
     reset: bool = False, quiet: bool = False, now: datetime | None = None
 ) -> int:
     now = now or utcnow()
@@ -696,6 +696,21 @@ def seed(  # noqa: PLR0912 - a linear fixture builder; branches are per-field
                 firearm_model_id=next(
                     (row.id for text, row in models.items() if text in title), None
                 ),
+            )
+            # The finer kind, as a scan sets it (scan_service._apply_catalog):
+            # the model's, else what the title says the gun is. Without it the
+            # browse page's Form facet had nothing to offer on a fresh demo
+            # database, and its test passed only when an earlier spec had
+            # loaded the shipped armory and re-matched the listings first.
+            model = next((row for text, row in models.items() if text in title), None)
+            item.kind = (
+                classify.finer_kind(
+                    model.kind if model is not None else None,
+                    None,
+                    classify.form_in_title(title, is_rifle=item.is_rifle, is_pistol=item.is_pistol),
+                )
+                if (item.is_rifle or item.is_pistol)
+                else None
             )
             session.add(item)
             session.flush()

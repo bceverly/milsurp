@@ -289,13 +289,25 @@ CALIBER_NORMALIZATIONS: tuple[tuple[str, str], ...] = (
     # RIFLES 7x57" gets its maker from. Left as a bare "7x57" by the generic
     # metric fallback, it named nobody.
     (r"7\s*[x×]\s*57", "7x57mm Mauser"),
-    (r"8\s*[x×]\s*56\s*r", "8x56mmR"),
-    (r"8\s*[x×]\s*50\s*r", "8x50mmR"),
+    # "mm" may sit between the number and the R: "8x56mmR" is how most
+    # dealers write it, and the description of an M95/30 titled "8x56mmR"
+    # says "8x50mmR" -- which won while this rule could not read the title.
+    # The R itself may be left off too ("M95 STEYR MANNLICHER RIFLE 8X50"),
+    # but not before an optic: 8x50 is also a binocular.
+    (r"8\s*[x×]\s*56(?:\s*(?:mm\s*)?r\b|\b(?!\s*(?:scope|binoc|optic)))", "8x56mmR"),
+    (r"8\s*[x×]\s*50(?:\s*(?:mm\s*)?r\b|\b(?!\s*(?:scope|binoc|optic)))", "8x50mmR"),
     (r"7\.5\s*[x×]\s*55", "7.5x55 Swiss"),
+    # The 1889-1911 Swiss round. A GP90 carbine's description warns against
+    # GP11 (7.5x55), and without this rule the warning was the answer.
+    # Two entries, not one alternation: this table is scored on how much a
+    # pattern matched, and an alternation only reports its leftmost match --
+    # "gp90" coming first scored four and tied with the "7.5x55" it must beat.
+    (r"7\.5\s*[x×]\s*53(?:\.5)?\b", "7.5x53.5mm"),
+    (r"\bgp\s*90\b", "7.5x53.5mm"),
     (r"7\.35\s*[x×]\s*51", "7.35x51mm Carcano"),
     (r"6\.5\s*[x×]\s*52", "6.5x52mm Carcano"),
     (r"6\.5\s*[x×]\s*55", "6.5x55 Swedish"),
-    (r"10\.4\s*[x×]\s*47\s*r", "10.4x47mmR"),
+    (r"10\.4\s*[x×]\s*47\s*(?:mm\s*)?r", "10.4x47mmR"),
     (r"7\.7\s*[x×]\s*58", "7.7x58mm Arisaka"),
     (r"6\.5\s*[x×]\s*50", "6.5x50mm Arisaka"),
     (r"cal\.?\s*\.?303\s+british|\.303\s+british|\.303(?!\s*\d)", ".303 British"),
@@ -357,6 +369,13 @@ CALIBER_NORMALIZATIONS: tuple[tuple[str, str], ...] = (
     (rf"{_DOT}44\s*mag", ".44 Magnum"),
     (r"5\.56\s*[x×]\s*45|\b5\.56\b", "5.56x45mm NATO"),
     (rf"{_DOT}50\s*bmg", ".50 BMG"),
+    # The two Victorian British revolver rounds nothing else names. With the
+    # dot only: "442" and "476" alone are model numbers.
+    (r"(?<![\w.])\.442\b", ".442 Webley"),
+    (r"(?<![\w.])\.476\b", ".476 Enfield"),
+    (rf"{_DOT}41\s*mag", ".41 Magnum"),
+    # "577-450" and "577/450" are the Martini-Henry, not a .577 and a .450.
+    (r"(?<![\d.])\.?577\s*[-/]\s*450\b", ".577/450 Martini-Henry"),
     (r"\b9\s*mm\b", "9mm"),
     # Bare "8mm", and it has to come last of all.
     #
@@ -381,7 +400,10 @@ CALIBER_NORMALIZATIONS: tuple[tuple[str, str], ...] = (
 #: it read "Winchester Model 1873, .44-40" as a .44 and dropped the half of the
 #: name that says which .44 it is. Anything hyphenated to a second number is a
 #: cartridge with a proper name, and belongs in the table above.
-_BARE_BORE = re.compile(r"(?<![\d.])\.(?:31|36|40|41|44|450|455|46|50|54|577|58)\b(?!-\d)")
+_BARE_BORE = re.compile(
+    r"(?<![\d.])\.(?:31|36|40|41|44|450|455|46|50|52|54|56|577|58|60|62|64|65|66|68|69|70|71|72|75|80"
+    r"|310)\b(?!-\d)"
+)
 
 #: A metric bore written without a case length: "4.25MM SEMI AUTO PISTOL".
 #: Bounded to what a small arm can be, because "50mm" is artillery and "35mm"
@@ -580,7 +602,24 @@ def _longest_match(table: tuple[tuple[str, str], ...], text: str) -> str | None:
     return best[1] if best else None
 
 
-def extract_caliber(  # noqa: PLR0911 - each branch is one rule class,
+def _stated_cartridge(text: str, named: str | None) -> str | None:
+    """The cartridge one piece of text names outright, strongest rule first."""
+    found = _longest_match(SPELLED_CARTRIDGES, text)
+    if found:
+        return found
+    hyphenated = _HYPHENATED.search(text)
+    if hyphenated:
+        return hyphenated.group(0)
+    # A bare metric bore is a diameter, not a cartridge. A designation may
+    # *refine* it -- 8mm on a Nambu is 8mm Nambu -- but never contradict
+    # it: a Colt AR-15 sold as a 9mm carbine is a 9mm.
+    bore = _longest_match(WEAK_BORES, text)
+    if bore:
+        return named if _same_bore(bore, named) else bore
+    return None
+
+
+def extract_caliber(  # noqa: PLR0911, PLR0912 - each branch is one rule class,
     #                     tried in order of how much it is trusted
     title: str,
     description: str | None = None,
@@ -630,15 +669,9 @@ def extract_caliber(  # noqa: PLR0911 - each branch is one rule class,
         else _first_match(DESIGNATION_CALIBERS, haystack)
     )
     for text in (title_lower, haystack):
-        found = _longest_match(SPELLED_CARTRIDGES, text)
-        if found:
-            return found
-        # A bare metric bore is a diameter, not a cartridge. A designation may
-        # *refine* it -- 8mm on a Nambu is 8mm Nambu -- but never contradict
-        # it: a Colt AR-15 sold as a 9mm carbine is a 9mm.
-        bore = _longest_match(WEAK_BORES, text)
-        if bore:
-            return named if _same_bore(bore, named) else bore
+        stated = _stated_cartridge(text, named)
+        if stated:
+            return stated
 
     if named:
         return named
@@ -648,6 +681,13 @@ def extract_caliber(  # noqa: PLR0911 - each branch is one rule class,
     metric = _metric_caliber(haystack)
     if metric:
         return metric
+
+    # A bore stated in words -- ".69 caliber", "18 bore", "10 GA" -- the title
+    # first, as everywhere else.
+    for text in (title_lower, haystack):
+        worded = _worded_bore(text)
+        if worded:
+            return worded
 
     # A bore written on its own. Weaker than a named cartridge, so it is tried
     # only once every cartridge rule has declined — but it is still something
@@ -686,6 +726,39 @@ def _carcano(haystack: str) -> str:
     if "6.5" in haystack:
         return "6.5x52mm Carcano"
     return "7.35x51mm Carcano" if _CARCANO_M38.search(haystack) else "6.5x52mm Carcano"
+
+
+#: A black-powder cartridge named by bore and charge -- ".40-60", ".38-56",
+#: ".50-95" -- that the table above does not list by name. Read as written.
+#: The leading dot is required: without it "1861-1865" is a war.
+_HYPHENATED = re.compile(r"(?<![\w.])\.(\d{2,3})-(\d{2,3})(?![\d.])")
+
+#: A bore stated in words: ".69 caliber", "50 cal", ".40cal". The number may
+#: not follow a letter, digit, dot, hyphen or slash, so the "06" of "30-06
+#: caliber" is not a bore.
+_CALIBER_WORD = re.compile(r"(?<![\w./\-])\.?([1-9]\d{1,2})\s*-?\s*cal(?:ib(?:er|re))?\.?(?![a-z])")
+
+#: A smoothbore's size: "18 bore", "10 GA", "32 gauge". Not after a slash,
+#: which is a condition grade -- "9/10 bore".
+_BORE_WORD = re.compile(r"(?<![\w./\-])([4-9]|[12]\d|3[0-2])\s*-?\s*bore\b")
+_GAUGE_WORD = re.compile(r"(?<![\w./\-])([1-9]\d?)\s*-?\s*(?:ga|gauge|guage)\b")
+
+
+def _worded_bore(text: str) -> str | None:
+    """A bore the listing states in words rather than as a cartridge's name.
+
+    561 production rifles and pistols had no caliber on 2026-09-29, and about
+    230 of them said one this way: muskets at ".69 caliber", fowling pieces at
+    "18 bore", a 10-gauge Parker. Weaker than a named cartridge, so it is
+    reached only once every cartridge rule has declined.
+    """
+    if found := _CALIBER_WORD.search(text):
+        return f".{found.group(1)}"
+    if found := _GAUGE_WORD.search(text):
+        return f"{found.group(1)} Gauge"
+    if found := _BORE_WORD.search(text):
+        return f"{found.group(1)} Bore"
+    return None
 
 
 def _bare_bore(haystack: str) -> str | None:
