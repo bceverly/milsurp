@@ -73,6 +73,11 @@ jobs:
       - name: Install the scanners
         run: |
           .venv/bin/pip install --quiet -r backend/requirements-security.txt
+          # semgrep in a virtualenv of its own: it pins the application's PyJWT
+          # to a vulnerable release. See backend/requirements-semgrep.txt.
+          python -m venv .venv-semgrep
+          .venv-semgrep/bin/pip install --quiet --upgrade pip
+          .venv-semgrep/bin/pip install --quiet -r backend/requirements-semgrep.txt
           . scripts/tool-versions.env
           curl -sSfL \
             "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \

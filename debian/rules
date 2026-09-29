@@ -54,6 +54,7 @@ override_dh_auto_install:
 	rm -f  debian/milsurp$(APP)/backend/milsurp.db
 	rm -f  debian/milsurp$(APP)/backend/requirements-dev.txt
 	rm -f  debian/milsurp$(APP)/backend/requirements-security.txt
+	rm -f  debian/milsurp$(APP)/backend/requirements-semgrep.txt
 	rm -f  debian/milsurp$(APP)/backend/pytest.ini
 	# Developer state, stripped generically rather than by name. The blocklist
 	# version of this leaked .pytest_cache, then .mypy_cache, then .coverage --

@@ -391,7 +391,7 @@ screenshots: ## Capture README screenshots into images/ with Playwright
 .PHONY: clean
 clean: stop ## Remove build output, caches and virtualenvs
 	@rm -rf frontend/dist frontend/node_modules frontend/.nyc_output frontend/coverage
-	@rm -rf $(VENV) .pytest_cache .ruff_cache .coverage htmlcov coverage.xml
+	@rm -rf $(VENV) .venv-semgrep .pytest_cache .ruff_cache .coverage htmlcov coverage.xml
 	@rm -f $(LOG_FILE) $(PID_FILE) $(PORT_FILE)
 	@find . -type d -name __pycache__ -not -path './.git/*' -prune -exec rm -rf {} + 2>/dev/null || true
 	@echo "Cleaned build artifacts. The database and image store were left alone."

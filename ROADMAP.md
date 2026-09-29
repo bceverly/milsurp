@@ -4577,6 +4577,18 @@ on PostgreSQL.
 
 ## 5. Security and compliance
 
+- **Fixed** 2026-09-29 — PyJWT, which signs and checks every session token,
+  was held at 2.13.0 in development and CI, and Snyk failed the security job
+  on it: seven advisories, six critical (signature-verification bypasses and
+  an open redirect, fixed in 2.14.0) and one high (fixed in 2.15.0). The hold
+  was for semgrep, which pins `pyjwt[crypto]~=2.13.0` and shared the
+  application's virtualenv; its latest release still does. **Production was
+  not affected**: the package installs only `requirements.txt`, whose floor had
+  already resolved 2.15.1 there. semgrep now has a virtualenv of its own,
+  `.venv-semgrep` from `backend/requirements-semgrep.txt`, created by `make
+  install-dev` and by the CI security job, and the floor is `PyJWT>=2.15.1`
+  so nothing can resolve a vulnerable release again.
+
 - **Fixed** — The sign-in throttle could be used to exhaust the machine's
   memory, without credentials and without tripping anything.
 

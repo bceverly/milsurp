@@ -108,9 +108,19 @@ ok "Python dependencies installed ($("$VENV/bin/pip" list 2>/dev/null | wc -l) p
 bold ""
 bold "4. Security scanners"
 
-info "Installing semgrep and pip-audit…"
+info "Installing pip-audit, and semgrep in a virtualenv of its own…"
 "$VENV/bin/pip" install --quiet -r backend/requirements-security.txt
-ok "semgrep $("$VENV/bin/semgrep" --version 2>/dev/null || echo '?'), pip-audit installed."
+# semgrep pins its dependencies tightly -- one of them is the application's own
+# PyJWT -- so it gets .venv-semgrep rather than sharing .venv. See
+# backend/requirements-semgrep.txt.
+SEMGREP_VENV="$REPO_ROOT/.venv-semgrep"
+[ -x "$SEMGREP_VENV/bin/pip" ] || python3 -m venv "$SEMGREP_VENV"
+"$SEMGREP_VENV/bin/pip" install --quiet --upgrade pip
+"$SEMGREP_VENV/bin/pip" install --quiet -r backend/requirements-semgrep.txt
+# An older .venv has semgrep in it, holding PyJWT back; take it out.
+"$VENV/bin/pip" uninstall --quiet --yes semgrep >/dev/null 2>&1 || true
+"$VENV/bin/pip" install --quiet -r backend/requirements.txt
+ok "semgrep $("$SEMGREP_VENV/bin/semgrep" --version 2>/dev/null || echo '?'), pip-audit installed."
 
 # gitleaks ships as a single Go binary; there is no apt package for it.
 # shellcheck source=scripts/tool-versions.env

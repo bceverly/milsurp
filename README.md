@@ -3217,8 +3217,11 @@ make security     # bandit · semgrep · Snyk · pip-audit · npm audit · gitle
 
 `make install-dev` installs all of them, because a scanner that is missing is
 reported as *skipped* rather than failing — so without them a local scan passes
-by checking almost nothing. semgrep and pip-audit come from
-`backend/requirements-security.txt`; gitleaks is pinned in
+by checking almost nothing. pip-audit comes from
+`backend/requirements-security.txt`, into `.venv` since that is the environment
+it audits. semgrep comes from `backend/requirements-semgrep.txt`, into a
+virtualenv of its own, `.venv-semgrep`: it pins the application's PyJWT to a
+release with critical advisories, and sharing `.venv` held the app back. gitleaks is pinned in
 `scripts/tool-versions.env`, which the CI workflow sources too, so both run the
 same binary. gitleaks is also accepted as a container image
 (`docker pull ghcr.io/gitleaks/gitleaks:latest`) if you would rather not put a

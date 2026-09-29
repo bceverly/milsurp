@@ -56,13 +56,16 @@ fi
 
 # ---------------------------------------------------------------------------
 section "semgrep — rule-based static analysis"
-# Looked up in the virtualenv first, like the other Python tools: semgrep is
-# installed by `make install-dev` into .venv/bin, which is not on PATH, so
-# `command -v semgrep` said "not installed" about a scanner that was sitting
-# right there. It had been skipping silently for that reason, which is the
-# thing this file's own header promises it does not do.
+# Looked up in its own virtualenv first: `make install-dev` puts semgrep in
+# .venv-semgrep (see backend/requirements-semgrep.txt), which is not on PATH,
+# so `command -v semgrep` alone said "not installed" about a scanner that was
+# sitting right there -- and it skipped silently, which is the thing this
+# file's own header promises it does not do. .venv is still tried, for a
+# checkout set up before semgrep moved out of it.
 SEMGREP=""
-if have_venv semgrep; then
+if [ -x "$REPO_ROOT/.venv-semgrep/bin/semgrep" ]; then
+  SEMGREP="$REPO_ROOT/.venv-semgrep/bin/semgrep"
+elif have_venv semgrep; then
   SEMGREP="$VENV/bin/semgrep"
 elif command -v semgrep >/dev/null 2>&1; then
   SEMGREP="semgrep"

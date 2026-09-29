@@ -1,0 +1,12 @@
+# semgrep, in a virtualenv of its own: .venv-semgrep, which `make install-dev`
+# and the CI security job create.
+#
+# Not beside the application, because it pins its dependencies tightly and one
+# of them is the application's own authentication library: semgrep 1.178 pins
+# pyjwt[crypto]~=2.13.0, and sharing .venv held the app on a PyJWT with seven
+# critical and high advisories. It only reads source files, so it needs nothing
+# from the application's environment.
+#
+# Pinned to a floor rather than a version: these are detection rules, and a
+# newer scanner finding more is the point.
+semgrep>=1.177.0

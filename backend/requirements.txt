@@ -23,12 +23,14 @@ PyYAML>=6.0.3
 
 # Security: Argon2id password hashing and JWT sessions
 argon2-cffi>=25.1.0
-# Held one release behind on purpose. semgrep pins pyjwt[crypto]~=2.13.0, and
-# it shares this virtualenv under `make security`, so asking for 2.14 makes the
-# two unsatisfiable: whichever requirements file is installed last wins and
-# `pip check` fails either way. Dependabot proposed 2.14.0 and semgrep 1.177.0
-# in the same PR without noticing. Raise this when semgrep relaxes its pin.
-PyJWT>=2.13.0
+# 2.15.1 or later: 2.13.0 carries seven signature-verification and redirect
+# advisories that Snyk rates critical or high (fixed in 2.14.0 and 2.15.0).
+# It was held at 2.13 for semgrep, which pins pyjwt[crypto]~=2.13.0 and used to
+# share this virtualenv; semgrep now has one of its own (.venv-semgrep, from
+# requirements-semgrep.txt), so the scanner's pin no longer decides what the
+# application authenticates with. Production had already resolved 2.15.1 from
+# the old floor, since the package never installs semgrep.
+PyJWT>=2.15.1
 
 # Image processing (thumbnail generation during scans)
 Pillow>=12.3.0

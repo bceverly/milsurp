@@ -1,4 +1,7 @@
-# Security scanners that run under `make security` and in the CI security job.
+# Security scanners that run under `make security` and in the CI security job,
+# installed into the application's virtualenv because pip-audit audits *that*
+# environment. semgrep is in requirements-semgrep.txt, in a virtualenv of its
+# own -- see there for why.
 #
 # Kept apart from requirements-dev.txt because they are a large dependency tree
 # of their own and nothing in `make test` or `make lint` needs them — but
@@ -8,5 +11,4 @@
 #
 # Pinned to a floor rather than a version: these are detection rules, and a
 # newer scanner finding more is the point.
-semgrep>=1.177.0
 pip-audit>=2.10.1
