@@ -75,6 +75,10 @@ MIN_FLYER_PIXELS = 1_000_000
 
 class HuntersLodgeScraper(SiteScraper):
     slug = "hunters-lodge"
+    shipping_note = (
+        "Mail-order antiques; asks buyers to add sufficient shipping funds; no rate stated"
+    )
+    shipping_source = "https://www.hunterslodge.com/"
     name = "Hunter's Lodge"
     base_url = SITE_BASE
     newsletter_url = None

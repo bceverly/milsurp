@@ -290,6 +290,8 @@ export const api = {
   // --- what a kind of gun goes for, across every dealer at once ---
   market: (params = {}) => request(`/api/market${qs(params)}`),
   timeToSell: (params = {}) => request(`/api/market/time-to-sell${qs(params)}`),
+  // What they were asking when they left the shelf -- see market.departures.
+  departures: (params = {}) => request(`/api/market/departures${qs(params)}`),
 
   // --- hot deals: what is cheap for what it is ---
   //
@@ -384,6 +386,23 @@ export const api = {
   // navigation itself and the file lands in Downloads instead of in memory.
   armoryExportUrl: () => "/api/armory/export",
   emailArmoryExport: () => request("/api/armory/export/email", { method: "POST" }),
+
+  // --- what a reader pays on top of a listing: their dealer's transfer fee ---
+  costs: () => request("/api/preferences/costs"),
+  saveCosts: (payload) =>
+    request("/api/preferences/costs", { method: "PUT", body: payload }),
+
+  // --- the reader's own collection ---
+  collection: () => request("/api/collection"),
+  addToCollection: (payload) =>
+    request("/api/collection", { method: "POST", body: payload }),
+  boughtThis: (itemId) =>
+    request(`/api/collection/from-item/${itemId}`, { method: "POST" }),
+  updateCollectionItem: (id, patch) =>
+    request(`/api/collection/${id}`, { method: "PATCH", body: patch }),
+  removeFromCollection: (id) => request(`/api/collection/${id}`, { method: "DELETE" }),
+  // A link, as the armory's export is: the cookie authenticates the download.
+  collectionExportUrl: () => "/api/collection/export",
 
   // --- email preferences ---
   preferences: () => request("/api/preferences/email"),

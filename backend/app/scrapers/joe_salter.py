@@ -243,6 +243,8 @@ def parse_catalog(html_text: str, category: str) -> list[ScrapedItem]:
 
 class JoeSalterScraper(SiteScraper):
     slug = "joe-salter"
+    shipping_note = "Tiered by order total, not per gun: $35 for $251-$499, free at $500+"
+    shipping_source = "https://shop.joesalter.com/how-much-shipping"
     name = "Joe Salter"
     base_url = SITE_BASE
     newsletter_url = "https://shop.joesalter.com/mailing-list"

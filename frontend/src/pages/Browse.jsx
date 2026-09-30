@@ -4,7 +4,7 @@
  * Filter state lives in the URL query string rather than component state, so a
  * filtered view can be bookmarked, shared, and survives the back button.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api.js";
 import { useDebounced, useOptimisticSearchParams, useTitle } from "../hooks.js";
@@ -35,6 +35,9 @@ import {
 function SaveSearch({ params }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
+  // Off by default: a saved search is a question, and turning it into an
+  // interruption is a choice worth making on purpose.
+  const [alert, setAlert] = useState(false);
   const [state, setState] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -50,7 +53,7 @@ function SaveSearch({ params }) {
     setBusy(true);
     setState(null);
     try {
-      await api.createSavedSearch({ name: name.trim(), query });
+      await api.createSavedSearch({ name: name.trim(), query, alert_instantly: alert });
       setState({ ok: true, message: `Saved as “${name.trim()}”.` });
       setName("");
       setOpen(false);
@@ -89,6 +92,14 @@ function SaveSearch({ params }) {
             autoFocus
             onChange={(event) => setName(event.target.value)}
           />
+          <label className="save-search__alert">
+            <input
+              type="checkbox"
+              checked={alert}
+              onChange={(event) => setAlert(event.target.checked)}
+            />
+            Alert me the moment a new one appears
+          </label>
           <button
             type="submit"
             className="btn btn--primary"
@@ -117,12 +128,15 @@ function SaveSearch({ params }) {
   );
 }
 
+//: The orders somebody reaches for, commonest first: what is new, what just
+//: got cheaper, then by price. Oldest and alphabetical are for finding one
+//: listing again, and sit at the end.
 const SORTS = [
   { value: "newest", label: "Newest first" },
-  { value: "oldest", label: "Oldest first" },
+  { value: "price_drop", label: "Recently reduced" },
   { value: "price_asc", label: "Price: low to high" },
   { value: "price_desc", label: "Price: high to low" },
-  { value: "price_drop", label: "Recently reduced" },
+  { value: "oldest", label: "Oldest first" },
   { value: "title", label: "Title A–Z" },
 ];
 
@@ -136,16 +150,18 @@ const AVAILABILITY = [
 //: One at a time. These read as a single question — "what am I looking for?" —
 //: and a set of checkboxes invited the answer "rifles and handguns and parts",
 //: which is the same as asking nothing.
+//: Guns first, then what is nearly a gun, then everything else -- the order
+//: Hot deals uses for the same three gun buckets.
 const KINDS = [
   { value: "", label: "Anything" },
   { value: "rifle", label: "Rifles" },
   { value: "pistol", label: "Handguns" },
-  { value: "bayonet", label: "Bayonets" },
-  { value: "parts_kit", label: "Parts kits" },
   //: Its own Type rather than scattered through Rifles and Handguns. A
   //: department trade-in is a different thing to be looking for, and the
   //: vendors sell them as their own named sections, so the catalog can say so.
   { value: "police_surplus", label: "Police surplus" },
+  { value: "parts_kit", label: "Parts kits" },
+  { value: "bayonet", label: "Bayonets" },
   { value: "other", label: "Other parts & accessories" },
 ];
 
@@ -174,7 +190,7 @@ const VIEWS = [
  */
 const FACETS = [
   // First, and ahead of Form for once. Three values, and for a collector
-  // working to their own C&R licence it is not one filter among several —
+  // working to their own C&R license it is not one filter among several —
   // it is the question of whether a listing is reachable at all. "Not known"
   // is offered alongside the other two on purpose: a third of the catalog
   // says nothing either way, and hiding those would quietly answer a legal
@@ -191,6 +207,12 @@ const FACETS = [
   // a vendor happened to type — which is why it filters by id.
   { param: "model", facet: "models", title: "Model" },
   { param: "caliber", facet: "calibers", title: "Caliber" },
+  // Then the things that decide what a particular gun is worth rather than
+  // which gun it is: the vendor's own word for its condition, and the three
+  // details a collector checks first. Both come from the listing's prose,
+  // and the listing page quotes the words each was read from.
+  { param: "grade", facet: "grades", title: "Condition" },
+  { param: "trait", facet: "traits", title: "Collector details" },
   { param: "site_id", facet: "sites", title: "Site" },
   { param: "country", facet: "countries", title: "Country" },
 ];
@@ -281,18 +303,26 @@ function FacetGroup({ title, options, selected, onToggle }) {
         {term && matching.length === 0 && (
           <p className="facet__empty">Nothing matches “{needle.trim()}”.</p>
         )}
-        {visible.map((option) => (
-          <label className="facet__option" key={option.value}>
-            <input
-              type="checkbox"
-              checked={selected.includes(option.value)}
-              onChange={() => onToggle(option.value)}
-            />
-            <span className="facet__option-label" title={option.label || option.value}>
-              {option.label || option.value}
-            </span>
-            <span className="facet__option-count">{option.count}</span>
-          </label>
+        {visible.map((option, index) => (
+          <Fragment key={option.value}>
+            {/* A heading over each question, where one facet asks several:
+              import marks, numbers and finish are three pairs, and a flat
+              list of six reads as six unrelated choices. */}
+            {option.group && option.group !== visible[index - 1]?.group && (
+              <span className="facet__group">{option.group}</span>
+            )}
+            <label className="facet__option">
+              <input
+                type="checkbox"
+                checked={selected.includes(option.value)}
+                onChange={() => onToggle(option.value)}
+              />
+              <span className="facet__option-label" title={option.label || option.value}>
+                {option.label || option.value}
+              </span>
+              <span className="facet__option-count">{option.count}</span>
+            </label>
+          </Fragment>
         ))}
         {!term && matching.length > 8 && (
           <button
@@ -354,6 +384,7 @@ function ItemCard({ item }) {
             </span>
           )}
         </div>
+        <Delivered item={item} className="item-card__delivered" />
         <div className="item-card__meta">
           <span title={timeTitle(item.first_seen_at)}>
             {item.site_name} · {formatRelative(item.first_seen_at)}
@@ -361,6 +392,23 @@ function ItemCard({ item }) {
         </div>
       </div>
     </Link>
+  );
+}
+
+/**
+ * What it costs at the reader's dealer, in a few words.
+ *
+ * "From" when a part is missing -- shipping the shop does not state, or a
+ * transfer fee the reader has not set -- because then it is a floor. The
+ * listing page shows the parts; a card has room for the sum.
+ */
+function Delivered({ item, className }) {
+  if (item.delivered_price == null) return null;
+  return (
+    <div className={className}>
+      {item.delivered_complete ? "" : "from "}
+      {formatMoney(item.delivered_price, item.currency)} delivered
+    </div>
   );
 }
 
@@ -393,6 +441,7 @@ function ItemRow({ item }) {
                 {formatMoney(item.previous_price, item.currency)}
               </span>
             )}
+            <Delivered item={item} className="item-row__delivered" />
           </span>
         </div>
 

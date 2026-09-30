@@ -1620,6 +1620,40 @@ def _add_curio_backfill_command(sub) -> None:
     command.set_defaults(func=cmd_curio_backfill)
 
 
+def cmd_traits_backfill(args: argparse.Namespace) -> int:
+    """Re-read stored listings for import marks, numbers, finish and condition.
+
+    Migration 0048 fills the columns when it runs; this is for afterwards, when
+    the rules in ``app.services.traits`` have been tightened. ``--recompute``
+    re-reads every listing rather than only those carrying no reading yet.
+    """
+    from app.services import traits
+
+    with session_scope() as session:
+        counts = traits.backfill(session, only_missing=not args.recompute)
+
+    print(f"Examined {counts.get('examined', 0)} listing(s).")
+    print(f"  import marks read      {counts.get('import', 0)}")
+    print(f"  numbers read           {counts.get('numbers', 0)}")
+    print(f"  finishes read          {counts.get('finish', 0)}")
+    print(f"  overall grades read    {counts.get('graded', 0)}")
+    return 0
+
+
+def _add_traits_backfill_command(sub) -> None:
+    command = sub.add_parser(
+        "traits-backfill",
+        help="Re-read stored listings for import marks, matching numbers, finish and condition.",
+    )
+    command.add_argument(
+        "--recompute",
+        action="store_true",
+        help="Re-read every listing, not only those carrying no reading yet. "
+        "For after the rules in app.services.traits have been changed.",
+    )
+    command.set_defaults(func=cmd_traits_backfill)
+
+
 def _add_refetch_details_command(sub) -> None:
     command = sub.add_parser(
         "refetch-details",
@@ -1910,6 +1944,7 @@ def build_parser() -> argparse.ArgumentParser:  # noqa: PLR0915 - a statement pe
     _add_reclassify_command(sub)
     _add_refetch_details_command(sub)
     _add_curio_backfill_command(sub)
+    _add_traits_backfill_command(sub)
 
     _add_armory_commands(sub)
 

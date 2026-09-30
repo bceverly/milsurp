@@ -17,6 +17,8 @@ SITE_BASE = "https://cogunsales.com/"
 
 class CoGunSalesScraper(WooCommerceScraper):
     slug = "co-gun-sales"
+    shipping_note = "Carrier details only (UPS/FedEx Ground, handguns may go USPS); no firearm shipping cost stated"
+    shipping_source = "https://cogunsales.com/terms-conditions/"
     name = "CO Gun Sales"
     base_url = SITE_BASE
     newsletter_url = "https://cogunsales.com/"

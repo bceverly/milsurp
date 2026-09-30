@@ -208,6 +208,8 @@ class GunPrimeScraper(SiteScraper):
     #: Hands over the vendor's own caliber, country or maker. See SiteScraper.
     states_facts = True
     slug = "gunprime"
+    shipping_note = "No shipping-cost page found; firearms ship from approved dealers"
+    shipping_source = "https://gunprime.com/policies"
     name = "GunPrime"
     base_url = SITE_BASE
     newsletter_url = "https://gunprime.com/"

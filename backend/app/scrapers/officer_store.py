@@ -25,6 +25,8 @@ SITE_BASE = "https://officerstore.com/"
 
 class OfficerStoreScraper(BigCommerceScraper):
     slug = "officer-store"
+    shipping_note = "FedEx Ground, calculated freight; no firearm shipping cost stated"
+    shipping_source = "https://officerstore.com/shipping-costs-terms"
     name = "Officer Store"
     base_url = SITE_BASE
     newsletter_url = "https://officerstore.com/"

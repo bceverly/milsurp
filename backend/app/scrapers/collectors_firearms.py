@@ -62,6 +62,8 @@ SITE_BASE = "https://collectorsfirearms.com/"
 
 class CollectorsFirearmsScraper(WooCommerceScraper):
     slug = "collectors-firearms"
+    shipping_note = "No outbound firearm shipping rate stated; next-day shipping by quote; shipping costs non-refundable"
+    shipping_source = "https://collectorsfirearms.com/how-to-buy/"
     name = "Collectors Firearms"
     base_url = SITE_BASE
     newsletter_url = "https://collectorsfirearms.com/newsletter-signup/"

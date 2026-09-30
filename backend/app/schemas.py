@@ -7,7 +7,7 @@ the browser has something unambiguous to convert.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_serializer, field_validator
@@ -276,6 +276,13 @@ class SiteOut(UTCModel):
     #: is happening.
     resting_seconds: int | None = None
     resting_reason: str | None = None
+    #: Firearm shipping as it applies -- the override where there is one, the
+    #: scraper's declaration otherwise -- and where it came from.
+    shipping_long_gun: float | None = None
+    shipping_handgun: float | None = None
+    shipping_note: str | None = None
+    shipping_source: str | None = None
+    shipping_overridden: bool = False
     #: Photographs this site has a URL for but no file yet, split by whether
     #: anything will try again on its own. ``photos_pending`` drains by itself
     #: as scans run; ``photos_failed`` has reached the attempt cap and needs
@@ -346,6 +353,12 @@ class PlannedSiteOut(BaseModel):
 
 
 class SiteUpdate(BaseModel):
+    #: An administrator's firearm shipping figures, overriding the scraper's.
+    #: Sent as null to go back to the declared figure -- which is why these are
+    #: told apart from "not sent" by ``model_fields_set`` in the route.
+    shipping_long_gun: float | None = Field(default=None, ge=0, le=1000)
+    shipping_handgun: float | None = Field(default=None, ge=0, le=1000)
+    shipping_note: str | None = Field(default=None, max_length=200)
     enabled: bool | None = None
     # Five minutes is the floor: anything tighter is abusive to the vendor and
     # would overlap with the previous run on a browser-driven site.
@@ -613,6 +626,22 @@ class TurnoverOut(BaseModel):
     thin_groups: int
     thin_listings: int
     rows: list[TurnoverRowOut]
+
+
+class DeparturesOut(BaseModel):
+    """What guns were asking when they left the shelf. See ``market.departures``.
+
+    The bands are the quartiles of the last asking price, not the tenth and
+    ninetieth percentiles the shelf bands use: these samples are small.
+    """
+
+    dimension: str
+    min_sample: int
+    measured: int
+    marked_sold: int
+    thin_groups: int
+    thin_listings: int
+    bands: list[MarketBandOut]
 
 
 class PushSubscribeIn(BaseModel):
@@ -959,6 +988,30 @@ class ItemOut(UTCModel):
     curio_evidence: str | None = None
     manufacture_year: int | None = None
 
+    #: What a collector checks first, read out of the vendor's words: True,
+    #: False or None each. Only sent for a firearm. See app.services.traits.
+    import_marked: bool | None = None
+    numbers_match: bool | None = None
+    refinished: bool | None = None
+    finish_percent: int | None = None
+    #: The vendor's words for each of the above, and for the grade below,
+    #: keyed "import", "numbers", "finish", "condition" -- so the page quotes
+    #: rather than asserts.
+    trait_quotes: dict[str, str] | None = None
+    #: The whole gun's stated condition on one scale, and its label.
+    condition_grade: str | None = None
+    condition_grade_label: str | None = None
+
+    #: What it costs at the reader's dealer: the price, the shop's firearm
+    #: shipping and the reader's transfer fee. Firearms only; each part None
+    #: where nobody stated it, and ``delivered_complete`` False when either is
+    #: missing, so the total is shown as a floor. See services/delivered.py.
+    shipping: float | None = None
+    transfer_fee: float | None = None
+    delivered_price: float | None = None
+    delivered_complete: bool = False
+    shipping_note: str | None = None
+
     id: int
     site_id: int
     site_name: str | None = None
@@ -1017,6 +1070,12 @@ class OfferOut(UTCModel):
 
 class ItemDetail(ItemOut):
     description: str | None = None
+    #: What guns like this one were asking when they left the shelf -- the same
+    #: armory model, or the same caliber without one -- or None below the
+    #: minimum sample. See ``market.departures_for``.
+    departures: "MarketBandOut | None" = None
+    #: Which of the two it was drawn from: "model" or "caliber".
+    departures_by: str | None = None
     #: What the shop's emails offer right now (see services/offers.py).
     offers: list["OfferOut"] = Field(default_factory=list)
     photos: list[PhotoOut] = Field(default_factory=list)
@@ -1113,6 +1172,10 @@ class FacetValue(BaseModel):
     value: str
     label: str | None = None
     count: int
+    #: Which question a value answers, where one facet holds several: the
+    #: collector traits are three pairs -- import marks, numbers, finish -- and
+    #: the rail draws a heading over each.
+    group: str | None = None
 
 
 class ItemOverrideIn(BaseModel):
@@ -1202,6 +1265,12 @@ class ItemFacets(BaseModel):
     #: Three states that partition the catalog, so there is no "Anything" row:
     #: clearing the filter is what "any" means here.
     curio: list[FacetValue] = Field(default_factory=list)
+    #: Import marks, numbers and finish, each value carrying its ``group``.
+    #: Counted over the current results, like the multi-select facets.
+    traits: list[FacetValue] = Field(default_factory=list)
+    #: The whole gun's stated condition, best first rather than busiest first,
+    #: with an "Unknown" row for the listings that state none.
+    grades: list[FacetValue] = Field(default_factory=list)
     #: The price shape of the current results. Absent when nothing in them has
     #: a price, which is a real state on a catalog full of "call for price".
     prices: PriceDistributionOut | None = None
@@ -1323,6 +1392,12 @@ class SavedSearchOut(UTCModel):
     #: How many listings it matches right now — the whole result set, not the
     #: email's capped view of it.
     match_count: int = 0
+    #: "Tell me the moment one appears" -- a want list. See services/wantlist.
+    alert_instantly: bool = False
+    alert_since: datetime | None = None
+    #: The price ceiling in its query, if it has one: what a want list calls
+    #: its target. Read out of the query rather than stored twice.
+    target_price: float | None = None
 
 
 class SavedSearchCreate(BaseModel):
@@ -1330,6 +1405,7 @@ class SavedSearchCreate(BaseModel):
     query: str = Field(default="", max_length=2000)
     email_enabled: bool = False
     email_item_limit: SavedSearchLimit = 10
+    alert_instantly: bool = False
 
 
 class SavedSearchUpdate(BaseModel):
@@ -1340,6 +1416,7 @@ class SavedSearchUpdate(BaseModel):
     query: str | None = Field(default=None, max_length=2000)
     email_enabled: bool | None = None
     email_item_limit: SavedSearchLimit | None = None
+    alert_instantly: bool | None = None
 
 
 class EmailLogOut(UTCModel):
@@ -1638,3 +1715,95 @@ class InboxStateOut(BaseModel):
     recent: list[VendorEmailOut]
     #: Every shop with a mailing list, and whether its mail has been followed.
     shops: list[ShopLinkStatusOut] = []
+
+
+class CostPreferenceOut(BaseModel):
+    """What a reader pays on top of a listing, for the delivered price."""
+
+    ffl_transfer_fee: float | None = None
+
+
+class CostPreferenceIn(BaseModel):
+    #: Null clears it. A C&R holder receiving a curio directly sets 0.
+    ffl_transfer_fee: float | None = Field(default=None, ge=0, le=1000)
+
+
+# ---------------------------------------------------------------------------
+# The collection
+# ---------------------------------------------------------------------------
+CollectionGrade = Literal["like_new", "excellent", "very_good", "good", "fair", "poor"]
+
+
+class CollectionItemIn(BaseModel):
+    """A gun somebody owns. Only the title is required; see CollectionItem."""
+
+    title: str = Field(min_length=1, max_length=200)
+    caliber: str | None = Field(default=None, max_length=64)
+    manufacturer: str | None = Field(default=None, max_length=128)
+    condition_grade: CollectionGrade | None = None
+    acquired_on: date | None = None
+    paid: float | None = Field(default=None, ge=0, le=10_000_000)
+    acquired_from: str | None = Field(default=None, max_length=128)
+    notes: str | None = Field(default=None, max_length=4000)
+
+
+class CollectionItemUpdate(BaseModel):
+    """Every field optional; a field sent as null is cleared."""
+
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    caliber: str | None = Field(default=None, max_length=64)
+    manufacturer: str | None = Field(default=None, max_length=128)
+    condition_grade: CollectionGrade | None = None
+    acquired_on: date | None = None
+    paid: float | None = Field(default=None, ge=0, le=10_000_000)
+    acquired_from: str | None = Field(default=None, max_length=128)
+    notes: str | None = Field(default=None, max_length=4000)
+    #: "That is not the right model": clears the match and keeps it cleared.
+    #: False lets the title be matched again.
+    model_declined: bool | None = None
+
+
+class CollectionValuationOut(BaseModel):
+    estimate: float
+    #: "left" (what the model was asking when it left the shelf) or "shelf"
+    #: (what it is asking now).
+    basis: str
+    like_for_like: bool
+    shelf: MarketBandOut | None = None
+    departed: MarketBandOut | None = None
+
+
+class CollectionItemOut(UTCModel):
+    id: int
+    title: str
+    firearm_model_id: int | None = None
+    model: str | None = None
+    model_declined: bool = False
+    caliber: str | None = None
+    manufacturer: str | None = None
+    condition_grade: str | None = None
+    condition_grade_label: str | None = None
+    acquired_on: date | None = None
+    paid: float | None = None
+    acquired_from: str | None = None
+    item_id: int | None = None
+    notes: str | None = None
+    created_at: datetime
+    updated_at: datetime
+    valuation: CollectionValuationOut | None = None
+
+
+class CollectionTotalsOut(BaseModel):
+    count: int
+    paid: float
+    paid_count: int
+    value: float
+    valued_count: int
+    compared_count: int
+    compared_paid: float
+    compared_value: float
+
+
+class CollectionOut(BaseModel):
+    items: list[CollectionItemOut]
+    totals: CollectionTotalsOut

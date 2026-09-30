@@ -67,6 +67,8 @@ _SECONDHAND = re.compile(r"\b(?:trade[\s-]?ins?|turn[\s-]?ins?|used|surplus)\b",
 
 class ClassicFirearmsScraper(MagentoScraper):
     slug = "classic-firearms"
+    shipping_note = "Carriers listed (rifles ground, handguns air); no firearm shipping cost stated"
+    shipping_source = "https://www.classicfirearms.com/terms-and-conditions/"
     name = "Classic Firearms"
     base_url = SITE_BASE
     newsletter_url = "https://www.classicfirearms.com/"

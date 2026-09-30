@@ -134,6 +134,20 @@ changed — filtered to the sites you care about and capped so it stays readable
   makes it 4.5-6x faster overall without moving a single answer.
 - Faceted filters: site, category, caliber, country, manufacturer, type,
   availability, "reduced only".
+- **Collector details: import marks, matching numbers, the finish, and the
+  stated condition.** For surplus these set the price more than the model does,
+  and the vendors say which is which in prose. Each is read out of the
+  listing's own words (`app/services/traits.py`), filtered on in the rail under
+  **Condition** and **Collector details**, and shown on the listing page with
+  the vendor's sentence quoted under it — "All matching" read out of "matching
+  numbers except the bolt" would be a claim they never made, and the quote is
+  how a reader can tell. Denials ("not import marked"), hedges ("may have been
+  refinished"), prose about the model rather than this gun, and a refinished
+  *stock* are all left unread rather than misread. The condition grade comes
+  from a sentence about the whole gun — "overall condition is very good" —
+  never from the `condition` column, which holds bore grades. Measured over
+  9,970 active firearms: 2,684 import-mark readings, 3,557 on the numbers,
+  1,947 on the finish, 1,858 overall grades.
 - **Price range as a shape, not two boxes.** A log-scaled histogram of what the
   current results cost, with two handles over it and the number boxes kept
   beside them. Logarithmic because the catalog runs from a $2 clip pouch to a
@@ -149,6 +163,12 @@ changed — filtered to the sites you care about and capped so it stays readable
   browse URL, so running one is a link and there is no second search
   implementation to drift. **Send now** mails one search on demand, without
   disturbing the daily digest's schedule or its watermark.
+- **Want lists.** A saved search with **"Alert me the moment one appears"** on:
+  its price ceiling is the target, and each listing that comes to match it —
+  newly listed, reduced into range, or back in stock — is emailed and pushed on
+  the scheduler's next tick, once per listing. Switching it on does not mail
+  the backlog: only what changes from then on is news. See
+  `app/services/wantlist.py`.
 - **Watchlist.** Star a listing to hear when its price moves or it sells, and
   optionally name the price you would pay. A target is a promise to stay quiet:
   with one set, only a price at or below it is mailed — a rifle drifting $900 →
@@ -185,6 +205,30 @@ changed — filtered to the sites you care about and capped so it stays readable
   down). One already listed when its shop was first scanned is left out,
   because its time there is only an "at least". Sale dates are recorded from
   migration 0039 on, so this starts thin and fills in.
+  Between the two, **what they left the shelf at**: the last asking price of
+  guns a shop marked sold or took down, by model or caliber, with the same
+  sample floor and one-shop warning. It is labeled an asking price because it
+  is one — no shop publishes what a gun went for — but it is better evidence
+  of where the market clears than the shelf, which over-represents whatever has
+  not sold. A listing's page carries its model's figure under the price
+  spectrum.
+- **What it costs delivered.** A firearm's page shows its price plus the shop's
+  firearm shipping plus your dealer's transfer fee, and a card or row shows the
+  sum. The shipping is the shop's own figure, read off its policy page and
+  declared on its scraper with that page's address; an administrator can
+  override it on the site's page. Only nine of thirty-nine shops state a flat
+  firearm charge (surveyed 2026-09-30) — the rest calculate it at checkout —
+  so a total missing a part says "at least" and names the part, rather than
+  treating shipping as free. The transfer fee is set once, on any listing,
+  where the question comes up.
+- **Collection.** What you own, what you paid, and what each is worth now, at
+  `/collection`. Each gun is matched to an armory model from its title and
+  valued against that model's listings — what they left the shelf at where
+  there is a sample, what they ask now where there is not — and against those in
+  the same condition where there are enough. A gun matched to no model says it
+  cannot be valued rather than borrowing a caliber's median. **I bought this**
+  on a listing adds it filled in; **Download** gives the spreadsheet an insurer
+  asks for. There is deliberately no serial-number field.
 - **Hot deals.** The Market's answer applied to the shelves, at `/hot-deals`:
   the listings priced well below what the same gun usually sells for, split
   into Rifles, Handguns and Police surplus. A pass over the whole catalog runs

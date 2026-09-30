@@ -64,6 +64,10 @@ SITE_BASE = "https://www.atlanticfirearms.com/"
 
 class AtlanticFirearmsScraper(PrestaShopScraper):
     slug = "atlantic-firearms"
+    shipping_long_gun = 30.0
+    shipping_handgun = 30.0
+    shipping_note = "Flat $30 per order, however many guns; oversize rifles $65; AK/HI $75"
+    shipping_source = "https://www.atlanticfirearms.com/shipping"
     name = "Atlantic Firearms"
     base_url = SITE_BASE
     newsletter_url = "https://atlanticfirearms.com/social-media"

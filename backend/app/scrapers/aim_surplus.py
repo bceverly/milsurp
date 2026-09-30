@@ -77,6 +77,8 @@ class AimSurplusScraper(SiteScraper):
     #: Hands over the vendor's own caliber, country or maker. See SiteScraper.
     states_facts = True
     slug = "aim-surplus"
+    shipping_note = "Shipping calculated at checkout; firearms ship adult signature"
+    shipping_source = "https://aimsurplus.com/pages/faqs"
     name = "AIM Surplus"
     base_url = SITE_BASE
     newsletter_url = "https://aimsurplus.com/pages/mailing-lists"

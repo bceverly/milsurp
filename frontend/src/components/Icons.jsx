@@ -224,6 +224,21 @@ export const Shield = (p) => (
   </Svg>
 );
 
+export const Bell = (p) => (
+  <Svg {...p}>
+    <path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z" />
+    <path d="M10 20a2 2 0 0 0 4 0" />
+  </Svg>
+);
+
+//: A crate: the collection, what you have rather than what you are after.
+export const Box = (p) => (
+  <Svg {...p}>
+    <path d="M3 8l9-5 9 5v8l-9 5-9-5z" />
+    <path d="M3 8l9 5 9-5M12 13v8" />
+  </Svg>
+);
+
 export const Bookmark = (p) => (
   <Svg {...p}>
     <path d="M6 4.5h12a1 1 0 0 1 1 1V20l-7-4-7 4V5.5a1 1 0 0 1 1-1z" />

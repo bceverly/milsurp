@@ -8,13 +8,18 @@
  * The email is per search and capped by its owner. **The cap is on the email
  * alone**: running a search shows everything it matches, which is why the card
  * reports the full match count beside a limit that is usually smaller.
+ *
+ * **A want list is a saved search with the instant alert on.** Its price
+ * ceiling is the target, and each listing that comes to match it -- new,
+ * reduced into range, back in stock -- is mailed and pushed once, straight
+ * away rather than in the digest. See services/wantlist.py.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api.js";
 import { useTitle } from "../hooks.js";
-import { formatRelative, timeTitle } from "../format.js";
-import { Bookmark, Mail, Refresh, Trash } from "../components/Icons.jsx";
+import { formatMoney, formatRelative, timeTitle } from "../format.js";
+import { Bell, Bookmark, Mail, Refresh, Trash } from "../components/Icons.jsx";
 import { fromMap } from "../lookup";
 
 /** What the email-limit dropdown offers; mirrors SAVED_SEARCH_LIMITS. */
@@ -27,6 +32,25 @@ const SORT_LABELS = {
   price_desc: "Price: high to low",
   price_drop: "Recently reduced",
   title: "Title A–Z",
+};
+
+/** The collector details and condition grades, as the browse rail names them. */
+const TRAIT_LABELS = {
+  unmarked: "No import marks",
+  import_marked: "Import marked",
+  all_matching: "All matching",
+  not_matching: "Not all matching",
+  original_finish: "Original finish",
+  refinished: "Refinished",
+};
+const GRADE_LABELS = {
+  like_new: "Like new",
+  excellent: "Excellent",
+  very_good: "Very good",
+  good: "Good",
+  fair: "Fair",
+  poor: "Poor",
+  Unknown: "Not stated",
 };
 
 /** The filters in a stored query, as something a person can read. */
@@ -43,6 +67,13 @@ function describe(query) {
   named("country", "Country");
   named("manufacturer", "Maker");
   named("category", "Category");
+  const labeled = (key, label, words) => {
+    const values = params.getAll(key);
+    if (values.length)
+      parts.push(`${label}: ${values.map((v) => words[v] || v).join(", ")}`);
+  };
+  labeled("grade", "Condition", GRADE_LABELS);
+  labeled("trait", "Details", TRAIT_LABELS);
   if (params.get("min_price") || params.get("max_price")) {
     parts.push(
       `Price: ${params.get("min_price") || "any"}–${params.get("max_price") || "any"}`,
@@ -129,6 +160,17 @@ function SavedSearchCard({ search, onChange, onDelete }) {
           Run
         </Link>
 
+        {/* First, because it is the stronger of the two: the digest tells
+            you tomorrow, this tells you now. */}
+        <label className="saved-search__toggle">
+          <input
+            type="checkbox"
+            checked={Boolean(search.alert_instantly)}
+            onChange={(event) => patch({ alert_instantly: event.target.checked })}
+          />
+          Alert me the moment one appears
+        </label>
+
         <label className="saved-search__toggle">
           <input
             type="checkbox"
@@ -176,6 +218,19 @@ function SavedSearchCard({ search, onChange, onDelete }) {
         </button>
       </div>
 
+      {search.alert_instantly && (
+        <p className="saved-search__note saved-search__note--alert">
+          <Bell size={13} /> On your want list
+          {search.target_price != null && (
+            <> — target {formatMoney(search.target_price)}</>
+          )}
+          . A new listing, a reduction into range or a return to stock is mailed and
+          pushed straight away, once per listing.
+          {search.target_price == null && (
+            <> Set a top price on the inventory and save again to give it a target.</>
+          )}
+        </p>
+      )}
       {search.email_enabled && search.match_count > search.email_item_limit && (
         <p className="saved-search__note">
           The email carries {search.email_item_limit} of {search.match_count} and links to
@@ -262,7 +317,9 @@ export default function SavedSearches() {
           <h1>Saved searches</h1>
           <p>
             A named set of browse filters. Turn on the email and its results ride in your
-            digest, in the order the search was saved with.
+            digest, in the order the search was saved with. Turn on the alert and it
+            becomes a want list: you hear the moment something new matches, with the top
+            of its price range as your target.
           </p>
         </div>
         <button className="btn btn--secondary" onClick={load}>

@@ -28,6 +28,8 @@ SITE_BASE = "https://armsunlimited.com/"
 
 class ArmsUnlimitedScraper(BigCommerceScraper):
     slug = "arms-unlimited"
+    shipping_note = "USPS/UPS rates calculated by location"
+    shipping_source = "https://armsunlimited.com/shipping-returns-cancel/"
     name = "Arms Unlimited"
     base_url = SITE_BASE
     newsletter_url = "https://armsunlimited.com/"

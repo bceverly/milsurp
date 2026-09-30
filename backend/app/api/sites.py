@@ -23,7 +23,7 @@ from ..schemas import (
 )
 from ..scrapers import get_scraper_class
 from ..scrapers.planned import PLANNED
-from ..services import audit, cooldown, inbox, scan_service
+from ..services import audit, cooldown, delivered, inbox, scan_service
 
 log = logging.getLogger("milsurp.sites")
 
@@ -86,6 +86,14 @@ def _site_out(
     if scraper is not None:
         data.newsletter_url = scraper.newsletter_url
         data.newsletter_note = scraper.newsletter_note
+    # Shipping as it applies, rather than the override columns the ORM
+    # validation copied: a null override means "the declared figure".
+    rates = delivered.shipping_for_site(site)
+    data.shipping_long_gun = rates.long_gun
+    data.shipping_handgun = rates.handgun
+    data.shipping_note = rates.note
+    data.shipping_source = rates.source
+    data.shipping_overridden = rates.overridden
     asked = (confirming if confirming is not None else inbox.awaiting_confirmation(session)).get(
         site.id
     )
@@ -297,6 +305,12 @@ def update_site(
         site.name = payload.name
     if payload.description is not None:
         site.description = payload.description
+    # Sent as null means "back to the declared figure", which is a different
+    # request from not sending it at all -- hence model_fields_set.
+    for name in ("shipping_long_gun", "shipping_handgun", "shipping_note"):
+        if name in payload.model_fields_set:
+            value = getattr(payload, name)
+            setattr(site, name, (value.strip() or None) if isinstance(value, str) else value)
 
     if turned is not None:
         audit.record(

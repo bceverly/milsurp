@@ -748,6 +748,19 @@ class SiteScraper(abc.ABC):
     #: mailing service still names itself in Reply-To or in the address (see
     #: :mod:`app.services.inbox`). For one whose mail says neither.
     newsletter_sender_domains: tuple[str, ...] = ()
+    #: What this shop charges to ship one firearm to the buyer's dealer, as
+    #: its own policy page states it -- a long gun and a handgun, which often
+    #: differ. None where the page says "calculated at checkout" or says
+    #: nothing: a guessed shipping charge added to a price would be a number
+    #: nobody quoted. Read from the page named in ``shipping_source``; an
+    #: administrator can override either figure on the site without a
+    #: release. See app.services.delivered.
+    shipping_long_gun: float | None = None
+    shipping_handgun: float | None = None
+    #: The policy in a line -- "Flat $35 per firearm; free over $1,500" -- and
+    #: where it was read, so a reader can check it.
+    shipping_note: str = ""
+    shipping_source: str | None = None
     #: Whether this vendor's descriptions are prose about the listing they
     #: belong to. Nearly always true, and false for a source where the text
     #: bleeds: Hunter's Lodge derives its whole catalog from one scanned page,

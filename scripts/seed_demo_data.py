@@ -47,7 +47,7 @@ from app.models import (  # noqa: E402
     VendorOffer,
     utcnow,
 )
-from app.services import classify, cooldown, hotdeals  # noqa: E402
+from app.services import classify, cooldown, hotdeals, traits  # noqa: E402
 from app.services.image_store import ImageStore  # noqa: E402
 from app.services.scan_service import MAX_PHOTO_ATTEMPTS  # noqa: E402
 
@@ -600,6 +600,25 @@ def _demo_shops(sites: list[Site]) -> list[Site]:
     return shops or list(sites)
 
 
+#: What four of the sample listings say about themselves, the way a dealer
+#: writes it, so the collector details and the condition grade have something
+#: to read -- and the inventory's filters for them something to find.
+COLLECTOR_PROSE = {
+    "GERMAN K98 Mauser rifle, matching numbers": (
+        "All matching numbers. No import marks. Overall condition is very good."
+    ),
+    "SWISS Schmidt-Rubin K31, matching": (
+        "Numbers matching. Original blued finish. Overall condition is excellent."
+    ),
+    "RUSSIAN Tokarev TT-33 7.62x25mm, import marked": (
+        "Century import mark on the frame. Overall condition is good."
+    ),
+    "RUSSIAN Mosin Nagant M91/30 7.62x54R, refurbished": (
+        "Arsenal refurbished. Non-matching bolt. Overall condition is good."
+    ),
+}
+
+
 def seed(  # noqa: PLR0912, PLR0915 - a linear fixture builder; branches are per-field
     reset: bool = False, quiet: bool = False, now: datetime | None = None
 ) -> int:
@@ -659,6 +678,7 @@ def seed(  # noqa: PLR0912, PLR0915 - a linear fixture builder; branches are per
                 description=(
                     f"{title}. Collector-grade example in the condition described. "
                     "Bore is bright with strong rifling. Sold as a curio and relic."
+                    + (f" {COLLECTOR_PROSE[title]}" if title in COLLECTOR_PROSE else "")
                 ),
                 category=category,
                 caliber=derived["caliber"],
@@ -712,6 +732,9 @@ def seed(  # noqa: PLR0912, PLR0915 - a linear fixture builder; branches are per
                 if (item.is_rifle or item.is_pistol)
                 else None
             )
+            # Import marks, numbers, finish and condition, read as a scan reads
+            # them (scan_service._apply_catalog).
+            traits.apply(item, trusted=True)
             session.add(item)
             session.flush()
 

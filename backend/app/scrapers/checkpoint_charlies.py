@@ -42,6 +42,8 @@ SITE_BASE = "https://checkpointcharlies.com/"
 
 class CheckpointCharliesScraper(WooCommerceScraper):
     slug = "checkpoint-charlies"
+    shipping_note = "Shipping cost shown at checkout"
+    shipping_source = "https://checkpointcharlies.com/ordering-information/"
     name = "Checkpoint Charlie's"
     base_url = SITE_BASE
     newsletter_url = "https://checkpointcharlies.com/"

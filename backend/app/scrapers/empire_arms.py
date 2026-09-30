@@ -180,6 +180,8 @@ class EmpireArmsScraper(SiteScraper):
     #: Hands over the vendor's own caliber, country or maker. See SiteScraper.
     states_facts = True
     slug = "empire-arms"
+    shipping_note = "Charges actual UPS cost; lists approx. $50 first handgun, $29.50-$40 first rifle by zone; +$12/$10 each extra gun"
+    shipping_source = "https://www.empirearms.com/terms.htm"
     name = "Empire Arms"
     base_url = SITE_BASE
     newsletter_url = "https://visitor.r20.constantcontact.com/d.jsp?llr=yibfav6ab&p=oi&m=1131354948888&sit=zgihf7ymb&f=b5401aaf-7a66-4844-b5e2-e23f73df91d8"

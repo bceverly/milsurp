@@ -20,11 +20,15 @@ test.describe("classification", () => {
     await expect(signedIn.getByRole("heading", { name: "Classification" })).toBeVisible();
   });
 
-  test("opens on the countries the migration seeded", async ({ signedIn }) => {
-    await expect(signedIn.getByRole("tab", { name: "Countries" })).toHaveAttribute(
+  test("opens on the first question the classifier asks", async ({ signedIn }) => {
+    await expect(signedIn.getByRole("tab", { name: "Part or gun" })).toHaveAttribute(
       "aria-selected",
       "true",
     );
+  });
+
+  test("the countries tab has what the migration seeded", async ({ signedIn }) => {
+    await signedIn.getByRole("tab", { name: "Countries" }).click();
     const rows = signedIn.locator("tbody tr");
     await expect(rows.first()).toBeVisible();
     await expect(
@@ -33,6 +37,7 @@ test.describe("classification", () => {
   });
 
   test("searching narrows the list", async ({ signedIn }) => {
+    await signedIn.getByRole("tab", { name: "Countries" }).click();
     await expect(signedIn.locator("tbody tr")).not.toHaveCount(1);
     await signedIn.getByLabel("Search").fill("Ishapore");
     await expect(signedIn.locator("tbody tr")).toHaveCount(1);
@@ -42,6 +47,7 @@ test.describe("classification", () => {
   });
 
   test("a country's spellings can be edited and come back", async ({ signedIn }) => {
+    await signedIn.getByRole("tab", { name: "Countries" }).click();
     await signedIn.getByLabel("Search").fill("Finland");
     const row = signedIn.locator("tbody tr").first();
     await row.getByRole("button", { name: "Edit" }).click();
@@ -56,6 +62,7 @@ test.describe("classification", () => {
   });
 
   test("a rule can be switched off from the table", async ({ signedIn }) => {
+    await signedIn.getByRole("tab", { name: "Countries" }).click();
     await signedIn.getByLabel("Search").fill("Sweden");
     const row = signedIn.locator("tbody tr").first();
     const toggle = row.getByRole("button", { name: /^(On|Off)$/ });

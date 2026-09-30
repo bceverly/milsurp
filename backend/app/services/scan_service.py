@@ -60,6 +60,7 @@ from . import (
     overrides,
     provenance,
     scanalerts,
+    traits,
 )
 from .image_store import ImageStore, StoredImage, difference_hash, looks_like
 
@@ -709,6 +710,11 @@ def _apply_catalog(session: Session, item: Item, trusted: bool, *, adopt: bool =
     item.cr_stated = reading.stated
     item.manufacture_year = reading.year
     item.cr_evidence = reading.evidence
+
+    # Import marks, matching numbers, the finish and the condition grade, on
+    # the same terms: evidence re-read every scan, the vendor's words kept
+    # beside each. See app.services.traits.
+    traits.apply(item, trusted)
 
 
 def _reconcile_photos(session: Session, item: Item, scraped: ScrapedItem, slug: str) -> None:

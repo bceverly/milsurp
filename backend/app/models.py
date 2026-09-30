@@ -8,11 +8,13 @@ browser converts them to the viewer's own timezone.
 from __future__ import annotations
 
 import enum
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     Column,
+    Date,
     DateTime,
     Enum,
     FetchedValue,
@@ -99,6 +101,12 @@ class User(Base, TimestampMixin):
     # Bumped whenever the password changes, which invalidates issued tokens.
     token_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime)
+    #: What this reader's dealer charges to receive a gun for them, so a
+    #: listing can show what it costs delivered rather than what it costs on
+    #: the shelf. Null is "not set", and the page then says so rather than
+    #: pretending the transfer is free. A C&R holder receiving a curio
+    #: directly sets it to 0.
+    ffl_transfer_fee: Mapped[float | None] = mapped_column(Float)
 
     email_preference: Mapped["EmailPreference | None"] = relationship(
         back_populates="user", cascade="all, delete-orphan", uselist=False
@@ -175,6 +183,14 @@ class Site(Base, TimestampMixin):
     #: sends a "you're confirmed" message if the list owner turned that on, so
     #: a confirmed list can stay silent until its next newsletter.
     newsletter_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    #: An administrator's figures for firearm shipping, overriding what the
+    #: scraper declares from the shop's policy page -- for when a shop changes
+    #: its charge and a release is not the way to say so. Null means "use the
+    #: declared figure". See app.services.delivered.
+    shipping_long_gun: Mapped[float | None] = mapped_column(Float)
+    shipping_handgun: Mapped[float | None] = mapped_column(Float)
+    shipping_note: Mapped[str | None] = mapped_column(String(200))
 
     items: Mapped[list["Item"]] = relationship(back_populates="site", cascade="all, delete-orphan")
     scan_runs: Mapped[list["ScanRun"]] = relationship(
@@ -845,6 +861,31 @@ class Item(Base, TimestampMixin):
     #: instead of asserting a conclusion about a regulated purchase.
     cr_evidence: Mapped[str | None] = mapped_column(String(16))
 
+    # -- what a collector checks first, read out of the vendor's own words
+    #
+    # Each is True, False or None: the vendor said so, said the opposite, or
+    # said nothing. See app.services.traits, which also explains why a quote of
+    # the words each was read from is kept beside them.
+    #
+    #: An importer's mark on the gun. False is "no import marks", which is the
+    #: one collectors pay for.
+    import_marked: Mapped[bool | None] = mapped_column(Boolean)
+    #: True for "all matching", False for any stated mismatch -- a non-matching
+    #: bolt, "matching except the magazine", a force-matched floorplate.
+    numbers_match: Mapped[bool | None] = mapped_column(Boolean)
+    #: True for a refinished or arsenal-refurbished metal finish, False where
+    #: the vendor called it original. The stock's finish is not this question.
+    refinished: Mapped[bool | None] = mapped_column(Boolean)
+    #: How much of the original finish remains, where the vendor put a number
+    #: on it: "retains about 93-94% of its original finish" is 93.
+    finish_percent: Mapped[int | None] = mapped_column(Integer)
+    #: The vendor's words for each reading, keyed "import", "numbers", "finish".
+    trait_quotes: Mapped[dict[str, str] | None] = mapped_column(JSON)
+    #: The whole gun's condition where the vendor stated it -- "overall
+    #: condition is very good" -- on one scale: like_new, excellent, very_good,
+    #: good, fair, poor. Not read from ``condition``, which is the *bore*.
+    condition_grade: Mapped[str | None] = mapped_column(String(16), index=True)
+
     site: Mapped["Site"] = relationship(back_populates="items")
     firearm_model: Mapped["FirearmModel | None"] = relationship()
     photos: Mapped[list["ItemPhoto"]] = relationship(
@@ -1047,7 +1088,83 @@ class SavedSearch(Base, TimestampMixin):
     email_item_limit: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
     last_emailed_at: Mapped[datetime | None] = mapped_column(DateTime)
 
+    #: "Tell me the moment one appears." A want list is a saved search with
+    #: this on and a price ceiling in its query: each listing that comes to
+    #: match it -- newly listed, reduced, or back in stock -- is mailed and
+    #: pushed once, on the scheduler's next tick, rather than waiting for the
+    #: digest. See app.services.wantlist.
+    alert_instantly: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    #: When the alert was last switched on. Only what changed after this is
+    #: news: the listings already matching are the ones the search page shows,
+    #: and switching the alert on must not mail forty of them at once.
+    alert_since: Mapped[datetime | None] = mapped_column(DateTime)
+
     user: Mapped["User"] = relationship(back_populates="saved_searches")
+
+
+class CollectionItem(Base, TimestampMixin):
+    """A gun somebody owns, for keeping track of it and what it is worth.
+
+    Everything but the title is optional: a collection is entered from memory
+    as often as from receipts. The model is matched from the title the way a
+    scan matches a listing, so a row values itself against the market without
+    anybody picking from a list of eleven hundred patterns.
+
+    **No serial number.** It is the one field that turns a list of things
+    somebody owns into a record of which guns are in which house, and this
+    application has no reason to hold it. The notes are theirs to write in.
+    """
+
+    __tablename__ = "collection_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    #: Matched from the title, or cleared by the owner when the match is wrong.
+    #: SET NULL for the reason a listing's is: deleting a model from the armory
+    #: is a statement about the armory, not about anybody's rifle.
+    firearm_model_id: Mapped[int | None] = mapped_column(
+        ForeignKey("firearm_models.id", ondelete="SET NULL"), index=True
+    )
+    #: The owner said the match was wrong. Kept so a later edit of the title
+    #: does not quietly put it back.
+    model_declined: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    caliber: Mapped[str | None] = mapped_column(String(64))
+    manufacturer: Mapped[str | None] = mapped_column(String(128))
+    #: The owner's own grade, on the common scale -- see app.services.traits.
+    #: What lets the valuation compare like with like.
+    condition_grade: Mapped[str | None] = mapped_column(String(16))
+    acquired_on: Mapped[date | None] = mapped_column(Date)
+    paid: Mapped[float | None] = mapped_column(Float)
+    acquired_from: Mapped[str | None] = mapped_column(String(128))
+    #: The listing it was bought from, when it was bought through here.
+    item_id: Mapped[int | None] = mapped_column(ForeignKey("items.id", ondelete="SET NULL"))
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    firearm_model: Mapped["FirearmModel | None"] = relationship()
+
+
+class SavedSearchAlert(Base):
+    """One listing a want-list alert has told somebody about.
+
+    What makes the alert once per listing: a rifle that drops from $1,450 to
+    $1,380 to $1,350 under a $1,400 ceiling is one piece of news, not two. The
+    listing matching is the event, not each thing that happens to it after.
+    """
+
+    __tablename__ = "saved_search_alerts"
+    __table_args__ = (UniqueConstraint("saved_search_id", "item_id", name="uq_saved_search_alert"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    saved_search_id: Mapped[int] = mapped_column(
+        ForeignKey("saved_searches.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    item_id: Mapped[int] = mapped_column(
+        ForeignKey("items.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    alerted_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
 
 
 class Country(Base, TimestampMixin):

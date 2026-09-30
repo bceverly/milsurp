@@ -20,6 +20,10 @@ SITE_BASE = "https://www.ima-usa.com/"
 
 class ImaUsaScraper(ShopifyScraper):
     slug = "ima-usa"
+    shipping_note = (
+        "Real-time UPS/USPS rates plus handling; free shipping on orders $500+ to lower 48"
+    )
+    shipping_source = "https://www.ima-usa.com/pages/shipping-returns"
     name = "IMA-USA"
     base_url = SITE_BASE
     newsletter_url = "https://www.ima-usa.com/"

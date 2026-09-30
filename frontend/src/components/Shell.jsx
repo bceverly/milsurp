@@ -11,6 +11,7 @@ import { setReachabilityHandler } from "../api.js";
 import { useAuth } from "../auth.jsx";
 import {
   Bookmark,
+  Box as BoxIcon,
   Flame,
   Logout,
   Mail,
@@ -32,48 +33,71 @@ import {
 import Insignia from "./Insignia.jsx";
 import PageLoading from "./PageLoading.jsx";
 
+/**
+ * The rail, in four sections, in the order somebody uses them.
+ *
+ * It had grown to fourteen entries in one list, in the order they were built:
+ * personal settings sat below six admin pages, and "Email digest" was the
+ * last thing a reader saw after Backups. Grouped now by whose it is --
+ * the catalog everybody reads, the things you asked for, your account, and the
+ * administration -- with each group ordered by how often it is opened.
+ */
 const NAV = [
-  { to: "/", label: "Inventory", icon: Rifle, end: true },
-  // Directly under Inventory, because a saved search *is* the inventory with
-  // filters on it and belongs beside the page it came from — not down with
-  // the email settings, which is only one of the things it can do.
-  // Above the saved searches, because it is the thing somebody opens first
-  // after being away: the email digest says what you asked for, this says what
-  // happened.
-  { to: "/changes", label: "What changed", icon: TrendDown },
-  // Beside it, because the two are the same instinct at different scales:
-  // what moved this week, and what things are worth in general.
-  { to: "/market", label: "Market", icon: Sparkle },
-  // And directly under the Market, because it is the Market's answer applied
-  // to the shelves: that page says what a gun is worth, this one says which
-  // listings are well under it. Above the saved searches for the same reason
-  // "What changed" is — it is something the catalog worked out while you were
-  // away, rather than a question you left behind.
-  { to: "/hot-deals", label: "Hot deals", icon: Flame },
-  { to: "/saved-searches", label: "Saved searches", icon: Bookmark },
-  // Beside saved searches, and after it: a saved search is a standing question
-  // about the catalog, a watchlist a standing question about particular guns.
-  // Both are "things I asked for", and both belong above the admin entries.
-  { to: "/watchlist", label: "Watchlist", icon: Star },
-  { to: "/sites", label: "Sites", icon: SitesIcon, adminOnly: true },
-  // One entry, not two. Makers, models and calibers are three views of one
-  // body of knowledge, and having "Makers" beside "Armory" invited exactly
-  // the split it took a rewrite to remove: a maker carrying its own flat list
-  // of models that nothing else could see.
-  { to: "/armory", label: "Armory", icon: TagIcon, adminOnly: true },
-  // Directly after the Armory, because the two answer the same question from
-  // opposite ends: the Armory is what the catalog is allowed to say, and this
-  // is the rules that decide what any one listing says.
-  { to: "/classification", label: "Classification", icon: Sieve, adminOnly: true },
-  { to: "/users", label: "Users", icon: UsersIcon, adminOnly: true },
-  { to: "/backups", label: "Backups", icon: DatabaseIcon, adminOnly: true },
-  { to: "/audit", label: "Audit log", icon: HistoryIcon, adminOnly: true },
-  { to: "/settings", label: "Email digest", icon: Mail },
-  // Its own entry. The password panel lived under "Email digest" since it was
-  // written, and putting two-factor there too made that worse rather than
-  // better: nobody looking for either clicks Email digest, and somebody went
-  // looking and did not find it.
-  { to: "/security", label: "Security settings", icon: Shield },
+  {
+    heading: "Catalog",
+    entries: [
+      { to: "/", label: "Inventory", icon: Rifle, end: true },
+      // Directly under Inventory: it is the thing somebody opens first after
+      // being away. The digest says what you asked for; this says what
+      // happened.
+      { to: "/changes", label: "What changed", icon: TrendDown },
+      // Then what the catalog worked out while you were away, before the
+      // reference page it is worked out from.
+      { to: "/hot-deals", label: "Hot deals", icon: Flame },
+      // Last in the group: a reference, what things are worth in general,
+      // rather than news.
+      { to: "/market", label: "Market", icon: Sparkle },
+    ],
+  },
+  {
+    // The things you asked for, from widest to narrowest: a standing question
+    // about the catalog, a standing question about particular guns, and the
+    // guns that are already yours.
+    heading: "Yours",
+    entries: [
+      { to: "/saved-searches", label: "Saved searches", icon: Bookmark },
+      { to: "/watchlist", label: "Watchlist", icon: Star },
+      { to: "/collection", label: "Collection", icon: BoxIcon },
+    ],
+  },
+  {
+    heading: "Account",
+    entries: [
+      { to: "/settings", label: "Email digest", icon: Mail },
+      // Its own entry. The password panel lived under "Email digest" since it
+      // was written, and putting two-factor there too made that worse: nobody
+      // looking for either clicks Email digest.
+      { to: "/security", label: "Security settings", icon: Shield },
+    ],
+  },
+  {
+    heading: "Administration",
+    adminOnly: true,
+    entries: [
+      { to: "/sites", label: "Sites", icon: SitesIcon },
+      // One entry, not two. Makers, models and calibers are three views of
+      // one body of knowledge, and having "Makers" beside "Armory" invited
+      // exactly the split it took a rewrite to remove.
+      { to: "/armory", label: "Armory", icon: TagIcon },
+      // Directly after the Armory: the Armory is what the catalog is allowed
+      // to say, and this is the rules that decide what any one listing says.
+      { to: "/classification", label: "Classification", icon: Sieve },
+      // People, then what people did, then the safety net.
+      { to: "/users", label: "Users", icon: UsersIcon },
+      { to: "/audit", label: "Audit log", icon: HistoryIcon },
+      { to: "/backups", label: "Backups", icon: DatabaseIcon },
+    ],
+  },
 ];
 
 export default function Shell() {
@@ -128,7 +152,7 @@ export default function Shell() {
     return () => window.removeEventListener("keydown", onKey);
   }, [drawerOpen]);
 
-  const items = NAV.filter((entry) => !entry.adminOnly || isAdmin);
+  const sections = NAV.filter((section) => !section.adminOnly || isAdmin);
 
   return (
     <div className="shell">
@@ -186,22 +210,33 @@ export default function Shell() {
           </button>
         </div>
 
-        <ul className="rail__list">
-          {items.map(({ to, label, icon: Icon, end }) => (
-            <li key={to}>
-              <NavLink
-                to={to}
-                end={end}
-                className={({ isActive }) =>
-                  `rail__link ${isActive ? "rail__link--active" : ""}`
-                }
-              >
-                <Icon size={19} />
-                <span>{label}</span>
-              </NavLink>
-            </li>
+        <div className="rail__list">
+          {sections.map(({ heading, entries }) => (
+            // A label and a list rather than a heading: the page's own headings
+            // are what a screen reader's outline should offer, not the rail's.
+            <div className="rail__section" key={heading}>
+              <span className="rail__heading" id={`rail-${heading}`}>
+                {heading}
+              </span>
+              <ul aria-labelledby={`rail-${heading}`}>
+                {entries.map(({ to, label, icon: Icon, end }) => (
+                  <li key={to}>
+                    <NavLink
+                      to={to}
+                      end={end}
+                      className={({ isActive }) =>
+                        `rail__link ${isActive ? "rail__link--active" : ""}`
+                      }
+                    >
+                      <Icon size={19} />
+                      <span>{label}</span>
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ))}
-        </ul>
+        </div>
 
         <div className="rail__foot">
           <button className="btn btn--secondary btn--block btn--sm" onClick={signOut}>

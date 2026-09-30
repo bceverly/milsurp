@@ -18,17 +18,20 @@
  * itself, because the alternative — an edit that silently touches eleven
  * thousand rows — is not something to find out about afterwards.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
 import { useTitle } from "../hooks.js";
 import Modal from "../components/Modal.jsx";
 import Field from "../components/Field.jsx";
 import { Plus, Refresh, Trash } from "../components/Icons.jsx";
 
+//: In the order the classifier asks its questions: is this a gun at all, then
+//: what does it chamber, then where is it from. Part or gun decides whether
+//: the other two are asked, so it comes first and is where the page opens.
 const TABS = [
-  { key: "countries", label: "Countries" },
-  { key: "designations", label: "Caliber designations" },
   { key: "keywords", label: "Part or gun" },
+  { key: "designations", label: "Caliber designations" },
+  { key: "countries", label: "Countries" },
 ];
 
 const EMPTY = {
@@ -456,7 +459,7 @@ const FORMS = {
 
 export default function Classification() {
   useTitle("Classification");
-  const [tab, setTab] = useState("countries");
+  const [tab, setTab] = useState(TABS[0].key);
   const [search, setSearch] = useState("");
   const [rows, setRows] = useState(null);
   const [error, setError] = useState(null);
@@ -465,12 +468,26 @@ export default function Classification() {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [busy, setBusy] = useState(false);
 
+  /**
+   * The newest load wins.
+   *
+   * Switching tabs starts a second request while the first may still be out,
+   * and the answers can arrive in either order. Without this, the tab the
+   * page opened on could land last and fill the Countries table with the
+   * part-or-gun lists -- which is what happened the moment the page began
+   * opening on a different tab from the one the tests click. Same fix as the
+   * saved searches page, for the same reason.
+   */
+  const loadSeq = useRef(0);
   const load = useCallback(async () => {
+    const ticket = ++loadSeq.current;
     setRows(null);
     setError(null);
     try {
-      setRows(await LOAD[tab](search.trim()));
+      const found = await LOAD[tab](search.trim());
+      if (ticket === loadSeq.current) setRows(found);
     } catch (err) {
+      if (ticket !== loadSeq.current) return;
       setError(err.message);
       setRows([]);
     }
@@ -562,6 +579,13 @@ export default function Classification() {
             aria-selected={tab === entry.key}
             className={`btn ${tab === entry.key ? "btn--primary" : "btn--ghost"} btn--sm`}
             onClick={() => {
+              // The rows go in the same render as the tab changes. Left for the
+              // load to clear, one render drew the old tab's rows with the new
+              // tab's columns -- a part-or-gun word has no spellings for the
+              // countries table to split, and the page went blank.
+              // Only on a real change: the tab already open has nothing new to
+              // load, and clearing its rows would leave it loading forever.
+              if (entry.key !== tab) setRows(null);
               setTab(entry.key);
               setSearch("");
             }}

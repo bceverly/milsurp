@@ -256,6 +256,10 @@ class SimpsonLtdScraper(SiteScraper):
     #: Hands over the vendor's own caliber, country or maker. See SiteScraper.
     states_facts = True
     slug = "simpson-ltd"
+    shipping_long_gun = 50.0
+    shipping_handgun = 50.0
+    shipping_note = "At least $50 per firearm, handguns by air; the $50 is their stated minimum"
+    shipping_source = "https://www.simpsonltd.com/"
     name = "Simpson Ltd."
     base_url = SITE_BASE
     newsletter_url = None

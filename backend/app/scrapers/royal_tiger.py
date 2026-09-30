@@ -343,6 +343,10 @@ class RoyalTigerScraper(SiteScraper):
     #: Hands over the vendor's own caliber, country or maker. See SiteScraper.
     states_facts = True
     slug = "royal-tiger"
+    shipping_note = (
+        "Terms page covers FedEx adult-signature shipping but gives no firearm shipping cost"
+    )
+    shipping_source = "https://royaltigerimports.com/terms-conditions/"
     name = "Royal Tiger Imports"
     base_url = SITE_BASE
     newsletter_url = "https://royaltigerimports.com/"

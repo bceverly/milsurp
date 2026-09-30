@@ -24,6 +24,7 @@ from ..schemas import (
     ItemOverrideIn,
     ItemOverrideOut,
     ItemPage,
+    MarketBandOut,
     OfferOut,
     PhotoOut,
     PriceBucketOut,
@@ -32,7 +33,19 @@ from ..schemas import (
     PricePositionOut,
     SimilarListingOut,
 )
-from ..services import audit, curio, inbox, overrides, pricing, provenance, similar, watchlist
+from ..services import (
+    audit,
+    curio,
+    delivered,
+    inbox,
+    market,
+    overrides,
+    pricing,
+    provenance,
+    similar,
+    traits,
+    watchlist,
+)
 from ..services.image_store import ImageStore, ImageStoreError
 from ..services.search import (
     KINDS,
@@ -120,7 +133,30 @@ def _checked_curio(wanted: list[str] | None) -> list[str] | None:
     return wanted
 
 
-def _to_out(item: Item, site_names: dict[int, str]) -> ItemOut:
+def _checked_traits(wanted: list[str] | None) -> list[str] | None:
+    """Refuse a trait or a grade nothing knows, for the reason curio does."""
+    unknown = [value for value in wanted or [] if value not in traits.TRAITS]
+    if unknown:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown trait {unknown[0]!r}. Valid: {', '.join(traits.TRAITS)}.",
+        )
+    return wanted
+
+
+def _checked_grades(wanted: list[str] | None) -> list[str] | None:
+    unknown = [value for value in wanted or [] if value not in (*traits.GRADES, UNKNOWN)]
+    if unknown:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown grade {unknown[0]!r}. Valid: {', '.join(traits.GRADES)}.",
+        )
+    return wanted
+
+
+def _to_out(
+    item: Item, site_names: dict[int, str], costs: delivered.Costs | None = None
+) -> ItemOut:
     data = ItemOut.model_validate(item)
     # The name only. `firearm_model` on the row is a relationship and the
     # field here is a string -- the same word for two shapes, which is exactly
@@ -138,6 +174,20 @@ def _to_out(item: Item, site_names: dict[int, str]) -> ItemOut:
         data.curio_label = CURIO_LABELS.get(data.curio)
         data.curio_evidence = item.cr_evidence
     data.manufacture_year = item.manufacture_year
+    # Only for a firearm, as C&R is: "all matching" on a bayonet listing is
+    # about the bayonet, and the question these answer is about a gun.
+    if not traits.applies(item.is_rifle, item.is_pistol, item.is_parts_kit):
+        data.import_marked = data.numbers_match = data.refinished = None
+        data.finish_percent = None
+        data.trait_quotes = None
+        data.condition_grade = None
+    data.condition_grade_label = traits.GRADE_LABELS.get(data.condition_grade or "")
+    if costs is not None and (landed := costs.delivered(item)) is not None:
+        data.shipping = landed.shipping
+        data.transfer_fee = landed.transfer_fee
+        data.delivered_price = landed.total
+        data.delivered_complete = landed.complete
+        data.shipping_note = landed.shipping_note
     data.blurb = _blurb(item.description)
     return data
 
@@ -196,6 +246,60 @@ def _curio_counts(session: DbSession, base: Select) -> list[FacetValue]:
         FacetValue(value=state, label=CURIO_LABELS[state], count=int(n))
         for state, n in zip(states, row, strict=True)
     ]
+
+
+#: What each trait group is called over its pair in the rail.
+TRAIT_GROUP_LABELS = {
+    traits.IMPORT: "Import marks",
+    traits.NUMBERS: "Numbers",
+    traits.FINISH: "Finish",
+}
+
+
+def _trait_counts(session: DbSession, base: Select) -> list[FacetValue]:
+    """How many of the current results carry each trait, in one pass."""
+    values = list(traits.TRAITS)
+    columns = [func.count(case((traits.trait_clause(value), 1))) for value in values]
+    row = session.execute(base.with_only_columns(*columns)).one()
+    return [
+        FacetValue(
+            value=value,
+            label=traits.TRAITS[value][1],
+            group=TRAIT_GROUP_LABELS[traits.TRAITS[value][0]],
+            count=int(n),
+        )
+        for value, n in zip(values, row, strict=True)
+        if n
+    ]
+
+
+def _grade_counts(session: DbSession, base: Select) -> list[FacetValue]:
+    """The stated condition of the current firearms, best first.
+
+    Over firearms only, as the grade is only shown on one. The listings that
+    state none are counted last, as every facet's "Unknown" is.
+    """
+    firearm = traits.firearm()
+    rows = dict(
+        session.execute(
+            base.with_only_columns(Item.condition_grade, func.count(Item.id))
+            .where(firearm, Item.condition_grade.is_not(None))
+            .group_by(Item.condition_grade)
+        ).all()
+    )
+    found = [
+        FacetValue(value=grade, label=traits.GRADE_LABELS[grade], count=int(rows[grade]))
+        for grade in traits.GRADES
+        if rows.get(grade)
+    ]
+    if not found:
+        return []
+    missing = session.execute(
+        base.with_only_columns(func.count(Item.id)).where(firearm, Item.condition_grade.is_(None))
+    ).scalar_one()
+    if missing:
+        found.append(FacetValue(value=UNKNOWN, label="Not stated", count=int(missing)))
+    return found
 
 
 def _labelled(values: list[FacetValue]) -> list[FacetValue]:
@@ -372,6 +476,8 @@ def _with_kinds(
     facets = _facets(session, base)
     facets.kinds = _kind_counts(session, without_kind)
     facets.curio = _curio_counts(session, without_curio)
+    facets.traits = _trait_counts(session, base)
+    facets.grades = _grade_counts(session, base)
     facets.prices = _price_distribution(session, without_price)
     return facets
 
@@ -395,6 +501,14 @@ def list_items(
     ),
     curio: list[str] | None = Query(
         default=None, description="Curio and relic: eligible | not_eligible | unknown"
+    ),
+    trait: list[str] | None = Query(
+        default=None,
+        description="unmarked | import_marked | all_matching | not_matching | "
+        "original_finish | refinished",
+    ),
+    grade: list[str] | None = Query(
+        default=None, description="like_new | excellent | very_good | good | fair | poor"
     ),
     availability: str = Query(default="available"),
     search: str | None = Query(default=None, max_length=200),
@@ -430,6 +544,8 @@ def list_items(
         models=model,
         forms=form,
         curio_states=_checked_curio(curio),
+        trait_values=_checked_traits(trait),
+        grades=_checked_grades(grade),
         availability=availability,
         search=search,
         min_price=min_price,
@@ -448,6 +564,8 @@ def list_items(
         models=model,
         forms=form,
         curio_states=_checked_curio(curio),
+        trait_values=_checked_traits(trait),
+        grades=_checked_grades(grade),
         availability=availability,
         search=search,
         min_price=min_price,
@@ -471,6 +589,8 @@ def list_items(
         models=model,
         forms=form,
         curio_states=_checked_curio(curio),
+        trait_values=_checked_traits(trait),
+        grades=_checked_grades(grade),
         availability=availability,
         search=search,
         min_price=None,
@@ -493,6 +613,8 @@ def list_items(
         models=model,
         forms=form,
         curio_states=None,
+        trait_values=_checked_traits(trait),
+        grades=_checked_grades(grade),
         availability=availability,
         search=search,
         min_price=min_price,
@@ -514,9 +636,10 @@ def list_items(
         row[0]: row[1] for row in session.execute(select(Site.id, Site.name)).all()
     }
     pages = max(1, -(-int(total) // per_page))  # ceiling division
+    costs = delivered.Costs.load(session, _user)
 
     return ItemPage(
-        items=[_to_out(item, site_names) for item in items],
+        items=[_to_out(item, site_names, costs) for item in items],
         total=int(total),
         page=page,
         per_page=per_page,
@@ -544,6 +667,11 @@ EXPORT_COLUMNS: tuple[str, ...] = (
     "manufacturer",
     "kind",
     "condition",
+    "condition_grade",
+    "import_marked",
+    "numbers_match",
+    "refinished",
+    "finish_percent",
     "site",
     "url",
     "is_sold",
@@ -571,6 +699,11 @@ def _export_row(item: Item, site_names: dict[int, str]) -> dict[str, object]:
         "manufacturer": item.manufacturer,
         "kind": item.kind,
         "condition": item.condition,
+        "condition_grade": item.condition_grade,
+        "import_marked": item.import_marked,
+        "numbers_match": item.numbers_match,
+        "refinished": item.refinished,
+        "finish_percent": item.finish_percent,
         "site": site_names.get(item.site_id, ""),
         "url": item.url,
         "is_sold": item.is_sold,
@@ -593,6 +726,8 @@ def export_items(
     kind: list[str] | None = Query(default=None),
     form: list[str] | None = Query(default=None),
     curio: list[str] | None = Query(default=None),
+    trait: list[str] | None = Query(default=None),
+    grade: list[str] | None = Query(default=None),
     availability: str = Query(default="available"),
     search: str | None = Query(default=None, max_length=200),
     min_price: float | None = Query(default=None, ge=0),
@@ -621,6 +756,8 @@ def export_items(
         models=model,
         forms=form,
         curio_states=_checked_curio(curio),
+        trait_values=_checked_traits(trait),
+        grades=_checked_grades(grade),
         kinds=kind,
         availability=availability,
         search=search,
@@ -683,7 +820,7 @@ def get_item(item_id: int, user: CurrentUser, session: DbSession) -> ItemDetail:
     # endpoint URLs, not columns), so letting Pydantic read the relationships
     # would try to coerce ItemPhoto rows into PhotoOut and fail.
     detail = ItemDetail(
-        **_to_out(item, site_names).model_dump(),
+        **_to_out(item, site_names, delivered.Costs.load(session, user)).model_dump(),
         description=item.description,
     )
     # What the armory knows about the match, so the facts panel can show it
@@ -697,6 +834,22 @@ def get_item(item_id: int, user: CurrentUser, session: DbSession) -> ItemDetail:
         for field, column in provenance.SOURCE_COLUMNS.items()
         if (source := getattr(item, column, None))
     }
+    # What this kind of gun was asking when it left the shelf, beside what
+    # this one is asking now. See market.departures_for.
+    left = market.departures_for(session, item)
+    if left is not None:
+        detail.departures = MarketBandOut(
+            value=left.value,
+            listings=left.listings,
+            low=left.low,
+            median=left.median,
+            high=left.high,
+            currency=left.currency,
+            sites=left.sites,
+            top_site_share=left.top_site_share,
+            concentrated=left.concentrated,
+        )
+        detail.departures_by = "model" if item.firearm_model_id is not None else "caliber"
     watch = watchlist.watching(session, user, item.id)
     if watch is not None:
         detail.watched = True

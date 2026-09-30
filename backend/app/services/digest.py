@@ -1133,6 +1133,71 @@ def send_watch_alert(
     return entry
 
 
+def send_want_alert(
+    session: Session, user: User, wants: list, config: Config | None = None
+) -> EmailLog:
+    """Mail one reader that something on their want list has appeared.
+
+    Out of band like a watch alert, and for the same reasons: it moves no
+    digest watermark and ignores whether digests are on -- switching a search
+    to "tell me the moment one appears" is its own request.
+
+    Rendered as the digest's saved-search block, one per search that has news,
+    so it looks like the rest of this application's mail. Marking what was
+    said is the caller's job, so a failed send is retried on the next tick.
+    """
+    config = config or get_config()
+    now = utcnow()
+    sections = [want.as_section() for want in wants]
+    site_ids = {item.site_id for _row, items, _total in sections for item in items}
+    sites = {
+        site.id: site
+        for site in session.execute(select(Site).where(Site.id.in_(site_ids))).scalars().all()
+    }
+    _subject, body, images = render_digest(
+        user,
+        {},
+        {},
+        sites,
+        now,
+        config,
+        sections,
+        offers_html=offers_section(session, sites, sites),
+    )
+
+    total = sum(want.total for want in wants)
+    first = wants[0]
+    if total == 1:
+        item = first.items[0]
+        subject = (
+            f"{BRAND}: {truncate(item.title, 60)} — {_money(item.current_price, item.currency)}"
+            f" (your “{truncate(first.search.name, 30)}” search)"
+        )
+    elif len(wants) == 1:
+        subject = f"{BRAND}: {total} new matches for “{truncate(first.search.name, 40)}”"
+    else:
+        subject = f"{BRAND}: {total} new matches for your want list"
+
+    status = EmailStatus.SENT
+    error: str | None = None
+    try:
+        mailer.send_html(user.email, subject, body, config=config, inline_images=images)
+    except mailer.MailError as exc:
+        status = EmailStatus.FAILED
+        error = str(exc)
+    entry = EmailLog(
+        user_id=user.id,
+        status=status,
+        subject=subject,
+        error_message=error,
+        body_html=body,
+        body_text=mailer.html_to_text(body),
+    )
+    session.add(entry)
+    session.commit()
+    return entry
+
+
 def send_password_reset(
     session: Session, user: User, url: str, minutes: int, config: Config | None = None
 ) -> EmailLog:

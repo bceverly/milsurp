@@ -166,6 +166,8 @@ def gallery(html_text: str, product_id: str, page_url: str) -> list[str]:
 
 class Ww2CollectiblesScraper(SiteScraper):
     slug = "ww2-collectibles"
+    shipping_note = "USPS priority preferred, adult signature; no firearm shipping cost stated"
+    shipping_source = "https://ww2collectibles.com/about/shipping_policy/"
     name = "WW2 Collectibles"
     base_url = SITE_BASE
     newsletter_url = None

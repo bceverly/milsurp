@@ -33,6 +33,7 @@ from .services import (
     inbox,
     pushnotify,
     scan_service,
+    wantlist,
     watchlist,
     watchpoll,
 )
@@ -146,6 +147,10 @@ class Scheduler:
         # digest. The check is a single indexed query returning nothing on
         # almost every tick.
         self._dispatch_watch_alerts()
+        # And want lists, on the same terms: a listing coming to match one is
+        # found by a scan or the poll, and the point of the alert is not
+        # waiting for the digest.
+        self._dispatch_want_alerts()
         self._dispatch_backup()
         self._dispatch_hot_deals()
         self._dispatch_inbox()
@@ -488,6 +493,49 @@ class Scheduler:
                     )
             except Exception:
                 log.exception("Watch alert for user %s raised", user_id)
+
+    def _dispatch_want_alerts(self) -> None:
+        """Tell anybody whose want list has a new match. See services/wantlist.
+
+        The same shape as the watch alerts above, for the same reasons: who in
+        one pass, then each reader in a session of their own that re-reads
+        the answer, sends, and marks only after the send returns.
+        """
+        try:
+            with session_scope() as session:
+                user_ids = sorted(wantlist.due(session))
+        except Exception:
+            log.exception("Could not determine which want-list alerts are due")
+            return
+
+        for user_id in user_ids:
+            if self._stop.is_set():
+                return
+            try:
+                with session_scope() as session:
+                    user = session.get(User, user_id)
+                    if user is None or not user.is_active:
+                        continue
+                    wants = wantlist.due(session).get(user_id, [])
+                    if not wants:
+                        continue
+                    result = digest.send_want_alert(session, user, wants, self.config)
+                    pushed = pushnotify.send_to_user(
+                        session, user, pushnotify.want_alert_payload(wants), self.config
+                    )
+                    # Either channel is enough, as for a watch alert.
+                    if result.status is EmailStatus.SENT or pushed:
+                        wantlist.mark(session, wants)
+                    session.commit()
+                    log.info(
+                        "Want-list alert for %s: email %s, %s device(s) (%s listing(s)).",
+                        user.username,
+                        result.status.value,
+                        pushed,
+                        sum(want.total for want in wants),
+                    )
+            except Exception:
+                log.exception("Want-list alert for user %s raised", user_id)
 
     # -- introspection ------------------------------------------------------
     def status(self) -> dict[str, object]:

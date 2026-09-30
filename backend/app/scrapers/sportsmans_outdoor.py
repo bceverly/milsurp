@@ -134,6 +134,10 @@ class SportsmansOutdoorScraper(SiteScraper):
     #: Hands over the vendor's own maker (the card's brand). See SiteScraper.
     states_facts = True
     slug = "sportsmans-outdoor"
+    shipping_long_gun = 0.0
+    shipping_handgun = 0.0
+    shipping_note = "Free standard firearm shipping; $19.99 2-3 day, $29.99 next day; AK/HI extra"
+    shipping_source = "https://www.sportsmansoutdoorsuperstore.com/shipping_cost_times.cfm"
     name = "Sportsman's Outdoor Superstore"
     base_url = SITE_BASE
     newsletter_url = f"{SITE_BASE}newsletter/"

@@ -26,6 +26,10 @@ SITE_BASE = "https://www.ancestryguns.com/"
 
 class AncestryGunsScraper(WooCommerceScraper):
     slug = "ancestry-guns"
+    shipping_long_gun = 0.0
+    shipping_handgun = 0.0
+    shipping_note = "Free shipping worldwide on antique firearms (pre-1899, no FFL needed)"
+    shipping_source = "https://www.ancestryguns.com/faqs/"
     name = "Ancestry Guns"
     base_url = SITE_BASE
     newsletter_url = "https://schilbantiquarian.us3.list-manage.com/subscribe?u=0e17978dd6903489935f8a81c&id=e86436ab9b"

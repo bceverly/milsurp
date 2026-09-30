@@ -33,6 +33,8 @@ SITE_BASE = "https://www.jgsales.com/"
 
 class JgSalesScraper(WooStoreApiScraper):
     slug = "jg-sales"
+    shipping_note = "Website calculates a shipping quote at checkout; handguns ship 2-day"
+    shipping_source = "https://www.jgsales.com/shipping-returns/"
     name = "J&G Sales"
     base_url = SITE_BASE
     newsletter_url = (

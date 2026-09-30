@@ -54,6 +54,10 @@ SITE_BASE = "https://www.recoilgunworks.com/"
 
 class RecoilGunWorksScraper(BigCommerceScraper):
     slug = "recoil-gun-works"
+    shipping_long_gun = 9.99
+    shipping_handgun = 9.99
+    shipping_note = "Flat $9.99 per firearm; $299 free-shipping threshold excludes firearms"
+    shipping_source = "https://www.recoilgunworks.com/shipping-and-returns/"
     name = "Recoil Gun Works"
     base_url = SITE_BASE
     newsletter_url = "https://www.recoilgunworks.com/"

@@ -41,6 +41,8 @@ SITE_BASE = "https://www.surplusdefense.com/"
 
 class SurplusDefenseScraper(WixStoresScraper):
     slug = "surplus-defense"
+    shipping_note = "Quotes actual shipping cost, insurance included; lower 48 only"
+    shipping_source = "https://www.surplusdefense.com/store-policy"
     name = "Surplus Defense"
     base_url = SITE_BASE
     newsletter_url = "https://www.surplusdefense.com/email-newsletter-signup"

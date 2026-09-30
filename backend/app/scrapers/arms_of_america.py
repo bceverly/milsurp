@@ -32,6 +32,8 @@ SITE_BASE = "https://armsofamerica.com/"
 
 class ArmsOfAmericaScraper(BigCommerceScraper):
     slug = "arms-of-america"
+    shipping_note = "Weight-based shipping rates; no firearm shipping cost stated"
+    shipping_source = "https://armsofamerica.com/faq/"
     name = "Arms of America"
     base_url = SITE_BASE
     newsletter_url = "https://armsofamerica.com/"

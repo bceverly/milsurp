@@ -59,6 +59,8 @@ SITE_BASE = "https://www.sarcoinc.com/"
 
 class SarcoScraper(SearchaniseScraper):
     slug = "sarco"
+    shipping_note = "Firearm shipping charged separately, amount not stated; free-shipping promos exclude firearms"
+    shipping_source = "https://www.sarcoinc.com/shipping-policy/"
     name = "SARCO, Inc."
     base_url = SITE_BASE
     newsletter_url = "https://www.sarcoinc.com/"

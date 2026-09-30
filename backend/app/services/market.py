@@ -334,3 +334,148 @@ def time_to_sell(
         thin_listings=sum(len(days) for days in thin.values()),
         rows=rows[:limit],
     )
+
+
+# ---------------------------------------------------------------------------
+# What they were asking when they went
+# ---------------------------------------------------------------------------
+#: What the departure prices can be grouped by -- the time-to-sell groupings.
+DEPARTURE_DIMENSIONS = TURNOVER_DIMENSIONS
+
+
+@dataclass
+class Departures:
+    dimension: str
+    min_sample: int
+    #: Firearms that left the shelf at a known price and went into this.
+    measured: int
+    #: Of those, the ones the shop marked sold rather than simply took down.
+    marked_sold: int
+    thin_groups: int
+    thin_listings: int
+    bands: list[Band] = field(default_factory=list)
+
+
+def _departure_rows(session: Session, dimension: str, where=None):
+    """(value, last asking price, currency, site, marked sold) per departure.
+
+    **What the price is.** The last asking price before the listing left the
+    shelf -- marked sold, or taken down. It is not what the gun sold for:
+    a shop does not publish that, and a taken-down listing may have been
+    withdrawn rather than sold. It is still the best evidence there is of
+    where the market clears, and far better than what is *on* the shelf,
+    which over-represents whatever did not sell.
+
+    **What is left out.** A listing already sold the first time we saw it --
+    we never saw it for sale, so its price is somebody else's history -- and
+    anything that is not a firearm, for the reason the price bands give. A
+    listing that was already on the shelf when its shop was first scanned is
+    kept: its *duration* is only a floor, but its price is a real price.
+    """
+    column = FirearmModel.name if dimension == "model" else Item.caliber
+    statement = select(
+        column, Item.current_price, Item.currency, Item.site_id, Item.sold_at.is_not(None)
+    ).where(
+        Item.is_rifle.is_(True) | Item.is_pistol.is_(True),
+        Item.is_parts_kit.is_(False),
+        Item.sold_at.is_not(None) | Item.delisted_at.is_not(None),
+        Item.current_price.is_not(None),
+        Item.current_price > 0,
+        column.is_not(None),
+        column != "",
+        # Seen for sale at least once: the moment it left is after the moment
+        # we first saw it. Equal means it was already gone when we arrived.
+        func.coalesce(Item.sold_at, Item.delisted_at) > Item.first_seen_at,
+    )
+    if dimension == "model":
+        statement = statement.join(FirearmModel, FirearmModel.id == Item.firearm_model_id)
+    if where is not None:
+        statement = statement.where(where)
+    return session.execute(statement).all()
+
+
+def make_band(value: str, prices: list[float], currency: str, shops: Counter[int]) -> Band:
+    prices.sort()
+    return Band(
+        value=value,
+        listings=len(prices),
+        # Quartiles, as time-to-sell uses: small samples, whose tenth and
+        # ninetieth percentiles are one listing each.
+        low=_percentile(prices, 0.25),
+        median=_percentile(prices, 0.50),
+        high=_percentile(prices, 0.75),
+        currency=currency,
+        sites=len(shops),
+        top_site_share=round(max(shops.values()) / len(prices), 3) if shops else 0.0,
+    )
+
+
+def departures(
+    session: Session,
+    dimension: str = "model",
+    *,
+    min_sample: int = MIN_SAMPLE,
+    limit: int = 60,
+) -> Departures:
+    """What each kind of gun was asking when it left the shelf, busiest first."""
+    if dimension not in DEPARTURE_DIMENSIONS:
+        raise ValueError(f"Unknown dimension: {dimension}")
+    prices: dict[str, list[float]] = {}
+    currencies: dict[str, str] = {}
+    by_site: dict[str, Counter[int]] = {}
+    marked_sold = 0
+    for value, price, currency, site_id, sold in _departure_rows(session, dimension):
+        name = str(value)
+        prices.setdefault(name, []).append(float(price))
+        currencies.setdefault(name, currency or "USD")
+        by_site.setdefault(name, Counter())[site_id] += 1
+        marked_sold += bool(sold)
+
+    thin = {value: found for value, found in prices.items() if len(found) < min_sample}
+    bands = [
+        make_band(value, found, currencies[value], by_site[value])
+        for value, found in prices.items()
+        if len(found) >= min_sample
+    ]
+    bands.sort(key=lambda band: -band.listings)
+    return Departures(
+        dimension=dimension,
+        min_sample=min_sample,
+        measured=sum(len(found) for found in prices.values()),
+        marked_sold=marked_sold,
+        thin_groups=len(thin),
+        thin_listings=sum(len(found) for found in thin.values()),
+        bands=bands[:limit],
+    )
+
+
+def departure_band(
+    session: Session, dimension: str, where, *, min_sample: int = MIN_SAMPLE
+) -> Band | None:
+    """What one group was asking when it left the shelf, or None below the sample."""
+    rows = _departure_rows(session, dimension, where)
+    if len(rows) < min_sample:
+        return None
+    shops: Counter[int] = Counter(site_id for _v, _p, _c, site_id, _s in rows)
+    prices = [float(price) for _v, price, _c, _s, _m in rows]
+    return make_band(str(rows[0][0]), prices, rows[0][2] or "USD", shops)
+
+
+def departures_for(session: Session, item: Item, *, min_sample: int = MIN_SAMPLE) -> Band | None:
+    """What guns like this one were asking when they left the shelf, or None.
+
+    "Like this one" is the same armory model when the listing has one, and
+    the same caliber otherwise -- and only for a firearm. None below the
+    minimum sample, rather than a median of three.
+    """
+    if not (item.is_rifle or item.is_pistol) or item.is_parts_kit:
+        return None
+    if item.firearm_model_id is not None:
+        return departure_band(
+            session, "model", Item.firearm_model_id == item.firearm_model_id, min_sample=min_sample
+        )
+    if item.caliber:
+        return departure_band(
+            session, "caliber", Item.caliber == item.caliber, min_sample=min_sample
+        )
+    return None

@@ -53,6 +53,12 @@ SITE_BASE = "https://dupagetrading.com/"
 
 class DupageTradingScraper(BigCommerceScraper):
     slug = "dupage-trading"
+    shipping_long_gun = 32.25
+    shipping_handgun = 32.25
+    shipping_note = (
+        "$25 per firearm plus $7.25 adult-signature fee; shipped separately from other items"
+    )
+    shipping_source = "https://dupagetrading.com/shipping-returns/"
     name = "DuPage Trading"
     base_url = SITE_BASE
     newsletter_url = "https://dupagetrading.com/"

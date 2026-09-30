@@ -34,6 +34,8 @@ SITE_BASE = "https://www.apexgunparts.com/"
 
 class ApexGunPartsScraper(MagentoScraper):
     slug = "apex-gun-parts"
+    shipping_note = "Parts dealer; shipping at checkout reflects actual UPS charges"
+    shipping_source = "https://www.apexgunparts.com/shipping-return"
     name = "Apex Gun Parts"
     base_url = SITE_BASE
     newsletter_url = "https://lp.constantcontactpages.com/sl/oUg3Cn1"

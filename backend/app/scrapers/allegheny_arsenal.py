@@ -70,6 +70,8 @@ def is_military(title: str) -> bool:
 
 class AlleghenyArsenalScraper(BigCommerceScraper):
     slug = "allegheny-arsenal"
+    shipping_note = "USPS and FedEx only; no firearm shipping cost stated"
+    shipping_source = "https://mg34.com/ordering/"
     name = "Allegheny Arsenal"
     base_url = SITE_BASE
     newsletter_url = SITE_BASE

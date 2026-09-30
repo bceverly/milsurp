@@ -26,7 +26,7 @@ from ..schemas import (
     HotDealSettingsUpdate,
     HotDealsOut,
 )
-from ..services import hotdeals
+from ..services import delivered, hotdeals
 
 router = APIRouter(prefix="/hot-deals", tags=["hot-deals"])
 
@@ -92,6 +92,7 @@ def _state(
     from .items import _to_out
 
     rows = hotdeals.deals(session, bucket, sort=sort, limit=limit)
+    costs = delivered.Costs.load(session, user)
     site_names = {
         site.id: site.name
         for site in session.execute(
@@ -105,7 +106,7 @@ def _state(
         sort=sort,
         deals=[
             HotDealOut(
-                item=_to_out(deal.item, site_names),
+                item=_to_out(deal.item, site_names, costs),
                 bucket=deal.bucket,
                 bucket_label=hotdeals.label(deal.bucket),
                 price=deal.price,

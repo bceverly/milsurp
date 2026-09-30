@@ -36,6 +36,8 @@ SITE_BASE = "https://www.dbgfirearms.com/"
 
 class DbgFirearmsScraper(WixStoresScraper):
     slug = "dbg-firearms"
+    shipping_note = "FFL-only shipping rules; no firearm shipping cost stated"
+    shipping_source = "https://www.dbgfirearms.com/dbg-shipping-policies"
     name = "DBG Firearms"
     base_url = SITE_BASE
     newsletter_url = None

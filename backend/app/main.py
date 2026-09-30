@@ -43,6 +43,9 @@ from .api import (
     classification as classification_api,
 )
 from .api import (
+    collection as collection_api,
+)
+from .api import (
     countries as countries_api,
 )
 from .api import (
@@ -435,6 +438,7 @@ def create_app() -> FastAPI:
     api.include_router(preferences.router)
     api.include_router(saved_searches.router)
     api.include_router(watchlist.router)
+    api.include_router(collection_api.router)
     app.include_router(api)
 
     _mount_frontend(app)

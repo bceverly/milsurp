@@ -16,7 +16,7 @@ from sqlalchemy import select
 from ..deps import CurrentUser, DbSession
 from ..models import Item, Site, WatchedItem, as_utc, utcnow
 from ..schemas import WatchCreate, WatchOut
-from ..services import watchlist
+from ..services import delivered, watchlist
 
 router = APIRouter(prefix="/watchlist", tags=["watchlist"])
 
@@ -35,13 +35,13 @@ def _since(user: CurrentUser) -> object:
     return utcnow() - timedelta(hours=max(1, hours))
 
 
-def _out(watch: WatchedItem, site_names: dict[int, str], since) -> WatchOut:
+def _out(watch: WatchedItem, site_names: dict[int, str], since, costs=None) -> WatchOut:
     from .items import _to_out
 
     news = watchlist.news_for(watch, watch.item, since) if watch.item else None
     return WatchOut(
         id=watch.id,
-        item=_to_out(watch.item, site_names),
+        item=_to_out(watch.item, site_names, costs),
         target_price=watch.target_price,
         note=watch.note,
         alert_immediately=watch.alert_immediately,
@@ -63,7 +63,10 @@ def list_watched(user: CurrentUser, session: DbSession) -> list[WatchOut]:
         ).scalars()
     }
     since = _since(user)
-    return [_out(row, site_names, since) for row in rows if row.item]
+    # What each costs delivered, since a watchlist is where somebody is
+    # deciding whether to buy.
+    costs = delivered.Costs.load(session, user)
+    return [_out(row, site_names, since, costs) for row in rows if row.item]
 
 
 @router.put("/{item_id}", response_model=WatchOut)

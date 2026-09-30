@@ -40,6 +40,10 @@ class DemoScraper(SiteScraper):
     base_url = "https://demo.invalid/"
     newsletter_url = None
     newsletter_note = "The network-free demo vendor has no mailing list"
+    #: A made-up flat rate, so a demo listing shows a delivered price.
+    shipping_long_gun = 25.0
+    shipping_handgun = 25.0
+    shipping_note = "The demo vendor's made-up flat rate"
     description = (
         "A built-in test fixture that performs no network access. Enabled only "
         "when MILSURP_ENABLE_DEMO_SITE is set."

@@ -18,6 +18,8 @@ SITE_BASE = "https://axisarmsonline.com/"
 
 class AxisArmsScraper(WooCommerceScraper):
     slug = "axis-arms"
+    shipping_note = "UPS or USPS chosen at checkout; orders over $600 ship free"
+    shipping_source = "https://axisarmsonline.com/terms-conditions/"
     name = "Axis Arms"
     base_url = SITE_BASE
     newsletter_url = None

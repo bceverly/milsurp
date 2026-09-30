@@ -268,6 +268,9 @@ class CmpScraper(SiteScraper):
     #: Hands over the condition (the grade) and the country. See SiteScraper.
     states_facts = True
     slug = "cmp"
+    shipping_long_gun = 35.0
+    shipping_note = "$35 S&H per rifle; AK/HI contact CMP; no handgun rate stated"
+    shipping_source = "https://thecmp.org/sales-and-service/m1-garand/"
     name = "Civilian Marksmanship Program"
     base_url = SITE_BASE
     newsletter_url = f"{SITE_BASE}emailarchives/email-signup/"

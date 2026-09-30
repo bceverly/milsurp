@@ -22,7 +22,7 @@ from sqlalchemy import Select, column, or_, select, table, true
 from sqlalchemy.orm import Session
 
 from ..models import Item, utcnow
-from . import curio
+from . import curio, traits
 
 log = logging.getLogger("milsurp.search")
 
@@ -234,6 +234,8 @@ def apply_filters[S: Select](  # noqa: PLR0912 - one branch per filter; splittin
     max_price: float | None,
     new_since_hours: int | None,
     price_drops_only: bool,
+    trait_values: list[str] | None = None,
+    grades: list[str] | None = None,
 ) -> S:
     if site_ids:
         stmt = stmt.where(Item.site_id.in_(site_ids))
@@ -266,6 +268,16 @@ def apply_filters[S: Select](  # noqa: PLR0912 - one branch per filter; splittin
         wanted = [curio.clause(state) for state in curio_states if state in curio.STATES]
         if wanted:
             stmt = stmt.where(or_(*wanted))
+
+    if trait_values:
+        # Either within a group, all of the groups: "unmarked" and "all
+        # matching" is both, "unmarked" and "import marked" is either. See
+        # traits.traits_clause.
+        known = [value for value in trait_values if value in traits.TRAITS]
+        if known:
+            stmt = stmt.where(traits.traits_clause(known))
+    if grades:
+        stmt = stmt.where(_matching(Item.condition_grade, grades))
 
     if availability == "available":
         stmt = stmt.where(Item.is_active.is_(True), Item.is_sold.is_(False))
@@ -335,6 +347,12 @@ QUERY_PARAMS: dict[str, bool] = {
     # "eligible or I cannot tell" is a real thing to want -- a collector
     # clearing their own licence would rather see the maybes than lose them.
     "curio": True,
+    # Import marks, matching numbers, the finish: unmarked / import_marked,
+    # all_matching / not_matching, original_finish / refinished. See
+    # app.services.traits.
+    "trait": True,
+    # The whole gun's stated condition, on one scale: like_new ... poor.
+    "grade": True,
     "availability": False,
     "search": False,
     "min_price": False,
@@ -404,6 +422,8 @@ _FILTER_NAMES = {
     "kind": "kinds",
     "form": "forms",
     "curio": "curio_states",
+    "trait": "trait_values",
+    "grade": "grades",
 }
 
 
@@ -438,6 +458,8 @@ def parse_query(query_string: str) -> SearchQuery:  # noqa: PLR0912 - one branch
         "forms": None,
         "kinds": None,
         "curio_states": None,
+        "trait_values": None,
+        "grades": None,
         "availability": DEFAULT_AVAILABILITY,
         "search": None,
         "min_price": None,
@@ -476,6 +498,16 @@ def parse_query(query_string: str) -> SearchQuery:  # noqa: PLR0912 - one branch
         unknown = [c for c in filters["curio_states"] if c not in curio.STATES]
         if unknown:
             raise BadQuery(f"Unknown curio state {unknown[0]!r}. Valid: {', '.join(curio.STATES)}.")
+
+    if filters["trait_values"]:
+        unknown = [t for t in filters["trait_values"] if t not in traits.TRAITS]
+        if unknown:
+            raise BadQuery(f"Unknown trait {unknown[0]!r}. Valid: {', '.join(traits.TRAITS)}.")
+
+    if filters["grades"]:
+        unknown = [g for g in filters["grades"] if g not in (*traits.GRADES, UNKNOWN)]
+        if unknown:
+            raise BadQuery(f"Unknown grade {unknown[0]!r}. Valid: {', '.join(traits.GRADES)}.")
 
     return SearchQuery(filters, sort)
 

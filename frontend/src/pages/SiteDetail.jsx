@@ -1,4 +1,4 @@
-/** Scan history for one site, newest first. */
+/** One site: what it charges to ship a gun, and its scan history, newest first. */
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api.js";
@@ -7,13 +7,142 @@ import {
   formatDateTime,
   formatDuration,
   formatInterval,
+  formatMoney,
   formatRelative,
   timeTitle,
 } from "../format.js";
+import { useAuth } from "../auth.jsx";
 import { ScanStatusChip } from "../components/StatusChip.jsx";
-import { ChevronLeft, Refresh } from "../components/Icons.jsx";
+import { ChevronLeft, External, Refresh } from "../components/Icons.jsx";
 
 const PAGE_SIZE = 50;
+
+/**
+ * What this shop charges to ship one gun, which every delivered price uses.
+ *
+ * The figures come from the shop's own policy page, declared on its scraper
+ * with the page they were read from. An administrator can override either one
+ * here when the shop changes its charge -- and clear the override to go back
+ * to the declared figure.
+ */
+function ShippingPanel({ site, onSaved }) {
+  const { isAdmin } = useAuth();
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({ long: "", hand: "", note: "" });
+  const [error, setError] = useState(null);
+
+  const shown = (value) => (value == null ? "Not stated" : formatMoney(value));
+
+  function open() {
+    setForm({
+      long: site.shipping_long_gun == null ? "" : String(site.shipping_long_gun),
+      hand: site.shipping_handgun == null ? "" : String(site.shipping_handgun),
+      note: site.shipping_overridden ? site.shipping_note || "" : "",
+    });
+    setError(null);
+    setEditing(true);
+  }
+
+  async function save(event, clear = false) {
+    event.preventDefault();
+    const number = (value) => (value.trim() === "" ? null : Number(value));
+    try {
+      await api.updateSite(
+        site.id,
+        clear
+          ? { shipping_long_gun: null, shipping_handgun: null, shipping_note: null }
+          : {
+              shipping_long_gun: number(form.long),
+              shipping_handgun: number(form.hand),
+              shipping_note: form.note.trim() || null,
+            },
+      );
+      setEditing(false);
+      onSaved();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  return (
+    <div className="panel" data-testid="site-shipping">
+      <div className="panel__head">
+        <h2>Firearm shipping</h2>
+        {site.shipping_overridden && <span className="chip chip--info">Overridden</span>}
+        {isAdmin && !editing && (
+          <button type="button" className="btn btn--ghost btn--sm" onClick={open}>
+            Change
+          </button>
+        )}
+      </div>
+      <div className="panel__body">
+        <p style={{ margin: 0 }}>
+          Long gun <strong>{shown(site.shipping_long_gun)}</strong> · Handgun{" "}
+          <strong>{shown(site.shipping_handgun)}</strong>
+        </p>
+        {site.shipping_note && <p className="muted">{site.shipping_note}</p>}
+        {site.shipping_source && (
+          <a href={site.shipping_source} target="_blank" rel="noopener noreferrer">
+            <External size={13} /> Their shipping policy
+          </a>
+        )}
+        {editing && (
+          <form className="shipping-form" onSubmit={save}>
+            {error && <p className="alert alert--error">{error}</p>}
+            <label className="field">
+              <span>Long gun ($)</span>
+              <input
+                className="input"
+                inputMode="decimal"
+                value={form.long}
+                onChange={(event) => setForm({ ...form, long: event.target.value })}
+              />
+            </label>
+            <label className="field">
+              <span>Handgun ($)</span>
+              <input
+                className="input"
+                inputMode="decimal"
+                value={form.hand}
+                onChange={(event) => setForm({ ...form, hand: event.target.value })}
+              />
+            </label>
+            <label className="field">
+              <span>Note</span>
+              <input
+                className="input"
+                maxLength={200}
+                value={form.note}
+                onChange={(event) => setForm({ ...form, note: event.target.value })}
+              />
+            </label>
+            <div className="shipping-form__actions">
+              <button type="submit" className="btn btn--primary btn--sm">
+                Save
+              </button>
+              {site.shipping_overridden && (
+                <button
+                  type="button"
+                  className="btn btn--secondary btn--sm"
+                  onClick={(event) => save(event, true)}
+                >
+                  Back to the declared figures
+                </button>
+              )}
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm"
+                onClick={() => setEditing(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function SiteDetail() {
   const { siteId } = useParams();
@@ -83,6 +212,8 @@ export default function SiteDetail() {
           </button>
         </div>
       </div>
+
+      <ShippingPanel site={site} onSaved={load} />
 
       <div className="panel">
         <div className="panel__head">

@@ -117,6 +117,10 @@ class TargetSportsUsaScraper(SiteScraper):
     #: Hands over the vendor's own maker (the microdata's Manufacturer).
     states_facts = True
     slug = "target-sports-usa"
+    shipping_long_gun = 0.0
+    shipping_handgun = 0.0
+    shipping_note = "Firearms ship free; handguns UPS 2nd Day Air, long guns UPS Ground"
+    shipping_source = "https://www.targetsportsusa.com/t-freeshipping.aspx"
     name = "Target Sports USA"
     base_url = SITE_BASE
     newsletter_url = SITE_BASE

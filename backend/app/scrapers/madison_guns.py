@@ -42,6 +42,8 @@ SITE_BASE = "https://madisonguns.com/"
 
 class MadisonGunsScraper(BigCommerceScraper):
     slug = "madison-guns"
+    shipping_note = "Ships FedEx within two business days; no firearm shipping cost stated"
+    shipping_source = "https://madisonguns.com/web-policy/"
     name = "Madison Guns"
     base_url = SITE_BASE
     newsletter_url = "https://madisonguns.com/"

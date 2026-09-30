@@ -1916,6 +1916,36 @@ before they got nothing.
 
 ### Watchlists and notifications
 
+#### Want lists — **Shipped** 2026-09-30
+
+People think in wants rather than filters: "an Inland M1 Carbine, not
+refinished, under $1,400". The browse page could already express all of that
+(the price slider is the ceiling, the collector details below are the rest) and
+a saved search could remember it. What it could not do was interrupt anybody:
+it waited for the digest, and a surplus bargain that waits a day is usually
+sold.
+
+So a saved search has a second switch, **"Alert me the moment one appears"**
+(`saved_searches.alert_instantly`, migration 0049). On every scheduler tick
+each such search is asked what matches it now that has a reason to be news:
+first seen, reduced, or back in stock *since the alert was switched on*. Three
+decisions carry it, each tested in `test_wantlist.py`:
+
+- **Never the backlog.** Switching the alert on stamps `alert_since`, so the
+  forty listings already matching (the ones the search page already shows) are
+  not mailed at once.
+- **Once per listing.** `saved_search_alerts` records what each search has
+  announced, so a rifle reduced twice under the ceiling is one message. Every
+  fresh match is marked, not only the ten a message shows, and the ids marked
+  are the ones the message was built from, so a listing arriving between the
+  send and the mark is still news next tick.
+- **Only what is for sale.** A saved search may ask for sold listings as a
+  research question; an alert about one would announce something nobody can buy.
+
+A reduction counts only when it is a *drop*: a price that rises and stays in
+range is not news. Email and push go out together, and either one counts as
+delivered, as for a watch alert.
+
 - **Shipped** — Per-user watchlist: star a listing, hear when its price moves
   or it sells, and name the price you would pay. A monitor you have to visit is
   half a monitor, and this is the half that was missing — the catalog could say
@@ -2870,6 +2900,53 @@ The demo seed now sets each firearm's form (rifle, carbine, pistol) the way a
 scan does. It used to leave it empty, so the Form facet had nothing to show
 until an earlier test in the run had created a listing, and the Inventory
 spec passed or failed depending on which tests ran before it.
+
+#### Import marks, matching numbers, finish and condition — **Shipped** 2026-09-30
+
+For surplus these set the price more than the model does. An all-matching,
+unmarked K98k and a Century-stamped mixmaster are different objects at the
+same model number, and the vendors say which is which in prose.
+`app/services/traits.py` reads them out of the title and description on every
+scan (migration 0048 backfills what is already stored; `cli.py traits-backfill
+--recompute` re-reads after a rule change). Each reading keeps the **vendor's
+own sentence**, which the listing page quotes under the value.
+
+Measured on production's 9,970 active firearms before it shipped, with samples
+read by hand at each step:
+
+| Reading | Yes | No | Silent |
+|---|---:|---:|---:|
+| Import marked | 2,462 | 222 ("no import marks") | 7,286 |
+| All matching | 2,422 | 1,135 (any stated mismatch) | 6,413 |
+| Refinished | 358 | 1,589 ("original finish") | 8,023 |
+| Overall condition stated | 1,858 | — | 8,112 |
+
+The rules exist because of the sentences that caught the first draft out, and
+each is a test in `test_traits.py`:
+
+- **A denial contains the word.** "Not import marked", "I can't find an import
+  mark" and "no signs of having been refinished" are read for their negation,
+  within four words and not across a conjunction ("no pitting and an import
+  mark" is a mark).
+- **Generic prose.** "Surviving examples, especially with matching numbers,
+  are highly desirable" is about the model.
+- **Hedges.** "May have been a factory refinish", "appears to be an old
+  refinish", "I do not think this one has been refinished".
+- **The wrong part.** A refinished *stock*, a non-matching *box*, *holster* or
+  *shoulder stock*, an exception to the condition rather than the numbers
+  ("all matching … except for the bore").
+
+**The condition grade is not read from the `condition` column**, and finding
+out why was the most useful result of the measurement. Every value in that
+column is a *bore* grade: the classifier derives one from the description, and
+the scrapers that carry a vendor field (Simpson's "Bore", Legacy's "9/10, ME:
+2, TE: 1") carry the bore field. The listing page already labels it "Bore
+condition". So the grade comes from a sentence about the whole gun ("overall
+condition is very good", "CONDITION: Excellent", "in fair surplus condition"),
+provided the few words before it do not name a part or an accessory.
+
+Filters: **Condition** and **Collector details** in the browse rail, with the
+three pairs grouped under headings, saved searches keeping both.
 
 #### A placeholder where there is no photograph — **Shipped** 2026-09-29
 
@@ -4076,6 +4153,34 @@ knows the guns, which is exactly what the table exists to let them express.
 
 ### Market pricing — "is this a good deal?"
 
+#### What left the shelf, and at what — **Shipped** 2026-09-30
+
+A first answer to piece 1 below from data already in hand, while the external
+sources wait. `market.departures` takes the **last asking price** of firearms a
+shop marked sold or took down, by armory model or caliber, as quartiles with
+the same five-listing floor and one-shop warning as the shelf bands. It is on
+the Market page between the shelf and "How fast they sell", and a listing's
+page carries its own model's figure under the price spectrum.
+
+It is labeled an asking price throughout, because that is what it is. No shop
+publishes what a gun went for, and a listing that was taken down may have been
+withdrawn rather than sold. But it is better evidence of where the market
+clears than the shelf, which over-represents whatever has not sold. Measured on
+production when it shipped: 962 firearms had left the shelf at a known price
+(352 marked sold, 610 taken down), enough to quote 27 models and 34 calibers.
+The sample is also concentrated: Legacy Collectibles alone is 230 of the 610
+taken down, which is what the one-shop flag exists to say. A listing already
+gone the first time it was seen is left out, because we never saw it for sale.
+
+The earlier note that "comparing the shelf against what has left it is not
+sound at this volume" was about using the *gap* between the two as a verdict,
+and that still holds. This quotes the departures on their own, with their
+sample size, and draws no verdict from them.
+
+Piece 3's condition axis now exists too: the collector details (Data quality,
+below) put a stated condition on one scale, and the collection's valuation
+already narrows to the same condition where there are enough listings.
+
 **Planned.** The application can already say what a vendor is asking and how
 that has moved. It cannot say whether the price is *good*, which is the question
 somebody watching surplus actually has. The pieces:
@@ -4124,6 +4229,70 @@ against the real catalog, the obvious version of that filed thirty-two M1
 Carbines under Marlin on the strength of three rows. The same trap is waiting
 here, and it is worse, because a number with a currency symbol on it reads as a
 fact.
+
+### What it costs delivered — **Shipped** 2026-09-30
+
+A $50-cheaper rifle with $65 shipping is not the better deal, and every price
+here was a shelf price. A firearm now carries three numbers added up: its
+price, the shop's charge to ship one gun to a dealer, and the reader's own
+dealer's transfer fee (`app/services/delivered.py`, migration 0050).
+
+**Shipping is the shop's own figure or nothing.** Each scraper declares
+`shipping_long_gun` / `shipping_handgun` with the policy page it was read from
+and a note, and `test_shipping_declared.py` makes declaring it part of adding a
+vendor, as the newsletter link is. The survey (2026-09-30, every request under
+our own user agent and within robots.txt) found **nine of thirty-nine** shops
+state a flat firearm charge: Centerfire $19.99, DuPage $32.25 (with the adult
+signature), Atlantic $30 per order, Recoil $9.99, CMP $35 per rifle, Simpson's
+$50 minimum, and free at Sportsman's, Target Sports and Ancestry. The rest
+calculate it at checkout, tier it by order total (Joe Salter), or charge the
+carrier's rate (Empire Arms), and declare only a note. An administrator can
+override a figure on the site's own page without a release.
+
+**A missing part is said, never assumed free.** When shipping or the fee is
+unknown the total reads "at least" and names the missing part. The fee is set
+on any listing, next to the total, rather than on a settings page. Firearms
+only: a bayonet ships to the door at whatever the cart says.
+
+Not done: ranking Hot deals on the delivered price. A per-shop shipping figure
+exists for fewer than a quarter of the shops, so re-ranking on it would reward
+the shops that publish one rather than the cheaper guns.
+
+### The collection — **Shipped** 2026-09-30
+
+Everything else here is about buying; this is about having bought. A reader's
+own guns at `/collection` (`collection_items`, migration 0051): what it is,
+maker, caliber, their own grade, when, where from, what they paid, notes. There
+is deliberately **no serial-number field**, since it is the one column that turns
+a list of possessions into a record of which guns are in which house.
+
+Each row is matched to an armory model from its title, the way a scan matches a
+listing, and valued against that model's listings: **what they left the shelf
+at** where there is a sample of that, **what they ask now** where there is not,
+and first against those in **the same stated condition** where there are
+enough. The basis is always shown beside the number. A row matched to no model
+says it cannot be valued, rather than borrowing a caliber's median, because a
+7.62x54R could be a $300 Mosin or a $3,000 SVT. The totals compare paid against
+worth over only the rows that have both.
+
+**I bought this** on a listing adds it with the title, model, price, shop and
+today filled in. **Download** is the spreadsheet an insurer asks for.
+
+### The navigation, in the order it is used — **Shipped** 2026-09-30
+
+The rail had grown to fourteen entries in the order they were built: personal
+settings below six admin pages, "Email digest" last after Backups. It is four
+labeled groups now (**Catalog**, **Yours**, **Account**, **Administration**),
+each ordered by how often it is opened: Inventory, What changed, Hot deals,
+Market; Saved searches, Watchlist, Collection; Email digest, Security; Sites,
+Armory, Classification, Users, Audit log, Backups.
+
+The same pass over the in-page tabs: the inventory's Type list runs guns, then
+nearly-guns, then everything else (the order Hot deals already used); its sort
+list leads with newest and recently reduced; the Market groups by caliber,
+maker, country, finest to coarsest as the inventory's filters do; and
+Classification's tabs follow the order the classifier asks its questions, part
+or gun first, which is now where the page opens.
 
 ### Reporting
 

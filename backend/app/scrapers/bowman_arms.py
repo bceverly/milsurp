@@ -42,6 +42,8 @@ SITE_BASE = "https://bowmanarms.com/"
 
 class BowmanArmsScraper(BigCommerceScraper):
     slug = "bowman-arms"
+    shipping_note = "FedEx 2-Day or Ground by weight/size; no firearm shipping cost stated"
+    shipping_source = "https://bowmanarms.com/pages/shipping-returns.html"
     name = "Bowman Arms"
     base_url = SITE_BASE
     newsletter_url = "https://bowmanarms.com/"

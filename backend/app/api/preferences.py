@@ -1,4 +1,5 @@
-"""Per-user email digest settings, plus admin delivery history."""
+"""Per-user settings -- the email digest and the costs a delivered price adds -- plus
+admin delivery history."""
 
 from __future__ import annotations
 
@@ -9,7 +10,14 @@ from sqlalchemy import select
 
 from ..deps import AdminUser, AppConfig, CurrentUser, DbSession
 from ..models import EmailLog, EmailPreference, EmailPreferenceSite, Site, User
-from ..schemas import EmailBodyOut, EmailLogOut, EmailPreferenceOut, EmailPreferenceUpdate
+from ..schemas import (
+    CostPreferenceIn,
+    CostPreferenceOut,
+    EmailBodyOut,
+    EmailLogOut,
+    EmailPreferenceOut,
+    EmailPreferenceUpdate,
+)
 from ..services import digest, mailer
 
 router = APIRouter(tags=["preferences"])
@@ -32,6 +40,22 @@ def _to_out(preference: EmailPreference) -> EmailPreferenceOut:
     data = EmailPreferenceOut.model_validate(preference)
     data.site_ids = preference.site_ids
     return data
+
+
+@router.get("/preferences/costs", response_model=CostPreferenceOut)
+def get_costs(user: CurrentUser) -> CostPreferenceOut:
+    """What this reader pays on top of a listing: their dealer's transfer fee."""
+    return CostPreferenceOut(ffl_transfer_fee=user.ffl_transfer_fee)
+
+
+@router.put("/preferences/costs", response_model=CostPreferenceOut)
+def set_costs(
+    payload: CostPreferenceIn, user: CurrentUser, session: DbSession
+) -> CostPreferenceOut:
+    """Set or clear it. Every firearm's delivered price is worked out with it."""
+    user.ffl_transfer_fee = payload.ffl_transfer_fee
+    session.commit()
+    return CostPreferenceOut(ffl_transfer_fee=user.ffl_transfer_fee)
 
 
 @router.get("/preferences/email", response_model=EmailPreferenceOut)

@@ -176,3 +176,35 @@ def watch_alert_payload(updates: list) -> dict[str, object]:
         body = f"{title} and {len(updates) - 1} more reached what you asked for."
         url = "/watchlist"
     return {"title": "A watched listing moved", "body": body, "url": url}
+
+
+def want_alert_payload(wants: list) -> dict[str, object]:
+    """What a want-list alert says on a lock screen.
+
+    One listing: its title and price, and the tap opens it. Several: a count,
+    and the tap opens the search that found them -- or the saved searches page
+    when more than one search has news.
+    """
+    total = sum(want.total for want in wants)
+    first = wants[0]
+    item = first.items[0]
+    title = scrub(item.title or "", limit=TITLE_CHARS)
+    name = scrub(first.search.name or "", limit=TITLE_CHARS)
+    if total == 1:
+        price = f"${item.current_price:,.0f}" if item.current_price is not None else "no price"
+        return {
+            "title": f"New match: {name}",
+            "body": f"{title} — {price}",
+            "url": f"/items/{item.id}",
+        }
+    if len(wants) == 1:
+        return {
+            "title": f"{total} new matches: {name}",
+            "body": f"{title} and {total - 1} more.",
+            "url": f"/?{first.search.query}",
+        }
+    return {
+        "title": f"{total} new matches on your want list",
+        "body": f"{title} and {total - 1} more.",
+        "url": "/saved-searches",
+    }

@@ -145,6 +145,8 @@ class EBayonetScraper(SiteScraper):
     #: Hands over the vendor's own caliber, country or maker. See SiteScraper.
     states_facts = True
     slug = "ebayonet"
+    shipping_note = "Charges actual shipping cost at time of shipment (plus carton fee)"
+    shipping_source = "https://ebayonet.com/ordering/"
     name = "eBayonet"
     base_url = SITE_BASE
     newsletter_url = "https://ebayonet.com/mailing-list/"

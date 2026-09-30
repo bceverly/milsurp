@@ -93,6 +93,8 @@ def card_price(card: Tag) -> float | None:
 
 class WhatACountryScraper(SiteScraper):
     slug = "what-a-country"
+    shipping_note = "Parts dealer; UPS/USPS, large orders pay actual cost; no firearm rate stated"
+    shipping_source = "https://whatacountry.com/shipping-policy.aspx"
     name = "What A Country"
     base_url = SITE_BASE
     newsletter_url = None

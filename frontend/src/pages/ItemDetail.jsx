@@ -20,7 +20,15 @@ function kindLabel(kind) {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 import Modal from "../components/Modal.jsx";
-import { ChevronLeft, External, Eye, Star, TrendDown, X } from "../components/Icons.jsx";
+import {
+  Box,
+  ChevronLeft,
+  External,
+  Eye,
+  Star,
+  TrendDown,
+  X,
+} from "../components/Icons.jsx";
 
 /**
  * One labeled value.
@@ -115,6 +123,70 @@ function Fact({ label, children, always = false, source = null }) {
       </div>
       {!empty && <Source source={source} />}
     </div>
+  );
+}
+
+/**
+ * One of the collector details, with the vendor's own words under it.
+ *
+ * The words are the point. "All matching" read out of "matching serial numbers
+ * except the bolt" would be a claim the vendor never made; quoting the
+ * sentence it came from lets whoever is about to spend the money see that it
+ * was read right -- or that it was not.
+ */
+function Quoted({ label, value, quote }) {
+  if (!value) return null;
+  return (
+    <div>
+      <div className="fact__label">{label}</div>
+      <div className="fact__value">{value}</div>
+      {quote && <div className="fact__quote">“{quote}”</div>}
+    </div>
+  );
+}
+
+/** Yes, no, or nothing said -- in words that say which way round it is. */
+function said(answer, yes, no) {
+  if (answer === true) return yes;
+  if (answer === false) return no;
+  return null;
+}
+
+/** The whole gun's stated condition, which comes before the bore's. */
+function ConditionFact({ item }) {
+  return (
+    <Quoted
+      label="Condition"
+      value={item.condition_grade_label}
+      quote={(item.trait_quotes || {}).condition}
+    />
+  );
+}
+
+function CollectorFacts({ item }) {
+  const quotes = item.trait_quotes || {};
+  const finish = said(item.refinished, "Refinished", "Original");
+  const remaining = item.finish_percent
+    ? `${item.finish_percent}% of the finish remains`
+    : null;
+  return (
+    <>
+      <Quoted
+        label="Import marks"
+        value={said(item.import_marked, "Import marked", "None")}
+        quote={quotes.import}
+      />
+      <Quoted
+        label="Numbers"
+        value={said(item.numbers_match, "All matching", "Not all matching")}
+        quote={quotes.numbers}
+      />
+      <Quoted
+        label="Finish"
+        value={[finish, remaining].filter(Boolean).join(", ") || null}
+        quote={quotes.finish}
+      />
+    </>
   );
 }
 
@@ -561,6 +633,173 @@ function SimilarListings({ rows }) {
   );
 }
 
+/**
+ * What this gun costs at your dealer, not on the shelf.
+ *
+ * Price, the shop's own firearm shipping and your transfer fee, added up. A
+ * part nobody stated is named as missing and the total marked "at least",
+ * never treated as free. The fee is set right here, where the question comes
+ * up, rather than on a settings page nobody would look for it on.
+ */
+function DeliveredPrice({ item, onFeeSaved }) {
+  const [editing, setEditing] = useState(false);
+  const [fee, setFee] = useState("");
+  const [error, setError] = useState(null);
+  if (item.delivered_price == null) return null;
+
+  async function save(event) {
+    event.preventDefault();
+    setError(null);
+    const value = fee.trim() === "" ? null : Number(fee);
+    if (value !== null && (Number.isNaN(value) || value < 0)) {
+      setError("A dollar amount, or blank to clear it.");
+      return;
+    }
+    try {
+      await api.saveCosts({ ffl_transfer_fee: value });
+      setEditing(false);
+      onFeeSaved();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  const money = (value) => formatMoney(value, item.currency);
+  return (
+    <div className="delivered" data-testid="delivered-price">
+      <div className="delivered__total">
+        {item.delivered_complete ? "About " : "At least "}
+        <strong>{money(item.delivered_price)}</strong> delivered to your dealer
+      </div>
+      <div className="delivered__parts">
+        {money(item.current_price)} +{" "}
+        {item.shipping != null ? (
+          <>{money(item.shipping)} shipping</>
+        ) : (
+          <span className="delivered__missing" title={item.shipping_note || undefined}>
+            shipping the shop does not state
+          </span>
+        )}{" "}
+        +{" "}
+        {item.transfer_fee != null ? (
+          <>{money(item.transfer_fee)} transfer</>
+        ) : (
+          <span className="delivered__missing">your transfer fee</span>
+        )}{" "}
+        {!editing && (
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm"
+            onClick={() => {
+              setFee(item.transfer_fee != null ? String(item.transfer_fee) : "");
+              setEditing(true);
+            }}
+          >
+            {item.transfer_fee != null ? "Change fee" : "Set your fee"}
+          </button>
+        )}
+      </div>
+      {item.shipping_note && (
+        <div className="delivered__note">
+          {item.site_name}: {item.shipping_note}
+        </div>
+      )}
+      {editing && (
+        <form className="delivered__form" onSubmit={save}>
+          <label className="visually-hidden" htmlFor="ffl-fee">
+            Your dealer&rsquo;s transfer fee
+          </label>
+          <input
+            id="ffl-fee"
+            className="input"
+            inputMode="decimal"
+            placeholder="e.g. 25"
+            value={fee}
+            autoFocus
+            onChange={(event) => setFee(event.target.value)}
+          />
+          <button type="submit" className="btn btn--primary btn--sm">
+            Save
+          </button>
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm"
+            onClick={() => setEditing(false)}
+          >
+            Cancel
+          </button>
+          <span className="field__hint">
+            What your dealer charges to receive a gun for you. 0 if you receive curios on
+            a C&amp;R license. Used on every listing.
+          </span>
+        </form>
+      )}
+      {error && <p className="alert alert--error">{error}</p>}
+    </div>
+  );
+}
+
+/**
+ * What guns like this one were asking when they left the shelf.
+ *
+ * Beside the spectrum, which places this listing among the ones still for
+ * sale: those over-represent whatever has not sold, and this is the other
+ * half. Worded as an asking price, because it is one.
+ */
+function LeftTheShelf({ item }) {
+  const band = item.departures;
+  if (!band) return null;
+  const money = (value) => formatMoney(value, band.currency);
+  const what = item.departures_by === "model" ? band.value : `${band.value} guns`;
+  return (
+    <p className="departures" data-testid="departures">
+      <strong>{band.listings}</strong> {what} left the shelf recently, typically asking{" "}
+      <strong>{money(band.median)}</strong> ({money(band.low)}–{money(band.high)}) when
+      they went.
+      {band.concentrated && (
+        <span className="chip chip--warning market-chip">mostly one shop</span>
+      )}
+    </p>
+  );
+}
+
+/**
+ * "I bought this": adds it to your collection, filled in from the listing.
+ */
+function BoughtThis({ item }) {
+  const [state, setState] = useState(null);
+  async function add() {
+    setState({ busy: true });
+    try {
+      await api.boughtThis(item.id);
+      setState({ done: true });
+    } catch (err) {
+      setState({ error: err.message });
+    }
+  }
+  if (state?.done) {
+    return (
+      <p className="alert alert--success" role="status">
+        Added to your collection. <Link to="/collection">Open it</Link> to correct the
+        price or the date.
+      </p>
+    );
+  }
+  return (
+    <>
+      <button
+        type="button"
+        className="btn btn--secondary"
+        onClick={add}
+        disabled={state?.busy}
+      >
+        <Box size={15} /> I bought this
+      </button>
+      {state?.error && <p className="alert alert--error">{state.error}</p>}
+    </>
+  );
+}
+
 function PriceSpectrum({ position, currency }) {
   if (!position) return null;
   // Two different numbers, and mixing them up caused both of this widget's
@@ -946,6 +1185,9 @@ export default function ItemDetail() {
               </span>
             )}
           </div>
+          {/* Directly under the shelf price, because it is the same question
+              answered honestly: what this costs by the time it is yours. */}
+          <DeliveredPrice item={item} onFeeSaved={reloadItem} />
 
           <div className="detail__facts">
             {/* The armory's answer first, when it has one. It is the only
@@ -978,7 +1220,7 @@ export default function ItemDetail() {
                 </button>
               </Fact>
             )}
-            {/* Ahead of the rest: for somebody buying to their own licence
+            {/* Ahead of the rest: for somebody buying to their own license
                 it decides whether the listing is reachable at all. */}
             <CurioFact item={item} />
             <Fact label="Made">{item.manufacture_year}</Fact>
@@ -991,9 +1233,14 @@ export default function ItemDetail() {
             <Fact label="Country" always source={sources.country}>
               {item.country}
             </Fact>
+            {/* The whole gun, then its bore, then the details a collector
+                checks next -- what sets the price within a model. Only where
+                the vendor said, and in their words. */}
+            <ConditionFact item={item} />
             <Fact label="Bore condition" always source={sources.condition}>
               {item.condition}
             </Fact>
+            <CollectorFacts item={item} />
             <Fact label="Lowest seen">
               {item.lowest_price ? formatMoney(item.lowest_price, item.currency) : null}
             </Fact>
@@ -1014,6 +1261,7 @@ export default function ItemDetail() {
               the thing somebody is about to act on: it answers "is this a good
               deal?", which is the question the catalog exists for. */}
           <PriceSpectrum position={spectrum} currency={item.currency} />
+          <LeftTheShelf item={item} />
 
           {/* Under the spectrum and above the buy button: the spectrum says
               whether this is a good price, and watching is what somebody does
@@ -1030,6 +1278,9 @@ export default function ItemDetail() {
             <External size={16} />
             View on {item.site_name || "vendor site"}
           </a>
+          {/* After the buy button, for the step that comes after it. Only for
+              a firearm: a collection is a list of guns. */}
+          {item.delivered_price != null && <BoughtThis item={item} />}
 
           <ShopOffers offers={item.offers} siteName={item.site_name} />
 

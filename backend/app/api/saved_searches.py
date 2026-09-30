@@ -15,7 +15,7 @@ from sqlalchemy.exc import IntegrityError
 from ..deps import AppConfig, CurrentUser, DbSession
 from ..models import EmailStatus, Item, SavedSearch, User
 from ..schemas import SavedSearchCreate, SavedSearchOut, SavedSearchUpdate
-from ..services import digest
+from ..services import digest, wantlist
 from ..services import search as search_service
 
 router = APIRouter(prefix="/saved-searches", tags=["saved searches"])
@@ -40,10 +40,12 @@ def _count(session: DbSession, parsed: search_service.SearchQuery) -> int:
 
 def _to_out(session: DbSession, row: SavedSearch) -> SavedSearchOut:
     data = SavedSearchOut.model_validate(row)
+    parsed = _parsed(row.query)
     # The whole result set, not the email's capped view of it: the number on
     # the card answers "how big is this search", and the cap answers "how much
     # of it is mailed".
-    data.match_count = _count(session, _parsed(row.query))
+    data.match_count = _count(session, parsed)
+    data.target_price = parsed.filters.get("max_price")
     return data
 
 
@@ -86,6 +88,7 @@ def create_saved_search(
         email_enabled=payload.email_enabled,
         email_item_limit=payload.email_item_limit,
     )
+    wantlist.switch(row, payload.alert_instantly)
     session.add(row)
     try:
         session.commit()
@@ -114,6 +117,8 @@ def update_saved_search(
         row.email_enabled = payload.email_enabled
     if payload.email_item_limit is not None:
         row.email_item_limit = payload.email_item_limit
+    if payload.alert_instantly is not None:
+        wantlist.switch(row, payload.alert_instantly)
 
     try:
         session.commit()

@@ -115,6 +115,7 @@ def parse_page(html_text: str) -> tuple[list[tuple[str, float | None, str]], str
 
 class NickersonMilitaryScraper(SiteScraper):
     slug = "nickerson-military"
+    shipping_note = "No shipping or policy page found on the site"
     name = "Nickerson Military"
     base_url = SITE_BASE
     newsletter_url = None

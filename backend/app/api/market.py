@@ -12,7 +12,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query, status
 
 from ..deps import CurrentUser, DbSession
-from ..schemas import MarketBandOut, MarketOut, TurnoverOut, TurnoverRowOut
+from ..schemas import DeparturesOut, MarketBandOut, MarketOut, TurnoverOut, TurnoverRowOut
 from ..services import market
 
 router = APIRouter(prefix="/market", tags=["market"])
@@ -50,20 +50,49 @@ def price_bands(
         considered=result.considered,
         thin_groups=result.thin_groups,
         thin_listings=result.thin_listings,
-        bands=[
-            MarketBandOut(
-                value=band.value,
-                listings=band.listings,
-                low=band.low,
-                median=band.median,
-                high=band.high,
-                currency=band.currency,
-                sites=band.sites,
-                top_site_share=band.top_site_share,
-                concentrated=band.concentrated,
-            )
-            for band in result.bands
-        ],
+        bands=[band_out(band) for band in result.bands],
+    )
+
+
+def band_out(band: market.Band) -> MarketBandOut:
+    return MarketBandOut(
+        value=band.value,
+        listings=band.listings,
+        low=band.low,
+        median=band.median,
+        high=band.high,
+        currency=band.currency,
+        sites=band.sites,
+        top_site_share=band.top_site_share,
+        concentrated=band.concentrated,
+    )
+
+
+@router.get("/departures", response_model=DeparturesOut)
+def departure_prices(
+    _user: CurrentUser,
+    session: DbSession,
+    by: str = Query(default="model"),
+    min_sample: int = Query(default=market.MIN_SAMPLE, ge=2, le=100),
+) -> DeparturesOut:
+    """What each kind of gun was asking when it left the shelf, busiest first.
+
+    The last asking price, not a sale price -- see ``market._departure_rows``.
+    """
+    if by not in market.DEPARTURE_DIMENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Unknown dimension. Valid: {', '.join(market.DEPARTURE_DIMENSIONS)}.",
+        )
+    result = market.departures(session, by, min_sample=min_sample)
+    return DeparturesOut(
+        dimension=result.dimension,
+        min_sample=result.min_sample,
+        measured=result.measured,
+        marked_sold=result.marked_sold,
+        thin_groups=result.thin_groups,
+        thin_listings=result.thin_listings,
+        bands=[band_out(band) for band in result.bands],
     )
 
 

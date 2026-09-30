@@ -22,10 +22,12 @@ import { Refresh, Warning } from "../components/Icons.jsx";
 import SortHeader from "../components/SortHeader.jsx";
 import { COLLATOR, compareCalibers } from "../sorting.js";
 
+//: Finest first and coarsest last, as the inventory's filters run: the
+//: cartridge, then who made it, then where.
 const DIMENSIONS = [
   { key: "caliber", label: "Caliber" },
-  { key: "country", label: "Country" },
   { key: "manufacturer", label: "Maker" },
+  { key: "country", label: "Country" },
 ];
 
 const TURNOVER_DIMENSIONS = [
@@ -190,6 +192,147 @@ function TimeToSell() {
               left out rather than counted as quick.{" "}
             </>
           )}
+          {result.thin_groups > 0 && (
+            <>
+              {result.thin_groups.toLocaleString()} groups had fewer than{" "}
+              {result.min_sample} and are not shown.
+            </>
+          )}
+        </p>
+      )}
+    </section>
+  );
+}
+
+/**
+ * What each kind of gun was asking when it left the shelf.
+ *
+ * The nearest thing to a sale price the catalog has: the last asking price of
+ * a listing the shop marked sold or took down. Not what it sold for -- no shop
+ * publishes that, and a listing taken down may have been withdrawn -- and the
+ * page says so rather than calling it a sale price. It is still better
+ * evidence of where the market clears than the shelf above, which
+ * over-represents whatever has not sold.
+ */
+function LeftTheShelf() {
+  const [dimension, setDimension] = useState("model");
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let live = true;
+    setResult(null);
+    setError(null);
+    api
+      .departures({ by: dimension })
+      .then((answer) => live && setResult(answer))
+      .catch((err) => live && setError(err.message));
+    return () => {
+      live = false;
+    };
+  }, [dimension]);
+
+  const label = TURNOVER_DIMENSIONS.find((d) => d.key === dimension).label;
+  return (
+    <section className="market-turnover" aria-labelledby="departures-heading">
+      <h2 id="departures-heading">What they left the shelf at</h2>
+      <p className="muted">
+        The last asking price of guns a shop marked sold or took down — the nearest thing
+        to a sale price there is, since no shop publishes what a gun actually went for.
+        The middle figure is the median; the range is the cheapest and dearest quarter.
+      </p>
+      <div className="armory-tabs" role="tablist" aria-label="Group departures by">
+        {TURNOVER_DIMENSIONS.map((entry) => (
+          <button
+            key={entry.key}
+            type="button"
+            role="tab"
+            aria-selected={dimension === entry.key}
+            className={`btn ${dimension === entry.key ? "btn--primary" : "btn--ghost"} btn--sm`}
+            onClick={() => setDimension(entry.key)}
+          >
+            {entry.label}
+          </button>
+        ))}
+      </div>
+
+      {error && (
+        <div className="alert alert--error" role="alert">
+          {error}
+        </div>
+      )}
+      {!result && !error && (
+        <div className="loading-row" style={{ padding: 20 }}>
+          <div className="spinner" />
+          Working out what they went at…
+        </div>
+      )}
+
+      {result && result.bands.length === 0 && (
+        <div className="empty" data-testid="departures-empty">
+          <p>
+            Not enough guns have left the shelf yet — {result.measured.toLocaleString()}{" "}
+            so far, and a {label.toLowerCase()} needs {result.min_sample} before it is
+            shown.
+          </p>
+        </div>
+      )}
+
+      {result && result.bands.length > 0 && (
+        <div className="panel">
+          <div className="table-wrap">
+            <table className="table" data-testid="departures-table">
+              <thead>
+                <tr>
+                  <th>{label}</th>
+                  <th>Left</th>
+                  <th>Typical</th>
+                  <th>Range</th>
+                  <th>Shops</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.bands.map((band) => (
+                  <tr key={band.value}>
+                    <td>
+                      {dimension === "caliber" ? (
+                        <Link to={`/?caliber=${encodeURIComponent(band.value)}`}>
+                          {band.value}
+                        </Link>
+                      ) : (
+                        band.value
+                      )}
+                      {band.concentrated && (
+                        <span className="chip chip--warning market-chip">one shop</span>
+                      )}
+                    </td>
+                    <td>{band.listings.toLocaleString()}</td>
+                    <td>
+                      <strong>{formatMoney(band.median, band.currency)}</strong>
+                    </td>
+                    <td>
+                      {formatMoney(band.low, band.currency)}–
+                      {formatMoney(band.high, band.currency)}
+                    </td>
+                    <td>
+                      {band.sites}
+                      <span className="market-share">
+                        {Math.round(band.top_site_share * 100)}% largest
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {result && (
+        <p className="market-footnote">
+          {result.measured.toLocaleString()} guns left the shelf at a known price,{" "}
+          {result.marked_sold.toLocaleString()} of them marked sold and the rest taken
+          down.{" "}
           {result.thin_groups > 0 && (
             <>
               {result.thin_groups.toLocaleString()} groups had fewer than{" "}
@@ -428,6 +571,10 @@ export default function Market() {
         </>
       )}
 
+      {/* The shelf above, then what left it and at what price, then how
+          quickly: the same question narrowing from "what is asked" to "what
+          actually goes, and how fast". */}
+      <LeftTheShelf />
       <TimeToSell />
     </div>
   );

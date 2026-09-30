@@ -58,6 +58,8 @@ SITE_BASE = "https://legacy-collectibles.com/"
 
 class LegacyCollectiblesScraper(BigCommerceScraper):
     slug = "legacy-collectibles"
+    shipping_note = "USPS priority preferred, adult signature; no firearm shipping cost stated"
+    shipping_source = "https://legacy-collectibles.com/shipping-returns/"
     name = "Legacy Collectibles"
     base_url = SITE_BASE
     newsletter_url = "https://legacy-collectibles.com/"

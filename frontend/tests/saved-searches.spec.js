@@ -216,7 +216,7 @@ test.describe("a saved search, read back", () => {
         : route.fallback(),
     );
     const card = signedIn.locator(".saved-search", { hasText: RICH.name });
-    const toggle = card.getByRole("checkbox");
+    const toggle = card.getByRole("checkbox", { name: "Email me these" });
     await expect(toggle).toBeChecked();
     await toggle.uncheck();
     await expect(card.getByRole("alert")).toContainText("That limit is not offered.");

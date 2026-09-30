@@ -33,6 +33,7 @@ SITE_BASE = "https://clydearmory.com/"
 
 class ClydeArmoryScraper(BigCommerceScraper):
     slug = "clyde-armory"
+    shipping_note = "Policy page did not answer when checked (2026-09-30)"
     name = "Clyde Armory"
     base_url = SITE_BASE
     newsletter_url = "https://clydearmory.com/"

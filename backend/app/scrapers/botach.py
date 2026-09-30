@@ -44,6 +44,8 @@ _POLICE = re.compile(r"\bpolice\s+(?:trade|demo)|\bnever\s+issued\b", re.I)
 
 class BotachScraper(AlgoliaScraper):
     slug = "botach"
+    shipping_note = "Carrier depends on item and method selected; no firearm shipping cost stated"
+    shipping_source = "https://help.botach.com/article/a1-order-processing-shipping"
     name = "Botach"
     base_url = SITE_BASE
     newsletter_url = "https://botach.com/mailing-list/"
