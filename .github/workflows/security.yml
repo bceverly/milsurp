@@ -21,9 +21,16 @@ on:
     - cron: "0 6 * * 1"
   workflow_dispatch:
 
+# A newer push to a pull request makes its previous run irrelevant, so those
+# cancel each other -- Dependabot's included. A push to main never does: each
+# commit on main gets a group of its own. The release gate (release.yml) waits
+# for *this commit's* run to pass, and with one group per branch, merging a
+# Dependabot PR a minute after `make release` cancelled the release commit's
+# run and the gate refused the release. A scheduled or manual run of the same
+# commit queues behind it rather than cancelling it.
 concurrency:
-  group: security-${{ github.ref }}
-  cancel-in-progress: true
+  group: security-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
