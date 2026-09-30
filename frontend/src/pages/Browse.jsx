@@ -144,6 +144,10 @@ const AVAILABILITY = [
   { value: "available", label: "Available" },
   { value: "sold", label: "Sold" },
   { value: "delisted", label: "De-listed" },
+  //: Either of the two above, having been seen for sale first: what the
+  //: Market and the collection call "left the shelf", and where a valuation's
+  //: link lands.
+  { value: "left", label: "Sold or taken down" },
   { value: "all", label: "Everything" },
 ];
 
@@ -534,6 +538,8 @@ export default function Browse() {
       price_drops_only: priceState === "true",
       kind: kind ? [kind] : [],
     };
+    // Arrives on the link from a collection's valuation; see the chip below.
+    if (params.get("guns_only") === "true") built.guns_only = true;
     // Omitted rather than sent as null: `qs` drops an empty value, and a
     // min_price of 0 is a real bound somebody may have typed.
     if (minPrice !== null) built.min_price = minPrice;
@@ -636,6 +642,15 @@ export default function Browse() {
         key: "drops",
         label: "Price reduced",
         clear: () => update((next) => next.delete("price_drops_only")),
+      });
+    }
+    // Not in the rail -- it is how a valuation's comparables are chosen -- so
+    // the chip is the only place it can be seen and taken off.
+    if (params.get("guns_only") === "true") {
+      chips.push({
+        key: "guns_only",
+        label: "Priced guns only",
+        clear: () => update((next) => next.delete("guns_only")),
       });
     }
     // One chip for both bounds: they are one filter, and clearing half of a

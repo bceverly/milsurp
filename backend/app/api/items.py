@@ -516,6 +516,9 @@ def list_items(
     max_price: float | None = Query(default=None, ge=0),
     new_since_hours: int | None = Query(default=None, ge=1, le=8760),
     price_drops_only: bool = Query(default=False),
+    guns_only: bool = Query(
+        default=False, description="Priced guns only, no parts kits (a valuation's comparables)."
+    ),
     sort: str = Query(default="newest"),
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=48, ge=1, le=200),
@@ -552,6 +555,7 @@ def list_items(
         max_price=max_price,
         new_since_hours=new_since_hours,
         price_drops_only=price_drops_only,
+        guns_only=guns_only,
     )
     base = apply_filters(
         select(Item),
@@ -572,6 +576,7 @@ def list_items(
         max_price=max_price,
         new_since_hours=new_since_hours,
         price_drops_only=price_drops_only,
+        guns_only=guns_only,
     )
     # And the price histogram against a query that does not filter by price,
     # for the same reason the kind facet does not filter by kind -- and more
@@ -597,6 +602,7 @@ def list_items(
         max_price=None,
         new_since_hours=new_since_hours,
         price_drops_only=price_drops_only,
+        guns_only=guns_only,
     )
 
     # And the curio facet against a query that does not filter by curio, so
@@ -621,6 +627,7 @@ def list_items(
         max_price=max_price,
         new_since_hours=new_since_hours,
         price_drops_only=price_drops_only,
+        guns_only=guns_only,
     )
 
     total = session.execute(base.with_only_columns(func.count(Item.id))).scalar_one()
@@ -734,6 +741,9 @@ def export_items(
     max_price: float | None = Query(default=None, ge=0),
     new_since_hours: int | None = Query(default=None, ge=1, le=8760),
     price_drops_only: bool = Query(default=False),
+    guns_only: bool = Query(
+        default=False, description="Priced guns only, no parts kits (a valuation's comparables)."
+    ),
 ) -> Response:
     """The listings a browse page is showing, as a file.
 
@@ -765,6 +775,7 @@ def export_items(
         max_price=max_price,
         new_since_hours=new_since_hours,
         price_drops_only=price_drops_only,
+        guns_only=guns_only,
     )
 
     total = session.execute(select(func.count()).select_from(query.subquery())).scalar_one()

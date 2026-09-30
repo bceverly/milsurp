@@ -80,6 +80,7 @@ function describe(query) {
     );
   }
   if (params.get("price_drops_only") === "true") parts.push("Price reduced");
+  if (params.get("guns_only") === "true") parts.push("Priced guns only");
   const availability = params.get("availability");
   if (availability && availability !== "available")
     parts.push(`Availability: ${availability}`);

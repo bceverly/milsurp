@@ -297,7 +297,7 @@ test.describe("inventory", () => {
 
   test("availability is a single choice", async ({ signedIn }) => {
     await openTypeAndAvailability(signedIn);
-    await signedIn.getByRole("radio", { name: "Sold" }).check();
+    await signedIn.getByRole("radio", { name: "Sold", exact: true }).check();
     await expect(signedIn).toHaveURL(/availability=sold/);
   });
 

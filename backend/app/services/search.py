@@ -18,7 +18,7 @@ from datetime import timedelta
 from typing import Any
 from urllib.parse import parse_qsl, urlencode
 
-from sqlalchemy import Select, column, or_, select, table, true
+from sqlalchemy import Select, column, func, or_, select, table, true
 from sqlalchemy.orm import Session
 
 from ..models import Item, utcnow
@@ -236,6 +236,7 @@ def apply_filters[S: Select](  # noqa: PLR0912 - one branch per filter; splittin
     price_drops_only: bool,
     trait_values: list[str] | None = None,
     grades: list[str] | None = None,
+    guns_only: bool = False,
 ) -> S:
     if site_ids:
         stmt = stmt.where(Item.site_id.in_(site_ids))
@@ -279,12 +280,32 @@ def apply_filters[S: Select](  # noqa: PLR0912 - one branch per filter; splittin
     if grades:
         stmt = stmt.where(_matching(Item.condition_grade, grades))
 
+    if guns_only:
+        # Priced guns, not parts kits: the listings a price comparison is
+        # made from. Not offered in the rail -- it arrives on the link from a
+        # collection's valuation -- but shown as a chip there, so it can be
+        # seen and removed.
+        stmt = stmt.where(
+            Item.is_rifle.is_(True) | Item.is_pistol.is_(True),
+            Item.is_parts_kit.is_(False),
+            Item.current_price.is_not(None),
+            Item.current_price > 0,
+        )
+
     if availability == "available":
         stmt = stmt.where(Item.is_active.is_(True), Item.is_sold.is_(False))
     elif availability == "sold":
         stmt = stmt.where(Item.is_sold.is_(True))
     elif availability == "delisted":
         stmt = stmt.where(Item.is_active.is_(False))
+    elif availability == "left":
+        # Sold or taken down, having been seen for sale first: what the Market
+        # and the collection call a departure (market.DEPARTED), so a link from
+        # a valuation lands on the listings it was worked out from.
+        stmt = stmt.where(
+            Item.sold_at.is_not(None) | Item.delisted_at.is_not(None),
+            func.coalesce(Item.sold_at, Item.delisted_at) > Item.first_seen_at,
+        )
     elif availability == "active":
         stmt = stmt.where(Item.is_active.is_(True))
     # "all" applies no availability filter at all.
@@ -359,6 +380,7 @@ QUERY_PARAMS: dict[str, bool] = {
     "max_price": False,
     "new_since_hours": False,
     "price_drops_only": False,
+    "guns_only": False,
     "sort": False,
 }
 
@@ -466,6 +488,7 @@ def parse_query(query_string: str) -> SearchQuery:  # noqa: PLR0912 - one branch
         "max_price": None,
         "new_since_hours": None,
         "price_drops_only": False,
+        "guns_only": False,
     }
 
     for name, values in raw.items():
@@ -488,6 +511,7 @@ def parse_query(query_string: str) -> SearchQuery:  # noqa: PLR0912 - one branch
     if filters["new_since_hours"] is not None:
         filters["new_since_hours"] = _int(name="new_since_hours", value=filters["new_since_hours"])
     filters["price_drops_only"] = str(filters["price_drops_only"]).lower() in ("1", "true", "yes")
+    filters["guns_only"] = str(filters["guns_only"]).lower() in ("1", "true", "yes")
 
     if filters["kinds"]:
         unknown = [k for k in filters["kinds"] if k not in KINDS]
@@ -553,7 +577,6 @@ def mention_search(name: str) -> str:
 
 def count_mentions(session: Session, name: str) -> int:
     """How many stored listings, sold and de-listed included, name this phrase."""
-    from sqlalchemy import func
 
     stmt = apply_filters(
         select(func.count(Item.id)),

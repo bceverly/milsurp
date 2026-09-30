@@ -356,6 +356,21 @@ class Departures:
     bands: list[Band] = field(default_factory=list)
 
 
+#: What makes a listing a departure, as conditions a query can use. Shared by
+#: the Market's bands and by the listings the collection shows as the
+#: comparables behind a value, so the list and the number cannot disagree.
+DEPARTED = (
+    Item.is_rifle.is_(True) | Item.is_pistol.is_(True),
+    Item.is_parts_kit.is_(False),
+    Item.sold_at.is_not(None) | Item.delisted_at.is_not(None),
+    Item.current_price.is_not(None),
+    Item.current_price > 0,
+    # Seen for sale at least once: the moment it left is after the moment we
+    # first saw it. Equal means it was already gone when we arrived.
+    func.coalesce(Item.sold_at, Item.delisted_at) > Item.first_seen_at,
+)
+
+
 def _departure_rows(session: Session, dimension: str, where=None):
     """(value, last asking price, currency, site, marked sold) per departure.
 
@@ -375,18 +390,7 @@ def _departure_rows(session: Session, dimension: str, where=None):
     column = FirearmModel.name if dimension == "model" else Item.caliber
     statement = select(
         column, Item.current_price, Item.currency, Item.site_id, Item.sold_at.is_not(None)
-    ).where(
-        Item.is_rifle.is_(True) | Item.is_pistol.is_(True),
-        Item.is_parts_kit.is_(False),
-        Item.sold_at.is_not(None) | Item.delisted_at.is_not(None),
-        Item.current_price.is_not(None),
-        Item.current_price > 0,
-        column.is_not(None),
-        column != "",
-        # Seen for sale at least once: the moment it left is after the moment
-        # we first saw it. Equal means it was already gone when we arrived.
-        func.coalesce(Item.sold_at, Item.delisted_at) > Item.first_seen_at,
-    )
+    ).where(*DEPARTED, column.is_not(None), column != "")
     if dimension == "model":
         statement = statement.join(FirearmModel, FirearmModel.id == Item.firearm_model_id)
     if where is not None:

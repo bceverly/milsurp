@@ -10,6 +10,10 @@
 import { test, expect, openPage } from "./fixtures.js";
 
 const K98 = "GERMAN K98 Mauser rifle, matching numbers";
+//: A listing the seed always matches to an armory model -- the K98's only
+//: gets one once another spec has loaded the whole armory -- so the
+//: collection has something to value it against whatever ran first.
+const TT33 = "RUSSIAN Tokarev TT-33 7.62x25mm, import marked";
 
 /**
  * Open the seeded listing with this title.
@@ -196,14 +200,48 @@ test.describe("the collection", () => {
   });
 
   test("I bought this, from a listing", async ({ signedIn }) => {
-    await openListing(signedIn, K98);
+    await openListing(signedIn, TT33);
     await signedIn.getByRole("button", { name: "I bought this" }).click();
     await expect(signedIn.locator(".alert--success")).toContainText("collection");
     await signedIn.getByRole("link", { name: "Open it" }).click();
-    await expect(signedIn.locator("tr", { hasText: K98 })).toBeVisible();
+    await expect(signedIn.locator("tr", { hasText: TT33 })).toBeVisible();
 
+    // What its value is drawn from: the Tokarev TT-33 listings, in a dialog.
+    const row = signedIn.locator("tr", { hasText: TT33 }).first();
+    await row.getByRole("button", { name: "Show comparables" }).click();
+    const comparables = signedIn.getByTestId("comparables");
+    await expect(comparables).toContainText("Tokarev TT-33");
+    await expect(
+      comparables.getByRole("heading", { name: /On the shelf now/ }),
+    ).toBeVisible();
+    await expect(
+      comparables.getByRole("heading", { name: /Left the shelf/ }),
+    ).toBeVisible();
+    await expect(comparables.getByRole("link").first()).toBeVisible();
+    await signedIn.locator(".modal__foot").getByRole("button", { name: "Close" }).click();
+    await expect(signedIn.getByTestId("comparables")).toHaveCount(0);
+
+    // The range and a link to the same listings in the inventory.
+    await expect(row.locator(".collection-range")).toContainText("–");
+    await row.getByRole("link", { name: /^See the \d+ listings?$/ }).click();
+    await expect(signedIn).toHaveURL(/guns_only=true/);
+    const chip = signedIn.locator(".active-filters__chip", {
+      hasText: "Priced guns only",
+    });
+    await expect(chip).toBeVisible();
+    await expect(signedIn.locator(".item-card, .item-row").first()).toContainText(
+      "Tokarev",
+    );
+    await chip.getByRole("button").click();
+    await expect(signedIn).not.toHaveURL(/guns_only/);
+
+    // And the departures, through the Availability choice they land on.
+    await signedIn.locator("summary", { hasText: "Availability" }).click();
+    await signedIn.getByRole("radio", { name: "Sold or taken down" }).check();
+    await expect(signedIn).toHaveURL(/availability=left/);
+
+    await signedIn.goto("/collection");
     // Leave it as found for whoever runs next.
-    const row = signedIn.locator("tr", { hasText: K98 }).first();
     await row.getByRole("button", { name: /^Remove/ }).click();
     await signedIn.getByRole("dialog").getByRole("button", { name: "Remove" }).click();
   });

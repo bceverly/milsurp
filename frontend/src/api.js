@@ -401,6 +401,7 @@ export const api = {
   updateCollectionItem: (id, patch) =>
     request(`/api/collection/${id}`, { method: "PATCH", body: patch }),
   removeFromCollection: (id) => request(`/api/collection/${id}`, { method: "DELETE" }),
+  collectionComparables: (id) => request(`/api/collection/${id}/comparables`),
   // A link, as the armory's export is: the cookie authenticates the download.
   collectionExportUrl: () => "/api/collection/export",
 

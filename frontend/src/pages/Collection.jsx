@@ -62,12 +62,61 @@ function formOf(row) {
   );
 }
 
+/**
+ * The inventory search that returns the listings a value was drawn from.
+ *
+ * The same conditions the valuation used: this model, priced guns and no
+ * parts kits (`guns_only`), in the owner's condition when the value was
+ * narrowed to it, and either for sale now or sold or taken down. The server
+ * holds the two to the same listings in test_departures_delivered_collection.
+ */
+function comparablesSearch(row, departed) {
+  const params = new URLSearchParams({
+    model: String(row.firearm_model_id),
+    guns_only: "true",
+  });
+  if (row.valuation?.like_for_like && row.condition_grade) {
+    params.set("grade", row.condition_grade);
+  }
+  if (departed) params.set("availability", "left");
+  return `/?${params.toString()}`;
+}
+
 /** What the worth figure was worked out from, in words. */
 function basisOf(valuation, model) {
   const like = valuation.like_for_like ? " in the same condition" : "";
   return valuation.basis === "left"
     ? `What ${model}s${like} were asking when they left the shelf`
     : `What ${model}s${like} are asking now`;
+}
+
+/**
+ * The estimate, the range around it, and a link to the listings behind it.
+ *
+ * The range is the middle half of whichever set of listings set the number
+ * -- the same quartiles the Market uses -- so "about $995" arrives with how
+ * much the listings it came from disagree.
+ */
+function Worth({ row }) {
+  const valuation = row.valuation;
+  const departed = valuation.basis === "left";
+  const band = departed ? valuation.departed : valuation.shelf;
+  return (
+    <>
+      <strong>{formatMoney(valuation.estimate)}</strong>
+      {band && (
+        <div className="collection-range">
+          {formatMoney(band.low)}–{formatMoney(band.high)}
+        </div>
+      )}
+      <div className="muted collection-sub">{basisOf(valuation, row.model)}</div>
+      {band && (
+        <Link className="collection-sub" to={comparablesSearch(row, departed)}>
+          See the {band.listings} listing{band.listings === 1 ? "" : "s"}
+        </Link>
+      )}
+    </>
+  );
 }
 
 function Totals({ totals }) {
@@ -253,12 +302,169 @@ function Editor({ row, onClose, onSaved }) {
   );
 }
 
+/** One list of comparables: the listings, cheapest or latest first. */
+function ComparableList({ rows, departed, limit }) {
+  if (!rows.length) {
+    return (
+      <p className="muted">
+        {departed ? "None have left the shelf yet." : "None are for sale right now."}
+      </p>
+    );
+  }
+  return (
+    <div className="table-wrap">
+      <table className="table comparables-table">
+        <thead>
+          <tr>
+            <th>Listing</th>
+            <th>Shop</th>
+            <th>Condition</th>
+            <th>{departed ? "Last asked" : "Asking"}</th>
+            {departed && <th>Left</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.item_id}>
+              <td>
+                <Link to={`/items/${row.item_id}`}>{row.title}</Link>
+              </td>
+              <td>{row.site_name || "—"}</td>
+              <td>{row.condition_grade_label || "—"}</td>
+              <td>{row.price != null ? formatMoney(row.price, row.currency) : "—"}</td>
+              {departed && (
+                <td>
+                  {row.left_at ? formatDate(row.left_at) : "—"}
+                  <div className="muted collection-sub">
+                    {row.marked_sold ? "marked sold" : "taken down"}
+                  </div>
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {rows.length >= limit && (
+        <p className="muted collection-sub">
+          Showing the first {limit}; the value is worked out from all of them.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The listings a gun's value was worked out from.
+ *
+ * Chosen by the server with the value's own rules -- the same model, and the
+ * same condition when the value was narrowed to it -- so what is listed here
+ * is what the number came from, not a second opinion. Both lists are shown,
+ * with the one that set the number said to have done so.
+ */
+function Comparables({ row, onClose }) {
+  const [found, setFound] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let live = true;
+    api
+      .collectionComparables(row.id)
+      .then((answer) => live && setFound(answer))
+      .catch((err) => live && setError(err.message));
+    return () => {
+      live = false;
+    };
+  }, [row.id]);
+
+  const basis = found?.valuation?.basis;
+  const band = (value) =>
+    value
+      ? `${value.listings} listings, typically ${formatMoney(value.median)} (${formatMoney(
+          value.low,
+        )}–${formatMoney(value.high)})`
+      : null;
+
+  return (
+    <Modal
+      title={`Comparables for ${row.title}`}
+      onClose={onClose}
+      wide
+      footer={
+        <button className="btn btn--secondary" onClick={onClose}>
+          Close
+        </button>
+      }
+    >
+      {error && <p className="alert alert--error">{error}</p>}
+      {!found && !error && <p className="muted">Loading…</p>}
+      {found && (
+        <div className="comparables" data-testid="comparables">
+          <p>
+            {found.model ? (
+              <>
+                Compared with <strong>{found.model}</strong> listings
+                {found.grade_label ? (
+                  <>
+                    {" "}
+                    in <strong>{found.grade_label.toLowerCase()}</strong> condition, like
+                    yours
+                  </>
+                ) : (
+                  " in any condition"
+                )}
+                .
+              </>
+            ) : (
+              "Not matched to a model, so there is nothing to compare it with."
+            )}
+            {found.valuation && (
+              <>
+                {" "}
+                Worth about <strong>{formatMoney(found.valuation.estimate)}</strong>.
+              </>
+            )}
+          </p>
+
+          <h3 className="comparables__heading">
+            Left the shelf
+            {basis === "left" && <span className="chip chip--info">sets the value</span>}
+          </h3>
+          {found.valuation?.departed && (
+            <p className="muted collection-sub">{band(found.valuation.departed)}</p>
+          )}
+          <ComparableList rows={found.departed} departed limit={found.limit} />
+          {found.departed.length > 0 && (
+            <Link className="collection-sub" to={comparablesSearch(row, true)}>
+              Open these in the inventory
+            </Link>
+          )}
+
+          <h3 className="comparables__heading">
+            On the shelf now
+            {basis === "shelf" && <span className="chip chip--info">sets the value</span>}
+          </h3>
+          {found.valuation?.shelf && (
+            <p className="muted collection-sub">{band(found.valuation.shelf)}</p>
+          )}
+          <ComparableList rows={found.shelf} limit={found.limit} />
+          {found.shelf.length > 0 && (
+            <Link className="collection-sub" to={comparablesSearch(row, false)}>
+              Open these in the inventory
+            </Link>
+          )}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
 export default function Collection() {
   useTitle("Collection");
   const [state, setState] = useState(null);
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(null);
   const [confirming, setConfirming] = useState(null);
+  const [comparing, setComparing] = useState(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -363,18 +569,24 @@ export default function Collection() {
                       <td>{row.paid != null ? formatMoney(row.paid) : "—"}</td>
                       <td>
                         {row.valuation ? (
-                          <>
-                            <strong>{formatMoney(row.valuation.estimate)}</strong>
-                            <div className="muted collection-sub">
-                              {basisOf(row.valuation, row.model)}
-                            </div>
-                          </>
+                          <Worth row={row} />
                         ) : (
                           <span className="muted">
                             {row.model
                               ? "Too few listings to say"
                               : "Not matched to a model"}
                           </span>
+                        )}
+                        {row.model && (
+                          <div>
+                            <button
+                              type="button"
+                              className="btn btn--ghost btn--sm comparables__open"
+                              onClick={() => setComparing(row)}
+                            >
+                              Show comparables
+                            </button>
+                          </div>
                         )}
                       </td>
                       <td>
@@ -406,6 +618,8 @@ export default function Collection() {
           }}
         />
       )}
+
+      {comparing && <Comparables row={comparing} onClose={() => setComparing(null)} />}
 
       {confirming && (
         <Modal

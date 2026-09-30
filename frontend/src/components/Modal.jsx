@@ -31,7 +31,18 @@ import { X } from "./Icons.jsx";
 let openDialogs = 0;
 let restoreOverflowTo = "";
 
-export default function Modal({ title, onClose, children, footer, labelledBy }) {
+/**
+ * `wide` is for a dialog whose content is a table -- the collection's
+ * comparables -- which the default form width would squeeze into scrolling.
+ */
+export default function Modal({
+  title,
+  onClose,
+  children,
+  footer,
+  labelledBy,
+  wide = false,
+}) {
   const panelRef = useRef(null);
 
   // Deliberately no dependencies. This runs once per mounted dialog, and must:
@@ -70,7 +81,7 @@ export default function Modal({ title, onClose, children, footer, labelledBy }) 
       }}
     >
       <div
-        className="modal"
+        className={wide ? "modal modal--wide" : "modal"}
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledBy || "modal-title"}

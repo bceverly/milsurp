@@ -1807,3 +1807,31 @@ class CollectionTotalsOut(BaseModel):
 class CollectionOut(BaseModel):
     items: list[CollectionItemOut]
     totals: CollectionTotalsOut
+
+
+class ComparableOut(UTCModel):
+    """One listing behind a collection row's value."""
+
+    item_id: int
+    title: str
+    site_name: str | None = None
+    price: float | None = None
+    currency: str = "USD"
+    condition_grade_label: str | None = None
+    #: When it left the shelf, and whether the shop marked it sold rather than
+    #: taking it down. Absent for a listing still for sale.
+    left_at: datetime | None = None
+    marked_sold: bool = False
+
+
+class ComparablesOut(BaseModel):
+    """The listings a collection row is valued against, chosen as the value was."""
+
+    model: str | None = None
+    #: The condition both lists were narrowed to, or None for the whole model.
+    grade_label: str | None = None
+    valuation: CollectionValuationOut | None = None
+    departed: list[ComparableOut] = Field(default_factory=list)
+    shelf: list[ComparableOut] = Field(default_factory=list)
+    #: The cap on each list; a longer list is summarized by its band.
+    limit: int = 50

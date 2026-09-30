@@ -322,3 +322,104 @@ class TestTheCollectionApi:
             f"/api/collection/{row['id']}", json={"model_declined": True}, headers=headers
         ).json()
         assert (declined["model_declined"], declined["firearm_model_id"]) == (True, None)
+
+
+class TestComparables:
+    """What the value was drawn from, chosen by the same rules as the value."""
+
+    def test_the_departures_and_the_shelf_behind_a_value(self, owner):
+        session, shops, k31, user = owner
+        for index in range(5):
+            _gun(session, shops[0], f"g{index}", 450 + index, model=k31, left_days_ago=1 + index)
+            _gun(session, shops[1], f"live{index}", 600 - index, model=k31)
+        _gun(session, shops[1], "bayonet", 40, model=k31, is_rifle=False, is_bayonet=True)
+        row = CollectionItem(user_id=user.id, title="My K31", firearm_model_id=k31.id)
+        session.add(row)
+        session.commit()
+
+        found = collection.comparables(session, row)
+        assert found.valuation.estimate == 452
+        assert [item.current_price for item in found.departed] == [450, 451, 452, 453, 454]
+        # Cheapest first on the shelf, and no bayonet among the guns.
+        assert [item.current_price for item in found.shelf] == [596, 597, 598, 599, 600]
+        assert found.grade is None
+
+    def test_narrowed_to_the_condition_when_the_value_was(self, owner):
+        session, shops, k31, user = owner
+        for index in range(5):
+            _gun(session, shops[1], f"vg{index}", 700, model=k31, condition_grade="very_good")
+            _gun(session, shops[1], f"f{index}", 350, model=k31, condition_grade="fair")
+        row = CollectionItem(
+            user_id=user.id, title="K31", firearm_model_id=k31.id, condition_grade="very_good"
+        )
+        session.add(row)
+        session.commit()
+        found = collection.comparables(session, row)
+        assert found.grade == "very_good"
+        assert {item.condition_grade for item in found.shelf} == {"very_good"}
+
+    def test_but_not_when_too_few_share_it(self, owner):
+        session, shops, k31, user = owner
+        for index in range(5):
+            _gun(session, shops[1], f"g{index}", 500, model=k31, condition_grade="good")
+        row = CollectionItem(
+            user_id=user.id, title="K31", firearm_model_id=k31.id, condition_grade="excellent"
+        )
+        session.add(row)
+        session.commit()
+        found = collection.comparables(session, row)
+        assert found.grade is None
+        assert len(found.shelf) == 5
+
+    def test_no_model_nothing_to_compare(self, owner):
+        session, _shops, _k31, user = owner
+        row = CollectionItem(user_id=user.id, title="Something")
+        session.add(row)
+        session.commit()
+        found = collection.comparables(session, row)
+        assert (found.valuation, found.departed, found.shelf) == (None, [], [])
+
+    def test_the_api_is_the_owners_only(self, client, normal_user, admin_headers):
+        row = client.post(
+            "/api/collection", json={"title": "Swiss K31"}, headers=normal_user["headers"]
+        ).json()
+        mine = client.get(
+            f"/api/collection/{row['id']}/comparables", headers=normal_user["headers"]
+        )
+        assert mine.status_code == 200, mine.text
+        assert set(mine.json()) >= {"departed", "shelf", "valuation", "limit"}
+        theirs = client.get(f"/api/collection/{row['id']}/comparables", headers=admin_headers)
+        assert theirs.status_code == 404
+
+
+class TestTheLinkToTheComparables:
+    """The collection links each value to a browse search. That search has to
+    return the listings the value was drawn from, or the link is a different
+    answer to the same question."""
+
+    def test_the_search_is_the_same_listings_on_the_shelf_and_off_it(self, owner):
+        from sqlalchemy import select
+
+        from app.services import search
+
+        session, shops, k31, user = owner
+        for index in range(5):
+            _gun(session, shops[0], f"g{index}", 450, model=k31, left_days_ago=1)
+            _gun(session, shops[1], f"live{index}", 600, model=k31)
+        _gun(session, shops[1], "kit", 90, model=k31, is_parts_kit=True)
+        _gun(session, shops[1], "unpriced", 0, model=k31)
+        ghost = _gun(session, shops[0], "ghost", 400, model=k31, left_days_ago=1)
+        ghost.first_seen_at = ghost.delisted_at
+        row = CollectionItem(user_id=user.id, title="K31", firearm_model_id=k31.id)
+        session.add(row)
+        session.commit()
+        found = collection.comparables(session, row)
+
+        def browse(query):
+            parsed = search.parse_query(query)
+            statement = search.apply_filters(select(Item.id), **parsed.filters)
+            return set(session.execute(statement).scalars())
+
+        base = f"model={k31.id}&guns_only=true"
+        assert browse(base) == {item.id for item in found.shelf}
+        assert browse(f"{base}&availability=left") == {item.id for item in found.departed}

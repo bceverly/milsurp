@@ -1690,6 +1690,9 @@
   overflow-y: auto;
   box-shadow: var(--shadow-lg);
 }
+.modal--wide {
+  max-width: 860px;
+}
 
 @media (min-width: 620px) {
   .modal {
@@ -3305,4 +3308,27 @@
 .item-row__delivered {
   font-weight: 400;
   text-align: right;
+}
+
+/* The listings behind a collection row's value. */
+.comparables__heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 18px 0 4px;
+  font-size: 15px;
+}
+.comparables__open {
+  margin-top: 4px;
+  padding-left: 0;
+}
+.comparables-table td {
+  font-size: 13px;
+}
+
+/* The middle half of the listings behind a collection row's value. */
+.collection-range {
+  font-size: 12.5px;
+  color: var(--ink-600, #445);
+  font-variant-numeric: tabular-nums;
 }

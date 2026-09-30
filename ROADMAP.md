@@ -4278,6 +4278,14 @@ worth over only the rows that have both.
 **I bought this** on a listing adds it with the title, model, price, shop and
 today filled in. **Download** is the spreadsheet an insurer asks for.
 
+**Show comparables** opens the listings behind a row's value: the ones that
+left the shelf (last asking price, when they went, marked sold or taken down)
+and the ones for sale now, cheapest first, each linking to its page, with
+whichever set the number marked. They are chosen by the value's own conditions
+(`market.DEPARTED` and `collection.ON_SHELF`, the same model, and the same
+condition when the value was narrowed to it), so the list is what the number
+was drawn from rather than a second opinion.
+
 ### The navigation, in the order it is used — **Shipped** 2026-09-30
 
 The rail had grown to fourteen entries in the order they were built: personal

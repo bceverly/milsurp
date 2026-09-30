@@ -22,6 +22,8 @@ from ..schemas import (
     CollectionOut,
     CollectionTotalsOut,
     CollectionValuationOut,
+    ComparableOut,
+    ComparablesOut,
 )
 from ..services import collection, traits
 from .market import band_out
@@ -29,18 +31,22 @@ from .market import band_out
 router = APIRouter(prefix="/collection", tags=["collection"])
 
 
+def _valuation_out(found: collection.Valuation) -> CollectionValuationOut:
+    return CollectionValuationOut(
+        estimate=found.estimate,
+        basis=found.basis,
+        like_for_like=found.like_for_like,
+        shelf=band_out(found.shelf) if found.shelf else None,
+        departed=band_out(found.departed) if found.departed else None,
+    )
+
+
 def _out(row: CollectionItem, found: collection.Valuation | None) -> CollectionItemOut:
     data = CollectionItemOut.model_validate(row)
     data.model = row.firearm_model.name if row.firearm_model else None
     data.condition_grade_label = traits.GRADE_LABELS.get(row.condition_grade or "")
     if found is not None:
-        data.valuation = CollectionValuationOut(
-            estimate=found.estimate,
-            basis=found.basis,
-            like_for_like=found.like_for_like,
-            shelf=band_out(found.shelf) if found.shelf else None,
-            departed=band_out(found.departed) if found.departed else None,
-        )
+        data.valuation = _valuation_out(found)
     return data
 
 
@@ -132,6 +138,41 @@ def bought_this(item_id: int, user: CurrentUser, session: DbSession) -> Collecti
     session.commit()
     session.refresh(row)
     return _out(row, collection.value(session, row))
+
+
+@router.get("/{row_id}/comparables", response_model=ComparablesOut)
+def show_comparables(row_id: int, user: CurrentUser, session: DbSession) -> ComparablesOut:
+    """The listings this gun's value was worked out from.
+
+    Chosen by the same rules as the value itself (see
+    ``collection.comparables``), so what the page lists is what the number
+    was drawn from -- narrowed to the same condition when the value was.
+    """
+    row = _owned(session, user, row_id)
+    found = collection.comparables(session, row)
+    site_names = dict(session.execute(select(Site.id, Site.name)).all())
+
+    def listed(item: Item) -> ComparableOut:
+        left = item.sold_at or item.delisted_at
+        return ComparableOut(
+            item_id=item.id,
+            title=item.title,
+            site_name=site_names.get(item.site_id),
+            price=item.current_price,
+            currency=item.currency,
+            condition_grade_label=traits.GRADE_LABELS.get(item.condition_grade or ""),
+            left_at=left if not item.is_active or item.is_sold else None,
+            marked_sold=item.sold_at is not None,
+        )
+
+    return ComparablesOut(
+        model=row.firearm_model.name if row.firearm_model else None,
+        grade_label=traits.GRADE_LABELS.get(found.grade or ""),
+        valuation=_valuation_out(found.valuation) if found.valuation else None,
+        departed=[listed(item) for item in found.departed],
+        shelf=[listed(item) for item in found.shelf],
+        limit=collection.MAX_COMPARABLES,
+    )
 
 
 @router.patch("/{row_id}", response_model=CollectionItemOut)
