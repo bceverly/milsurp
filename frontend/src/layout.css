@@ -3459,3 +3459,81 @@
 .model-picker__choice:focus-visible {
   background: var(--navy-50);
 }
+
+/* The collection's worth, week by week. */
+.worth-chart {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line, #dbe1ea);
+  border-radius: var(--radius);
+  color: var(--navy-600);
+}
+.worth-chart figcaption {
+  font-size: 13px;
+  color: var(--ink-600, #445);
+  margin-bottom: 6px;
+}
+.worth-chart svg {
+  display: block;
+  width: 100%;
+  height: 120px;
+}
+.worth-note {
+  margin: 0 0 16px;
+  font-size: 13px;
+}
+
+/* What fits the guns in the collection. */
+.fits__gun h3 {
+  font-size: 15px;
+  margin: 0;
+}
+.fits__gun .panel__head {
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.fits__group h4 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-600, #445);
+}
+.fits__group + .fits__group {
+  margin-top: 14px;
+}
+.fits__group ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13.5px;
+}
+.fits__group li {
+  margin: 3px 0;
+}
+
+/* A shop's arrivals by weekday, as seven small bars. */
+.weekdays {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 18px;
+  vertical-align: middle;
+}
+.weekdays__bar {
+  width: 5px;
+  background: var(--navy-600);
+  border-radius: 1px;
+  opacity: 0.75;
+}
+
+/* How the shop cuts prices, under a listing's price. */
+.will-it-drop {
+  margin: -6px 0 14px;
+  font-size: 13px;
+  color: var(--ink-600, #445);
+}
+.will-it-drop svg {
+  vertical-align: -2px;
+  color: var(--green-600, #2a7a3b);
+}

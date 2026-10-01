@@ -22,15 +22,20 @@ from __future__ import annotations
 import logging
 import threading
 from concurrent.futures import Future, ThreadPoolExecutor
+from datetime import datetime
+
+from sqlalchemy import select
 
 from .config import Config, get_config
 from .database import session_scope
-from .models import EmailStatus, User, utcnow
+from .models import EmailPreference, EmailStatus, User, utcnow
 from .services import (
     backup,
+    collection,
     digest,
     hotdeals,
     inbox,
+    marketreport,
     pushnotify,
     scan_service,
     wantlist,
@@ -57,6 +62,9 @@ class Scheduler:
         self._photo_pool: ThreadPoolExecutor | None = None
         self._photo_future: Future | None = None
         self._seconds_since_photo_check = 0.0
+        #: When a market report was last attempted per reader, so a failed
+        #: delivery is retried hourly rather than on every tick.
+        self._market_report_tried: dict[int, datetime] = {}
 
     # -- lifecycle ----------------------------------------------------------
     @property
@@ -151,6 +159,11 @@ class Scheduler:
         # found by a scan or the poll, and the point of the alert is not
         # waiting for the digest.
         self._dispatch_want_alerts()
+        # A week after the last one, each reader's collection is valued and
+        # kept, so its worth can be charted. Cheap when nothing is due: one
+        # grouped query.
+        self._dispatch_collection_snapshot()
+        self._dispatch_market_report()
         self._dispatch_backup()
         self._dispatch_hot_deals()
         self._dispatch_inbox()
@@ -536,6 +549,68 @@ class Scheduler:
                     )
             except Exception:
                 log.exception("Want-list alert for user %s raised", user_id)
+
+    def _dispatch_collection_snapshot(self) -> None:
+        """Record collections' worth where a week has passed. See services/collection."""
+        try:
+            with session_scope() as session:
+                recorded = collection.snapshot_due(session)
+                session.commit()
+        except Exception:
+            log.exception("Collection snapshot failed")
+            return
+        if recorded:
+            log.info("Recorded the worth of %s collection row(s).", recorded)
+
+    def _dispatch_market_report(self) -> None:
+        """On the first of the month, mail the market report to whoever asked.
+
+        Marked as sent whatever came of it except a failed delivery: a month
+        with too little history to report is that month's answer, and asking
+        again every tick would only ask the same question. A failure is tried
+        again an hour later rather than every tick.
+        """
+        now = utcnow()
+        if not marketreport.due(now):
+            return
+        try:
+            with session_scope() as session:
+                rows = (
+                    session.execute(
+                        select(EmailPreference).where(EmailPreference.market_report.is_(True))
+                    )
+                    .scalars()
+                    .all()
+                )
+                month = (now.year, now.month)
+                waiting = [
+                    row.user_id
+                    for row in rows
+                    if row.market_report_sent_at is None
+                    or (row.market_report_sent_at.year, row.market_report_sent_at.month) != month
+                ]
+        except Exception:
+            log.exception("Could not determine who is due a market report")
+            return
+        for user_id in waiting:
+            if self._stop.is_set():
+                return
+            tried = self._market_report_tried.get(user_id)
+            if tried is not None and (now - tried).total_seconds() < 3600:
+                continue
+            self._market_report_tried[user_id] = now
+            try:
+                with session_scope() as session:
+                    user = session.get(User, user_id)
+                    if user is None or not user.is_active or user.email_preference is None:
+                        continue
+                    entry = marketreport.send(session, user, self.config, now)
+                    if entry.status is not EmailStatus.FAILED:
+                        user.email_preference.market_report_sent_at = now
+                    session.commit()
+                    log.info("Market report for %s: %s", user.username, entry.status.value)
+            except Exception:
+                log.exception("Market report for user %s raised", user_id)
 
     # -- introspection ------------------------------------------------------
     def status(self) -> dict[str, object]:

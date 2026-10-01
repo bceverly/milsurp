@@ -22,6 +22,7 @@ import {
   Sparkle,
   TrendDown,
   Sites as SitesIcon,
+  Store as StoreIcon,
   Star,
   Tag as TagIcon,
   Database as DatabaseIcon,
@@ -57,6 +58,9 @@ const NAV = [
       // Last in the group: a reference, what things are worth in general,
       // rather than news.
       { to: "/market", label: "Market", icon: Sparkle },
+      // After the Market, and for the same kind of question one level down:
+      // not what a gun costs, but how each dealer prices, stocks and sells.
+      { to: "/shops", label: "Shops", icon: StoreIcon },
     ],
   },
   {

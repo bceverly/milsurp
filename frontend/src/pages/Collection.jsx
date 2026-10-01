@@ -12,7 +12,7 @@
  * the market cannot price says so rather than showing a number.
  */
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api.js";
 import { useDebounced, useTitle } from "../hooks.js";
 import { formatDate, formatMoney } from "../format.js";
@@ -547,6 +547,169 @@ function Comparables({ row, onClose }) {
   );
 }
 
+/**
+ * The collection's worth at each weekly snapshot, as a line.
+ *
+ * Drawn by hand in SVG rather than with a charting library: one line, two
+ * labels, and a bundle that does not grow for it. One point is not a line, so
+ * a first snapshot is said in words until the second arrives.
+ */
+function WorthChart({ history }) {
+  if (!history?.length) return null;
+  if (history.length === 1) {
+    const [only] = history;
+    return (
+      <p className="muted worth-note" data-testid="worth-chart">
+        Worth about {formatMoney(only.value)} on {formatDate(only.day)}. A line appears
+        here once a second weekly snapshot is recorded.
+      </p>
+    );
+  }
+  const width = 600;
+  const height = 120;
+  const pad = 8;
+  const values = history.map((point) => point.value);
+  const low = Math.min(...values);
+  const high = Math.max(...values);
+  const span = high - low || 1;
+  const x = (index) => pad + (index * (width - pad * 2)) / (history.length - 1);
+  const y = (value) => height - pad - ((value - low) / span) * (height - pad * 2);
+  const points = history.map((point, index) => `${x(index)},${y(point.value)}`).join(" ");
+  const first = history[0];
+  const last = history[history.length - 1];
+  return (
+    <figure className="worth-chart" data-testid="worth-chart">
+      <figcaption>
+        Worth, week by week: {formatMoney(first.value)} on {formatDate(first.day)} to{" "}
+        <strong>{formatMoney(last.value)}</strong> on {formatDate(last.day)}
+      </figcaption>
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="none"
+        role="img"
+        aria-label={`Collection worth from ${formatMoney(first.value)} to ${formatMoney(last.value)}`}
+      >
+        <polyline points={points} fill="none" stroke="currentColor" strokeWidth="2.5" />
+        {history.map((point, index) => (
+          <circle
+            key={point.day}
+            cx={x(index)}
+            cy={y(point.value)}
+            r="3.5"
+            fill="currentColor"
+          >
+            <title>
+              {formatDate(point.day)}: {formatMoney(point.value)} ({point.guns} valued)
+            </title>
+          </circle>
+        ))}
+      </svg>
+    </figure>
+  );
+}
+
+/** One gun's matches of one kind, as a short list of links. */
+function FitList({ title, items, total }) {
+  if (!items.length) return null;
+  return (
+    <div className="fits__group">
+      <h4>
+        {title} <span className="muted">({total})</span>
+      </h4>
+      <ul>
+        {items.map((item) => (
+          <li key={item.id}>
+            <Link to={`/items/${item.id}`}>{item.title}</Link>{" "}
+            <span className="muted">
+              {item.current_price != null ? formatMoney(item.current_price) : "No price"}{" "}
+              · {item.site_name}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {total > items.length && (
+        <p className="muted collection-sub">
+          Showing {items.length} of {total}, newest first.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * What is for sale that fits the guns in the collection.
+ *
+ * Ammunition and clips by caliber, and accessories and parts that name the
+ * gun's model -- matched with the armory's own spellings and precedence, so
+ * a Mosin bayonet is not offered to the owner of a Carcano. See
+ * services/foryourguns.py.
+ */
+function ForYourGuns() {
+  const [fits, setFits] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let live = true;
+    api
+      .forYourGuns()
+      .then((rows) => live && setFits(rows))
+      .catch((err) => live && setError(err.message));
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  if (error) return <p className="alert alert--error">{error}</p>;
+  if (!fits) return <p className="muted">Loading…</p>;
+  if (!fits.length) {
+    return <p className="muted">Add a gun and what fits it shows up here.</p>;
+  }
+  const found = fits.filter((fit) => fit.ammo.length || fit.accessories.length);
+  const quiet = fits.filter((fit) => !fit.ammo.length && !fit.accessories.length);
+  return (
+    <div className="fits" data-testid="for-your-guns">
+      <p className="muted" style={{ marginTop: 0 }}>
+        Ammunition and clips in your guns&rsquo; calibers, and parts and accessories that
+        name their models, for sale now. New ones are in your digest too.
+      </p>
+      {found.map((fit) => (
+        <div className="panel fits__gun" key={fit.row_id}>
+          <div className="panel__head">
+            <h3>{fit.title}</h3>
+            <span className="muted collection-sub">
+              {[fit.model, ...fit.calibers].filter(Boolean).join(" · ")}
+            </span>
+          </div>
+          <div className="panel__body">
+            <FitList
+              title="Ammunition and clips"
+              items={fit.ammo}
+              total={fit.ammo_total}
+            />
+            <FitList
+              title="Parts and accessories"
+              items={fit.accessories}
+              total={fit.accessories_total}
+            />
+          </div>
+        </div>
+      ))}
+      {quiet.length > 0 && (
+        <p className="muted">
+          Nothing for sale right now for {quiet.map((fit) => fit.title).join(", ")}.
+          {quiet.some((fit) => !fit.model) &&
+            " A gun with no model only matches ammunition, by its caliber."}
+        </p>
+      )}
+    </div>
+  );
+}
+
+const VIEWS = [
+  { key: "guns", label: "Your guns", hash: "" },
+  { key: "fits", label: "For your guns", hash: "#for-your-guns" },
+];
+
 export default function Collection() {
   useTitle("Collection");
   const [state, setState] = useState(null);
@@ -554,6 +717,11 @@ export default function Collection() {
   const [editing, setEditing] = useState(null);
   const [confirming, setConfirming] = useState(null);
   const [comparing, setComparing] = useState(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+  //: The fragment is the only copy of the view, as on the armory, so the
+  //: digest's "See all" lands on the right one and Back walks between them.
+  const view = location.hash === "#for-your-guns" ? "fits" : "guns";
 
   const load = useCallback(async () => {
     setError(null);
@@ -604,6 +772,25 @@ export default function Collection() {
       )}
       {!state && !error && <p className="muted">Loading…</p>}
 
+      {state && state.items.length > 0 && (
+        <div className="armory-tabs" role="tablist" aria-label="Collection view">
+          {VIEWS.map((entry) => (
+            <button
+              key={entry.key}
+              type="button"
+              role="tab"
+              aria-selected={view === entry.key}
+              className={`btn ${view === entry.key ? "btn--primary" : "btn--ghost"} btn--sm`}
+              onClick={() => navigate(`/collection${entry.hash}`)}
+            >
+              {entry.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {state && state.items.length > 0 && view === "fits" && <ForYourGuns />}
+
       {state && state.items.length === 0 && (
         <div className="empty">
           <Box size={28} />
@@ -615,9 +802,10 @@ export default function Collection() {
         </div>
       )}
 
-      {state && state.items.length > 0 && (
+      {state && state.items.length > 0 && view === "guns" && (
         <>
           <Totals totals={state.totals} />
+          <WorthChart history={state.history} />
           <div className="panel">
             <div className="table-wrap">
               <table className="table" data-testid="collection-table">

@@ -229,6 +229,16 @@ changed — filtered to the sites you care about and capped so it stays readable
   cannot be valued rather than borrowing a caliber's median. **I bought this**
   on a listing adds it filled in; **Download** gives the spreadsheet an insurer
   asks for. There is deliberately no serial-number field.
+  **For your guns** lists ammunition, clips, parts and accessories for sale that
+  fit what you own, and the digest carries the new ones. The collection's
+  **worth is charted week by week**.
+- **Shops.** How each dealer behaves, at `/shops`: guns for sale, which day new
+  stock lands, price against the *other* shops' listings of the same models,
+  how fast stock sells, and whether it cuts prices. A listing at a shop with a
+  habit of cutting says so: "**usually by about 10% around day 18; this one is
+  on day 12**".
+- **Monthly market report.** Opt-in on the Email digest page: which models got
+  cheaper, dearer or scarcer, and which sold fastest, over the last month.
 - **Hot deals.** The Market's answer applied to the shelves, at `/hot-deals`:
   the listings priced well below what the same gun usually sells for, split
   into Rifles, Handguns and Police surplus. A pass over the whole catalog runs
@@ -438,6 +448,25 @@ The nginx config ships with TLS 1.2/1.3 only, HSTS, a strict CSP, OCSP stapling
 and rate limits on the sign-in and access-request endpoints. Upgrades re-run
 `scripts/install-production.sh`, which is safe to run repeatedly; migrations are
 applied by `scripts/dbupdate.py`.
+
+**Behind a proxy on a VM** (how the production instance runs: HAProxy on the
+host terminates TLS and forwards to nginx on port 80 of a KVM guest), use
+`deploy/nginx/milsurp-behind-proxy.conf` and close everything else at the
+guest's firewall:
+
+```bash
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow 22/tcp                                          # ssh, keys only
+sudo ufw allow from 192.168.122.0/24 to any port 80 proto tcp  # the host's HAProxy
+sudo ufw enable
+```
+
+`192.168.122.0/24` is libvirt's default network; use whatever subnet the host
+reaches the guest on. The chromium snap the browser-backed scrapers use pulls in
+the `cups` snap, whose print server listens on every interface. Nothing here
+prints, so switch it off: `sudo snap stop --disable cups`. Disabled rather than
+removed, because snapd reinstalls it the next time chromium refreshes.
 
 ### Database migrations
 

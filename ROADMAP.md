@@ -4302,6 +4302,48 @@ maker, country, finest to coarsest as the inventory's filters do; and
 Classification's tabs follow the order the classifier asks its questions, part
 or gun first, which is now where the page opens.
 
+### For your guns, worth over time, shops, "will it drop?", the market report — **Shipped** 2026-10-01
+
+Five readings of data the catalog already held, each checked against
+production before it was written down, and each with the rule that keeps it
+honest.
+
+- **For your guns** (`services/foryourguns.py`, a tab on the Collection page
+  and a section in the digest). Ammunition and clips in the owned guns'
+  calibers, and parts and accessories that name their models. The model match
+  uses the armory's own spellings and then its full precedence, so a Mosin
+  bayonet is not offered to the owner of a Carcano because "M91" is in both. A
+  magazine saying "30 round" is an accessory, not ammunition. The owner's
+  caliber is read the way a listing's is: "6.5mm Carcano" through the
+  normalizer came out as the bare "6.5mm" and matched nothing, and through the
+  listing reader it is 6.5x52mm Carcano, the six Mannlicher clips for sale.
+- **Worth over time** (`collection_valuations`, migration 0052). Each reader's
+  whole collection is valued on the same day once a week, so the totals line up
+  by date, and a gun added on a snapshot day joins that day's snapshot. It is
+  charted above the collection, and one point is said in words, not drawn.
+- **Shops** (`services/scorecards.py`, a new page under Catalog). For each
+  shop: guns for sale, new this week, which weekday stock lands, price against
+  the market, how fast stock sells, and its price-cut habit, all measured since
+  its first scan. **Price against the market is against the other shops**: the
+  first version included a shop's own listings in the medians, and Simpson
+  (half the catalog) came out at exactly 1.0. Against everyone else's listings
+  of the same models it is 22% below; Legacy is 30% above.
+- **Will it drop?** A shop's habit, on each of its listings: how many it has
+  cut, typically by how much and around which day, beside how long this one has
+  been up. Stated only for a shop with ten cuts or more. On production that is
+  four: Simpson (about 10% around day 18), Legacy (9%, day 8), Joe Salter and
+  IMA.
+- **The monthly market report** (`services/marketreport.py`, opt-in on the
+  Email digest page, migration 0053). What got cheaper, dearer and scarcer, and
+  what sold fastest. The shelf of a month ago is rebuilt from price history,
+  over the window the data covers (eighteen days on 1 October 2026, since
+  history began on 5 September). Two guards came from production's own numbers.
+  A listing marked sold with no date of sale is left out of "then": Centerfire
+  keeps sold guns up, and 137 of its K98ks otherwise read as for sale then and
+  gone now, doubling the model's median. And a model whose count more than
+  halved or doubled is not reported as cheaper or dearer, because its median
+  moved with the mix of guns, not with prices.
+
 ### Everything on screen: dialogs, tables and phones — **Fixed** 2026-10-01
 
 An audit of every page and dialog at 1024, 1280 and 1440 wide, and on a phone,

@@ -12,8 +12,16 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query, status
 
 from ..deps import CurrentUser, DbSession
-from ..schemas import DeparturesOut, MarketBandOut, MarketOut, TurnoverOut, TurnoverRowOut
-from ..services import market
+from ..schemas import (
+    DeparturesOut,
+    HabitOut,
+    MarketBandOut,
+    MarketOut,
+    ScorecardOut,
+    TurnoverOut,
+    TurnoverRowOut,
+)
+from ..services import market, scorecards
 
 router = APIRouter(prefix="/market", tags=["market"])
 
@@ -131,3 +139,26 @@ def time_to_sell(
             for row in result.rows
         ],
     )
+
+
+@router.get("/shops", response_model=list[ScorecardOut])
+def shop_scorecards(_user: CurrentUser, session: DbSession) -> list[ScorecardOut]:
+    """How each shop behaves, the busiest first. See services/scorecards.py."""
+    return [
+        ScorecardOut(
+            site_id=card.site_id,
+            name=card.name,
+            slug=card.slug,
+            guns_for_sale=card.guns_for_sale,
+            new_this_week=card.new_this_week,
+            arrivals_by_weekday=card.arrivals_by_weekday,
+            busiest_day=card.busiest_day,
+            price_vs_market=card.price_vs_market,
+            compared=card.compared,
+            sell_days=card.sell_days,
+            sold_measured=card.sold_measured,
+            left_last_30_days=card.left_last_30_days,
+            habit=HabitOut(**vars(card.habit)) if card.habit else None,
+        )
+        for card in scorecards.scorecards(session)
+    ]

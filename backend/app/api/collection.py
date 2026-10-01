@@ -16,6 +16,7 @@ from sqlalchemy import case, func, or_, select
 from ..deps import CurrentUser, DbSession
 from ..models import ArmoryStatus, CollectionItem, FirearmModel, Item, Site, User
 from ..schemas import (
+    CollectionHistoryPoint,
     CollectionItemIn,
     CollectionItemOut,
     CollectionItemUpdate,
@@ -24,9 +25,10 @@ from ..schemas import (
     CollectionValuationOut,
     ComparableOut,
     ComparablesOut,
+    FitsOut,
     ModelChoiceOut,
 )
-from ..services import collection, traits
+from ..services import collection, foryourguns, traits
 from .market import band_out
 
 router = APIRouter(prefix="/collection", tags=["collection"])
@@ -133,7 +135,33 @@ def list_collection(user: CurrentUser, session: DbSession) -> CollectionOut:
     return CollectionOut(
         items=[_out(row, found) for row, found in valued],
         totals=CollectionTotalsOut(**vars(totals)),
+        history=[
+            CollectionHistoryPoint(day=day, value=value, guns=guns)
+            for day, value, guns in collection.history(session, user.id)
+        ],
     )
+
+
+@router.get("/for-your-guns", response_model=list[FitsOut])
+def for_your_guns(user: CurrentUser, session: DbSession) -> list[FitsOut]:
+    """What is for sale that fits each of this reader's guns. See foryourguns."""
+    from .items import _to_out
+
+    fits = foryourguns.for_user(session, user)
+    site_names = dict(session.execute(select(Site.id, Site.name)).all())
+    return [
+        FitsOut(
+            row_id=fit.row.id,
+            title=fit.row.title,
+            model=fit.row.firearm_model.name if fit.row.firearm_model else None,
+            calibers=fit.calibers,
+            ammo=[_to_out(item, site_names) for item in fit.ammo],
+            ammo_total=fit.ammo_total,
+            accessories=[_to_out(item, site_names) for item in fit.accessories],
+            accessories_total=fit.accessories_total,
+        )
+        for fit in fits
+    ]
 
 
 @router.post("", response_model=CollectionItemOut, status_code=status.HTTP_201_CREATED)

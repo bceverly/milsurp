@@ -32,6 +32,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass
+from datetime import UTC, date, datetime
 from typing import Any
 
 from sqlalchemy import func, select
@@ -215,3 +216,88 @@ def comparables(session: Session, row: CollectionItem) -> Comparables:
         departed=listed(*market.DEPARTED, order=(left_at.desc(), Item.id.desc())),
         shelf=listed(*ON_SHELF, order=(Item.current_price.asc(), Item.id.asc())),
     )
+
+
+# ---------------------------------------------------------------------------
+# Worth over time
+# ---------------------------------------------------------------------------
+#: Days between snapshots. Weekly: a surplus market moves on that scale, and a
+#: daily line would mostly chart the shelf churning, not the guns' worth.
+SNAPSHOT_DAYS = 7
+
+
+def snapshot_due(session: Session, today: date | None = None) -> int:
+    """Record every collection's worth where the last snapshot is a week old.
+
+    Per reader, all of their rows on the same day, so the totals line up by
+    date. A reader whose newest snapshot is under SNAPSHOT_DAYS old is skipped
+    whole -- a gun added mid-week joins the next snapshot rather than starting
+    a day of its own, unless the snapshot is today's. Returns how many rows
+    were recorded.
+    """
+    from ..models import CollectionValuation
+
+    today = today or datetime.now(UTC).date()
+    latest = dict(
+        session.execute(
+            select(CollectionValuation.user_id, func.max(CollectionValuation.recorded_on)).group_by(
+                CollectionValuation.user_id
+            )
+        ).all()
+    )
+    owners = session.execute(select(CollectionItem.user_id).distinct()).scalars().all()
+    recorded = 0
+    for user_id in owners:
+        last = latest.get(user_id)
+        # Due a week after the last one -- or today again, for a gun added on a
+        # snapshot day, so somebody entering their collection one gun at a
+        # time does not get a first point that holds only the first gun.
+        if last is not None and last != today and (today - last).days < SNAPSHOT_DAYS:
+            continue
+        already = set(
+            session.execute(
+                select(CollectionValuation.collection_item_id).where(
+                    CollectionValuation.user_id == user_id,
+                    CollectionValuation.recorded_on == today,
+                )
+            ).scalars()
+        )
+        rows = session.execute(
+            select(CollectionItem).where(
+                CollectionItem.user_id == user_id, CollectionItem.id.not_in(already or {0})
+            )
+        ).scalars()
+        for row in rows:
+            found = value(session, row)
+            if found is None:
+                continue
+            session.add(
+                CollectionValuation(
+                    collection_item_id=row.id,
+                    user_id=user_id,
+                    recorded_on=today,
+                    estimate=found.estimate,
+                    basis=found.basis,
+                )
+            )
+            recorded += 1
+    return recorded
+
+
+def history(session: Session, user_id: int) -> list[tuple[date, float, int]]:
+    """(day, total worth, guns valued) per snapshot, oldest first."""
+    from ..models import CollectionValuation
+
+    return [
+        (day, round(float(total), 2), int(count))
+        for day, total, count in session.execute(
+            select(
+                CollectionValuation.recorded_on,
+                func.sum(CollectionValuation.estimate),
+                func.count(CollectionValuation.id),
+            )
+            .where(CollectionValuation.user_id == user_id)
+            .group_by(CollectionValuation.recorded_on)
+            .order_by(CollectionValuation.recorded_on)
+        ).all()
+    ]

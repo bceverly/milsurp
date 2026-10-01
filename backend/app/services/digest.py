@@ -40,7 +40,7 @@ from ..models import (
     as_utc,
     utcnow,
 )
-from . import hotdeals, inbox, mailer, offers, search, watchlist
+from . import foryourguns, hotdeals, inbox, mailer, offers, search, watchlist
 from .image_store import ImageStore, ImageStoreError
 
 log = logging.getLogger("milsurp.digest")
@@ -603,6 +603,38 @@ def _saved_sections(
       </td></tr>{''.join(blocks)}"""
 
 
+def _fits_section(fits: list, sites: dict[int, Site], base_url: str) -> str:
+    """New listings that fit the reader's own guns. See services/foryourguns.py.
+
+    One block per gun that has something, ammunition first: a reader is
+    likelier to buy the cartridges than the bayonet.
+    """
+    blocks = []
+    for fit in fits:
+        items = [*fit.ammo, *fit.accessories]
+        if not items:
+            continue
+        rows = "".join(_saved_row(item, base_url, _site_name(sites, item), None) for item in items)
+        blocks.append(f"""
+        <tr><td style="padding:18px 24px 0;">
+          <div style="font-size:12px;font-weight:700;letter-spacing:.10em;
+               text-transform:uppercase;color:{BLUE};">For your {_e(fit.row.title)}</div>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                 style="border-collapse:collapse;">{rows}</table>
+        </td></tr>""")
+    if not blocks:
+        return ""
+    return f"""
+      <tr><td style="padding:26px 24px 0;">
+        <h2 style="margin:0;font-size:17px;color:{INK};font-weight:700;
+            border-left:4px solid {BLUE};padding-left:10px;">New for your guns</h2>
+        <div style="color:{MUTED};font-size:12px;margin-top:4px;">
+          Ammunition in their calibers, and parts and accessories that name them.
+          <a href="{_e(base_url)}/collection#for-your-guns" style="color:{BLUE};">See all</a>
+        </div>
+      </td></tr>{''.join(blocks)}"""
+
+
 def _section(
     heading: str,
     grouped: dict[int, list[Item]],
@@ -645,6 +677,7 @@ def render_digest(
     watched: list | None = None,
     *,
     offers_html: str = "",
+    extra_sections: str = "",
 ) -> tuple[str, str, dict[str, bytes]]:
     """Return ``(subject, html_body, inline_images)``.
 
@@ -764,9 +797,10 @@ def render_digest(
   {_section('New listings', new_items, sites, zone, False, photo_cids)}
   {_section('Price reductions', price_drops, sites, zone, True, photo_cids)}
   {_saved_sections(saved, sites, base_url, photo_cids)}
+  {extra_sections}
   {offers_html}
 
-  {'' if (new_count or drop_count or watched) else f'''
+  {'' if (new_count or drop_count or watched or extra_sections) else f'''
   <tr><td style="padding:24px;color:{MUTED};font-size:14px;">
     No new listings or price reductions this time.
   </td></tr>'''}
@@ -836,6 +870,10 @@ def build_digest(
     # not: starring a listing is a statement about *that listing*, and a filter
     # chosen for the browse sections has no business overruling it.
     watched = watchlist.updates(session, user, since)
+    # What arrived that fits the reader's own guns. Also not scoped by the site
+    # selection: the guns are theirs, whichever shop has the cartridges.
+    fits = foryourguns.for_user(session, user, since=since)
+    fitting = [item for fit in fits for item in (*fit.ammo, *fit.accessories)]
 
     # Every site a row in this email mentions, not only the selected ones: a
     # saved search can match a vendor the digest's site filter leaves out, and
@@ -844,15 +882,26 @@ def build_digest(
         set(site_ids)
         | {item.site_id for _row, items, _total in saved for item in items}
         | {update.item.site_id for update in watched}
+        | {item.site_id for item in fitting}
     )
     sites = {
         site.id: site
         for site in session.execute(select(Site).where(Site.id.in_(wanted))).scalars().all()
     }
     subject, body, images = render_digest(
-        user, new_items, price_drops, sites, since, config, saved, watched
+        user,
+        new_items,
+        price_drops,
+        sites,
+        since,
+        config,
+        saved,
+        watched,
+        extra_sections=_fits_section(fits, sites, config.server.public_url),
     )
-    new_count = sum(len(v) for v in new_items.values())
+    # Listings that fit the reader's guns are new listings too, and a digest
+    # carrying only those is not empty.
+    new_count = sum(len(v) for v in new_items.values()) + len(fitting)
     drop_count = sum(len(v) for v in price_drops.values())
     return subject, body, images, new_count, drop_count, cutoff
 

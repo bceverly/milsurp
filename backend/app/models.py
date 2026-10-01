@@ -1146,6 +1146,34 @@ class CollectionItem(Base, TimestampMixin):
     firearm_model: Mapped["FirearmModel | None"] = relationship()
 
 
+class CollectionValuation(Base):
+    """What one owned gun was worth on one day, so worth can be charted.
+
+    Recorded for every row of a reader's collection on the same day, once a
+    week (see app.services.collection.snapshot_due), so the totals line up by
+    date: a chart of the sum is a chart of the collection, not of whichever
+    rows happened to be valued that day. A row the market cannot price is
+    simply absent from that day's snapshot.
+    """
+
+    __tablename__ = "collection_valuations"
+    __table_args__ = (
+        UniqueConstraint("collection_item_id", "recorded_on", name="uq_collection_valuation_day"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    collection_item_id: Mapped[int] = mapped_column(
+        ForeignKey("collection_items.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    recorded_on: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    estimate: Mapped[float] = mapped_column(Float, nullable=False)
+    #: "left" or "shelf", as the valuation said that day.
+    basis: Mapped[str] = mapped_column(String(8), nullable=False)
+
+
 class SavedSearchAlert(Base):
     """One listing a want-list alert has told somebody about.
 
@@ -1604,6 +1632,11 @@ class EmailPreference(Base, TimestampMixin):
     next_send_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
     # Watermark: items first seen after this point are "new" in the next digest.
     last_digest_cutoff: Mapped[datetime | None] = mapped_column(DateTime)
+    #: The monthly market report: what got cheaper, scarcer and sold fastest.
+    #: Opt-in, and independent of the digest -- see services/marketreport.py.
+    market_report: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    #: When this reader was last sent one, so a month gets one.
+    market_report_sent_at: Mapped[datetime | None] = mapped_column(DateTime)
 
     user: Mapped["User"] = relationship(back_populates="email_preference")
     sites: Mapped[list["EmailPreferenceSite"]] = relationship(

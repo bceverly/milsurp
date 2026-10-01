@@ -432,6 +432,12 @@ export default function SettingsPage() {
         </div>
       </form>
 
+      <MarketReportPanel
+        enabled={Boolean(prefs.market_report)}
+        sentAt={prefs.market_report_sent_at}
+        onChange={(saved) => setPrefs(saved)}
+      />
+
       <div className="panel">
         <div className="panel__head">
           <h2>Recent digests</h2>
@@ -505,6 +511,83 @@ export default function SettingsPage() {
  * to show. What somebody checking a delivery actually wants to read is the
  * words and the prices, which is exactly what the text part is.
  */
+/**
+ * The monthly market report: an opt-in of its own, apart from the digest.
+ *
+ * Saved the moment it is switched, rather than with the digest form above,
+ * because it is not part of that email -- a different message on a different
+ * clock. "Send one now" shows what it says before anybody commits to it.
+ */
+function MarketReportPanel({ enabled, sentAt, onChange }) {
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState(null);
+  //: Moves the moment it is clicked and is put back if the save fails, as the
+  //: saved searches' switches do: a box that waits on a round trip to move
+  //: reads as broken.
+  const [on, setOn] = useState(enabled);
+  useEffect(() => setOn(enabled), [enabled]);
+
+  async function toggle(event) {
+    const wanted = event.target.checked;
+    setOn(wanted);
+    setMessage(null);
+    try {
+      onChange(await api.savePreferences({ market_report: wanted }));
+    } catch (err) {
+      setOn(!wanted);
+      setMessage({ ok: false, text: err.message });
+    }
+  }
+
+  async function sendNow() {
+    setBusy(true);
+    setMessage(null);
+    try {
+      setMessage({ ok: true, text: (await api.sendMarketReport()).message });
+    } catch (err) {
+      setMessage({ ok: false, text: err.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="panel" data-testid="market-report">
+      <div className="panel__head">
+        <h2>Monthly market report</h2>
+      </div>
+      <div className="panel__body">
+        <p className="muted" style={{ marginTop: 0 }}>
+          On the first of each month: which models got cheaper or dearer, which got
+          scarcer, and which sold fastest, across every shop. Separate from the digest.
+        </p>
+        <label className="checkbox">
+          <input type="checkbox" checked={on} onChange={toggle} />
+          <span>Send me the monthly market report</span>
+        </label>
+        {sentAt && <p className="field__hint">Last sent {formatDateTime(sentAt)}.</p>}
+        <button
+          type="button"
+          className="btn btn--secondary btn--sm"
+          onClick={sendNow}
+          disabled={busy}
+          style={{ marginTop: 10 }}
+        >
+          <Mail size={15} /> Send a report now
+        </button>
+        {message && (
+          <p
+            className={message.ok ? "alert alert--success" : "alert alert--error"}
+            role="status"
+          >
+            {message.text}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function MessageModal({ entry, onClose }) {
   const [body, setBody] = useState(null);
   const [error, setError] = useState(null);

@@ -1076,6 +1076,9 @@ class ItemDetail(ItemOut):
     departures: "MarketBandOut | None" = None
     #: Which of the two it was drawn from: "model" or "caliber".
     departures_by: str | None = None
+    #: How this shop cuts prices, when it has done so often enough to say --
+    #: "will it drop?". See services/scorecards.py.
+    markdown_habit: "ListingHabitOut | None" = None
     #: What the shop's emails offer right now (see services/offers.py).
     offers: list["OfferOut"] = Field(default_factory=list)
     photos: list[PhotoOut] = Field(default_factory=list)
@@ -1304,6 +1307,9 @@ class EmailPreferenceOut(UTCModel):
     site_ids: list[int] = Field(default_factory=list)
     last_sent_at: datetime | None = None
     next_send_at: datetime | None = None
+    #: The monthly market report, and when it last went.
+    market_report: bool = False
+    market_report_sent_at: datetime | None = None
 
 
 class EmailPreferenceUpdate(BaseModel):
@@ -1319,6 +1325,7 @@ class EmailPreferenceUpdate(BaseModel):
     display_timezone: str | None = Field(default=None, max_length=64)
     # None leaves the selection alone; an empty list means "every site".
     site_ids: list[int] | None = None
+    market_report: bool | None = None
 
 
 #: What the email-limit dropdown offers, and the only values accepted.
@@ -1812,6 +1819,8 @@ class CollectionTotalsOut(BaseModel):
 class CollectionOut(BaseModel):
     items: list[CollectionItemOut]
     totals: CollectionTotalsOut
+    #: The collection's worth at each weekly snapshot, oldest first.
+    history: list["CollectionHistoryPoint"] = Field(default_factory=list)
 
 
 class ComparableOut(UTCModel):
@@ -1849,3 +1858,57 @@ class ModelChoiceOut(BaseModel):
     name: str
     kind: str | None = None
     country: str | None = None
+
+
+class CollectionHistoryPoint(BaseModel):
+    """The collection's worth on one snapshot day."""
+
+    day: date
+    value: float
+    #: How many of the guns the market could price that day.
+    guns: int
+
+
+class FitsOut(BaseModel):
+    """What is for sale that fits one owned gun. See services/foryourguns.py."""
+
+    row_id: int
+    title: str
+    model: str | None = None
+    calibers: list[str] = Field(default_factory=list)
+    ammo: list[ItemOut] = Field(default_factory=list)
+    ammo_total: int = 0
+    accessories: list[ItemOut] = Field(default_factory=list)
+    accessories_total: int = 0
+
+
+class HabitOut(BaseModel):
+    """How a shop cuts prices. See services/scorecards.py."""
+
+    drops: int
+    median_day: float
+    median_pct: float
+    share: float
+
+
+class ScorecardOut(BaseModel):
+    site_id: int
+    name: str
+    slug: str
+    guns_for_sale: int
+    new_this_week: int
+    arrivals_by_weekday: list[int]
+    busiest_day: str | None = None
+    price_vs_market: float | None = None
+    compared: int = 0
+    sell_days: float | None = None
+    sold_measured: int = 0
+    left_last_30_days: int = 0
+    habit: HabitOut | None = None
+
+
+class ListingHabitOut(HabitOut):
+    """A shop's habit, shown on one of its listings with how long it has been up."""
+
+    site_name: str | None = None
+    listed_days: int | None = None

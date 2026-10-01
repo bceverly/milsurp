@@ -239,6 +239,15 @@ export const Box = (p) => (
   </Svg>
 );
 
+//: A storefront: the shops, as a reader sees them.
+export const Store = (p) => (
+  <Svg {...p}>
+    <path d="M4 9l1.5-5h13L20 9" />
+    <path d="M4 9h16v2a2.7 2.7 0 0 1-5.3 0 2.7 2.7 0 0 1-5.4 0A2.7 2.7 0 0 1 4 11z" />
+    <path d="M5.5 13v7h13v-7M10 20v-4h4v4" />
+  </Svg>
+);
+
 export const Bookmark = (p) => (
   <Svg {...p}>
     <path d="M6 4.5h12a1 1 0 0 1 1 1V20l-7-4-7 4V5.5a1 1 0 0 1 1-1z" />

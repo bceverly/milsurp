@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import select
 
 from ..deps import AdminUser, AppConfig, CurrentUser, DbSession
-from ..models import EmailLog, EmailPreference, EmailPreferenceSite, Site, User
+from ..models import EmailLog, EmailPreference, EmailPreferenceSite, EmailStatus, Site, User
 from ..schemas import (
     CostPreferenceIn,
     CostPreferenceOut,
@@ -18,7 +18,7 @@ from ..schemas import (
     EmailPreferenceOut,
     EmailPreferenceUpdate,
 )
-from ..services import digest, mailer
+from ..services import digest, mailer, marketreport
 
 router = APIRouter(tags=["preferences"])
 
@@ -90,6 +90,7 @@ def update_preferences(
         "price_drops_per_site_limit",
         "minimum_price_drop",
         "skip_when_empty",
+        "market_report",
     ):
         value = getattr(payload, field)
         if value is not None:
@@ -125,6 +126,34 @@ def update_preferences(
     # back or a just-saved selection reads as empty.
     session.refresh(preference)
     return _to_out(preference)
+
+
+@router.post("/preferences/email/market-report", status_code=status.HTTP_202_ACCEPTED)
+def send_market_report_now(
+    user: CurrentUser, session: DbSession, config: AppConfig
+) -> dict[str, str]:
+    """Mail this reader the market report now, to see what it says.
+
+    Not gated on the preference, for the reason "Send now" on a saved search is
+    not: seeing it is how somebody decides whether to want it monthly. It does
+    not count as this month's.
+    """
+    if not config.email.enabled:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email is disabled in the server configuration (email.enabled).",
+        )
+    entry = marketreport.send(session, user, config)
+    if entry.status is EmailStatus.FAILED:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=entry.error_message or "Delivery failed.",
+        )
+    if entry.status is EmailStatus.SKIPPED:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=entry.error_message or "Nothing to send."
+        )
+    return {"message": f"Sent to {user.email}."}
 
 
 @router.post("/preferences/email/test", status_code=status.HTTP_202_ACCEPTED)

@@ -24,6 +24,7 @@ from ..schemas import (
     ItemOverrideIn,
     ItemOverrideOut,
     ItemPage,
+    ListingHabitOut,
     MarketBandOut,
     OfferOut,
     PhotoOut,
@@ -42,6 +43,7 @@ from ..services import (
     overrides,
     pricing,
     provenance,
+    scorecards,
     similar,
     traits,
     watchlist,
@@ -861,6 +863,15 @@ def get_item(item_id: int, user: CurrentUser, session: DbSession) -> ItemDetail:
             concentrated=left.concentrated,
         )
         detail.departures_by = "model" if item.firearm_model_id is not None else "caliber"
+    # "Will it drop?" -- only for a gun still for sale, at a shop that has cut
+    # prices often enough to have a habit.
+    habit = scorecards.habits(session).get(item.site_id)
+    if habit is not None and item.is_active and not item.is_sold and delivered.is_firearm(item):
+        detail.markdown_habit = ListingHabitOut(
+            **vars(habit),
+            site_name=site.name if site else None,
+            listed_days=scorecards.listed_days(item),
+        )
     watch = watchlist.watching(session, user, item.id)
     if watch is not None:
         detail.watched = True

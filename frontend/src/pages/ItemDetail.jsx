@@ -740,6 +740,33 @@ function DeliveredPrice({ item, onFeeSaved }) {
 }
 
 /**
+ * "Will it drop?" -- how this shop cuts prices, beside how long this has been up.
+ *
+ * Only for a shop that has cut prices often enough to have a habit (ten
+ * listings or more), and only while this one is for sale. Said as what the
+ * shop has done, not as a forecast: "usually around day 18" next to "this one
+ * is on day 12" lets the reader weigh waiting against losing it.
+ */
+function WillItDrop({ item }) {
+  const habit = item.markdown_habit;
+  if (!habit) return null;
+  const day = Math.round(habit.median_day);
+  const listed = habit.listed_days;
+  const past = listed != null && listed > day;
+  return (
+    <p className="will-it-drop" data-testid="will-it-drop">
+      <TrendDown size={14} /> {habit.site_name || "This shop"} cuts prices: {habit.drops}{" "}
+      listings reduced since we started watching, usually by about{" "}
+      {Math.round(habit.median_pct)}% around day {day}.{" "}
+      {listed != null &&
+        (past
+          ? `This one has been up ${listed} days and has not been cut yet.`
+          : `This one is on day ${listed}.`)}
+    </p>
+  );
+}
+
+/**
  * What guns like this one were asking when they left the shelf.
  *
  * Beside the spectrum, which places this listing among the ones still for
@@ -1188,6 +1215,9 @@ export default function ItemDetail() {
           {/* Directly under the shelf price, because it is the same question
               answered honestly: what this costs by the time it is yours. */}
           <DeliveredPrice item={item} onFeeSaved={reloadItem} />
+          {/* Beside the price, because it is a question about the price:
+              whether waiting is likely to make it smaller. */}
+          <WillItDrop item={item} />
 
           <div className="detail__facts">
             {/* The armory's answer first, when it has one. It is the only

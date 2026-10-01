@@ -290,6 +290,8 @@ export const api = {
   // --- what a kind of gun goes for, across every dealer at once ---
   market: (params = {}) => request(`/api/market${qs(params)}`),
   timeToSell: (params = {}) => request(`/api/market/time-to-sell${qs(params)}`),
+  // How each shop behaves -- see services/scorecards.py.
+  shopScorecards: () => request("/api/market/shops"),
   // What they were asking when they left the shelf -- see market.departures.
   departures: (params = {}) => request(`/api/market/departures${qs(params)}`),
 
@@ -402,6 +404,7 @@ export const api = {
     request(`/api/collection/${id}`, { method: "PATCH", body: patch }),
   removeFromCollection: (id) => request(`/api/collection/${id}`, { method: "DELETE" }),
   collectionComparables: (id) => request(`/api/collection/${id}/comparables`),
+  forYourGuns: () => request("/api/collection/for-your-guns"),
   collectionModels: (search) =>
     request(`/api/collection/models${qs({ search: search || undefined })}`),
   // A link, as the armory's export is: the cookie authenticates the download.
@@ -412,6 +415,8 @@ export const api = {
   savePreferences: (payload) =>
     request("/api/preferences/email", { method: "PUT", body: payload }),
   sendTestDigest: () => request("/api/preferences/email/test", { method: "POST" }),
+  sendMarketReport: () =>
+    request("/api/preferences/email/market-report", { method: "POST" }),
   emailHistory: (params) => request(`/api/preferences/email/history${qs(params)}`),
   emailBody: (id) => request(`/api/preferences/email/history/${id}`),
   clearResting: (siteId) =>
