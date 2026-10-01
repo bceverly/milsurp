@@ -4302,6 +4302,18 @@ maker, country, finest to coarsest as the inventory's filters do; and
 Classification's tabs follow the order the classifier asks its questions, part
 or gun first, which is now where the page opens.
 
+### More than one caliber, maker or model at a time — **Fixed** 2026-10-01
+
+The inventory's facets are checkboxes, and the API always took several values
+of each, but ticking one caliber left only that caliber in the list: every
+facet was counted over the results, which its own filter had already
+narrowed. Each facet is now counted over every filter *but its own*, as Type,
+C&R and the price histogram already were, so the ticked value stays beside the
+others and its count says what adding each would show. Trait groups combine
+the same way they filter, either within a group and both across groups. A
+ticked value is always listed, even when a long facet ranks it past the forty
+it shows.
+
 ### Checkpoint Charlie's, read through its Store API — **Fixed** 2026-10-01
 
 Their CDN refused the category pages most days, even at one request every five

@@ -712,3 +712,80 @@ class TestTheArmoryIsVisible:
         body = client.get(f"/api/items?model={garand.id}", headers=admin_headers).json()
         assert body["total"] == 1
         assert body["items"][0]["model"] == "US Rifle, Cal. .30, M1"
+
+
+class TestFacetsLeaveRoomForASecondChoice:
+    """Each facet is counted over every filter but its own.
+
+    Counted over the results, ticking "8mm Mauser" made the Caliber list
+    8mm Mauser alone, and the checkboxes could only ever hold one choice.
+    """
+
+    @staticmethod
+    def _facet(body, name):
+        return {row["value"]: row["count"] for row in body["facets"][name]}
+
+    def test_a_ticked_caliber_keeps_the_others_on_offer(self, client, admin_headers, inventory):
+        body = client.get("/api/items?caliber=8mm Mauser", headers=admin_headers).json()
+        assert body["total"] == 1
+        calibers = self._facet(body, "calibers")
+        assert calibers == {"8mm Mauser": 1, "7.62x54R": 1, "9mm": 1, ".303 British": 1}
+
+    def test_and_ticking_a_second_widens_the_results(self, client, admin_headers, inventory):
+        body = client.get("/api/items?caliber=8mm Mauser&caliber=9mm", headers=admin_headers).json()
+        assert body["total"] == 2
+
+    def test_the_other_facets_still_follow_the_choice(self, client, admin_headers, inventory):
+        body = client.get("/api/items?caliber=8mm Mauser", headers=admin_headers).json()
+        assert self._facet(body, "countries") == {"Germany": 1}
+
+    def test_shops_and_countries_too(self, client, admin_headers, inventory, seeded):
+        rti = seeded.query(Site).filter_by(slug="royal-tiger").one()
+        sites = self._facet(
+            client.get(f"/api/items?site_id={rti.id}", headers=admin_headers).json(), "sites"
+        )
+        assert len(sites) == 2
+        countries = self._facet(
+            client.get("/api/items?country=Germany", headers=admin_headers).json(), "countries"
+        )
+        assert set(countries) == {"Germany", "Russia", "United Kingdom"}
+
+    def test_traits_widen_within_a_group_and_narrow_across(
+        self, client, admin_headers, inventory, seeded
+    ):
+        """Within a group the picks are either; across groups, both. So with
+        "No import marks" ticked, "Import marked" still counts what ticking it
+        too would add, and "All matching" counts only the unmarked ones."""
+        k98, mosin, luger, _enfield, _bayonet = inventory
+        k98.import_marked, k98.numbers_match = False, True
+        mosin.import_marked, mosin.numbers_match = True, True
+        luger.import_marked = False
+        seeded.commit()
+        body = client.get("/api/items?trait=unmarked", headers=admin_headers).json()
+        assert body["total"] == 2
+        traits = self._facet(body, "traits")
+        assert traits["unmarked"] == 2
+        assert traits["import_marked"] == 1
+        assert traits["all_matching"] == 1
+
+    def test_a_ticked_value_past_the_cut_is_still_listed(self, inventory, seeded):
+        """A checkbox that vanishes once ticked cannot be unticked."""
+        from sqlalchemy import select
+
+        from app.api.items import _model_counts, _tally
+        from app.models import FirearmModel
+
+        base = select(Item).where(Item.is_sold.is_(False))
+        [top] = [row.value for row in _tally(seeded, base, Item.caliber, limit=1)]
+        other = next(c for c in ("9mm", ".303 British") if c != top)
+        values = [row.value for row in _tally(seeded, base, Item.caliber, limit=1, keep=[other])]
+        assert values == [top, other]
+
+        k98, mosin = FirearmModel(name="K98k"), FirearmModel(name="M91/30")
+        seeded.add_all([k98, mosin])
+        seeded.flush()
+        inventory[0].firearm_model_id = k98.id
+        inventory[1].firearm_model_id = mosin.id
+        seeded.commit()
+        kept = _model_counts(seeded, base, keep=[str(mosin.id), str(k98.id), "nonsense"])
+        assert {row.label for row in kept} == {"K98k", "M91/30"}

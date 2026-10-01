@@ -289,6 +289,38 @@ test.describe("inventory", () => {
     await expect(signedIn.locator(".item-card").first()).toBeVisible();
   });
 
+  test("a facet takes more than one choice", async ({ signedIn }) => {
+    /**
+     * They are checkboxes, so two calibers is a fair thing to ask for. Counted
+     * over the results, ticking one caliber left only that caliber in the
+     * list; each facet is now counted without its own filter.
+     */
+    await signedIn.goto("/");
+    const caliber = signedIn.locator(".facet", { hasText: "Caliber" });
+    await caliber.locator("summary").click();
+    const options = caliber.locator(".facet__option");
+    const before = await options.count();
+    expect(before).toBeGreaterThan(2);
+
+    const total = async () =>
+      Number(
+        (await signedIn.getByText(/listings? match/).innerText()).replace(/[^0-9]/g, ""),
+      );
+    await options.nth(0).locator("input[type=checkbox]").check();
+    await expect(signedIn).toHaveURL(/[?&]caliber=/);
+    await expect(options).toHaveCount(before);
+    await expect(options.nth(0).locator("input")).toBeChecked();
+    const one = await total();
+
+    await options.nth(1).locator("input[type=checkbox]").check();
+    await expect(signedIn).toHaveURL(/caliber=.*caliber=/);
+    await expect(options.nth(1).locator("input")).toBeChecked();
+    await expect.poll(total).toBeGreaterThan(one);
+    await expect(
+      signedIn.locator(".active-filters__chip", { hasText: "Caliber" }),
+    ).toHaveCount(2);
+  });
+
   test("clear all removes every filter at once", async ({ signedIn }) => {
     await signedIn.goto("/?kind=rifle&search=mauser");
     await signedIn.getByRole("button", { name: "Clear all" }).click();

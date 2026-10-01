@@ -6,11 +6,13 @@ import csv
 import hashlib
 import io
 import math
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response, status
 from fastapi.responses import FileResponse, JSONResponse
-from sqlalchemy import Select, case, func, or_, select
+from sqlalchemy import Select, and_, case, func, or_, select, true
 from sqlalchemy.orm import selectinload
 
 from ..deps import AdminUser, AppConfig, CurrentUser, DbSession
@@ -205,7 +207,7 @@ def _to_out(
 def _kind_counts(session: DbSession, base: Select) -> list[FacetValue]:
     """How many listings each Type would show, over everything else chosen.
 
-    Deliberately not over the current result set like the other facets: with
+    Not over the current result set, like every facet (see _all_facets): with
     the kind filter applied, picking "Rifles" would report zero handguns and
     the numbers would only ever describe the choice already made. Every other
     filter still applies, so the counts say what picking each one would give.
@@ -259,10 +261,21 @@ TRAIT_GROUP_LABELS = {
 }
 
 
-def _trait_counts(session: DbSession, base: Select) -> list[FacetValue]:
-    """How many of the current results carry each trait, in one pass."""
+def _trait_counts(
+    session: DbSession, base: Select, chosen: list[str] | None = None
+) -> list[FacetValue]:
+    """How many listings each trait would show, in one pass.
+
+    ``base`` leaves the trait filter off. Each value is then counted with the
+    picks from the *other* trait groups applied -- they combine with AND --
+    and without its own group's, which combine with OR: with "Unmarked"
+    ticked, "Import marked" still says how many ticking it as well would add.
+    """
     values = list(traits.TRAITS)
-    columns = [func.count(case((traits.trait_clause(value), 1))) for value in values]
+    columns = [
+        func.count(case((and_(traits.trait_clause(value), _other_groups(value, chosen)), 1)))
+        for value in values
+    ]
     row = session.execute(base.with_only_columns(*columns)).one()
     return [
         FacetValue(
@@ -274,6 +287,13 @@ def _trait_counts(session: DbSession, base: Select) -> list[FacetValue]:
         for value, n in zip(values, row, strict=True)
         if n
     ]
+
+
+def _other_groups(value: str, chosen: list[str] | None) -> Any:
+    """The trait picks outside this value's group, as SQL, or TRUE for none."""
+    group = traits.TRAITS[value][0]
+    others = [pick for pick in chosen or [] if traits.TRAITS[pick][0] != group]
+    return traits.traits_clause(others) if others else true()
 
 
 def _grade_counts(session: DbSession, base: Select) -> list[FacetValue]:
@@ -403,85 +423,134 @@ def _price_distribution(session: DbSession, base: Select) -> PriceDistributionOu
     )
 
 
-def _facets(session: DbSession, base: Select) -> ItemFacets:
-    """Counts for the filter sidebar, computed over the current result set."""
+def _tally(
+    session: DbSession,
+    base: Select,
+    column,
+    limit: int = 40,
+    keep: list[str] | None = None,
+) -> list[FacetValue]:
+    """One text facet's values over ``base``, most common first.
 
-    def tally(column, limit: int = 40) -> list[FacetValue]:
-        stmt = (
-            base.with_only_columns(column, func.count(Item.id))
-            .where(column.is_not(None), column != "")
-            .group_by(column)
-            .order_by(func.count(Item.id).desc())
-            .limit(limit)
-        )
-        found = [
+    ``keep`` is the values already ticked. They are listed even outside the
+    top ``limit``: counted without its own filter, a facet can rank a rare
+    ticked value below the cut, and a checkbox that vanishes once ticked
+    cannot be unticked.
+    """
+    stmt = (
+        base.with_only_columns(column, func.count(Item.id))
+        .where(column.is_not(None), column != "")
+        .group_by(column)
+        .order_by(func.count(Item.id).desc())
+        .limit(limit)
+    )
+    found = [
+        FacetValue(value=str(value), count=int(count))
+        for value, count in session.execute(stmt).all()
+    ]
+    listed = {row.value for row in found}
+    absent = [value for value in keep or [] if value not in listed and value != UNKNOWN]
+    if absent:
+        found += [
             FacetValue(value=str(value), count=int(count))
-            for value, count in session.execute(stmt).all()
+            for value, count in session.execute(
+                base.with_only_columns(column, func.count(Item.id))
+                .where(column.in_(absent))
+                .group_by(column)
+            ).all()
         ]
 
-        # And a bucket for the ones nothing could be worked out for. Listed
-        # last however many there are, because it is not an answer and should
-        # not sit at the top of the list looking like one.
-        #
-        # The column stays NULL in the database: "Unknown" is this view's word
-        # for it, not a value. Writing the string into the row would make it
-        # indistinguishable from a vendor of that name, and would quietly stop
-        # every "fill in the blanks" rule in the application, all of which key
-        # on the field being empty.
-        missing = session.execute(
-            base.with_only_columns(func.count(Item.id)).where(or_(column.is_(None), column == ""))
-        ).scalar_one()
-        if missing:
-            found.append(FacetValue(value=UNKNOWN, count=int(missing)))
-        return found
+    # And a bucket for the ones nothing could be worked out for. Listed last
+    # however many there are, because it is not an answer and should not sit
+    # at the top of the list looking like one.
+    #
+    # The column stays NULL in the database: "Unknown" is this view's word for
+    # it, not a value. Writing the string into the row would make it
+    # indistinguishable from a vendor of that name, and would quietly stop
+    # every "fill in the blanks" rule in the application, all of which key on
+    # the field being empty.
+    missing = session.execute(
+        base.with_only_columns(func.count(Item.id)).where(or_(column.is_(None), column == ""))
+    ).scalar_one()
+    if missing:
+        found.append(FacetValue(value=UNKNOWN, count=int(missing)))
+    return found
 
-    model_rows = session.execute(
+
+def _model_counts(
+    session: DbSession, base: Select, keep: list[str] | None = None
+) -> list[FacetValue]:
+    """The armory models, most common first, and any ticked one -- see _tally."""
+    counted = (
         base.with_only_columns(FirearmModel.id, FirearmModel.name, func.count(Item.id))
         .join(FirearmModel, FirearmModel.id == Item.firearm_model_id)
         .group_by(FirearmModel.id, FirearmModel.name)
-        .order_by(func.count(Item.id).desc())
-        .limit(40)
-    ).all()
+    )
+    rows = list(session.execute(counted.order_by(func.count(Item.id).desc()).limit(40)).all())
+    listed = {str(row[0]) for row in rows}
+    absent = [int(value) for value in keep or [] if value.isdigit() and value not in listed]
+    if absent:
+        rows += session.execute(counted.where(FirearmModel.id.in_(absent))).all()
+    return [
+        FacetValue(value=str(model_id), label=name, count=int(count))
+        for model_id, name, count in rows
+    ]
 
-    site_rows = session.execute(
+
+def _site_counts(session: DbSession, base: Select) -> list[FacetValue]:
+    rows = session.execute(
         base.with_only_columns(Site.id, Site.name, func.count(Item.id))
         .join(Site, Site.id == Item.site_id)
         .group_by(Site.id, Site.name)
         .order_by(Site.name)
     ).all()
-    total = session.execute(base.with_only_columns(func.count(Item.id))).scalar_one()
-
-    return ItemFacets(
-        sites=[
-            FacetValue(value=str(sid), label=name, count=int(count))
-            for sid, name, count in site_rows
-        ],
-        models=[
-            FacetValue(value=str(model_id), label=name, count=int(count))
-            for model_id, name, count in model_rows
-        ],
-        categories=tally(Item.category),
-        calibers=tally(Item.caliber),
-        countries=tally(Item.country),
-        manufacturers=tally(Item.manufacturer),
-        forms=_labelled(tally(Item.kind)),
-        total=int(total),
-    )
+    return [FacetValue(value=str(sid), label=name, count=int(count)) for sid, name, count in rows]
 
 
-def _with_kinds(
+def _all_facets(
     session: DbSession,
     base: Select,
-    without_kind: Select,
-    without_price: Select,
-    without_curio: Select,
+    filtered: Callable[..., Select],
+    chosen: dict[str, list[str] | None],
 ) -> ItemFacets:
-    facets = _facets(session, base)
-    facets.kinds = _kind_counts(session, without_kind)
-    facets.curio = _curio_counts(session, without_curio)
-    facets.traits = _trait_counts(session, base)
-    facets.grades = _grade_counts(session, base)
-    facets.prices = _price_distribution(session, without_price)
+    """Every facet, each counted over every filter *but its own*.
+
+    Counted over the results themselves, ticking "8mm Mauser" made the Caliber
+    list 8mm Mauser and nothing else, so the checkboxes could only ever hold
+    one choice -- a second caliber had nowhere to be ticked. Without its own
+    filter, each facet says what adding a value would show, and the values
+    already ticked stay in the list beside the ones that could be.
+    """
+    facets = ItemFacets(
+        sites=_site_counts(session, filtered(site_ids=None)),
+        models=_model_counts(session, filtered(models=None), chosen.get("models")),
+        categories=_tally(
+            session, filtered(categories=None), Item.category, keep=chosen.get("categories")
+        ),
+        calibers=_tally(
+            session, filtered(calibers=None), Item.caliber, keep=chosen.get("calibers")
+        ),
+        countries=_tally(
+            session, filtered(countries=None), Item.country, keep=chosen.get("countries")
+        ),
+        manufacturers=_tally(
+            session,
+            filtered(manufacturers=None),
+            Item.manufacturer,
+            keep=chosen.get("manufacturers"),
+        ),
+        forms=_labelled(_tally(session, filtered(forms=None), Item.kind, keep=chosen.get("forms"))),
+        total=int(session.execute(base.with_only_columns(func.count(Item.id))).scalar_one()),
+    )
+    facets.kinds = _kind_counts(session, filtered(kinds=None))
+    facets.curio = _curio_counts(session, filtered(curio_states=None))
+    facets.traits = _trait_counts(session, filtered(trait_values=None), chosen.get("traits"))
+    facets.grades = _grade_counts(session, filtered(grades=None))
+    # The price histogram too, and more sharply, because the price control is
+    # a *slider*: shaped by its own setting, narrowing to $500-$1,000 would
+    # redraw the histogram as only that slice, with nothing on screen to widen
+    # back towards.
+    facets.prices = _price_distribution(session, filtered(min_price=None, max_price=None))
     return facets
 
 
@@ -533,105 +602,53 @@ def list_items(
             detail=f"Unknown sort {sort!r}. Valid: {', '.join(SORTS)}.",
         )
 
-    # Spelled out twice rather than shared through a dict: mypy cannot check a
-    # heterogeneous **kwargs against this signature, and losing the check on
-    # fifteen filter arguments is a worse trade than repeating them.
-    #
-    # The kind facet is counted against a query that does *not* filter by kind,
-    # so it can show what the other kinds would return.
-    without_kind = apply_filters(
-        select(Item),
-        kinds=None,
-        site_ids=site_id,
-        categories=category,
-        calibers=caliber,
-        countries=country,
-        manufacturers=manufacturer,
-        models=model,
-        forms=form,
-        curio_states=_checked_curio(curio),
-        trait_values=_checked_traits(trait),
-        grades=_checked_grades(grade),
-        availability=availability,
-        search=search,
-        min_price=min_price,
-        max_price=max_price,
-        new_since_hours=new_since_hours,
-        price_drops_only=price_drops_only,
-        guns_only=guns_only,
-    )
-    base = apply_filters(
-        select(Item),
-        kinds=kind,
-        site_ids=site_id,
-        categories=category,
-        calibers=caliber,
-        countries=country,
-        manufacturers=manufacturer,
-        models=model,
-        forms=form,
-        curio_states=_checked_curio(curio),
-        trait_values=_checked_traits(trait),
-        grades=_checked_grades(grade),
-        availability=availability,
-        search=search,
-        min_price=min_price,
-        max_price=max_price,
-        new_since_hours=new_since_hours,
-        price_drops_only=price_drops_only,
-        guns_only=guns_only,
-    )
-    # And the price histogram against a query that does not filter by price,
-    # for the same reason the kind facet does not filter by kind -- and more
-    # sharply, because the price control is a *slider*. Shaped by its own
-    # setting, narrowing to $500-$1,000 would redraw the histogram as only that
-    # slice, and there would be nothing on screen to widen back towards.
-    without_price = apply_filters(
-        select(Item),
-        kinds=kind,
-        site_ids=site_id,
-        categories=category,
-        calibers=caliber,
-        countries=country,
-        manufacturers=manufacturer,
-        models=model,
-        forms=form,
-        curio_states=_checked_curio(curio),
-        trait_values=_checked_traits(trait),
-        grades=_checked_grades(grade),
-        availability=availability,
-        search=search,
-        min_price=None,
-        max_price=None,
-        new_since_hours=new_since_hours,
-        price_drops_only=price_drops_only,
-        guns_only=guns_only,
-    )
+    curio_states = _checked_curio(curio)
+    trait_values = _checked_traits(trait)
+    grades = _checked_grades(grade)
 
-    # And the curio facet against a query that does not filter by curio, so
-    # each of the three states says what picking it would show rather than
-    # what the current pick already did.
-    without_curio = apply_filters(
-        select(Item),
-        kinds=kind,
-        site_ids=site_id,
-        categories=category,
-        calibers=caliber,
-        countries=country,
-        manufacturers=manufacturer,
-        models=model,
-        forms=form,
-        curio_states=None,
-        trait_values=_checked_traits(trait),
-        grades=_checked_grades(grade),
-        availability=availability,
-        search=search,
-        min_price=min_price,
-        max_price=max_price,
-        new_since_hours=new_since_hours,
-        price_drops_only=price_drops_only,
-        guns_only=guns_only,
-    )
+    # Every filter, less whichever one a facet is about. A function with typed
+    # keywords rather than a shared dict: mypy cannot check a heterogeneous
+    # **kwargs against apply_filters, and losing the check on fifteen filter
+    # arguments is a worse trade than spelling them out once here.
+    def filtered(
+        *,
+        kinds: list[str] | None = kind,
+        site_ids: list[int] | None = site_id,
+        categories: list[str] | None = category,
+        calibers: list[str] | None = caliber,
+        countries: list[str] | None = country,
+        manufacturers: list[str] | None = manufacturer,
+        models: list[str] | None = model,
+        forms: list[str] | None = form,
+        curio_states: list[str] | None = curio_states,
+        trait_values: list[str] | None = trait_values,
+        grades: list[str] | None = grades,
+        min_price: float | None = min_price,
+        max_price: float | None = max_price,
+    ) -> Select:
+        return apply_filters(
+            select(Item),
+            kinds=kinds,
+            site_ids=site_ids,
+            categories=categories,
+            calibers=calibers,
+            countries=countries,
+            manufacturers=manufacturers,
+            models=models,
+            forms=forms,
+            curio_states=curio_states,
+            trait_values=trait_values,
+            grades=grades,
+            availability=availability,
+            search=search,
+            min_price=min_price,
+            max_price=max_price,
+            new_since_hours=new_since_hours,
+            price_drops_only=price_drops_only,
+            guns_only=guns_only,
+        )
+
+    base = filtered()
 
     total = session.execute(base.with_only_columns(func.count(Item.id))).scalar_one()
     stmt = (
@@ -640,7 +657,7 @@ def list_items(
         .offset((page - 1) * per_page)
         .limit(per_page)
     )
-    items = session.execute(stmt).scalars().unique().all()
+    items: Sequence[Item] = session.execute(stmt).scalars().unique().all()
 
     site_names: dict[int, str] = {
         row[0]: row[1] for row in session.execute(select(Site.id, Site.name)).all()
@@ -660,7 +677,20 @@ def list_items(
         per_page=per_page,
         pages=pages,
         facets=(
-            _with_kinds(session, base, without_kind, without_price, without_curio)
+            _all_facets(
+                session,
+                base,
+                filtered,
+                {
+                    "models": model,
+                    "categories": category,
+                    "calibers": caliber,
+                    "countries": country,
+                    "manufacturers": manufacturer,
+                    "forms": form,
+                    "traits": trait_values,
+                },
+            )
             if include_facets
             else None
         ),
