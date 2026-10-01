@@ -974,6 +974,10 @@ class PhotoOut(BaseModel):
 
 
 class ItemOut(UTCModel):
+    #: On this reader's wishlist. Sent with every listing, the detail page and
+    #: the browse cards alike, so the cart renders in its true state on first
+    #: paint.
+    wishlisted: bool = False
     #: Curio and relic, worked out when the record is built rather than stored.
     #: The fifty-year boundary rolls, so a stored answer would be wrong within
     #: the year; ``cr_evidence`` says which of the three sources answered, so a
@@ -1728,11 +1732,17 @@ class CostPreferenceOut(BaseModel):
     """What a reader pays on top of a listing, for the delivered price."""
 
     ffl_transfer_fee: float | None = None
+    #: Holds a C&R license, so a C&R-eligible gun comes with no transfer fee.
+    #: The wishlist reads it; the delivered price on a listing does not, since
+    #: it is shown before anybody has said which guns they mean to buy.
+    has_cr_license: bool = False
 
 
 class CostPreferenceIn(BaseModel):
     #: Null clears it. A C&R holder receiving a curio directly sets 0.
     ffl_transfer_fee: float | None = Field(default=None, ge=0, le=1000)
+    #: Left out, it is left as it was: older clients send only the fee.
+    has_cr_license: bool | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -1912,3 +1922,69 @@ class ListingHabitOut(HabitOut):
 
     site_name: str | None = None
     listed_days: int | None = None
+
+
+class NameChoiceOut(BaseModel):
+    """A caliber or a maker, as the armory spells it."""
+
+    name: str
+    country: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# The wishlist
+# ---------------------------------------------------------------------------
+class WishlistLineOut(UTCModel):
+    """One wished-for listing, priced to the door and set against its worth."""
+
+    #: The listing itself, as the browse page sends it.
+    item: ItemOut
+    added_at: datetime
+    #: Still for sale; a line that is not stays listed but out of the totals.
+    for_sale: bool
+    price: float | None = None
+    shipping: float | None = None
+    shipping_note: str | None = None
+    #: eligible, not_eligible or unknown; null for anything not a firearm.
+    curio: str | None = None
+    fee: float | None = None
+    fee_waived: bool = False
+    fee_missing: bool = False
+    total: float | None = None
+    complete: bool = False
+    valuation: CollectionValuationOut | None = None
+    profit: float | None = None
+    #: The asking price when it was added, and how far it has moved since.
+    price_when_added: float | None = None
+    since_added: float | None = None
+
+
+class WishlistTotalsOut(BaseModel):
+    count: int
+    for_sale: int
+    cost: float
+    cost_complete: bool
+    unpriced: int
+    value: float
+    valued: int
+    compared: int
+    compared_cost: float
+    compared_value: float
+    profit: float
+
+
+class WishlistOut(BaseModel):
+    lines: list[WishlistLineOut]
+    totals: WishlistTotalsOut
+    ffl_transfer_fee: float | None = None
+    has_cr_license: bool = False
+    wishlist_alerts: bool = False
+    budget: float | None = None
+
+
+class WishlistSettingsIn(BaseModel):
+    """Either or both. A field left out is left as it was; a budget sent as
+    null is cleared."""
+
+    alerts: bool | None = None
+    budget: float | None = Field(default=None, ge=0, le=10_000_000)

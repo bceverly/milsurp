@@ -65,6 +65,13 @@ class CheckpointCharliesScraper(WooCommerceScraper):
     #: scraping the page was losing most of it.
     store_api_details = True
 
+    #: And the catalog too. Their CDN refused the category pages most days
+    #: even at one request every five minutes, so the scan read a fraction of
+    #: the shop and the administrators were mailed "stopped" and "scraping
+    #: again" nearly every day. Through the API the whole shop is about
+    #: fourteen requests. See WooCommerceScraper.store_api_catalog.
+    store_api_catalog = True
+
     #: The C&R tag first, because it is the most specific claim the shop makes
     #: about a listing, then the type-named leaves. Counts are what each held
     #: when it was added.

@@ -9,11 +9,12 @@ why that is a narrow query rather than a pass over the catalog.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from ..deps import AdminUser, DbSession
+from ..logsafe import client_address
 from ..models import Item, Manufacturer
 from ..schemas import (
     ManufacturerCreate,
@@ -21,7 +22,7 @@ from ..schemas import (
     ManufacturerUpdate,
     ManufacturerWrite,
 )
-from ..services import armory
+from ..services import armory, armoryundo, audit
 from ..services import manufacturers as service
 
 router = APIRouter(prefix="/manufacturers", tags=["manufacturers"])
@@ -118,7 +119,7 @@ def list_manufacturers(
 
 @router.post("", response_model=ManufacturerWrite, status_code=status.HTTP_201_CREATED)
 def create_manufacturer(
-    payload: ManufacturerCreate, _admin: AdminUser, session: DbSession
+    payload: ManufacturerCreate, admin: AdminUser, request: Request, session: DbSession
 ) -> ManufacturerWrite:
     _reject_duplicate(session, payload.name)
 
@@ -136,6 +137,16 @@ def create_manufacturer(
 
     service.invalidate()
     changed = service.reprocess(session, row.spellings)
+    audit.record(
+        session,
+        actor=admin,
+        action=audit.ARMORY_CREATED,
+        target_type="manufacturer",
+        target_id=row.id,
+        target_label=row.name,
+        detail=f"{changed} listing(s) re-derived",
+        ip_address=client_address(request),
+    )
     session.commit()
 
     return ManufacturerWrite(
@@ -146,9 +157,16 @@ def create_manufacturer(
 
 @router.patch("/{manufacturer_id}", response_model=ManufacturerWrite)
 def update_manufacturer(
-    manufacturer_id: int, payload: ManufacturerUpdate, _admin: AdminUser, session: DbSession
+    manufacturer_id: int,
+    payload: ManufacturerUpdate,
+    admin: AdminUser,
+    request: Request,
+    session: DbSession,
 ) -> ManufacturerWrite:
     row = _find(session, manufacturer_id)
+    # What it held, so the audit log can put it back -- as for a model or a
+    # caliber. Manufacturers were the one armory table that left no record.
+    before = armoryundo.snapshot(row)
     if payload.name is not None:
         _reject_duplicate(session, payload.name, exclude_id=row.id)
 
@@ -184,6 +202,17 @@ def update_manufacturer(
     # the query above. Those are moved by name.
     if payload.name is not None and row.name != previous_name:
         changed += _rename_labels(session, previous_name, row.name)
+    audit.record(
+        session,
+        actor=admin,
+        action=audit.ARMORY_EDITED,
+        target_type="manufacturer",
+        target_id=row.id,
+        target_label=row.name,
+        detail=", ".join(sorted(payload.model_dump(exclude_unset=True))),
+        ip_address=client_address(request),
+        before=before,
+    )
     session.commit()
 
     return ManufacturerWrite(
@@ -194,11 +223,11 @@ def update_manufacturer(
 
 @router.delete("/{manufacturer_id}", response_model=ManufacturerWrite)
 def delete_manufacturer(
-    manufacturer_id: int, _admin: AdminUser, session: DbSession
+    manufacturer_id: int, admin: AdminUser, request: Request, session: DbSession
 ) -> ManufacturerWrite:
     row = _find(session, manufacturer_id)
     spellings = [*row.spellings, *(n for m in row.firearm_models for n in m.spellings)]
-    name = row.name
+    name, was_id, before = row.name, row.id, armoryundo.snapshot(row)
     session.delete(row)
     session.flush()
 
@@ -207,6 +236,17 @@ def delete_manufacturer(
     # Anything still labeled with the deleted name matched it by a spelling
     # the remaining rules do not cover; it has no maker now.
     changed += _rename_labels(session, name, None)
+    audit.record(
+        session,
+        actor=admin,
+        action=audit.ARMORY_DELETED,
+        target_type="manufacturer",
+        target_id=was_id,
+        target_label=name,
+        detail=f"{changed} listing(s) re-derived",
+        ip_address=client_address(request),
+        before=before,
+    )
     session.commit()
 
     return ManufacturerWrite(manufacturer=None, listings_changed=changed)

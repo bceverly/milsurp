@@ -259,6 +259,7 @@ test.describe("the navigation", () => {
     await expect(rail.getByRole("list", { name: "Yours" }).getByRole("link")).toHaveText([
       "Saved searches",
       "Watchlist",
+      "Wishlist",
       "Collection",
     ]);
   });

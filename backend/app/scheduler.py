@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 import threading
 from concurrent.futures import Future, ThreadPoolExecutor
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import select
 
@@ -38,9 +38,11 @@ from .services import (
     marketreport,
     pushnotify,
     scan_service,
+    scanalerts,
     wantlist,
     watchlist,
     watchpoll,
+    wishlist,
 )
 
 log = logging.getLogger("milsurp.scheduler")
@@ -159,6 +161,11 @@ class Scheduler:
         # found by a scan or the poll, and the point of the alert is not
         # waiting for the digest.
         self._dispatch_want_alerts()
+        # And wishlists whose readers asked to hear the moment one changes.
+        self._dispatch_wishlist_alerts()
+        # A shop whose scans have kept failing past the grace period is
+        # mailed once. Cheap when nothing is: one query over the sites table.
+        self._report_failing_shops()
         # A week after the last one, each reader's collection is valued and
         # kept, so its worth can be charted. Cheap when nothing is due: one
         # grouped query.
@@ -506,6 +513,63 @@ class Scheduler:
                     )
             except Exception:
                 log.exception("Watch alert for user %s raised", user_id)
+
+    def _report_failing_shops(self) -> None:
+        """Mail "stopped scraping" for shops failing longer than the grace."""
+        grace = timedelta(minutes=self.config.scheduler.scan_alert_grace_minutes)
+        try:
+            with session_scope() as session:
+                told = scanalerts.report_overdue(session, grace)
+        except Exception:
+            log.exception("Could not report failing shops")
+            return
+        for slug in told:
+            log.info("Administrators told: %s stopped scraping.", slug)
+
+    def _dispatch_wishlist_alerts(self) -> None:
+        """Tell anybody with wishlist alerts on what changed. See services/wishlist.
+
+        The watch alerts' shape: who in one pass, then each reader in their own
+        session that re-reads, sends, and marks only after a channel delivered.
+        """
+        try:
+            with session_scope() as session:
+                user_ids = sorted(wishlist.due_alerts(session))
+        except Exception:
+            log.exception("Could not determine which wishlist alerts are due")
+            return
+
+        for user_id in user_ids:
+            if self._stop.is_set():
+                return
+            try:
+                with session_scope() as session:
+                    user = session.get(User, user_id)
+                    if user is None:
+                        continue
+                    fresh = wishlist.due_alerts(session).get(user_id, [])
+                    if not fresh:
+                        continue
+                    result = digest.send_watch_alert(
+                        session, user, fresh, self.config, wishlist_alert=True
+                    )
+                    pushed = pushnotify.send_to_user(
+                        session, user, pushnotify.wishlist_alert_payload(fresh), self.config
+                    )
+                    if result.status is EmailStatus.SENT or pushed:
+                        now = utcnow()
+                        for update in fresh:
+                            wishlist.mark_told(update.entry, update.item, now)
+                    session.commit()
+                    log.info(
+                        "Wishlist alert for %s: email %s, %s device(s) (%s listing(s)).",
+                        user.username,
+                        result.status.value,
+                        pushed,
+                        len(fresh),
+                    )
+            except Exception:
+                log.exception("Wishlist alert for user %s raised", user_id)
 
     def _dispatch_want_alerts(self) -> None:
         """Tell anybody whose want list has a new match. See services/wantlist.

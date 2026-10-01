@@ -107,6 +107,15 @@ class User(Base, TimestampMixin):
     #: pretending the transfer is free. A C&R holder receiving a curio
     #: directly sets it to 0.
     ffl_transfer_fee: Mapped[float | None] = mapped_column(Float)
+    #: Holds a curio and relic license (an 03 FFL), and so receives a C&R
+    #: eligible gun directly, with no dealer and no transfer fee. The
+    #: wishlist charges the fee only on what is not eligible when this is set.
+    has_cr_license: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    #: Email and push the moment anything on the wishlist sells, comes down,
+    #: returns or changes price. Off unless asked for. See services/wishlist.
+    wishlist_alerts: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    #: What the reader means to spend on the wishlist, for "$X left". Optional.
+    wishlist_budget: Mapped[float | None] = mapped_column(Float)
 
     email_preference: Mapped["EmailPreference | None"] = relationship(
         back_populates="user", cascade="all, delete-orphan", uselist=False
@@ -191,6 +200,13 @@ class Site(Base, TimestampMixin):
     shipping_long_gun: Mapped[float | None] = mapped_column(Float)
     shipping_handgun: Mapped[float | None] = mapped_column(Float)
     shipping_note: Mapped[str | None] = mapped_column(String(200))
+
+    #: When this shop's scans started failing, and whether the administrators
+    #: have been told. A failure is only mailed once it has lasted the grace
+    #: period, so a scan that fails and recovers on its retry says nothing.
+    #: See app.services.scanalerts.
+    scan_failing_since: Mapped[datetime | None] = mapped_column(DateTime)
+    scan_failure_reported: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     items: Mapped[list["Item"]] = relationship(back_populates="site", cascade="all, delete-orphan")
     scan_runs: Mapped[list["ScanRun"]] = relationship(
@@ -1172,6 +1188,38 @@ class CollectionValuation(Base):
     estimate: Mapped[float] = mapped_column(Float, nullable=False)
     #: "left" or "shelf", as the valuation said that day.
     basis: Mapped[str] = mapped_column(String(8), nullable=False)
+
+
+class WishlistItem(Base):
+    """A listing somebody means to buy, for adding up what it would cost.
+
+    Not the watchlist. A watch follows a listing's price and says when it
+    moves; a wishlist entry is a plan, and the wishlist page adds up what the
+    plan costs delivered -- price, shipping, transfer -- and sets it against
+    what each gun is worth. One listing is on a reader's wishlist once.
+    """
+
+    __tablename__ = "wishlist_items"
+    __table_args__ = (UniqueConstraint("user_id", "item_id", name="uq_wishlist_item"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    item_id: Mapped[int] = mapped_column(
+        ForeignKey("items.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    added_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
+    #: The asking price on the day it was added, for "down $50 since you added it".
+    price_when_added: Mapped[float | None] = mapped_column(Float)
+    #: What the last wishlist alert said: the price and whether it was for
+    #: sale, sold or gone. Set when the entry is made and again when alerts
+    #: are switched on, so an alert reports a change rather than the backlog.
+    told_price: Mapped[float | None] = mapped_column(Float)
+    told_state: Mapped[str | None] = mapped_column(String(16))
+    told_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    item: Mapped["Item"] = relationship()
 
 
 class SavedSearchAlert(Base):

@@ -248,6 +248,15 @@ export const Store = (p) => (
   </Svg>
 );
 
+//: A shopping cart: the wishlist, what you mean to buy.
+export const Cart = (p) => (
+  <Svg {...p}>
+    <path d="M3 4h2.2l2.3 11h10.8l2-8H6.3" />
+    <circle cx="9.5" cy="19" r="1.4" />
+    <circle cx="16.5" cy="19" r="1.4" />
+  </Svg>
+);
+
 export const Bookmark = (p) => (
   <Svg {...p}>
     <path d="M6 4.5h12a1 1 0 0 1 1 1V20l-7-4-7 4V5.5a1 1 0 0 1 1-1z" />

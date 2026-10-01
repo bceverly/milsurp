@@ -11,6 +11,7 @@ import { useDebounced, useOptimisticSearchParams, useTitle } from "../hooks.js";
 import PriceRange from "../components/PriceRange.jsx";
 import { formatMoney, formatRelative, timeTitle } from "../format.js";
 import AuthImage from "../components/AuthImage.jsx";
+import WishButton from "../components/WishButton.jsx";
 import {
   Bookmark,
   ChevronLeft,
@@ -351,51 +352,56 @@ function ItemCard({ item }) {
     Date.now() - new Date(item.first_seen_at).getTime() < 72 * 3600 * 1000;
 
   return (
-    <Link to={`/items/${item.id}`} className="item-card">
-      <div className="item-card__media">
-        <AuthImage src={item.thumbnail_url} alt={item.title} loading="lazy" />
-        <div className="item-card__badges">
-          {isNew && (
-            <span className="chip chip--info">
-              <Sparkle size={12} />
-              New
-            </span>
-          )}
-          {dropped && (
-            <span className="chip chip--success">
-              <TrendDown size={12} />
-              Reduced
-            </span>
-          )}
-          {item.is_sold && <span className="chip chip--danger">Sold</span>}
-          {!item.is_active && <span className="chip chip--neutral">De-listed</span>}
+    <div className="item-tile">
+      <Link to={`/items/${item.id}`} className="item-card">
+        <div className="item-card__media">
+          <AuthImage src={item.thumbnail_url} alt={item.title} loading="lazy" />
+          <div className="item-card__badges">
+            {isNew && (
+              <span className="chip chip--info">
+                <Sparkle size={12} />
+                New
+              </span>
+            )}
+            {dropped && (
+              <span className="chip chip--success">
+                <TrendDown size={12} />
+                Reduced
+              </span>
+            )}
+            {item.is_sold && <span className="chip chip--danger">Sold</span>}
+            {!item.is_active && <span className="chip chip--neutral">De-listed</span>}
+          </div>
         </div>
-      </div>
 
-      <div className="item-card__body">
-        <div className="item-card__title">{item.title}</div>
-        <div className="item-card__meta">
-          {item.caliber && <span>{item.caliber}</span>}
-          {item.country && <span>· {item.country}</span>}
-        </div>
-        <div className="item-card__foot">
-          <span className={`item-card__price ${dropped ? "item-card__price--drop" : ""}`}>
-            {formatMoney(item.current_price, item.currency)}
-          </span>
-          {dropped && (
-            <span className="item-card__was">
-              {formatMoney(item.previous_price, item.currency)}
+        <div className="item-card__body">
+          <div className="item-card__title">{item.title}</div>
+          <div className="item-card__meta">
+            {item.caliber && <span>{item.caliber}</span>}
+            {item.country && <span>· {item.country}</span>}
+          </div>
+          <div className="item-card__foot">
+            <span
+              className={`item-card__price ${dropped ? "item-card__price--drop" : ""}`}
+            >
+              {formatMoney(item.current_price, item.currency)}
             </span>
-          )}
+            {dropped && (
+              <span className="item-card__was">
+                {formatMoney(item.previous_price, item.currency)}
+              </span>
+            )}
+          </div>
+          <Delivered item={item} className="item-card__delivered" />
+          <div className="item-card__meta">
+            <span title={timeTitle(item.first_seen_at)}>
+              {item.site_name} · {formatRelative(item.first_seen_at)}
+            </span>
+          </div>
         </div>
-        <Delivered item={item} className="item-card__delivered" />
-        <div className="item-card__meta">
-          <span title={timeTitle(item.first_seen_at)}>
-            {item.site_name} · {formatRelative(item.first_seen_at)}
-          </span>
-        </div>
-      </div>
-    </Link>
+      </Link>
+      <WishButton item={item} className="item-tile__wish" />
+    </div>
   );
 }
 
@@ -430,48 +436,51 @@ function ItemRow({ item }) {
   const blurb = item.blurb;
 
   return (
-    <Link to={`/items/${item.id}`} className="item-row">
-      <div className="item-row__media">
-        <AuthImage src={item.thumbnail_url} alt={item.title} loading="lazy" />
-      </div>
+    <div className="item-tile item-tile--row">
+      <Link to={`/items/${item.id}`} className="item-row">
+        <div className="item-row__media">
+          <AuthImage src={item.thumbnail_url} alt={item.title} loading="lazy" />
+        </div>
 
-      <div className="item-row__body">
-        <div className="item-row__head">
-          <span className="item-row__title">{item.title}</span>
-          <span className={`item-row__price ${dropped ? "item-row__price--drop" : ""}`}>
-            {formatMoney(item.current_price, item.currency)}
+        <div className="item-row__body">
+          <div className="item-row__head">
+            <span className="item-row__title">{item.title}</span>
+            <span className={`item-row__price ${dropped ? "item-row__price--drop" : ""}`}>
+              {formatMoney(item.current_price, item.currency)}
+              {dropped && (
+                <span className="item-row__was">
+                  {formatMoney(item.previous_price, item.currency)}
+                </span>
+              )}
+              <Delivered item={item} className="item-row__delivered" />
+            </span>
+          </div>
+
+          <div className="item-card__meta">
+            {item.caliber && <span>{item.caliber}</span>}
+            {item.manufacturer && <span>· {item.manufacturer}</span>}
+            {item.country && <span>· {item.country}</span>}
+            <span title={timeTitle(item.first_seen_at)}>
+              · {item.site_name} · {formatRelative(item.first_seen_at)}
+            </span>
+          </div>
+
+          {blurb && <p className="item-row__blurb">{blurb}</p>}
+
+          <div className="item-row__badges">
             {dropped && (
-              <span className="item-row__was">
-                {formatMoney(item.previous_price, item.currency)}
+              <span className="chip chip--success">
+                <TrendDown size={12} />
+                Reduced
               </span>
             )}
-            <Delivered item={item} className="item-row__delivered" />
-          </span>
+            {item.is_sold && <span className="chip chip--danger">Sold</span>}
+            {!item.is_active && <span className="chip chip--neutral">De-listed</span>}
+          </div>
         </div>
-
-        <div className="item-card__meta">
-          {item.caliber && <span>{item.caliber}</span>}
-          {item.manufacturer && <span>· {item.manufacturer}</span>}
-          {item.country && <span>· {item.country}</span>}
-          <span title={timeTitle(item.first_seen_at)}>
-            · {item.site_name} · {formatRelative(item.first_seen_at)}
-          </span>
-        </div>
-
-        {blurb && <p className="item-row__blurb">{blurb}</p>}
-
-        <div className="item-row__badges">
-          {dropped && (
-            <span className="chip chip--success">
-              <TrendDown size={12} />
-              Reduced
-            </span>
-          )}
-          {item.is_sold && <span className="chip chip--danger">Sold</span>}
-          {!item.is_active && <span className="chip chip--neutral">De-listed</span>}
-        </div>
-      </div>
-    </Link>
+      </Link>
+      <WishButton item={item} className="item-tile__wish" />
+    </div>
   );
 }
 

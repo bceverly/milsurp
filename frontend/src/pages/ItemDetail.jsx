@@ -22,6 +22,7 @@ function kindLabel(kind) {
 import Modal from "../components/Modal.jsx";
 import {
   Box,
+  Cart,
   ChevronLeft,
   External,
   Eye,
@@ -398,6 +399,66 @@ function ArmoryPanel({ item, onClose }) {
  * hidden by the choice; the graduations carry the dollar values a quarter,
  * half and three-quarters of the way along.
  */
+/**
+ * Put this listing on the wishlist, or take it off.
+ *
+ * Beside the watch rather than inside it: a watch follows a price, a wishlist
+ * entry is a plan to buy, priced to the door and added up on its own page.
+ * Rendered from the item's own response, like the star, so it is right on
+ * first paint.
+ */
+function WishControl({ item }) {
+  const [wished, setWished] = useState(Boolean(item.wishlisted));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setWished(Boolean(item.wishlisted));
+    setError("");
+  }, [item.id, item.wishlisted]);
+
+  const toggle = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      if (wished) await api.unwish(item.id);
+      else await api.wish(item.id);
+      setWished(!wished);
+    } catch (err) {
+      setError(err?.message || "Could not change the wishlist.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="watch">
+      <div className="watch__row">
+        <button
+          type="button"
+          className={`btn btn--sm ${wished ? "btn--primary" : "btn--ghost"}`}
+          onClick={toggle}
+          disabled={busy}
+          aria-pressed={wished}
+        >
+          <Cart size={16} />
+          {wished ? "On your wishlist" : "Add to wishlist"}
+        </button>
+        {wished && (
+          <Link className="btn btn--ghost btn--sm" to="/wishlist">
+            See the wishlist
+          </Link>
+        )}
+      </div>
+      {error && (
+        <p className="alert alert--error" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /**
  * Watch this listing, and optionally name the price you would pay.
  *
@@ -1297,6 +1358,7 @@ export default function ItemDetail() {
               whether this is a good price, and watching is what somebody does
               when the answer is "not yet". */}
           <WatchControl item={item} />
+          <WishControl item={item} />
 
           <a
             className="btn btn--primary"

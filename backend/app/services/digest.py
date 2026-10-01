@@ -40,7 +40,7 @@ from ..models import (
     as_utc,
     utcnow,
 )
-from . import foryourguns, hotdeals, inbox, mailer, offers, search, watchlist
+from . import foryourguns, hotdeals, inbox, mailer, offers, search, watchlist, wishlist
 from .image_store import ImageStore, ImageStoreError
 
 log = logging.getLogger("milsurp.digest")
@@ -485,14 +485,14 @@ def _watch_row(update, base_url: str, site_name: str, photo_cid: str | None) -> 
     )
     target = (
         f'<div style="color:{MUTED};font-size:12px;margin:4px 0 0;">'
-        f"Your target: {_money(update.watch.target_price, item.currency)}</div>"
-        if update.watch.target_price is not None
+        f"Your target: {_money(update.target_price, item.currency)}</div>"
+        if update.target_price is not None
         else ""
     )
     note = (
         f'<div style="color:{MUTED};font-size:12px;font-style:italic;margin:4px 0 0;">'
-        f"{_e(truncate(update.watch.note, 120))}</div>"
-        if update.watch.note
+        f"{_e(truncate(update.note, 120))}</div>"
+        if update.note
         else ""
     )
     here = f"{base_url}/items/{item.id}"
@@ -526,7 +526,11 @@ def _watch_row(update, base_url: str, site_name: str, photo_cid: str | None) -> 
 
 
 def _watch_section(
-    updates: list, base_url: str, sites: dict[int, Site], photos: dict[int, str]
+    updates: list,
+    base_url: str,
+    sites: dict[int, Site],
+    photos: dict[int, str],
+    heading: str = "You are watching",
 ) -> str:
     """The watchlist, first in the email.
 
@@ -542,7 +546,7 @@ def _watch_section(
     return f"""
       <tr><td style="padding:26px 24px 0;">
         <h2 style="margin:0;font-size:17px;color:{INK};font-weight:700;
-            border-left:4px solid {BLUE};padding-left:10px;">You are watching</h2>
+            border-left:4px solid {BLUE};padding-left:10px;">{_e(heading)}</h2>
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
                style="border-collapse:collapse;">{rows}</table>
       </td></tr>"""
@@ -678,6 +682,7 @@ def render_digest(
     *,
     offers_html: str = "",
     extra_sections: str = "",
+    wished: list | None = None,
 ) -> tuple[str, str, dict[str, bytes]]:
     """Return ``(subject, html_body, inline_images)``.
 
@@ -696,6 +701,7 @@ def render_digest(
     saved = saved or []
     saved_count = sum(len(items) for _row, items, _total in saved)
     watched = watched or []
+    wished = wished or []
 
     parts = []
     if watched:
@@ -704,6 +710,12 @@ def render_digest(
         # of "the rifle you are watching sold" buries the answer.
         parts.append(
             f"{len(watched)} you are watching" if len(watched) != 1 else watched[0].headline.lower()
+        )
+    if wished:
+        parts.append(
+            f"{len(wished)} on your wishlist"
+            if len(wished) != 1
+            else f"wishlist: {wished[0].headline.lower()}"
         )
     if new_count:
         parts.append(f"{new_count} new listing{'s' if new_count != 1 else ''}")
@@ -727,7 +739,7 @@ def render_digest(
     # Watched listings take their photographs first: they are the reason this
     # reader opened the email, and running out of budget on them would be the
     # worst place to run out.
-    watched_group = {0: [update.item for update in watched]}
+    watched_group = {0: [update.item for update in (*watched, *wished)]}
     for group in (watched_group, new_items, price_drops, *saved_groups):
         for items in group.values():
             for item in items:
@@ -794,13 +806,14 @@ def render_digest(
   </td></tr>
 
   {_watch_section(watched, base_url, sites, photo_cids)}
+  {_watch_section(wished, base_url, sites, photo_cids, "On your wishlist")}
   {_section('New listings', new_items, sites, zone, False, photo_cids)}
   {_section('Price reductions', price_drops, sites, zone, True, photo_cids)}
   {_saved_sections(saved, sites, base_url, photo_cids)}
   {extra_sections}
   {offers_html}
 
-  {'' if (new_count or drop_count or watched or extra_sections) else f'''
+  {'' if (new_count or drop_count or watched or wished or extra_sections) else f'''
   <tr><td style="padding:24px;color:{MUTED};font-size:14px;">
     No new listings or price reductions this time.
   </td></tr>'''}
@@ -854,7 +867,8 @@ def build_digest(
     # to send -- but a saved search is a reason to send one, and so is a
     # watchlist: somebody following one rifle and no sites at all has asked a
     # narrower question, not a smaller one.
-    if not site_ids and not saved and not user.watched_items:
+    has_wishlist = bool(wishlist.entries(session, user))
+    if not site_ids and not saved and not user.watched_items and not has_wishlist:
         return None
 
     # First run has no watermark: look back one interval rather than emailing
@@ -870,6 +884,10 @@ def build_digest(
     # not: starring a listing is a statement about *that listing*, and a filter
     # chosen for the browse sections has no business overruling it.
     watched = watchlist.updates(session, user, since)
+    # The wishlist, less what the watchlist section already says.
+    wished = wishlist.digest_updates(
+        session, user, since, skip={update.item.id for update in watched}
+    )
     # What arrived that fits the reader's own guns. Also not scoped by the site
     # selection: the guns are theirs, whichever shop has the cartridges.
     fits = foryourguns.for_user(session, user, since=since)
@@ -882,6 +900,7 @@ def build_digest(
         set(site_ids)
         | {item.site_id for _row, items, _total in saved for item in items}
         | {update.item.site_id for update in watched}
+        | {update.item.site_id for update in wished}
         | {item.site_id for item in fitting}
     )
     sites = {
@@ -898,6 +917,7 @@ def build_digest(
         saved,
         watched,
         extra_sections=_fits_section(fits, sites, config.server.public_url),
+        wished=wished,
     )
     # Listings that fit the reader's guns are new listings too, and a digest
     # carrying only those is not empty.
@@ -1098,9 +1118,17 @@ def offers_section(session: Session, site_ids: Iterable[int], sites: dict[int, S
 
 
 def send_watch_alert(
-    session: Session, user: User, updates: list, config: Config | None = None
+    session: Session,
+    user: User,
+    updates: list,
+    config: Config | None = None,
+    *,
+    wishlist_alert: bool = False,
 ) -> EmailLog:
     """Mail one reader that a watched listing has reached their target.
+
+    With ``wishlist_alert``, the same message about their wishlist instead:
+    the listings under "On your wishlist", and a subject that says so.
 
     **Out of band, like "Send now" on a saved search.** It touches neither
     ``next_send_at`` nor ``last_digest_cutoff``: an alert is not the digest
@@ -1135,14 +1163,17 @@ def send_watch_alert(
         now,
         config,
         [],
-        updates,
+        [] if wishlist_alert else updates,
         offers_html=offers_section(session, sites, sites),
+        wished=updates if wishlist_alert else None,
     )
 
     # Its own subject rather than the digest's. "Milsurp Monitor: 3 new
     # listings" in the notification shade is not what somebody who asked to be
     # interrupted at $700 needs to see.
-    if len(updates) == 1 and updates[0].news is watchlist.News.BACK:
+    if wishlist_alert:
+        subject = _wishlist_subject(updates)
+    elif len(updates) == 1 and updates[0].news is watchlist.News.BACK:
         item = updates[0].item
         subject = f"{BRAND}: {truncate(item.title, 60)} is back in stock"
     elif len(updates) == 1:
@@ -1180,6 +1211,22 @@ def send_watch_alert(
     session.add(entry)
     session.commit()
     return entry
+
+
+def _wishlist_subject(updates: list) -> str:
+    """ "Your K31 sold", "Your K31 is now $450", or a count."""
+    if len(updates) != 1:
+        return f"{BRAND}: {len(updates)} changes on your wishlist"
+    item = updates[0].item
+    title = truncate(item.title, 60)
+    news = updates[0].news
+    if news is watchlist.News.SOLD:
+        return f"{BRAND}: {title} sold"
+    if news is watchlist.News.GONE:
+        return f"{BRAND}: {title} is no longer listed"
+    if news is watchlist.News.BACK:
+        return f"{BRAND}: {title} is back in stock"
+    return f"{BRAND}: {title} is now {_money(item.current_price, item.currency)}"
 
 
 def send_want_alert(

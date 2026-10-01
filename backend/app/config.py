@@ -258,6 +258,11 @@ class SchedulerConfig:
     # Refuse to start a scan if one for the same site has been running longer
     # than this; the previous run is marked failed and reaped.
     scan_timeout_minutes: int = 120
+    #: How long a shop's scans must keep failing before the administrators
+    #: are mailed. A scan refused by a rate limit is usually retried within the
+    #: hour and works, and mailing "stopped" and "scraping again" for every
+    #: such blip taught people to ignore both. See services/scanalerts.
+    scan_alert_grace_minutes: int = 180
 
 
 @dataclass(frozen=True)
@@ -757,6 +762,7 @@ def load_config(path: Path | None = None, mode: str | None = None) -> Config:
             sch.get("max_concurrent_scans", CONCURRENT_SCANS[database.engine])
         ),
         scan_timeout_minutes=int(sch.get("scan_timeout_minutes", 120)),
+        scan_alert_grace_minutes=int(sch.get("scan_alert_grace_minutes", 180)),
     )
     database = _size_the_pool(database, _section(data, "database"), scheduler)
 

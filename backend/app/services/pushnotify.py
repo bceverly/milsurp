@@ -178,6 +178,23 @@ def watch_alert_payload(updates: list) -> dict[str, object]:
     return {"title": "A watched listing moved", "body": body, "url": url}
 
 
+def wishlist_alert_payload(updates: list) -> dict[str, object]:
+    """What a wishlist alert says on a lock screen: the headline and the title,
+    or a count; the tap opens the listing, or the wishlist for several."""
+    first = updates[0]
+    item = first.item
+    title = scrub(item.title or "", limit=TITLE_CHARS)
+    if len(updates) == 1:
+        body = f"{first.headline}: {title}"
+        if item.current_price is not None and not item.is_sold and item.is_active:
+            body += f" — now ${item.current_price:,.0f}"
+        url = f"/items/{item.id}"
+    else:
+        body = f"{first.headline}: {title}, and {len(updates) - 1} more changed."
+        url = "/wishlist"
+    return {"title": "Your wishlist changed", "body": body, "url": url}
+
+
 def want_alert_payload(wants: list) -> dict[str, object]:
     """What a want-list alert says on a lock screen.
 

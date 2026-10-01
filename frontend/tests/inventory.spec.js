@@ -373,7 +373,7 @@ test.describe("inventory", () => {
   test("the list view shows a description and the cards do not", async ({ signedIn }) => {
     await expect(signedIn.locator(".item-card").first()).toBeVisible();
 
-    await signedIn.getByRole("button", { name: "List" }).click();
+    await signedIn.getByRole("button", { name: "List", exact: true }).click();
     await expect(signedIn).toHaveURL(/view=list/);
     await expect(signedIn.locator(".item-row").first()).toBeVisible();
     await expect(signedIn.locator(".item-card")).toHaveCount(0);

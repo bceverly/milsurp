@@ -69,6 +69,14 @@ class Update:
     def headline(self) -> str:
         return HEADLINES[self.news]
 
+    @property
+    def target_price(self) -> float | None:
+        return self.watch.target_price
+
+    @property
+    def note(self) -> str | None:
+        return self.watch.note
+
 
 def for_user(session: Session, user: User) -> list[WatchedItem]:
     """Everything this user is watching, newest first."""
@@ -90,10 +98,18 @@ def watching(session: Session, user: User, item_id: int) -> WatchedItem | None:
     ).scalar_one_or_none()
 
 
-def news_for(  # noqa: PLR0911 - one return per kind of news, which is the shape
-    watch: WatchedItem, item: Item, since: datetime
+def news_for(watch: WatchedItem, item: Item, since: datetime) -> News | None:
+    """What to say about this watched listing since ``since``. See news_about."""
+    return news_about(item, since, watch.target_price)
+
+
+def news_about(  # noqa: PLR0911 - one return per kind of news, which is the shape
+    item: Item, since: datetime, target_price: float | None = None
 ) -> News | None:
     """What to say about this listing, or None for "nothing since last time".
+
+    Also the wishlist's rule in the digest, with no target: a listing somebody
+    means to buy is news when it sells, goes, returns or changes price.
 
     ``since`` is the digest's own watermark, so this needs no state of its own:
     a listing reports once per digest and the next one starts from where that
@@ -114,11 +130,11 @@ def news_for(  # noqa: PLR0911 - one return per kind of news, which is the shape
     if item.current_price is None:
         return None
 
-    if watch.target_price is not None:
+    if target_price is not None:
         # Silent unless it has arrived. Naming a number means "do not tell me
         # until then", and a rifle drifting from $900 to $925 is not news to
         # somebody waiting for $700.
-        return News.TARGET if item.current_price <= watch.target_price else None
+        return News.TARGET if item.current_price <= target_price else None
     if item.previous_price is None:
         return None
     if item.current_price < item.previous_price:

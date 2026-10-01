@@ -38,6 +38,13 @@ const LABELS = {
   "armory.edited": "Armory row changed",
   "armory.deleted": "Armory row deleted",
   "armory.reverted": "Armory change undone",
+  "armory.created": "Armory row added",
+  "armory.approved": "Armory row approved",
+  "armory.sent_back": "Armory row sent back",
+  "armory.merged": "Armory rows merged",
+  "armory.unmerged": "Armory merge undone",
+  "armory.renamed": "Armory primary name changed",
+  "armory.seeded": "Shipped armory loaded",
 };
 
 function label(action) {

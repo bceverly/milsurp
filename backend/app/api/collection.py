@@ -9,12 +9,22 @@ from __future__ import annotations
 import csv
 import io
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
 from sqlalchemy import case, func, or_, select
 
 from ..deps import CurrentUser, DbSession
-from ..models import ArmoryStatus, CollectionItem, FirearmModel, Item, Site, User
+from ..models import (
+    ArmoryStatus,
+    Caliber,
+    CollectionItem,
+    FirearmModel,
+    Item,
+    Manufacturer,
+    Site,
+    User,
+)
 from ..schemas import (
     CollectionHistoryPoint,
     CollectionItemIn,
@@ -27,6 +37,7 @@ from ..schemas import (
     ComparablesOut,
     FitsOut,
     ModelChoiceOut,
+    NameChoiceOut,
 )
 from ..services import collection, foryourguns, traits
 from .market import band_out
@@ -86,6 +97,25 @@ def _chosen_model(session: DbSession, model_id: int) -> FirearmModel:
     return model
 
 
+def _armory_search(session: DbSession, table: Any, search: str, limit: int) -> list[Any]:
+    """Approved, enabled rows of one armory table matching a search.
+
+    By name or by any spelling on the row, names that start with the search
+    first, then alphabetical. The same rule for models, calibers and makers,
+    so the three pickers on the collection's form behave alike.
+    """
+    term = " ".join(search.split())
+    statement = select(table).where(table.status == ArmoryStatus.APPROVED, table.enabled.is_(True))
+    if term:
+        like = f"%{term.replace('%', '').replace('_', '')}%"
+        statement = statement.where(or_(table.name.ilike(like), table.aliases.ilike(like)))
+        starts = case((func.lower(table.name).startswith(term.lower()), 0), else_=1)
+        statement = statement.order_by(starts, table.name)
+    else:
+        statement = statement.order_by(table.name)
+    return list(session.execute(statement.limit(limit)).scalars())
+
+
 @router.get("/models", response_model=list[ModelChoiceOut])
 def model_choices(
     _user: CurrentUser,
@@ -100,23 +130,9 @@ def model_choices(
     model, and the owner's only recourse was guessing the words the armory
     happens to use. The owner knows what the gun is; this lets them say so.
 
-    Approved and enabled rows only, by name or by any spelling, names that
-    start with the search first. Open to every signed-in reader: these are the
-    same names the inventory's Model filter already shows them.
+    Open to every signed-in reader: these are the same names the inventory's
+    Model filter already shows them.
     """
-    term = " ".join(search.split())
-    statement = select(FirearmModel).where(
-        FirearmModel.status == ArmoryStatus.APPROVED, FirearmModel.enabled.is_(True)
-    )
-    if term:
-        like = f"%{term.replace('%', '').replace('_', '')}%"
-        statement = statement.where(
-            or_(FirearmModel.name.ilike(like), FirearmModel.aliases.ilike(like))
-        )
-        starts = case((func.lower(FirearmModel.name).startswith(term.lower()), 0), else_=1)
-        statement = statement.order_by(starts, FirearmModel.name)
-    else:
-        statement = statement.order_by(FirearmModel.name)
     return [
         ModelChoiceOut(
             id=row.id,
@@ -124,7 +140,37 @@ def model_choices(
             kind=row.kind.value if row.kind else None,
             country=row.country,
         )
-        for row in session.execute(statement.limit(limit)).scalars()
+        for row in _armory_search(session, FirearmModel, search, limit)
+    ]
+
+
+@router.get("/calibers", response_model=list[NameChoiceOut])
+def caliber_choices(
+    _user: CurrentUser,
+    session: DbSession,
+    search: str = Query(default="", max_length=80),
+    limit: int = Query(default=12, ge=1, le=50),
+) -> list[NameChoiceOut]:
+    """Cartridges as the armory spells them, for the collection form's Caliber.
+
+    The armory's spelling is what the catalog files listings under, so a row
+    that uses it finds its ammunition under "For your guns" without being read
+    and normalized first. Typed freely, it still works -- this only offers.
+    """
+    return [NameChoiceOut(name=row.name) for row in _armory_search(session, Caliber, search, limit)]
+
+
+@router.get("/makers", response_model=list[NameChoiceOut])
+def maker_choices(
+    _user: CurrentUser,
+    session: DbSession,
+    search: str = Query(default="", max_length=80),
+    limit: int = Query(default=12, ge=1, le=50),
+) -> list[NameChoiceOut]:
+    """Makers as the armory names them, for the collection form's Maker."""
+    return [
+        NameChoiceOut(name=row.name, country=row.country)
+        for row in _armory_search(session, Manufacturer, search, limit)
     ]
 
 

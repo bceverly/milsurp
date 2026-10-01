@@ -33,7 +33,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from ..config import Config
-from ..models import Item, PriceHistory, WatchedItem, as_utc, utcnow
+from ..models import Item, PriceHistory, User, WatchedItem, WishlistItem, as_utc, utcnow
 from ..scrapers import get_scraper
 from ..scrapers.base import ScrapeContext, ScrapeError
 from . import cooldown
@@ -63,6 +63,10 @@ def watched_items(session: Session) -> list[Item]:
     Distinct, because two readers watching one rifle is one request. Oldest
     first so a watchlist longer than MAX_PER_PASS is read round-robin rather
     than the same head of it every time.
+
+    The wishlists of readers who switched on wishlist alerts are read too: an
+    alert is only as fresh as the price it reads, and without this one would
+    wait for the daily scan.
     """
     rows = (
         session.execute(
@@ -71,9 +75,19 @@ def watched_items(session: Session) -> list[Item]:
         .scalars()
         .all()
     )
+    wished = (
+        session.execute(
+            select(WishlistItem)
+            .join(User, User.id == WishlistItem.user_id)
+            .options(selectinload(WishlistItem.item))
+            .where(User.wishlist_alerts.is_(True))
+            .order_by(WishlistItem.id)
+        )
+        .scalars()
+        .all()
+    )
     seen: dict[int, Item] = {}
-    for watch in rows:
-        item = watch.item
+    for item in [*(watch.item for watch in rows), *(entry.item for entry in wished)]:
         # A de-listed or sold listing is not re-read: its story has ended, and
         # the watcher has already been told. Keeping it in the rotation would
         # spend requests on rifles nobody can buy.

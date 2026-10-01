@@ -66,6 +66,16 @@ COUNTRY_CHANGED = "country.changed"
 ARMORY_EDITED = "armory.edited"
 ARMORY_DELETED = "armory.deleted"
 ARMORY_REVERTED = "armory.reverted"
+#: Every other armory change, recorded from 2026-10-01. Until then only edits,
+#: deletions and reverts were: a model added and approved left no trace at all,
+#: which is how a Colt Police Positive went in and the log said nothing.
+ARMORY_CREATED = "armory.created"
+ARMORY_APPROVED = "armory.approved"
+ARMORY_SENT_BACK = "armory.sent_back"
+ARMORY_MERGED = "armory.merged"
+ARMORY_UNMERGED = "armory.unmerged"
+ARMORY_RENAMED = "armory.renamed"
+ARMORY_SEEDED = "armory.seeded"
 DESIGNATION_CHANGED = "caliber_designation.changed"
 CLASSIFIER_KEYWORD_CHANGED = "classifier_keyword.changed"
 SITE_ENABLED = "site.enabled"

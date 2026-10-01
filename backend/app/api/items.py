@@ -47,6 +47,7 @@ from ..services import (
     similar,
     traits,
     watchlist,
+    wishlist,
 )
 from ..services.image_store import ImageStore, ImageStoreError
 from ..services.search import (
@@ -647,8 +648,13 @@ def list_items(
     pages = max(1, -(-int(total) // per_page))  # ceiling division
     costs = delivered.Costs.load(session, _user)
 
+    outs = [_to_out(item, site_names, costs) for item in items]
+    wished = wishlist.ids_on(session, _user, [item.id for item in items])
+    for out in outs:
+        out.wishlisted = out.id in wished
+
     return ItemPage(
-        items=[_to_out(item, site_names, costs) for item in items],
+        items=outs,
         total=int(total),
         page=page,
         per_page=per_page,
@@ -872,6 +878,7 @@ def get_item(item_id: int, user: CurrentUser, session: DbSession) -> ItemDetail:
             site_name=site.name if site else None,
             listed_days=scorecards.listed_days(item),
         )
+    detail.wishlisted = wishlist.on_wishlist(session, user, item.id)
     watch = watchlist.watching(session, user, item.id)
     if watch is not None:
         detail.watched = True

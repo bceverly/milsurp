@@ -35,6 +35,7 @@ from .api import (
     sites,
     system,
     watchlist,
+    wishlist,
 )
 from .api import (
     changes as changes_api,
@@ -438,6 +439,7 @@ def create_app() -> FastAPI:
     api.include_router(preferences.router)
     api.include_router(saved_searches.router)
     api.include_router(watchlist.router)
+    api.include_router(wishlist.router)
     api.include_router(collection_api.router)
     app.include_router(api)
 

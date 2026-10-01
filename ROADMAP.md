@@ -4292,7 +4292,7 @@ The rail had grown to fourteen entries in the order they were built: personal
 settings below six admin pages, "Email digest" last after Backups. It is four
 labeled groups now (**Catalog**, **Yours**, **Account**, **Administration**),
 each ordered by how often it is opened: Inventory, What changed, Hot deals,
-Market; Saved searches, Watchlist, Collection; Email digest, Security; Sites,
+Market; Saved searches, Watchlist, Wishlist, Collection; Email digest, Security; Sites,
 Armory, Classification, Users, Audit log, Backups.
 
 The same pass over the in-page tabs: the inventory's Type list runs guns, then
@@ -4301,6 +4301,78 @@ list leads with newest and recently reduced; the Market groups by caliber,
 maker, country, finest to coarsest as the inventory's filters do; and
 Classification's tabs follow the order the classifier asks its questions, part
 or gun first, which is now where the page opens.
+
+### Checkpoint Charlie's, read through its Store API — **Fixed** 2026-10-01
+
+Their CDN refused the category pages most days, even at one request every five
+minutes, and in a month of scans only 72 of their roughly 430 listings ever
+reached the catalog. The shop's WooCommerce Store API, which its robots.txt
+permits, answers the same sections a hundred listings a request with prices,
+descriptions and galleries included: the C&R tag's 158 listings are two
+requests rather than eight pages and their detail batches, and the whole shop is
+about fourteen. `WooCommerceScraper.store_api_catalog` turns this on per shop;
+the listings keep their `post-N` keys, so nothing is de-listed or duplicated by
+the switch. A section the API cannot answer as JSON is read as pages, as before.
+
+### The wishlist — **Shipped** 2026-10-01
+
+**Add to wishlist** on any listing puts it on a new **Wishlist** page (under
+Yours, between Watchlist and Collection), which is a buying plan added up. Each
+line is the shelf price, the shop's stated shipping and the reader's dealer
+transfer fee, totaled; against it, what a gun of that model in that condition
+is worth (the collection's valuation, with the listing itself left out of its
+own yardstick), and the profit or loss between them. Grand totals for cost,
+worth and profit sit above the table. See `app/services/wishlist.py`
+(migration 0054).
+
+- **The fee follows the license.** "I hold a C&R license" sits beside the fee
+  on the page (`users.has_cr_license`); with it ticked, a C&R-eligible gun
+  carries no fee. A gun whose eligibility is unknown is charged it.
+- **Nothing is made up.** Missing shipping or an unset fee makes a total "at
+  least", never free; a model the market cannot price has no worth and no
+  profit; profit is summed only over the guns that have both.
+- **Worth is an asking price.** What the model was asking when it left the
+  shelf, or asks now -- the market's price, not what a dealer would pay, and
+  the page says so.
+- **Sold or delisted guns stay listed, dimmed,** and drop out of the totals.
+- **Alerts, opt-in.** "Email and notify me the moment one sells or changes
+  price" emails and pushes on the scheduler's next tick when a wishlist
+  listing sells, comes down, comes back, or moves in price. Each entry
+  remembers what it last said, and switching alerts on starts from now, so the
+  backlog is not mailed. Readers with alerts on have their wishlists re-read
+  by the watch poll, so an alert does not wait for the daily scan.
+- **In the digest,** an "On your wishlist" section with the same news on the
+  digest's own clock, for every reader with a wishlist; a listing also on the
+  watchlist is reported once.
+- **A cart on every browse card and row** adds or removes without opening the
+  listing. **Sortable** by listing, price, total, worth and profit. **Bought
+  it** moves a gun to the collection at its delivered total and off the list.
+  Each line shows how far its price has moved **since it was added**. An
+  optional **budget** shows what is left, or how far over. **Export CSV** gives
+  every line and its figures (cells that start with a formula character are
+  quoted, since titles come from vendors' pages).
+
+### The armory's audit trail, complete — **Fixed** 2026-10-01
+
+A Colt Police Positive was added to the armory and approved, and the audit
+log said nothing. It was not broken: it had only ever recorded edits,
+deletions and reverts. Adding a row, approving it, sending it back, merging,
+un-merging, choosing a primary name and loading the shipped armory left no
+line at all, and nothing done to a manufacturer was recorded either. Every one
+is recorded now, by whom, with what it touched, and the audit page names each.
+Manufacturer edits and deletions carry the same snapshot model and caliber
+ones do, so they can be undone from the log. Approving or sending back records
+only the rows that actually moved, and loading the shipped armory is one line
+rather than a thousand.
+
+### The collection's form searches the armory — **Shipped** 2026-10-01
+
+Model, Maker and Caliber on the collection's Add and Edit form all offer the
+armory's own names as you type, matched by name or by any spelling: "carcano"
+finds 6.5x52mm Carcano, "terni" finds Terni Arsenal. Model is chosen outright.
+Maker and caliber are suggestions over free text, because the armory does not
+know every maker, but its caliber spelling is what the catalog files ammunition
+under, so a gun given it finds its cartridges under "For your guns" directly.
 
 ### For your guns, worth over time, shops, "will it drop?", the market report — **Shipped** 2026-10-01
 
@@ -5352,6 +5424,18 @@ on PostgreSQL.
 
   Never raises. Alerting that can break a scan turns every mail outage into a
   scraping outage, and the failure it reports is its own.
+
+  **A failure has to last before it is mailed** (2026-10-01). Checkpoint
+  Charlie's rate limit refused a scan most days and the retry an hour later
+  worked, so the change-of-state rule mailed "stopped scraping" and "scraping
+  again" in pairs nearly every day — the same noise it exists to prevent. A
+  failed scan now only records when the shop started failing
+  (`sites.scan_failing_since`, migration 0055). The scheduler mails "stopped"
+  once that has lasted `scheduler.scan_alert_grace_minutes` (default 180) and
+  the shop is still failing, saying how many scans failed and quoting the last
+  error. A healthy scan clears it, and says "scraping again" only to people who
+  were told it stopped. A blip that recovers inside the grace says nothing at
+  all, and a disabled shop is not reported.
 - **Fixed** — CodeQL #41, *clear-text logging of sensitive information*, High,
   `services/audit.py:98`. The line is `log.exception("Could not record audit
   event %s", action)`, and the "sensitive information" was the action name —

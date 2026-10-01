@@ -358,6 +358,37 @@ test.describe("editing", () => {
     expect(sent.firearm_model_id).toBeNull();
   });
 
+  test("maker and caliber offer the armory's spellings", async ({ signedIn }) => {
+    await show(signedIn);
+    await signedIn.route("**/api/collection/models*", (route) =>
+      route.fulfill({ json: [] }),
+    );
+    await signedIn.route("**/api/collection/calibers*", (route) =>
+      route.fulfill({ json: [{ name: "6.5x52mm Carcano", country: null }] }),
+    );
+    await signedIn.route("**/api/collection/makers*", (route) =>
+      route.fulfill({ json: [{ name: "Terni Arsenal", country: "Italy" }] }),
+    );
+    await signedIn.getByRole("button", { name: "Add a gun" }).click();
+    const dialog = signedIn.getByRole("dialog");
+
+    await dialog.getByLabel("Caliber", { exact: true }).fill("carcano");
+    await dialog.getByRole("button", { name: "6.5x52mm Carcano" }).click();
+    await expect(dialog.getByLabel("Caliber", { exact: true })).toHaveValue(
+      "6.5x52mm Carcano",
+    );
+    await expect(dialog.getByRole("listbox")).toHaveCount(0);
+
+    await dialog.getByLabel("Maker", { exact: true }).fill("terni");
+    await expect(dialog.getByRole("button", { name: /Terni Arsenal/ })).toBeVisible();
+    // Escape closes the list, not the dialog.
+    await dialog.getByLabel("Maker", { exact: true }).press("Escape");
+    await expect(dialog.getByRole("listbox")).toHaveCount(0);
+    await expect(dialog).toBeVisible();
+    // And free text still stands.
+    await expect(dialog.getByLabel("Maker", { exact: true })).toHaveValue("terni");
+  });
+
   test("an empty collection says how to start one", async ({ signedIn }) => {
     await show(signedIn, {
       rows: [],

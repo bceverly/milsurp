@@ -14,8 +14,8 @@ reason: filtering it to a category, or asking for anything past the first ten
 products, needs a query string, and the first shop on the list disallows
 ``/*?*`` in robots.txt. Reading their whole 207,000-product catalog ten at a
 time to find the surplus rifles is not a serious alternative to reading the
-seventeen category pages that hold them. A shop whose rules permit it can still
-override :meth:`scrape` and use the API.
+seventeen category pages that hold them. A shop whose rules permit it sets
+``store_api_catalog`` and is read through the API instead -- see that flag.
 
 **Pagination is by path, and by the "next" link.** Not by counting: a page
 number computed from a total is a guess about a catalog that changes while it
@@ -24,6 +24,7 @@ is being read, and following the link the shop itself renders is not.
 
 from __future__ import annotations
 
+import html
 import json
 import re
 from collections.abc import Iterable, Iterator
@@ -34,6 +35,7 @@ from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup, Tag
 
 from ..services import cooldown
+from . import woo_store_api as store_api
 from .base import (
     Disallowed,
     HostResting,
@@ -234,6 +236,14 @@ class WooCommerceScraper(SiteScraper):
             )
 
     def _walk(
+        self, ctx: ScrapeContext, source: dict[str, str], seen: set[str]
+    ) -> Iterator[ScrapedItem]:
+        if self.store_api_catalog and (query := self._api_query(source)):
+            yield from self._walk_api(ctx, source, seen, query)
+            return
+        yield from self._walk_pages(ctx, source, seen)
+
+    def _walk_pages(
         self, ctx: ScrapeContext, source: dict[str, str], seen: set[str]
     ) -> Iterator[ScrapedItem]:
         category = source.get("category") or ""
@@ -441,6 +451,137 @@ class WooCommerceScraper(SiteScraper):
     #: Ids per `?include=` request. The endpoint's own page size is 100.
     STORE_API_BATCH = 100
 
+    #: Read the catalog itself from the Store API, a hundred listings a
+    #: request, rather than walking the category pages and asking the API
+    #: only for details.
+    #:
+    #: For a shop whose CDN rate-limits page requests hard. Checkpoint
+    #: Charlie's refused its catalog pages most days even at one request every
+    #: five minutes, and in a month of scans 72 of its roughly 430 listings
+    #: ever reached the catalog. Its C&R tag is 158 listings: eight HTML pages
+    #: and their API batches, or two API requests carrying the prices,
+    #: descriptions and galleries together (measured 2026-10-01). Only for a
+    #: shop whose robots.txt permits the query string, which each request
+    #: still asks, and a section whose URL names a category or tag; anything
+    #: else is walked as pages.
+    #:
+    #: Not :class:`~app.scrapers.woo_store_api.WooStoreApiScraper`, which
+    #: reads the same endpoint, because a shop already scanned as pages has
+    #: its listings keyed ``post-N``. That class keys them ``woo-N``, so moving
+    #: a shop onto it would de-list every listing and add it again as new.
+    store_api_catalog: bool = False
+
+    @staticmethod
+    def _api_query(source: dict[str, str]) -> str | None:
+        """The Store API filter for a section's URL, or None if it has none.
+
+        ``/product-tag/cr/`` is ``tag=cr``; ``/product-category/guns/x/`` is
+        ``category=x``, the leaf, which is the section the page shows.
+        """
+        parts = [part for part in urlparse(source["url"]).path.split("/") if part]
+        if len(parts) >= 2 and parts[0] == "product-tag":
+            return f"tag={parts[-1]}"
+        if len(parts) >= 2 and parts[0] == "product-category":
+            return f"category={parts[-1]}"
+        return None
+
+    def _walk_api(
+        self, ctx: ScrapeContext, source: dict[str, str], seen: set[str], query: str
+    ) -> Iterator[ScrapedItem]:
+        """One section through the Store API, page by page.
+
+        Failures follow the page walk's rules: a section that cannot be opened
+        at all fails the scan, one that fails part way keeps what it read, and
+        a host in a cooldown is a gap rather than a failure. An answer that is
+        not JSON -- the API switched off, a login wall -- falls back to
+        walking the pages, which is what this shop did before.
+        """
+        category = source.get("category") or ""
+        page = 1
+        while page <= min(self.max_pages_per_source, ctx.scraping.max_pages):
+            ctx.check_stop()
+            url = (
+                f"{self.base_url}{self.store_api_path}"
+                f"?{query}&per_page={self.STORE_API_BATCH}&page={page}"
+            )
+            fetched = self._api_page(ctx, url, source, page)
+            if fetched == _AS_PAGES:
+                yield from self._walk_pages(ctx, source, seen)
+                return
+            if not isinstance(fetched, list):
+                return
+            records = fetched
+            ctx.log(f"{category or 'catalog'} page {page}: {len(records)} listing(s) (Store API).")
+            for record in records:
+                item = self._item_from_record(record, category)
+                if item is None or item.external_key in seen:
+                    continue
+                seen.add(item.external_key)
+                yield item
+            # A short page is the last page. The count the endpoint sends is in
+            # a response header, and get_text -- the one door every scraper
+            # uses, and the one the recordings replay -- does not surface
+            # headers. A section of exactly a hundred costs one empty request.
+            if len(records) < self.STORE_API_BATCH:
+                return
+            page += 1
+
+    def _api_page(  # noqa: PLR0911 - one return per way a page can answer
+        self, ctx: ScrapeContext, url: str, source: dict[str, str], page: int
+    ) -> list[dict[str, Any]] | str | None:
+        """One page of products, or what to do instead.
+
+        ``_AS_PAGES`` to read the section as pages; None when the section
+        stops here, the reason already logged.
+        """
+        category = source.get("category") or ""
+        if not ctx.allowed(url):
+            ctx.warn(f"robots.txt disallows {url}; reading {source['url']} as pages.")
+            return _AS_PAGES
+        try:
+            records = json.loads(ctx.get_text(url))
+        except HostResting as exc:
+            ctx.warn(f"Not asking {url}: {exc}")
+            self._sections_resting += 1
+            if page == 1:
+                ctx.not_read(category)
+            return None
+        except ValueError:
+            if page == 1:
+                ctx.log(f"Store API did not answer JSON; reading {source['url']} as pages.")
+                return _AS_PAGES
+            ctx.warn(f"{url} did not answer JSON. Stopping this section at page {page - 1}.")
+            return None
+        except ScrapeError as exc:
+            if page == 1:
+                raise
+            ctx.warn(f"Could not read {url}: {exc}. Stopping this section at page {page - 1}.")
+            return None
+        if not isinstance(records, list):
+            if page == 1:
+                raise ScrapeError(f"{url} answered something other than a product list.")
+            return None
+        return [record for record in records if isinstance(record, dict)]
+
+    def _item_from_record(self, record: dict[str, Any], category: str) -> ScrapedItem | None:
+        """One Store API product as a listing, details and gallery included."""
+        product_id = record.get("id")
+        link = record.get("permalink")
+        name = html.unescape(str(record.get("name") or "")).strip()
+        if not product_id or not isinstance(link, str) or not link or not name:
+            return None
+        item = ScrapedItem(
+            external_key=f"post-{product_id}",
+            url=link,
+            title=name,
+            price=_catalog_price(record),
+            category=category or None,
+            is_sold=store_api.is_sold(record),
+            image_urls=[],
+            images_are_complete=False,
+        )
+        return self._from_store_api(item, record)
+
     def _store_api_records(
         self, ctx: ScrapeContext, items: list[ScrapedItem]
     ) -> dict[str, dict[str, Any]]:
@@ -502,7 +643,7 @@ class WooCommerceScraper(SiteScraper):
         ]
         return replace(
             item,
-            title=str(record.get("name") or "") or item.title,
+            title=html.unescape(str(record.get("name") or "")).strip() or item.title,
             description=description or item.description,
             image_urls=images or item.image_urls,
             images_are_complete=bool(images),
@@ -642,3 +783,36 @@ class WooCommerceScraper(SiteScraper):
         text = self._first_text(soup, self.detail_sku_selectors)
         # "Item Number: L2026-10918" -- the label is part of the element.
         return text.split(":", 1)[-1].strip() if ":" in text else text
+
+
+def _catalog_price(record: dict[str, Any]) -> float | None:
+    """What a Store API product is asking, or None.
+
+    A product sold in variants -- "Luger P08 toggle, 3 available" -- reports
+    a price of 0 with the real figures in ``price_range``, so the lowest of
+    those is taken. Zero is never a price: it is "call for price", and as a
+    number it would reach the deal comparison and the watchlist.
+    """
+    price = store_api.price_now(record)
+    if price:
+        return price
+    prices = record.get("prices")
+    if not isinstance(prices, dict):
+        return None
+    span = prices.get("price_range")
+    if isinstance(span, dict):
+        low = store_api.price_now(
+            {
+                "prices": {
+                    "price": span.get("min_amount"),
+                    "currency_minor_unit": prices.get("currency_minor_unit", 2),
+                }
+            }
+        )
+        if low:
+            return low
+    return None
+
+
+#: What _api_page says when a section should be read as pages instead.
+_AS_PAGES = "pages"

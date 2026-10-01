@@ -169,6 +169,15 @@ changed — filtered to the sites you care about and capped so it stays readable
   the scheduler's next tick, once per listing. Switching it on does not mail
   the backlog: only what changes from then on is news. See
   `app/services/wantlist.py`.
+- **Wishlist.** Add a listing to see what it would cost delivered to your
+  dealer — price, the shop's shipping, and your transfer fee unless it is
+  C&R-eligible and you hold a C&R license — against what the same model is
+  worth, with a profit or loss on each gun and grand totals for the list. Add
+  from the cart on any browse card; sort the list, set a budget, export it as
+  CSV, and move a gun to your collection with "Bought it". Optional alerts
+  email and push the moment a wishlist gun sells, comes back, or changes
+  price, and the digest carries the same news. See
+  `app/services/wishlist.py`.
 - **Watchlist.** Star a listing to hear when its price moves or it sells, and
   optionally name the price you would pay. A target is a promise to stay quiet:
   with one set, only a price at or below it is mailed — a rifle drifting $900 →

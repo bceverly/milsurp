@@ -240,6 +240,18 @@ export const api = {
     request(`/api/watchlist/${itemId}`, { method: "PUT", body: body || {} }),
   unwatch: (itemId) => request(`/api/watchlist/${itemId}`, { method: "DELETE" }),
 
+  // The guns this reader means to buy, priced to the door and set against
+  // what they are worth. PUT, like the watch: being on it is a state.
+  wishlist: () => request("/api/wishlist"),
+  wish: (itemId) => request(`/api/wishlist/${itemId}`, { method: "PUT" }),
+  unwish: (itemId) => request(`/api/wishlist/${itemId}`, { method: "DELETE" }),
+  // Alerts on or off, and the budget; a field left out is left as it was.
+  wishlistSettings: (payload) =>
+    request("/api/wishlist/settings", { method: "PUT", body: payload }),
+  // Into the collection at its delivered total, and off the wishlist.
+  wishlistBought: (itemId) =>
+    request(`/api/wishlist/${itemId}/bought`, { method: "POST" }),
+
   // --- sites ---
   sites: () => request("/api/sites"),
   // Vendors the roadmap intends to read. No rows behind these, so they are
@@ -407,6 +419,10 @@ export const api = {
   forYourGuns: () => request("/api/collection/for-your-guns"),
   collectionModels: (search) =>
     request(`/api/collection/models${qs({ search: search || undefined })}`),
+  collectionCalibers: (search) =>
+    request(`/api/collection/calibers${qs({ search: search || undefined })}`),
+  collectionMakers: (search) =>
+    request(`/api/collection/makers${qs({ search: search || undefined })}`),
   // A link, as the armory's export is: the cookie authenticates the download.
   collectionExportUrl: () => "/api/collection/export",
 

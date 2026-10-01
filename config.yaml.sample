@@ -213,6 +213,9 @@ scheduler:
   # A browser-driven scan is heavy, whichever engine is underneath.
   # max_concurrent_scans: 6
   scan_timeout_minutes: 120          # a longer run is treated as crashed
+  # How long a shop's scans must keep failing before administrators are
+  # mailed. A failure that recovers on its retry inside this window is silent.
+  scan_alert_grace_minutes: 180      # default: 180
 
 # --- Scraping --------------------------------------------------------------
 scraping:

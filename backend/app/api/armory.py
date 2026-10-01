@@ -290,10 +290,14 @@ def list_models(
 # Writing
 # ---------------------------------------------------------------------------
 @router.post("/calibers", response_model=CaliberOut, status_code=status.HTTP_201_CREATED)
-def create_caliber(payload: CaliberCreate, _admin: AdminUser, session: DbSession) -> CaliberOut:
+def create_caliber(
+    payload: CaliberCreate, admin: AdminUser, request: Request, session: DbSession
+) -> CaliberOut:
     _reject_duplicate(session, Caliber, payload.name)
     row = Caliber(**_emptied(payload.model_dump()))
     session.add(row)
+    session.flush()
+    _record(session, admin, request, audit.ARMORY_CREATED, "caliber", row, _status_word(row))
     session.commit()
     service.invalidate()
     return _caliber_out(row, _caliber_counts(session), _models_per_caliber(session))
@@ -375,7 +379,7 @@ def delete_caliber(
 
 @router.post("/models", response_model=FirearmModelOut, status_code=status.HTTP_201_CREATED)
 def create_model(
-    payload: FirearmModelCreate, _admin: AdminUser, session: DbSession
+    payload: FirearmModelCreate, admin: AdminUser, request: Request, session: DbSession
 ) -> FirearmModelOut:
     _reject_duplicate(session, FirearmModel, payload.name)
     data = _emptied(payload.model_dump())
@@ -385,6 +389,8 @@ def create_model(
     row.manufacturers = makers
     row.calibers = cartridges
     session.add(row)
+    session.flush()
+    _record(session, admin, request, audit.ARMORY_CREATED, "model", row, _status_word(row))
     session.commit()
     service.invalidate()
     return _model_out(row)
@@ -466,10 +472,15 @@ def delete_model(
 # The gate
 # ---------------------------------------------------------------------------
 @router.post("/{table}/promote", response_model=ArmoryAction)
-def promote(table: str, payload: ArmoryIds, _admin: AdminUser, session: DbSession) -> ArmoryAction:
+def promote(
+    table: str, payload: ArmoryIds, admin: AdminUser, request: Request, session: DbSession
+) -> ArmoryAction:
     """Move rows into production, where they start deciding things."""
     _known_table(table)
+    pending = _rows_where(session, table, payload.ids, approved=False)
     moved, touched = service.promote(session, table, payload.ids)
+    for row in pending:
+        _record(session, admin, request, audit.ARMORY_APPROVED, _TARGET[table], row)
     session.commit()
     return ArmoryAction(
         changed=moved,
@@ -485,11 +496,14 @@ def promote(table: str, payload: ArmoryIds, _admin: AdminUser, session: DbSessio
 
 @router.post("/{table}/send-back", response_model=ArmoryAction)
 def send_back(
-    table: str, payload: ArmoryIds, _admin: AdminUser, session: DbSession
+    table: str, payload: ArmoryIds, admin: AdminUser, request: Request, session: DbSession
 ) -> ArmoryAction:
     """Return rows to awaiting-approval, and stop them deciding anything."""
     _known_table(table)
+    approved = _rows_where(session, table, payload.ids, approved=True)
     moved, touched = service.send_back(session, table, payload.ids)
+    for row in approved:
+        _record(session, admin, request, audit.ARMORY_SENT_BACK, _TARGET[table], row)
     session.commit()
     return ArmoryAction(
         changed=moved,
@@ -547,9 +561,14 @@ def delete_rows(
 
 
 @router.post("/{table}/merge", response_model=ArmoryAction)
-def merge(table: str, payload: ArmoryMerge, _admin: AdminUser, session: DbSession) -> ArmoryAction:
+def merge(
+    table: str, payload: ArmoryMerge, admin: AdminUser, request: Request, session: DbSession
+) -> ArmoryAction:
     """Fold one row into another, keeping every spelling the first one caught."""
     _known_table(table)
+    source = session.get(service.CURATED[table], payload.source_id)
+    target = session.get(service.CURATED[table], payload.target_id)
+    source_name = source.name if source else str(payload.source_id)
     merger = {
         "models": service.merge_models,
         "calibers": service.merge_calibers,
@@ -559,6 +578,16 @@ def merge(table: str, payload: ArmoryMerge, _admin: AdminUser, session: DbSessio
         restamped = merger(session, payload.source_id, payload.target_id)
     except service.MergeError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    _record(
+        session,
+        admin,
+        request,
+        audit.ARMORY_MERGED,
+        _TARGET[table],
+        target,
+        f"{source_name} merged into it; {restamped} listing(s) restamped",
+        label=target.name if target else str(payload.target_id),
+    )
     session.commit()
     return ArmoryAction(
         changed=1,
@@ -572,7 +601,9 @@ def merge(table: str, payload: ArmoryMerge, _admin: AdminUser, session: DbSessio
 
 
 @router.post("/{table}/{row_id}/unmerge", response_model=ArmoryAction)
-def unmerge(table: str, row_id: int, _admin: AdminUser, session: DbSession) -> ArmoryAction:
+def unmerge(
+    table: str, row_id: int, admin: AdminUser, request: Request, session: DbSession
+) -> ArmoryAction:
     """Bring a merged-away row back, and make the target give its name back.
 
     The other half of the promise the merged row was kept for. Until this
@@ -584,6 +615,15 @@ def unmerge(table: str, row_id: int, _admin: AdminUser, session: DbSession) -> A
         note, changed = service.unmerge(session, table, row_id)
     except service.UnmergeError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    _record(
+        session,
+        admin,
+        request,
+        audit.ARMORY_UNMERGED,
+        _TARGET[table],
+        session.get(service.CURATED[table], row_id),
+        f"{note}; {changed} listing(s) re-matched",
+    )
     session.commit()
     return ArmoryAction(
         changed=1,
@@ -601,7 +641,8 @@ def set_primary(
     table: str,
     row_id: int,
     payload: ArmoryPrimaryName,
-    _admin: AdminUser,
+    admin: AdminUser,
+    request: Request,
     session: DbSession,
 ) -> ArmoryAction:
     """Promote one of a row's own spellings to be its name.
@@ -614,9 +655,20 @@ def set_primary(
     """
     _known_table(table)
     try:
+        row = session.get(service.CURATED[table], row_id)
+        old_name = row.name if row else None
         restamped = service.set_primary(session, service.CURATED[table], row_id, payload.name)
     except service.PrimaryNameError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    _record(
+        session,
+        admin,
+        request,
+        audit.ARMORY_RENAMED,
+        _TARGET[table],
+        row,
+        f"was {old_name}; {restamped} listing(s) restamped",
+    )
     session.commit()
     return ArmoryAction(
         changed=1,
@@ -743,13 +795,27 @@ def revert_edit(
 
 
 @router.post("/seed", response_model=ArmoryAction)
-def seed(_admin: AdminUser, session: DbSession) -> ArmoryAction:
+def seed(admin: AdminUser, request: Request, session: DbSession) -> ArmoryAction:
     """Add anything in the shipped armory file this database does not have.
 
     Additive only, and everything arrives awaiting approval. Safe to press
     twice: the second press adds nothing.
     """
     report = service.seed(session)
+    if report.total:
+        # One event, not one per row: a fresh database takes over a thousand.
+        audit.record(
+            session,
+            actor=admin,
+            action=audit.ARMORY_SEEDED,
+            target_type="armory",
+            target_label="Shipped armory loaded",
+            detail=(
+                f"{report.manufacturers} manufacturer(s), {report.calibers} caliber(s), "
+                f"{report.models} model(s) added, awaiting approval"
+            ),
+            ip_address=client_address(request),
+        )
     session.commit()
     return ArmoryAction(
         changed=report.total,
@@ -759,6 +825,53 @@ def seed(_admin: AdminUser, session: DbSession) -> ArmoryAction:
             if report.total
             else "Nothing to add; this database already has everything in the file."
         ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# The audit trail
+# ---------------------------------------------------------------------------
+#: What the audit log calls a row of each table.
+_TARGET = {"models": "model", "calibers": "caliber", "manufacturers": "manufacturer"}
+
+
+def _status_word(row: Any) -> str:
+    status_value = getattr(row, "status", None)
+    return "approved" if status_value == ArmoryStatus.APPROVED else "awaiting approval"
+
+
+def _rows_where(session: DbSession, table: str, ids: list[int], *, approved: bool) -> list[Any]:
+    """The rows of a selection a promote or send-back will actually move."""
+    model = service.CURATED[table]
+    in_production = model.status == ArmoryStatus.APPROVED
+    return list(
+        session.execute(
+            select(model).where(model.id.in_(ids), in_production if approved else ~in_production)
+        ).scalars()
+    )
+
+
+def _record(
+    session: DbSession,
+    admin: Any,
+    request: Request,
+    action: str,
+    target_type: str,
+    row: Any,
+    detail: str | None = None,
+    *,
+    label: str | None = None,
+) -> None:
+    """Write one armory event. Never raises; see audit.record."""
+    audit.record(
+        session,
+        actor=admin,
+        action=action,
+        target_type=target_type,
+        target_id=getattr(row, "id", None),
+        target_label=label or getattr(row, "name", None),
+        detail=detail,
+        ip_address=client_address(request),
     )
 
 

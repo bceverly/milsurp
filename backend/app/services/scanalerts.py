@@ -23,6 +23,17 @@ Recovery is reported for the same reason failure is: somebody who was told a
 shop went quiet is owed the sentence that says it came back, and without it the
 only way to find out is to go and look.
 
+**And a failure has to last before it is news.** Checkpoint Charlie's rate
+limit refused a scan most days and its retry an hour later worked, so the
+administrators got "stopped scraping" and "scraping again" nearly every day --
+the same habit-forming noise as a nightly repeat, in pairs. So a failed scan
+only records when the shop started failing (``Site.scan_failing_since``); the
+scheduler mails "stopped" once the failure has outlasted
+``scheduler.scan_alert_grace_minutes`` (three hours by default) and is still
+there; and a healthy scan clears it, saying "scraping again" only to people
+who were told it stopped. A blip that recovers inside the grace says nothing
+at all.
+
 Never raises. Alerting that can break a scan is worse than no alerting: it
 turns every mail outage into a scraping outage, and the failure it reports is
 its own.
@@ -31,11 +42,12 @@ its own.
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from ..models import ScanRun, ScanStatus, Site, User, UserRole
+from ..models import ScanRun, ScanStatus, Site, User, UserRole, as_utc, utcnow
 from . import mailer
 
 log = logging.getLogger("milsurp.scanalerts")
@@ -51,28 +63,6 @@ HEALTHY = (ScanStatus.SUCCESS, ScanStatus.PARTIAL)
 IGNORED = (ScanStatus.CANCELED, ScanStatus.RUNNING)
 
 
-def _previous_verdict(session: Session, site_id: int, before_run_id: int) -> bool | None:
-    """Whether the run before this one was healthy, or None if there wasn't one.
-
-    Ordered by id rather than by ``started_at``: two scans of one site cannot
-    overlap, but a clock that steps backwards would reorder them, and the id is
-    monotonic whatever the clock does.
-    """
-    row = session.execute(
-        select(ScanRun.status)
-        .where(
-            ScanRun.site_id == site_id,
-            ScanRun.id < before_run_id,
-            ScanRun.status.not_in(IGNORED),
-        )
-        .order_by(ScanRun.id.desc())
-        .limit(1)
-    ).scalar_one_or_none()
-    if row is None:
-        return None
-    return row in HEALTHY
-
-
 def _admin_addresses(session: Session) -> list[str]:
     users = (
         session.execute(select(User).where(User.role == UserRole.ADMIN, User.is_active.is_(True)))
@@ -82,11 +72,14 @@ def _admin_addresses(session: Session) -> list[str]:
     return [user.email for user in users if user.email]
 
 
-def _broken_message(site: Site, run: ScanRun) -> tuple[str, str]:
+def _broken_message(site: Site, run: ScanRun, failed: int, since: datetime) -> tuple[str, str]:
     detail = (run.error_message or "no detail recorded").replace("&", "&amp;").replace("<", "&lt;")
     subject = f"Milsurp: {site.name} stopped scraping"
+    scans = f"{failed} scan{'s' if failed != 1 else ''}"
     html = (
-        f"<p><strong>{site.name}</strong> ({site.slug}) failed its scan.</p>"
+        f"<p><strong>{site.name}</strong> ({site.slug}) has been failing since "
+        f"{since:%Y-%m-%d %H:%M} UTC: {scans} without one that worked. The last "
+        f"error:</p>"
         f"<pre style='font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;"
         f"white-space:pre-wrap'>{detail}</pre>"
         f"<p>Its listings are still in the catalog and are not being de-listed; "
@@ -100,7 +93,7 @@ def _recovered_message(site: Site, run: ScanRun) -> tuple[str, str]:
     subject = f"Milsurp: {site.name} is scraping again"
     html = (
         f"<p><strong>{site.name}</strong> ({site.slug}) completed a scan: "
-        f"{run.items_found:,} listing(s) seen, {run.items_new:,} new.</p>"
+        f"{run.items_found or 0:,} listing(s) seen, {run.items_new or 0:,} new.</p>"
     )
     return subject, html
 
@@ -120,27 +113,36 @@ def _send(addresses: list[str], subject: str, html: str, slug: str) -> None:
 
 
 def consider(session: Session, site: Site, run: ScanRun) -> str | None:
-    """Mail the admins if this run's verdict differs from the last one.
+    """Record this run's verdict, and mail a recovery that is owed.
 
-    Returns what was sent -- ``"broken"``, ``"recovered"`` or None -- for the
-    caller's log and for the tests. Called after the run is committed, so a
-    message can never describe a scan that was then rolled back.
+    A failed run only starts the clock -- ``report_overdue`` decides later
+    whether it lasted long enough to mail. A healthy one stops it, and says
+    "scraping again" only if "stopped" was said. Returns ``"recovered"`` when
+    that was mailed, for the caller's log and the tests. Called after the run
+    is committed, so a message can never describe a scan that was then rolled
+    back.
     """
     try:
         if run.status in IGNORED:
             return None
-        healthy = run.status in HEALTHY
-        previous = _previous_verdict(session, site.id, run.id)
-
-        # A first-ever scan that fails is news; a first-ever scan that works is
-        # not. Nobody needs telling that a thing did what it was installed to
-        # do.
-        if previous is None and healthy:
-            return None
-        if previous is not None and previous == healthy:
+        if run.status not in HEALTHY:
+            if site.scan_failing_since is None:
+                # When the failing scan *started*, so it counts among the
+                # scans the eventual message says failed.
+                site.scan_failing_since = run.started_at or run.finished_at or utcnow()
+                session.commit()
             return None
 
-        subject, html = _recovered_message(site, run) if healthy else _broken_message(site, run)
+        owed = site.scan_failure_reported
+        if site.scan_failing_since is not None or owed:
+            site.scan_failing_since = None
+            site.scan_failure_reported = False
+            session.commit()
+        if not owed:
+            # Working, or a blip that recovered inside the grace: nobody was
+            # told it stopped, so nobody is owed the news that it started.
+            return None
+        subject, html = _recovered_message(site, run)
         addresses = _admin_addresses(session)
         if not addresses:
             log.warning("No active administrator has an email address; %s not reported.", site.slug)
@@ -152,4 +154,64 @@ def consider(session: Session, site: Site, run: ScanRun) -> str | None:
         log.warning("Scan alerting failed for %s", site.slug, exc_info=True)
         return None
     else:
-        return "recovered" if healthy else "broken"
+        return "recovered"
+
+
+def report_overdue(session: Session, grace: timedelta, now: datetime | None = None) -> list[str]:
+    """Mail "stopped scraping" for every shop failing longer than ``grace``.
+
+    Called on the scheduler's tick. Once per failure: the shop is marked told,
+    and only a healthy scan clears that. A disabled shop is not reported --
+    somebody switched it off and knows. Returns the slugs reported. Never
+    raises, for the same reason ``consider`` does not.
+    """
+    told: list[str] = []
+    try:
+        cutoff = (as_utc(now) or utcnow()) - grace
+        overdue = (
+            session.execute(
+                select(Site).where(
+                    Site.enabled.is_(True),
+                    Site.scan_failure_reported.is_(False),
+                    Site.scan_failing_since.is_not(None),
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for site in overdue:
+            since = as_utc(site.scan_failing_since)
+            if since is None or since > cutoff:
+                continue
+            last = session.execute(
+                select(ScanRun)
+                .where(ScanRun.site_id == site.id, ScanRun.status.not_in((*HEALTHY, *IGNORED)))
+                .order_by(ScanRun.id.desc())
+                .limit(1)
+            ).scalar_one_or_none()
+            failed = session.execute(
+                select(func.count(ScanRun.id)).where(
+                    ScanRun.site_id == site.id,
+                    ScanRun.status.not_in((*HEALTHY, *IGNORED)),
+                    # Naive, as the column is stored.
+                    ScanRun.started_at >= since.replace(tzinfo=None),
+                )
+            ).scalar_one()
+            # Marked first and either way: a shop with no administrator to
+            # tell, or mail that will not go, must not be retried every tick.
+            site.scan_failure_reported = True
+            session.commit()
+            if last is None:
+                continue
+            addresses = _admin_addresses(session)
+            if not addresses:
+                log.warning(
+                    "No active administrator has an email address; %s not reported.", site.slug
+                )
+                continue
+            subject, html = _broken_message(site, last, max(1, failed), since)
+            _send(addresses, subject, html, site.slug)
+            told.append(site.slug)
+    except Exception:
+        log.warning("Reporting failing shops failed", exc_info=True)
+    return told

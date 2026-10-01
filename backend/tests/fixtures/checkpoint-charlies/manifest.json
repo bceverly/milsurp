@@ -1,18 +1,10 @@
 {
   "slug": "checkpoint-charlies",
-  "recorded_at": "2026-09-16T13:54:03+00:00",
+  "recorded_at": "2026-10-01T20:25:16+00:00",
   "pages": [
     {
-      "url": "https://checkpointcharlies.com/product-tag/cr/",
+      "url": "https://checkpointcharlies.com/wp-json/wc/store/v1/products?tag=cr&per_page=100&page=1",
       "file": "0001.html.gz"
-    },
-    {
-      "url": "https://checkpointcharlies.com/product/astra-900-flatside-broomhandle-9mm-restored-pistol-4-09118-ba/",
-      "file": "0002.html.gz"
-    },
-    {
-      "url": "https://checkpointcharlies.com/product/astra-modelo-1921-400-semi-auto-pistol-5-01087-pf/",
-      "file": "0003.html.gz"
     }
   ]
 }

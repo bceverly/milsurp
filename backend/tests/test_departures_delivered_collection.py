@@ -161,10 +161,11 @@ class TestDelivered:
     def test_the_fee_is_saved_and_priced_in(self, client, normal_user):
         headers = normal_user["headers"]
         assert client.get("/api/preferences/costs", headers=headers).json() == {
-            "ffl_transfer_fee": None
+            "ffl_transfer_fee": None,
+            "has_cr_license": False,
         }
         saved = client.put("/api/preferences/costs", json={"ffl_transfer_fee": 30}, headers=headers)
-        assert saved.json() == {"ffl_transfer_fee": 30.0}
+        assert saved.json() == {"ffl_transfer_fee": 30.0, "has_cr_license": False}
         assert (
             client.put(
                 "/api/preferences/costs", json={"ffl_transfer_fee": -1}, headers=headers
@@ -490,3 +491,49 @@ class TestChoosingTheModel:
             f"/api/collection/{row['id']}", json={"firearm_model_id": None}, headers=headers
         ).json()
         assert (cleared["firearm_model_id"], cleared["model_declined"]) == (None, True)
+
+
+class TestArmorySpellingsOnTheForm:
+    """The collection form offers the armory's calibers and makers by name or
+    by any spelling -- approved and switched on only, as the model picker."""
+
+    @pytest.fixture
+    def armory_rows(self, seeded):
+        from app.models import ArmoryStatus, Caliber, Manufacturer
+
+        seeded.add_all(
+            [
+                Caliber(
+                    name="6.5x52mm Carcano",
+                    aliases="6.5 Carcano\n6.5mm Carcano",
+                    status=ArmoryStatus.APPROVED,
+                ),
+                Caliber(name="6.5x55mm Swedish", status=ArmoryStatus.APPROVED),
+                Caliber(name="6.5 Unheard Of", status=ArmoryStatus.PENDING),
+                Manufacturer(
+                    name="Terni Arsenal",
+                    aliases="Terni",
+                    status=ArmoryStatus.APPROVED,
+                    country="Italy",
+                ),
+                Manufacturer(name="Terni Off", status=ArmoryStatus.APPROVED, enabled=False),
+            ]
+        )
+        seeded.commit()
+
+    def test_calibers_by_name_and_spelling(self, client, normal_user, armory_rows):
+        headers = normal_user["headers"]
+        names = [
+            row["name"]
+            for row in client.get("/api/collection/calibers?search=6.5", headers=headers).json()
+        ]
+        assert "6.5x52mm Carcano" in names and "6.5x55mm Swedish" in names
+        assert "6.5 Unheard Of" not in names
+        by_alias = client.get("/api/collection/calibers?search=carcano", headers=headers).json()
+        assert [row["name"] for row in by_alias] == ["6.5x52mm Carcano"]
+
+    def test_makers_with_their_country(self, client, normal_user, armory_rows):
+        found = client.get(
+            "/api/collection/makers?search=terni", headers=normal_user["headers"]
+        ).json()
+        assert found == [{"name": "Terni Arsenal", "country": "Italy"}]

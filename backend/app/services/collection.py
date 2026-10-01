@@ -68,10 +68,14 @@ ON_SHELF = (
 )
 
 
-def _shelf_band(session: Session, model_id: int, grade: str | None) -> market.Band | None:
+def _shelf_band(
+    session: Session, model_id: int, grade: str | None, exclude: int | None = None
+) -> market.Band | None:
     statement = select(Item.current_price, Item.currency, Item.site_id).where(
         Item.firearm_model_id == model_id, *ON_SHELF
     )
+    if exclude is not None:
+        statement = statement.where(Item.id != exclude)
     if grade is not None:
         statement = statement.where(Item.condition_grade == grade)
     rows = session.execute(statement).all()
@@ -87,12 +91,25 @@ def value(session: Session, row: CollectionItem) -> Valuation | None:
     """What this gun is worth, or None when there is nothing to judge it by."""
     if row.firearm_model_id is None:
         return None
-    model_id = row.firearm_model_id
-    same_model = Item.firearm_model_id == model_id
+    return value_of(session, row.firearm_model_id, row.condition_grade)
 
-    grade = row.condition_grade if row.condition_grade in traits.GRADES else None
+
+def value_of(
+    session: Session, model_id: int, grade: str | None, *, exclude: int | None = None
+) -> Valuation | None:
+    """What a gun of this model, in this condition, is worth.
+
+    ``exclude`` leaves one listing out of its own comparison: a wishlist values
+    the gun it is pricing against the *other* listings of its model, so the
+    listing is not part of the yardstick it is measured with.
+    """
+    same_model = Item.firearm_model_id == model_id
+    if exclude is not None:
+        same_model = same_model & (Item.id != exclude)
+
+    grade = grade if grade in traits.GRADES else None
     if grade is not None:
-        shelf = _shelf_band(session, model_id, grade)
+        shelf = _shelf_band(session, model_id, grade, exclude)
         departed = market.departure_band(
             session, "model", same_model & (Item.condition_grade == grade)
         )
@@ -100,7 +117,7 @@ def value(session: Session, row: CollectionItem) -> Valuation | None:
             return _choose(shelf, departed, like_for_like=True)
 
     return _choose(
-        _shelf_band(session, model_id, None),
+        _shelf_band(session, model_id, None, exclude),
         market.departure_band(session, "model", same_model),
         like_for_like=False,
     )

@@ -29,6 +29,7 @@ const AuditLogPage = lazy(() => import("./pages/AuditLog.jsx"));
 const BackupsPage = lazy(() => import("./pages/Backups.jsx"));
 const SavedSearches = lazy(() => import("./pages/SavedSearches.jsx"));
 const Watchlist = lazy(() => import("./pages/Watchlist.jsx"));
+const Wishlist = lazy(() => import("./pages/Wishlist.jsx"));
 const CollectionPage = lazy(() => import("./pages/Collection.jsx"));
 const ShopsPage = lazy(() => import("./pages/Shops.jsx"));
 const SecurityPage = lazy(() => import("./pages/Security.jsx"));
@@ -109,6 +110,7 @@ export default function App() {
         <Route path="hot-deals" element={<HotDealsPage />} />
         <Route path="saved-searches" element={<SavedSearches />} />
         <Route path="watchlist" element={<Watchlist />} />
+        <Route path="wishlist" element={<Wishlist />} />
         <Route path="collection" element={<CollectionPage />} />
         <Route
           path="sites"
