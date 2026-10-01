@@ -423,3 +423,70 @@ class TestTheLinkToTheComparables:
         base = f"model={k31.id}&guns_only=true"
         assert browse(base) == {item.id for item in found.shelf}
         assert browse(f"{base}&availability=left") == {item.id for item in found.departed}
+
+
+class TestChoosingTheModel:
+    """The owner says what the gun is, rather than guessing the armory's words.
+
+    "Carcano Carbine" is a fair name for a Moschetto and matched no model, and
+    the only way to a valuation was rewording the title until something did.
+    """
+
+    @pytest.fixture
+    def models(self, seeded):
+        from app.models import ArmoryStatus
+
+        moschetto = FirearmModel(
+            name="Carcano M91 Cavalry Carbine",
+            aliases="Moschetto 91",
+            status=ArmoryStatus.APPROVED,
+        )
+        rifle = FirearmModel(name="Carcano M91", status=ArmoryStatus.APPROVED)
+        pending = FirearmModel(name="Carcano Something", status=ArmoryStatus.PENDING)
+        seeded.add_all([moschetto, rifle, pending])
+        seeded.commit()
+        return moschetto, rifle, pending
+
+    def test_the_search_finds_names_and_spellings_starts_first(self, client, normal_user, models):
+        headers = normal_user["headers"]
+        found = client.get("/api/collection/models?search=carcano", headers=headers).json()
+        names = [row["name"] for row in found]
+        assert "Carcano Something" not in names
+        assert set(names) >= {"Carcano M91", "Carcano M91 Cavalry Carbine"}
+        by_alias = client.get("/api/collection/models?search=moschetto", headers=headers).json()
+        assert [row["name"] for row in by_alias] == ["Carcano M91 Cavalry Carbine"]
+
+    def test_a_chosen_model_stays_through_a_new_title(self, client, normal_user, models):
+        moschetto, _rifle, _pending = models
+        headers = normal_user["headers"]
+        row = client.post(
+            "/api/collection",
+            json={"title": "Carcano Carbine", "firearm_model_id": moschetto.id},
+            headers=headers,
+        ).json()
+        assert row["model"] == "Carcano M91 Cavalry Carbine"
+        renamed = client.patch(
+            f"/api/collection/{row['id']}", json={"title": "My cavalry carbine"}, headers=headers
+        ).json()
+        assert renamed["firearm_model_id"] == moschetto.id
+
+    def test_choosing_and_clearing_through_an_edit(self, client, normal_user, models):
+        moschetto, _rifle, pending = models
+        headers = normal_user["headers"]
+        row = client.post(
+            "/api/collection", json={"title": "Carcano Carbine"}, headers=headers
+        ).json()
+        chosen = client.patch(
+            f"/api/collection/{row['id']}", json={"firearm_model_id": moschetto.id}, headers=headers
+        ).json()
+        assert (chosen["model"], chosen["model_declined"]) == ("Carcano M91 Cavalry Carbine", False)
+
+        refused = client.patch(
+            f"/api/collection/{row['id']}", json={"firearm_model_id": pending.id}, headers=headers
+        )
+        assert refused.status_code == 400
+
+        cleared = client.patch(
+            f"/api/collection/{row['id']}", json={"firearm_model_id": None}, headers=headers
+        ).json()
+        assert (cleared["firearm_model_id"], cleared["model_declined"]) == (None, True)

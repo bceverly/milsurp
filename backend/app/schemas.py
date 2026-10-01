@@ -1738,6 +1738,9 @@ class CollectionItemIn(BaseModel):
     """A gun somebody owns. Only the title is required; see CollectionItem."""
 
     title: str = Field(min_length=1, max_length=200)
+    #: The armory model, chosen by the owner. Omitted, it is matched from the
+    #: title the way a listing is.
+    firearm_model_id: int | None = None
     caliber: str | None = Field(default=None, max_length=64)
     manufacturer: str | None = Field(default=None, max_length=128)
     condition_grade: CollectionGrade | None = None
@@ -1761,6 +1764,8 @@ class CollectionItemUpdate(BaseModel):
     #: "That is not the right model": clears the match and keeps it cleared.
     #: False lets the title be matched again.
     model_declined: bool | None = None
+    #: The owner choosing the model outright. Null clears it, as declining does.
+    firearm_model_id: int | None = None
 
 
 class CollectionValuationOut(BaseModel):
@@ -1835,3 +1840,12 @@ class ComparablesOut(BaseModel):
     shelf: list[ComparableOut] = Field(default_factory=list)
     #: The cap on each list; a longer list is summarized by its band.
     limit: int = 50
+
+
+class ModelChoiceOut(BaseModel):
+    """An armory model somebody can say their gun is."""
+
+    id: int
+    name: str
+    kind: str | None = None
+    country: str | None = None

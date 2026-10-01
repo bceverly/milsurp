@@ -10,11 +10,11 @@ import csv
 import io
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, HTTPException, Response, status
-from sqlalchemy import select
+from fastapi import APIRouter, HTTPException, Query, Response, status
+from sqlalchemy import case, func, or_, select
 
 from ..deps import CurrentUser, DbSession
-from ..models import CollectionItem, Item, Site, User
+from ..models import ArmoryStatus, CollectionItem, FirearmModel, Item, Site, User
 from ..schemas import (
     CollectionItemIn,
     CollectionItemOut,
@@ -24,6 +24,7 @@ from ..schemas import (
     CollectionValuationOut,
     ComparableOut,
     ComparablesOut,
+    ModelChoiceOut,
 )
 from ..services import collection, traits
 from .market import band_out
@@ -73,6 +74,58 @@ def _clean(value: str | None) -> str | None:
     return (value or "").strip() or None
 
 
+def _chosen_model(session: DbSession, model_id: int) -> FirearmModel:
+    """A model somebody picked: it has to be one the armory vouches for."""
+    model = session.get(FirearmModel, model_id)
+    if model is None or model.status != ArmoryStatus.APPROVED or not model.enabled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="That is not a model the armory has."
+        )
+    return model
+
+
+@router.get("/models", response_model=list[ModelChoiceOut])
+def model_choices(
+    _user: CurrentUser,
+    session: DbSession,
+    search: str = Query(default="", max_length=80),
+    limit: int = Query(default=12, ge=1, le=50),
+) -> list[ModelChoiceOut]:
+    """The armory models a collection row can be said to be.
+
+    **Why this exists.** A row was matched from its title and from nothing
+    else, so "Carcano Carbine" -- a fair name for a Moschetto -- matched no
+    model, and the owner's only recourse was guessing the words the armory
+    happens to use. The owner knows what the gun is; this lets them say so.
+
+    Approved and enabled rows only, by name or by any spelling, names that
+    start with the search first. Open to every signed-in reader: these are the
+    same names the inventory's Model filter already shows them.
+    """
+    term = " ".join(search.split())
+    statement = select(FirearmModel).where(
+        FirearmModel.status == ArmoryStatus.APPROVED, FirearmModel.enabled.is_(True)
+    )
+    if term:
+        like = f"%{term.replace('%', '').replace('_', '')}%"
+        statement = statement.where(
+            or_(FirearmModel.name.ilike(like), FirearmModel.aliases.ilike(like))
+        )
+        starts = case((func.lower(FirearmModel.name).startswith(term.lower()), 0), else_=1)
+        statement = statement.order_by(starts, FirearmModel.name)
+    else:
+        statement = statement.order_by(FirearmModel.name)
+    return [
+        ModelChoiceOut(
+            id=row.id,
+            name=row.name,
+            kind=row.kind.value if row.kind else None,
+            country=row.country,
+        )
+        for row in session.execute(statement.limit(limit)).scalars()
+    ]
+
+
 @router.get("", response_model=CollectionOut)
 def list_collection(user: CurrentUser, session: DbSession) -> CollectionOut:
     valued = [(row, collection.value(session, row)) for row in _rows(session, user)]
@@ -98,7 +151,10 @@ def add_to_collection(
         acquired_from=_clean(payload.acquired_from),
         notes=_clean(payload.notes),
     )
-    collection.match_model(session, row)
+    if payload.firearm_model_id is not None:
+        row.firearm_model_id = _chosen_model(session, payload.firearm_model_id).id
+    else:
+        collection.match_model(session, row)
     session.add(row)
     session.commit()
     session.refresh(row)
@@ -183,7 +239,10 @@ def update_collection_item(
     sent = payload.model_fields_set
     rematch = False
     if "title" in sent and payload.title:
-        rematch = payload.title.strip() != row.title
+        # A new title is matched again only when there is no model to keep:
+        # one the owner chose, or one they let stand, is not overwritten by
+        # rewording the name.
+        rematch = payload.title.strip() != row.title and row.firearm_model_id is None
         row.title = payload.title.strip()
     for name in ("caliber", "manufacturer", "acquired_from", "notes"):
         if name in sent:
@@ -194,6 +253,14 @@ def update_collection_item(
     if "model_declined" in sent and payload.model_declined is not None:
         rematch = rematch or row.model_declined != payload.model_declined
         row.model_declined = payload.model_declined
+    if "firearm_model_id" in sent:
+        if payload.firearm_model_id is None:
+            row.firearm_model_id = None
+            row.model_declined = True
+        else:
+            row.firearm_model_id = _chosen_model(session, payload.firearm_model_id).id
+            row.model_declined = False
+        rematch = False
     if rematch:
         collection.match_model(session, row)
     session.commit()

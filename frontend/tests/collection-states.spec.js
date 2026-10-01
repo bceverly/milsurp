@@ -300,10 +300,17 @@ test.describe("comparables", () => {
 });
 
 test.describe("editing", () => {
-  test("a declined model can be matched again, and a refused save says why", async ({
+  test("a model is chosen from the armory, and a refused save says why", async ({
     signedIn,
   }) => {
     await show(signedIn);
+    await signedIn.route("**/api/collection/models*", (route) =>
+      route.fulfill({
+        json: new URL(route.request().url()).searchParams.get("search")
+          ? [{ id: 12, name: "Swiss K31", kind: "carbine", country: "Switzerland" }]
+          : [],
+      }),
+    );
     await signedIn.route("**/api/collection/73", (route) =>
       route.request().method() === "PATCH"
         ? route.fulfill({ status: 400, json: { detail: "That is not a price." } })
@@ -315,12 +322,40 @@ test.describe("editing", () => {
       .click();
     const dialog = signedIn.getByRole("dialog");
     await expect(dialog).toContainText("cannot be valued");
-    await dialog.getByRole("button", { name: "Match it again" }).click();
-    await expect(dialog).not.toContainText("cannot be valued");
+    await expect(dialog).toContainText("No model by that name.");
+    await dialog.getByLabel("Model").fill("K31");
+    await dialog.getByRole("button", { name: /^Swiss K31/ }).click();
+    await expect(dialog.locator(".model-picker__current")).toContainText("Swiss K31");
+    await dialog.getByRole("button", { name: "Change" }).click();
+    await dialog.getByLabel("Model").fill("K31");
+    await dialog.getByRole("button", { name: /^Swiss K31/ }).click();
     await dialog.getByRole("button", { name: "Save" }).click();
     await expect(dialog.getByText("That is not a price.")).toBeVisible();
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(signedIn.getByRole("dialog")).toHaveCount(0);
+  });
+
+  test("a model that is wrong can be taken off", async ({ signedIn }) => {
+    await show(signedIn);
+    await signedIn.route("**/api/collection/models*", (route) =>
+      route.fulfill({ json: [] }),
+    );
+    let sent = null;
+    await signedIn.route("**/api/collection/71", (route) => {
+      if (route.request().method() !== "PATCH") return route.fallback();
+      sent = route.request().postDataJSON();
+      return route.fulfill({ json: { ...ROWS[0], firearm_model_id: null, model: null } });
+    });
+    await signedIn
+      .locator("tr", { hasText: "Swiss K31, 1943" })
+      .getByRole("button", { name: "Swiss K31, 1943", exact: true })
+      .click();
+    const dialog = signedIn.getByRole("dialog");
+    await dialog.getByRole("button", { name: "Not this model" }).click();
+    await expect(dialog).toContainText("cannot be valued");
+    await dialog.getByRole("button", { name: "Save" }).click();
+    await expect(signedIn.getByRole("dialog")).toHaveCount(0);
+    expect(sent.firearm_model_id).toBeNull();
   });
 
   test("an empty collection says how to start one", async ({ signedIn }) => {

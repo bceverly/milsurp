@@ -3047,6 +3047,39 @@ models:
   - Carcano
   wikipedia: https://en.wikipedia.org/wiki/Carcano
   status: approved
+- name: Carcano M91 Cavalry Carbine
+  aliases:
+  - Moschetto Mod. 91
+  - Moschetto Modello 91
+  - Moschetto 91
+  - M91 Moschetto
+  - Moschetto M91
+  - Moshetto M91
+  - Carcano M91 Moschetto
+  - 1891 Carcano Moschetto
+  - Carcano M91 Cavalry
+  - M91 Carcano Cavalry
+  - Carcano M.91 Cavalry
+  - M.91 Carcano Cavalry
+  - Carcano M91 Carbine
+  - M91 Carcano Carbine
+  - 1891 Carcano Carbine
+  - Carcano Model 91 Carbine
+  - Model 91 Carcano Carbine
+  kind: carbine
+  country: Italy
+  calibers:
+  - 6.5x52mm Carcano
+  manufacturers:
+  - Carcano
+  wikipedia: https://en.wikipedia.org/wiki/Carcano
+  status: approved
+  position: 900
+  notes: 'The Moschetto Mod. 91 per Cavalleria. Tried before the M91 rifle, whose
+    name is inside "Carcano M91 Moschetto Cavalry Carbine". Its spellings are the
+    carbine''s alone: not "Carcano Cavalry Carbine" (the M38 is one too) nor "Model
+    1891 Cavalry Carbine" (so is the Argentine Mauser). Measured against production''s
+    titles 2026-10-01: eleven listings, every one a Moschetto.'
 - name: Carcano Model 1870/87
   aliases:
   - Model 1870/87

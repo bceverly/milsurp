@@ -8,6 +8,7 @@
 
 .boot {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -35,6 +36,7 @@
    --------------------------------------------------------------------------- */
 .login {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -89,6 +91,7 @@
    --------------------------------------------------------------------------- */
 .shell {
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .topbar {
@@ -359,6 +362,24 @@
   color: var(--ink-500);
   padding: 22px 0;
   font-size: 14px;
+}
+
+/* **A table cell stays a table cell.** The armory puts this class on the
+   `<td colSpan>` of its "Loading…" and "Nothing here" rows, and `display:
+   flex` turns a td into a plain box: the browser ignores its colSpan, puts it
+   in the first column, and widens that column to fit the sentence. The other
+   eight columns were left their headings' narrowest width, which on an empty
+   tab broke every heading mid-word -- "NAM E", "KIN D", "LISTIN GS". */
+.table td.loading-row {
+  display: table-cell;
+  padding: 22px 14px;
+}
+/* An inline span ignores width and height, so the spinner needs saying it is
+   a box now that its cell is not a flex container making it one. */
+.table td.loading-row .spinner {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 10px;
 }
 
 /* ---------------------------------------------------------------------------
@@ -1160,6 +1181,12 @@
   overflow-wrap: anywhere;
 }
 
+/* A value that means nothing broken across lines: an address, a date. */
+.table td.table__nowrap {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
 /* Less breathing room once the width is what is scarce. Twelve pixels a column
    across nine columns is over a hundred back, which is the difference between
    fitting and not on a 1024-wide window. */
@@ -1663,9 +1690,16 @@
 }
 
 /* Modal */
+/* Sized to what is visible rather than to `vh`. On a phone `100vh` is the
+   height with the browser's toolbars *hidden*, so a sheet anchored to the
+   bottom of it sat partly under the toolbar -- its Save button with it. `dvh`
+   follows the toolbar; the `vh` line before it is the fallback for a browser
+   that does not know the unit. */
 .modal-scrim {
   position: fixed;
   inset: 0;
+  height: 100vh;
+  height: 100dvh;
   background: rgba(5, 16, 31, 0.55);
   z-index: 50;
   display: flex;
@@ -1681,13 +1715,21 @@
   }
 }
 
+/* **The head and the buttons stay put; only the body scrolls.** The whole
+   dialog used to be one scrolling box, so a tall one -- the collection's Add
+   dialog, an armory edit -- carried its Save button below the bottom of the
+   screen, and nothing said it was there. A column whose middle scrolls keeps
+   the title and the actions on screen however long the form is. */
 .modal {
   background: var(--surface);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   width: 100%;
   max-width: 480px;
   max-height: 92vh;
-  overflow-y: auto;
+  max-height: 92dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   box-shadow: var(--shadow-lg);
 }
 .modal--wide {
@@ -1697,10 +1739,15 @@
 @media (min-width: 620px) {
   .modal {
     border-radius: var(--radius-lg);
+    /* The scrim's 20px padding above and below, so a dialog as tall as the
+       window still has its edges on screen. */
+    max-height: calc(100vh - 40px);
+    max-height: calc(100dvh - 40px);
   }
 }
 
 .modal__head {
+  flex: none;
   padding: 17px 20px;
   border-bottom: 1px solid var(--silver-200);
   display: flex;
@@ -1711,14 +1758,39 @@
   font-size: 16px;
 }
 .modal__body {
+  flex: 1 1 auto;
+  /* Without it a flex child will not shrink below its content, and the body
+     pushes the footer out of the dialog instead of scrolling. */
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 20px;
 }
 .modal__foot {
-  padding: 14px 20px;
+  flex: none;
+  /* Clear of the home indicator on a phone, where the sheet meets the edge. */
+  padding: 14px 20px max(14px, env(safe-area-inset-bottom));
   border-top: 1px solid var(--silver-200);
   display: flex;
   justify-content: flex-end;
   gap: 9px;
+}
+
+/* A form that brings its own buttons -- the armory's edit, merge, delete and
+   primary-name dialogs end in a row of them rather than using the dialog's
+   footer -- keeps that row pinned to the bottom of the scrolling body, so it
+   behaves as the footer does: on screen however long the form above it is.
+   The negative margins and bottom offset cancel the body's 20px padding, so
+   the row sits flush against the dialog's edge. */
+.modal__body .page-head__actions:last-child {
+  position: sticky;
+  bottom: -20px;
+  z-index: 1;
+  justify-content: flex-end;
+  margin: 18px -20px -20px;
+  padding: 12px 20px max(12px, env(safe-area-inset-bottom));
+  background: var(--surface);
+  border-top: 1px solid var(--silver-200);
 }
 
 /* The Select all / Clear pair above a long list of checkboxes. */
@@ -1941,6 +2013,10 @@
 
 .armory-tabs {
   display: flex;
+  /* Onto a second line rather than off the edge: Hot deals' four categories,
+     with their counts, are wider than a phone, and "Police surplus" was
+     past the right edge of the screen with the page scrolling sideways. */
+  flex-wrap: wrap;
   gap: 0.5rem;
   margin: 0.75rem 0;
 }
@@ -3331,4 +3407,55 @@
   font-size: 12.5px;
   color: var(--ink-600, #445);
   font-variant-numeric: tabular-nums;
+}
+
+/* Choosing which armory model a collection row is. */
+.model-picker {
+  margin-bottom: 14px;
+}
+.model-picker__label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.model-picker__current {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.model-picker__choices {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  max-height: 11rem;
+  overflow-y: auto;
+  border: 1px solid var(--silver-200);
+  border-radius: var(--radius-sm);
+}
+.model-picker__choices li {
+  border-bottom: 1px solid var(--silver-200);
+}
+.model-picker__choices li:last-child {
+  border-bottom: 0;
+}
+.model-picker__choices li.muted {
+  padding: 8px 10px;
+  font-size: 13px;
+}
+.model-picker__choice {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.model-picker__choice:hover,
+.model-picker__choice:focus-visible {
+  background: var(--navy-50);
 }

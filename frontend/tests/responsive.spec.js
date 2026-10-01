@@ -117,4 +117,62 @@ test.describe("mobile layout", () => {
       .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
     expect(fontSize).toBeGreaterThanOrEqual(16);
   });
+
+  test("a dialog's buttons are on screen, above the phone's toolbar", async ({
+    signedIn,
+  }) => {
+    /*
+     * A bottom sheet anchored to `100vh` sat partly under the browser's
+     * toolbar, Save button and all. Sized to the visible height now, with the
+     * header and the actions pinned and only the form between them scrolling.
+     */
+    await signedIn.goto("/collection");
+    await signedIn.getByRole("button", { name: "Add a gun" }).click();
+    const dialog = signedIn.getByRole("dialog");
+    const save = dialog.getByRole("button", { name: "Save" });
+    await expect(save).toBeInViewport({ ratio: 1 });
+    await expect(dialog.locator(".modal__head")).toBeInViewport({ ratio: 1 });
+  });
+
+  test("no page is wider than the phone", async ({ signedIn }) => {
+    /*
+     * Hot deals' category tabs used to run off the right edge, and the page
+     * scrolled sideways to reach "Police surplus". Every page, checked the way
+     * the inventory's grid is above.
+     */
+    for (const route of [
+      "/changes",
+      "/hot-deals",
+      "/market",
+      "/saved-searches",
+      "/watchlist",
+      "/collection",
+      "/settings",
+      "/security",
+      "/sites",
+      "/armory",
+      "/classification",
+      "/users",
+      "/audit",
+      "/backups",
+    ]) {
+      await signedIn.goto(route);
+      await expect(signedIn.locator("h1").first()).toBeVisible();
+      const overflow = await signedIn.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      expect(overflow, route).toBeLessThanOrEqual(1);
+    }
+  });
+
+  test("a session can be signed out without scrolling sideways to find the button", async ({
+    signedIn,
+  }) => {
+    await signedIn.goto("/security");
+    const button = signedIn
+      .locator(".panel", { hasText: "Signed in" })
+      .getByRole("button", { name: "Sign out", exact: true });
+    await button.scrollIntoViewIfNeeded();
+    await expect(button).toBeInViewport({ ratio: 1 });
+  });
 });

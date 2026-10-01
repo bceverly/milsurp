@@ -948,6 +948,12 @@ def seed(session: Session, path: Path | None = None) -> SeedReport:
             country=entry.get("country"),
             wikipedia_url=entry.get("wikipedia"),
             status=ArmoryStatus.PENDING,
+            # The order rows are tried in is part of what the file says, as it
+            # is for a maker above: the Carcano cavalry carbine is placed ahead
+            # of the M91 rifle whose name sits inside its titles, and seeded at
+            # the default it lost that tie to the older row.
+            position=int(entry.get("position") or 1000),
+            notes=entry.get("notes"),
         )
         gun.calibers = [
             calibers[name.strip().lower()]

@@ -4302,6 +4302,38 @@ maker, country, finest to coarsest as the inventory's filters do; and
 Classification's tabs follow the order the classifier asks its questions, part
 or gun first, which is now where the page opens.
 
+### Everything on screen: dialogs, tables and phones — **Fixed** 2026-10-01
+
+An audit of every page and dialog at 1024, 1280 and 1440 wide, and on a phone,
+after dialogs were reported carrying their buttons off the bottom of the
+screen. Five things, each now held by a test:
+
+- **Dialogs** were one scrolling box capped at 92% of the window, with the
+  Save button inside the scroll, so a tall one (the collection's Add, an
+  armory model) hid its actions below the fold with nothing to say they were
+  there. The head and footer are pinned now and only the body scrolls. The
+  armory's forms bring their own button row rather than using the footer;
+  that row is pinned to the bottom of the body the same way.
+  `dialogs.spec.js` opens the tallest of them in a 1280×560 window and fails
+  on the old CSS.
+- **Phones** sized dialogs, the sign-in page and the shell to `100vh`, which on
+  a phone is the height *without* the browser's toolbars, so a bottom sheet sat
+  partly under the toolbar. They use `dvh`, with `vh` kept as the fallback, and
+  the footer clears the home indicator.
+- **The armory's empty and loading rows** carried `loading-row`, whose
+  `display: flex` turns a `<td>` into a plain box. The browser then ignored its
+  colSpan, put it in the first column and widened that column to fit the
+  sentence. The other eight headings were squeezed to their narrowest, which
+  broke every one of them mid-word ("NAM E", "LISTIN GS"). The visual baseline
+  had captured exactly that.
+- **Hot deals' category tabs** did not wrap, and on a phone the page scrolled
+  sideways to reach "Police surplus".
+- **The Security page's session list** was the one table not in a scrolling
+  wrapper, so on a phone the Sign out buttons were past the panel's edge,
+  unreachable. It scrolls like the others now, and its button column is pinned.
+
+`responsive.spec.js` now checks that no page is wider than the phone.
+
 ### Reporting
 
 - **Shipped** — Market view. `app/services/market.py`, `GET /api/market?by=`,

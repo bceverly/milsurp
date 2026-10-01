@@ -179,15 +179,19 @@ test.describe("the collection", () => {
       .getByRole("button", { name: "Grandad's Mosin M91/30", exact: true })
       .click();
     const editor = signedIn.getByRole("dialog");
-    const notIt = editor.getByRole("button", { name: "That is not it" });
-    if (await notIt.isVisible()) {
-      await notIt.click();
-      await expect(editor).toContainText("cannot be valued");
-      await editor.getByRole("button", { name: "Match it again" }).click();
-    }
+    // Matched from its title to the Mosin; the owner says otherwise, from
+    // the armory's own list, rather than by rewording the title.
+    await expect(editor.locator(".model-picker__current")).toContainText(
+      "Mosin-Nagant M91/30",
+    );
+    await editor.getByRole("button", { name: "Change" }).click();
+    await editor.getByLabel("Model").fill("Tokarev");
+    await editor.getByRole("button", { name: /^Tokarev TT-33/ }).click();
+    await expect(editor.locator(".model-picker__current")).toContainText("Tokarev TT-33");
     await editor.getByLabel("Paid").fill("275");
     await editor.getByRole("button", { name: "Save" }).click();
     await expect(row).toContainText("$275");
+    await expect(row).toContainText("Tokarev TT-33");
 
     await expect(signedIn.getByRole("link", { name: "Download" })).toHaveAttribute(
       "href",

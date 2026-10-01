@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api.js";
-import { useTitle } from "../hooks.js";
+import { useDebounced, useTitle } from "../hooks.js";
 import { formatDate, formatMoney } from "../format.js";
 import Modal from "../components/Modal.jsx";
 import Field from "../components/Field.jsx";
@@ -161,9 +161,110 @@ function Totals({ totals }) {
   );
 }
 
+/**
+ * Which armory model the gun is, chosen by its owner.
+ *
+ * A row used to be matched from its title and nothing else, so "Carcano
+ * Carbine" -- a fair name for a Moschetto -- matched no model and could not be
+ * valued, and the only way forward was guessing the words the armory happens
+ * to use. The owner knows what the gun is. Typing searches the armory's
+ * approved models by name and by every spelling on them.
+ */
+function ModelPicker({ model, onChoose }) {
+  const [open, setOpen] = useState(!model);
+  const [search, setSearch] = useState("");
+  const [choices, setChoices] = useState([]);
+  const term = useDebounced(search, 250);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    let live = true;
+    api
+      .collectionModels(term)
+      .then((rows) => live && setChoices(rows))
+      .catch(() => live && setChoices([]));
+    return () => {
+      live = false;
+    };
+  }, [open, term]);
+
+  if (!open && model) {
+    return (
+      <div className="model-picker">
+        <span className="model-picker__label">Model</span>
+        <div className="model-picker__current">
+          <strong>{model.name}</strong>
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm"
+            onClick={() => setOpen(true)}
+          >
+            Change
+          </button>
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm"
+            onClick={() => {
+              onChoose(null);
+              setOpen(true);
+            }}
+          >
+            Not this model
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="model-picker">
+      <label className="model-picker__label" htmlFor="model-search">
+        Model
+      </label>
+      <input
+        id="model-search"
+        className="input"
+        placeholder="Search the armory: Carcano, K31, Mosin…"
+        value={search}
+        autoComplete="off"
+        onChange={(event) => setSearch(event.target.value)}
+      />
+      <ul className="model-picker__choices" aria-label="Search results">
+        {choices.map((choice) => (
+          <li key={choice.id}>
+            <button
+              type="button"
+              className="model-picker__choice"
+              onClick={() => {
+                onChoose(choice);
+                setOpen(false);
+                setSearch("");
+              }}
+            >
+              {choice.name}
+              {choice.country && <span className="muted"> · {choice.country}</span>}
+            </button>
+          </li>
+        ))}
+        {choices.length === 0 && <li className="muted">No model by that name.</li>}
+      </ul>
+      <p className="field__hint">
+        {model === null
+          ? "Not matched to a model, so it cannot be valued. Pick the one it is."
+          : "Pick the one it is, or leave it to be matched from what it is called."}
+      </p>
+    </div>
+  );
+}
+
 function Editor({ row, onClose, onSaved }) {
   const [form, setForm] = useState(row ? formOf(row) : EMPTY);
-  const [declined, setDeclined] = useState(row?.model_declined || false);
+  //: undefined: left as it is (matched from the title on a new row). null:
+  //: deliberately none. Otherwise the {id, name} the owner picked.
+  const [model, setModel] = useState(
+    row?.firearm_model_id ? { id: row.firearm_model_id, name: row.model } : undefined,
+  );
+  const [modelTouched, setModelTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const set = (key) => (event) => setForm({ ...form, [key]: event.target.value });
@@ -175,8 +276,13 @@ function Editor({ row, onClose, onSaved }) {
     try {
       const body = payloadOf(form);
       const saved = row
-        ? await api.updateCollectionItem(row.id, { ...body, model_declined: declined })
-        : await api.addToCollection(body);
+        ? await api.updateCollectionItem(row.id, {
+            ...body,
+            ...(modelTouched ? { firearm_model_id: model ? model.id : null } : {}),
+          })
+        : await api.addToCollection(
+            model ? { ...body, firearm_model_id: model.id } : body,
+          );
       onSaved(saved);
     } catch (err) {
       setError(err.message);
@@ -228,30 +334,13 @@ function Editor({ row, onClose, onSaved }) {
           { autoFocus: true, maxLength: 200, placeholder: "Swiss K31, 1943" },
           "Written the way a dealer would title it. The model is matched from this.",
         )}
-        {row?.model && !declined && (
-          <p className="muted collection-match">
-            Matched to <strong>{row.model}</strong>.{" "}
-            <button
-              type="button"
-              className="btn btn--ghost btn--sm"
-              onClick={() => setDeclined(true)}
-            >
-              That is not it
-            </button>
-          </p>
-        )}
-        {row && declined && (
-          <p className="muted collection-match">
-            Not matched to a model, so it cannot be valued.{" "}
-            <button
-              type="button"
-              className="btn btn--ghost btn--sm"
-              onClick={() => setDeclined(false)}
-            >
-              Match it again
-            </button>
-          </p>
-        )}
+        <ModelPicker
+          model={model === undefined && row ? null : model}
+          onChoose={(choice) => {
+            setModel(choice);
+            setModelTouched(true);
+          }}
+        />
         <div className="collection-form__row">
           {input("manufacturer", "Maker", { maxLength: 128 })}
           {input("caliber", "Caliber", { maxLength: 64 })}

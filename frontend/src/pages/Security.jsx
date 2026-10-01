@@ -517,40 +517,50 @@ function SessionsPanel() {
           <p className="muted">No other sessions.</p>
         )}
         {rows !== null && rows.length > 0 && (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Browser</th>
-                <th>Address</th>
-                <th>Signed in</th>
-                <th>Last used</th>
-                <th aria-label="Actions" />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.id}>
-                  <td>
-                    {row.user_agent || "Unknown"}
-                    {row.current && <span className="chip chip--info">This browser</span>}
-                  </td>
-                  <td>{row.ip_address || "—"}</td>
-                  <td>{row.created_at ? formatDateTime(row.created_at) : "—"}</td>
-                  <td>{row.last_seen_at ? formatDateTime(row.last_seen_at) : "—"}</td>
-                  <td>
-                    <button
-                      type="button"
-                      className="btn btn--ghost"
-                      onClick={() => end(row.id, row.current)}
-                      disabled={busy}
-                    >
-                      {row.current ? "Sign out" : "Revoke"}
-                    </button>
-                  </td>
+          // In a table-wrap like every other table: on a phone the user agent
+          // took the width and the Sign out button was pushed out of the panel,
+          // past where anything could scroll to it.
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Browser</th>
+                  <th>Address</th>
+                  <th>Signed in</th>
+                  <th>Last used</th>
+                  <th className="table__actions" aria-label="Actions" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.id}>
+                    <td>
+                      {row.user_agent || "Unknown"}
+                      {row.current && (
+                        <span className="chip chip--info">This browser</span>
+                      )}
+                    </td>
+                    <td className="table__nowrap">{row.ip_address || "—"}</td>
+                    <td>{row.created_at ? formatDateTime(row.created_at) : "—"}</td>
+                    <td>{row.last_seen_at ? formatDateTime(row.last_seen_at) : "—"}</td>
+                    {/* Pinned at the right like every table's controls, so a
+                      phone sees the button without scrolling past the user
+                      agent to find it. */}
+                    <td className="table__actions">
+                      <button
+                        type="button"
+                        className="btn btn--ghost"
+                        onClick={() => end(row.id, row.current)}
+                        disabled={busy}
+                      >
+                        {row.current ? "Sign out" : "Revoke"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>
