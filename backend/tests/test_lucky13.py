@@ -19,7 +19,8 @@ and so of CI, and ``make security`` runs it. Three findings were fixed when it
 was written (2026-10-02): two-factor secrets were sealed with a home-made
 HMAC keystream (item 8), the scan-alert email put an administrator-editable
 shop name into HTML unescaped (item 2), and lint wrote a fixed /tmp path
-(item 10).
+(item 10). CI found a fourth the same day, on Python 3.12 and 3.13 only: a
+long string of "A"s as a file name crashed the static files (item 1).
 """
 
 from __future__ import annotations
@@ -151,6 +152,37 @@ class Test01LongStringsOfA:
     def test_in_a_file_name(self, client):
         for path in (f"/assets/{A_LOT[:5000]}.js", f"/{A_LOT[:5000]}"):
             assert _answered_cleanly(client.get(path)), path
+
+    def test_a_name_too_long_for_the_filesystem_is_a_404_on_any_starlette(self, tmp_path):
+        """Found by this test in CI: on Python 3.12 and 3.13, a 5,000-character
+        name under /assets/ crashed. ``os.stat`` raises ENAMETOOLONG, and the
+        Starlette pip resolved there did not catch it (1.6 does)."""
+        from starlette.staticfiles import StaticFiles
+
+        from app.main import _StaticAssets
+
+        name = A_LOT[:5000] + ".js"
+        with pytest.raises(OSError, match="too long"):
+            StaticFiles(directory=tmp_path).lookup_path(name)
+        assert _StaticAssets(directory=tmp_path).lookup_path(name) == ("", None)
+        assert _StaticAssets(directory=tmp_path).lookup_path("a\x00b") == ("", None)
+
+    def test_the_page_fallback_survives_an_older_pathlib(self, monkeypatch):
+        """Before 3.14, Path.is_file raised on a name too long rather than
+        answering False. The fallback refuses such a name before asking, and
+        treats any OSError as "not a file we serve"."""
+        import errno
+        from pathlib import Path
+
+        from app.main import _asset_path
+
+        assert _asset_path(A_LOT[:5000]) is None
+
+        def refuse(_self):
+            raise OSError(errno.ENAMETOOLONG, "File name too long")
+
+        monkeypatch.setattr(Path, "is_file", refuse)
+        assert _asset_path("index.html") is None
 
     def test_in_the_most_used_feature(self, client, admin_headers):
         """The inventory search, which caps its input rather than storing it."""

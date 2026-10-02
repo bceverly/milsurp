@@ -4313,7 +4313,7 @@ ordinary account. The C- and Windows-specific items test the nearest thing
 this code can get wrong. Runs in CI, in `make security`, and as `make lucky13`;
 see README, "MITRE's Lucky 13".
 
-It found three, all fixed:
+It found four, all fixed:
 
 - **Item 8, grow-your-own crypto.** Two-factor secrets were sealed with an
   HMAC-SHA256 keystream and tag built in `totp.py`, justified as avoiding a
@@ -4324,6 +4324,13 @@ It found three, all fixed:
   administrator can edit, into HTML unescaped.
 - **Item 10, symlink race.** `scripts/lint.sh` copied eslint's output to a
   fixed `/tmp/milsurp-eslint.log` that nothing read.
+- **Item 1, a long string of "A"s** -- found by CI, on Python 3.12 and 3.13
+  only. A 5,000-character name under `/assets/` made `os.stat` raise
+  ENAMETOOLONG, which the Starlette resolved there did not catch (1.6, on
+  3.14, does), so the request crashed; `Path.is_file` in the page fallback
+  raised the same way before 3.14. The static files now go through a subclass
+  that answers 404, and the fallback refuses an over-long segment before
+  asking the filesystem.
 
 The first draft also passed item 7 having asked nothing: FastAPI 0.141 keeps
 an included router as one lazy entry in `app.routes`, so a walk of it found no

@@ -7,6 +7,7 @@ the same code path works in both modes.
 
 from __future__ import annotations
 
+import errno
 import logging
 import os
 import re
@@ -313,6 +314,33 @@ def _is_locked(exc: OperationalError) -> bool:
 #: percent-escape — is not a segment of ours.
 _ASSET_SEGMENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._@-]*$")
 
+#: The longest file name the filesystem will take (NAME_MAX on Linux). A
+#: longer segment cannot name a built file, and asking the filesystem about it
+#: raises rather than answering "no such file" on Python 3.12 and 3.13.
+_MAX_SEGMENT_BYTES = 255
+
+
+class _StaticAssets(StaticFiles):
+    """StaticFiles that answers 404, not 500, to a name the filesystem refuses.
+
+    Found by MITRE's Lucky 13 item 1, a long string of "A"s: a 5,000-character
+    name under /assets/ made ``os.stat`` raise ENAMETOOLONG. Starlette 1.6
+    turns that into a 404 itself; the releases pip resolves on older Pythons
+    did not, and the request crashed. Handled here so it does not depend on
+    which Starlette is installed.
+    """
+
+    def lookup_path(self, path: str) -> tuple[str, os.stat_result | None]:
+        try:
+            return super().lookup_path(path)
+        except ValueError:
+            # A null byte, or another character no path can hold.
+            return "", None
+        except OSError as exc:
+            if exc.errno == errno.ENAMETOOLONG:
+                return "", None
+            raise
+
 
 def _asset_path(requested: str) -> Path | None:
     """The built file this request names, or None.
@@ -329,14 +357,25 @@ def _asset_path(requested: str) -> Path | None:
     if not requested:
         return None
     segments = requested.split("/")
-    if any(not _ASSET_SEGMENT.match(segment) or segment in (".", "..") for segment in segments):
+    if any(
+        not _ASSET_SEGMENT.match(segment)
+        or segment in (".", "..")
+        or len(segment.encode("utf-8")) > _MAX_SEGMENT_BYTES
+        for segment in segments
+    ):
         return None
 
     dist = FRONTEND_DIST.resolve()
     candidate = dist.joinpath(*segments)
     # Belt and braces: a symlink inside the build could still point outside it.
-    resolved = candidate.resolve()
-    if not resolved.is_relative_to(dist) or not resolved.is_file():
+    # And an OSError is "not a file we serve" -- Path.is_file swallows only
+    # some errors before Python 3.14, so a name too long for the filesystem
+    # raised here rather than answering False.
+    try:
+        resolved = candidate.resolve()
+        if not resolved.is_relative_to(dist) or not resolved.is_file():
+            return None
+    except OSError:
         return None
     return resolved
 
@@ -459,7 +498,7 @@ def _mount_frontend(app: FastAPI) -> None:
     """Serve the built React bundle, falling back to index.html for routes."""
     assets = FRONTEND_DIST / "assets"
     if assets.is_dir():
-        app.mount("/assets", StaticFiles(directory=assets), name="assets")
+        app.mount("/assets", _StaticAssets(directory=assets), name="assets")
 
     # response_model=None: the return annotation is a union of Response
     # subclasses, which FastAPI would otherwise try to build a schema from.

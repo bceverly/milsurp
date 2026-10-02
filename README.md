@@ -3278,11 +3278,15 @@ those the test checks the nearest thing this code could get wrong, and says so.
 The exceptions are listed in the test file beside the reason for each, so
 adding one is a reviewed change rather than a quiet one.
 
-**Writing the check found three, all fixed** (2026-10-02): two-factor secrets
-were sealed with an HMAC keystream built in `totp.py` (item 8; now AES-256-GCM,
-and existing rows are re-sealed by their owner's next sign-in); the scan-alert
-email put a shop's name, which an administrator can edit, into HTML unescaped
-(item 2); and `scripts/lint.sh` copied output to a fixed `/tmp` file (item 10).
+**The check has found four, all fixed** (2026-10-02): two-factor secrets were
+sealed with an HMAC keystream built in `totp.py` (item 8; now AES-256-GCM, and
+existing rows are re-sealed by their owner's next sign-in); the scan-alert email
+put a shop's name, which an administrator can edit, into HTML unescaped (item
+2); `scripts/lint.sh` copied output to a fixed `/tmp` file (item 10); and —
+caught by CI on Python 3.12 and 3.13, not on the 3.14 it was written on — a
+5,000-character file name under `/assets/` crashed the static files with
+"File name too long" instead of answering 404 (item 1). Running the suite on
+all three interpreters is what found the last one.
 
 ### Against the OWASP Top 10
 
