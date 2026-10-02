@@ -4302,6 +4302,34 @@ maker, country, finest to coarsest as the inventory's filters do; and
 Classification's tabs follow the order the classifier asks its questions, part
 or gun first, which is now where the page opens.
 
+### MITRE's "Lucky 13", checked on every push — **Shipped** 2026-10-02
+
+`backend/tests/test_lucky13.py`: one test class for each of the thirteen
+"unforgivable vulnerabilities" in Christey's 2007 MITRE paper, each doing the
+five-minute test the paper describes against this application -- long strings
+of "A", a SCRIPT tag, a quote in the login, `../..`, an `authenticated=1`
+cookie, every route asked anonymously and every admin route asked by an
+ordinary account. The C- and Windows-specific items test the nearest thing
+this code can get wrong. Runs in CI, in `make security`, and as `make lucky13`;
+see README, "MITRE's Lucky 13".
+
+It found three, all fixed:
+
+- **Item 8, grow-your-own crypto.** Two-factor secrets were sealed with an
+  HMAC-SHA256 keystream and tag built in `totp.py`, justified as avoiding a
+  dependency that web push had since added anyway. New rows are AES-256-GCM
+  (`v3:`); `v1:`/`v2:` rows still open and are re-sealed by the next sign-in
+  that proves their code.
+- **Item 2, XSS.** The scan-alert email put the shop's name, which an
+  administrator can edit, into HTML unescaped.
+- **Item 10, symlink race.** `scripts/lint.sh` copied eslint's output to a
+  fixed `/tmp/milsurp-eslint.log` that nothing read.
+
+The first draft also passed item 7 having asked nothing: FastAPI 0.141 keeps
+an included router as one lazy entry in `app.routes`, so a walk of it found no
+routes. The test now walks the effective routes and fails if it asks fewer
+than a hundred.
+
 ### More than one caliber, maker or model at a time — **Fixed** 2026-10-01
 
 The inventory's facets are checkboxes, and the API always took several values

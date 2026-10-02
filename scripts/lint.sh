@@ -153,7 +153,7 @@ if [ -d frontend/node_modules ]; then
     (cd frontend && npm run --silent lint:fix) >/dev/null 2>&1 || true
   fi
   # --max-warnings 0 is what makes this aggressive: a warning fails the build.
-  if (cd frontend && npm run --silent lint) 2>&1 | tee /tmp/milsurp-eslint.log | tail -30 | sed 's/^/  /'; then
+  if (cd frontend && npm run --silent lint) 2>&1 | tail -30 | sed 's/^/  /'; then
     ok "eslint"
   else
     bad "eslint"

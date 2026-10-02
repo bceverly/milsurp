@@ -42,7 +42,7 @@ env:
 
 jobs:
   # ==========================================================================
-  # bandit · semgrep · Snyk · pip-audit · npm audit · gitleaks · config checks
+  # bandit · semgrep · Snyk · pip-audit · npm audit · gitleaks · Lucky 13 · config checks
   # ==========================================================================
   security:
     name: Security scan

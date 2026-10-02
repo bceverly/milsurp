@@ -147,8 +147,36 @@ class TestAtRest:
         )
         assert totp.unseal(sealed, other) is None
 
-    def test_new_rows_are_written_as_v2(self, app_config):
-        assert totp.seal(totp.new_secret(), app_config).startswith("v2:")
+    def test_new_rows_are_written_as_v3_aes_gcm(self, app_config):
+        """AES-256-GCM from ``cryptography``, not the HMAC keystream v1 and v2
+        built here: MITRE's "grow-your-own crypto" (Lucky 13, item 8)."""
+        import base64 as _b64
+
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+        secret = totp.new_secret()
+        sealed = totp.seal(secret, app_config)
+        assert sealed.startswith("v3:")
+        blob = _b64.urlsafe_b64decode(sealed[3:])
+        opened = AESGCM(totp._aes_key(app_config)).decrypt(blob[:12], blob[12:], totp._AAD)
+        assert opened.decode("ascii") == secret
+
+    def test_a_v2_row_still_opens_and_is_marked_for_resealing(self, app_config):
+        secret = totp.new_secret()
+        old_row = _legacy_row(app_config, totp._SEALED_V2, secret)
+        assert totp.unseal(old_row, app_config) == secret
+        assert totp.needs_reseal(old_row)
+        assert not totp.needs_reseal(totp.seal(secret, app_config))
+        assert not totp.needs_reseal("nonsense")
+
+    def test_a_tampered_v3_row_does_not_open(self, app_config):
+        import base64 as _b64
+
+        sealed = totp.seal(totp.new_secret(), app_config)
+        blob = bytearray(_b64.urlsafe_b64decode(sealed[3:]))
+        blob[-1] ^= 1
+        assert totp.unseal("v3:" + _b64.urlsafe_b64encode(bytes(blob)).decode(), app_config) is None
+        assert totp.unseal("v3:" + _b64.urlsafe_b64encode(b"short").decode(), app_config) is None
 
     def test_a_v1_row_still_opens(self, app_config):
         """Somebody enrolled before the derivation changed still has a phone
@@ -159,29 +187,20 @@ class TestAtRest:
         # Sealed the way v1 did it, against the same pepper.
         import base64 as _b64
 
-        cipher_key, mac_key = totp._keys(app_config, totp._SEALED_V1)
-        nonce = b"0123456789abcdef"
-        raw = secret.encode("ascii")
-        body = bytes(
-            a ^ b for a, b in zip(raw, totp._keystream(cipher_key, nonce, len(raw)), strict=True)
-        )
-        import hashlib as _h
-        import hmac as _hm
-
-        tag = _hm.new(mac_key, nonce + body, _h.sha256).digest()[:16]
-        old_row = "v1:" + _b64.urlsafe_b64encode(nonce + tag + body).decode("ascii")
-
+        old_row = _legacy_row(app_config, totp._SEALED_V1, secret)
+        assert _b64.urlsafe_b64decode(old_row[3:])[:16] == b"0123456789abcdef"
         assert totp.unseal(old_row, app_config) == secret
 
     def test_the_two_versions_derive_different_keys(self, app_config):
         """Otherwise the version marker would be decoration."""
-        assert totp._keys(app_config, totp._SEALED) != totp._keys(app_config, totp._SEALED_V1)
+        assert totp._keys(app_config, totp._SEALED_V2) != totp._keys(app_config, totp._SEALED_V1)
 
     def test_a_v1_row_is_not_readable_as_v2(self, app_config):
         """A row relabeled by hand does not open, because the tag is checked
         with the key the label asks for."""
-        sealed = totp.seal(totp.new_secret(), app_config)
+        sealed = _legacy_row(app_config, totp._SEALED_V2, totp.new_secret())
         assert totp.unseal("v1:" + sealed[len("v2:") :], app_config) is None
+        assert totp.unseal("v3:" + sealed[len("v2:") :], app_config) is None
 
     def test_no_pepper_at_all_is_refused_loudly(self, app_config):
         """Storing it in the clear would be the silent alternative, and the
@@ -193,3 +212,19 @@ class TestAtRest:
         )
         with pytest.raises(ValueError, match="password_pepper"):
             totp.seal("ABCD", naked)
+
+
+def _legacy_row(config, version: str, secret: str) -> str:
+    """A row sealed the way v1 or v2 did it, before AES-GCM."""
+    import base64 as _b64
+    import hashlib as _h
+    import hmac as _hm
+
+    cipher_key, mac_key = totp._keys(config, version)
+    nonce = b"0123456789abcdef"
+    raw = secret.encode("ascii")
+    body = bytes(
+        a ^ b for a, b in zip(raw, totp._keystream(cipher_key, nonce, len(raw)), strict=True)
+    )
+    tag = _hm.new(mac_key, nonce + body, _h.sha256).digest()[:16]
+    return version + _b64.urlsafe_b64encode(nonce + tag + body).decode("ascii")

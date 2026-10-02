@@ -3197,20 +3197,128 @@ Two workflows, one job per concern, so a red tick names the thing that broke.
 
 ## Security
 
-The application is built against the [OWASP Top 10](https://owasp.org/Top10/).
+How the application is defended, how that is checked, and what the checks
+cannot see. Every claim below is either enforced by a test or a scanner named
+beside it, or is a description of code you can read. Report a vulnerability
+through a **private security advisory** on the repository, not a public issue
+(see `SECURITY.md`).
+
+### Checking it yourself, and what CI checks
+
+| Command | What it runs | In CI |
+|---|---|---|
+| `make security` | bandit, semgrep, Snyk, pip-audit, npm audit, gitleaks, the **Lucky 13** check, and the local configuration checks | `security.yml`, job **Security scan**: every push and pull request to `main`, weekly on Mondays at 06:00 UTC, and on demand |
+| `make lucky13` | MITRE's "Lucky 13" check alone (`backend/tests/test_lucky13.py`, about ten seconds) | twice over: inside `make test-backend` in `ci.yml` (job **Unit tests**, on Python 3.12, 3.13 and 3.14), and inside `make security` above |
+| `make test-backend` | the whole backend suite, which includes the Lucky 13 check and the tests of every defense described here | `ci.yml`, job **Unit tests** |
+| `make lint` | includes bandit, and mypy and ruff with the security rules on | `ci.yml`, job **Lint**, and the pre-push hook |
+| — | CodeQL, Python and JavaScript, `security-extended` queries, reporting to the Security tab | `security.yml`, job **CodeQL** |
+| — | Dependabot, for pip, npm and GitHub Actions | `.github/dependabot.yml` |
+
+The release gate (`release.yml`) waits for both workflows to pass on the
+release commit, so nothing is released past a failing check.
+
+`make install-dev` installs every scanner, because a scanner that is missing is
+reported as *skipped* rather than failing — so without them a local scan passes
+by checking almost nothing. pip-audit comes from
+`backend/requirements-security.txt`, into `.venv` since that is the environment
+it audits. semgrep comes from `backend/requirements-semgrep.txt`, into a
+virtualenv of its own, `.venv-semgrep`: it pins the application's PyJWT to a
+release with critical advisories, and sharing `.venv` held the app back.
+gitleaks is pinned in `scripts/tool-versions.env`, which the CI workflow sources
+too, so both run the same binary; it is also accepted as a container image
+(`docker pull ghcr.io/gitleaks/gitleaks:latest`). The Lucky 13 check needs only
+`.venv`.
+
+Snyk needs an account. CI has one — a `SNYK_TOKEN` repository secret, read by
+the `make security` step. Locally, run `snyk auth` once or export the same
+variable; until you do it is skipped and `pip-audit` / `npm audit` carry the
+dependency check on their own.
+
+**A skipped tool never reports as a clean scan.** `make security` ends with
+*"clean — every tool ran"* or *"clean — but N of the tools did not run"*, and
+the second is yellow. The exit code is unchanged either way, so a developer who
+has not installed the scanners yet is not blocked; they are just not told they
+are covered when they are not. semgrep and pip-audit once sat uninstalled here
+for three days while every run said "clean". Each tool's report is written to
+`.security-reports/`, and CI keeps them as an artifact for thirty days.
+
+### MITRE's "Lucky 13"
+
+Steve Christey's [Unforgivable Vulnerabilities](https://cwe.mitre.org/documents/unforgivable_vulns/unforgivable.pdf)
+(The MITRE Corporation, Black Hat USA 2007) names thirteen kinds of
+vulnerability so well documented, and so easy to find, that shipping one says
+nobody looked: the kind that "could be found within five minutes of limited,
+typically manual testing or code review". **This application is tested against
+all thirteen**, on every push.
+
+`backend/tests/test_lucky13.py` has one test class per item, numbered as the
+paper numbers them. Each does the five-minute test for real — it sends the
+long string of "A"s, the SCRIPT tag, the quote, the `../..` and the forged
+cookie — and the code-review half parses the source with Python's `ast` module
+rather than searching text, so a comment or a string cannot fool it either way.
+Three of the items were written about C programs and Windows desktops; for
+those the test checks the nearest thing this code could get wrong, and says so.
+
+| # | The paper's item | How it is tested here |
+|---|---|---|
+| 1 | Buffer overflow using long strings of "A" | 100,000 "A"s as the username and password, 5,000 as a file name and as the inventory search: each is refused or answered cleanly, never a 500. And there is no C, C++ or Cython of our own to overflow. |
+| 2 | XSS using well-formed SCRIPT tags | A SCRIPT tag as the username and password is not reflected, and errors are JSON, never HTML. A listing title and a shop name carrying one are escaped in the emails. The frontend has no raw-HTML sink (`dangerouslySetInnerHTML`, `innerHTML`, `document.write`, `eval`). Every nginx Content-Security-Policy forbids inline script. |
+| 3 | SQL injection using `'` | `'` and `' OR '1'='1` as the username and password are refused; `1'` as an id and as a price is a validation error; `'` as search text is just text. No call to `text()`, `execute()` or `exec_driver_sql()` anywhere in the app is passed a string built with an f-string, `%`, `+` or `.format()`. |
+| 4 | Remote file inclusion from direct input | No `eval`, `exec`, `compile`, `__import__`, `importlib.import_module`, `pickle`, `marshal`, `shelve`, unsafe `yaml.load` or `runpy` anywhere in the app or scripts, and the frontend imports only named modules. |
+| 5 | Directory traversal using `../..` | Six spellings, plain and URL-encoded, against the static files and the static-file resolver; the photo store refuses paths outside its root, including through a symlink planted inside it; photo ids are numbers only. |
+| 6 | World-writable critical files | Nothing in the application, migrations, scripts, deployment files or frontend source is world-writable; no code passes a world-writable mode to `chmod`, `mkdir` or `open`; a local `config.yaml` is private. |
+| 7 | Direct requests of administrator scripts | **Every** API route — walked from the running application, so a route added tomorrow is tested tomorrow — is asked with no session and must refuse, apart from eight deliberately public ones (health, policy, sign-in, sign-out, the two password-reset steps, the access-request form and its settings). Every administrator route is asked by an ordinary account and must answer 403. The test fails if it asks fewer than a hundred routes. |
+| 8 | Grow-your-own crypto | Passwords are Argon2id; two-factor secrets are AES-256-GCM; no `random` module, no direct MD5 or SHA-1, no PyCrypto or its relatives; a token claiming `alg: none` is refused. |
+| 9 | Authentication bypass using `authenticated=1` | Cookies (`authenticated=1`, `admin=1`, `role=admin`, a fake session), headers (`X-Authenticated`, `X-User`, `X-Forwarded-User`, `X-Remote-User`), query fields, and a token signed with another key all get 401. |
+| 10 | Turtle race condition: symlinks | No fixed `/tmp` or `/var/tmp` path in Python or shell (one reviewed exception: inside the installer test's throwaway container), and no `tempfile.mktemp()`. |
+| 11 | Privilege escalation launching "Help" | Every systemd service runs as an unprivileged user with `NoNewPrivileges=true`, and nothing calls `os.system`, `os.popen` or `subprocess` with `shell=True`. |
+| 12 | Hard-coded or undocumented account/password | The admin password, JWT secret and pepper have no defaults; no name that reads like a secret is assigned a literal anywhere (two reviewed exceptions: shops' *public* search keys that their own pages hand every visitor); no migration creates an account; with no admin password configured, no admin is created. |
+| 13 | Unchecked length/width/height/size to `malloc()` | Every numeric size or limit a request can name (`per_page`, `limit`, `days`, ...) has a ceiling, checked across every route; `per_page=1000000000` is refused; images have a 64-megapixel decode limit; every nginx server caps the request body. |
+
+The exceptions are listed in the test file beside the reason for each, so
+adding one is a reviewed change rather than a quiet one.
+
+**Writing the check found three, all fixed** (2026-10-02): two-factor secrets
+were sealed with an HMAC keystream built in `totp.py` (item 8; now AES-256-GCM,
+and existing rows are re-sealed by their owner's next sign-in); the scan-alert
+email put a shop's name, which an administrator can edit, into HTML unescaped
+(item 2); and `scripts/lint.sh` copied output to a fixed `/tmp` file (item 10).
+
+### Against the OWASP Top 10
 
 | Risk | How it is addressed |
 |---|---|
-| **A01 Broken Access Control** | Every route is authorization-checked server-side; the UI only hides controls. Photo requests verify the photo belongs to the item. The image store resolves paths against its root and rejects traversal. The last-admin guard cannot be used to lock everyone out. |
-| **A02 Cryptographic Failures** | Argon2id (OWASP parameters) with a per-password random salt plus a server-side pepper kept out of the database. JWTs carry a `token_version` so a password change revokes every issued token. TLS 1.2/1.3 only, HSTS, OCSP stapling. |
-| **A03 Injection** | All database access goes through SQLAlchemy parameter binding. LIKE metacharacters in search terms are escaped. Every value in an outbound email is HTML-escaped. |
-| **A04 Insecure Design** | Per-site scan locking; per-user digest caps; login throttling with lockout; exactly one unauthenticated write path, and it is captcha-gated, rate-limited and writes nothing to the database. |
-| **A05 Security Misconfiguration** | Security headers from both the app and nginx, including a strict CSP. API docs disabled in production. Hardened systemd unit (`ProtectSystem=strict`, `NoNewPrivileges`, syscall filter). Config 0600, photo store 0700, database 0640. Startup warns about short or placeholder secrets. |
-| **A06 Vulnerable Components** | Dependabot on pip, npm and Actions. `pip-audit`, `npm audit` and Snyk in CI and in `make security`. |
-| **A07 Authentication Failures** | Per-(username, IP) throttling with lockout; uniform failure messages and timing equalization so usernames cannot be enumerated; 12-character minimum with a common-password check; password change ends all sessions. The session is an `HttpOnly`, `SameSite=Strict` cookie no script can read, with a double-submit CSRF token — see below. |
-| **A08 Integrity Failures** | Pinned dependency floors with lockfiles; CodeQL, semgrep and bandit in CI; a pre-push hook that blocks on any lint finding. |
-| **A09 Logging Failures** | An append-only audit log of administrative actions — user creation, role changes, site enable/disable — readable in the UI and surviving deletion of the account that caused it. Failed sign-ins, access requests, scan outcomes and every digest attempt are logged; scan history and email delivery history are queryable in the UI. Every attacker-supplied value is passed through `app/logsafe.scrub` first, so a newline in a username cannot forge a log record. |
-| **A10 SSRF** | Image URLs come from third-party markup, so every download validates the URL first: http/https only, and DNS resolution must not land on a private, loopback, link-local or reserved address. Cloud metadata endpoints are unreachable. |
+| **A01 Broken Access Control** | Every route is authorization-checked server-side and the UI only hides controls — enforced across every route by Lucky 13 item 7. Photo requests verify the photo belongs to the item. The image store resolves paths against its root and rejects traversal and symlinks out of it. The last-admin guard cannot be used to lock everyone out. |
+| **A02 Cryptographic Failures** | Argon2id (OWASP parameters) with a per-password random salt plus a server-side pepper kept out of the database. Two-factor secrets AES-256-GCM, keyed from the pepper. Password-reset tokens and recovery codes stored only as Argon2id hashes. JWTs pin their algorithm and carry a `token_version` so a password change revokes every issued token. Secrets shorter than 32 bytes are warned about at startup. TLS 1.2/1.3 with AEAD ciphers only, HSTS and OCSP stapling in the shipped nginx configuration — see *Deployment* for a proxy in front. |
+| **A03 Injection** | All database access goes through SQLAlchemy parameter binding, with no SQL built from strings (Lucky 13 item 3). LIKE metacharacters in search terms are escaped. Every value in an outbound email is HTML-escaped. React escapes everything it renders and nothing bypasses it. |
+| **A04 Insecure Design** | Per-site scan locking; per-user digest caps; login throttling with lockout; exactly one unauthenticated write path, and it is captcha-capable, rate-limited (three an hour per address by default) and writes nothing to the database. |
+| **A05 Security Misconfiguration** | Security headers from both the app (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`) and nginx, including a strict CSP. API docs and the OpenAPI schema are off outside development. Hardened systemd units. Config 0600, photo store and backups 0700 with files 0600. Startup warns about short or placeholder secrets. |
+| **A06 Vulnerable Components** | Dependabot on pip, npm and Actions. `pip-audit`, `npm audit` and Snyk in CI and in `make security`, weekly as well as per push. |
+| **A07 Authentication Failures** | Per-(username, IP) throttling with a five-minute lockout; uniform failure messages and a timing equalizer so usernames cannot be enumerated; a 12-character minimum with a common-password check; optional TOTP two-factor with ten single-use recovery codes; password change ends all sessions. The session is an `HttpOnly`, `SameSite=Strict` cookie no script can read, with a double-submit CSRF token — see below. |
+| **A08 Software and Data Integrity Failures** | Pinned dependency floors with lockfiles; CodeQL, semgrep and bandit in CI; a pre-push hook that blocks on any lint finding; releases gated on both workflows passing. |
+| **A09 Logging and Monitoring Failures** | An append-only audit log of administrative actions (listed below), readable in the UI and surviving deletion of the account that caused it. Failed sign-ins, access requests, scan outcomes and every digest attempt are logged; scan history and email delivery history are queryable in the UI. Every attacker-supplied value is passed through `app/logsafe.scrub` first, so a newline in a username cannot forge a log record. A shop whose scans keep failing is mailed to the administrators once it has lasted three hours. |
+| **A10 Server-Side Request Forgery** | Image URLs come from third-party markup, so every download validates the URL first: http/https only, and DNS resolution must not land on a private, loopback, link-local or reserved address. Cloud metadata endpoints are unreachable. |
+
+### Signing in
+
+**Passwords** are hashed with Argon2id at OWASP's parameters, with a random
+salt each and a server-side pepper from `config.yaml` — so a stolen database
+alone is not enough to start guessing. At least twelve characters, and the
+obvious ones (`password`, `changeme`, the application's own name) are refused.
+A wrong password and an unknown username give the same message in the same
+time.
+
+**Two-factor sign-in** is optional per account, under **Security settings**:
+a standard six-digit TOTP code (RFC 6238, tested against the RFC's own
+vectors), with a thirty-second grace either side for clock drift. Turning it on
+takes a code from the phone, so a mistyped secret cannot lock anyone out, and
+issues ten single-use recovery codes, shown once and stored only as hashes.
+The secret itself is sealed with AES-256-GCM under a key derived from the
+pepper, so a database dump does not hand over both factors at once.
+
+**Password resets** are links that work once, for an hour, and are stored only
+as Argon2id hashes — while it is live the link *is* the password. Changing a
+password retires every session the account has.
 
 ### The session is a cookie the page cannot read
 
@@ -3263,22 +3371,7 @@ A token carrying no session id stays valid — one minted by a script, or issued
 before this existed. It was valid when it was handed out, and `token_version`
 still retires it.
 
-### And administrative actions are written down
-
-**Audit log** in the admin navigation records who created an account, changed a
-role, sent a reset link, or enabled and disabled a site. Append-only: nothing
-in the application edits or deletes a row, because a log somebody can tidy
-answers a different question from the one it appears to. The actor is stored as
-an id *and* a name, with the foreign key set to `SET NULL`, so deleting an
-account cannot erase what it did — the row most worth reading is usually the
-one written by somebody who is no longer here.
-
-Recording can never break what it records: `audit.record` swallows its own
-failures and reports them to the application log instead. A lost audit row is a
-real loss, and it is the right way round — the alternative makes the log a
-single point of failure for the features it watches.
-
-Two consequences worth knowing:
+Two consequences of the session being a cookie, worth knowing:
 
 - **Signing out needs the server.** A cookie belongs to the browser and only a
   response can ask it to let go, so `POST /api/auth/logout` exists now. It is
@@ -3291,56 +3384,78 @@ Two consequences worth knowing:
   cookie ends is the far larger exposure — a token sitting in storage for the
   whole session, readable at any moment.
 
-Run the same scanners CI runs, locally:
+### Administrative actions are written down
 
-```bash
-make security     # bandit · semgrep · Snyk · pip-audit · npm audit · gitleaks
-```
+**Audit log** in the administration navigation records who did what: accounts
+created, edited, deleted, given a new role or sent a reset link; sessions ended;
+shops enabled, disabled or their newsletter confirmed; listings corrected by
+hand and corrections cleared; and every change to the armory (models and
+calibers added, edited, approved, sent back, merged, unmerged, renamed, deleted,
+reverted, and the shipped armory loaded), the countries, caliber designations
+and classifier keywords. Append-only: nothing in the application edits or
+deletes a row, because a log somebody can tidy answers a different question
+from the one it appears to. The actor is stored as an id *and* a name, with the
+foreign key set to `SET NULL`, so deleting an account cannot erase what it did.
 
-`make install-dev` installs all of them, because a scanner that is missing is
-reported as *skipped* rather than failing — so without them a local scan passes
-by checking almost nothing. pip-audit comes from
-`backend/requirements-security.txt`, into `.venv` since that is the environment
-it audits. semgrep comes from `backend/requirements-semgrep.txt`, into a
-virtualenv of its own, `.venv-semgrep`: it pins the application's PyJWT to a
-release with critical advisories, and sharing `.venv` held the app back. gitleaks is pinned in
-`scripts/tool-versions.env`, which the CI workflow sources too, so both run the
-same binary. gitleaks is also accepted as a container image
-(`docker pull ghcr.io/gitleaks/gitleaks:latest`) if you would rather not put a
-binary in `/usr/local/bin`.
+Recording can never break what it records: `audit.record` swallows its own
+failures and reports them to the application log instead. A lost audit row is a
+real loss, and it is the right way round — the alternative makes the log a
+single point of failure for the features it watches.
 
-Snyk needs an account. CI has one — a `SNYK_TOKEN` repository secret, read by
-the `make security` step in `.github/workflows/security.yml`. Locally, run
-`snyk auth` once or export the same variable; until you do it is skipped and
-`pip-audit` / `npm audit` carry the dependency check on their own.
+### Secrets and configuration
 
-**A skipped tool no longer reports as a clean scan.** `make security` ends with
-*"clean — every tool ran"* or *"clean — but N of the tools did not run"*, and
-the second is yellow. The exit code is unchanged either way, so a developer who
-has not installed the scanners yet is not blocked; they are just not told they
-are covered when they are not. That distinction is worth the two lines: semgrep
-and pip-audit sat uninstalled in a virtualenv here for three days, and every
-run in that time said "clean".
+Every secret lives in `config.yaml`, which is gitignored, mode 0600, and checked
+for both by `make security`. `make secrets` generates fresh values and writes
+them straight into `config.yaml`, never to the terminal, and refuses to replace
+ones already set. None has a default in the code: with no JWT secret
+nothing can sign in, with no pepper no two-factor secret can be stored, and with
+no admin password no admin is created — a missing secret fails closed rather
+than falling back to a known one (Lucky 13 item 12). Startup warns about any
+secret shorter than 32 bytes or still carrying the sample's placeholder.
+gitleaks scans the working tree for anything committed by mistake.
 
-CI additionally runs CodeQL and TruffleHog, and re-runs everything weekly so a
-newly-disclosed CVE in an unchanged dependency is still caught.
+### Deployment
 
-Five of semgrep's findings are suppressed in-source with the reasoning next to
-the code. Four are the same false positive from its credential-in-log rule,
-which matches on the words in a *message text* rather than on anything
-interpolated into it. Two startup warnings contain "secrets" and
-"admin.password" while passing only a setting's name and a file path; two
-password-reset lines contain "Password" while passing only account names —
-one read off the database row after the token was already redeemed, the other
-through `logsafe.safe_identifier()`, which is an allowlist. No reset link or
-token is ever logged.
+The shipped nginx configuration (`deploy/nginx/milsurp.conf`) terminates TLS
+itself: TLS 1.2 and 1.3 only, AEAD cipher suites only (AES-GCM and ChaCha20 —
+no CBC), HSTS with preload, OCSP stapling, session tickets off, a strict CSP,
+and a 1 MB request-body cap.
 
-The fifth is the CSRF cookie being set without `HttpOnly`, which is the
-mechanism rather than a mistake: the page has to read that cookie to echo it
-back, and one no script could read could not be echoed. It is not a credential
-— it authenticates nothing on its own, the session beside it *is* `HttpOnly`,
-and what protects it is the same-origin policy stopping another site reading
-it.
+**Behind another proxy** (`deploy/nginx/milsurp-behind-proxy.conf`, which is
+how production runs) nginx listens on plain HTTP and the proxy in front
+terminates TLS, so HSTS and the cipher list are the proxy's to set. Nothing in
+this repository can check that proxy, so its TLS configuration is a deployment
+responsibility. This configuration adds request rate limits (10 a minute to
+sign in, 120 a minute to the API, per address) on top of the application's own
+throttling.
+
+The service runs as its own unprivileged user under systemd with
+`NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, a
+restricted set of address families and the `@system-service` syscall filter.
+The canary and prune timers' services run as the same user with
+`NoNewPrivileges` and `ProtectSystem=strict` too — checked for every unit by
+Lucky 13 item 11.
+
+### Suppressed findings, and why
+
+Seven semgrep findings are suppressed in-source, each with its reasoning beside
+the code:
+
+- **Four are the same false positive** from the credential-in-log rule, which
+  matches words in a *message text* rather than anything interpolated into it.
+  Two startup warnings contain "secrets" and "admin.password" while passing
+  only a setting's name and a file path; two password-reset lines contain
+  "Password" while passing only account names — one read off the database row
+  after the token was already redeemed, the other through
+  `logsafe.safe_identifier()`, which is an allowlist. No reset link or token is
+  ever logged.
+- **One is the CSRF cookie** being set without `HttpOnly`, which is the
+  mechanism rather than a mistake: the page has to read that cookie to echo it
+  back. It authenticates nothing on its own, the session beside it *is*
+  `HttpOnly`, and the same-origin policy stops another site reading it.
+- **Two are in web push**, where the insecure-random rule flags an HKDF salt.
+  RFC 8291 section 3.3 names the browser's auth secret as that salt, so a
+  random one would derive a key the browser cannot.
 
 Nothing is suppressed for CodeQL. In-source `# codeql[...]` comments turned out
 not to be honored by GitHub code scanning, which was the right outcome: each
@@ -3353,9 +3468,21 @@ startup secret check no longer keeps a setting's name in the same tuple as its
 value — a taint tracker follows the container, not the slot, so logging the
 name read as logging the secret.
 
-**Reporting a vulnerability** — please open a private security advisory on the
-repository rather than a public issue.
+### What this does not cover
 
+Being exact about the edges is part of being exact about the rest:
+
+- **The proxy in front of production** — its TLS settings, and anything it
+  logs — is outside this repository and these checks.
+- **The scrapers read other people's websites.** Their responses are treated as
+  untrusted text (escaped on output, never executed, and images are fetched
+  only after the SSRF check), but a vendor serving something malicious is a
+  risk the scanners above cannot see ahead of time.
+- **The Lucky 13 are a floor, not a ceiling.** Christey's own paper says they
+  are "not necessarily comprehensive"; they catch the mistakes that should
+  never ship, not every mistake that could.
+- **There is no third-party penetration test.** The checks here are automated,
+  and an automated check finds what it was written to look for.
 ## Project layout
 
 ```

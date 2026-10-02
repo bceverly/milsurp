@@ -91,6 +91,23 @@ class TestSigningIn:
         user, _codes = enrolled
         assert twofactor.check(clean_db, user, "", app_config) is False
 
+    def test_an_old_row_is_sealed_again_with_aes_gcm_once_used(
+        self, clean_db, enrolled, app_config
+    ):
+        """Rows written by the HMAC keystream (v1, v2) still sign in, and are
+        moved to AES-GCM by the sign-in that proves the secret is right."""
+        from tests.test_totp import _legacy_row
+
+        user, _codes = enrolled
+        secret = totp.unseal(user.totp_secret, app_config)
+        user.totp_secret = _legacy_row(app_config, totp._SEALED_V2, secret)
+        clean_db.commit()
+        assert twofactor.check(clean_db, user, "000000", app_config) is False
+        assert user.totp_secret.startswith("v2:")
+        assert twofactor.check(clean_db, user, _code(user, app_config), app_config) is True
+        assert user.totp_secret.startswith("v3:")
+        assert totp.unseal(user.totp_secret, app_config) == secret
+
 
 class TestRecoveryCodes:
     @pytest.fixture

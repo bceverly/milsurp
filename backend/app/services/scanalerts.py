@@ -41,6 +41,7 @@ its own.
 
 from __future__ import annotations
 
+import html as _html
 import logging
 from datetime import datetime, timedelta
 
@@ -73,11 +74,14 @@ def _admin_addresses(session: Session) -> list[str]:
 
 
 def _broken_message(site: Site, run: ScanRun, failed: int, since: datetime) -> tuple[str, str]:
-    detail = (run.error_message or "no detail recorded").replace("&", "&amp;").replace("<", "&lt;")
+    # Escaped, like the name: an administrator can rename a shop, and an error
+    # can quote what the vendor sent.
+    detail = _html.escape(run.error_message or "no detail recorded")
     subject = f"Milsurp: {site.name} stopped scraping"
     scans = f"{failed} scan{'s' if failed != 1 else ''}"
     html = (
-        f"<p><strong>{site.name}</strong> ({site.slug}) has been failing since "
+        f"<p><strong>{_html.escape(site.name)}</strong> ({_html.escape(site.slug)}) "
+        f"has been failing since "
         f"{since:%Y-%m-%d %H:%M} UTC: {scans} without one that worked. The last "
         f"error:</p>"
         f"<pre style='font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;"
@@ -92,7 +96,8 @@ def _broken_message(site: Site, run: ScanRun, failed: int, since: datetime) -> t
 def _recovered_message(site: Site, run: ScanRun) -> tuple[str, str]:
     subject = f"Milsurp: {site.name} is scraping again"
     html = (
-        f"<p><strong>{site.name}</strong> ({site.slug}) completed a scan: "
+        f"<p><strong>{_html.escape(site.name)}</strong> ({_html.escape(site.slug)}) "
+        f"completed a scan: "
         f"{run.items_found or 0:,} listing(s) seen, {run.items_new or 0:,} new.</p>"
     )
     return subject, html

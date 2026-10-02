@@ -59,7 +59,7 @@ frontend/node_modules: frontend/package.json
 	@touch frontend/node_modules
 
 .PHONY: secrets
-secrets: $(VENV_PY) ## Generate security secrets to paste into config.yaml
+secrets: $(VENV_PY) ## Generate security secrets and write them into config.yaml
 	@$(VENV_PY) backend/cli.py secrets
 
 .PHONY: config
@@ -324,6 +324,10 @@ coverage: ## Regenerate the README coverage badges from the last test run
 .PHONY: security
 security: ## Run the same security scanners CI runs, locally
 	@scripts/security.sh
+
+.PHONY: lucky13
+lucky13: $(VENV_PY) ## Check for MITRE's "Lucky 13" unforgivable vulnerabilities (Christey, 2007)
+	@scripts/test-backend.sh tests/test_lucky13.py --no-cov -q
 
 .PHONY: install-hooks
 install-hooks: ## Install the git pre-commit / pre-push hooks

@@ -6,7 +6,8 @@
 #
 # Covers: bandit (Python security lint), semgrep (rule-based SAST), Snyk
 # (dependency CVEs), pip-audit / npm audit (dependency CVEs without a Snyk
-# account), and gitleaks (committed secrets).
+# account), gitleaks (committed secrets), and MITRE's "Lucky 13"
+# unforgivable vulnerabilities (backend/tests/test_lucky13.py).
 #
 # Anything not installed is reported as skipped rather than failing the run, so
 # this is useful before every one of them is set up. CI installs them all.
@@ -253,6 +254,24 @@ if gitleaks_available; then
 else
   skip "gitleaks not installed"
   note "run 'make install-dev', or: docker pull $GITLEAKS_IMAGE"
+fi
+
+# ---------------------------------------------------------------------------
+section "MITRE Lucky 13 — unforgivable vulnerabilities"
+# Christey, "Unforgivable Vulnerabilities" (MITRE, 2007): thirteen kinds of
+# bug that five minutes of testing finds. backend/tests/test_lucky13.py does
+# that testing, one class per item; CI runs it with the rest of the suite.
+if have_venv python; then
+  if (cd backend && MILSURP_ENV=dev "$VENV/bin/python" -m pytest tests/test_lucky13.py \
+        -q --no-cov -p no:cacheprovider) >"$REPORTS/lucky13.txt" 2>&1; then
+    ok "$(grep -Eo '[0-9]+ passed' "$REPORTS/lucky13.txt" | tail -1), all thirteen items"
+  else
+    bad "Lucky 13 check failed — see $REPORTS/lucky13.txt"
+    grep -E '^(FAILED|ERROR)' "$REPORTS/lucky13.txt" | sed 's/^/    /'
+    FAILURES+=("lucky13")
+  fi
+else
+  skip "lucky13 (no .venv — run 'make install-dev')"
 fi
 
 # ---------------------------------------------------------------------------

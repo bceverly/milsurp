@@ -76,6 +76,7 @@ def confirm_enrollment(
     secret = totp.unseal(user.totp_secret or "", config)
     if secret is None or not totp.verify(secret, code):
         return None
+    _reseal_if_old(user, secret, config)
 
     user.totp_enabled = True
     user.totp_confirmed_at = utcnow()
@@ -110,8 +111,19 @@ def check(session: Session, user: User, code: str, config: Config | None = None)
 
     secret = totp.unseal(user.totp_secret or "", config)
     if secret is not None and totp.verify(secret, cleaned):
+        _reseal_if_old(user, secret, config)
         return True
     return _spend_recovery_code(session, user, cleaned, config)
+
+
+def _reseal_if_old(user: User, secret: str, config: Config) -> None:
+    """Move a row written by an older scheme to the current one.
+
+    Only once its code has been checked, so the secret is known to be the one
+    the user's phone holds. The caller's commit saves it. See totp.py.
+    """
+    if totp.needs_reseal(user.totp_secret):
+        user.totp_secret = totp.seal(secret, config)
 
 
 def recovery_codes_left(session: Session, user: User) -> int:
