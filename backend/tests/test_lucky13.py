@@ -125,6 +125,15 @@ def depends_on(route, function) -> bool:
     return False
 
 
+def _answered_cleanly(response) -> bool:
+    """Below 500, or the one deliberate 503: a checkout whose frontend was
+    never built (CI's security job) answers every page path with "the frontend
+    has not been built", which is the app working, not breaking."""
+    if response.status_code < 500:
+        return True
+    return response.status_code == 503 and "not been built" in response.text
+
+
 # ---------------------------------------------------------------------------
 # 1. Buffer overflow using long strings of "A"
 # ---------------------------------------------------------------------------
@@ -140,8 +149,8 @@ class Test01LongStringsOfA:
         assert response.status_code in (400, 401, 413, 422)
 
     def test_in_a_file_name(self, client):
-        assert client.get(f"/assets/{A_LOT[:5000]}.js").status_code < 500
-        assert client.get(f"/{A_LOT[:5000]}").status_code < 500
+        for path in (f"/assets/{A_LOT[:5000]}.js", f"/{A_LOT[:5000]}"):
+            assert _answered_cleanly(client.get(path)), path
 
     def test_in_the_most_used_feature(self, client, admin_headers):
         """The inventory search, which caps its input rather than storing it."""
