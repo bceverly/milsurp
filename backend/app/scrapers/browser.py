@@ -338,6 +338,19 @@ def _prepare_selenium_manager(config: ScrapingConfig) -> None:
     os.environ["SE_CACHE_PATH"] = str(cache)
 
 
+def _looks_like_sandbox_failure(exc: BaseException) -> bool:
+    """Whether Chrome died building its sandbox rather than for another reason.
+
+    The driver only reports "Chrome instance exited"; Chrome's own words, when
+    they reach the message, name the namespace it could not enter or the
+    zygote that died for it.
+    """
+    text = str(exc).lower()
+    return any(
+        marker in text for marker in ("namespace", "zygote", "setuid sandbox", "no usable sandbox")
+    )
+
+
 def _version_mismatch(binary: str | None, driver_path: str | None) -> str:
     """A sentence naming a browser and driver that are a version apart, or "".
 
@@ -423,7 +436,10 @@ def chrome(config: ScrapingConfig) -> Iterator[Any]:
     # the dumps go with it when it is removed.
     options.add_argument(f"--user-data-dir={scratch / 'profile'}")
     options.add_argument(f"--crash-dumps-dir={scratch / 'crashes'}")
-    options.add_argument("--no-sandbox")
+    # The sandbox stays on unless configured off: it is the layer between a
+    # page from a shop and this account. See ScrapingConfig.sandbox.
+    if not config.sandbox:
+        options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1920,1080")
@@ -467,6 +483,17 @@ def chrome(config: ScrapingConfig) -> Iterator[Any]:
                 f"further configuration. The alternative, loosening the unit, "
                 f"un-hardens the one process on the machine that runs a "
                 f"stranger's JavaScript."
+            ) from exc
+        if config.sandbox and _looks_like_sandbox_failure(exc):
+            raise BrowserUnavailable(
+                f"could not start headless Chrome: {exc}. Chrome could not build "
+                f"its sandbox, which needs user, PID and network namespaces and the "
+                f"chroot call. The shipped units allow exactly those "
+                f"(RestrictNamespaces=user pid net, SystemCallFilter=@system-service "
+                f"chroot); an older unit, or a host without user namespaces, does "
+                f"not. Install the current unit and run systemctl daemon-reload. "
+                f"Setting scraping.selenium.sandbox: false also works, by running "
+                f"the browser that reads strangers' pages without its sandbox."
             ) from exc
         raise BrowserUnavailable(
             f"could not start headless Chrome: {exc}. "

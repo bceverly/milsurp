@@ -3433,9 +3433,36 @@ responsibility. This configuration adds request rate limits (10 a minute to
 sign in, 120 a minute to the API, per address) on top of the application's own
 throttling.
 
+**What the proxy must provide**, since production depends on it and nothing
+here can check it: TLS 1.2 and 1.3 only, AEAD cipher suites only (no CBC), and
+the HSTS header (`Strict-Transport-Security: max-age=63072000;
+includeSubDomains`). Verify from outside with `curl -sI https://<host>/ | grep
+-i strict-transport` and `openssl s_client -connect <host>:443 -tls1_2 -cipher
+'ECDHE+AES:!AESGCM'`, which must fail to connect.
+
 The service runs as its own unprivileged user under systemd with
 `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, a
-restricted set of address families and the `@system-service` syscall filter.
+restricted set of address families and the `@system-service` syscall filter
+plus `chroot`.
+
+**Headless Chrome keeps its sandbox.** It is the one process that runs a
+stranger's JavaScript — a shop's page — and it used to run with
+`--no-sandbox`, because the unit forbade the user namespaces Chrome's sandbox
+is made of. The scan and canary units now allow user, PID and network
+namespaces and the `chroot` call, and nothing wider (mount, IPC, UTS and cgroup
+namespaces stay forbidden; the prune unit, which never runs Chrome, allows
+none). Each renderer then runs in namespaces of its own under Chrome's seccomp
+policy, so a browser exploit has a sandbox to escape before it reaches the
+service account. Measured on the production VM under a copy of the unit, and
+pinned by `backend/tests/test_browser_sandbox.py`. `scraping.selenium.sandbox:
+false` turns it off for a host that cannot provide namespaces, such as root in
+a container; nothing else should need to.
+
+**SSH** on the host is keys only, with X11 forwarding off and three
+authentication attempts (`deploy/ssh/10-milsurp-hardening.conf`). fail2ban is
+deliberately not used: SSH reaches the VM through the host's port forward, so
+every client, attacker or not, arrives from the same bridge address, and
+fail2ban could only ban that address — and everyone with it — or nothing.
 The canary and prune timers' services run as the same user with
 `NoNewPrivileges` and `ProtectSystem=strict` too — checked for every unit by
 Lucky 13 item 11.

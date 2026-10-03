@@ -53,15 +53,23 @@ ProtectHostname=true
 ProtectProc=invisible
 RestrictSUIDSGID=true
 RestrictRealtime=true
-RestrictNamespaces=true
+# User, PID and network namespaces, and nothing else: Chrome's sandbox is
+# built from them, and it is what stands between a stranger's page and this
+# account. Without them Chrome had to run with --no-sandbox. Mount, IPC, UTS
+# and cgroup namespaces stay forbidden. Measured on the production VM
+# 2026-10-03: renderers land in namespaces of their own under Chrome's
+# seccomp policy. See scraping.selenium.sandbox.
+RestrictNamespaces=user pid net
 LockPersonality=true
 RemoveIPC=true
 # The database and the photo store.
 ReadWritePaths=/etc/milsurp /var/log/milsurp
 # Outbound HTTP for scraping and SMTP for digests; nothing else.
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
-# Chrome needs to fork and to write to /tmp (PrivateTmp keeps that isolated).
-SystemCallFilter=@system-service
+# Chrome needs to fork and to write to /tmp (PrivateTmp keeps that isolated),
+# and chroot: its sandbox confines each renderer with one, inside the user
+# namespace above. That one call, not the whole @mount group.
+SystemCallFilter=@system-service chroot
 SystemCallErrorNumber=EPERM
 
 # --- Limits ----------------------------------------------------------------

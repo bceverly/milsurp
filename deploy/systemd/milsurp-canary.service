@@ -58,7 +58,13 @@ ProtectHostname=true
 ProtectProc=invisible
 RestrictSUIDSGID=true
 RestrictRealtime=true
-RestrictNamespaces=true
+# User, PID and network namespaces, and nothing else: Chrome's sandbox is
+# built from them, and it is what stands between a stranger's page and this
+# account -- the canary probes the same shops the scans read. Without them Chrome had to run with --no-sandbox. Mount, IPC, UTS
+# and cgroup namespaces stay forbidden. Measured on the production VM
+# 2026-10-03: renderers land in namespaces of their own under Chrome's
+# seccomp policy. See scraping.selenium.sandbox.
+RestrictNamespaces=user pid net
 LockPersonality=true
 RemoveIPC=true
 # The cooldown register lives here. A probe that earns a 429 records it, so the
@@ -66,7 +72,8 @@ RemoveIPC=true
 # this the register is unwritable and that lesson is thrown away.
 ReadWritePaths=/etc/milsurp
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
-SystemCallFilter=@system-service
+# chroot for Chrome's sandbox, as in milsurp.service.
+SystemCallFilter=@system-service chroot
 SystemCallErrorNumber=EPERM
 
 # Worst case is twenty-seven shops at the 90s ceiling plus the one Selenium

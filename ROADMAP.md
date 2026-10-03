@@ -4302,6 +4302,32 @@ maker, country, finest to coarsest as the inventory's filters do; and
 Classification's tabs follow the order the classifier asks its questions, part
 or gun first, which is now where the page opens.
 
+### Production hardening review — **Shipped** 2026-10-03
+
+A read-only review of production from outside and on the VM. Already right:
+only SSH and nginx reachable, Postgres local with SCRAM, the firewall admitting
+port 80 only from the host, keys-only SSH, unattended upgrades, application
+code not writable by the service account, systemd exposure "3.4 OK", every
+security header present, API docs off, TLS 1.0/1.1 refused. Changed:
+
+- **Chrome's sandbox is on.** It had run `--no-sandbox` because the unit's
+  `RestrictNamespaces=true` denied the user namespaces the sandbox needs. The
+  scan and canary units now allow user, PID and network namespaces and add
+  `chroot` to the syscall filter -- found by testing on the VM under
+  `systemd-run` copies of the unit: without namespaces Chrome aborts, with them
+  but without `chroot` its zygote dies, and the whole `@mount` group is not
+  needed. Verified with a real Selenium session on production's own Python and
+  Chrome: renderers in their own user and PID namespaces. New setting
+  `scraping.selenium.sandbox` (default on); a clear error names the unit
+  settings when Chrome cannot build its sandbox.
+- **SSH on the VM**: X11 forwarding off, `MaxAuthTries 3`, recorded in
+  `deploy/ssh/`. fail2ban was not installed: every SSH client reaches the VM
+  as the host's bridge address, so it could only ban everyone or no one.
+  Thirty days of logs showed no failed or invalid-user attempts at all.
+- **Found, for the proxy**: TLS ends at HAProxy on the pfSense router, not on
+  the host, and it was sending no HSTS header and still accepting CBC cipher
+  suites on TLS 1.2. Both are pfSense settings; see README, *Deployment*.
+
 ### MITRE's "Lucky 13", checked on every push — **Shipped** 2026-10-02
 
 `backend/tests/test_lucky13.py`: one test class for each of the thirteen

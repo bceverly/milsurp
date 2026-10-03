@@ -415,6 +415,13 @@ class ScrapingConfig:
     max_retries: int = 4
     download_images: bool = True
     headless: bool = True
+    #: Chrome's own sandbox: each renderer in user, PID and network namespaces
+    #: of its own under a seccomp policy. It is the layer between a page from a
+    #: shop and this account, so it is on. Off only for a host that cannot
+    #: give it namespaces -- running as root in a container, say -- and then
+    #: Chrome runs with --no-sandbox. The shipped units allow exactly what it
+    #: needs; see deploy/systemd/milsurp.service.
+    sandbox: bool = True
     chrome_binary: str | None = None
     chromedriver_path: str | None = None
     #: Where Selenium Manager may keep the drivers it downloads.
@@ -777,6 +784,7 @@ def load_config(path: Path | None = None, mode: str | None = None) -> Config:
         max_retries=int(scr.get("max_retries", 4)),
         download_images=bool(scr.get("download_images", True)),
         headless=bool(sel.get("headless", True)),
+        sandbox=bool(sel.get("sandbox", True)),
         chrome_binary=(sel.get("chrome_binary") or None),
         chromedriver_path=(sel.get("chromedriver_path") or None),
         driver_cache_path=_driver_cache(sel.get("driver_cache"), mode, state_dir),

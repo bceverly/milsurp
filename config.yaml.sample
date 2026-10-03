@@ -250,6 +250,10 @@ scraping:
 
   selenium:
     headless: true                   # default: true
+    # Chrome's sandbox: renderers in namespaces of their own, under seccomp.
+    # Leave it on. Turn it off only on a host that cannot give Chrome user
+    # namespaces (as root in a container, say); it then runs --no-sandbox.
+    sandbox: true                    # default: true
     # Leave null to let the scraper find them. It pairs each browser with a
     # driver that can actually drive it, and ignores one whose major version
     # has fallen behind the browser's -- which is what an `apt upgrade` of
