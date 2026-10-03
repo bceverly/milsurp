@@ -166,6 +166,17 @@ def _forget_compiled_manufacturers():
 
 
 @pytest.fixture(autouse=True)
+def _forget_mention_counts():
+    """The armory's mention counts are cached against a stamp of the listings
+    table, and an emptied table can repeat a stamp with different rows."""
+    from app.services import search
+
+    search.forget_mentions()
+    yield
+    search.forget_mentions()
+
+
+@pytest.fixture(autouse=True)
 def _forget_compiled_armory():
     """And the model and caliber registries, for exactly the same reason.
 

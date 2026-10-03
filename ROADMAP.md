@@ -4302,6 +4302,43 @@ maker, country, finest to coarsest as the inventory's filters do; and
 Classification's tabs follow the order the classifier asks its questions, part
 or gun first, which is now where the page opens.
 
+### Faster where it was measured to be slow — **Shipped** 2026-10-03
+
+Measured first, from production's own nginx log (22,154 requests over ten
+days, each with its time) and Postgres's table statistics. The data is small
+-- 13,000 listings -- and the API mostly fast (inventory: 71 ms median); the
+slowness was in three specific places.
+
+- **Photos were downloaded again on every page view.** 5,484 photo responses
+  in a week, every one a full 200 and not one from cache: the header said
+  `no-cache`, and Starlette's `FileResponse` does not answer a conditional
+  request with a 304, so every revalidation was the whole image. A photo
+  asked for by its current version (`?v=`, derived from the file, which the
+  API's URLs always carry) is now `private, max-age=31536000, immutable`; an
+  unversioned or stale one is still checked every time.
+- **The armory's models list** (0.48 s median, 1.7 s p95) spent 246 of its
+  279 ms reading all 13,000 descriptions into Python to count mentions of the
+  pending names, and the other armory requests the page makes at the same
+  moment queued behind it (`/api/manufacturers`: 60 ms alone, 1.6 s p95).
+  The counts are cached, keyed on a 5 ms stamp of the listings table so a
+  cached answer is never a stale one. The manufacturers list also took one
+  query per maker for its model counts; it takes one grouped count now.
+- **Postgres**: a partial index on the photos still waiting to download
+  (migration 0056) -- 226 of 109,777 rows, which the download queue had found
+  by 71,871 full scans of the table. Its statistics had been reset (it believed
+  `item_photos` held 3,173 rows) and were rebuilt with `VACUUM (ANALYZE)`. And
+  the server is tuned: `shared_buffers` 160 MB to 1.5 GB, `jit` off,
+  `random_page_cost` 1.1 for the SSD, `pg_stat_statements` on. See README,
+  *Running on PostgreSQL*.
+
+**Not done: splitting scans into a process of their own.** The worry was that
+scans, parsing HTML on the same interpreter, starve page loads. Measured
+against every scan's start and end since 22 September, they do not: API
+latency during scans was 51 ms median / 101 ms p99, against 49 / 1,505 ms with
+no scan running -- the slow tail is the armory, fixed above. The split would
+have moved scan start, cancel, progress and the double-scan guard across a
+process boundary for no measured gain.
+
 ### Production hardening review — **Shipped** 2026-10-03
 
 A read-only review of production from outside and on the VM. Already right:

@@ -380,6 +380,47 @@ class TestPhotoCaching:
         assert "private" in cache_control
         assert "max-age=86400" not in cache_control
 
+    def test_its_current_version_is_kept_for_a_year(
+        self, client, admin_headers, seeded, inventory, tmp_path, app_config
+    ):
+        """The URLs the API hands out carry ``?v=``, derived from the file. One
+        that matches can never name other bytes, so the browser need not ask
+        again -- every photo used to be re-fetched on every page view."""
+        from app.api.items import _photo_version
+
+        photo = self.stored_photo(seeded, inventory, tmp_path, app_config)
+        response = client.get(
+            f"/api/items/{inventory[0].id}/photos/{photo.id}?v={_photo_version(photo)}",
+            headers=admin_headers,
+        )
+        assert response.status_code == 200
+        cache_control = response.headers["cache-control"]
+        assert "immutable" in cache_control and "max-age=31536000" in cache_control
+        assert "private" in cache_control
+
+    def test_a_stale_or_made_up_version_is_still_revalidated(
+        self, client, admin_headers, seeded, inventory, tmp_path, app_config
+    ):
+        """Only the file's own version earns the year: a cached URL from before
+        the file changed must still be checked."""
+        photo = self.stored_photo(seeded, inventory, tmp_path, app_config)
+        response = client.get(
+            f"/api/items/{inventory[0].id}/photos/{photo.id}?v=0123456789ab",
+            headers=admin_headers,
+        )
+        assert response.headers["cache-control"] == "private, no-cache"
+
+    def test_the_urls_handed_out_are_the_versioned_ones(
+        self, client, admin_headers, seeded, inventory, tmp_path, app_config
+    ):
+        photo = self.stored_photo(seeded, inventory, tmp_path, app_config)
+        detail = client.get(f"/api/items/{inventory[0].id}", headers=admin_headers).json()
+        urls = [detail["thumbnail_url"], *(p["url"] for p in detail["photos"])]
+        assert urls and all("v=" in url for url in urls if url)
+        thumb = client.get(detail["thumbnail_url"], headers=admin_headers)
+        assert "immutable" in thumb.headers["cache-control"]
+        assert photo.id
+
     def test_a_validator_is_sent_so_revalidation_is_cheap(
         self, client, admin_headers, seeded, inventory, tmp_path, app_config
     ):

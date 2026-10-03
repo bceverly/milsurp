@@ -76,3 +76,44 @@ class TestTheArmoryPage:
     def test_an_approved_row_does_not(self, client, admin_headers, catalog):
         """It has real links to count, and mixing the two would mislead."""
         assert self.rows(client, admin_headers, "approved")["Astra 600"]["mention_count"] is None
+
+
+class TestTheCountsAreCachedAgainstTheCatalog:
+    """The armory page asks on every load, and reading every description into
+    Python was 246 of the models list's 279 ms on production. The answer is
+    kept while the listings are unchanged, and only that long."""
+
+    def test_an_unchanged_catalog_is_not_read_again(self, seeded, catalog, monkeypatch):
+        first = search.count_mentions_many(seeded, ["600/43"])
+        calls = []
+        real = search._count_mentions_many
+        monkeypatch.setattr(search, "_count_mentions_many", lambda *a: calls.append(a) or real(*a))
+        assert search.count_mentions_many(seeded, ["600/43"]) == first
+        assert calls == []
+
+    def test_a_new_listing_is_counted_at_once(self, seeded, catalog):
+        before = search.count_mentions_many(seeded, ["600/43"])["600/43"]
+        site = seeded.query(Site).order_by(Site.id).first()
+        seeded.add(
+            Item(
+                site_id=site.id, external_key="new", url="https://m.test/new", title="Astra 600/43"
+            )
+        )
+        seeded.commit()
+        assert search.count_mentions_many(seeded, ["600/43"])["600/43"] == before + 1
+
+    def test_a_rewritten_description_is_counted_at_once(self, seeded, catalog):
+        before = search.count_mentions_many(seeded, ["Model 1808"])["Model 1808"]
+        item = seeded.query(Item).filter_by(external_key="m6").one()
+        item.description = "a Model 1808 after all"
+        seeded.commit()
+        assert search.count_mentions_many(seeded, ["Model 1808"])["Model 1808"] == before + 1
+
+    def test_the_names_are_part_of_the_question(self, seeded, catalog):
+        """Same catalog, different pending rows: a different answer."""
+        assert set(search.count_mentions_many(seeded, ["600/43"])) == {"600/43"}
+        assert set(search.count_mentions_many(seeded, ["Model 1808", "600/43"])) == {
+            "Model 1808",
+            "600/43",
+        }
+        assert search.count_mentions_many(seeded, []) == {}

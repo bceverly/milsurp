@@ -62,6 +62,24 @@ from ..services.search import (
 router = APIRouter(prefix="/items", tags=["items"])
 
 
+#: A photo asked for by its current version, ``?v=`` matching the file. That
+#: URL can never name different bytes -- a rewritten file is a new version and
+#: so a new URL -- so the browser keeps it for a year and does not ask again.
+#: Measured before this (week of 2026-09-26): 5,484 photo requests, every one a
+#: full 200 and not one served from cache, because each page view revalidated
+#: every thumbnail. ``private``: these sit behind a session, so no shared cache
+#: may keep them.
+PHOTO_CACHE_FOREVER = "private, max-age=31536000, immutable"
+
+#: Anything else -- no version, or one that is not the file's now -- is checked
+#: every time. This is what every photo used to get, and it is still right for
+#: an unversioned URL: the ids in /items/<id>/photos/<id> are reused by SQLite
+#: after a delete, so the same URL has meant different pictures, and a cache
+#: that kept one showed listings under each other's photographs. FileResponse
+#: sends an ETag and Last-Modified, so a check costs a 304 and no image bytes.
+PHOTO_REVALIDATE = "private, no-cache"
+
+
 def _photo_version(photo: ItemPhoto) -> str:
     """A short token that changes whenever a photo's bytes change.
 
@@ -1049,6 +1067,7 @@ def get_photo(
     session: DbSession,
     config: AppConfig,
     size: str = Query(default="full", pattern="^(full|thumb)$"),
+    v: str | None = Query(default=None, max_length=64),
 ) -> Response:
     """Stream a stored photo at the requested resolution.
 
@@ -1059,6 +1078,8 @@ def get_photo(
     photo = session.get(ItemPhoto, photo_id)
     if photo is None or photo.item_id != item_id or not photo.filename:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such photo.")
+    # Read now, while the row is attached: the session is closed below.
+    current = v is not None and v == _photo_version(photo)
 
     # Fall back to the full image for photos stored before thumbnails existed,
     # and for images that were already small enough not to need one.
@@ -1109,26 +1130,7 @@ def get_photo(
         # The local rather than `photo.content_type`: the row is detached now,
         # and this is the value the thumb branch above may have corrected.
         media_type=media_type,
-        headers={
-            # Revalidated every time, and belt-and-braces at that: the URL now
-            # carries a token derived from the file, so a changed image is a
-            # changed URL and a stale copy can never be matched to it. The
-            # revalidation stays because a cache that already holds one of the
-            # old, unversioned URLs has no other way to find out.
-            #
-            # This used to be `max-age=86400` on the reasoning that the content
-            # was immutable because the stored filename is a hash. The filename
-            # is a hash of the image's *source*, not of its bytes, and this URL
-            # is neither: it is /items/<id>/photos/<id>, and both of those ids
-            # are reused by SQLite after a delete. So a site that is cleared and
-            # re-scanned hands the same URL to different content, and every
-            # browser that had looked at the old one showed it for another
-            # day — listings appearing under each other's photographs.
-            #
-            # FileResponse already sends an ETag and Last-Modified derived from
-            # the file, so revalidating costs a 304 and no image bytes.
-            "Cache-Control": "private, no-cache",
-        },
+        headers={"Cache-Control": PHOTO_CACHE_FOREVER if current else PHOTO_REVALIDATE},
     )
 
 

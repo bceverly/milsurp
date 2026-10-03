@@ -315,6 +315,41 @@ class TestModelsAreNoLongerEditedHere:
         entry = next(row for row in listed if row["name"] == "Mosin-Nagant")
         assert entry["model_count"] == 2
 
+    def test_the_list_costs_the_same_queries_however_many_makers(
+        self, client, admin_headers, seeded
+    ):
+        """One grouped count, not a query per maker: the per-maker version was
+        two hundred queries on every load of the Manufacturers tab."""
+        from sqlalchemy import event
+
+        engine = seeded.get_bind()
+
+        def queries_for_list() -> int:
+            seen: list[str] = []
+
+            def count(*_args, **_kwargs):
+                seen.append("q")
+
+            event.listen(engine, "before_cursor_execute", count)
+            try:
+                assert client.get("/api/manufacturers", headers=admin_headers).status_code == 200
+            finally:
+                event.remove(engine, "before_cursor_execute", count)
+            return len(seen)
+
+        def add_makers(prefix: str, n: int) -> None:
+            for i in range(n):
+                maker = Manufacturer(name=f"{prefix}{i}", position=5)
+                model = FirearmModel(name=f"{prefix} model {i}", status=ArmoryStatus.APPROVED)
+                model.manufacturers.append(maker)
+                seeded.add_all([maker, model])
+            seeded.commit()
+
+        add_makers("Few", 3)
+        few = queries_for_list()
+        add_makers("Many", 30)
+        assert queries_for_list() == few
+
     def test_the_flat_models_field_is_gone(self, client, admin_headers, seeded):
         """Sending it is simply ignored rather than quietly writing a second,
         divergent list of models beside the armory's."""

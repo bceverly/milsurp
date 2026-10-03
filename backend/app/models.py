@@ -26,6 +26,7 @@ from sqlalchemy import (
     Table,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -931,7 +932,20 @@ class ItemPhoto(Base):
     """
 
     __tablename__ = "item_photos"
-    __table_args__ = (UniqueConstraint("item_id", "source_url", name="uq_photo_item_source"),)
+    __table_args__ = (
+        UniqueConstraint("item_id", "source_url", name="uq_photo_item_source"),
+        # The photos still waiting to download, and only those: a few hundred
+        # rows among a hundred thousand. Every pass of the download queue and
+        # every backlog count asks for exactly these, and without this read
+        # the whole table to find them -- 71,871 sequential scans on
+        # production by 2026-10-03. See migration 0056.
+        Index(
+            "ix_item_photos_pending",
+            "item_id",
+            postgresql_where=text("filename IS NULL"),
+            sqlite_where=text("filename IS NULL"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     item_id: Mapped[int] = mapped_column(

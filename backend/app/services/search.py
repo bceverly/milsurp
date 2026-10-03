@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 from datetime import timedelta
 from typing import Any
 from urllib.parse import parse_qsl, urlencode
@@ -599,7 +600,64 @@ def count_mentions(session: Session, name: str) -> int:
     return int(session.execute(stmt).scalar_one())
 
 
+#: The last answers count_mentions_many gave, keyed by the names asked about
+#: and a stamp of the listings table. See _catalog_stamp.
+_mentions_cache: dict[tuple, dict[str, int]] = {}
+_mentions_lock = threading.Lock()
+
+#: Answers kept. The armory page asks one question at a time -- the pending
+#: rows it is showing -- so a handful covers its tabs and filters.
+_MENTIONS_KEPT = 8
+
+
+def forget_mentions() -> None:
+    """Drop the cached counts. For the tests, which empty the table between
+    cases and could otherwise meet a catalog with the same stamp."""
+    with _mentions_lock:
+        _mentions_cache.clear()
+
+
+def _catalog_stamp(session: Session) -> tuple:
+    """What changes whenever a listing is added, removed or rewritten.
+
+    Its count, its highest id and its latest ``updated_at``: a scan that adds,
+    de-lists, re-prices or re-reads a description moves at least one. About
+    5 ms on production's 13,000 listings, against 250 ms to read every
+    description into Python.
+    """
+    return tuple(
+        session.execute(
+            select(func.count(Item.id), func.max(Item.id), func.max(Item.updated_at))
+        ).one()
+    )
+
+
 def count_mentions_many(session: Session, names: list[str]) -> dict[str, int]:
+    """:func:`_count_mentions_many`, answered from cache while the listings are
+    unchanged.
+
+    The armory page asks on every load and the answer moves only when a scan
+    does. Measured on production 2026-10-02: 246 ms of the models list's
+    279 ms was this, reading all 13,000 descriptions into Python -- and the
+    other armory requests the page makes at the same moment waited behind it.
+    Keyed on the catalog itself rather than on a timer, so a cached answer is
+    never a stale one.
+    """
+    if not names:
+        return {}
+    key = (_catalog_stamp(session), tuple(sorted(set(names))))
+    with _mentions_lock:
+        found = _mentions_cache.get(key)
+    if found is None:
+        found = _count_mentions_many(session, list(key[1]))
+        with _mentions_lock:
+            if len(_mentions_cache) >= _MENTIONS_KEPT:
+                _mentions_cache.pop(next(iter(_mentions_cache)))
+            _mentions_cache[key] = found
+    return {name: found.get(name, 0) for name in names}
+
+
+def _count_mentions_many(session: Session, names: list[str]) -> dict[str, int]:
     """:func:`count_mentions` for many names at once, in one read of the table.
 
     The armory page shows a count on every row awaiting approval, and after

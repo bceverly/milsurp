@@ -655,6 +655,27 @@ Two things change once you are on PostgreSQL:
 - `make checkpoint` and everything else about the write-ahead log stop applying;
   they are SQLite's.
 
+**Tune the server once it holds real data.** A stock install is sized for a
+small machine. Production (2 vCPUs, 7.4 GB RAM, an SSD-backed disk) runs with
+these, set with `ALTER SYSTEM` and a restart:
+
+```sql
+ALTER SYSTEM SET shared_buffers = '1536MB';        -- stock is 128 MB
+ALTER SYSTEM SET jit = off;                         -- compiles short web queries for nothing
+ALTER SYSTEM SET random_page_cost = 1.1;            -- an SSD, not a spinning disk
+ALTER SYSTEM SET shared_preload_libraries = 'pg_stat_statements';
+-- then: systemctl restart postgresql, and in the milsurp database:
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+```
+
+`pg_stat_statements` is what answers "which query is slow?" with a number
+rather than a guess: `SELECT calls, mean_exec_time, query FROM
+pg_stat_statements ORDER BY total_exec_time DESC LIMIT 20;`. And if Postgres
+ever shuts down uncleanly it discards its table statistics, so the planner
+works from stale row counts until enough rows change; `VACUUM (ANALYZE);`
+rebuilds them in a second or two. The application reconnects on its own after
+a database restart (`pool_pre_ping`).
+
 ## Configuration
 
 Searched for in this order; first hit wins:

@@ -15,7 +15,7 @@ from sqlalchemy.orm import selectinload
 
 from ..deps import AdminUser, DbSession
 from ..logsafe import client_address
-from ..models import Item, Manufacturer
+from ..models import Item, Manufacturer, firearm_model_manufacturers
 from ..schemas import (
     ManufacturerCreate,
     ManufacturerOut,
@@ -37,7 +37,25 @@ def _counts(session: DbSession) -> dict[str, int]:
     return {name: count for name, count in rows if name}
 
 
-def _to_out(row: Manufacturer, counts: dict[str, int]) -> ManufacturerOut:
+def _model_counts(session: DbSession) -> dict[int, int]:
+    """How many armory models name each maker, in one grouped read.
+
+    The list used to take ``len(row.firearm_models)`` per maker, which loads
+    each maker's models in a query of its own: two hundred makers, two
+    hundred queries, on every load of the Manufacturers tab.
+    """
+    link = firearm_model_manufacturers.c
+    rows = session.execute(
+        select(link.manufacturer_id, func.count(link.firearm_model_id)).group_by(
+            link.manufacturer_id
+        )
+    ).all()
+    return {int(maker): int(count) for maker, count in rows}
+
+
+def _to_out(
+    row: Manufacturer, counts: dict[str, int], model_counts: dict[int, int] | None = None
+) -> ManufacturerOut:
     """One maker, with a count of the models the armory says it built.
 
     The models themselves used to live here, as a block of text on the maker —
@@ -50,7 +68,9 @@ def _to_out(row: Manufacturer, counts: dict[str, int]) -> ManufacturerOut:
         id=row.id,
         name=row.name,
         aliases=row.aliases,
-        model_count=len(row.firearm_models),
+        model_count=(
+            model_counts.get(row.id, 0) if model_counts is not None else len(row.firearm_models)
+        ),
         position=row.position,
         enabled=row.enabled,
         notes=row.notes,
@@ -114,7 +134,8 @@ def list_manufacturers(
             Manufacturer.name.ilike(f"%{search}%") | Manufacturer.aliases.ilike(f"%{search}%")
         )
     counts = _counts(session)
-    return [_to_out(row, counts) for row in session.execute(stmt).scalars()]
+    model_counts = _model_counts(session)
+    return [_to_out(row, counts, model_counts) for row in session.execute(stmt).scalars()]
 
 
 @router.post("", response_model=ManufacturerWrite, status_code=status.HTTP_201_CREATED)
