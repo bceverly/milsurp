@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from app.models import ArmoryStatus, FirearmModel, Item, Manufacturer, Site, utcnow
+from app.services import provenance
 
 
 @pytest.fixture
@@ -20,7 +21,10 @@ def maker(seeded):
     return row
 
 
-def add_listing(session, site, key, title, description=None, manufacturer=None):
+def add_listing(
+    session, site, key, title, description=None, manufacturer=None, source=provenance.DERIVED
+):
+    """A listing; a maker given here is the rules' unless *source* says otherwise."""
     session.add(
         Item(
             site_id=site.id,
@@ -29,6 +33,7 @@ def add_listing(session, site, key, title, description=None, manufacturer=None):
             title=title,
             description=description,
             manufacturer=manufacturer,
+            manufacturer_source=source if manufacturer else None,
             is_active=True,
             first_seen_at=utcnow(),
             last_seen_at=utcnow(),
@@ -214,6 +219,50 @@ class TestEditing:
         assert response.json()["listings_changed"] == 1
         seeded.expire_all()
         assert seeded.query(Item).one().manufacturer is None
+
+    def test_a_vendor_s_or_a_person_s_maker_is_not_re_derived(
+        self, client, admin_headers, seeded, site
+    ):
+        """An edit re-derives only what the rules or the armory supplied. It
+        used to re-derive every listing that mentioned a spelling involved:
+        disabling "Vetterli" would have turned a shop's own "Vetterli" on
+        Vetterli parts into "Colt", read out of the description."""
+        seeded.add(Manufacturer(name="Mauser", aliases="Karabiner 98k", position=10))
+        seeded.commit()
+        for key, source in (
+            ("v", provenance.VENDOR),
+            ("o", provenance.OVERRIDE),
+            ("u", None),
+        ):
+            add_listing(
+                seeded, site, key, "Karabiner 98k, matching", manufacturer="Mauser", source=source
+            )
+
+        row = seeded.query(Manufacturer).one()
+        response = client.patch(
+            f"/api/manufacturers/{row.id}", json={"aliases": ""}, headers=admin_headers
+        )
+
+        assert response.json()["listings_changed"] == 0
+        seeded.expire_all()
+        assert {item.manufacturer for item in seeded.query(Item)} == {"Mauser"}
+
+    def test_but_a_vendor_s_maker_follows_a_rename(
+        self, client, admin_headers, seeded, site, maker
+    ):
+        """Spelling is the table's to settle, so a protected value follows a
+        rename -- and is still the vendor's."""
+        add_listing(seeded, site, "a", "K98", manufacturer="Mauser", source=provenance.VENDOR)
+
+        client.patch(
+            f"/api/manufacturers/{maker.id}",
+            json={"name": "Mauser-Werke", "aliases": "Mauser"},
+            headers=admin_headers,
+        )
+
+        seeded.expire_all()
+        item = seeded.query(Item).one()
+        assert (item.manufacturer, item.manufacturer_source) == ("Mauser-Werke", provenance.VENDOR)
 
     def test_renaming_moves_the_listings_with_it(self, client, admin_headers, seeded, site, maker):
         add_listing(seeded, site, "a", "GERMAN K98 Mauser", manufacturer="Mauser")

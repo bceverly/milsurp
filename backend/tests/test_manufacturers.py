@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import select
 
 from app.models import ArmoryStatus, FirearmModel, Item, Manufacturer, Site
-from app.services import classify
+from app.services import classify, provenance
 from app.services import manufacturers as service
 from app.services.manufacturers import Registry, pattern_for, without_cartridges
 
@@ -20,6 +20,7 @@ def make(session, **fields):
 
 
 def listing(session, site_id, key, title, description=None, manufacturer=None):
+    """A listing; a maker given here is the rules', which an edit may re-derive."""
     item = Item(
         site_id=site_id,
         external_key=key,
@@ -27,6 +28,7 @@ def listing(session, site_id, key, title, description=None, manufacturer=None):
         title=title,
         description=description,
         manufacturer=manufacturer,
+        manufacturer_source=provenance.DERIVED if manufacturer else None,
     )
     session.add(item)
     session.flush()

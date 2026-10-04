@@ -31,7 +31,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from ..models import ArmoryStatus, FirearmModel, Item, Manufacturer
-from . import arsenals, classify
+from . import arsenals, classify, provenance
 
 log = logging.getLogger("milsurp.manufacturers")
 
@@ -439,24 +439,44 @@ def reprocess(session: Session, spellings: list[str]) -> int:
 
     candidates = session.execute(select(Item).where(or_(*clauses))).scalars().all()
     rules = registry(session)
-    changed = 0
-    for item in candidates:
-        found = _maker_for(session, rules, item)
-        if found != item.manufacturer:
-            item.manufacturer = found
-            changed += 1
-    return changed
+    return sum(_reread(session, rules, item) for item in candidates)
 
 
-def _maker_for(session: Session, rules: Registry, item: Item) -> str | None:
-    """The rules' maker, unless the listing names one of its model's arsenals.
+def _reread(session: Session, rules: Registry, item: Item) -> bool:
+    """Re-derive one listing's maker, where that is ours to do. Whether it changed.
 
-    The same answer a scan reaches (see arsenals.py): re-deriving a maker
-    without the arsenal step put "Mosin-Nagant" back on an Izhevsk the moment
+    **Only a maker the rules or the armory supplied is re-derived.** A vendor's
+    own field, a person's correction and a value of unknown origin are kept --
+    the rule every other rebuild here follows (see app/services/provenance.py),
+    and which this one did not: it predated provenance, and any edit to a
+    maker, or loading an armory, re-derived every listing that mentioned one
+    of the spellings involved, whoever had written the value. Simulated on
+    production on 2026-10-04, disabling seven design-name makers would have
+    replaced 110 vendor-stated makers -- a shop's "Vetterli" on Vetterli parts
+    with "Colt" read out of the description.
+
+    What a protected value still follows is the table's *spelling* of it, so a
+    vendor's "Izhmash" becomes "Izhevsk" once the two are merged and still
+    says ``vendor``.
+
+    The re-derived maker is the one a scan reaches (see arsenals.py): the
+    rules', unless the listing names one of its model's arsenals. Without the
+    arsenal step, re-deriving put "Mosin-Nagant" back on an Izhevsk the moment
     anybody edited a maker.
     """
+    if item.manufacturer and not provenance.may_recompute(item, "manufacturer"):
+        return provenance.respell(item, "manufacturer", canonical(session, item.manufacturer))
     arsenal = arsenals.arsenal_for(session, item.firearm_model_id, item.title, item.description)
-    return arsenal or rules.extract_from(item.title, item.description, item.caliber)
+    found = arsenal or rules.extract_from(item.title, item.description, item.caliber)
+    if not found:
+        if not item.manufacturer:
+            return False
+        item.manufacturer = None
+        item.manufacturer_source = None
+        return True
+    return provenance.claim(
+        item, "manufacturer", found, provenance.CATALOG if arsenal else provenance.DERIVED
+    )
 
 
 def _escape_like(text: str) -> str:
@@ -467,13 +487,7 @@ def _escape_like(text: str) -> str:
 def reprocess_everything(session: Session) -> int:
     """Re-derive the maker on every listing. For a change of order or a reseed."""
     rules = registry(session)
-    changed = 0
-    for item in session.execute(select(Item)).scalars():
-        found = _maker_for(session, rules, item)
-        if found != item.manufacturer:
-            item.manufacturer = found
-            changed += 1
-    return changed
+    return sum(_reread(session, rules, item) for item in session.execute(select(Item)).scalars())
 
 
 def country_for(session: Session, name: str | None) -> str | None:

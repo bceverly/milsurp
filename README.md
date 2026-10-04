@@ -3566,9 +3566,25 @@ the code:
   RFC 8291 section 3.3 names the browser's auth secret as that salt, so a
   random one would derive a key the browser cannot.
 
-Nothing is suppressed for CodeQL. In-source `# codeql[...]` comments turned out
-not to be honored by GitHub code scanning, which was the right outcome: each
-alert was a real weakness once looked at properly rather than argued with.
+In-source `# codeql[...]` comments turned out not to be honored by GitHub code
+scanning, which was mostly the right outcome: nearly every alert was a real
+weakness once looked at properly rather than argued with.
+
+**Two CodeQL alerts are dismissed as false positives**, in the Security tab
+because that is the only place GitHub accepts it: "use of a broken or weak
+cryptographic hashing algorithm on sensitive data" on `backend/app/totp.py`,
+the two lines that derive the key encrypting stored TOTP secrets. The rule
+follows anything *named* like a password -- the setting is
+`security.password_pepper` -- into any hash, and accepts only a deliberately
+slow password hash (Argon2, PBKDF2) as the destination. That slowness exists
+to make guessing a *person's* password expensive; the pepper is a random
+value from `make secrets`, which no one guesses -- the server warns at startup
+when it is shorter than `MIN_SECRET_BYTES` (32) or still the sample -- and the
+derivation is an HMAC (the extract step of HKDF) for that reason. Neither line
+can change without locking out anyone who enrolled: one reads the oldest
+sealed rows, and the other derives the key today's AES-GCM rows are sealed
+with. If the line numbers move, GitHub opens them again as new alerts, and
+they are dismissed again the same way. See `_keys()` in `totp.py`.
 `make secrets` no longer prints secrets at all. Failed sign-ins put the
 submitted username through an **allowlist** rather than an escape, and read the
 client address from the connection instead of slicing it back out of the
