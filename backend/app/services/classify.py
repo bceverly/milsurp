@@ -143,6 +143,43 @@ MODEL_CARTRIDGES: tuple[tuple[str, str], ...] = (
     ),
 )
 
+#: The M1917 and the P14 are one rifle in two cartridges: the Pattern 1914
+#: was designed for Britain in .303, and the American factories building it
+#: rechambered it in .30-06 as the Model of 1917. "Enfield" alone means .303
+#: (MAKER_CALIBERS below), so "CMP M1917 Enfield Service Grade" was filed as a
+#: .303 British -- four of them on production, 2026-10-04.
+#:
+#: Each asks for Enfield or one of the three American factories somewhere as
+#: well, because an M1917 is also the Colt and S&W .45 revolvers (so not where
+#: it says revolver) and a P14 is also a Para-Ordnance pistol.
+_ENFIELD_FAMILY = r"enfield|eddystone|edystone|remington|winchester"
+_M1917 = re.compile(
+    r"(?<!\w)(?:m\s*-?\s*1917|model\s+(?:of\s+)?1917|mod\.?\s+1917|p[.-]?17"
+    r"|pattern\s+1917|american\s+enfield)(?!\w)"
+)
+_P14 = re.compile(r"(?<!\w)(?:p[.-]?14|p1914|pattern\s+(?:19)?14)(?!\w)")
+_ENFIELD_KIN = re.compile(_ENFIELD_FAMILY)
+_P14_KIN = re.compile(rf"{_ENFIELD_FAMILY}|british|\.303")
+
+
+def enfield_pattern(haystack: str) -> str | None:
+    """.30-06 for an M1917, .303 British for a P14, else None.
+
+    Settled ahead of the designation table, like the Carcano, and for a reason
+    the table cannot express: each rifle's history names the other ("an
+    American modification of the .303 Pattern 1914"), so the one mentioned
+    *first* decides -- the title comes first -- rather than whichever rule
+    happens to be tried first.
+    """
+    m1917, p14 = _M1917.search(haystack), _P14.search(haystack)
+    if m1917 and (not p14 or m1917.start() < p14.start()):
+        if "revolver" not in haystack and _ENFIELD_KIN.search(haystack):
+            return ".30-06"
+    elif p14 and _P14_KIN.search(haystack):
+        return ".303 British"
+    return None
+
+
 #: What a *designation* implies, which is weaker evidence than a cartridge the
 #: listing states and is tried after it. A K98 is 8mm Mauser unless the seller
 #: says otherwise -- and when they say otherwise, they are the one holding it.
@@ -602,6 +639,11 @@ def _longest_match(table: tuple[tuple[str, str], ...], text: str) -> str | None:
     return best[1] if best else None
 
 
+def states_a_cartridge(title: str) -> bool:
+    """Whether a title names its cartridge outright, rather than implying one."""
+    return _stated_cartridge(without_percentages((title or "").lower()), None) is not None
+
+
 def _stated_cartridge(text: str, named: str | None) -> str | None:
     """The cartridge one piece of text names outright, strongest rule first."""
     found = _longest_match(SPELLED_CARTRIDGES, text)
@@ -663,7 +705,7 @@ def extract_caliber(  # noqa: PLR0911, PLR0912 - each branch is one rule class,
     # same reason, as the country and accessory lists.
     from . import designations
 
-    named = (
+    named = enfield_pattern(haystack) or (
         designations.match(haystack)
         if designations.available()
         else _first_match(DESIGNATION_CALIBERS, haystack)

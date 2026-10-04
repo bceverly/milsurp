@@ -497,6 +497,29 @@ class ArmoryPrimaryName(BaseModel):
     name: str = Field(min_length=1, max_length=128)
 
 
+class ArmorySyncChange(BaseModel):
+    """One row applying the shipped armory would add or change."""
+
+    name: str
+    action: str  # "add" | "update"
+    #: For an update, the fields that differ.
+    fields: list[str] = Field(default_factory=list)
+
+
+class ArmorySyncPlan(BaseModel):
+    """What applying the shipped armory would do, before it does it.
+
+    Never a deletion: the page does not prune. A row the file leaves out is
+    left alone, because the database is curated too and may simply be ahead.
+    """
+
+    manufacturers: list[ArmorySyncChange] = Field(default_factory=list)
+    calibers: list[ArmorySyncChange] = Field(default_factory=list)
+    models: list[ArmorySyncChange] = Field(default_factory=list)
+    added: int = 0
+    updated: int = 0
+
+
 class ArmoryAction(UTCModel):
     """What an action did, in the terms the admin page reports it."""
 
@@ -828,6 +851,9 @@ class ManufacturerOut(UTCModel):
     #: text on the maker — which is what let "M1 Carbine" belong to nine firms
     #: without becoming nine M1 Carbines.
     model_count: int = 0
+    #: Codes that name this firm only on its own models -- see
+    #: :attr:`app.models.Manufacturer.marks`.
+    marks: str | None = None
     position: int
     enabled: bool
     notes: str | None = None
@@ -868,6 +894,9 @@ class ManufacturerCreate(BaseModel):
     #: Other spellings, one per line. Matched as literal text, never as a
     #: pattern -- see app/services/manufacturers.py.
     aliases: str | None = Field(default=None, max_length=4000)
+    #: Codes that name this firm only on a model it is linked to, one per
+    #: line: ``byf`` on a K98k, ``SA`` on a Garand. See app/services/arsenals.py.
+    marks: str | None = Field(default=None, max_length=4000)
     position: int = Field(default=1000, ge=0, le=100_000)
     enabled: bool = True
     notes: str | None = Field(default=None, max_length=4000)
@@ -877,6 +906,10 @@ class ManufacturerCreate(BaseModel):
 class ManufacturerUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=128)
     aliases: str | None = Field(default=None, max_length=4000)
+    #: Codes that name this firm only on a model it is linked to, one per
+    #: line: ``byf`` on a K98k, ``SA`` on a Garand. See app/services/arsenals.py.
+    marks: str | None = Field(default=None, max_length=4000)
+
     status: ArmoryStatus | None = None
     position: int | None = Field(default=None, ge=0, le=100_000)
     enabled: bool | None = None

@@ -1900,6 +1900,17 @@ Each was one table outranking another for no reason but where it sat.
    relabeled five Vetterli and Peabody rifles — which state .41 Swiss and
    10.4mm in their own titles — as 7.5x55 Swiss.
 
+   Two are settled in code ahead of the table, because a table row cannot
+   say what they need. Carcano is one. The M1917 and the P14 are the other:
+   one rifle in two cartridges, .30-06 and .303 British, each one's history
+   naming the other — so the designation mentioned *first* decides (the
+   title comes first), it needs Enfield or one of its three American
+   factories in the listing, and an M1917 is not read where the listing says
+   revolver. Before this, "Enfield" alone meant .303 and "CMP M1917 Enfield"
+   was stored as one; migration 0058 corrected the stored ones
+   (`app/services/enfields.py`), only where the caliber was a guess and the
+   title states none.
+
 The title is exhausted before the description at every step. **Percentages come
 out of the text first**: the trade writes "90% blue" and "30-40% original
 finish" constantly, and `\b` is satisfied by the `%` that follows.
@@ -2209,6 +2220,37 @@ a short rifle** — a Trapdoor Carbine and a Trapdoor Rifle are different guns,
 priced and collected separately. Variants within a model, the years and the
 arsenals and the marks, are aliases rather than kinds.
 
+**Which arsenal made it.** For many of these guns the factory moves the price
+more than the model does: an International Harvester Garand against a
+Springfield, a Rock-Ola carbine against an Inland, a Tula hex-receiver Mosin, a
+`bcd` K98k. The listings usually say -- measured on production, 95% of Garands,
+93% of carbines and 70% of Mosins name an arsenal somewhere -- but a model
+with several makers fills in none of them, and the maker field read
+"Mosin-Nagant" on every M91/30. So after a listing is matched to a model, the
+arsenal step (`app/services/arsenals.py`) looks for the model's own makers in
+its title and description, and only those: that is what makes a short mark
+safe to read. Each maker carries **marks** (the *Marks* field in its dialog,
+one per line) -- `SA` for Springfield, `SG` for Saginaw, `byf` for Mauser,
+`bcd` for Gustloff -- which are matched only among the makers of a model that
+maker is linked to, never anywhere else.
+
+When several are named the title beats the description (a description names
+the makers of parts, and quotes disclaimers), a firm that is not the pattern's
+own name beats one that is ("Lee Enfield No.4 ... by Savage" is a Savage), a
+mark beats a name, then the earlier mention, then the longer ("Remington Rand",
+not "Remington"). A mention followed by a part word ("duv mount", "Underwood
+barrel") is not counted, and a description naming two or more of the model's
+factories is a list and is not read at all. A mark may run straight into a
+two-digit year ("AC41", "byf43") but not into a serial ("SG3276"). Design
+names that were never factories -- Mosin-Nagant, Arisaka, Carcano,
+Schmidt-Rubin, Fusil Gras, Vetterli, Luger, AKM -- are not linked to models as
+makers: as a model's only maker one labels every listing of it, which is how
+every SVT-40 came to say "Mosin-Nagant" and every K31 "Schmidt-Rubin". A test
+holds the shipped file to that. The step replaces only a maker the rules or the armory supplied, never
+a vendor's own field or a person's correction. It runs on every scan and every
+reclassify; `cli.py armory arsenals` applies it to the listings already filed,
+after an armory change adds makers or marks.
+
 **It is not a milsurp-only table.** Four vendors here sell a police trade-in
 shelf beside the surplus, so the armory carries the modern service guns too:
 Glock 17 through 48 one row per number, the Sig P-series, S&W's M&P line and
@@ -2498,6 +2540,21 @@ applies second, and it leaves rows the file does not mention alone unless
 `--prune` is given: the armory is curated in two places, and a row missing from
 the file is more often unexported than unwanted. `backend/tests/test_armory.py`
 pins the round trip — export then sync is a no-op.
+
+**Taking a cleaned-up file back to an instance.** *Load shipped armory* only
+adds what the database lacks, awaiting approval, and never touches a row
+already there — so a file in which duplicates were merged or aliases moved
+reaches nobody who already has the rows. *Apply shipped armory…* does the
+`sync` from the page: it shows every row it would add and every field it would
+change, and only applies on confirmation. Nothing is deleted from the page.
+The listings mentioning any spelling involved, before or after, are matched
+again, as an edit by hand does.
+
+**Every load is written down, row by row.** Load, apply and both CLI commands
+record one *created*, *edited* or *deleted* event per row they touch, with
+what an edited row held before — so the audit log says exactly what a load
+changed, and each change can be undone from the log on its own, like an edit
+made by hand. A load from the page adds one summary event on top.
 
 **And it can be put back.** Every armory edit and deletion records what the row
 held beforehand, and the audit log offers an **Undo** beside it. That pairing is
@@ -3585,6 +3642,7 @@ backend/cli.py armory qualify   # rename bare designations to name their maker (
 backend/cli.py armory tidy      # fill blanks from a row's own listings; retire silent rows (--apply)
 backend/cli.py armory export    # write this database's armory to a committable file
 backend/cli.py armory sync      # reconcile this database with such a file (--apply, --prune)
+backend/cli.py armory arsenals  # read the arsenal off listings already filed
 backend/cli.py fetch-photos     # drain the photo queue without re-scraping
 backend/cli.py running-scans    # list in-flight scans; exit 1 if any
 backend/cli.py infer            # fill blank caliber/country/maker from other vendors

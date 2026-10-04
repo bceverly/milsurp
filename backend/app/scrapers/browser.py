@@ -294,6 +294,19 @@ def find_chrome() -> tuple[str | None, str | None]:
     return binary, _first_usable_driver(binary, _DRIVERS_FOR.get(binary, ()))
 
 
+def _no_selenium_telemetry() -> None:
+    """Stop Selenium Manager reporting each browser start to a third party.
+
+    By default it sends usage statistics to plausible.io whenever it runs --
+    seen on production 2026-10-04 as "Error sending stats to Plausible" in a
+    sandbox check. Nobody here asked for that, and it is a call to somebody
+    else's server from the one process that already talks to strangers.
+    ``SE_AVOID_STATS`` is Selenium's own switch; an administrator's setting of
+    it is left alone.
+    """
+    os.environ.setdefault("SE_AVOID_STATS", "true")
+
+
 def _prepare_selenium_manager(config: ScrapingConfig) -> None:
     """Get Selenium Manager ready to fetch the driver discovery could not find.
 
@@ -446,6 +459,7 @@ def chrome(config: ScrapingConfig) -> Iterator[Any]:
     # Sites behind bot protection reject the default automation fingerprint.
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_argument(f"user-agent={config.user_agent}")
+    _no_selenium_telemetry()
     found_binary, found_driver = find_chrome()
     binary = config.chrome_binary or found_binary
     driver_path = config.chromedriver_path or found_driver

@@ -76,6 +76,9 @@ ARMORY_MERGED = "armory.merged"
 ARMORY_UNMERGED = "armory.unmerged"
 ARMORY_RENAMED = "armory.renamed"
 ARMORY_SEEDED = "armory.seeded"
+#: The shipped armory applied to this database: one summary event, beside one
+#: created/edited event per row it touched.
+ARMORY_SYNCED = "armory.synced"
 DESIGNATION_CHANGED = "caliber_designation.changed"
 CLASSIFIER_KEYWORD_CHANGED = "classifier_keyword.changed"
 SITE_ENABLED = "site.enabled"

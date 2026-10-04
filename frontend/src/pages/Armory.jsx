@@ -672,6 +672,7 @@ function CaliberForm({ caliber, onSubmit, error }) {
 const EMPTY_MAKER = {
   name: "",
   aliases: "",
+  marks: "",
   position: 1000,
   enabled: true,
   notes: "",
@@ -809,6 +810,7 @@ function MakerForm({ maker, countries, onSubmit, error }) {
       ? {
           name: maker.name,
           aliases: maker.aliases || "",
+          marks: maker.marks || "",
           position: maker.position,
           enabled: maker.enabled,
           notes: maker.notes || "",
@@ -863,6 +865,28 @@ function MakerForm({ maker, countries, onSubmit, error }) {
             rows={4}
             value={form.aliases}
             onChange={set("aliases")}
+          />
+        )}
+      </Field>
+      {/* The arsenal's own codes. Kept apart from the spellings above because
+          they mean nothing on their own -- "SA" anywhere else is not
+          Springfield -- and are only read on a listing of a model this firm
+          is linked to. See app/services/arsenals.py. */}
+      <Field
+        label="Marks"
+        hint={
+          "One per line — factory codes and stamps that name this firm only on its own " +
+          "models: “byf” on a K98k, “SA” on a Garand. Never matched anywhere else."
+        }
+      >
+        {(id, describedBy) => (
+          <textarea
+            id={id}
+            aria-describedby={describedBy}
+            className="input"
+            rows={2}
+            value={form.marks}
+            onChange={set("marks")}
           />
         )}
       </Field>
@@ -997,6 +1021,129 @@ function MergeForm({ row, rows, compare, onSubmit, error }) {
         </button>
       </div>
     </form>
+  );
+}
+
+/** How many changes a section lists before it says "and N more". */
+const APPLY_SHOWN = 40;
+
+/**
+ * Make this armory match the shipped file, after seeing exactly what changes.
+ *
+ * "Load shipped armory" only adds what is missing, awaiting approval, and
+ * never touches a row already here -- so a cleaned-up file (a duplicate
+ * merged, a stray alias moved) reached nobody that already had the rows. This
+ * applies the file: statuses, aliases, merges and corrections, and new rows
+ * as the file has them. It overwrites, which is why the plan is shown first:
+ * a row edited here since the file was exported is put back to the file's
+ * version, and that should be seen before it happens. Nothing is deleted.
+ * Every change goes to the audit log with what the row held, so each can be
+ * undone from there on its own.
+ */
+function ArmoryApply({ onClose, onApplied }) {
+  const [plan, setPlan] = useState(null);
+  const [error, setError] = useState("");
+  const [working, setWorking] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    api
+      .armorySyncPlan()
+      .then((found) => live && setPlan(found))
+      .catch((err) => live && setError(err.message));
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const apply = async () => {
+    setWorking(true);
+    setError("");
+    try {
+      onApplied(await api.applyArmorySync());
+    } catch (err) {
+      setError(err.message);
+      setWorking(false);
+    }
+  };
+
+  const nothing = plan && plan.added + plan.updated === 0;
+  const sections = plan
+    ? [
+        ["Calibers", plan.calibers],
+        ["Models", plan.models],
+        ["Manufacturers", plan.manufacturers],
+      ].filter(([, changes]) => changes.length)
+    : [];
+
+  return (
+    <Modal
+      title="Apply the shipped armory"
+      wide
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className="btn btn--secondary" onClick={onClose}>
+            {nothing ? "Done" : "Cancel"}
+          </button>
+          {plan && !nothing && (
+            <button
+              type="button"
+              className="btn btn--primary"
+              disabled={working}
+              onClick={apply}
+            >
+              {working ? "Applying…" : `Apply ${plan.added + plan.updated} change(s)`}
+            </button>
+          )}
+        </>
+      }
+    >
+      {error && (
+        <p className="alert alert--error" role="alert">
+          {error}
+        </p>
+      )}
+      {!plan && !error && <p className="muted">Reading the shipped file…</p>}
+      {nothing && <p>This armory already matches the shipped file. Nothing to change.</p>}
+      {plan && !nothing && (
+        <>
+          <p data-testid="armory-apply-summary">
+            <strong>{plan.added}</strong> to add and <strong>{plan.updated}</strong> to
+            change. A row edited here since the file was made is put back to the
+            file&rsquo;s version. Nothing is deleted. Every change is written to the audit
+            log, where each one can be undone, and the listings it touches are matched
+            again.
+          </p>
+          {sections.map(([title, changes]) => (
+            <section key={title} className="armory-apply__section">
+              <h3>
+                {title} ({changes.length})
+              </h3>
+              <ul className="armory-apply__list">
+                {changes.slice(0, APPLY_SHOWN).map((change) => (
+                  <li key={`${change.action}:${change.name}`}>
+                    {change.action === "add" ? (
+                      <>
+                        <span className="chip chip--success">add</span> {change.name}
+                      </>
+                    ) : (
+                      <>
+                        <span className="chip chip--info">change</span> {change.name}
+                        <span className="muted"> — {change.fields.join(", ")}</span>
+                      </>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              {changes.length > APPLY_SHOWN && (
+                <p className="muted">and {changes.length - APPLY_SHOWN} more</p>
+              )}
+            </section>
+          ))}
+        </>
+      )}
+    </Modal>
   );
 }
 
@@ -1145,6 +1292,8 @@ export default function Armory() {
   const [deleting, setDeleting] = useState(null);
   const [formError, setFormError] = useState("");
   const [message, setMessage] = useState("");
+  // The "Apply shipped armory" dialog: open or not. See ArmoryApply.
+  const [applying, setApplying] = useState(false);
   const [failure, setFailure] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -1531,6 +1680,15 @@ export default function Armory() {
             onClick={() => act(() => api.seedArmory())}
           >
             <Refresh /> Load shipped armory
+          </button>
+          <button
+            type="button"
+            className="btn btn--secondary"
+            disabled={busy}
+            title="Make this armory match the shipped file: shows every change first"
+            onClick={() => setApplying(true)}
+          >
+            <Refresh /> Apply shipped armory…
           </button>
           <button
             type="button"
@@ -2234,6 +2392,17 @@ export default function Armory() {
             }}
           />
         </Modal>
+      )}
+
+      {applying && (
+        <ArmoryApply
+          onClose={() => setApplying(false)}
+          onApplied={async (result) => {
+            setApplying(false);
+            setMessage(result.message);
+            await load();
+          }}
+        />
       )}
 
       {deleting && (

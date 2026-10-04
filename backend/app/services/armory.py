@@ -50,7 +50,7 @@ from ..models import (
     Manufacturer,
     firearm_model_manufacturers,
 )
-from . import classify, manufacturers
+from . import arsenals, classify, manufacturers
 
 #: How many listing titles to keep on a pending row. Enough to judge it by,
 #: and not so many that the column becomes a log.
@@ -848,6 +848,113 @@ SEED_FILE = Path(__file__).resolve().parents[1] / "seed" / "armory.yaml"
 
 
 @dataclass
+class LoadEvent:
+    """One row a load added, changed or removed, for the audit log.
+
+    ``before`` is the row as it stood, in the shape the per-row Undo reads
+    (``armoryundo.snapshot``), so a change a load made can be put back one row
+    at a time exactly like an edit made by hand. Taken before anything was
+    written, which is the only moment it exists.
+    """
+
+    action: str  # "added" | "updated" | "deleted"
+    target_type: str  # "manufacturer" | "caliber" | "model"
+    row: Any
+    label: str
+    before: dict[str, Any] | None = None
+    fields: list[str] = field(default_factory=list)
+    #: A deleted row's id, read before the delete took it away.
+    target_id: int | None = None
+
+
+def _snapshot(row: Any) -> dict[str, Any]:
+    # Imported here: armoryundo imports this module.
+    from .armoryundo import snapshot
+
+    return snapshot(row)
+
+
+def record_load(
+    session: Session,
+    events: list[LoadEvent],
+    *,
+    actor: Any,
+    source: str,
+    ip_address: str | None = None,
+) -> int:
+    """Write one audit event per row a load touched. Returns how many.
+
+    The same events an edit by hand writes -- created, edited, deleted -- so a
+    load reads in the log like the curation it is, and each edit can be undone
+    from the log on its own. ``source`` says where the change came from: the
+    shipped armory, a file on the command line.
+    """
+    from . import audit
+
+    if not events:
+        return 0
+    session.flush()  # added rows have ids from here on
+    actions = {
+        "added": audit.ARMORY_CREATED,
+        "updated": audit.ARMORY_EDITED,
+        "deleted": audit.ARMORY_DELETED,
+    }
+    for event in events:
+        if event.action == "added":
+            status = getattr(getattr(event.row, "status", None), "value", "")
+            detail = f"from {source}" + (f", {status}" if status else "")
+        elif event.action == "updated":
+            detail = f"from {source}: " + ", ".join(event.fields)
+        else:
+            detail = f"from {source}: not in the file"
+        audit.record(
+            session,
+            actor=actor,
+            action=actions[event.action],
+            target_type=event.target_type,
+            target_id=event.target_id if event.target_id is not None else event.row.id,
+            target_label=event.label,
+            detail=detail,
+            ip_address=ip_address,
+            before=event.before,
+        )
+    return len(events)
+
+
+def rematch_after_load(session: Session, events: list[LoadEvent]) -> int:
+    """Re-match the listings mentioning any spelling a load touched.
+
+    Before and after both: a spelling taken away has to release the listings
+    it used to claim, as an edit by hand does. Makers through their own
+    matcher, models and calibers through this module's. Returns how many
+    listings changed.
+    """
+    from . import manufacturers
+
+    armory_spellings: set[str] = set()
+    maker_spellings: set[str] = set()
+    for event in events:
+        before = event.before or {}
+        spellings = [str(before.get("name") or "")]
+        spellings += [line for line in str(before.get("aliases") or "").splitlines() if line]
+        spellings += list(getattr(event.row, "spellings", []) or [])
+        # A maker's marks name it only on its own models' listings, and those
+        # are found by the marks as much as by the names.
+        spellings += _mark_list(str(before.get("marks") or ""))
+        spellings += _mark_list(getattr(event.row, "marks", None))
+        target = maker_spellings if event.target_type == "manufacturer" else armory_spellings
+        target.update(spelling for spelling in spellings if spelling)
+    invalidate()
+    manufacturers.invalidate()
+    changed = 0
+    if maker_spellings:
+        changed += manufacturers.reprocess(session, sorted(maker_spellings))
+    if armory_spellings:
+        changed += reprocess(session, sorted(armory_spellings))
+    return changed
+
+
+@dataclass
 class SeedReport:
     manufacturers: int = 0
     calibers: int = 0
@@ -867,7 +974,9 @@ def _lines(values: Iterable[object] | None) -> str | None:
     return "\n".join(str(value) for value in values or []) or None
 
 
-def seed(session: Session, path: Path | None = None) -> SeedReport:
+def seed(
+    session: Session, path: Path | None = None, events: list[LoadEvent] | None = None
+) -> SeedReport:
     """Add what the seed file has and the database does not.
 
     Additive, and only additive, matching on the name. A row already present
@@ -886,14 +995,30 @@ def seed(session: Session, path: Path | None = None) -> SeedReport:
     Everything arrives *pending*. Nothing in the file has been checked by the
     person who runs the site, so nothing in it decides anything until they
     promote it.
+
+    ``events``, when given, collects one :class:`LoadEvent` per row added or
+    filled in, for :func:`record_load`.
     """
     data = yaml.safe_load((path or SEED_FILE).read_text(encoding="utf-8")) or {}
     report = SeedReport()
+    calibers = _seed_calibers(session, data.get("calibers") or [], report, events)
+    makers = _seed_makers(session, data.get("manufacturers") or [], report, events)
+    _seed_models(session, data.get("models") or [], calibers, makers, report, events)
+    if report.total:
+        invalidate()
+    return report
 
+
+def _seed_calibers(
+    session: Session,
+    entries: list[dict[str, Any]],
+    report: SeedReport,
+    events: list[LoadEvent] | None,
+) -> dict[str, Caliber]:
     calibers: dict[str, Caliber] = {
         found.name.lower(): found for found in session.execute(select(Caliber)).scalars()
     }
-    for entry in data.get("calibers") or []:
+    for entry in entries:
         name = str(entry["name"]).strip()
         if name.lower() in calibers:
             continue
@@ -906,11 +1031,22 @@ def seed(session: Session, path: Path | None = None) -> SeedReport:
         session.add(cartridge)
         calibers[name.lower()] = cartridge
         report.calibers += 1
+        if events is not None:
+            events.append(LoadEvent("added", "caliber", cartridge, name))
 
+    return calibers
+
+
+def _seed_makers(
+    session: Session,
+    entries: list[dict[str, Any]],
+    report: SeedReport,
+    events: list[LoadEvent] | None,
+) -> dict[str, Manufacturer]:
     makers: dict[str, Manufacturer] = {
         found.name.lower(): found for found in session.execute(select(Manufacturer)).scalars()
     }
-    for entry in data.get("manufacturers") or []:
+    for entry in entries:
         name = str(entry["name"]).strip()
         if name.lower() in makers:
             # The one exception to "an existing row is left exactly as it is",
@@ -921,12 +1057,18 @@ def seed(session: Session, path: Path | None = None) -> SeedReport:
             # running ones, where all ninety-four makers already existed.
             existing = makers[name.lower()]
             if entry.get("country") and not existing.country:
+                before = _snapshot(existing) if events is not None else None
                 existing.country = str(entry["country"]).strip()
                 report.countries_filled += 1
+                if events is not None:
+                    events.append(
+                        LoadEvent("updated", "manufacturer", existing, name, before, ["country"])
+                    )
             continue
         firm = Manufacturer(
             name=name,
             aliases=_lines(entry.get("aliases")),
+            marks=_lines(entry.get("marks")),
             status=ArmoryStatus.PENDING,
             position=int(entry.get("position") or 1000),
             country=entry.get("country"),
@@ -934,9 +1076,22 @@ def seed(session: Session, path: Path | None = None) -> SeedReport:
         session.add(firm)
         makers[name.lower()] = firm
         report.manufacturers += 1
+        if events is not None:
+            events.append(LoadEvent("added", "manufacturer", firm, name))
 
+    return makers
+
+
+def _seed_models(
+    session: Session,
+    entries: list[dict[str, Any]],
+    calibers: dict[str, Caliber],
+    makers: dict[str, Manufacturer],
+    report: SeedReport,
+    events: list[LoadEvent] | None,
+) -> None:
     seen = {name.lower() for name in session.execute(select(FirearmModel.name)).scalars()}
-    for entry in data.get("models") or []:
+    for entry in entries:
         name = str(entry["name"]).strip()
         if name.lower() in seen:
             continue
@@ -973,16 +1128,16 @@ def seed(session: Session, path: Path | None = None) -> SeedReport:
                 session.add(maker)
                 makers[key] = maker
                 report.manufacturers += 1
+                if events is not None:
+                    events.append(LoadEvent("added", "manufacturer", maker, maker.name))
             gun.manufacturers.append(maker)
         session.add(gun)
         seen.add(name.lower())
         report.models += 1
+        if events is not None:
+            events.append(LoadEvent("added", "model", gun, name))
         if gun.wikipedia_url:
             report.links += 1
-
-    if report.total:
-        invalidate()
-    return report
 
 
 # ---------------------------------------------------------------------------
@@ -1055,6 +1210,7 @@ def export_armory(session: Session) -> dict[str, Any]:
                 {
                     "name": row.name,
                     "aliases": row.spellings[1:],
+                    "marks": _mark_list(row.marks),
                     # Missed when the column was added, which is the same
                     # mistake as the makers themselves being missed above and
                     # cost the same thing: an export carried a curated armory
@@ -1532,6 +1688,7 @@ def _maker_differences(row: Manufacturer, entry: dict[str, Any]) -> list[str]:
     return _differences(
         {
             "aliases": row.spellings[1:],
+            "marks": _mark_list(row.marks),
             "status": row.status.value,
             "position": row.position,
             "enabled": row.enabled,
@@ -1539,12 +1696,18 @@ def _maker_differences(row: Manufacturer, entry: dict[str, Any]) -> list[str]:
         },
         {
             "aliases": [str(a) for a in entry.get("aliases") or []],
+            "marks": [str(m) for m in entry.get("marks") or []],
             "status": str(entry.get("status") or ArmoryStatus.PENDING.value),
             "position": int(entry.get("position") or 1000),
             "enabled": bool(entry.get("enabled", True)),
             "notes": entry.get("notes"),
         },
     )
+
+
+def _mark_list(marks: str | None) -> list[str]:
+    """A maker's marks, one per line in the column, as a list."""
+    return [line.strip() for line in (marks or "").splitlines() if line.strip()]
 
 
 def _caliber_differences(row: Caliber, entry: dict[str, Any]) -> list[str]:
@@ -1622,8 +1785,17 @@ def _blankless(value: Any) -> Any:
     return None if value in ("", [], {}) else value
 
 
-def apply_sync(session: Session, path: Path, prune: bool = False) -> dict[str, int]:
+def apply_sync(
+    session: Session,
+    path: Path,
+    prune: bool = False,
+    events: list[LoadEvent] | None = None,
+) -> dict[str, int]:
     """Reconcile the database with the file. Returns what it did.
+
+    ``events``, when given, collects one :class:`LoadEvent` per row added,
+    changed or deleted, for :func:`record_load` -- and through it the audit
+    log and the per-row Undo.
 
     Deletions happen only when *prune* is set, and only for rows the file does
     not mention. An armory is curated in two places -- the file, and whatever
@@ -1632,16 +1804,21 @@ def apply_sync(session: Session, path: Path, prune: bool = False) -> dict[str, i
     """
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     done = {"added": 0, "updated": 0, "deleted": 0}
-    _sync_makers(session, data.get("manufacturers") or [], done, prune)
-    calibers = _sync_calibers(session, data.get("calibers") or [], done, prune)
-    _sync_models(session, data.get("models") or [], calibers, done, prune)
+    sink: list[LoadEvent] = events if events is not None else []
+    _sync_makers(session, data.get("manufacturers") or [], done, prune, sink)
+    calibers = _sync_calibers(session, data.get("calibers") or [], done, prune, sink)
+    _sync_models(session, data.get("models") or [], calibers, done, prune, sink)
     if any(done.values()):
         invalidate()
     return done
 
 
 def _sync_makers(
-    session: Session, entries: list[dict[str, Any]], done: dict[str, int], prune: bool
+    session: Session,
+    entries: list[dict[str, Any]],
+    done: dict[str, int],
+    prune: bool,
+    events: list[LoadEvent],
 ) -> None:
     known = {
         row.name.strip().lower(): row for row in session.execute(select(Manufacturer)).scalars()
@@ -1656,11 +1833,16 @@ def _sync_makers(
             session.add(row)
             known[name.lower()] = row
             done["added"] += 1
-        elif _maker_differences(row, entry):
+            events.append(LoadEvent("added", "manufacturer", row, name))
+        elif differing := _maker_differences(row, entry):
             done["updated"] += 1
+            events.append(
+                LoadEvent("updated", "manufacturer", row, row.name, _snapshot(row), differing)
+            )
         else:
             continue
         row.aliases = _lines(entry.get("aliases"))
+        row.marks = _lines(entry.get("marks"))
         row.status = ArmoryStatus(str(entry.get("status") or ArmoryStatus.PENDING.value))
         row.position = int(entry.get("position") or 1000)
         row.enabled = bool(entry.get("enabled", True))
@@ -1669,12 +1851,21 @@ def _sync_makers(
     if prune:
         for key, row in list(known.items()):
             if key not in listed:
+                events.append(_deleted("manufacturer", row))
                 session.delete(row)
                 done["deleted"] += 1
 
 
+def _deleted(target_type: str, row: Any) -> LoadEvent:
+    return LoadEvent("deleted", target_type, row, row.name, _snapshot(row), target_id=row.id)
+
+
 def _sync_calibers(
-    session: Session, entries: list[dict[str, Any]], done: dict[str, int], prune: bool
+    session: Session,
+    entries: list[dict[str, Any]],
+    done: dict[str, int],
+    prune: bool,
+    events: list[LoadEvent],
 ) -> dict[str, Caliber]:
     known = {row.name.strip().lower(): row for row in session.execute(select(Caliber)).scalars()}
     listed: set[str] = set()
@@ -1687,8 +1878,10 @@ def _sync_calibers(
             session.add(row)
             known[name.lower()] = row
             done["added"] += 1
-        elif _caliber_differences(row, entry):
+            events.append(LoadEvent("added", "caliber", row, name))
+        elif differing := _caliber_differences(row, entry):
             done["updated"] += 1
+            events.append(LoadEvent("updated", "caliber", row, row.name, _snapshot(row), differing))
         else:
             continue
         row.aliases = _lines(entry.get("aliases"))
@@ -1698,6 +1891,7 @@ def _sync_calibers(
     if prune:
         for key, row in list(known.items()):
             if key not in listed:
+                events.append(_deleted("caliber", row))
                 session.delete(row)
                 known.pop(key)
                 done["deleted"] += 1
@@ -1710,7 +1904,13 @@ def _sync_models(
     calibers: dict[str, Caliber],
     done: dict[str, int],
     prune: bool,
+    events: list[LoadEvent],
 ) -> None:
+    # The makers this same sync just added have to be in the query below, and
+    # the session does not autoflush: without this a model naming a new maker
+    # was written without it, and every later sync reported the same
+    # difference again without ever settling it.
+    session.flush()
     makers = {
         row.name.strip().lower(): row for row in session.execute(select(Manufacturer)).scalars()
     }
@@ -1732,8 +1932,10 @@ def _sync_models(
             session.add(row)
             known[name.lower()] = row
             done["added"] += 1
-        elif _model_differences(row, entry):
+            events.append(LoadEvent("added", "model", row, name))
+        elif differing := _model_differences(row, entry):
             done["updated"] += 1
+            events.append(LoadEvent("updated", "model", row, row.name, _snapshot(row), differing))
         else:
             continue
         _write_model(row, entry, calibers, makers)
@@ -1741,6 +1943,7 @@ def _sync_models(
     if prune:
         for key, row in list(known.items()):
             if key not in listed:
+                events.append(_deleted("model", row))
                 session.delete(row)
                 done["deleted"] += 1
 
@@ -1842,9 +2045,12 @@ def reprocess(session: Session, spellings: Iterable[str]) -> int:
             caliber = stated or (found.caliber if is_firearm else None)
         else:
             model_id, caliber = None, stated
-        if item.firearm_model_id != model_id or item.caliber != caliber:
-            item.firearm_model_id = model_id
-            item.caliber = caliber
+        model_changed = item.firearm_model_id != model_id or item.caliber != caliber
+        item.firearm_model_id = model_id
+        item.caliber = caliber
+        # The arsenal follows the model: a listing that has just matched one,
+        # or whose model just gained arsenals, may name its factory.
+        if arsenals.apply(session, item, item.description) or model_changed:
             changed += 1
     return changed
 

@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pytest
 
+from app.config import ScrapingConfig
 from app.scrapers import browser
 
 
@@ -251,3 +252,37 @@ class TestSomewhereToPutTheDownloadedDriver:
         config = replace(app_config.scraping, driver_cache_path=Path("/proc/nope/selenium"))
         browser._prepare_selenium_manager(config)
         assert "SE_CACHE_PATH" not in browser.os.environ
+
+
+class TestSeleniumManagerKeepsItsStatisticsToItself:
+    """By default Selenium Manager reports each run to plausible.io. Seen on
+    production; switched off with Selenium's own variable."""
+
+    def test_every_browser_start_turns_it_off(self, monkeypatch):
+        from selenium import webdriver
+
+        monkeypatch.setenv("SE_AVOID_STATS", "")
+        monkeypatch.delenv("SE_AVOID_STATS")
+
+        class FakeDriver:
+            def __init__(self, options=None, service=None):
+                pass
+
+            def set_page_load_timeout(self, _seconds):
+                pass
+
+            def quit(self):
+                pass
+
+        monkeypatch.setattr(webdriver, "Chrome", FakeDriver)
+        config = ScrapingConfig(
+            chrome_binary="/usr/bin/google-chrome", chromedriver_path="/usr/local/bin/chromedriver"
+        )
+        with browser.chrome(config):
+            pass
+        assert browser.os.environ["SE_AVOID_STATS"] == "true"
+
+    def test_an_administrators_own_setting_is_left_alone(self, monkeypatch):
+        monkeypatch.setenv("SE_AVOID_STATS", "false")
+        browser._no_selenium_telemetry()
+        assert browser.os.environ["SE_AVOID_STATS"] == "false"

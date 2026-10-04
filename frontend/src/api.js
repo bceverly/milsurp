@@ -400,6 +400,10 @@ export const api = {
   // navigation itself and the file lands in Downloads instead of in memory.
   armoryExportUrl: () => "/api/armory/export",
   emailArmoryExport: () => request("/api/armory/export/email", { method: "POST" }),
+  // What applying the shipped armory would change here, then doing it. The
+  // plan comes first because applying overwrites: see ArmoryApply.
+  armorySyncPlan: () => request("/api/armory/sync/plan"),
+  applyArmorySync: () => request("/api/armory/sync", { method: "POST" }),
 
   // --- what a reader pays on top of a listing: their dealer's transfer fee ---
   costs: () => request("/api/preferences/costs"),

@@ -68,6 +68,7 @@ def _to_out(
         id=row.id,
         name=row.name,
         aliases=row.aliases,
+        marks=row.marks,
         model_count=(
             model_counts.get(row.id, 0) if model_counts is not None else len(row.firearm_models)
         ),
@@ -147,6 +148,7 @@ def create_manufacturer(
     row = Manufacturer(
         name=payload.name.strip(),
         aliases=payload.aliases,
+        marks=payload.marks or None,
         status=payload.status,
         position=payload.position,
         enabled=payload.enabled,
@@ -201,6 +203,9 @@ def update_manufacturer(
         row.name = payload.name.strip()
     if payload.aliases is not None:
         row.aliases = payload.aliases
+    if payload.marks is not None:
+        # Blank clears them, like the country below.
+        row.marks = payload.marks.strip() or None
     if payload.status is not None:
         row.status = payload.status
     if payload.position is not None:

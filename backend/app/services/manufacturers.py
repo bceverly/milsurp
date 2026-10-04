@@ -31,7 +31,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from ..models import ArmoryStatus, FirearmModel, Item, Manufacturer
-from . import classify
+from . import arsenals, classify
 
 log = logging.getLogger("milsurp.manufacturers")
 
@@ -268,6 +268,10 @@ def invalidate() -> None:
     global _cached
     with _lock:
         _cached = None
+    # The arsenals are compiled from the makers and the models they are
+    # linked to, and armory.invalidate() lands here too, so this one hook
+    # covers a change to either.
+    arsenals.forget()
 
 
 def registry(session: Session) -> Registry:
@@ -437,11 +441,22 @@ def reprocess(session: Session, spellings: list[str]) -> int:
     rules = registry(session)
     changed = 0
     for item in candidates:
-        found = rules.extract_from(item.title, item.description, item.caliber)
+        found = _maker_for(session, rules, item)
         if found != item.manufacturer:
             item.manufacturer = found
             changed += 1
     return changed
+
+
+def _maker_for(session: Session, rules: Registry, item: Item) -> str | None:
+    """The rules' maker, unless the listing names one of its model's arsenals.
+
+    The same answer a scan reaches (see arsenals.py): re-deriving a maker
+    without the arsenal step put "Mosin-Nagant" back on an Izhevsk the moment
+    anybody edited a maker.
+    """
+    arsenal = arsenals.arsenal_for(session, item.firearm_model_id, item.title, item.description)
+    return arsenal or rules.extract_from(item.title, item.description, item.caliber)
 
 
 def _escape_like(text: str) -> str:
@@ -454,7 +469,7 @@ def reprocess_everything(session: Session) -> int:
     rules = registry(session)
     changed = 0
     for item in session.execute(select(Item)).scalars():
-        found = rules.extract_from(item.title, item.description, item.caliber)
+        found = _maker_for(session, rules, item)
         if found != item.manufacturer:
             item.manufacturer = found
             changed += 1

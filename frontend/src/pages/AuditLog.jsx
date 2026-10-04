@@ -45,6 +45,7 @@ const LABELS = {
   "armory.unmerged": "Armory merge undone",
   "armory.renamed": "Armory primary name changed",
   "armory.seeded": "Shipped armory loaded",
+  "armory.synced": "Shipped armory applied",
 };
 
 function label(action) {

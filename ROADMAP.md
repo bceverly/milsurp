@@ -4302,6 +4302,127 @@ maker, country, finest to coarsest as the inventory's filters do; and
 Classification's tabs follow the order the classifier asks its questions, part
 or gun first, which is now where the page opens.
 
+### The M1917 is a .30-06 — **Fixed** 2026-10-04
+
+The M1917 and the P14 are one rifle in two cartridges, and the classifier's
+last resort read "Enfield" as .303 British -- so "CMP M1917 Enfield Service
+Grade" was stored as a .303, four listings on production. Now the M1917
+(Model of 1917, P17, American Enfield) is .30-06 and the P14 (Pattern 1914)
+.303 British, settled ahead of the designation table like the Carcano because
+each one's history names the other: the one mentioned first decides. Each
+also needs Enfield or Eddystone, Remington or Winchester in the listing --
+an M1917 is also a .45 revolver and a P14 a Para-Ordnance pistol -- and an
+M1917 that says revolver is not read as the rifle.
+
+Migration 0058 corrects what was stored: a .303 on a listing whose model
+states only .30-06, or whose title reads as an M1917, and the reverse -- only
+where the caliber was a guess and the title states none. A read-only dry run
+against production changed exactly the four M1917s and nothing else. One of
+them (a stripped M1917 stock) quotes the P14's ".303-inch" in its
+description, so a forced `reclassify recompute=1` would read it as .303
+again; a scan never would.
+
+Measured and not done: letting a model's only caliber overrule any guessed
+caliber it contradicts would have fixed 17 listings on production and broken
+9, nearly all listings filed under the wrong model. And reading designations
+from the title before the description would have changed 24 listings for no
+net gain.
+
+### Which arsenal made it — **Shipped** 2026-10-04
+
+A model's makers are its arsenals, and a listing that names one now gets it:
+after the model is matched, its title and description are searched for that
+model's makers and their **marks** -- a new field on the maker, codes like `SA`,
+`SG`, `byf`, `bcd` that mean a factory only on the models it is linked to.
+Title before description, a firm over the pattern's own name, a mark over a
+name, earliest, longest; a mention followed by a part word, and a description
+listing several factories, are passed over. Only a rules- or armory-supplied
+maker is replaced. Runs on scan and reclassify; `cli.py armory arsenals`
+backfills.
+
+The shipped armory gained 28 arsenals (Sestroryetsk, Gustloff, Kokura,
+Nagoya, Long Branch, Fazakerley, Ishapore, Terni, Remington Rand, Singer and
+others), marks on eleven existing makers, arsenal links on 27 models, Izhmash
+merged into Izhevsk, and the design-only makers (Mosin-Nagant, Arisaka,
+Carcano) unlinked from the 18 models they stood in for. A dry run against
+production, read-only: of 1,688 listings on linked models, 162 change maker
+(M91/30s to Izhevsk and Tula, Type 99s mostly to Nagoya, No. 4s to Savage) and
+131 are left alone because a vendor or a person set their maker. Writing it
+against real listings found the three exceptions above -- nine M1903s sent to
+Rock Island by a description's disclaimer, scope-mount makers, and a
+Yugoslav rework's list of possible factories. What remains is a description
+naming only a part's maker when the title names none.
+
+A second pass measured which makers production's listings name on models
+they were not linked to, and found two kinds of gap. Missing arsenals:
+Eddystone and Winchester on the Model of 1917, Tula and Izhevsk on the SVT-40
+and SKS, Nagoya, Kokura and Koishikawa on the Type 14 Nambu, Krieghoff and
+Simson on the P08, Walther and Berlin-Lübecker on the G43, Manurhin on the PP
+and PPK, Springfield and Harpers Ferry on the Model 1816, Izhevsk and Zastava
+on the AK-47 (65 Russian Type 3 kits name the Izhevsk arrow), the three French
+arsenals on the Gras, Terni, Brescia and Torino on the 1870/87; and the marks
+`ac` (Walther) and `cyq` (Spreewerk). And design names still linked as makers,
+which is worse than none: the SVT-40's only maker was "Mosin-Nagant" and the
+K31's "Schmidt-Rubin", so every listing of either was labeled with it --
+replaced with the real factories, and `AKM`, `Luger`, `Vetterli`, `Fusil Gras`
+and a `Mannlicher` on the Spanish 1893 (a Mauser) unlinked; a test now holds
+the shipped file to it. Marks also match run into a two-digit year, "AC41",
+"BYF45" -- 19 production titles wrote them that way -- but not a serial.
+
+The M1 Carbine, measured on its own: of production's 139 listings the
+arsenal step named a maker on 128. Of the rest, "I.B.M." was not a spelling
+of IBM; Auto-Ordnance and Universal, which made commercial carbines, were not
+linked (Iver Johnson and Plainfield, which did too, were added beside them);
+and the bare alias `M1A1` filed a full-auto Thompson SMG and an M14 parts
+listing as carbines -- it is now "M1A1 Carbine" and "M1A1 Paratrooper".
+"Inland Mfg" had been an alias of Inland, the General Motors division that
+made the carbines in the war, but it is Inland Manufacturing of Dayton, which
+makes reproductions today -- now a maker of its own, so a 2015 ILM150 is not
+priced beside a 1944 Inland. 134 of 139 now name their maker; the five left
+are two Thompson-branded .45 carbines, which keep "Thompson", a parts kit
+naming none, and the Thompson SMG and the M14 listing the alias change sends
+elsewhere.
+
+Not makers, and left for their own pass: the gap count also surfaced model
+aliases too broad to be safe -- an FN Hi Power filed as a Beretta M1935, a
+Swedish m/96 as a U.S. Model 1896, a Finnish Mosin as an Argentine 1891, an
+Allin trapdoor as a Winchester 1866 -- and duplicate model rows (Model of 1917
+and M1917 Enfield; P08 and PO8; three Swedish m/96s; two Argentine 1909s).
+
+### The shipped armory: applied from the page, and every load audited — **Shipped** 2026-10-04
+
+*Load shipped armory* only adds missing rows, awaiting approval, and leaves
+every existing row alone -- so production's own cleaned-up export, copied into
+the tree, would have changed nothing on production. *Apply shipped armory…*
+runs the sync from the page: the plan first (rows to add, fields to change),
+then the change on confirmation, never a deletion, and the listings its
+spellings touch re-matched. And every load -- that, the existing button, and
+`armory seed` / `armory sync` on the command line -- now records one created,
+edited or deleted audit event per row, with what an edited row held, so each
+change is in the log and can be undone from it; before, a load wrote one line
+and a sync none.
+
+Writing the tests found a sync bug: on a database where a maker was new, the
+model naming it was written without it (the session does not autoflush, and
+the maker lookup ran before the new maker was flushed), and every later sync
+reported the same difference without settling it.
+
+The armory file itself, from production's 2026-10-04 export, was cleaned up
+before shipping: `.52`, `.56`, `.60`, `.65`, `.70` and `.72` existed both bare
+and as "`.NN Caliber`", both approved, splitting each size's listings between
+two calibers -- the bare ones are merged into "`.NN Caliber`", the convention
+the recent cleanup chose; `10 Bore` into `10 Gauge`, as `12 Bore` and `20
+Bore` already were; three merged spellings that matched nothing (`.22`, `.32
+Cal`, `6.35`) made aliases of the rows they mean; the Enfield No. 2 Mk I's
+three approved duplicates made one row holding every spelling; a disabled
+duplicate `Model 320` marked merged; a bare `M1864` taken off the two
+different carbines that both claimed it; the maker `MAC` merged into
+Châtellerault, whose mark it is; and `Izhevsk` and `Tula` removed as aliases
+of "Mosin-Nagant", which is a design and not a maker, and which -- tried first
+-- was crediting every Tula-marked gun to itself. The file has no spelling
+claimed by two live rows. The Carcano M91 Cavalry Carbine, never synced to
+production, was kept, and the Police Positive given its country.
+
 ### Faster where it was measured to be slow — **Shipped** 2026-10-03
 
 Measured first, from production's own nginx log (22,154 requests over ten
@@ -4361,6 +4482,12 @@ security header present, API docs off, TLS 1.0/1.1 refused. Changed:
   `deploy/ssh/`. fail2ban was not installed: every SSH client reaches the VM
   as the host's bridge address, so it could only ban everyone or no one.
   Thirty days of logs showed no failed or invalid-user attempts at all.
+- **Selenium Manager no longer reports to plausible.io.** It sends usage
+  statistics on every run by default, which showed up on production
+  (2026-10-04) as "Error sending stats to Plausible" during a sandbox check.
+  Every browser start now sets Selenium's own `SE_AVOID_STATS=true` (unless an
+  administrator set it otherwise); rerun on production with it set, the
+  message is gone.
 - **Found, for the proxy**: TLS ends at HAProxy on the pfSense router, not on
   the host, and it was sending no HSTS header and still accepting CBC cipher
   suites on TLS 1.2. Both are pfSense settings; see README, *Deployment*.

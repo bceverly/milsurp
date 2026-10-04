@@ -52,6 +52,8 @@ from ..schemas import (
     ArmoryMerge,
     ArmoryPrimaryName,
     ArmorySummary,
+    ArmorySyncChange,
+    ArmorySyncPlan,
     ArmoryWrite,
     CaliberCreate,
     CaliberOut,
@@ -801,9 +803,17 @@ def seed(admin: AdminUser, request: Request, session: DbSession) -> ArmoryAction
     Additive only, and everything arrives awaiting approval. Safe to press
     twice: the second press adds nothing.
     """
-    report = service.seed(session)
+    events: list[service.LoadEvent] = []
+    report = service.seed(session, events=events)
     if report.total:
-        # One event, not one per row: a fresh database takes over a thousand.
+        # One per row, so the log says what arrived, and one summary on top.
+        service.record_load(
+            session,
+            events,
+            actor=admin,
+            source="the shipped armory",
+            ip_address=client_address(request),
+        )
         audit.record(
             session,
             actor=admin,
@@ -824,6 +834,84 @@ def seed(admin: AdminUser, request: Request, session: DbSession) -> ArmoryAction
             f"and {report.models} model(s), all awaiting approval."
             if report.total
             else "Nothing to add; this database already has everything in the file."
+        ),
+    )
+
+
+def _plan_out(plan: service.SyncPlan) -> ArmorySyncPlan:
+    def rows(changes: list[service.Change]) -> list[ArmorySyncChange]:
+        # Never a deletion from here: the page does not prune.
+        return [
+            ArmorySyncChange(name=change.name, action=change.action, fields=change.fields)
+            for change in changes
+            if change.action != "delete"
+        ]
+
+    out = ArmorySyncPlan(
+        manufacturers=rows(plan.manufacturers),
+        calibers=rows(plan.calibers),
+        models=rows(plan.models),
+    )
+    every = [*out.manufacturers, *out.calibers, *out.models]
+    out.added = sum(1 for change in every if change.action == "add")
+    out.updated = sum(1 for change in every if change.action == "update")
+    return out
+
+
+@router.get("/sync/plan", response_model=ArmorySyncPlan)
+def sync_plan(_admin: AdminUser, session: DbSession) -> ArmorySyncPlan:
+    """What applying the shipped armory would change here, changing nothing.
+
+    Shown before the change is made, because it overwrites: a row this
+    database has edited since the file was exported is put back to what the
+    file says. The plan is how somebody sees that before it happens.
+    """
+    return _plan_out(service.plan_sync(session, service.SEED_FILE))
+
+
+@router.post("/sync", response_model=ArmoryAction)
+def apply_shipped(admin: AdminUser, request: Request, session: DbSession) -> ArmoryAction:
+    """Make this database's armory match the shipped file -- and re-match listings.
+
+    The page's way to take up a curated armory: statuses, aliases, merges and
+    corrections as the file has them, rows added as the file has them rather
+    than awaiting approval (the file is itself somebody's reviewed export).
+    Nothing is deleted. Every row changed is written to the audit log with what
+    it held before, so each can be undone from the log on its own; then the
+    listings that mention any spelling involved, before or after, are matched
+    again, as an edit by hand does.
+    """
+    events: list[service.LoadEvent] = []
+    done = service.apply_sync(session, service.SEED_FILE, prune=False, events=events)
+    if not events:
+        return ArmoryAction(changed=0, message="Nothing to change; this armory matches the file.")
+
+    service.record_load(
+        session,
+        events,
+        actor=admin,
+        source="the shipped armory",
+        ip_address=client_address(request),
+    )
+    audit.record(
+        session,
+        actor=admin,
+        action=audit.ARMORY_SYNCED,
+        target_type="armory",
+        target_label="Shipped armory applied",
+        detail=f"{done['added']} added, {done['updated']} changed",
+        ip_address=client_address(request),
+    )
+    session.flush()
+    restamped = service.rematch_after_load(session, events)
+    session.commit()
+    return ArmoryAction(
+        changed=done["added"] + done["updated"],
+        items_restamped=restamped,
+        message=(
+            f"Added {done['added']} and changed {done['updated']} row(s) from the shipped "
+            f"armory; each is in the audit log."
+            + (f" {restamped:,} listing(s) re-matched." if restamped else "")
         ),
     )
 

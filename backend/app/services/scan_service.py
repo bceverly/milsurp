@@ -51,6 +51,7 @@ from ..scrapers import (
 )
 from . import (
     armory,
+    arsenals,
     boilerplate,
     classify,
     curio,
@@ -660,6 +661,11 @@ def _apply_catalog(session: Session, item: Item, trusted: bool, *, adopt: bool =
         else:
             provenance.fill(item, "caliber", found.caliber, provenance.CATALOG)
     provenance.fill(item, "manufacturer", found.manufacturer, provenance.CATALOG, adopt=adopt)
+    # And then the arsenal, which outranks both guesses: once the model is
+    # known, a factory it names -- "Izhevsk", "SA", "bcd" -- is the maker of
+    # this gun, where the rules could only say whose pattern it is. Never over
+    # the vendor's word or a person's. See app/services/arsenals.py.
+    arsenals.apply(session, item, item.description if trusted else None)
     # Same one-directional fill, and for a sharper reason than the maker. The
     # model's country is where the *pattern* comes from; a listing's is where
     # this particular gun is said to be from, and those genuinely differ -- a

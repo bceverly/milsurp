@@ -51,6 +51,7 @@ from app.security import (
 )
 from app.services import (
     armory,
+    arsenals,
     bootstrap,
     canary,
     classify,
@@ -804,6 +805,16 @@ def cmd_reclassify(args: argparse.Namespace) -> int:
                 chosen_maker = manufacturers.canonical(session, found.manufacturer or maker)
             else:
                 chosen_maker = manufacturers.canonical(session, maker or found.manufacturer)
+            # The arsenal the listing names, among its model's makers, outranks
+            # both -- as it does in a scan (see app/services/arsenals.py) -- but
+            # only over a maker the rules or the armory supplied.
+            arsenal = arsenals.arsenal_for(session, found.model_id, item.title, evidence)
+            if arsenal and (
+                args.recompute
+                or not item.manufacturer
+                or provenance.source_of(item, "manufacturer") in arsenals.REPLACEABLE
+            ):
+                chosen_maker = arsenal
             from_maker = manufacturers.country_for(session, chosen_maker)
 
             if args.recompute:
@@ -1016,6 +1027,7 @@ def cmd_armory(args: argparse.Namespace) -> int:
     action = args.armory_command
     simple = {
         "seed": _armory_seed,
+        "arsenals": _armory_arsenals,
         "discover": _armory_discover,
         # A lambda so it joins the same dispatch as the others rather than
         # adding a seventh return to this function.
@@ -1045,9 +1057,17 @@ def cmd_armory(args: argparse.Namespace) -> int:
         if not args.apply:
             print("\nNothing changed. Re-run with --apply to carry it out.")
             return 0
-        done = armory.apply_sync(session, path, prune=args.prune)
+        events: list[armory.LoadEvent] = []
+        done = armory.apply_sync(session, path, prune=args.prune, events=events)
+        # Each row to the audit log with what it held before, as a load from
+        # the page does, so the log says what a sync changed and each change
+        # can be undone from it on its own.
+        armory.record_load(session, events, actor=None, source=f"{path.name} (command line)")
+        session.flush()
+        rematched = armory.rematch_after_load(session, events)
     print(
         f"\nApplied: {done['added']} added, {done['updated']} updated, {done['deleted']} deleted."
+        f" {len(events)} audit record(s); {rematched} listing(s) re-matched."
     )
     return 0
 
@@ -1710,11 +1730,26 @@ def _add_reclassify_command(sub) -> None:
 def _armory_seed() -> int:
     """Add what the shipped file has and this database does not."""
     with session_scope() as session:
-        report = armory.seed(session)
+        events: list[armory.LoadEvent] = []
+        report = armory.seed(session, events=events)
+        armory.record_load(session, events, actor=None, source="the shipped armory (command line)")
     print(
         f"Added {report.manufacturers} manufacturer(s), {report.calibers} caliber(s) "
         f"and {report.models} model(s), all awaiting approval."
     )
+    return 0
+
+
+def _armory_arsenals() -> int:
+    """Read the arsenal off every listing whose model has several makers.
+
+    For an armory change -- arsenals linked to a model, marks added to a
+    maker -- reaching listings filed before it. Only over a maker the rules
+    or the armory supplied. See app/services/arsenals.py.
+    """
+    with session_scope() as session:
+        changed = arsenals.backfill(session)
+    print(f"{changed} listing(s) now name the arsenal that made them.")
     return 0
 
 
@@ -1747,6 +1782,10 @@ def _add_armory_commands(sub) -> None:
     armory_sub = armory_cmd.add_subparsers(dest="armory_command", required=True)
     armory_sub.add_parser(
         "seed", help="Add what the shipped armory file has and this database does not."
+    )
+    armory_sub.add_parser(
+        "arsenals",
+        help="Read the arsenal off every listing whose model several factories made.",
     )
     armory_sub.add_parser(
         "discover",

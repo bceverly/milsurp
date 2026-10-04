@@ -74,7 +74,16 @@ def snapshot(row: Any) -> dict[str, Any]:
     lie.
     """
     fields: dict[str, Any] = {}
-    for name in ("name", "aliases", "notes", "country", "position", "enabled", "wikipedia_url"):
+    for name in (
+        "name",
+        "aliases",
+        "marks",
+        "notes",
+        "country",
+        "position",
+        "enabled",
+        "wikipedia_url",
+    ):
         if hasattr(row, name):
             fields[name] = getattr(row, name)
     if getattr(row, "status", None) is not None:

@@ -539,6 +539,7 @@ class TestTheExporterCarriesEveryColumn:
         row = Manufacturer(
             name="Everything Works",
             aliases="EW",
+            marks="ewx\nS/99",
             country="Belgium",
             notes="a note",
             position=42,
@@ -730,26 +731,65 @@ class TestTheTwoCachesStayInStep:
 
 class TestSeedingTheManufacturers:
     def test_the_file_brings_its_own_makers(self, seeded):
-        """The M1 Carbine's nine were dropped on the floor before this: the
+        """The M1 Carbine's makers were dropped on the floor before this: the
         seeder skipped any maker the table did not already have, so the model
-        arrived with one of them."""
+        arrived with one of them. Eleven since Irwin-Pedersen and Rock Island Armory joined them as
+        arsenals (see app/services/arsenals.py)."""
         armory.seed(seeded)
         seeded.commit()
         carbine = seeded.query(FirearmModel).filter_by(name="M1 Carbine").one()
-        assert len(carbine.manufacturers) == 9
+        assert len(carbine.manufacturers) == 16
         assert "Rock-Ola" in carbine.manufacturer_names
         assert "IBM" in carbine.manufacturer_names
 
-    def test_an_m1_garand_has_all_four_of_its_makers(self, seeded):
+    def test_an_m1_garand_has_all_six_of_its_makers(self, seeded):
+        """The four wartime arsenals, and Beretta and Breda's postwar Italian
+        production -- every one an arsenal a listing may name."""
         armory.seed(seeded)
         seeded.commit()
         garand = seeded.query(FirearmModel).filter_by(name="M1 Garand").one()
         assert sorted(garand.manufacturer_names) == [
+            "Beretta",
+            "Breda",
             "Harrington & Richardson",
             "International Harvester",
             "Springfield",
             "Winchester",
         ]
+
+    def test_a_k98k_s_makers_arrive_with_their_marks(self, seeded):
+        """A maker created by the seed brings its factory codes with it."""
+        armory.seed(seeded)
+        seeded.commit()
+        gustloff = seeded.query(Manufacturer).filter_by(name="Gustloff").one()
+        assert gustloff.marks == "bcd"
+
+    def test_no_model_names_a_design_as_its_maker(self):
+        """A design's name is not a factory. Linked to a model as its only
+        maker it labeled every listing with it -- "Mosin-Nagant" on every
+        SVT-40, "Schmidt-Rubin" on every K31 -- and beside the real factories
+        it competed with them for a title that named both."""
+        designs = {
+            "AKM",
+            "Arisaka",
+            "Carcano",
+            "Fusil Gras",
+            "Luger",
+            "Mannlicher",
+            "Mosin-Nagant",
+            "Schmidt-Rubin",
+            "Vetterli",
+        }
+        shipped = yaml.safe_load(armory.SEED_FILE.read_text(encoding="utf-8"))
+        offenders = {
+            model["name"]: sorted(designs & set(model.get("manufacturers") or []))
+            for model in shipped["models"]
+            if designs & set(model.get("manufacturers") or [])
+        }
+        assert offenders == {}
+        makers = {model["name"]: model.get("manufacturers") for model in shipped["models"]}
+        assert makers["SVT-40"] == ["Izhevsk", "Tula"]
+        assert makers["Schmidt-Rubin K31"] == ["W+F Bern"]
 
     def test_they_arrive_awaiting_approval_too(self, seeded):
         armory.seed(seeded)

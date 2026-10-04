@@ -365,6 +365,13 @@ class Manufacturer(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
     #: Other spellings, one per line. "S&W" for Smith & Wesson, "P-08" for Luger.
     aliases: Mapped[str | None] = mapped_column(Text)
+    #: Marks that name this firm only on a gun it is known to have made, one
+    #: per line: the WaA factory code ``byf`` for Mauser Oberndorf on a K98k,
+    #: ``SA`` for Springfield Armory on a Garand, ``SG`` for Saginaw on a
+    #: carbine. Never matched on their own -- "SA" in a listing for anything
+    #: else means nothing -- only inside the listings of a model this firm is
+    #: linked to, by the arsenal step. See app/services/arsenals.py.
+    marks: Mapped[str | None] = mapped_column(Text)
     #: Where this rule sits in the order rules are tried. Lower goes first.
     position: Mapped[int] = mapped_column(Integer, default=1000, nullable=False, index=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)

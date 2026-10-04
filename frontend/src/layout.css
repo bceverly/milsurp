@@ -3672,3 +3672,17 @@
   flex-direction: column;
   gap: 6px;
 }
+
+/* "Apply the shipped armory": the plan, before anything changes. */
+.armory-apply__section h3 {
+  font-size: 14px;
+  margin: 14px 0 6px;
+}
+.armory-apply__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+}
