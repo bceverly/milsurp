@@ -9,4 +9,4 @@
 #
 # Pinned to a floor rather than a version: these are detection rules, and a
 # newer scanner finding more is the point.
-semgrep>=1.178.0
+semgrep>=1.179.0
