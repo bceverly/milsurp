@@ -1689,6 +1689,10 @@ def _maker_differences(row: Manufacturer, entry: dict[str, Any]) -> list[str]:
         {
             "aliases": row.spellings[1:],
             "marks": _mark_list(row.marks),
+            # Missed when the column was added, as it once was by the exporter:
+            # a sync created 28 makers on production without the countries
+            # the file gave them, and reported nothing to fix afterwards.
+            "country": row.country,
             "status": row.status.value,
             "position": row.position,
             "enabled": row.enabled,
@@ -1697,6 +1701,7 @@ def _maker_differences(row: Manufacturer, entry: dict[str, Any]) -> list[str]:
         {
             "aliases": [str(a) for a in entry.get("aliases") or []],
             "marks": [str(m) for m in entry.get("marks") or []],
+            "country": entry.get("country"),
             "status": str(entry.get("status") or ArmoryStatus.PENDING.value),
             "position": int(entry.get("position") or 1000),
             "enabled": bool(entry.get("enabled", True)),
@@ -1843,6 +1848,7 @@ def _sync_makers(
             continue
         row.aliases = _lines(entry.get("aliases"))
         row.marks = _lines(entry.get("marks"))
+        row.country = entry.get("country")
         row.status = ArmoryStatus(str(entry.get("status") or ArmoryStatus.PENDING.value))
         row.position = int(entry.get("position") or 1000)
         row.enabled = bool(entry.get("enabled", True))

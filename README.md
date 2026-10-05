@@ -70,10 +70,14 @@ changed — filtered to the sites you care about and capped so it stays readable
   the lot and dealers sell them as a named section — Glock 22s, 870 Police
   Magnums, AR-15 patrol rifles. It is not military surplus and it is the same
   question, so it gets its own bucket rather than being scattered through
-  Rifles and Handguns. A listing earns it from the vendor's section and not
-  from its title: a PD Trade Glock 22 is mechanically the same object as any
-  other Glock 22. The underlying `is_pistol` still says handgun, because it is
-  one — only the filter's bucket changes.
+  Rifles and Handguns. A listing earns it from the vendor saying so — in a
+  trade-in section, or in its own title ("Police Trade In Glock 22", "LE
+  Trade-In", "Police Turn-In", "Police Surplus") for a vendor without one — and
+  never from a police *marking*, which a Swiss police Luger or a Colt Police
+  Positive carries without having been traded in by anybody. A PD Trade Glock 22
+  is mechanically the same object as any other Glock 22. The underlying
+  `is_pistol` still says handgun, because it is one — only the filter's bucket
+  changes.
 - **A background scheduler** runs each site on its own cadence. An admin can
   disable a site, change its frequency, start a scan immediately, or cancel one
   mid-flight. **Scan now** and **Stop** are both on every site card at all
@@ -1682,7 +1686,15 @@ vendor's own category says "firearms" generically, that settles that it *is*
 one, and the caliber decides which kind. It is consulted **last**, after every
 veto and the price floor, which is the whole of its safety: it can only rescue a
 listing every other rule has already declined to call anything, so it cannot
-promote a sling out of a shop's "Guns" section.
+promote a sling out of a shop's "Guns" section. A curio-and-relic section ("Curio
+& Relic", "C&R Eligible") counts as one: it is a firearms license's own category.
+
+**Some words that look like parts describe the gun.** "Bolt action" names how a
+rifle works, not a bolt for sale; "belt fed" says how a machine gun feeds, not a
+belt; and a barrel described by a word — "C96 Short Barrel W/ Stock", "1902
+American Eagle Fat Barrel" — is the gun, where "16 inch heavy barrel" at the end
+of a title is still a barrel. Each was filing real firearms (a $9,500 Conehammer,
+a Maxim, a Springfield 1903 prototype) under Other.
 
 **A parts kit is not also a firearm**, and a **cut-up receiver is a parts kit**
 whatever the law calls it — a torch-cut ZB37 receiver is the remains of a

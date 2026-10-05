@@ -106,6 +106,40 @@ def _rendered(value: Any) -> str:
     return text_of(str(value or ""))
 
 
+#: The end of a sentence: a full stop, question mark or exclamation mark, then
+#: a capitalized word. Not the "." of "Mle. 1890" or "No. 4", which a number
+#: follows.
+_SENTENCE_END = re.compile(r"[.!?](?=\s+[A-Z])")
+
+#: A title this short that the description opens with is a stub, not a name.
+_STUB = 12
+
+#: Longer than any title the shop writes in full, and cut at a word.
+_LONGEST_TITLE = 140
+
+
+def _whole_title(title: str, description: str) -> str:
+    """The listing's name, where the shop's title is only its first word.
+
+    The listings migrated from the Word pages were titled by cutting the opening
+    paragraph at its first full stop or question mark, and for a French or
+    Austrian bayonet that comes after the abbreviation: 28 for sale on
+    2026-10-05 were titled "Mle.", "Ob.", "No." or "M1950?", with the name --
+    "Mle. 1886/16 Lebel cruciform bayonet with scabbard" -- the first sentence
+    of the description. Read the name from there instead, which is also what
+    lets the classifier see the word "bayonet".
+    """
+    stub = title.strip()
+    text = " ".join(description.split())
+    if len(stub) > _STUB or not text.startswith(stub) or len(text) <= len(stub):
+        return title
+    end = next((m.start() for m in _SENTENCE_END.finditer(text) if m.start() >= _STUB), len(text))
+    name = text[:end].strip()
+    if len(name) > _LONGEST_TITLE:
+        name = name[:_LONGEST_TITLE].rsplit(" ", 1)[0]
+    return name or title
+
+
 def _meta(record: dict[str, Any]) -> dict[str, Any]:
     """A record's meta bag. Absent rather than null when a plugin field is."""
     meta = record.get("meta")
@@ -265,7 +299,8 @@ class EBayonetScraper(SiteScraper):
         unknown_statuses: set[str],
     ) -> ScrapedItem | None:
         key = str(record.get("slug") or "").strip()
-        title = _rendered(record.get("title"))
+        description = _rendered(record.get("content")) or None
+        title = _whole_title(_rendered(record.get("title")), description or "")
         if not key or not title:
             return None
 
@@ -313,7 +348,7 @@ class EBayonetScraper(SiteScraper):
 
         derived = classify.enrich(
             title,
-            _rendered(record.get("content")) or None,
+            description,
             price,
             country=country,
             category=category,
@@ -323,7 +358,7 @@ class EBayonetScraper(SiteScraper):
             url=str(record.get("link") or f"{SITE_BASE}item/{key}/"),
             title=title,
             price=price,
-            description=_rendered(record.get("content")) or None,
+            description=description,
             category=category,
             caliber=derived["caliber"],
             country=derived["country"],

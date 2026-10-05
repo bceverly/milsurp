@@ -1523,8 +1523,10 @@ export default function Armory() {
    *
    * Select-all on a grown armory is exactly the case that outruns it, and a
    * button that works until the list gets long is worse than one that never
-   * worked. The counts come back per batch and are added up. */
-  const inBatches = async (send) => {
+   * worked. The counts come back per batch and are added up, and the message
+   * still says what was done with them -- "206 row(s) moved" alone did not say
+   * where. */
+  const inBatches = async (send, done) => {
     let changed = 0;
     let last = "";
     for (let at = 0; at < ids.length; at += BATCH) {
@@ -1535,7 +1537,7 @@ export default function Armory() {
     return {
       message:
         ids.length > BATCH
-          ? `${changed} row(s) moved, in ${Math.ceil(ids.length / BATCH)} batches.`
+          ? `${changed} row(s) ${done}, in ${Math.ceil(ids.length / BATCH)} batches.`
           : last,
     };
   };
@@ -1771,7 +1773,12 @@ export default function Armory() {
             className="btn btn--primary btn--sm"
             disabled={busy}
             onClick={() =>
-              act(() => inBatches((some) => api.promoteArmoryRows(tab, some)))
+              act(() =>
+                inBatches(
+                  (some) => api.promoteArmoryRows(tab, some),
+                  "promoted to production",
+                ),
+              )
             }
           >
             Promote to production
@@ -1781,7 +1788,12 @@ export default function Armory() {
             className="btn btn--ghost btn--sm"
             disabled={busy}
             onClick={() =>
-              act(() => inBatches((some) => api.sendArmoryRowsBack(tab, some)))
+              act(() =>
+                inBatches(
+                  (some) => api.sendArmoryRowsBack(tab, some),
+                  "sent back for approval",
+                ),
+              )
             }
           >
             Send back for approval
@@ -1792,7 +1804,7 @@ export default function Armory() {
             disabled={busy}
             title="Out of matching and out of the queue, but kept, so a scan does not propose these names again"
             onClick={() =>
-              act(() => inBatches((some) => api.disableArmoryRows(tab, some)))
+              act(() => inBatches((some) => api.disableArmoryRows(tab, some), "disabled"))
             }
           >
             Switch off
@@ -1812,7 +1824,9 @@ export default function Armory() {
                 className="btn btn--danger btn--sm"
                 disabled={busy}
                 onClick={() =>
-                  act(() => inBatches((some) => api.deleteArmoryRows(tab, some)))
+                  act(() =>
+                    inBatches((some) => api.deleteArmoryRows(tab, some), "deleted"),
+                  )
                 }
               >
                 Delete {countLabel(ids.length, "row", "rows")}

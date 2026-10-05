@@ -2533,3 +2533,89 @@ class TestAPoliceTradeInShelfNamesItsGunsByModel:
     def test_the_m_and_p15_rifle_is_not_read_as_an_m_and_p_pistol(self):
         result = classify.enrich("S&W M&P15 Sport II 5.56 Rifle", price=700.0)
         assert (result["is_rifle"], result["is_pistol"]) == (True, False)
+
+
+class TestASectionOfGunsAndHowAGunIsDescribed:
+    """Real firearms that were filed as accessories, measured on production
+    2026-10-05: 18 of them, every one a gun."""
+
+    @pytest.mark.parametrize(
+        ("title", "category", "expected"),
+        [
+            # A barrel described by a word is the gun being described, once
+            # the stock it comes with has been set aside.
+            (
+                "Rare Conehammer Broomhandle Mauser C96 Short Barrel W/ Stock (AH8758)",
+                "Military Handguns",
+                (False, True),
+            ),
+            (
+                "Very Rare DWM 1902 American Eagle Fat Barrel With Ideal Shoulder Stock",
+                "Military Handguns",
+                (False, True),
+            ),
+            # How it works: "belt fed" is not a belt, "bolt action" not a bolt.
+            (
+                "Russian WW2 1910 MAXIM Belt Fed 7.62X54R USSR Soviet WWII Semi Auto",
+                "Guns for Sale",
+                (True, False),
+            ),
+            (
+                "RARE SPRINGFIELD 1903 30-06 Bolt Action PROTOTYPE Documented WWI Match",
+                "Guns for Sale",
+                (True, False),
+            ),
+            # A curio-and-relic section is a section of guns.
+            ("1971 Colt Detective Special C&R Eligible-Gunsmith Special", "C&R Eligible", None),
+        ],
+    )
+    def test_it_is_a_gun(self, title, category, expected):
+        found = classify.classify_firearm(title, None, None, 2000.0, category)
+        assert found != (False, False)
+        if expected is not None:
+            assert found == expected
+
+    @pytest.mark.parametrize(
+        ("title", "category"),
+        [
+            ("Glock 17 Semi Auto Magazine", "Guns for Sale"),
+            ("MG34 Belt Fed Feed Tray Cover", "Parts"),
+        ],
+    )
+    def test_it_is_still_not_one(self, title, category):
+        assert classify.classify_firearm(title, None, None, 150.0, category) == (False, False)
+
+
+class TestPoliceSurplusSaidInTheTitle:
+    """A vendor without a trade-in section says so in the title instead: 17
+    firearms on production, 2026-10-05, none of them flagged."""
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "Police Trade In Glock 22 Gen 4 40S&W W Night Sights",
+            "Glock 22 Gen 3 .40 S&W LE Trade-In Semi-Auto Pistol",
+            "Smith & Wesson Model 10-6 Police Turn-In Revolvers 38 Spl",
+            "CZ vz.50 .32 ACP 3.8 inch Barrel Czech Police Surplus Blued Pistol",
+            "Remington 870 Magnum- Police Trade-in Shotgun",
+        ],
+    )
+    def test_a_trade_in_is_police_surplus(self, title):
+        found = classify.enrich(title, price=400.0, category="Used Guns")
+        assert found["is_police_surplus"] is True
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            # A police *marking* is not a trade-in.
+            "DWM 1906 SWISS POLICE CROSS IN SHIELD Luger Pistol",
+            "Colt Police Positive Special .38 Revolver",
+            # And a magazine from a trade-in is an accessory.
+            "Police Trade In Glock 22 Magazine",
+        ],
+    )
+    def test_a_marking_or_an_accessory_is_not(self, title):
+        price = 25.0 if "Magazine" in title else 400.0
+        assert (
+            classify.enrich(title, price=price, category="Used Guns")["is_police_surplus"] is False
+        )

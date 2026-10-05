@@ -166,6 +166,50 @@ class TestReadingAListing:
         assert only(list(EBayonetScraper().scrape(ctx))).image_urls == []
 
 
+class TestATitleThatIsOnlyItsFirstWord:
+    """Migrated listings were titled by cutting the first paragraph at its first
+    full stop, which for a French bayonet is the one after "Mle"."""
+
+    def stub(self, title, text):
+        return record("1", title={"rendered": title}, content={"rendered": f"<p>{text}</p>"})
+
+    def test_the_name_is_read_from_the_description(self, serving):
+        ctx, _ = serving(
+            [
+                self.stub(
+                    "Mle.",
+                    "Mle. 1886/16 Lebel cruciform bayonet with scabbard. STEEL grip with the "
+                    "bluing worn off.",
+                )
+            ]
+        )
+        item = only(list(EBayonetScraper().scrape(ctx)))
+        assert item.title == "Mle. 1886/16 Lebel cruciform bayonet with scabbard"
+
+    def test_a_question_mark_in_the_designation_is_not_the_end(self, serving):
+        ctx, _ = serving(
+            [self.stub("M1950?", "M1950? Hakim bayonet with scabbard. Scabbard does not match.")]
+        )
+        assert only(list(EBayonetScraper().scrape(ctx))).title == (
+            "M1950? Hakim bayonet with scabbard"
+        )
+
+    def test_a_real_title_is_left_alone(self, serving):
+        ctx, _ = serving([record("18783")])
+        assert only(list(EBayonetScraper().scrape(ctx))).title == (
+            "Afghan issue P1907 bayonet with scabbard."
+        )
+
+    def test_a_short_title_the_description_does_not_open_with_is_left_alone(self, serving):
+        ctx, _ = serving([self.stub("Ob.", "A lovely bayonet. Some wear.")])
+        assert only(list(EBayonetScraper().scrape(ctx))).title == "Ob."
+
+    def test_a_long_first_sentence_is_cut_at_a_word(self, serving):
+        ctx, _ = serving([self.stub("No.", "No. " + "word " * 60)])
+        title = only(list(EBayonetScraper().scrape(ctx))).title
+        assert len(title) <= 140 and title.endswith("word")
+
+
 class TestThePriceNote:
     """``$7 each or 3 for $20`` is the rest of the offer; ``$100`` beside a
     price of 100 is the same fact twice."""

@@ -129,10 +129,14 @@ class TestWhatMakesAListingPoliceSurplus:
     def test_ordinary_milsurp_is_not_police_surplus(self):
         assert not self.kind_of("RUSSIAN M44 CARBINE", "Foreign Military Rifles")[0]
 
-    def test_and_neither_is_a_title_that_merely_says_so(self):
-        """A fact about the section, not about the gun. Without a section
-        saying it, a title claiming it proves nothing."""
-        assert not self.kind_of("Police Trade In Glock 17", None)[0]
+    def test_a_title_saying_so_is_the_vendor_saying_so(self):
+        """It was a fact about the section only, until production showed 17
+        trade-ins from vendors with no such section -- Madison Guns' "Police
+        Trade In Glock 22", Centerfire's "LE Trade-In" -- that said it in the
+        title instead. Either way it is the vendor saying where the gun came
+        from; what still proves nothing is a police *marking*."""
+        assert self.kind_of("Police Trade In Glock 17", None)[0]
+        assert not self.kind_of("Colt Police Positive Special .38 Revolver", None)[0]
 
 
 class TestTheTypesStillPartitionTheCatalog:

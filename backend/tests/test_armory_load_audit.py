@@ -16,7 +16,7 @@ import json
 import pytest
 from sqlalchemy import func
 
-from app.models import ArmoryStatus, AuditEvent, Caliber, FirearmModel, Item, Site
+from app.models import ArmoryStatus, AuditEvent, Caliber, FirearmModel, Item, Manufacturer, Site
 from app.services import armory
 
 SHIPPED = """
@@ -179,6 +179,34 @@ class TestApplyingTheShippedArmory:
         headers = normal_user["headers"]
         assert client.get("/api/armory/sync/plan", headers=headers).status_code == 403
         assert client.post("/api/armory/sync", headers=headers).status_code == 403
+
+
+class TestAMakersCountry:
+    """The sync wrote every field of a maker but its country, so the 28 makers
+    a load created on production arrived without one -- and a later sync saw
+    nothing to fix."""
+
+    def test_a_new_maker_arrives_with_its_country(self, seeded, shipped):
+        seeded.query(Manufacturer).filter_by(name="Tula").delete()
+        seeded.commit()
+        armory.apply_sync(seeded, shipped)
+        seeded.commit()
+        assert seeded.query(Manufacturer).filter_by(name="Tula").one().country == "Russia"
+
+    def test_a_missing_country_is_a_difference_the_sync_settles(self, seeded, shipped, since):
+        armory.apply_sync(seeded, shipped)
+        seeded.commit()
+        tula = seeded.query(Manufacturer).filter_by(name="Tula").one()
+        tula.country = None
+        seeded.commit()
+        events: list[armory.LoadEvent] = []
+        armory.apply_sync(seeded, shipped, events=events)
+        seeded.commit()
+        assert [(e.label, e.fields) for e in events if e.target_type == "manufacturer"] == [
+            ("Tula", ["country"])
+        ]
+        seeded.refresh(tula)
+        assert tula.country == "Russia"
 
 
 class TestFromTheCommandLine:

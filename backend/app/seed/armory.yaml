@@ -18,6 +18,12 @@
 #     /opt/milsurp/backend/cli.py armory export --file /tmp/armory.yaml
 
 manufacturers:
+- name: A.H. Fox
+  aliases:
+  - AH Fox
+  - A. H. Fox
+  country: United States
+  status: approved
 - name: Adams
   country: United Kingdom
   status: approved
@@ -26,6 +32,11 @@ manufacturers:
   enabled: false
   notes: 'A model, not a maker. Same shape as the SKS row: Russian, Polish, Romanian and Chinese factories
     all built them.'
+- name: Allen & Wheelock
+  aliases:
+  - Allen and Wheelock
+  country: United States
+  status: approved
 - name: Anschutz
   country: Germany
   status: approved
@@ -41,6 +52,9 @@ manufacturers:
 - name: Army Astra
   status: merged
   enabled: false
+- name: Arsenal Firearms
+  country: Italy
+  status: approved
 - name: ASTON
   country: United States
   status: approved
@@ -55,6 +69,12 @@ manufacturers:
 - name: Auto-Ordnance
   aliases:
   - Auto Ordnance
+  country: United States
+  status: approved
+- name: Ballard
+  aliases:
+  - C.H. Ballard
+  - C. H. Ballard
   country: United States
   status: approved
 - name: BAYARD
@@ -81,6 +101,9 @@ manufacturers:
   enabled: false
 - name: Bernardelli
   country: Italy
+  status: approved
+- name: Bersa
+  country: Argentina
   status: approved
 - name: Berthier
   country: France
@@ -127,10 +150,16 @@ manufacturers:
   - BUL Transmark
   country: Israel
   status: approved
+- name: Burnside
+  aliases:
+  - Burnside Rifle Co.
+  country: United States
+  status: approved
 - name: Bushmaster
   country: United States
   status: approved
 - name: Canik
+  country: Turkey
   status: approved
 - name: Carcano
   country: Italy
@@ -156,6 +185,9 @@ manufacturers:
 - name: Century Arms
   country: United States
   status: approved
+- name: Charter Arms
+  country: United States
+  status: approved
 - name: Châtellerault
   aliases:
   - Chatellerault
@@ -169,6 +201,7 @@ manufacturers:
   country: United States
   status: approved
 - name: CMP
+  country: United States
   status: approved
 - name: CO
   status: approved
@@ -191,12 +224,19 @@ manufacturers:
   - Brünn
   - Waffenwerke Brünn
   - Waffenwerke Brunn
+  - Waffenfabrik Brunn
+  - Waffenfabrik Brünn
   marks:
   - dot
   - dou
   country: Czech Republic
   status: approved
   position: 330
+- name: Dance Brothers
+  aliases:
+  - Dance Bros
+  country: United States
+  status: approved
 - name: Daniel Defense
   country: United States
   status: approved
@@ -204,11 +244,17 @@ manufacturers:
   status: approved
   enabled: false
   notes: Not a firm; no listing of its own.
+- name: Desert Tech
+  country: United States
+  status: approved
 - name: Deutch Werke
   country: Germany
   status: approved
 - name: DPMS
   country: United States
+  status: approved
+- name: Dreyse
+  country: Germany
   status: approved
 - name: DWM
   aliases:
@@ -253,6 +299,7 @@ manufacturers:
   country: Hungary
   status: approved
 - name: Flare Signal Co.
+  country: United States
   status: approved
 - name: FN
   aliases:
@@ -260,6 +307,12 @@ manufacturers:
   country: Belgium
   status: approved
   position: 320
+- name: Forehand & Wadsworth
+  aliases:
+  - Forehand and Wadsworth
+  - Forehand & Wedsworth
+  country: United States
+  status: approved
 - name: Franchi
   country: Italy
   status: approved
@@ -272,6 +325,7 @@ manufacturers:
   notes: The rifle's name -- fusil is French for rifle and Gras designed it. They were built at Saint-Étienne,
     Châtellerault and Tulle, all of which have rows of their own.
 - name: Gafat
+  country: Ethiopia
   status: approved
 - name: Gardone
   aliases:
@@ -299,6 +353,17 @@ manufacturers:
   - bcd
   country: Germany
   status: approved
+- name: HAFDASA
+  aliases:
+  - Hispano Argentina Fábrica de Automóviles
+  - Hispano Argentina
+  country: Argentina
+  status: approved
+- name: Hammerli
+  aliases:
+  - Hämmerli
+  country: Switzerland
+  status: approved
 - name: Harpers Ferry
   country: United States
   status: approved
@@ -312,11 +377,15 @@ manufacturers:
   aliases:
   - HK
   - H&K
+  - Heckler & Koch
+  - Heckler and Koch
   country: Germany
   status: approved
 - name: High Standard
   aliases:
   - Standard Supermatic Citation
+  - Hi-Standard
+  - Hi Standard
   country: United States
   status: approved
 - name: H&K
@@ -327,6 +396,11 @@ manufacturers:
   country: Germany
   status: merged
   enabled: false
+- name: Hopkins & Allen
+  aliases:
+  - Hopkins and Allen
+  country: United States
+  status: approved
 - name: Howa
   aliases:
   - Howa Jyuko
@@ -375,6 +449,7 @@ manufacturers:
   country: United States
   status: approved
 - name: Intratec
+  country: United States
   status: approved
 - name: Iraqi Tabuk
   status: pending
@@ -415,17 +490,8 @@ manufacturers:
   status: approved
   position: 300
 - name: Izhmash
+  country: Russia
   status: merged
-- name: J.P. Sauer
-  aliases:
-  - J.P. Sauer & Sohn
-  - JP Sauer
-  - J. P. Sauer
-  - Sauer & Sohn
-  marks:
-  - ce
-  country: Germany
-  status: approved
 - name: James River Armory
   country: United States
   status: approved
@@ -444,6 +510,16 @@ manufacturers:
   status: approved
 - name: JP Enterprises
   country: United States
+  status: approved
+- name: J.P. Sauer
+  aliases:
+  - J.P. Sauer & Sohn
+  - JP Sauer
+  - J. P. Sauer
+  - Sauer & Sohn
+  marks:
+  - ce
+  country: Germany
   status: approved
 - name: Kel-Tec
   country: United States
@@ -468,6 +544,23 @@ manufacturers:
 - name: KRIEGHOFF
   country: Germany
   status: approved
+- name: L.C. Smith
+  aliases:
+  - LC Smith
+  - L. C. Smith
+  country: United States
+  status: approved
+- name: Laugo Arms
+  aliases:
+  - Laugo
+  country: Czech Republic
+  status: approved
+- name: Lefaucheux
+  aliases:
+  - Le Faucheux
+  - LeFaucheux
+  country: France
+  status: approved
 - name: Lewis Machine & Tool
   aliases:
   - LMT
@@ -479,6 +572,7 @@ manufacturers:
   - Small Arms Factory Lithgow
   marks:
   - SAF
+  country: Australia
   status: approved
 - name: Long Branch
   aliases:
@@ -494,6 +588,16 @@ manufacturers:
   status: approved
   position: 190
   enabled: false
+- name: LWRC
+  aliases:
+  - LWRC International
+  country: United States
+  status: approved
+- name: M. Zulaica
+  aliases:
+  - Zulaica
+  country: Spain
+  status: approved
 - name: MAC
   country: France
   status: merged
@@ -517,6 +621,14 @@ manufacturers:
   - St Etienne
   country: France
   status: approved
+- name: Manufacture d'Armes des Pyrénées Françaises
+  aliases:
+  - MAPF
+  - French Unique
+  - Unique Model
+  - Unique Court
+  country: France
+  status: approved
 - name: MANURHIN
   country: France
   status: approved
@@ -537,6 +649,12 @@ manufacturers:
 - name: MENZ
   country: Germany
   status: approved
+- name: Merwin & Hulbert
+  aliases:
+  - Merwin Hulbert
+  - Merwin and Hulbert
+  country: United States
+  status: approved
 - name: Milled
   status: pending
   enabled: false
@@ -547,7 +665,6 @@ manufacturers:
   aliases:
   - Mosin Nagant
   - MosinNagant
-  - Nagant
   country: Russia
   status: approved
   position: 10
@@ -585,6 +702,11 @@ manufacturers:
   - NPM
   country: United States
   status: approved
+- name: Nighthawk Custom
+  aliases:
+  - Nighthawk
+  country: United States
+  status: approved
 - name: Norico SKS
   status: merged
   enabled: false
@@ -602,6 +724,12 @@ manufacturers:
 - name: PAATZ
   country: Germany
   status: approved
+- name: Parker Bros
+  aliases:
+  - Parker Brothers
+  - Parker Bros.
+  country: United States
+  status: approved
 - name: Plainfield Machine
   aliases:
   - Plainfield
@@ -611,10 +739,16 @@ manufacturers:
   status: pending
   enabled: false
 - name: Polytech
+  country: China
   status: approved
 - name: Pouch
   status: pending
   enabled: false
+- name: PTR Industries
+  aliases:
+  - PTR
+  country: United States
+  status: approved
 - name: Quality Hardware
   aliases:
   - Quality Hardware & Machine
@@ -670,11 +804,17 @@ manufacturers:
   - Roma Arsenal
   country: Italy
   status: approved
+- name: Rossi
+  aliases:
+  - Amadeo Rossi
+  country: Brazil
+  status: approved
 - name: Ruger
   country: United States
   status: approved
   position: 140
 - name: SACM
+  country: France
   status: approved
 - name: SAGEM
   country: France
@@ -712,7 +852,6 @@ manufacturers:
   aliases:
   - SchmidtRubin
   - Schmidt Rubin
-  - Schmidt
   country: Switzerland
   status: approved
   position: 220
@@ -762,6 +901,7 @@ manufacturers:
 - name: Smith & Wesson
   aliases:
   - S&W
+  - Smith and Wesson
   country: United States
   status: approved
   position: 130
@@ -793,6 +933,9 @@ manufacturers:
   country: United States
   status: approved
 - name: Star
+  aliases:
+  - Bonifacio Echeverria
+  - Star Bonifacio Echeverria
   country: Spain
   status: approved
 - name: Starr
@@ -804,6 +947,14 @@ manufacturers:
 - name: STEN
   status: pending
   enabled: false
+- name: Stevens
+  aliases:
+  - J. Stevens
+  - J Stevens
+  - Stevens Arms
+  - J. Stevens Arms
+  country: United States
+  status: approved
 - name: Steyr
   marks:
   - bnz
@@ -920,11 +1071,26 @@ manufacturers:
   status: approved
   position: 180
 - name: WBP
+  country: Poland
   status: approved
 - name: Weapons Micro Galil
   status: approved
   enabled: false
   notes: A fragment of 'Ikon Weapons Micro Galil'.
+- name: WEATHERBY
+  country: United States
+  status: approved
+- name: Webley & Scott
+  aliases:
+  - Webley
+  - Webley and Scott
+  - Webley & Son
+  - P. Webley & Son
+  country: United Kingdom
+  status: approved
+- name: Westinghouse
+  country: United States
+  status: approved
 - name: W+F Bern
   aliases:
   - WF BERN
@@ -933,7 +1099,12 @@ manufacturers:
   - Waffenfabrik Bern
   country: Switzerland
   status: approved
-- name: Westinghouse
+- name: Whitney Arms
+  aliases:
+  - Whitney
+  - Eli Whitney
+  - Whitneyville
+  - Whitneyville Armory
   country: United States
   status: approved
 - name: Winch
@@ -955,6 +1126,8 @@ manufacturers:
   status: approved
   enabled: false
   notes: A model. 'Wolf T91 AR15 Upper'.
+- name: Yokosuka
+  status: pending
 - name: Yugo
   status: merged
   enabled: false
@@ -2705,6 +2878,12 @@ models:
 - name: AK-63F
   aliases:
   - AK63F
+  kind: rifle
+  country: Hungary
+  calibers:
+  - 7.62x39mm
+  manufacturers:
+  - FEG
   status: approved
 - name: AK63F
   status: merged
@@ -2985,6 +3164,14 @@ models:
   calibers:
   - 8mm Mauser
   status: approved
+- name: Baby Nambu
+  aliases:
+  - Nambu Type B
+  kind: pistol
+  country: Japan
+  calibers:
+  - 7mm Nambu
+  status: approved
 - name: Belgian M1886
   aliases:
   - M1886
@@ -3059,8 +3246,13 @@ models:
   status: approved
 - name: Beretta M1935
   aliases:
-  - M1935
-  - Model 1935
+  - Beretta M1935
+  - Beretta Model 1935
+  - Beretta 1935
+  - Model 1935 Beretta
+  - M1935 Beretta
+  - Italian Model 1935
+  - Italian M1935
   kind: pistol
   country: Italy
   calibers:
@@ -3097,6 +3289,19 @@ models:
   - .30 Luger
   manufacturers:
   - W+F Bern
+  status: approved
+- name: Bernardelli Model 60
+  aliases:
+  - Bernardelli M60
+  - Bernardelli 60
+  kind: pistol
+  country: Italy
+  calibers:
+  - .22 LR
+  - .32 ACP
+  - .380 ACP
+  manufacturers:
+  - Bernardelli
   status: approved
 - name: Berthier M1907/15
   aliases:
@@ -3668,6 +3873,42 @@ models:
   status: approved
 - name: COLT 653
   status: approved
+- name: Colt Ace
+  kind: pistol
+  country: United States
+  calibers:
+  - .22 LR
+  manufacturers:
+  - Colt
+  status: approved
+- name: Colt Army Special
+  kind: revolver
+  country: United States
+  calibers:
+  - .38 Special
+  manufacturers:
+  - Colt
+  status: approved
+- name: Colt Detective Special
+  kind: revolver
+  country: United States
+  calibers:
+  - .38 Special
+  manufacturers:
+  - Colt
+  status: approved
+- name: Colt Government Model
+  aliases:
+  - Colt Government
+  kind: pistol
+  country: United States
+  calibers:
+  - .38 Super
+  - .45 ACP
+  - 9mm Luger
+  manufacturers:
+  - Colt
+  status: approved
 - name: Colt M1849
   aliases:
   - M1849
@@ -3740,6 +3981,28 @@ models:
   manufacturers:
   - Colt
   status: approved
+- name: Colt New Line
+  kind: revolver
+  country: United States
+  manufacturers:
+  - Colt
+  status: approved
+- name: Colt Official Police
+  kind: revolver
+  country: United States
+  calibers:
+  - .38 Special
+  manufacturers:
+  - Colt
+  status: approved
+- name: Colt Python
+  kind: revolver
+  country: United States
+  calibers:
+  - .357 Magnum
+  manufacturers:
+  - Colt
+  status: approved
 - name: Colt Single Action Army
   aliases:
   - SAA
@@ -3754,6 +4017,25 @@ models:
   manufacturers:
   - Colt
   wikipedia: https://en.wikipedia.org/wiki/Colt_Single_Action_Army
+  status: approved
+- name: Colt Vest Pocket
+  aliases:
+  - Colt 1908 Vest Pocket
+  - Colt Model 1908 Vest Pocket
+  kind: pistol
+  country: United States
+  calibers:
+  - .25 ACP
+  manufacturers:
+  - Colt
+  status: approved
+- name: Colt Woodsman
+  kind: pistol
+  country: United States
+  calibers:
+  - .22 LR
+  manufacturers:
+  - Colt
   status: approved
 - name: CTAR-21
   status: approved
@@ -3957,6 +4239,8 @@ models:
   - Walther
   status: approved
 - name: DSM 34
+  aliases:
+  - Deutsches Sportmodell
   kind: rifle
   country: Germany
   manufacturers:
@@ -4264,6 +4548,12 @@ models:
   - 9mm Luger
   status: approved
 - name: ET-97
+  kind: rifle
+  country: Ethiopia
+  calibers:
+  - 7.62x39mm
+  manufacturers:
+  - Gafat
   status: approved
 - name: Ethiopian 1891/24
   aliases:
@@ -4384,6 +4674,17 @@ models:
   kind: rifle
   country: Egypt
   status: approved
+- name: FN Trombone
+  aliases:
+  - Trombone
+  kind: rifle
+  country: Belgium
+  calibers:
+  - .22 LR
+  manufacturers:
+  - Browning
+  - FN
+  status: approved
 - name: FN-49
   aliases:
   - FN49
@@ -4491,6 +4792,7 @@ models:
 - name: French Model 1935S
   aliases:
   - Model 1935S
+  - 1935S
   kind: pistol
   country: France
   calibers:
@@ -4738,10 +5040,15 @@ models:
 - name: German Model 38h
   aliases:
   - Model 38h
+  - Sauer 38h
+  - Sauer 38-H
+  - J.P. Sauer 38H
   kind: pistol
   country: Germany
   calibers:
   - .32 ACP
+  manufacturers:
+  - J.P. Sauer
   status: approved
 - name: German Model 410
   aliases:
@@ -5125,13 +5432,28 @@ models:
   status: approved
 - name: HAFDASA Ballester Molina 1911
   kind: pistol
-  country: Spain
+  country: Argentina
+  calibers:
+  - .45 ACP
+  manufacturers:
+  - HAFDASA
   status: approved
 - name: HAFDASA Ballester Rigaud 1911
   kind: pistol
-  country: Spain
+  country: Argentina
   calibers:
   - .45 ACP
+  manufacturers:
+  - HAFDASA
+  status: approved
+- name: Hakim
+  aliases:
+  - Egyptian Hakim
+  - Hakim Ljungmann
+  kind: rifle
+  country: Egypt
+  calibers:
+  - 8mm Mauser
   status: approved
 - name: HD12
   calibers:
@@ -5140,6 +5462,10 @@ models:
 - name: HK11
   status: approved
 - name: HK21
+  kind: rifle
+  country: Germany
+  manufacturers:
+  - Heckler Koch
   status: approved
 - name: HK300
   calibers:
@@ -5178,12 +5504,26 @@ models:
   - 12 gauge
   status: approved
 - name: HP 35
+  aliases:
+  - Hi Power
+  - Hi-Power
+  - HiPower
+  - High Power
+  - High-Power
+  - GP35
+  - FN M1935
+  - Browning M1935
+  - M1935 HP
   kind: pistol
   country: Belgium
   calibers:
+  - .40 S&W
   - 9mm Luger
   manufacturers:
+  - Browning
+  - FEG
   - FN
+  - INGLIS
   status: approved
 - name: Husqvarna 1867
   kind: shotgun
@@ -5208,6 +5548,11 @@ models:
 - name: Husqvarna M40
   aliases:
   - M40
+  - Husqvarna M/40
+  - M/40 Lahti
+  - M-40 Lahti
+  - Husqvarna M-40
+  - Lahti M/40
   kind: pistol
   country: Sweden
   calibers:
@@ -5333,6 +5678,8 @@ models:
   country: Japan
   calibers:
   - 9x22mmR Japanese
+  manufacturers:
+  - Koishikawa
   status: approved
 - name: Japanese Type 30
   aliases:
@@ -5409,6 +5756,22 @@ models:
 - name: KIT-5
   status: pending
   enabled: false
+- name: KKW
+  aliases:
+  - Kleinkaliber-Wehrsportgewehr
+  - Kleinkaliber Wehrsportgewehr
+  - KK Wehrsportgewehr
+  - KK-Wehrsportgewehr
+  kind: rifle
+  country: Germany
+  calibers:
+  - .22 LR
+  manufacturers:
+  - BSW
+  - Gustloff
+  - Mauser
+  - Walther
+  status: approved
 - name: KM 72
   status: approved
 - name: KNIL 9
@@ -5465,6 +5828,18 @@ models:
 - name: L70
   status: pending
   enabled: false
+- name: Lahti L-35
+  aliases:
+  - L-35
+  - Lahti L35
+  - Valmet Lahti
+  kind: pistol
+  country: Finland
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - VKT
+  status: approved
 - name: LAR-15
   kind: rifle
   country: United States
@@ -5512,6 +5887,11 @@ models:
   - No. 4 MK1
   - No 4 Mk 2
   - No4Mk1
+  - 'Enfield #4'
+  - '#4 MK1'
+  - '#4 MKI'
+  - No4 MKI
+  - No. 4 MKI
   kind: rifle
   country: United Kingdom
   calibers:
@@ -5559,6 +5939,35 @@ models:
 - name: LRP-07
   status: merged
   enabled: false
+- name: Luger LP.08
+  aliases:
+  - Artillery Luger
+  - LP.08
+  - LP08
+  - Lange Pistole 08
+  kind: pistol
+  country: Germany
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - DWM
+  - Erfurt
+  status: approved
+  position: 990
+- name: Luger M1906 Navy
+  aliases:
+  - Navy Luger
+  - Marine Luger
+  - 1906 Navy Luger
+  kind: pistol
+  country: Germany
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - DWM
+  - Erfurt
+  status: approved
+  position: 990
 - name: Luger P08
   aliases:
   - P.08
@@ -5567,6 +5976,17 @@ models:
   - Pistole 08
   - P08
   - P06
+  - Krieghoff Luger
+  - Erfurt Luger
+  - Simson Luger
+  - Banner Luger
+  - S/42 Luger
+  - byf Luger
+  - DWM Luger
+  - Mauser Luger
+  - Mauser Banner Luger
+  - Mauser Parabellum
+  - Mauser S/42
   kind: pistol
   country: Germany
   calibers:
@@ -5579,6 +5999,7 @@ models:
   - SIMSON
   wikipedia: https://en.wikipedia.org/wiki/Luger_pistol
   status: approved
+  position: 1010
 - name: LWS 32
   calibers:
   - .32 ACP
@@ -5631,6 +6052,8 @@ models:
   status: approved
 - name: M1857
   status: approved
+- name: M1864
+  status: pending
 - name: M1866
   status: approved
 - name: M1867
@@ -5677,6 +6100,8 @@ models:
   wikipedia: https://en.wikipedia.org/wiki/M1903_Springfield
   status: merged
   enabled: false
+- name: M1903A4
+  status: approved
 - name: M1903 Springfield
   aliases:
   - \1903 Springfield
@@ -5900,6 +6325,12 @@ models:
 - name: M62
   status: approved
 - name: M63
+  kind: rifle
+  country: Romania
+  calibers:
+  - 7.62x39mm
+  manufacturers:
+  - Cugir
   status: approved
 - name: M64
   status: approved
@@ -5910,6 +6341,12 @@ models:
 - name: M70A
   status: approved
 - name: M72B1
+  kind: rifle
+  country: Yugoslavia
+  calibers:
+  - 7.62x39mm
+  manufacturers:
+  - Zastava
   status: approved
 - name: M73
   status: approved
@@ -5998,6 +6435,17 @@ models:
   calibers:
   - 9x18mm Makarov
   wikipedia: https://en.wikipedia.org/wiki/Makarov_pistol
+  status: approved
+- name: Mannlicher-Schönauer
+  aliases:
+  - Mannlicher Schoenauer
+  - Mannlicher-Schoenauer
+  - Mannlicher Schönauer
+  - Steyr Mannlicher 1950
+  kind: rifle
+  country: Austria
+  manufacturers:
+  - Steyr
   status: approved
 - name: Manufacture d'Armes de Saint-Étienne MLE 1936
   aliases:
@@ -6215,6 +6663,15 @@ models:
 - name: MAUSER BANNER 1940
   kind: pistol
   country: Sweden
+  manufacturers:
+  - Mauser
+  status: approved
+- name: Mauser HSc
+  kind: pistol
+  country: Germany
+  calibers:
+  - .32 ACP
+  - .380 ACP
   manufacturers:
   - Mauser
   status: approved
@@ -6918,7 +7375,10 @@ models:
   calibers:
   - 7.62x54mmR
   manufacturers:
+  - Cugir
+  - FEG
   - Izhevsk
+  - Radom
   - Tula
   wikipedia: https://en.wikipedia.org/wiki/Mosin%E2%80%93Nagant
   status: approved
@@ -7125,14 +7585,18 @@ models:
   enabled: false
 - name: No 2 Mk I
   aliases:
-  - NO 2
-  - NO2
   - No 2 MK 1
   - No.2 Mk I
   - No.2 Mk. I
   - No. 2 Mk. 1
   - No2Mk1
   - No2 Mk1
+  - Enfield No.2
+  - Enfield No 2
+  - Enfield No2
+  - No.2 MkI
+  - No2 MkI
+  - No.2 Mk.I
   kind: revolver
   country: United Kingdom
   calibers:
@@ -7768,6 +8232,20 @@ models:
   manufacturers:
   - Robinson
   status: approved
+- name: Rock Island 1911
+  aliases:
+  - Rock Island GI Standard
+  - Rock Island Rock Standard
+  - RIA 1911
+  - Rock Island Armory 1911
+  kind: pistol
+  country: United States
+  calibers:
+  - .45 ACP
+  - 9mm Luger
+  manufacturers:
+  - Rock Island Armory
+  status: approved
 - name: RPD 7
   status: pending
   enabled: false
@@ -7853,6 +8331,9 @@ models:
   - .22 LR
   status: approved
 - name: SA-22
+  aliases:
+  - Auto 22
+  - 22 Automatic
   kind: rifle
   country: Belgium
   manufacturers:
@@ -7923,6 +8404,7 @@ models:
   aliases:
   - K31
   - Karabiner 31
+  - K-31
   kind: carbine
   country: Switzerland
   calibers:
@@ -8043,6 +8525,20 @@ models:
   manufacturers:
   - Sig Sauer
   status: approved
+- name: Sig Sauer SP2022
+  aliases:
+  - SP2022
+  - SP 2022
+  - SP2009
+  - SP 2009
+  kind: pistol
+  country: Germany
+  calibers:
+  - .40 S&W
+  - 9mm Luger
+  manufacturers:
+  - Sig Sauer
+  status: approved
 - name: SK-100
   calibers:
   - .22 LR
@@ -8116,6 +8612,8 @@ models:
   aliases:
   - S&W Model 10
   - S&W 10
+  - Smith & Wesson 10
+  - Smith and Wesson Model 10
   kind: revolver
   country: United States
   calibers:
@@ -8123,9 +8621,38 @@ models:
   manufacturers:
   - Smith & Wesson
   status: approved
+- name: Smith & Wesson Model 13
+  aliases:
+  - Smith & Wesson 13
+  - S&W Model 13
+  - S&W 13
+  - Smith and Wesson Model 13
+  kind: revolver
+  country: United States
+  calibers:
+  - .357 Magnum
+  manufacturers:
+  - Smith & Wesson
+  status: approved
 - name: Smith & Wesson Model 19
   aliases:
   - S&W Model 19
+  - Smith & Wesson 19
+  - S&W 19
+  - Smith and Wesson Model 19
+  kind: revolver
+  country: United States
+  calibers:
+  - .357 Magnum
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+- name: Smith & Wesson Model 27
+  aliases:
+  - Smith & Wesson 27
+  - S&W Model 27
+  - S&W 27
+  - Smith and Wesson Model 27
   kind: revolver
   country: United States
   calibers:
@@ -8136,6 +8663,9 @@ models:
 - name: Smith & Wesson Model 29
   aliases:
   - Model 29
+  - Smith & Wesson 29
+  - S&W 29
+  - Smith and Wesson Model 29
   kind: pistol
   country: United States
   calibers:
@@ -8146,6 +8676,9 @@ models:
 - name: Smith & Wesson Model 36
   aliases:
   - S&W Model 36
+  - Smith & Wesson 36
+  - S&W 36
+  - Smith and Wesson Model 36
   kind: revolver
   country: United States
   calibers:
@@ -8153,9 +8686,25 @@ models:
   manufacturers:
   - Smith & Wesson
   status: approved
+- name: Smith & Wesson Model 629
+  aliases:
+  - Smith & Wesson 629
+  - S&W Model 629
+  - S&W 629
+  - Smith and Wesson Model 629
+  kind: revolver
+  country: United States
+  calibers:
+  - .44 Magnum
+  manufacturers:
+  - Smith & Wesson
+  status: approved
 - name: Smith & Wesson Model 64
   aliases:
   - S&W Model 64
+  - Smith & Wesson 64
+  - S&W 64
+  - Smith and Wesson Model 64
   kind: revolver
   country: United States
   calibers:
@@ -8166,6 +8715,9 @@ models:
 - name: Smith & Wesson Model 66
   aliases:
   - S&W Model 66
+  - Smith & Wesson 66
+  - S&W 66
+  - Smith and Wesson Model 66
   kind: revolver
   country: United States
   calibers:
@@ -8221,6 +8773,43 @@ models:
   - M&P Shield
   kind: pistol
   country: United States
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+- name: Smith & Wesson Model 67
+  aliases:
+  - Smith & Wesson 67
+  - S&W Model 67
+  - S&W 67
+  - Smith and Wesson Model 67
+  kind: revolver
+  country: United States
+  calibers:
+  - .38 Special
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+- name: Smith & Wesson Model 686
+  aliases:
+  - Smith & Wesson 686
+  - S&W Model 686
+  - S&W 686
+  - Smith and Wesson Model 686
+  kind: revolver
+  country: United States
+  calibers:
+  - .357 Magnum
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+- name: Smith & Wesson Victory
+  aliases:
+  - Victory Model
+  kind: revolver
+  country: United States
+  calibers:
+  - .38 S&W
+  - .38 Special
   manufacturers:
   - Smith & Wesson
   status: approved
@@ -8369,6 +8958,23 @@ models:
   status: approved
 - name: SPM16
   status: approved
+- name: Sportmodell
+  aliases:
+  - Sport Modell
+  - Sportmodel
+  - Germania Sport
+  kind: rifle
+  country: Germany
+  calibers:
+  - .22 LR
+  manufacturers:
+  - Anschutz
+  - Gustloff
+  - JGA
+  - Mauser
+  - Walther
+  status: approved
+  position: 1010
 - name: Springfield 1903
   status: merged
   enabled: false
@@ -8500,6 +9106,81 @@ models:
   manufacturers:
   - Star
   status: approved
+- name: Star Model A
+  aliases:
+  - Star A
+  - Star Modelo A
+  - Star Mod A
+  kind: pistol
+  country: Spain
+  calibers:
+  - .38 Super
+  - 9x23 Largo
+  manufacturers:
+  - Star
+  status: approved
+- name: Star Model B
+  aliases:
+  - Star B
+  - Star Modelo B
+  - Star Mod B
+  kind: pistol
+  country: Spain
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Star
+  status: approved
+- name: Star Model BM
+  aliases:
+  - Star BM
+  - Star Modelo BM
+  kind: pistol
+  country: Spain
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Star
+  status: approved
+- name: Star Model BS
+  aliases:
+  - Star BS
+  - SA Model BS
+  kind: pistol
+  country: Spain
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Star
+  status: approved
+- name: Star Model F
+  aliases:
+  - Star F
+  - Star FR
+  - Star Modelo F
+  - Echeverria F
+  - Echeverria FR
+  kind: pistol
+  country: Spain
+  calibers:
+  - .22 LR
+  manufacturers:
+  - Star
+  status: approved
+- name: Star Super
+  aliases:
+  - Star Modelo Super
+  - Star Super A
+  - Star Super B
+  kind: pistol
+  country: Spain
+  calibers:
+  - .38 Super
+  - 9mm Luger
+  - 9x23 Largo
+  manufacturers:
+  - Star
+  status: approved
 - name: STEYR 1900
   kind: rifle
   country: Netherlands
@@ -8509,17 +9190,16 @@ models:
   - Steyr
   status: approved
 - name: Steyr M1895
-  aliases:
-  - M1895
-  manufacturers:
-  - Steyr
-  status: approved
+  status: merged
+  enabled: false
 - name: Steyr M95
   aliases:
   - Model 1895 Mannlicher
   - M95 Steyr
   - Steyr Mannlicher M95
   - M95
+  - Steyr M1895
+  - FEG M1895
   kind: rifle
   country: Austria
   calibers:
@@ -8799,6 +9479,7 @@ models:
 - name: Swiss Model 1889
   aliases:
   - Model 1889
+  - Swiss 1889
   kind: rifle
   country: Switzerland
   calibers:
@@ -8876,6 +9557,32 @@ models:
 - name: TC9
   status: approved
 - name: TCP 738
+  status: approved
+- name: Thompson 1927A-1
+  aliases:
+  - 1927A-1
+  - 1927A1
+  - Thompson 1927A1
+  kind: carbine
+  country: United States
+  calibers:
+  - .45 ACP
+  manufacturers:
+  - Auto-Ordnance
+  - Thompson
+  status: approved
+- name: Thompson M1
+  aliases:
+  - Thompson M1A1
+  - TM1
+  - TM1C
+  kind: carbine
+  country: United States
+  calibers:
+  - .45 ACP
+  manufacturers:
+  - Auto-Ordnance
+  - Thompson
   status: approved
 - name: Tisas Arms 1911
   kind: pistol
@@ -9526,6 +10233,8 @@ models:
   country: Germany
   calibers:
   - 9mm Luger
+  manufacturers:
+  - Heckler Koch
   status: approved
 - name: VRBP-100
   kind: rifle
@@ -9685,9 +10394,32 @@ models:
   manufacturers:
   - Walther
   status: approved
+- name: Walther GSP
+  kind: pistol
+  country: Germany
+  calibers:
+  - .22 LR
+  - .32 S&W Long
+  manufacturers:
+  - Walther
+  status: approved
+- name: Walther HP
+  aliases:
+  - Walther Mod HP
+  - Walther Model HP
+  - Walther Mod. HP
+  kind: pistol
+  country: Germany
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Walther
+  status: approved
 - name: Walther MOD 8
   aliases:
   - MOD 8
+  - Walther Model 8
+  - Walther Mod. 8
   kind: pistol
   country: Germany
   calibers:
@@ -9705,17 +10437,61 @@ models:
   manufacturers:
   - Walther
   status: approved
+- name: Walther Model 4
+  aliases:
+  - Walther Mod 4
+  - Walther Mod. 4
+  kind: pistol
+  country: Germany
+  calibers:
+  - .32 ACP
+  manufacturers:
+  - Walther
+  status: approved
+- name: Walther Model 5
+  aliases:
+  - Walther Mod 5
+  - Walther Mod. 5
+  kind: pistol
+  country: Germany
+  calibers:
+  - .25 ACP
+  manufacturers:
+  - Walther
+  status: approved
 - name: Walther Model 6
   aliases:
   - Model 6
   manufacturers:
   - Walther
   status: approved
+- name: Walther Model 9
+  aliases:
+  - Walther Mod 9
+  - Walther Mod. 9
+  kind: pistol
+  country: Germany
+  calibers:
+  - .25 ACP
+  manufacturers:
+  - Walther
+  status: approved
 - name: Walther OLYMPIA 1936
+  aliases:
+  - Walther Olympia
+  - Olympia Pistole
   kind: pistol
   country: Germany
   calibers:
   - .22 LR
+  manufacturers:
+  - Walther
+  status: approved
+- name: Walther OSP
+  kind: pistol
+  country: Germany
+  calibers:
+  - .22 Short
   manufacturers:
   - Walther
   status: approved
@@ -9737,6 +10513,7 @@ models:
 - name: Walther PP
   aliases:
   - Walther Model PP
+  - Manurhin PP
   kind: pistol
   country: Germany
   calibers:
@@ -9759,6 +10536,15 @@ models:
   - MANURHIN
   - Walther
   wikipedia: https://en.wikipedia.org/wiki/Walther_PP
+  status: approved
+- name: Walther PPS
+  kind: pistol
+  country: Germany
+  calibers:
+  - .40 S&W
+  - 9mm Luger
+  manufacturers:
+  - Walther
   status: approved
 - name: WASR 10
   kind: rifle
@@ -9842,6 +10628,68 @@ models:
   country: Switzerland
   manufacturers:
   - W+F Bern
+  status: approved
+- name: Webley Mk IV
+  aliases:
+  - Webley Mark IV
+  - Webley MkIV
+  - Webley Mk 4
+  - Webley Mk. IV
+  - Webley & Scott Mark IV
+  - Webley & Scott Mk IV
+  kind: revolver
+  country: United Kingdom
+  calibers:
+  - .38 S&W
+  - .455 Webley
+  manufacturers:
+  - Webley & Scott
+  status: approved
+- name: Webley Mk VI
+  aliases:
+  - Webley Mark VI
+  - Webley MkVI
+  - Webley Mk 6
+  - Webley Mark 6
+  - Webley Mk. VI
+  - Webley & Scott Mark VI
+  - Webley & Scott Mk VI
+  kind: revolver
+  country: United Kingdom
+  calibers:
+  - .455 Webley
+  manufacturers:
+  - Webley & Scott
+  status: approved
+- name: Webley R.I.C.
+  aliases:
+  - Webley RIC
+  kind: revolver
+  country: United Kingdom
+  manufacturers:
+  - Webley & Scott
+  status: approved
+- name: Webley-Fosbery
+  aliases:
+  - Webley Fosbery
+  - Webley & Scott Fosbery
+  kind: revolver
+  country: United Kingdom
+  calibers:
+  - .455 Webley
+  manufacturers:
+  - Webley & Scott
+  status: approved
+- name: Wehrmanngewehr
+  aliases:
+  - Wehrmann Gewehr
+  - Wehrmann-Gewehr
+  kind: rifle
+  country: Germany
+  calibers:
+  - .22 LR
+  manufacturers:
+  - Mauser
   status: approved
 - name: WF BERN 1929
   status: merged
@@ -9973,15 +10821,39 @@ models:
   - 12 gauge
   status: approved
 - name: wz. 1958
+  kind: rifle
+  country: Poland
+  calibers:
+  - 7.62x39mm
+  manufacturers:
+  - Radom
   status: approved
 - name: wz. 1959
+  kind: rifle
+  country: Poland
+  calibers:
+  - 7.62x39mm
+  manufacturers:
+  - Radom
   status: approved
 - name: wz. 1960
+  kind: rifle
+  country: Poland
+  calibers:
+  - 7.62x39mm
+  manufacturers:
+  - Radom
   status: approved
 - name: wz.1960
   status: pending
   enabled: false
 - name: wz. 1961
+  kind: rifle
+  country: Poland
+  calibers:
+  - 7.62x39mm
+  manufacturers:
+  - Radom
   status: approved
 - name: wz. 1962
   status: pending
@@ -10077,13 +10949,8 @@ models:
   - 8mm Mauser
   status: approved
 - name: Yugoslavian M48
-  aliases:
-  - M48
-  kind: rifle
-  country: Yugoslavia
-  calibers:
-  - 8mm Mauser
-  status: approved
+  status: merged
+  enabled: false
 - name: Yugoslavian M48A
   aliases:
   - M48A
@@ -10107,6 +10974,11 @@ models:
   aliases:
   - M48 Mauser
   - Yugo M48
+  - Yugoslavian M48
+  - Yugoslav M48
+  - Yugoslav Mauser M48
+  - Zastava Mauser M48
+  - Mauser M48
   kind: rifle
   country: Yugoslavia
   calibers:

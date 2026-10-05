@@ -867,7 +867,10 @@ _BAYONET_SECTION = re.compile(r"(?i)\bbayonets?\b")
 _SCABBARD = re.compile(r"\bscabbards?\b", re.I)
 
 #: The bolt, which a rifle listing names as often to say it is missing.
-_BOLT = re.compile(r"\bbolts?\b", re.I)
+#: Not the bolt of "bolt action", which names how a rifle works and never a
+#: bolt for sale: "RARE SPRINGFIELD 1903 30-06 Bolt Action PROTOTYPE" was filed
+#: as a part.
+_BOLT = re.compile(r"\bbolts?\b(?![\s-]*action)", re.I)
 
 
 #: A listing saying what it does *not* come with.
@@ -1006,12 +1009,13 @@ def _is_a_bayonet(title: str, description: str | None = None, filed_as_edged: bo
 
 #: A section that says its stock is a department trade-in.
 #:
-#: **Read off the vendor's section, and only off it.** Police surplus is a fact
-#: about where a gun came from, not about the gun: a PD Trade Glock 22 is
-#: mechanically the same object as any other Glock 22, and nothing in the title
-#: of one distinguishes it except the vendor saying so. That is the opposite of
-#: how parts kits work -- there the section over-claimed and the listing has to
-#: corroborate -- and it is why there is no title test here to go with it.
+#: **Read off what the vendor says, never off the gun.** Police surplus is a
+#: fact about where a gun came from: a PD Trade Glock 22 is mechanically the
+#: same object as any other Glock 22, and nothing distinguishes it except the
+#: vendor saying so. That is the opposite of how parts kits work -- there the
+#: section over-claimed and the listing has to corroborate. The section is the
+#: usual place they say it; the title is the other, for a vendor with no such
+#: section -- see _POLICE_SURPLUS_TITLE.
 #:
 #: Written to match how these sections are actually named: "Police Trade-In
 #: Pistols", "Law Enforcement Trade-Ins", "PD Trade Rifles", "Agency Trade-In".
@@ -1023,7 +1027,20 @@ _POLICE_SURPLUS_CATEGORY = re.compile(
 )
 
 
-def _is_police_surplus(category: str | None, *, is_firearm: bool) -> bool:
+#: The same claim made in the listing's own title, which a vendor without a
+#: trade-in section writes instead: Madison Guns' "Police Trade In Glock 22 Gen
+#: 4", Classic Firearms' "Law Enforcement Used Turn-In". Still the vendor
+#: saying where the gun came from -- which is the whole of the evidence, see
+#: above -- and never a police *marking*, which a Swiss police Luger or a Colt
+#: Police Positive carries without having been traded in by anybody.
+_POLICE_SURPLUS_TITLE = re.compile(
+    r"\b(?:police|law\s+enforcement|agency|department|LEO?|PD)\b[\s\-]*(?:used[\s\-]+)?"
+    r"(?:surplus|trade[\s\-]?ins?|turn[\s\-]?ins?)\b|\bPD\s+trade\b",
+    re.I,
+)
+
+
+def _is_police_surplus(category: str | None, *, is_firearm: bool, title: str = "") -> bool:
     """Whether this listing is a department trade-in.
 
     Two conditions, and the second is what keeps the bucket useful. The section
@@ -1034,7 +1051,9 @@ def _is_police_surplus(category: str | None, *, is_firearm: bool) -> bool:
     police trade-in section is an accessory, and belongs where every other
     accessory in this catalog goes.
     """
-    return is_firearm and bool(_POLICE_SURPLUS_CATEGORY.search(category or ""))
+    return is_firearm and bool(
+        _POLICE_SURPLUS_CATEGORY.search(category or "") or _POLICE_SURPLUS_TITLE.search(title)
+    )
 
 
 def _is_a_parts_kit(title: str, category: str | None, description: str | None = None) -> bool:
@@ -1505,7 +1524,15 @@ _CATEGORY_PISTOL = re.compile(r"\b(?:hand\s*guns?|pistols?|revolvers?|sidearms?)
 
 #: A section that says "these are guns" without saying which kind. Read only
 #: as a last resort -- see the end of classify_firearm().
-_CATEGORY_FIREARM = re.compile(r"\b(?:firearms?|guns?)\b", re.I)
+_CATEGORY_FIREARM = re.compile(
+    # And the curio-and-relic sections, which are a firearms license's own
+    # category: Joe Salter's and Checkpoint Charlie's "Curio & Relic" and
+    # Centerfire's "C&R Eligible" hold guns, and an S&W Model 10-5 or an Inglis
+    # Hi Power naming no gun noun fell through to accessories there.
+    r"\b(?:firearms?|guns?|curio\s*(?:&|and)\s*relics?)\b|\bc\s*&\s*r\b",
+    re.I,
+)
+
 
 #: Registered and trademark signs, which shops put inside model names.
 _TRADEMARKS = re.compile(r"[®™©]")
@@ -2311,11 +2338,34 @@ _BARREL_DESCRIBED = re.compile(
 )
 
 
+#: A barrel described by a word rather than a length: "Mauser C96 Short Barrel
+#: W/ Stock", "DWM 1902 American Eagle Fat Barrel". With the stock stripped as
+#: something that comes with it, "barrel" was the last noun left and read as
+#: the thing being sold, so a $9,500 Conehammer and a 1902 Luger were filed as
+#: parts. Measured on production 2026-10-05: 105 titles say one of these, and
+#: every one is a gun or a kit -- none is a barrel. "Heavy" and "bull" are left
+#: out, because those are what a barrel for sale is called.
+_BARREL_DESCRIBED_BY_WORD = re.compile(
+    r"\b(?:short|long|fat|round|octagon(?:al)?|half[\s-]+octagon(?:al)?|full[\s-]+length)"
+    r"\s+(?:barrel(?:ed)?|bbl)\b",
+    re.I,
+)
+
+
+#: How a machine gun feeds, which is not the belt it feeds from: Allegheny
+#: Arsenal's $9,995 "1910 MAXIM Belt Fed ... Semi Auto" and nine more semi-auto
+#: belt-feds were filed as accessories because "belt" is one.
+_BELT_FED = re.compile(r"\bbelt[\s-]*fed\b", re.I)
+
+
 def _without_parts_mentioned(title_lower: str) -> str:
-    """The title less the parts it only mentions: what comes with it, and a
-    barrel length stated in passing. Both accessory tests start from this, so
-    they cannot disagree about what the title is selling."""
-    return _BARREL_DESCRIBED.sub(" ", _without_attached_parts(title_lower))
+    """The title less the parts it only mentions: what comes with it, a barrel
+    stated in passing by its length or by a word describing it, and "belt fed".
+    Both accessory tests start from this, so they cannot disagree about what
+    the title is selling."""
+    stripped = _BARREL_DESCRIBED.sub(" ", _without_attached_parts(title_lower))
+    stripped = _BARREL_DESCRIBED_BY_WORD.sub(" ", stripped)
+    return _BELT_FED.sub(" ", stripped)
 
 
 def _is_not_a_firearm(title_lower: str) -> bool:
@@ -3205,5 +3255,7 @@ def enrich(
         # only which bucket the browse filter counts it in. See KINDS in
         # services/search.py, where police surplus is taken out of Rifles and
         # Handguns so the five buckets still partition the catalog.
-        "is_police_surplus": _is_police_surplus(category, is_firearm=is_rifle or is_pistol),
+        "is_police_surplus": _is_police_surplus(
+            category, is_firearm=is_rifle or is_pistol, title=title
+        ),
     }

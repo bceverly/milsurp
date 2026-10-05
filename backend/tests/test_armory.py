@@ -1473,3 +1473,52 @@ class TestPartsKitsCanBeFilteredByModel:
             f"/api/items?kind=parts_kit&model={model.id}", headers=admin_headers
         ).json()
         assert [row["title"] for row in chosen["items"]] == ["MG42 Parts Kit"]
+
+
+class TestTheShippedArmoryNamesWhatDealersSell:
+    """Models added after measuring production's unmatched guns, 2026-10-05:
+    a third of the guns for sale named no model, and the biggest groups were
+    guns the armory did not know or did not know how dealers write. One sync
+    of the whole file, then every case against it."""
+
+    EXPECTED = {
+        # The Hi Power had a row and no spellings at all; Beretta's bare
+        # "M1935" was catching FN's M1935 Hi Power instead.
+        "FN M1935 HI POWER": "HP 35",
+        "Browning Hi Power 9mm Pistol": "HP 35",
+        "INGLIS HI POWER No 2 MK 1*": "HP 35",
+        "ITALIAN Model 1935 Beretta": "Beretta M1935",
+        "Rare, Minty Krieghoff Luger - 1940": "Luger P08",
+        "DWM ARTILLERY LUGER": "Luger LP.08",
+        "MANURHIN PP": "Walther PP",
+        "STAR MODEL BM": "Star Model BM",
+        "Smith & Wesson 64-3 38 Special": "Smith & Wesson Model 64",
+        "WALTHER KKW": "KKW",
+        # The second pass.
+        "MAUSER LUGER 1942 BYF": "Luger P08",
+        "W+F BERN SWISS 1906/24 LUGER P08 7.65mm": "W+F Bern 1906/24",
+        "DWM 1916 Artillery Luger": "Luger LP.08",
+        "SIG Pro SP 2009 9mm Pistol": "Sig Sauer SP2022",
+        "Egyptian Hakim Rifle 8mm Mauser": "Hakim",
+        "VALMET LAHTI L-35": "Lahti L-35",
+        "Yugoslavian M48 8mm Mauser Matching": "Zastava M48",
+        "Anschutz GERMANIA SPORT": "Sportmodell",
+    }
+
+    def test_what_dealers_write_names_the_model(self, seeded):
+        armory.apply_sync(seeded, armory.SEED_FILE)
+        seeded.commit()
+        armory.invalidate()
+        found = {title: armory.match(seeded, title).model for title in self.EXPECTED}
+        assert found == self.EXPECTED
+        # VIS wz. 35, a different pistol: "P35" is not one of the Hi Power's
+        # spellings.
+        assert armory.match(seeded, "Slotted P35 Radom Nazi Marked").model != "HP 35"
+        # Nor is a Mauser-bannered C96 a Luger, nor an H&R Topper M48 a Yugoslav
+        # rifle: "Mauser Banner" and a bare "M48" are not spellings.
+        assert armory.match(seeded, "Mauser Banner Chamber Marked Broomhandle C96").model != (
+            "Luger P08"
+        )
+        assert armory.match(seeded, "Harrington & Richardson M48 H&R Topper 16 Gauge").model is None
+        # One factory made every one, so the model can say which.
+        assert armory.match(seeded, "KBK wz. 1960 Circle 11 parts kit").manufacturer == "Radom"

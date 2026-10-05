@@ -4302,6 +4302,75 @@ maker, country, finest to coarsest as the inventory's filters do; and
 Classification's tabs follow the order the classifier asks its questions, part
 or gun first, which is now where the page opens.
 
+### What is unidentified, and naming more of it — **Shipped** 2026-10-05
+
+Measured on production first: of 10,085 guns for sale, 3.3% had no caliber,
+9.6% no maker and **33% no model**; type was mostly right, with roughly a
+hundred real firearms filed under Other. Three quarters of the guns with no
+model already had a maker, so the gap was models the armory did not know or
+did not know how dealers write -- measured by loading the shipped file into a
+scratch database and running the real matcher over every production title.
+
+- **Models, 33.3% → 24.4% unmatched (about 890 more guns), in two passes.** The Hi Power had a row
+  ("HP 35") and no spellings at all, and Beretta M1935's bare "M1935" caught
+  FN's M1935 Hi Power -- now "Hi Power", "High Power" and friends, with
+  Beretta's spellings qualified. Not "P35": that is the Radom VIS. Also the KKW
+  trainers, Mauser HSc, Walther HP/OSP/GSP/PPS and Models 4, 5 and 9, Star's
+  A/B/BM/F/Super, Webley's Mk IV/VI/Fosbery/R.I.C. (and Webley & Scott as a
+  maker -- there was none), the Thompson 1927A-1 and M1, Colt's Python,
+  Detective Special, Official Police, Army Special, Woodsman, Ace, Vest Pocket,
+  New Line and Government Model, S&W's numbered revolvers written as dealers
+  write them ("Smith & Wesson 64-3"), the Artillery and Navy Lugers, Krieghoff,
+  Simson and "Banner" Lugers, "Manurhin PP", Bernardelli Model 60, FN's
+  Trombone and Auto 22. Every listing that moved from one model to another was
+  checked: all corrections (FN Hi Powers off the Beretta, Inglis No. 2s off the
+  Enfield revolver, Navy Lugers off the Kongsberg) bar five Manurhin .22 PPs.
+  The second pass: "DWM Luger", "Mauser Luger", "Mauser Banner Luger" and
+  "Mauser S/42" on the P08, which is now tried *after* every more specific
+  Luger row (the dated DWMs, "BYF 42", the /06s) so it only takes what none of
+  them claims; the SIG SP2022/SP2009 (a Swiss police contract), the Sportmodell
+  .22s and the Wehrmanngewehr, the Sauer 38H, Lahti L-35 and Husqvarna M/40,
+  Baby Nambu, Hakim, Star BS, Rock Island's 1911s, the Mannlicher-Schönauer,
+  and "K-31", "Enfield #4", "Enfield No.2", "1935S". Two bare spellings went:
+  "NO 2" on the Enfield revolver (it was taking Inglis No. 2 Hi Powers) and
+  "M48" -- with "Yugoslavian M48" folded into "Zastava M48", the same rifle,
+  because a single-maker model's spellings also name its maker and a bare
+  "M48" was making an H&R Topper shotgun a Zastava.
+- **A model one factory made says so.** 576 approved models named no maker;
+  where one firm made them all the model now does -- the Polish wz. AKs
+  (Radom), ET-97 (Gafat), M72B1 and M48 (Zastava), M63 (Cugir), AK-63F (FEG),
+  HK21/VP9, Type 26 (Koishikawa), Ballester Molina (HAFDASA, and Argentine, not
+  Spanish) -- with their kind, country and caliber. Genuinely multi-factory guns
+  (MG42, 1871/84, PPS-43) are left to the arsenal step.
+- **Makers, and the countries that come with them.** About 30 firms the listings
+  name and the table did not -- Webley & Scott, Stevens, Ballard, Whitney,
+  Merwin & Hulbert, Lefaucheux, Hämmerli, Burnside, Bersa, Rossi, L.C. Smith,
+  Parker, Forehand & Wadsworth, Hopkins & Allen, MAPF ("Unique", whose own row
+  is off because "unique" is a word) and others -- each with its country, plus
+  "Smith and Wesson", "Heckler & Koch" and "Hi-Standard" as spellings, and
+  countries on ten makers that had none. 147 guns for sale with no maker now
+  get one from the maker rules and 27 more from their model; 100 of the 328
+  with no country get one from their maker, and about 25 more from the maker
+  countries the sync fix restores. Model countries were looked at and left:
+  only 34 listings, one per model, mostly discovery rows that know nothing
+  else either. Country *words* -- "Belgiskt", "Dansk", "Nepalese",
+  "Confederate", about 18 listings -- are one-line edits on the Countries page,
+  and were left for that because a country's name in a description has
+  misled the table before.
+- **Arsenals:** Radom, FEG and Cugir on the M44; "Waffenfabrik Brunn" on CZ.
+- **eBayonet titles.** The shop's migrated listings were titled by cutting the
+  first paragraph at its first full stop -- "Mle.", "Ob.", "No.", "M1950?", 28
+  for sale -- and the name is read from the description now.
+- **Type.** "Bolt action", "belt fed" and a barrel described by a word no longer
+  read as parts; curio-and-relic sections count as firearms sections. Twelve
+  real firearms out of Other. Some belt-feds whose titles also list "Tripod",
+  "Loader" or "Cans" are still there.
+- **Police surplus said in the title**, for vendors without a trade-in section:
+  17 more, all real trade-ins.
+- **And a sync bug:** the armory sync neither compared nor wrote a maker's
+  country, so the 28 makers the last apply created arrived without one, and
+  nothing reported it. Fixed, and the countries are back in the file.
+
 ### The M1917 is a .30-06 — **Fixed** 2026-10-04
 
 The M1917 and the P14 are one rifle in two cartridges, and the classifier's
