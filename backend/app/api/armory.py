@@ -25,6 +25,9 @@ than only un-hiding the row.
 
 from __future__ import annotations
 
+import logging
+import threading
+from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
@@ -32,6 +35,7 @@ from fastapi import APIRouter, HTTPException, Query, Request, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
+from ..database import session_scope
 from ..deps import AdminUser, AppConfig, DbSession
 from ..logsafe import client_address
 from ..models import (
@@ -67,6 +71,7 @@ from ..services import armorybulk, armoryundo, audit, classify, mailer
 from ..services import search as search_service
 
 router = APIRouter(prefix="/armory", tags=["armory"])
+log = logging.getLogger("milsurp.armory")
 
 #: How the nine-ish kinds are written on screen. Held here rather than in the
 #: frontend so the labels and the enum cannot drift apart, and so the browse
@@ -902,18 +907,41 @@ def apply_shipped(admin: AdminUser, request: Request, session: DbSession) -> Arm
         detail=f"{done['added']} added, {done['updated']} changed",
         ip_address=client_address(request),
     )
-    session.flush()
-    restamped = service.rematch_after_load(session, events)
+    # The re-match goes to a thread of its own, after the armory is committed.
+    # Done inside the request it took 35 seconds on production on 2026-10-05
+    # -- 1,993 listings across 160 changed rows -- and the proxy in front
+    # answered 504 at thirty while the work went on and finished. The armory
+    # and its audit trail are the part the person is waiting for; the listings
+    # follow a moment later, and a failure there is logged rather than lost.
+    makers, rows = service.touched_spellings(events)
     session.commit()
+    run_in_background(lambda: _rematch(makers, rows), name="milsurp-armory-rematch")
     return ArmoryAction(
         changed=done["added"] + done["updated"],
-        items_restamped=restamped,
+        items_restamped=0,
         message=(
             f"Added {done['added']} and changed {done['updated']} row(s) from the shipped "
-            f"armory; each is in the audit log."
-            + (f" {restamped:,} listing(s) re-matched." if restamped else "")
+            f"armory; each is in the audit log. The listings they touch are being matched "
+            f"again in the background, which takes a minute or so."
         ),
     )
+
+
+def run_in_background(work: Callable[[], None], *, name: str) -> None:
+    """Start *work* on a daemon thread. A seam: the tests run it inline."""
+    threading.Thread(target=work, name=name, daemon=True).start()
+
+
+def _rematch(maker_spellings: list[str], armory_spellings: list[str]) -> None:
+    """Re-match the listings an applied armory touched, in a session of its own."""
+    try:
+        with session_scope() as session:
+            changed = service.rematch_spellings(session, maker_spellings, armory_spellings)
+        log.info("Applied armory: %s listing(s) re-matched.", changed)
+    except Exception:
+        # A background thread that dies quietly is a button that appears to
+        # work and never does.
+        log.exception("Re-matching the listings after applying the armory failed.")
 
 
 # ---------------------------------------------------------------------------

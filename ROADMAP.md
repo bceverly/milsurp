@@ -4367,6 +4367,12 @@ scratch database and running the real matcher over every production title.
   "Loader" or "Cans" are still there.
 - **Police surplus said in the title**, for vendors without a trade-in section:
   17 more, all real trade-ins.
+- **Applying it timed out, and worked.** On production the apply re-matched
+  1,993 listings inside the request -- 35 seconds -- and the proxy answered 504
+  at thirty while the work finished and committed behind it. The page now
+  commits the armory and its audit trail, answers, and re-matches the listings
+  on a thread of its own; a failure there is logged. `armory sync` on the
+  command line still does both in one go.
 - **And a sync bug:** the armory sync neither compared nor wrote a maker's
   country, so the 28 makers the last apply created arrived without one, and
   nothing reported it. Fixed, and the countries are back in the file.

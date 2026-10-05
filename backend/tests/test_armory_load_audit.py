@@ -59,6 +59,15 @@ def shipped(tmp_path, monkeypatch):
     return path
 
 
+@pytest.fixture(autouse=True)
+def inline_background(monkeypatch):
+    """The page's re-match runs on a thread of its own; here it runs inline,
+    so a test can look at the listings as soon as the request returns."""
+    from app.api import armory as armory_api
+
+    monkeypatch.setattr(armory_api, "run_in_background", lambda work, *, name: work())
+
+
 @pytest.fixture
 def since(seeded):
     """Audit events persist across tests, so each test reads only its own."""
@@ -159,11 +168,29 @@ class TestApplyingTheShippedArmory:
         )
         seeded.add(item)
         seeded.commit()
-        body = client.post("/api/armory/sync", headers=admin_headers).json()
-        assert body["items_restamped"] >= 1
+        client.post("/api/armory/sync", headers=admin_headers)
         seeded.refresh(item)
         assert item.caliber == "7.62x54R"
         assert item.firearm_model_id is not None
+
+    def test_the_rematch_is_not_waited_for(
+        self, client, admin_headers, seeded, behind, monkeypatch
+    ):
+        """It took 35 seconds on production and the proxy answered 504 at
+        thirty, so the request commits the armory and hands the listings to a
+        thread -- whose work is what runs here, after the response."""
+        from app.api import armory as armory_api
+
+        handed: list = []
+        monkeypatch.setattr(
+            armory_api, "run_in_background", lambda work, *, name: handed.append((name, work))
+        )
+        body = client.post("/api/armory/sync", headers=admin_headers).json()
+        assert body["changed"] == 2 and "background" in body["message"]
+        assert [name for name, _work in handed] == ["milsurp-armory-rematch"]
+        seeded.expire_all()
+        assert "7.62 Russian" in seeded.query(Caliber).filter_by(name="7.62x54R").one().aliases
+        handed[0][1]()  # and the work itself runs, in a session of its own
 
     def test_an_armory_that_matches_changes_nothing(
         self, client, admin_headers, seeded, shipped, since

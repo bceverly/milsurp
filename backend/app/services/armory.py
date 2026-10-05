@@ -929,8 +929,16 @@ def rematch_after_load(session: Session, events: list[LoadEvent]) -> int:
     matcher, models and calibers through this module's. Returns how many
     listings changed.
     """
-    from . import manufacturers
+    return rematch_spellings(session, *touched_spellings(events))
 
+
+def touched_spellings(events: list[LoadEvent]) -> tuple[list[str], list[str]]:
+    """Every spelling a load touched, before and after: (makers', the armory's).
+
+    Plain strings, so they outlive the session the events' rows belong to --
+    which is what lets the page hand the re-match to a thread of its own. See
+    api/armory.py's sync.
+    """
     armory_spellings: set[str] = set()
     maker_spellings: set[str] = set()
     for event in events:
@@ -944,13 +952,22 @@ def rematch_after_load(session: Session, events: list[LoadEvent]) -> int:
         spellings += _mark_list(getattr(event.row, "marks", None))
         target = maker_spellings if event.target_type == "manufacturer" else armory_spellings
         target.update(spelling for spelling in spellings if spelling)
+    return sorted(maker_spellings), sorted(armory_spellings)
+
+
+def rematch_spellings(
+    session: Session, maker_spellings: list[str], armory_spellings: list[str]
+) -> int:
+    """Re-match the listings mentioning any of these spellings; how many changed."""
+    from . import manufacturers
+
     invalidate()
     manufacturers.invalidate()
     changed = 0
     if maker_spellings:
-        changed += manufacturers.reprocess(session, sorted(maker_spellings))
+        changed += manufacturers.reprocess(session, maker_spellings)
     if armory_spellings:
-        changed += reprocess(session, sorted(armory_spellings))
+        changed += reprocess(session, armory_spellings)
     return changed
 
 
