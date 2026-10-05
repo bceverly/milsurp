@@ -13,9 +13,9 @@ httpx>=0.28.1            # fallback for pre-1.0 Starlette
 responses>=0.26.3          # stub HTTP for scraper tests
 
 # Linting and formatting
-ruff>=0.16.9
+ruff>=0.16.10
 black>=26.5.1
-mypy>=2.3.1
+mypy>=2.4.0
 bandit[toml]>=1.9.4      # security-focused static analysis
 types-PyYAML>=6.0.12.20260906
 types-requests>=2.33.0.20260906

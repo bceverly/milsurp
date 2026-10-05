@@ -1,5 +1,5 @@
 # Web framework and server
-fastapi>=0.141.1,<1.0
+fastapi>=0.142.2,<1.0
 uvicorn[standard]>=0.54.0,<1.0
 python-multipart>=0.0.32
 email-validator>=2.3.0
@@ -8,14 +8,14 @@ email-validator>=2.3.0
 # 2.1 at least: the code relies on its typed Row unpacking (Result.tuples() is
 # deprecated there, and the warnings-as-errors suite fails on it), and the
 # annotations are written for its stubs -- mypy on 2.0 reads them differently.
-SQLAlchemy>=2.1.1,<3.0
+SQLAlchemy>=2.1.2,<3.0
 alembic>=1.20.0,<2.0
 # Mako is alembic's template engine (it renders new migration files), not
 # imported here, and declared for the same reason as urllib3 below: alembic
 # still allows 1.4.1, which Snyk rates high -- SNYK-PYTHON-MAKO-20510290,
 # directory traversal -- fixed in 1.4.2. pip-audit did not know of it yet
 # (2026-10-05).
-mako>=1.4.2
+mako>=1.4.3
 # The PostgreSQL driver. Installed unconditionally because the engine is a
 # config.yaml setting rather than a build-time choice: a deployment that starts
 # on SQLite and moves later should not need a different set of packages, and
@@ -51,7 +51,7 @@ requests>=2.34.2
 urllib3>=2.8.0
 beautifulsoup4>=4.15.0
 lxml>=6.1.3
-selenium>=4.49.0
+selenium>=4.50.0
 
 # OCR, for vendors that publish a scanned flyer instead of a catalog
 # (Hunter's Lodge). This is only the Python binding: it needs the `tesseract`
@@ -90,4 +90,4 @@ tzdata>=2026.4
 # in, and *that* is exactly the trap -- `pip install -r requirements.txt` on a
 # clean machine did not install it, so the Debian package would have shipped a
 # venv where every push raised ImportError while every developer's worked.
-cryptography>=50.0.1
+cryptography>=50.0.2
