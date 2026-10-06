@@ -19,10 +19,10 @@ from datetime import timedelta
 from typing import Any
 from urllib.parse import parse_qsl, urlencode
 
-from sqlalchemy import Select, column, func, or_, select, table, true
+from sqlalchemy import Select, any_, column, func, or_, select, table, true
 from sqlalchemy.orm import Session
 
-from ..models import Item, utcnow
+from ..models import FirearmModel, Item, utcnow
 from . import curio, traits
 
 log = logging.getLogger("milsurp.search")
@@ -111,13 +111,48 @@ def _columns_clause(pattern: str) -> Any:
     )
 
 
-def _term_clause(term: str) -> Any:
-    """One term's predicate: it must appear somewhere in the listing.
+def _model_clause(pattern: str) -> Any:
+    """The listing's armory model, by any of its names.
 
-    The three forms answer identically -- that is the whole contract, and it is
-    tested against the real catalog rather than asserted. What differs is only
-    how much of the table has to be read to find out.
+    "Somewhere in the listing" includes what the armory knows it is. A title
+    reading "Russian 91/30 rifle" never says Mosin, and the model it was matched
+    to -- "Mosin-Nagant M91/30" -- does: on production, 2026-10-06, 14 of the 82
+    listings a search for "91/30" found were missing from a search for "mosin
+    nagant", and 9 of 36 for "m44". The model's name and spellings are what
+    every listing linked to it is, so a term found there finds them all.
+
+    Added to every form of the term below, so the three still answer alike.
+
+    **On PostgreSQL as ``= ANY(ARRAY(...))``, not ``IN (...)``.** Same answer;
+    the difference is the plan. ORed with the trigram test, an ``IN`` subquery
+    made the planner give up the index and read every listing -- "mosin
+    nagant" went from 7ms to 99ms on production -- where an array is a value it
+    can look up in the model index and combine with the trigram one: 9ms.
     """
+    ids = select(FirearmModel.id).where(
+        or_(
+            FirearmModel.name.ilike(pattern, escape="!"),
+            FirearmModel.aliases.ilike(pattern, escape="!"),
+        )
+    )
+    if _search_index() == "postgres":
+        return Item.firearm_model_id == any_(func.array(ids.scalar_subquery()))
+    return Item.firearm_model_id.in_(ids)
+
+
+def _term_clause(term: str) -> Any:
+    """One term's predicate: it must appear somewhere in the listing -- its own
+    text, or the names of the armory model it was matched to.
+
+    The three forms of the text half answer identically -- that is the whole
+    contract, and it is tested against the real catalog rather than asserted.
+    What differs is only how much of the table has to be read to find out.
+    """
+    return or_(_text_clause(term), _model_clause(f"%{_escaped(term)}%"))
+
+
+def _text_clause(term: str) -> Any:
+    """The listing's own text: the six columns, through an index where one fits."""
     kind = _search_index()
     pattern = f"%{_escaped(term)}%"
 
@@ -663,7 +698,8 @@ def _count_mentions_many(session: Session, names: list[str]) -> dict[str, int]:
     The armory page shows a count on every row awaiting approval, and after
     "Load shipped armory" that is several hundred rows: one query each was
     seconds of page load. A quoted phrase matches when it appears, ignoring
-    case, in any of the six columns the search reads (``_columns_clause``), so
+    case, in any of the six columns the search reads (``_columns_clause``) or
+    in a name of the listing's armory model (``_model_clause``), so
     reading those columns once and testing each phrase in memory is the same
     answer -- ``test_armory_mentions.py`` holds the two to it on a catalog
     built for the purpose.
@@ -680,10 +716,19 @@ def _count_mentions_many(session: Session, names: list[str]) -> dict[str, int]:
         Item.country,
         Item.category,
     )
-    for row in session.execute(select(*columns)):
+    # And the armory model's names, as the search reads them (_model_clause):
+    # each name or spelling on its own, so a phrase cannot span two of them.
+    models = {
+        model_id: "\x00".join([name, *(aliases or "").splitlines()]).lower()
+        for model_id, name, aliases in session.execute(
+            select(FirearmModel.id, FirearmModel.name, FirearmModel.aliases)
+        )
+    }
+    for *row, model_id in session.execute(select(*columns, Item.firearm_model_id)):
         # A separator no phrase can contain, so a phrase never spans two
         # columns -- which a real search, testing each column apart, cannot.
         document = "\x00".join((value or "").lower() for value in row)
+        document += "\x00" + (models.get(model_id, "") if model_id is not None else "")
         for name, phrase in wanted.items():
             if phrase and phrase in document:
                 counts[name] += 1

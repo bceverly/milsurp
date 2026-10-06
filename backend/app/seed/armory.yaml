@@ -7344,6 +7344,14 @@ models:
 - name: Mosin-Nagant M38
   aliases:
   - M1938 Carbine
+  - Russian M38
+  - Soviet M38
+  - Izhevsk M38
+  - Tula M38
+  - M38 Mosin
+  - Mosin M38
+  - Izhevsk Arsenal M38
+  - Tula Arsenal M38
   kind: carbine
   country: Russia
   calibers:
@@ -7388,11 +7396,15 @@ models:
   - 91/30
   - Model 91/30
   - Mosin 91/30
+  - 48.M
+  - Hungarian 48.M
+  - Hungarian M48
   kind: rifle
   country: Russia
   calibers:
   - 7.62x54mmR
   manufacturers:
+  - FEG
   - Izhevsk
   - Tula
   wikipedia: https://en.wikipedia.org/wiki/Mosin%E2%80%93Nagant

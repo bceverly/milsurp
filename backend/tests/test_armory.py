@@ -1503,6 +1503,10 @@ class TestTheShippedArmoryNamesWhatDealersSell:
         "VALMET LAHTI L-35": "Lahti L-35",
         "Yugoslavian M48 8mm Mauser Matching": "Zastava M48",
         "Anschutz GERMANIA SPORT": "Sportmodell",
+        # Mosins that named no model, which a search for "mosin nagant" missed.
+        "WWII Russian Izhevsk Arsenal M38 Bolt Action Carbine 7.62x54R": "Mosin-Nagant M38",
+        "Hungarian 48.M Bolt Action Carbine 7.62x54R": "Mosin-Nagant M91/30",
+        "Carcano M38 carbine": "Carcano M38",
     }
 
     def test_what_dealers_write_names_the_model(self, seeded):

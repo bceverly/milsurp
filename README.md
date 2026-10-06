@@ -1859,6 +1859,15 @@ running its migration, or a PostgreSQL whose role may not `CREATE EXTENSION
 pg_trgm`, falls back to the original six-column scan: the old behavior exactly,
 which is why it is something to land on rather than something to raise about.
 
+**A listing includes what the armory knows it is.** A term is found in the
+listing's own six columns *or* in the name and spellings of the armory model
+it was matched to. "Russian 91/30 rifle" never says Mosin; its model,
+"Mosin-Nagant M91/30", does — and a search for "mosin nagant" was missing 14 of
+the 82 listings "91/30" found. Every term still has to be found, each in either
+place. On PostgreSQL the model half is written `= ANY(ARRAY(...))` rather than
+`IN (...)`, which lets the planner combine the model index with the trigram one
+instead of reading the whole table: 4-9ms rather than 99.
+
 `backend/tests/test_search_index.py` holds the claim the whole change rests on
 — 28 queries chosen for the ways they can go wrong, each asserted identical
 between the index and the scan it replaced, including a check that the test is

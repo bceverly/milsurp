@@ -4302,6 +4302,19 @@ maker, country, finest to coarsest as the inventory's filters do; and
 Classification's tabs follow the order the classifier asks its questions, part
 or gun first, which is now where the page opens.
 
+### "Mosin Nagant" finds every Mosin-Nagant — **Shipped** 2026-10-06
+
+A search for "91/30" or "m44" found listings that "mosin nagant" did not: a
+title like "Russian 91/30 rifle" never says Mosin. Search now also reads the
+name and spellings of the armory model a listing was matched to, so every
+M91/30 and M44 is a Mosin-Nagant to it -- 171 listings for "mosin nagant" on
+production became 209, and "k98" 314 became 339. The armory's pending-row
+counts read the same way, so they still agree with the page they open. The
+three Mosins that matched no model at all were an Izhevsk M38 and two
+Hungarian 48.Ms; the M38 now answers to "Russian/Soviet/Izhevsk/Tula M38"
+(never a bare "M38", which is also the Carcano), and the 48.M -- FEG's M91/30 --
+is a spelling of the M91/30, with FEG among its makers.
+
 ### What is unidentified, and naming more of it — **Shipped** 2026-10-05
 
 Measured on production first: of 10,085 guns for sale, 3.3% had no caliber,
