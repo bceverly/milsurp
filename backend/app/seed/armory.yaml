@@ -558,7 +558,6 @@ manufacturers:
 - name: Lefaucheux
   aliases:
   - Le Faucheux
-  - LeFaucheux
   country: France
   status: approved
 - name: Lewis Machine & Tool
@@ -3246,7 +3245,6 @@ models:
   status: approved
 - name: Beretta M1935
   aliases:
-  - Beretta M1935
   - Beretta Model 1935
   - Beretta 1935
   - Model 1935 Beretta
@@ -4038,6 +4036,16 @@ models:
   - Colt
   status: approved
 - name: CTAR-21
+  status: approved
+- name: Cugir M63
+  aliases:
+  - M63
+  kind: rifle
+  country: Romania
+  calibers:
+  - 7.62x39mm
+  manufacturers:
+  - Cugir
   status: approved
 - name: CZ 24
   kind: pistol
@@ -6324,14 +6332,6 @@ models:
   notes: 'Disabled: identifies nothing on its own -- a survival rifle and a bayonet.'
 - name: M62
   status: approved
-- name: M63
-  kind: rifle
-  country: Romania
-  calibers:
-  - 7.62x39mm
-  manufacturers:
-  - Cugir
-  status: approved
 - name: M64
   status: approved
 - name: M70
@@ -8103,6 +8103,46 @@ models:
   manufacturers:
   - Radom
   wikipedia: https://en.wikipedia.org/wiki/Vis_pistol
+  status: approved
+- name: Radom wz. 1958
+  aliases:
+  - wz. 1958
+  kind: rifle
+  country: Poland
+  calibers:
+  - 7.62x39mm
+  manufacturers:
+  - Radom
+  status: approved
+- name: Radom wz. 1959
+  aliases:
+  - wz. 1959
+  kind: rifle
+  country: Poland
+  calibers:
+  - 7.62x39mm
+  manufacturers:
+  - Radom
+  status: approved
+- name: Radom wz. 1960
+  aliases:
+  - wz. 1960
+  kind: rifle
+  country: Poland
+  calibers:
+  - 7.62x39mm
+  manufacturers:
+  - Radom
+  status: approved
+- name: Radom wz. 1961
+  aliases:
+  - wz. 1961
+  kind: rifle
+  country: Poland
+  calibers:
+  - 7.62x39mm
+  manufacturers:
+  - Radom
   status: approved
 - name: RAK1
   status: approved
@@ -10820,41 +10860,9 @@ models:
   calibers:
   - 12 gauge
   status: approved
-- name: wz. 1958
-  kind: rifle
-  country: Poland
-  calibers:
-  - 7.62x39mm
-  manufacturers:
-  - Radom
-  status: approved
-- name: wz. 1959
-  kind: rifle
-  country: Poland
-  calibers:
-  - 7.62x39mm
-  manufacturers:
-  - Radom
-  status: approved
-- name: wz. 1960
-  kind: rifle
-  country: Poland
-  calibers:
-  - 7.62x39mm
-  manufacturers:
-  - Radom
-  status: approved
 - name: wz.1960
   status: pending
   enabled: false
-- name: wz. 1961
-  kind: rifle
-  country: Poland
-  calibers:
-  - 7.62x39mm
-  manufacturers:
-  - Radom
-  status: approved
 - name: wz. 1962
   status: pending
   enabled: false

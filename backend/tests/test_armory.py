@@ -1520,5 +1520,11 @@ class TestTheShippedArmoryNamesWhatDealersSell:
             "Luger P08"
         )
         assert armory.match(seeded, "Harrington & Richardson M48 H&R Topper 16 Gauge").model is None
+        # Already named the way an upgrade would rename it. The package's
+        # catch-up qualifies a bare designation whose model has one maker --
+        # "wz. 1958" became "Radom wz. 1958" on production -- and a file still
+        # holding the bare name would then *add* it back beside the renamed row
+        # the next time it was applied.
+        assert [r.was for r in armory.plan_qualify(seeded)] == []
         # One factory made every one, so the model can say which.
         assert armory.match(seeded, "KBK wz. 1960 Circle 11 parts kit").manufacturer == "Radom"
