@@ -3332,6 +3332,18 @@ are covered when they are not. semgrep and pip-audit once sat uninstalled here
 for three days while every run said "clean". Each tool's report is written to
 `.security-reports/`, and CI keeps them as an artifact for thirty days.
 
+**Transitive dependencies are pinned where the advisory is not reachable by
+upgrading what depends on them**, and each pin says why. Python's sit in
+`backend/requirements.txt` with a comment each (urllib3, mako). The frontend's
+are `overrides` in `frontend/package.json`, which JSON gives no room to explain,
+so here: `@istanbuljs/load-nyc-config` (under nyc, the test-coverage tool) still
+asks for js-yaml 3, whose argparse 1 depends on sprintf-js, and *every* release
+of sprintf-js carries GHSA-hp3w-g68c-fv3c -- there is no fixed version to move
+to, and `npm audit fix --force` would downgrade vite-plugin-istanbul instead. It
+is overridden to js-yaml 4, whose argparse 2 has no sprintf-js at all; the one
+call it makes, `yaml.load()`, is in both, and only for a `.nycrc.yaml`, which
+this project does not have (it uses `.nycrc.json`).
+
 ### MITRE's "Lucky 13"
 
 Steve Christey's [Unforgivable Vulnerabilities](https://cwe.mitre.org/documents/unforgivable_vulns/unforgivable.pdf)

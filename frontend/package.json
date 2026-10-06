@@ -31,5 +31,10 @@
     "prettier": "^3.9.9",
     "vite": "^8.3.2",
     "vite-plugin-istanbul": "^9.0.1"
+  },
+  "overrides": {
+    "@istanbuljs/load-nyc-config": {
+      "js-yaml": "^4.1.0"
+    }
   }
 }
