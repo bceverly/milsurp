@@ -79,11 +79,37 @@ export const test = base.extend({
  */
 export async function openPage(page, link, heading = link) {
   await expect(async () => {
+    await revealInRail(page, link);
     await page.getByRole("link", { name: link, exact: true }).click();
     await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible({
       timeout: 3_000,
     });
   }).toPass({ timeout: 30_000 });
+}
+
+/**
+ * Open the rail section holding *link*, if it is folded away.
+ *
+ * The rail starts with only the catalog open, so a link under Yours, Account
+ * or Administration is hidden until its heading is clicked -- as a person
+ * would do. A link that is already showing, or is not in the rail at all,
+ * leaves the rail alone.
+ */
+export async function revealInRail(page, link) {
+  const rail = page.getByRole("navigation", { name: "Main navigation" });
+  if (await rail.getByRole("link", { name: link, exact: true }).isVisible()) return;
+  for (const toggle of await rail.locator("button[aria-expanded='false']").all()) {
+    const list = rail.locator(`#${await toggle.getAttribute("aria-controls")}`);
+    const inside = list.getByRole("link", {
+      name: link,
+      exact: true,
+      includeHidden: true,
+    });
+    if ((await inside.count()) > 0) {
+      await toggle.click();
+      return;
+    }
+  }
 }
 
 export { expect };

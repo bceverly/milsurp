@@ -1,5 +1,5 @@
 /** Sign-in, session handling and the role boundary in the UI. */
-import { test, expect } from "./fixtures.js";
+import { test, expect, revealInRail } from "./fixtures.js";
 
 const USERNAME = process.env.MILSURP_USER || "admin";
 const PASSWORD = process.env.MILSURP_PASSWORD || "";
@@ -99,6 +99,7 @@ test.describe("session", () => {
   });
 
   test("an admin sees the admin-only navigation", async ({ signedIn }) => {
+    await revealInRail(signedIn, "Sites");
     await expect(signedIn.getByRole("link", { name: "Sites" })).toBeVisible();
     await expect(signedIn.getByRole("link", { name: "Users" })).toBeVisible();
     await expect(signedIn.getByText("Admin", { exact: true })).toBeVisible();

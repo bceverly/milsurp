@@ -14,7 +14,7 @@
  * it does not come up they go to the inventory with a note naming the address
  * that would not open.
  */
-import { test, expect } from "./fixtures.js";
+import { test, expect, revealInRail } from "./fixtures.js";
 
 const USERNAME = process.env.MILSURP_USER || "admin";
 const PASSWORD = process.env.MILSURP_PASSWORD || "";
@@ -39,6 +39,7 @@ test.describe("coming back from a forced sign-out", () => {
   test("lands on the page they were thrown off, not the inventory", async ({
     signedIn,
   }) => {
+    await revealInRail(signedIn, "Watchlist");
     await signedIn.getByRole("link", { name: "Watchlist" }).click();
     await expect(signedIn).toHaveURL(/\/watchlist$/);
 
@@ -75,6 +76,7 @@ test.describe("coming back from a forced sign-out", () => {
     // The one case where the last page open is *not* worth restoring: they
     // have just said they were finished with it. Reopening it would be the
     // app arguing with them.
+    await revealInRail(signedIn, "Watchlist");
     await signedIn.getByRole("link", { name: "Watchlist" }).click();
     await expect(signedIn).toHaveURL(/\/watchlist$/);
 

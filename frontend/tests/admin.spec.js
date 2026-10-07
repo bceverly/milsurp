@@ -1,5 +1,5 @@
 /** Admin surfaces: site controls, scan history, user management, settings. */
-import { test, expect } from "./fixtures.js";
+import { test, expect, revealInRail } from "./fixtures.js";
 
 test.describe("sites", () => {
   test("lists every site with its status", async ({ signedIn }) => {
@@ -441,6 +441,15 @@ test.describe("sites", () => {
     await expect(
       card("J&G Sales").getByRole("button", { name: "Mark confirmed" }),
     ).toHaveCount(0);
+
+    // And a list that took the address and sent nothing at all -- no
+    // confirmation, no welcome -- can be marked joined from red.
+    await card("Arms Unlimited").getByRole("button", { name: "Mark joined" }).click();
+    const joined = card("Arms Unlimited").getByRole("link", { name: "Mailing list" });
+    await expect(joined).toHaveClass(/chip--success/);
+    await expect(
+      card("Arms Unlimited").getByRole("button", { name: "Mark joined" }),
+    ).toHaveCount(0);
   });
 
   test("the inbox reader can be switched on, paced and run by hand", async ({
@@ -654,6 +663,7 @@ test.describe("navigation", () => {
       ["Security settings", "Security settings"],
       ["Inventory", "Inventory"],
     ]) {
+      await revealInRail(signedIn, name);
       await signedIn.getByRole("link", { name, exact: true }).click();
       await expect(signedIn.getByRole("heading", { name: heading })).toBeVisible();
     }
@@ -762,6 +772,7 @@ test.describe("sessions and the audit log", () => {
   });
 
   test("the audit log is admin-only in the navigation", async ({ signedIn }) => {
+    await revealInRail(signedIn, "Audit log");
     await expect(signedIn.getByRole("link", { name: "Audit log" })).toBeVisible();
   });
 });

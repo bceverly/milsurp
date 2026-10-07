@@ -45,6 +45,21 @@ class PlannedSite:
 PLANNED: tuple[PlannedSite, ...] = (
     # -- blocked at the door -----------------------------------------------
     PlannedSite(
+        slug="liberty-tree-collectors",
+        name="Liberty Tree Collectors",
+        base_url="https://www.libertytreecollectors.com/",
+        platform="Lightspeed (Ecwid) store inside WordPress, behind Cloudflare",
+        blocker=(
+            "About 67 C&R rifles, pistols and antiques, every one priced, and "
+            "readable without JavaScript -- but Cloudflare answers this "
+            "application's requests with 403 on every catalog page (checked "
+            "2026-10-06) while a browser is let through. That is the shop's bot "
+            "control saying no, and getting past it would be evading it, so "
+            "this waits on Liberty Tree allowing the scanner, as WIS Transfers "
+            "does."
+        ),
+    ),
+    PlannedSite(
         slug="wis-transfers",
         name="WIS Transfers",
         base_url="https://www.wistransfers.com/",

@@ -1126,7 +1126,8 @@ manufacturers:
   enabled: false
   notes: A model. 'Wolf T91 AR15 Upper'.
 - name: Yokosuka
-  status: pending
+  country: Japan
+  status: approved
 - name: Yugo
   status: merged
   enabled: false
@@ -6062,6 +6063,7 @@ models:
   status: approved
 - name: M1864
   status: pending
+  enabled: false
 - name: M1866
   status: approved
 - name: M1867
@@ -6090,6 +6092,9 @@ models:
   status: approved
   enabled: false
   notes: 'Disabled: identifies nothing on its own -- the Mosin M1891 and the Swiss M1891.'
+- name: M1895
+  status: pending
+  enabled: false
 - name: M1896
   manufacturers:
   - Carl Gustaf
@@ -6204,6 +6209,9 @@ models:
   enabled: false
 - name: M1930
   status: approved
+- name: M1935
+  status: pending
+  enabled: false
 - name: M197A1
   status: approved
 - name: M1A1
@@ -6310,6 +6318,9 @@ models:
   kind: carbine
   country: Russia
   status: merged
+  enabled: false
+- name: M48
+  status: pending
   enabled: false
 - name: M49/57
   status: approved
@@ -7307,18 +7318,16 @@ models:
   enabled: false
   notes: 'Disabled: identifies nothing on its own -- a Glock option code, not a model.'
 - name: Mosin-Nagant M1938
-  aliases:
-  - M1938
-  kind: rifle
-  country: Russia
-  manufacturers:
-  - Izhevsk
-  - Tula
-  status: approved
+  status: merged
+  enabled: false
 - name: Mosin-Nagant M27
   aliases:
   - M27
-  - Model 27
+  - Finn Model 27
+  - Finnish Model 27
+  - Model 27 Mosin
+  - Model 27 SAKO
+  - Finnish M27
   kind: rifle
   country: Finland
   calibers:
@@ -7331,7 +7340,11 @@ models:
 - name: Mosin-Nagant M28
   aliases:
   - M28
-  - Model 28
+  - Finn Model 28
+  - Finnish Model 28
+  - Model 28 Mosin
+  - Model 28 SAKO
+  - Finnish M28
   kind: rifle
   country: Finland
   calibers:
@@ -7352,6 +7365,12 @@ models:
   - Mosin M38
   - Izhevsk Arsenal M38
   - Tula Arsenal M38
+  - Mosin-Nagant M1938
+  - Izhevsk M1938
+  - Russian M1938
+  - Soviet M1938
+  - M1938 Mosin
+  - Mosin M1938
   kind: carbine
   country: Russia
   calibers:
@@ -7364,7 +7383,11 @@ models:
 - name: Mosin-Nagant M39
   aliases:
   - M39
-  - Model 39
+  - Finn Model 39
+  - Finnish Model 39
+  - Model 39 Mosin
+  - Model 39 SAKO
+  - Finnish M39
   kind: rifle
   country: Finland
   calibers:
@@ -7972,11 +7995,18 @@ models:
 - name: Portuguese 1904/39
   aliases:
   - 1904/39
+  - 1904/M39
+  - Mauser Vergueiro
+  - Mauser-Vergueiro
+  - Vergueiro
   kind: rifle
   country: Portugal
   calibers:
   - 8mm Mauser
+  manufacturers:
+  - DWM
   status: approved
+  position: 990
 - name: Portuguese Model 1937A
   aliases:
   - Model 1937A
@@ -8009,7 +8039,12 @@ models:
 - name: PPS43
   status: merged
   enabled: false
+- name: PPSH 41
+  status: merged
+  enabled: false
 - name: PPSH-41
+  aliases:
+  - PPSH 41
   status: approved
 - name: PS22
   kind: pistol
@@ -8073,6 +8108,9 @@ models:
 - name: PTR 113
   status: approved
 - name: PVS14
+  status: pending
+  enabled: false
+- name: PVS4
   status: pending
   enabled: false
 - name: PX4
@@ -8492,8 +8530,22 @@ models:
   wikipedia: https://en.wikipedia.org/wiki/Schmidt%E2%80%93Rubin
   status: approved
   position: 999
+- name: SG 43
+  aliases:
+  - SG-43
+  - Goryunov SG-43
+  - Goryunov
+  - SG43
+  kind: rifle
+  country: Russia
+  calibers:
+  - 7.62x54mmR
+  status: approved
 - name: SG 553P
   status: approved
+- name: SG43
+  status: merged
+  enabled: false
 - name: SIG 210
   kind: pistol
   country: Switzerland
@@ -9685,11 +9737,16 @@ models:
 - name: Turkish MODEL 1938
   aliases:
   - MODEL 1938
+  - Turkish M1938
+  - M1938 Turkish
+  - Turkish Mauser M1938
+  - K.Kale M1938
   kind: rifle
   country: Turkey
   calibers:
   - 8mm Mauser
   status: approved
+  position: 990
 - name: Type 1
   status: approved
   enabled: false
@@ -10907,6 +10964,9 @@ models:
   calibers:
   - 12 gauge
   status: approved
+- name: X300
+  status: pending
+  enabled: false
 - name: X400
   calibers:
   - 5.56x45mm NATO

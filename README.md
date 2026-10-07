@@ -3075,9 +3075,19 @@ WooCommerce vendors here, and each one should be measured the same way before
 being switched — an endpoint answering 200 is not evidence that its answer is
 better than the page's.
 
-Thirty-nine vendors are read today. One more is queued in
-[ROADMAP.md](ROADMAP.md), grouped by the platform they run on because one base
-class unlocks a whole group.
+Forty-nine vendors are read today. Two more are queued in
+[ROADMAP.md](ROADMAP.md) -- WIS Transfers and Liberty Tree Collectors, both
+waiting on a bot-control rule that turns this application away -- grouped by
+the platform they run on because one base class unlocks a whole group.
+
+**A shop with no platform at all** -- a hand-made catalog of section pages, each
+listing a card, perhaps with a product page behind it -- is a subclass of
+`CatalogPagesScraper` (`backend/app/scrapers/catalog_pages.py`): it supplies the
+sections and a parser for one page, and, where the product page is worth
+reading, a parser for that. The walk, the de-duplication across sections,
+reading each product page once, and giving up on product pages after a run of
+failures rather than failing the scan are the base class's. David Condon,
+OldGuns.net, Horse Soldier and Cherry's are built on it.
 
 ## Testing
 

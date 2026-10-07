@@ -415,7 +415,11 @@ function MailingListChip({ site, onConfirm }) {
       {label}
     </a>
   );
-  if (!confirming) return chip;
+  if (received) return chip;
+  // Offered while red as well as amber. Some lists take the address and then
+  // send nothing at all -- no "please confirm", no welcome -- until a sale, so
+  // a list somebody really has joined could stay red for weeks with no way to
+  // say so. Real mail arriving still turns it green on its own.
   return (
     <>
       {chip}
@@ -423,9 +427,13 @@ function MailingListChip({ site, onConfirm }) {
         className="btn btn--ghost btn--sm"
         type="button"
         onClick={onConfirm}
-        title="Say the subscription is confirmed, for a list that sends nothing until its next newsletter"
+        title={
+          confirming
+            ? "Say the subscription is confirmed, for a list that sends nothing until its next newsletter"
+            : "Say you have joined this list, for one that sends nothing to show it"
+        }
       >
-        <Check size={12} /> Mark confirmed
+        <Check size={12} /> {confirming ? "Mark confirmed" : "Mark joined"}
       </button>
     </>
   );

@@ -78,6 +78,16 @@ the whole catalog as JSON to the widget that draws the grid. See
 | [WW2 Collectibles](https://ww2collectibles.com/products/products_list/rifles/) | `ww2-collectibles` | Custom (AppSoft CMS) — 146 collector rifles and pistols, 67 of them sold with their last price; K98 snipers, G43s, SVT-40s, Lugers, Nambus. New-made reproductions and a blank-firer are left out |
 | [Nickerson Military](https://www.nickersonmilitary.com/military-firearms-for-sale/) | `nickerson-military` | One hand-edited WordPress page — 29 priced lines under era headings; no photos, links or ids, so each listing is keyed by its own title and a line that disappears is de-listed |
 | [Allegheny Arsenal](https://mg34.com/product-category/guns-for-sale) | `allegheny-arsenal` | BigCommerce — the 42 military listings of a 113-listing gun shelf, chosen by title; the new retail stock beside them is left out |
+| [Langara Arms & Antiques](https://www.langaraarms.com/product-category/military-rifles-shotguns/) | `langara-arms` | WooCommerce Store API — military rifles, military handguns and antiques; ~143, all priced |
+| [Pre98 Antiques](https://pre98.com/product-category/long-guns/) | `pre98` | WooCommerce Store API — long guns and handguns; each title's listing date ("TUE OCT 6,") taken off, "SOLD" read as sold |
+| [David Condon, Inc.](https://www.davidcondon.com/inventory) | `david-condon` | Custom (`CatalogPagesScraper`) — nine firearm sections, ~460 listings, about half sold; product page once for the write-up and gallery |
+| [OldGuns.net](https://www.oldguns.net/) | `oldguns` | Custom (`CatalogPagesScraper`) — five hand-written pages, ~170 guns, each listing an anchor; the last dollar figure before "(View Picture)" is the price |
+| [Horse Soldier](https://www.horsesoldier.com/products/firearms/) | `horse-soldier` | Custom (`CatalogPagesScraper`) — Civil War longarms, handguns and carbines, ~160; SOLD and ON HOLD read as not for sale |
+| [1898andB-4](https://www.1898andb-4.com/) | `1898-and-b4` | WooCommerce Store API — antique pistols and longarms, military and Civil War; "PENDING SALE" read as gone, a zero price as none |
+| [Merz Antique Firearms](https://www.merzantiques.com/) | `merz-antiques` | WooCommerce category pages (the Store API takes 2.7s a product) — Winchesters, Colts, Remingtons, Marlins and rare guns; the stock code and [A]/[M] class taken off titles |
+| [Shoot It](https://www.shootitllc.com/collectibles/curio-relic/) | `shoot-it` | BigCommerce — curio-and-relic and antique shelves: engraved Colts, Winchesters, lawman's guns |
+| [Cherry's Fine Guns](http://www.cherrys.com/longguns.htm) | `cherrys` | Custom (`CatalogPagesScraper`) — two spreadsheet-exported tables, over plain HTTP because the shop's HTTPS fails its handshake |
+| [LugerMan](https://lugerman.com/product-category/firearms/curio-and-relics/) | `lugerman` | WooCommerce Store API — Lugers and other collector pistols; raffle tickets left out |
 
 ### Planned
 
@@ -121,8 +131,7 @@ Two more joined the queue on 2026-09-26, from the police trade-in survey below:
 USA** (`target-sports-usa`), both shipped the same day. Three more joined on
 2026-09-27 from the military-surplus survey below: **Allegheny Arsenal** and
 **WW2 Collectibles** (both shipped the same day) and **Nickerson Military**
-(shipped the next). WIS Transfers is the only vendor left on the coming-soon
-list.
+(shipped the next). WIS Transfers was the only vendor left on the coming-soon list until Liberty Tree Collectors joined it on 2026-10-06 (see the October survey below).
 
 The platform column below was originally **inferred from the URL shape** — a
 `/product-category/` or `/product-tag/` path means WooCommerce, `/collections/`
@@ -1110,6 +1119,46 @@ code and a price, "SOLD OUT" with a date, or "Available at Stores".
     not news.
   - "Back in stock" is also digest news for every watcher, alongside sold and
     price moves. The alert email's subject says "… is back in stock".
+
+### Collector and antique dealer survey, October 2026 — **ten shipped, one blocked**
+
+Asked for on 2026-10-06, and searched for the gap the list had: every police
+trade-in shelf worth reading was already covered, so the new finds are antique
+and collector dealers. Every candidate was fetched before it was judged, and
+then fetched again with this application's own user agent before it was
+built. Fourteen candidates; the five judged strong and the six maybes were
+built at the owner's request, so ten shipped (see the table above) and one is
+on the coming-soon list.
+
+| Candidate | Verdict |
+| --- | --- |
+| Langara Arms & Antiques, Pre98 Antiques, David Condon, OldGuns.net | **Shipped** — the strong four, military-heavy |
+| Horse Soldier, 1898andB-4, Merz Antiques, Shoot It, Cherry's Fine Guns, LugerMan | **Shipped** — the maybes: antiques, collector and high-end pieces more than military, built on request |
+| **Liberty Tree Collectors** | **Blocked**, on the coming-soon list: about 67 priced C&R guns and readable HTML, but Cloudflare answers this application with 403 on every catalog page while a browser is let through. Waits on the shop, as WIS Transfers does |
+| College Hill Arsenal | Weak — 26 guns, an OpenCart store |
+| WW2 Armory | Weak — about 25, on the same CMS and in the same area as WW2 Collectibles; ownership to be checked before anything, because one shop under two names would manufacture the cross-shop agreement the hot-deals rule demands |
+
+**Refused** (so they are not checked again): Hyatt Guns, Citizens Armory
+Imports and GrabAGun (Cloudflare challenges); Shiloh Relics (Vercel checkpoint,
+429); Cabela's and Bass Pro's Gun Library (403 "Site Maintenance" to scripted
+requests); Kiesler Police Supply (login wall, LE/military/FFL only); Lou's
+Police Distributors, Global Ordnance, Shooting Surplus, ANV Surplus, Lockhart
+Tactical, Bereli, Vance Outdoors and Midwest Gun Works (new guns, no used or
+surplus shelf); National Armory (a 51,000-item distributor catalog with no used
+section); S&H Civil War Antiques (prices on request); Contact International
+(wholesale, no prices); CMR Classic Firearms (shop marked away, $0.00
+everywhere); Fagan Arms (mostly swords and armor, about seven guns); Antique
+Arms Inc. (about 18, not updated since January); Heritage Arms (7); Southern
+Tactical (JavaScript-only catalog with no prices in the HTML); Hallowell & Co.
+(fine sporting guns); Old Town Station (domain for sale); buygunss.com (looks
+like a scam storefront); and Southern Ohio Gun, Mitchell's Mausers, PW Arms,
+Cobblestone Arms, Sportsman's Fine Arms, Mohawk Arms and
+antiquemilitaryrifles.com (no answer from the domain).
+
+**Built along the way:** `CatalogPagesScraper`, a base class for a shop with no
+platform (see the README); and the Store API now reads a zero price as none,
+the rule the other two price parsers already followed -- 1898andB-4 price
+everything pending at "0".
 
 ### Military surplus survey, September 2026 — **three shipped, the rest refused or gone**
 
@@ -4301,6 +4350,34 @@ list leads with newest and recently reduced; the Market groups by caliber,
 maker, country, finest to coarsest as the inventory's filters do; and
 Classification's tabs follow the order the classifier asks its questions, part
 or gun first, which is now where the page opens.
+
+### Bare designations the search change exposed, the pending queue, and the rail — **Shipped** 2026-10-06
+
+Reading the model's names into search made a wrong model link visible: a
+Turkish Mauser M1938 turned up under "mosin nagant" because "Mosin-Nagant
+M1938" carried a bare "M1938". Every listing on a Mosin model was checked, and
+four were wrong -- two Turkish M1938s, an S&W Highway Patrolman "Pre-Model 28"
+("Model 28" on the M28) and a Portuguese "1904/M39" Vergueiro ("M39", because a
+slash is a word boundary). "Mosin-Nagant M1938" is folded into the M38, which
+is the same carbine, with qualified "M1938" spellings; the Finnish M27/M28/M39
+keep the bare "M27/M28/M39" Finnish dealers write, and lose "Model 27/28/39",
+which is also S&W; the Turkish M1938 and the Portuguese 1904/39 know how
+dealers write them and are tried first. Every Finnish listing stays put.
+
+The pending queue on production, cleared: Yokosuka (the Imperial Navy's
+arsenal) approved with its country; "M1864", "M1895", "M1935" and "M48" --
+bare designations that discovery had re-proposed after they were taken off as
+aliases, each naming several guns -- switched off, which is what stops a scan
+proposing them again; "PVS4" and "X300", a night-vision scope and a weapon
+light, switched off; the SG-43 approved with its facts and "SG43" folded in;
+"PPSH 41" folded into the existing PPSH-41. Each change audited, and the
+shipped file carries all of it so applying it cannot put any of it back.
+
+The rail's four sections fold, and a reader starts with only Catalog open --
+held in the shell rather than in storage, so each sign-in starts there -- and
+the section of the page on screen opens itself. The Sites page's "Mark
+confirmed" is offered on a red mailing-list chip too, as "Mark joined": some
+lists take the address and send nothing at all until a sale.
 
 ### "Mosin Nagant" finds every Mosin-Nagant — **Shipped** 2026-10-06
 

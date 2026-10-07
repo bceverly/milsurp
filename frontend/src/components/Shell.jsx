@@ -12,6 +12,7 @@ import { useAuth } from "../auth.jsx";
 import {
   Bookmark,
   Cart,
+  ChevronDown,
   Box as BoxIcon,
   Flame,
   Logout,
@@ -106,6 +107,13 @@ const NAV = [
   },
 ];
 
+/** The section a path belongs to, so the page you are on is never hidden. */
+function sectionOf(sections, pathname) {
+  const owns = ({ to, end }) =>
+    end ? pathname === to : pathname === to || pathname.startsWith(`${to}/`);
+  return sections.find(({ entries }) => entries.some(owns))?.heading;
+}
+
 export default function Shell() {
   const { user, isAdmin, signOut } = useAuth();
   const location = useLocation();
@@ -159,6 +167,27 @@ export default function Shell() {
   }, [drawerOpen]);
 
   const sections = NAV.filter((section) => !section.adminOnly || isAdmin);
+
+  // **Each section folds**, and a reader starts with the catalog open and the
+  // rest closed: the catalog is what nearly every visit is for, and the four
+  // groups open at once are taller than a laptop's screen. Held here rather
+  // than in storage, so signing in again starts from the catalog -- the shell
+  // is gone while signed out -- while moving between pages keeps whatever was
+  // opened. And the section of the page on screen always opens, so a link
+  // into the armory never lands on a rail with its own entry hidden.
+  const [openSections, setOpenSections] = useState(() => new Set(["Catalog"]));
+  const current = sectionOf(sections, location.pathname);
+  useEffect(() => {
+    if (current)
+      setOpenSections((was) => (was.has(current) ? was : new Set([...was, current])));
+  }, [current]);
+  const toggle = (heading) =>
+    setOpenSections((was) => {
+      const next = new Set(was);
+      if (next.has(heading)) next.delete(heading);
+      else next.add(heading);
+      return next;
+    });
 
   return (
     <div className="shell">
@@ -221,10 +250,22 @@ export default function Shell() {
             // A label and a list rather than a heading: the page's own headings
             // are what a screen reader's outline should offer, not the rail's.
             <div className="rail__section" key={heading}>
-              <span className="rail__heading" id={`rail-${heading}`}>
-                {heading}
-              </span>
-              <ul aria-labelledby={`rail-${heading}`}>
+              <button
+                type="button"
+                className={`rail__heading rail__toggle ${openSections.has(heading) ? "rail__toggle--open" : ""}`}
+                id={`rail-${heading}`}
+                aria-expanded={openSections.has(heading)}
+                aria-controls={`rail-list-${heading}`}
+                onClick={() => toggle(heading)}
+              >
+                <span>{heading}</span>
+                <ChevronDown size={14} />
+              </button>
+              <ul
+                id={`rail-list-${heading}`}
+                aria-labelledby={`rail-${heading}`}
+                hidden={!openSections.has(heading)}
+              >
                 {entries.map(({ to, label, icon: Icon, end }) => (
                   <li key={to}>
                     <NavLink

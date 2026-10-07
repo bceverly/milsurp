@@ -69,9 +69,14 @@ def price_now(product: dict[str, Any]) -> float | None:
         return None
     try:
         scale = int(prices.get("currency_minor_unit", 2))
-        return float(float(raw) / (10**scale))
+        price = float(float(raw) / (10**scale))
     except (TypeError, ValueError):
         return None
+    # **Zero is the absence of a price, not a price** -- the rule both other
+    # parsers already follow (see storefront.parse_price). 1898andB-4 answer
+    # "0" for every item pending sale; storing it would put a free gun into
+    # the deal comparison.
+    return price if price > 0 else None
 
 
 def is_sold(product: dict[str, Any]) -> bool:

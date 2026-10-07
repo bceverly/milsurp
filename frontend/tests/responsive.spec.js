@@ -5,7 +5,7 @@
  * meant to be used on a phone as much as on a desktop and the two layouts
  * differ structurally, not just cosmetically.
  */
-import { test, expect } from "./fixtures.js";
+import { test, expect, revealInRail } from "./fixtures.js";
 
 test.describe("mobile layout", () => {
   test("the inventory grid fits the viewport", async ({ signedIn }) => {
@@ -26,11 +26,13 @@ test.describe("mobile layout", () => {
 
     await signedIn.getByRole("button", { name: "Open navigation" }).click();
     await expect(rail).toHaveClass(/rail--open/);
+    await revealInRail(signedIn, "Sites");
     await expect(signedIn.getByRole("link", { name: "Sites" })).toBeVisible();
   });
 
   test("the drawer closes after navigating", async ({ signedIn }) => {
     await signedIn.getByRole("button", { name: "Open navigation" }).click();
+    await revealInRail(signedIn, "Sites");
     await signedIn.getByRole("link", { name: "Sites", exact: true }).click();
 
     await expect(signedIn.getByRole("heading", { name: "Sites" })).toBeVisible();

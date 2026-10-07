@@ -1507,6 +1507,12 @@ class TestTheShippedArmoryNamesWhatDealersSell:
         "WWII Russian Izhevsk Arsenal M38 Bolt Action Carbine 7.62x54R": "Mosin-Nagant M38",
         "Hungarian 48.M Bolt Action Carbine 7.62x54R": "Mosin-Nagant M91/30",
         "Carcano M38 carbine": "Carcano M38",
+        # Mausers and an S&W that bare Mosin spellings were taking.
+        "M1938 Turkish Mauser 1940": "Turkish MODEL 1938",
+        "DWM MAUSER VERGUEIRO 1904/M39": "Portuguese 1904/39",
+        "IZHEVSK M1938 MOSIN NAGANT CARBINE": "Mosin-Nagant M38",
+        "FINN Model 39 Mosin-Nagant": "Mosin-Nagant M39",
+        "SAKO VALMET OY M28-30": "Mosin-Nagant M28",
     }
 
     def test_what_dealers_write_names_the_model(self, seeded):
@@ -1524,6 +1530,9 @@ class TestTheShippedArmoryNamesWhatDealersSell:
             "Luger P08"
         )
         assert armory.match(seeded, "Harrington & Richardson M48 H&R Topper 16 Gauge").model is None
+        assert armory.match(seeded, "Smith & Wesson Highway Patrolman Pre-Model 28").model != (
+            "Mosin-Nagant M28"
+        )
         # Already named the way an upgrade would rename it. The package's
         # catch-up qualifies a bare designation whose model has one maker --
         # "wz. 1958" became "Radom wz. 1958" on production -- and a file still

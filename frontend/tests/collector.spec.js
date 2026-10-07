@@ -256,6 +256,8 @@ test.describe("the navigation", () => {
     const rail = signedIn.getByRole("navigation", { name: "Main navigation" });
     const headings = rail.locator(".rail__heading");
     await expect(headings).toHaveText(["Catalog", "Yours", "Account", "Administration"]);
+    // Folded until opened: only the catalog starts open.
+    await rail.getByRole("button", { name: "Yours" }).click();
     await expect(rail.getByRole("list", { name: "Yours" }).getByRole("link")).toHaveText([
       "Saved searches",
       "Watchlist",
