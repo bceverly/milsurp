@@ -3716,3 +3716,8 @@
   gap: 4px;
   font-size: 13px;
 }
+
+/* The armory tables' pager: under the table, closer than the inventory's. */
+.armory-pager {
+  margin: 14px 0 4px;
+}

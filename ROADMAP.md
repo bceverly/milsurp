@@ -4351,6 +4351,29 @@ maker, country, finest to coarsest as the inventory's filters do; and
 Classification's tabs follow the order the classifier asks its questions, part
 or gun first, which is now where the page opens.
 
+### The armory pages its tables, and its tests stop waiting on them — **Shipped** 2026-10-07
+
+Playwright flagged `armory.spec.js` as its slowest file at 7.1 minutes. The API
+was not the cost: the browser was. Every table drew all 1,294 models at once,
+about two seconds each time the page loaded, and "select everything listed"
+spent 17 seconds re-rendering 1,294 checkboxes. Three changes:
+
+- **The tables page at a hundred rows**, with Previous/Next and "1–100 of
+  1,294" under each one. The page resets to the first whenever the tab, the
+  Showing filter, the search or the sort changes. Selecting "everything listed"
+  still means every row the filter admits, not only the ones on screen.
+- **The tests load the shipped armory through the API.** Nearly every test
+  starts from the shipped rows and is about something else, so
+  `armory-helpers.js` posts to `/api/armory/seed` the way the page does and
+  reloads. The button is pressed and tested once. Tests that looked for a row
+  by scrolling now search for it, as a person would on a paged table, and the
+  sort test reads the names off every page.
+- **The file is split.** The queue, status and URL tests stay in
+  `armory.spec.js`. Sorting, expanding, adding and the table layout move to
+  `armory-tables.spec.js`.
+
+The two files now run in 2.4 minutes together, down from 7.1 for the one.
+
 ### Bare designations the search change exposed, the pending queue, and the rail — **Shipped** 2026-10-06
 
 Reading the model's names into search made a wrong model link visible: a

@@ -306,10 +306,14 @@ test.describe("inventory", () => {
       Number(
         (await signedIn.getByText(/listings? match/).innerText()).replace(/[^0-9]/g, ""),
       );
+    const all = await total();
     await options.nth(0).locator("input[type=checkbox]").check();
     await expect(signedIn).toHaveURL(/[?&]caliber=/);
     await expect(options).toHaveCount(before);
     await expect(options.nth(0).locator("input")).toBeChecked();
+    // The URL changes before the results do, so a total read straight away
+    // can still be the unfiltered one -- and then two calibers look like fewer.
+    await expect.poll(total).toBeLessThan(all);
     const one = await total();
 
     await options.nth(1).locator("input[type=checkbox]").check();

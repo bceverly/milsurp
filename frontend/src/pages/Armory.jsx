@@ -29,8 +29,20 @@ import Modal from "../components/Modal.jsx";
 import SortHeader from "../components/SortHeader.jsx";
 import { COLLATOR, compareCalibers } from "../sorting.js";
 import Field from "../components/Field.jsx";
-import { Download, Eye, Mail, Plus, Refresh, Trash } from "../components/Icons.jsx";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Eye,
+  Mail,
+  Plus,
+  Refresh,
+  Trash,
+} from "../components/Icons.jsx";
 import { fromMap } from "../lookup";
+
+/** Rows on one page of an armory table. See the paging note in Armory. */
+const ARMORY_PAGE = 100;
 
 //: How long the search waits after the last keystroke before it asks again.
 const SEARCH_PAUSE_MS = 300;
@@ -1511,6 +1523,49 @@ export default function Armory() {
       return next;
     });
 
+  // **A page of rows at a time.** The shipped armory is about two thousand
+  // rows, and rendering every model at once -- 1,294 of them awaiting approval
+  // after a load -- cost two seconds a view and seventeen to select the lot.
+  // Only the table is paged: the selection, the counts and "Select everything
+  // listed" still mean every row the filter and search admit.
+  const [page, setPage] = useState(0);
+  useEffect(() => {
+    setPage(0);
+  }, [tab, statusFilter, search, sort.key, sort.direction]);
+  const pageCount = Math.max(1, Math.ceil(rows.length / ARMORY_PAGE));
+  // Clamped rather than reset, so deleting the last row of the last page
+  // lands on the page before it instead of on nothing.
+  const currentPage = Math.min(page, pageCount - 1);
+  const shown = rows.slice(currentPage * ARMORY_PAGE, (currentPage + 1) * ARMORY_PAGE);
+  const pager =
+    pageCount > 1 ? (
+      <div className="pagination armory-pager">
+        <button
+          type="button"
+          className="btn btn--secondary btn--sm"
+          disabled={currentPage === 0}
+          onClick={() => setPage(currentPage - 1)}
+        >
+          <ChevronLeft size={16} />
+          Previous
+        </button>
+        <span className="pagination__status">
+          {(currentPage * ARMORY_PAGE + 1).toLocaleString()}–
+          {Math.min(rows.length, (currentPage + 1) * ARMORY_PAGE).toLocaleString()} of{" "}
+          {rows.length.toLocaleString()}
+        </span>
+        <button
+          type="button"
+          className="btn btn--secondary btn--sm"
+          disabled={currentPage >= pageCount - 1}
+          onClick={() => setPage(currentPage + 1)}
+        >
+          Next
+          <ChevronRight size={16} />
+        </button>
+      </div>
+    ) : null;
+
   // Every row currently listed — which is every row the Showing filter and the
   // search admit, not every row in the table. On the default view that is the
   // whole pending queue, which is the point: approve the lot in two clicks.
@@ -1902,7 +1957,7 @@ export default function Armory() {
                 // raw state here is what made the sort silently do nothing on
                 // this tab -- the header arrows moved and the list stayed in
                 // the API's `position` order.
-                rows.map((maker) => {
+                shown.map((maker) => {
                   const built = modelsFor(maker);
                   const open = opened.has(maker.id);
                   return (
@@ -2090,6 +2145,7 @@ export default function Armory() {
               )}
             </tbody>
           </table>
+          {pager}
         </div>
       ) : (
         <div className="table-wrap">
@@ -2158,7 +2214,7 @@ export default function Armory() {
                 </tr>
               )}
               {!loading &&
-                rows.map((row) => (
+                shown.map((row) => (
                   <tr key={row.id}>
                     <td>
                       <input
@@ -2300,6 +2356,7 @@ export default function Armory() {
               )}
             </tbody>
           </table>
+          {pager}
         </div>
       )}
 
