@@ -102,6 +102,13 @@ jobs:
           DEADLINE=$(( $(date +%s) + TIMEOUT_MINUTES * 60 ))
           GRACE=$(( $(date +%s) + 10 * 60 ))
           declare -A RERUN=()
+          # Runs this loop has already seen. GitHub's head_sha filter now and
+          # then answers with an empty list and no error; a run seen before
+          # and missing now is a bad read, not a commit that was never pushed.
+          # A release failed that way 45 minutes in, with both runs listed on
+          # every pass before the last. One that never appears still fails
+          # after the grace period, and one that stays gone hits the deadline.
+          declare -A SEEN=()
 
           echo "Waiting for [$WANTED] on $SHA"
           while :; do
@@ -121,7 +128,15 @@ jobs:
 
             for NAME in $WANTED; do
               MINE=$(printf '%s\n' "$RUNS" | awk -F'\t' -v n="$NAME" '$1 == n')
-              if [ -z "$MINE" ]; then MISSING="$MISSING $NAME"; continue; fi
+              if [ -z "$MINE" ]; then
+                if [ -n "${SEEN[$NAME]:-}" ]; then
+                  PENDING="$PENDING $NAME(not listed this time)"
+                else
+                  MISSING="$MISSING $NAME"
+                fi
+                continue
+              fi
+              SEEN[$NAME]=1
               # One pass anywhere is the answer.
               if printf '%s\n' "$MINE" | awk -F'\t' '$3 == "completed" && ($4 == "success" || $4 == "skipped")' | grep -q .; then
                 continue
