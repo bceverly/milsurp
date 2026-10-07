@@ -1,0 +1,22 @@
+{
+  "slug": "pre98",
+  "recorded_at": "2026-10-06T21:47:54+00:00",
+  "pages": [
+    {
+      "url": "https://pre98.com/wp-json/wc/store/v1/products?per_page=100&page=1&orderby=date&order=desc&category=18",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://pre98.com/wp-json/wc/store/v1/products?per_page=100&page=2&orderby=date&order=desc&category=18",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://pre98.com/wp-json/wc/store/v1/products?per_page=100&page=1&orderby=date&order=desc&category=10",
+      "file": "0003.html.gz"
+    },
+    {
+      "url": "https://pre98.com/wp-json/wc/store/v1/products?per_page=100&page=2&orderby=date&order=desc&category=10",
+      "file": "0004.html.gz"
+    }
+  ]
+}

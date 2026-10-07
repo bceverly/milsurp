@@ -1,0 +1,22 @@
+{
+  "slug": "oldguns",
+  "recorded_at": "2026-10-06T21:49:16+00:00",
+  "pages": [
+    {
+      "url": "https://www.oldguns.net/cat_fa_old_foreign_long.php",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://www.oldguns.net/cat_fa_old_us_long.php",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://www.oldguns.net/cat_fa_antique_long.php",
+      "file": "0003.html.gz"
+    },
+    {
+      "url": "https://www.oldguns.net/cat_fa_old_hand.php",
+      "file": "0004.html.gz"
+    }
+  ]
+}

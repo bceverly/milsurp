@@ -1,0 +1,22 @@
+{
+  "slug": "1898-and-b4",
+  "recorded_at": "2026-10-06T21:48:06+00:00",
+  "pages": [
+    {
+      "url": "https://www.1898andb-4.com/wp-json/wc/store/v1/products?per_page=100&page=1&orderby=date&order=desc&category=94",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://www.1898andb-4.com/wp-json/wc/store/v1/products?per_page=100&page=2&orderby=date&order=desc&category=94",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://www.1898andb-4.com/wp-json/wc/store/v1/products?per_page=100&page=1&orderby=date&order=desc&category=30",
+      "file": "0003.html.gz"
+    },
+    {
+      "url": "https://www.1898andb-4.com/wp-json/wc/store/v1/products?per_page=100&page=1&orderby=date&order=desc&category=569",
+      "file": "0004.html.gz"
+    }
+  ]
+}

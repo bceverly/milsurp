@@ -1,0 +1,22 @@
+{
+  "slug": "merz-antiques",
+  "recorded_at": "2026-10-06T21:48:46+00:00",
+  "pages": [
+    {
+      "url": "https://www.merzantiques.com/product-category/winchester/",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://www.merzantiques.com/product-category/colt/",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://www.merzantiques.com/product/c020-49-colt-pocket-wells-fargo/",
+      "file": "0003.html.gz"
+    },
+    {
+      "url": "https://www.merzantiques.com/product/c037-wells-fargo-model-colt-49-pocket/",
+      "file": "0004.html.gz"
+    }
+  ]
+}
