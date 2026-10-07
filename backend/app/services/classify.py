@@ -308,6 +308,25 @@ CALIBER_NORMALIZATIONS: tuple[tuple[str, str], ...] = (
     (r"\.?45-90\b", ".45-90 Winchester"),
     (r"\.?30-40\s*krag\b|\.?30-40\b", ".30-40 Krag"),
     (r"\.?30-30\b", ".30-30 Winchester"),
+    # The same four under the name Winchester gave them first, "Winchester
+    # Center Fire": a first-generation Colt SAA is sold "IN CALIBER 38 WCF".
+    (rf"{_DOT}44\s*w\.?c\.?f\b", ".44-40 Winchester"),
+    (rf"{_DOT}38\s*w\.?c\.?f\b", ".38-40 Winchester"),
+    (rf"{_DOT}32\s*w\.?c\.?f\b", ".32-20 Winchester"),
+    (rf"{_DOT}30\s*w\.?c\.?f\b", ".30-30 Winchester"),
+    (rf"{_DOT}35\s*rem(?:ington)?\b", ".35 Remington"),
+    # The Victorian rimfires, which the antique shops added in October 2026
+    # list by the hundred -- "COLT THIRD MODEL DERRINGER IN CALIBER 41 RF",
+    # "S&W No. 2 Army 32 Rimfire" -- and which nothing here read at all: a
+    # dotted ".41 RF" fell through to the bare bore ".41", and "41 RF" without
+    # the dot to nothing. "Long" and "Short" may sit between: "32 LONG RF".
+    # Not .22, whose rimfires are their own rules below and whose "22 RF" on
+    # a Victorian revolver is a .22 Short more often than not.
+    (rf"{_DOT}30\s*(?:long\s+|short\s+)?(?:rf|rim\s*-?\s*fire)\b", ".30 RF"),
+    (rf"{_DOT}32\s*(?:long\s+|short\s+|extra\s+long\s+)?(?:rf|rim\s*-?\s*fire)\b", ".32 RF"),
+    (rf"{_DOT}38\s*(?:long\s+|short\s+)?(?:rf|rim\s*-?\s*fire)\b", ".38 RF"),
+    (rf"{_DOT}41\s*(?:long\s+|short\s+)?(?:rf|rim\s*-?\s*fire)\b", ".41 RF"),
+    (rf"{_DOT}44\s*(?:long\s+|short\s+)?(?:rf|rim\s*-?\s*fire)\b", ".44 RF"),
     # The leading dot is optional (see _DOT) on every cartridge spelled with a
     # word after its number -- "357 mag", "45acp", "40 S&W", "308 Win". A bare
     # number with nothing after it still needs its dot: "45" alone is a price,
@@ -780,6 +799,12 @@ _HYPHENATED = re.compile(r"(?<![\w.])\.(\d{2,3})-(\d{2,3})(?![\d.])")
 #: caliber" is not a bore.
 _CALIBER_WORD = re.compile(r"(?<![\w./\-])\.?([1-9]\d{1,2})\s*-?\s*cal(?:ib(?:er|re))?\.?(?![a-z])")
 
+#: The same, the other way round: "IN CALIBER 41", "CAL. 44". Merz Antiques
+#: write every listing this way. Not before a hyphen, slash, dot or "x", which
+#: would make the number the first half of a cartridge -- "caliber 30-06",
+#: "cal. 7.62x39" -- that the table above names properly or not at all.
+_CALIBER_WORD_FIRST = re.compile(r"\bcal(?:ib(?:er|re)|\.)?\s*\.?([1-9]\d{1,2})\b(?![\d.\-/x×])")
+
 #: A smoothbore's size: "18 bore", "10 GA", "32 gauge". Not after a slash,
 #: which is a condition grade -- "9/10 bore".
 _BORE_WORD = re.compile(r"(?<![\w./\-])([4-9]|[12]\d|3[0-2])\s*-?\s*bore\b")
@@ -794,7 +819,7 @@ def _worded_bore(text: str) -> str | None:
     "18 bore", a 10-gauge Parker. Weaker than a named cartridge, so it is
     reached only once every cartridge rule has declined.
     """
-    if found := _CALIBER_WORD.search(text):
+    if found := _CALIBER_WORD.search(text) or _CALIBER_WORD_FIRST.search(text):
         return f".{found.group(1)}"
     if found := _GAUGE_WORD.search(text):
         return f"{found.group(1)} Gauge"

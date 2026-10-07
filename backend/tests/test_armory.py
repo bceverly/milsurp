@@ -1541,3 +1541,96 @@ class TestTheShippedArmoryNamesWhatDealersSell:
         assert [r.was for r in armory.plan_qualify(seeded)] == []
         # One factory made every one, so the model can say which.
         assert armory.match(seeded, "KBK wz. 1960 Circle 11 parts kit").manufacturer == "Radom"
+
+
+class TestTheShippedArmoryKnowsTheAntiqueShops:
+    """The ten shops added in October 2026 sell what the rest mostly do not --
+    Colt Dragoons, S&W top-breaks, Sharps and Burnside carbines, Remington
+    derringers -- and only four in ten of their guns named a model. These are
+    titles from their first scans, written the way they wrote them."""
+
+    EXPECTED = {
+        # Rows that existed but did not know how these dealers spell them.
+        "EXCEPTIONAL CONDITION, US WWI COLT MODEL 1911 US ARMY PISTOL": "MODEL OF 1911",
+        "WW1 EDDYSTONE U.S. MODEL 1917 .30-06 RIFLE DATED 1918": "M1917 Enfield",
+        "SOLD US WWI-WWII EDDYSTONE M-1917 “ENFIELD” RIFLE": "M1917 Enfield",
+        "EARLY PRODUCTION 1942 SAVAGE MADE No.4 MkI LEE ENFIELD RIFLE": "Lee-Enfield No.4 Mk1",
+        "33034- WW2 SPRINGFIELD U.S. M1 OR M-1 .30-06 GARAND RIFLE MFG. JUNE 1945": "M1 Garand",
+        "Rare Pre WW1 NRA Sales Marked 1903 Springfield": "M1903 Springfield",
+        "WWI GERMAN ARMY ISSUE MAUSER 1896/12 “BROOMHANDLE” PISTOL": "C96",
+        "DWM DUTCH LUGER": "Luger P08",
+        "33081-EARLY CASED ENGRAVED COLT 1873 SINGLE ACTION ARMY .45 CALIBER REVOLVER": (
+            "Colt Single Action Army"
+        ),
+        "VERY RARE WWI 1916 BELGIAN ARMY CONTRACT 1903 COLT POCKET HAMMERLESS PISTOL": "Colt 1903",
+        # Rows that did not exist.
+        "COLT'S MODEL 1861 NAVY REVOLVER": "Colt Model 1861 Navy",
+        "COLT FIRST MODEL DRAGOON PERCUSSION REVOLVER": "Colt Dragoon",
+        "US WWI COLT M-1917 REVOLVER, 45 acp, VERY SHARP!": "Colt Model 1917",
+        "COLT THUER DERRINGER SINGLE SHOT IN CALIBER 41": "Colt Third Model Derringer",
+        "REMINGTON OVER/UNDER DERRINGER IN CALIBER 41 RF": "Remington Double Derringer",
+        "A REMINGTON NEW MODEL ARMY REVOLVER": "Remington 1858 New Model Army",
+        "WINCHESTER MODEL 12 PUMP 16 GAUGE 2 ¾” SHOTGUN": "Winchester Model 12",
+        "33020- PRE-64 WINCHESTER MODEL 70 BOLT ACTION .300 H&H MAGNUM CAL. RIFLE": (
+            "Winchester Model 70"
+        ),
+        "SOLD US WW1 WINCHESTER MODEL 97 TRENCH SHOTGUN": "Winchester Model 1897",
+        "S&W Model No. 1 Third Issue 22 RF Revolver": "Smith & Wesson Model No. 1",
+        "S&W Model 1-1/2 32 Centerfire with The Factory Box": "Smith & Wesson Model No. 1 1/2",
+        "SMITH & WESSON No. 2 ARMY REVOLVER IN CALIBER 32 RF": "Smith & Wesson Model No. 2 Army",
+        "Smith & Wesson 38 Safety Hammer 1st Model (Lemon Squeezer)": (
+            "Smith & Wesson Safety Hammerless"
+        ),
+        "SHARPS AND HANKINS NAVY CARBINE": "Sharps & Hankins Model 1862",
+        "Civil War 5th Model Burnside Saddle Ring Carbine": "Burnside Carbine",
+        "SOLD EXCEPTIONAL 1895 LOWE MADE CHILEAN MAUSER ALL MATCHING": "Chilean Model 1895",
+        "CONFEDERATE IMPORTED “ANCHOR” OVER “S” ENFIELD RIFLE-MUSKET": "Tower Enfield Pattern 1853",
+        "ENFIELD MKIV MARTINI HENRY": "Martini-Henry",
+    }
+
+    def test_what_they_write_names_the_model(self, seeded):
+        armory.apply_sync(seeded, armory.SEED_FILE)
+        seeded.commit()
+        armory.invalidate()
+        found = {title: armory.match(seeded, title).model for title in self.EXPECTED}
+        assert found == self.EXPECTED
+
+    def test_and_not_what_it_only_resembles(self, seeded):
+        """Each of these was caught by a spelling tried and then taken back."""
+        armory.apply_sync(seeded, armory.SEED_FILE)
+        seeded.commit()
+        armory.invalidate()
+        named = {
+            title: armory.match(seeded, title).model
+            for title in (
+                # A Danish rolling block is not a Remington, and the model
+                # would have said Remington built it.
+                "DANISH M-1867 ROLLING BLOCK RIFLE, 11.43mm CENTERFIRE",
+                # Two cartridges, not the S&W Model 3.
+                "Belgium 44 S&W Russian Antique Single / Double Action Frontier Army",
+                # Burnside's company built Spencers; this is a Spencer.
+                "U.S. Contract model 1865 Spencer by Burnside .52 caliber",
+                # Erma's .22 trainer, not the Mauser.
+                "ERMA STANDARD MODELL E35",
+                # A Spanish copy of the C96, which has a row of its own.
+                "ASTRA 900 FLATSIDE BROOMHANDLE 9MM RESTORED PISTOL",
+                # The 1884 is its own row; the 1873's spellings must not reach it.
+                "INDIAN WARS SPRINGFIELD U.S. MODEL 1884 TRAPDOOR .45-70 CAL. RIFLE",
+                # A Turkish clone's "1911 A1" is not the U.S. pistol.
+                "Tisas Arms 1911 A1 Service 9mm Luger 5in Semi-Auto Pistol",
+            )
+        }
+        assert named == {
+            "DANISH M-1867 ROLLING BLOCK RIFLE, 11.43mm CENTERFIRE": None,
+            "Belgium 44 S&W Russian Antique Single / Double Action Frontier Army": None,
+            "U.S. Contract model 1865 Spencer by Burnside .52 caliber": "Spencer Model 1865",
+            "ERMA STANDARD MODELL E35": "E35",
+            "ASTRA 900 FLATSIDE BROOMHANDLE 9MM RESTORED PISTOL": "Astra Model 900",
+            "INDIAN WARS SPRINGFIELD U.S. MODEL 1884 TRAPDOOR .45-70 CAL. RIFLE": (
+                "Springfield Model 1884"
+            ),
+            "Tisas Arms 1911 A1 Service 9mm Luger 5in Semi-Auto Pistol": "Tisas Arms 1911",
+        }
+        # The stray backslash that made "1903 Springfield" unmatchable is gone.
+        row = seeded.query(FirearmModel).filter(FirearmModel.name == "M1903 Springfield").one()
+        assert not any(spelling.startswith("\\") for spelling in row.spellings)

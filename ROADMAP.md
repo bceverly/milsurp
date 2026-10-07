@@ -24,6 +24,10 @@ server sends its own certificate without the intermediate; browsers fetch the
 missing one themselves, Python does not. The same public intermediate now
 ships in `backend/app/scrapers/certs/extra-intermediates.pem`, added to the
 trusted roots, so the chain verifies end to end and nothing is switched off.
+What A Country joined it on 2026-10-07. Its certificate, renewed the day
+before, came without *GeoTrust TLS RSA CA G1*, and the next scan could not
+read robots.txt. That intermediate is in the same file now, checked against
+the DigiCert root certifi already trusts before it was added.
 
 **The two most recent came out of the queue:** DBG Firearms, a second Wix
 shop, and Botach, whose catalog is drawn by Algolia and is now read through
@@ -4350,6 +4354,60 @@ list leads with newest and recently reduced; the Market groups by caliber,
 maker, country, finest to coarsest as the inventory's filters do; and
 Classification's tabs follow the order the classifier asks its questions, part
 or gun first, which is now where the page opens.
+
+### The antique shops' guns, named — **Shipped** 2026-10-07
+
+The ten shops added on 2026-10-06 sell what the rest of the catalog mostly does
+not: Colt Dragoons, S&W top-breaks, Sharps and Burnside carbines, Remington
+derringers, rolling blocks. On their first scans only 43% of their guns named
+a model (the rest of the catalog: 69%), and three in four had a caliber
+(elsewhere: 98 in 100).
+
+**The armory.** Measured against every gun title in production before
+shipping. Every listing whose match changed was read, not just counted, and
+each spelling that caught the wrong gun was taken back:
+
+- **Existing rows that did not know how these dealers write them.** "Colt
+  Model 1911", "Eddystone Model 1917", "No.4 MkI", a bare "Garand",
+  "Broomhandle", "Colt 1873 Single Action Army", "1903 Colt Pocket
+  Hammerless". The M1903's "1903 Springfield" had never matched at all: it
+  was stored with a stray backslash in front.
+- **49 new models.** Among them: the Colt 1861 Navy, Dragoon, New Service,
+  Model 1917 and Third Model Derringer; the S&W No. 1, 1½, 2 Army, Model 3,
+  Safety Hammerless, Double Action and Hand Ejector; the Remington 1858, double
+  derringer and rolling block; the Winchester 12, 70, 1876, 1886 and 1897;
+  Sharps, Burnside, Starr, Merrill, Maynard, Smith, Gallager, Ballard and
+  Rogers & Spencer; the Pattern 1853, Snider, Martini-Henry, Krag and Chilean
+  1895.
+- **17 new makers**, and Simeon North and Grulla Armas under names that do not
+  catch "North American Arms" or a "CASED" in front.
+
+The spellings tried and withdrawn are pinned by a test as cases that must
+*not* match. A bare "Rolling Block" names Danish and Swedish rifles as
+Remingtons. "S&W Russian" and "S&W American" are cartridges. "Burnside" alone
+takes the Spencers Burnside built. "Standard Modell" takes Erma's .22 trainer.
+"Model 1884 Trapdoor" let the 1873's row take the 1884's listings.
+
+The result: the new shops' guns name a model 52% of the time (from 44%), and
+the whole catalog 72.7% (from 69.4%).
+
+**Calibers.** The classifier now reads the Victorian rimfires (".41 RF",
+"32 Rimfire", "38 LONG RF", each to the armory's existing row). It also reads
+Winchester's old centerfire names ("38 WCF" is the .38-40) and a caliber
+written word first, the way Merz Antiques write every listing ("IN CALIBER
+44"). Of the 618 new-shop guns with no caliber, 96 now have one. A .22 rimfire
+is left alone: on a Victorian revolver it is a .22 Short more often than not.
+
+**Production's pending queue was worked through in the same pass.**
+- **Models:** 18 merged into the rows they duplicate ("TT 33", "No4 Mk I",
+  "LP-08"). 9 approved (the Polish wz.29 and wz.98a, the MR73, TOZ-8, FP-45).
+  208 switched off: scan artifacts ("IN 12", "SIDE 16", "JAN 21", Merz's stock
+  numbers) and bare numbers that name no one gun ("MODEL 336").
+- **Calibers:** 4 merged and 24 approved.
+- **Makers:** 2 approved and 4 switched off.
+
+Every action is in the audit log, and the shipped file carries the result, so
+applying it changes nothing that was decided there.
 
 ### The armory pages its tables, and its tests stop waiting on them — **Shipped** 2026-10-07
 

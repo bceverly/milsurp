@@ -9,6 +9,7 @@ for 225 more and lost none.
 from __future__ import annotations
 
 import pytest
+import yaml
 
 from app.services import armory
 from app.services.classify import extract_caliber
@@ -137,6 +138,52 @@ class TestABoreStatedInWords:
 
     def test_but_a_range_of_years_is_not_one(self):
         assert extract_caliber("Civil War Era Carbine 1861-1865") is None
+
+
+class TestTheVictorianCartridges:
+    """The antique shops added in October 2026 had a caliber on three guns in
+    four, against 98 in a hundred elsewhere. Most of the gap was rimfires and
+    Winchester's old names for its centerfires -- "IN CALIBER 41 RF", "38 WCF"
+    -- which nothing read, and Merz's habit of putting the word first."""
+
+    @pytest.mark.parametrize(
+        ("title", "wanted"),
+        [
+            ("COLT THIRD MODEL DERRINGER IN CALIBER 41 RF", ".41 RF"),
+            ("Colt New Line .41 RF", ".41 RF"),
+            ("S&W No. 2 Old Model Army 32 Rimfire, Possible Civil War", ".32 RF"),
+            ("REMINGTON BEALS SINGLE SHOT RIFLE IN 32 LONG RF", ".32 RF"),
+            ("Tycoon 5 Shot 38 Rimfire Spur Trigger Revolver", ".38 RF"),
+            ("Remington Smoot #1 30 Rimfire Made 1876", ".30 RF"),
+            ("SPORTERIZED BALLARD MILITARY RIFLE CHAMBERED IN 44 RF", ".44 RF"),
+            ("FIRST GENERATION COLT SAA IN CALIBER 38 WCF", ".38-40 Winchester"),
+            ("Winchester 1873 44 WCF", ".44-40 Winchester"),
+            ("MARLIN MODEL 336SC SERIAL NUMBER 25091344 CALIBER 35 REMINGTON", ".35 Remington"),
+            ("COLT MODEL 1860 ARMY PERCUSSION REVOLVER IN CALIBER 44", ".44"),
+        ],
+    )
+    def test_the_ways_they_are_written(self, title, wanted):
+        assert extract_caliber(title) == wanted
+
+    def test_a_22_rimfire_is_left_alone(self):
+        """On a Victorian revolver "22 RF" is a .22 Short more often than not,
+        and the bare-.22 rule would have called it Long Rifle."""
+        assert extract_caliber("S&W Model No. 1 Third Issue 22 RF Revolver") is None
+
+    @pytest.mark.parametrize(
+        "title",
+        ["Springfield caliber 30-06 rifle", "Model 1903 cal. 7.62x39"],
+    )
+    def test_the_word_first_does_not_take_half_a_cartridge(self, title):
+        assert extract_caliber(title) not in {".30", ".7"}
+
+    def test_every_answer_is_a_row_in_the_shipped_armory(self):
+        """A caliber the classifier names that the armory has no row for would
+        be proposed as a new one on every scan."""
+        shipped = yaml.safe_load(armory.SEED_FILE.read_text(encoding="utf-8"))
+        names = {row["name"] for row in shipped["calibers"]}
+        for name in (".30 RF", ".32 RF", ".38 RF", ".41 RF", ".44 RF", ".35 Remington"):
+            assert name in names
 
 
 class TestTheSixTheRecomputeGotWrong:
