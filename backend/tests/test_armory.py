@@ -1634,3 +1634,35 @@ class TestTheShippedArmoryKnowsTheAntiqueShops:
         # The stray backslash that made "1903 Springfield" unmatchable is gone.
         row = seeded.query(FirearmModel).filter(FirearmModel.name == "M1903 Springfield").one()
         assert not any(spelling.startswith("\\") for spelling in row.spellings)
+
+
+class TestRematchingAfterABigApproval:
+    """Approving the whole shipped armory at once re-reads every listing that
+    mentions any of several thousand spellings. That was one query with an OR
+    per spelling, and SQLite refuses an expression tree deeper than 1,000:
+    "Select all, Promote to production" answered "The database could not
+    answer that request" the day the October 2026 models took the file past
+    it. The spellings are now looked up a few hundred at a time."""
+
+    def test_thousands_of_spellings_in_one_call(self, clean_db):
+        from app.models import Item, Site
+        from app.services import manufacturers
+
+        site = Site(slug="s", name="S", base_url="https://s.test/")
+        clean_db.add(site)
+        clean_db.flush()
+        clean_db.add_all(
+            Item(site_id=site.id, external_key=key, url="https://s.test/x", title=title)
+            for key, title in (("a", "Colt Dragoon 3rd Model"), ("b", "Nothing to see"))
+        )
+        clean_db.commit()
+
+        spellings = ["colt dragoon", *(f"No Such Gun {n}" for n in range(3000)), "3rd Model"]
+        found = manufacturers.items_mentioning(clean_db, spellings)
+        # Once, though two spellings in different batches both name it.
+        assert [item.external_key for item in found] == ["a"]
+
+    def test_and_none_is_no_query_at_all(self, clean_db):
+        from app.services import manufacturers
+
+        assert manufacturers.items_mentioning(clean_db, ["", "  "]) == []

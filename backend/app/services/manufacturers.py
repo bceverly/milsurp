@@ -26,6 +26,7 @@ from __future__ import annotations
 import logging
 import re
 import threading
+from collections.abc import Iterable
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
@@ -424,22 +425,44 @@ def reprocess(session: Session, spellings: list[str]) -> int:
     can gain a maker, and one can lose it when the rule that gave it is
     deleted.
     """
-    wanted = [text.strip() for text in spellings if text and text.strip()]
-    if not wanted:
+    candidates = items_mentioning(session, spellings)
+    if not candidates:
         return 0
-
-    clauses = []
-    for text in wanted:
-        pattern = f"%{_escape_like(text)}%"
-        # ilike: the spellings are matched case-insensitively everywhere else
-        # in this module, and SQLite's LIKE gave that for free where
-        # PostgreSQL's does not.
-        clauses.append(Item.title.ilike(pattern, escape="!"))
-        clauses.append(Item.description.ilike(pattern, escape="!"))
-
-    candidates = session.execute(select(Item).where(or_(*clauses))).scalars().all()
     rules = registry(session)
     return sum(_reread(session, rules, item) for item in candidates)
+
+
+#: Spellings per query in :func:`items_mentioning`. Each one is two LIKEs, and
+#: SQLite parses a chain of ORs as a tree it will not let grow past a depth of
+#: 1,000 -- "Expression tree is too large". Approving the whole shipped armory
+#: at once is several thousand spellings, and it failed that way the day the
+#: October 2026 models took the file past the limit. PostgreSQL has no such
+#: ceiling, but one query per few hundred spellings costs it nothing either.
+_SPELLINGS_PER_QUERY = 200
+
+
+def items_mentioning(session: Session, spellings: Iterable[str]) -> list[Item]:
+    """Every listing whose title or description contains one of ``spellings``.
+
+    The listings an edit to a spelling can change, and the only ones the
+    re-matching after an armory edit needs to read. Case-insensitive, as every
+    spelling here is matched. Each listing once, however many spellings it
+    mentions.
+    """
+    wanted = list(dict.fromkeys(text.strip() for text in spellings if text and text.strip()))
+    found: dict[int, Item] = {}
+    for start in range(0, len(wanted), _SPELLINGS_PER_QUERY):
+        clauses = []
+        for text in wanted[start : start + _SPELLINGS_PER_QUERY]:
+            pattern = f"%{_escape_like(text)}%"
+            # ilike: the spellings are matched case-insensitively everywhere
+            # else in this module, and SQLite's LIKE gave that for free where
+            # PostgreSQL's does not.
+            clauses.append(Item.title.ilike(pattern, escape="!"))
+            clauses.append(Item.description.ilike(pattern, escape="!"))
+        for item in session.execute(select(Item).where(or_(*clauses))).scalars():
+            found.setdefault(item.id, item)
+    return list(found.values())
 
 
 def _reread(session: Session, rules: Registry, item: Item) -> bool:

@@ -38,7 +38,7 @@ from typing import Any
 from uuid import uuid4
 
 import yaml
-from sqlalchemy import Select, and_, delete, func, or_, select, update
+from sqlalchemy import Select, and_, delete, func, select, update
 from sqlalchemy.orm import Session, selectinload
 
 from ..models import (
@@ -2013,11 +2013,6 @@ def _restamp(session: Session, statement) -> int:
     return int(session.execute(statement).rowcount or 0)  # type: ignore[attr-defined]
 
 
-def _escape_like(text: str) -> str:
-    """Make a literal safe inside a LIKE pattern, with ! as the escape."""
-    return text.replace("!", "!!").replace("%", "!%").replace("_", "!_")
-
-
 def reprocess(session: Session, spellings: Iterable[str]) -> int:
     """Re-match every listing whose text mentions one of ``spellings``.
 
@@ -2041,20 +2036,9 @@ def reprocess(session: Session, spellings: Iterable[str]) -> int:
     which is the mistake this codebase has already made twice. ``reclassify``
     remains the way to rebuild everything.
     """
-    wanted = [text.strip() for text in spellings if text and text.strip()]
-    if not wanted:
+    candidates = manufacturers.items_mentioning(session, spellings)
+    if not candidates:
         return 0
-
-    clauses = []
-    for text in wanted:
-        pattern = f"%{_escape_like(text)}%"
-        # ilike, because every spelling in this module is matched
-        # case-insensitively and SQLite's LIKE gives that for free where
-        # PostgreSQL's does not.
-        clauses.append(Item.title.ilike(pattern, escape="!"))
-        clauses.append(Item.description.ilike(pattern, escape="!"))
-
-    candidates = session.execute(select(Item).where(or_(*clauses))).scalars().all()
     changed = 0
     for item in candidates:
         stated = canonical_caliber(session, item.caliber) or item.caliber

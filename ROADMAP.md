@@ -4409,6 +4409,16 @@ is left alone: on a Victorian revolver it is a .22 Short more often than not.
 Every action is in the audit log, and the shipped file carries the result, so
 applying it changes nothing that was decided there.
 
+**One thing the bigger file broke, and only on SQLite.** Approving rows
+re-reads the listings that mention any of their spellings, in one query with
+an OR per spelling. "Select all, Promote to production" on the shipped armory
+is several thousand of them, and SQLite refuses an expression tree deeper than
+1,000, so the end-to-end test of that button failed with "The database could
+not answer that request". PostgreSQL has no such limit, so production was
+never affected. The lookup is now one shared helper,
+`manufacturers.items_mentioning`, that asks a few hundred spellings at a time.
+The model and maker paths had each carried their own copy of the loop.
+
 ### The armory pages its tables, and its tests stop waiting on them — **Shipped** 2026-10-07
 
 Playwright flagged `armory.spec.js` as its slowest file at 7.1 minutes. The API
