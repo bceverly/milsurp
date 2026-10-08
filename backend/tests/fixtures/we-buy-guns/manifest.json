@@ -1,0 +1,22 @@
+{
+  "slug": "we-buy-guns",
+  "recorded_at": "2026-10-08T15:51:50+00:00",
+  "pages": [
+    {
+      "url": "https://store.webuyguns.com/handguns/",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://store.webuyguns.com/used-taurus-pt-111-millennium/",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://store.webuyguns.com/used-springfield-xdm-elite/",
+      "file": "0003.html.gz"
+    },
+    {
+      "url": "https://store.webuyguns.com/fusion-firearms-reaction-10mm-pistol/",
+      "file": "0004.html.gz"
+    }
+  ]
+}

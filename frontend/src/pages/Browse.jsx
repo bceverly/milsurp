@@ -161,6 +161,10 @@ const KINDS = [
   { value: "", label: "Anything" },
   { value: "rifle", label: "Rifles" },
   { value: "pistol", label: "Handguns" },
+  //: Compact and subcompact pistols and small revolvers in a carry cartridge.
+  //: Taken out of Handguns and Police surplus, so a traded-in Glock 19 is
+  //: counted once, here. See app/services/carry.py.
+  { value: "concealed_carry", label: "Concealed carry" },
   //: Its own Type rather than scattered through Rifles and Handguns. A
   //: department trade-in is a different thing to be looking for, and the
   //: vendors sell them as their own named sections, so the catalog can say so.

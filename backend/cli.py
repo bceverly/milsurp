@@ -54,6 +54,7 @@ from app.services import (
     arsenals,
     bootstrap,
     canary,
+    carry,
     classify,
     crosscatalog,
     discovery,
@@ -701,7 +702,9 @@ def _permitted(
     return allowed
 
 
-def cmd_reclassify(args: argparse.Namespace) -> int:
+def cmd_reclassify(  # noqa: PLR0912, PLR0915 - one pass over every derived field, in order
+    args: argparse.Namespace,
+) -> int:
     """Re-derive rifle/pistol and the other inferred fields from stored text.
 
     Classification runs on every upsert, so a re-scan fixes it — but a re-scan
@@ -894,11 +897,19 @@ def cmd_reclassify(args: argparse.Namespace) -> int:
                     is_firearm=bool(flags["is_rifle"] or flags["is_pistol"]),
                 )
 
-            if any(getattr(item, name) != value for name, value in (flags | filled).items()):
+            moved = any(getattr(item, name) != value for name, value in (flags | filled).items())
+            if moved:
                 for name, value in flags.items():
                     setattr(item, name, value)
                 for name, value in filled.items():
                     setattr(item, name, value)
+            # Last, from the fields just settled -- the same call a scan makes,
+            # so the two paths cannot disagree. See app/services/carry.py.
+            is_carry = carry.decide(session, item)
+            if item.is_concealed_carry != is_carry:
+                item.is_concealed_carry = is_carry
+                moved = True
+            if moved:
                 changed += 1
         session.commit()
 
@@ -913,6 +924,9 @@ def cmd_reclassify(args: argparse.Namespace) -> int:
         ).scalar_one()
         kits = session.execute(
             select(func.count(Item.id)).where(Item.is_parts_kit.is_(True))
+        ).scalar_one()
+        carried = session.execute(
+            select(func.count(Item.id)).where(Item.is_concealed_carry.is_(True))
         ).scalar_one()
         # "Other" as the browse page defines it: what none of the four claim.
         #
@@ -931,7 +945,7 @@ def cmd_reclassify(args: argparse.Namespace) -> int:
 
     print(f"Reclassified {changed} of {len(items)} listing(s).")
     print(f"  rifles: {rifles}   handguns: {pistols}   other: {other}")
-    print(f"  bayonets: {bayonets}   parts kits: {kits}")
+    print(f"  bayonets: {bayonets}   parts kits: {kits}   concealed carry: {carried}")
     _report_protected(protected)
     return 0
 

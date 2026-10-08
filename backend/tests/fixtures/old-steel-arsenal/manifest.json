@@ -1,0 +1,22 @@
+{
+  "slug": "old-steel-arsenal",
+  "recorded_at": "2026-10-08T14:20:04+00:00",
+  "pages": [
+    {
+      "url": "https://oldsteelarsenal.com/wp-json/wc/store/v1/products?per_page=100&page=1&orderby=date&order=desc&category=77",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://oldsteelarsenal.com/wp-json/wc/store/v1/products?per_page=100&page=2&orderby=date&order=desc&category=77",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://oldsteelarsenal.com/wp-json/wc/store/v1/products?per_page=100&page=1&orderby=date&order=desc&category=78",
+      "file": "0003.html.gz"
+    },
+    {
+      "url": "https://oldsteelarsenal.com/wp-json/wc/store/v1/products?per_page=100&page=1&orderby=date&order=desc&category=35",
+      "file": "0004.html.gz"
+    }
+  ]
+}

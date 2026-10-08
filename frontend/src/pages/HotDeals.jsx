@@ -90,6 +90,7 @@ function Subscription({ preference, labels, buckets, onChange, busy }) {
   const FIELD = {
     rifle: "include_rifles",
     pistol: "include_handguns",
+    concealed_carry: "include_concealed_carry",
     police_surplus: "include_police_surplus",
   };
   return (
@@ -460,8 +461,8 @@ export default function HotDeals() {
             <p style={{ margin: 0 }}>
               Nothing here at the moment. A listing has to be well under what several
               shops are asking for the same gun, which on a quiet week is nothing at all —
-              and police surplus is a small enough corner of the catalog that it is often
-              empty.
+              and concealed carry and police surplus are small enough corners of the
+              catalog that they are often empty.
             </p>
           </div>
         </div>

@@ -18,8 +18,15 @@ from app.scrapers import SCRAPER_CLASSES
 
 #: Mailing services a vendor's signup page may live on instead of their own
 #: domain. Adding one here is a deliberate act, like any other domain we send
-#: an administrator to.
-MAILING_SERVICES = ("list-manage.com", "constantcontact.com", "constantcontactpages.com")
+#: an administrator to. ``mailchi.mp`` is Mailchimp's own domain for the landing
+#: pages it hosts, added for Moka's Raifus, whose site links there and whose
+#: page offers no ``list-manage.com`` address to use instead.
+MAILING_SERVICES = (
+    "list-manage.com",
+    "mailchi.mp",
+    "constantcontact.com",
+    "constantcontactpages.com",
+)
 
 
 def _registrable(host: str) -> str:

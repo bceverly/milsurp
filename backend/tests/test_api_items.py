@@ -258,7 +258,15 @@ class TestTheTypeCounts:
         return {k["value"]: k["count"] for k in body["facets"]["kinds"]}
 
     #: Every Type the filter offers, which is what the sum below has to cover.
-    TYPES = ("rifle", "pistol", "bayonet", "parts_kit", "police_surplus", "other")
+    TYPES = (
+        "rifle",
+        "pistol",
+        "concealed_carry",
+        "bayonet",
+        "parts_kit",
+        "police_surplus",
+        "other",
+    )
 
     def test_one_per_type_plus_anything(self, client, admin_headers, inventory):
         counts = self.counts(client, admin_headers)

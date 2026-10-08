@@ -53,6 +53,7 @@ from . import (
     armory,
     arsenals,
     boilerplate,
+    carry,
     classify,
     curio,
     discovery,
@@ -577,10 +578,7 @@ def _upsert_item(
     adopt = _fill_derived(session, site, item, derived, trusted)
     _apply_catalog(session, item, trusted, adopt=adopt)
 
-    # Last word, after the vendor's fields, the heuristics and the armory.
-    # A person who corrected this listing did so knowing what the rules said,
-    # so anything the rules conclude now is the thing being corrected.
-    overrides.apply_to(session, item)
+    _settle_last(session, item)
 
     session.flush()
 
@@ -594,6 +592,20 @@ def _upsert_item(
         item.detail_fetched_at = seen_at
 
     return item, created, price_dropped
+
+
+def _settle_last(session: Session, item: Item) -> None:
+    """The two steps that must come after everything else, in this order.
+
+    A person's correction is the last word, after the vendor's fields, the
+    heuristics and the armory: whoever corrected this listing did so knowing
+    what the rules said, so anything the rules conclude is what was corrected.
+    And concealed carry is decided from what the listing finally says --
+    including a corrected caliber -- by the same call ``reclassify`` makes. See
+    app/services/carry.py.
+    """
+    overrides.apply_to(session, item)
+    item.is_concealed_carry = carry.decide(session, item)
 
 
 def _apply_catalog(session: Session, item: Item, trusted: bool, *, adopt: bool = False) -> None:

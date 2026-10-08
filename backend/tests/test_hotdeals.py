@@ -285,7 +285,12 @@ class TestTheThreeFilters:
 
         assert len(hotdeals.deals(clean_db, "pistol")) == 1
         assert hotdeals.deals(clean_db, "rifle") == []
-        assert hotdeals.counts(clean_db) == {"rifle": 0, "pistol": 1, "police_surplus": 0}
+        assert hotdeals.counts(clean_db) == {
+            "rifle": 0,
+            "pistol": 1,
+            "concealed_carry": 0,
+            "police_surplus": 0,
+        }
 
 
 class TestIdenticalOffersCollapse:

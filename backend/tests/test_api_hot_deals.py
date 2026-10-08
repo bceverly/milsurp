@@ -59,8 +59,13 @@ class TestReadingThePage:
         body = client.get("/api/hot-deals", headers=admin_headers).json()
 
         assert len(body["deals"]) == 1
-        assert body["counts"] == {"rifle": 1, "pistol": 0, "police_surplus": 0}
-        assert body["buckets"] == ["rifle", "pistol", "police_surplus"]
+        assert body["counts"] == {
+            "rifle": 1,
+            "pistol": 0,
+            "concealed_carry": 0,
+            "police_surplus": 0,
+        }
+        assert body["buckets"] == ["rifle", "pistol", "concealed_carry", "police_surplus"]
         assert body["labels"]["police_surplus"] == "Police surplus"
         assert body["preference"]["enabled"] is True
 
@@ -248,6 +253,7 @@ class TestTheSubscription:
             "include_rifles": True,
             "include_handguns": True,
             "include_police_surplus": True,
+            "include_concealed_carry": True,
             "match_saved_searches": False,
             "saved_searches": 0,
             "last_sent_at": None,

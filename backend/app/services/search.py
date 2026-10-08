@@ -230,12 +230,22 @@ def _search_terms(search: str) -> list[str]:
 #: Police surplus would break the partition and show a listing twice. So the
 #: bucket is subtracted here, in the one place that cares, rather than by
 #: making the underlying column lie.
+#:
+#: Concealed carry is subtracted the same way, and from Police surplus too: a
+#: traded-in Glock 19 is shopped for as a carry gun, so that is the one bucket
+#: it is counted in (decided 2026-10-08; see app/services/carry.py). It is only
+#: ever true of a handgun, so Rifles needs no term for it.
 KINDS: dict[str, Any] = {
     "rifle": Item.is_rifle.is_(True) & Item.is_police_surplus.is_(False),
-    "pistol": Item.is_pistol.is_(True) & Item.is_police_surplus.is_(False),
+    "pistol": (
+        Item.is_pistol.is_(True)
+        & Item.is_police_surplus.is_(False)
+        & Item.is_concealed_carry.is_(False)
+    ),
+    "concealed_carry": Item.is_concealed_carry.is_(True),
     "bayonet": Item.is_bayonet.is_(True),
     "parts_kit": Item.is_parts_kit.is_(True),
-    "police_surplus": Item.is_police_surplus.is_(True),
+    "police_surplus": Item.is_police_surplus.is_(True) & Item.is_concealed_carry.is_(False),
     # No police-surplus term needed: the column is only ever true for a listing
     # that is already a rifle or a handgun, so this clause excludes it already.
     "other": (

@@ -66,7 +66,8 @@ class RecoilGunWorksScraper(BigCommerceScraper):
     )
     description = (
         "Police trade-in firearms: department Glocks and Sigs, patrol rifles and "
-        "shotguns. Their gear, magazine and training-ammunition sections are not read."
+        "shotguns, and Sig Sauer's certified pre-owned pistols. Their gear, magazine "
+        "and training-ammunition sections are not read."
     )
     requires_browser = False
     default_interval_minutes = 1440
@@ -85,5 +86,13 @@ class RecoilGunWorksScraper(BigCommerceScraper):
         {
             "category": "Police Trade-In Shotguns",
             "url": f"{SITE_BASE}police-trade-in/firearms/pd-trade-shotguns/",
+        },
+        # Sig Sauer's factory-certified pre-owned guns, about thirty and half
+        # of them carry guns (P365s, a P365 XL, an X-Macro, a P320 Carry).
+        # Added 2026-10-08 for the concealed-carry category; not police
+        # surplus, and the category name says so.
+        {
+            "category": "Sig Sauer Certified Pre-Owned",
+            "url": f"{SITE_BASE}firearms/sig-sauer-cpo-firearms/",
         },
     )

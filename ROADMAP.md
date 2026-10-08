@@ -92,6 +92,12 @@ the whole catalog as JSON to the widget that draws the grid. See
 | [Shoot It](https://www.shootitllc.com/collectibles/curio-relic/) | `shoot-it` | BigCommerce — curio-and-relic and antique shelves: engraved Colts, Winchesters, lawman's guns |
 | [Cherry's Fine Guns](http://www.cherrys.com/longguns.htm) | `cherrys` | Custom (`CatalogPagesScraper`) — two spreadsheet-exported tables, over plain HTTP because the shop's HTTPS fails its handshake |
 | [LugerMan](https://lugerman.com/product-category/firearms/curio-and-relics/) | `lugerman` | WooCommerce Store API — Lugers and other collector pistols; raffle tickets left out |
+| [Moka's Raifus](https://mokasraifus.com/) | `mokas-raifus` | WooCommerce Store API — the gun shelf (118, suppressors and ADAR accessories left out) and, from 520 parts, only the 46 complete kits: original-barrel AK, PKM, StGW57, UK59 and a USGI M1A1 Thompson |
+| [Old Steel Arsenal](https://oldsteelarsenal.com/product-category/rifle/) | `old-steel-arsenal` | WooCommerce Store API — Rifles, Pistols and Revolvers; ~285, all priced, about half military (Finnish Mosins, K98ks, Hakims, Garands, police P6s). NFA, shotguns and accessories left out |
+| [J & J Military Antiques](https://jjmilitary.com/product-category/antique-firearms/) | `jj-military` | WooCommerce Store API — American military antique firearms; ~60 once the parts, tools and empty cases filed in the same section are left out |
+| [Kittery Trading Post](https://www.kitterytradingpost.com/used-guns/handguns/) | `kittery-trading-post` | BigCommerce — the used-handgun rack only; ~790 listings, about four in ten carry guns (J-frames, Detective Specials, Micro 9s, P365s, Shields) |
+| [We Buy Guns](https://store.webuyguns.com/handguns/) | `we-buy-guns` | BigCommerce — every handgun used; ~40 listings, about three in ten carry guns |
+| [Greentop](https://www.greentop.com/shooting/used-guns/pistols/) | `greentop` | Magento — Used Pistols and Used Revolvers, ~185; every title states the barrel length, which the carry rule reads |
 
 ### Planned
 
@@ -1123,6 +1129,103 @@ code and a price, "SOLD OUT" with a date, or "Available at Stores".
     not news.
   - "Back in stock" is also digest news for every watcher, alongside sold and
     price moves. The alert email's subject says "… is back in stock".
+
+### Concealed carry, a Type of its own — **Shipped** 2026-10-08
+
+Asked for on 2026-10-08: used compact and subcompact pistols in 9mm, 10mm,
+.40 and .45, and the small revolvers people carry (.32 H&R, .327 Federal, .38
+Special, .357), as a category of their own. Two decisions were the owner's:
+
+- **Concealed carry outranks Police surplus.** A traded-in Glock 19 is shopped
+  for as a carry gun, so that is the one Type it is counted in. Police surplus
+  keeps the duty guns (Glock 17s and 22s, P226s, rifles, shotguns), and the
+  Types still partition the catalog: every listing is in exactly one.
+- **.380 counts**, beside the calibers asked for: the LCP, the Bodyguard, the
+  P238 and the PPK/S are what a pocket carry gun mostly is.
+
+**How a listing qualifies** (`app/services/carry.py`). It has to be a handgun,
+in a carry cartridge (or in none stated, where the model settles it -- a Glock
+26 is a 9mm). And it needs a carry size, from one of three kinds of evidence:
+
+- a model that only comes small (Glock 19/26/43/48, Sig P365, P238, P6, HK P7,
+  S&W Shield and Bodyguard, a J-frame, an LCR or SP101, a Detective Special);
+- a size the title states ("Compact", "Subcompact", "Snub Nose", "Officer's
+  ACP");
+- for a revolver, a barrel of three inches or less.
+
+It never reads the description: prose compares ("a P365-sized gun"), and a
+duty Glock called "great for carry" is still a duty Glock.
+
+**Measured on production's 6,856 handguns** before shipping: 146 listings for
+sale qualify, and 354 in all, sold ones included. The tests pin the cases it
+gets right and the look-alikes it was caught taking on the way: a CZ Model 38
+(a J-frame number on a Czech pistol), a PPS-43 (Walther's "PPS" inside an
+armory model's name), an 1870s S&W .38 Single Action (the caliber read as a
+model number), a Colt Peacemaker "Centennial" (an S&W J-frame's name), and a
+Lahti "Officer" pistol.
+
+**Where it shows:** the browse page's Type list, beside Handguns; Hot deals,
+as its own tab and its own switch under "Email me about these", subscribed by
+default like the others. Migration 0059 adds `items.is_concealed_carry` and
+`hot_deal_preferences.include_concealed_carry`. The flag is decided last, from
+the fields everything else has settled, by one function the scan and
+`reclassify` both call, so the package's catch-up fills it in for every stored
+listing on upgrade.
+
+### Used concealed-carry handguns survey, October 8 2026 — **three shipped, one shelf added**
+
+Searched for with the Concealed carry category above: shops with a shelf of
+used compact pistols and carry revolvers, at public prices. Shops refused
+earlier only for being off-topic were measured again under the new scope;
+those blocked, duplicated or gone were not. Every candidate was fetched with
+this application's own user agent, robots.txt read, and the shipped three
+fetched again with the application's own HTTP client before they were built --
+the check Shop Family Firearms failed the same day.
+
+| Candidate | Verdict |
+| --- | --- |
+| [Kittery Trading Post](https://www.kitterytradingpost.com/used-guns/handguns/) | **Shipped** (`kittery-trading-post`). 788 used handguns, about 40% carry guns. Stock BigCommerce |
+| [We Buy Guns](https://store.webuyguns.com/handguns/) | **Shipped** (`we-buy-guns`). 38, all used, about 30% carry. Stock BigCommerce |
+| [Greentop](https://www.greentop.com/shooting/used-guns/pistols/) | **Shipped** (`greentop`). ~185 used pistols and revolvers, about 30% carry, a 5-second crawl delay honored. Its titles state each barrel's length, which is why the carry rule now reads a pistol's barrel too (3.6" or under) |
+| Recoil Gun Works' Sig certified pre-owned shelf | **Added** to the existing `recoil-gun-works` scraper: ~30, half of them carry guns. Not police surplus, and filed under its own name so it does not read as such |
+| Collectors Firearms' pre-owned handguns | **Not added.** ~1,350 used handguns, ~18% carry -- but the shop asks for a ten-second crawl delay, refuses at ten and is read at thirty, fortnightly. 136 more category pages and 1,350 product pages at thirty seconds is about eleven more hours of their bandwidth per pass |
+| KY Gun Co, Bud's Gun Shop, Impact Guns | **Maybe**, re-measured under the new scope: 164, 158 and 122 used guns, about one in five carry guns. Each needs work the shipped three did not -- a Typesense client, a parser for Bud's Laravel pages, and a title filter to keep Impact's new and demo guns out of its Searchanise results |
+| Vance Outdoors | **Maybe.** 36 used guns, mostly Ohio State Highway Patrol trade-ins, on the same ColdFusion platform as Sportsman's. **This contradicts the earlier survey**, which refused Vance as having no used shelf; it has one now |
+| Jim's Firearms, RCF Guns | **Maybe.** Jim's: 47, a third carry guns, a new parser and a ten-second delay. RCF: ~258 and about half carry guns, the highest share found -- but a photo gallery with no product ids, links or cart, and it looks in-store only |
+| Select Fire Weaponry | **Weak for carry guns**, but about 40% of its ~130 used and consignment guns are milsurp (K98ks, M91/30s, a Type 14, a Glisenti, a C96): worth measuring under the original scope |
+| Tar River Arms, Gun Shoppe of Sarasota, Boss Firearms, Johnson's Sporting Goods, Florida Gun Exchange | **Weak.** Too small, mostly sold, mostly long guns, or a PDF |
+| Texas Gun Store | **Refused: it relists Bud's.** 42 of 108 titles are Bud's word for word at about 15% more |
+| Kansas Gunshop | **Refused: looks like a scam storefront** |
+| Midwest Guns | **Refused.** The shop hides its prices on the page; reading them out of its Store API would override that choice |
+| Accurate Firearms, Rifle Gear | **Blocked** (403 / Cloudflare challenge) |
+
+### Parts kits, police surplus and milsurp, October 8 2026 — **three shipped**
+
+Asked for on 2026-10-08: more parts-kit shops (a Thompson in particular), more
+police surplus, and any milsurp shop not yet covered. Every candidate was
+fetched with this application's own user agent, with robots.txt read and at
+least 1.5 seconds between requests to a host. **Check this section and the
+ones below before surveying again**: the first pass re-suggested Century Arms,
+Gideon Tactical, Impact Guns, Bud's, Palmetto, CDNN, RTG, APP Arms and Numrich,
+all measured and turned down earlier.
+
+**Police surplus has nothing new to add.** Every police trade-in shelf that is
+reachable and worth reading is already read. The rest were refused or blocked
+earlier, for the reasons recorded below.
+
+| Candidate | Verdict |
+| --- | --- |
+| [Moka's Raifus](https://mokasraifus.com/) | **Shipped** (`mokas-raifus`). 1,318 products; the gun shelf and the 46 complete kits are read, among them a USGI M1A1 Thompson at $1,494.99 (out of stock, so a restock alert is the way to catch it). DBG Firearms resells a few of their guns, but only 5 of DBG's 130 titles match one here, so these are two shops and not one under two names |
+| [Old Steel Arsenal](https://oldsteelarsenal.com/product-category/rifle/) | **Shipped** (`old-steel-arsenal`), 285 listings. Plano, Texas. WooCommerce with the Store API answering: 321 listings in the firearms category (id 836), every one priced. About half are milsurp (Finnish M39s, an S/42 K98k, a Hakim, a Swedish M96, a 1943 Garand, a West German police P6); the rest are used modern guns and suppressors. The rifle, pistol and revolver categories are read; the whole site is 1,170 products, mostly accessories |
+| [J&J Military Antiques](https://jjmilitary.com/) | **Shipped** (`jj-military`), built as a maybe on request. An antique-firearms category of 94: Jenks and Ward-Burton carbines, Colt percussion revolvers. About thirty are parts, tools and empty factory cases, and a part names the gun it fits ("Spencer M-1865 Carbine & Rifle Hinge Pivot Screw") well enough for the classifier to call it a carbine, so anything the shop also files under Gun Parts, Tools or Holsters/Boxes is left out: 62 listings. Its shelf also found a classifier bug: "Whitney Navy Percussion Revolver Altered to Cartridge" read as ammunition, because "cartridge" was the last noun; a cartridge conversion is now stripped before that test |
+| [Shop Family Firearms](https://www.shopfamilyfirearms.com/firearms-for-sale.html) | **Blocked**, on the coming-soon list. Built on request: 76 listings on one `?viewall=1` page (the survey's 27 was the default page size), clean Shift4Shop cards with the shop's catalog id, sale and regular prices, and an availability sentence; the product page has a labeled write-up and the full gallery. Then the first recording failed: Cloudflare answers this application's HTTP client with a challenge (`cf-mitigated: challenge`, 403) while a plain command-line fetch with the same user agent gets the page. That is the shop's bot control telling our client apart, so the scraper was taken back out rather than made to look like something else -- the same call as Liberty Tree and WIS Transfers |
+| [WWII BAR Man](https://www.wwiibarman.com/) | **Weak.** Shopify, readable, but nearly all BAR parts and demilled receivers; one M1A1 Thompson kit at $2,950, sold out |
+| IMA-USA's Thompson parts sets | **Not added.** IMA titles them "Parts Set", and a listing has to say "kit" to be filed as one -- the reason Apex's "Parts Set" listings stay out |
+| Perry Adams Antiques, Historical Arms, Northwest Gun Supply, The War Front, Dirty Bird Industries, Carolina Shooters Supply, HK Parts | **Weak.** Mixed with militaria or artifacts, unpriced, mostly parts, or a supplier's catalog that overlaps Centerfire |
+| The Armory (VA), Top Gun Supply, Orion7 (m1garand.com), Miltech Arms, BuyMilSurp, Sportsman's Guide, Surplus City Guns, Adams Guns | **Refused.** Empty shelves, a price list by grade rather than listings, parts only, gear only, in-store only, or last updated in 2016 |
+| Gallo Inc | **Gone.** "Store Unavailable"; its kits page now carries Bowman's name |
+| Old Arms of Idaho, McKay Enterprises, Childers Guns | **Blocked** (403) |
+| machineguns.us | **Refused: looks like a scam.** A "Thompson Full-Auto 1928" at $2,599 (a transferable one is $25,000 and up) and garbled titles |
 
 ### Collector and antique dealer survey, October 2026 — **ten shipped, one blocked**
 

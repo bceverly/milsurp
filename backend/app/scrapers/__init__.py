@@ -44,19 +44,24 @@ from .demo import DemoScraper
 from .dupage_trading import DupageTradingScraper
 from .ebayonet import EBayonetScraper
 from .empire_arms import EmpireArmsScraper
+from .greentop import GreentopScraper
 from .gunprime import GunPrimeScraper
 from .horse_soldier import HorseSoldierScraper
 from .hunters_lodge import HuntersLodgeScraper
 from .ima_usa import ImaUsaScraper
 from .jg_sales import JgSalesScraper
+from .jj_military import JjMilitaryScraper
 from .joe_salter import JoeSalterScraper
+from .kittery_trading_post import KitteryTradingPostScraper
 from .langara_arms import LangaraArmsScraper
 from .legacy_collectibles import LegacyCollectiblesScraper
 from .lugerman import LugerManScraper
 from .madison_guns import MadisonGunsScraper
 from .merz_antiques import MerzAntiquesScraper
+from .mokas_raifus import MokasRaifusScraper
 from .nickerson_military import NickersonMilitaryScraper
 from .officer_store import OfficerStoreScraper
+from .old_steel_arsenal import OldSteelArsenalScraper
 from .oldguns import OldGunsScraper
 from .pre98 import Pre98Scraper
 from .recoil_gun_works import RecoilGunWorksScraper
@@ -67,6 +72,7 @@ from .simpson_ltd import SimpsonLtdScraper
 from .sportsmans_outdoor import SportsmansOutdoorScraper
 from .surplus_defense import SurplusDefenseScraper
 from .target_sports_usa import TargetSportsUsaScraper
+from .we_buy_guns import WeBuyGunsScraper
 from .what_a_country import WhatACountryScraper
 from .ww2_collectibles import Ww2CollectiblesScraper
 
@@ -139,6 +145,12 @@ SCRAPER_CLASSES: tuple[type[SiteScraper], ...] = (
     ShootItScraper,
     CherrysScraper,
     LugerManScraper,
+    MokasRaifusScraper,
+    OldSteelArsenalScraper,
+    JjMilitaryScraper,
+    KitteryTradingPostScraper,
+    WeBuyGunsScraper,
+    GreentopScraper,
 )
 
 _REGISTRY: dict[str, type[SiteScraper]] = {cls.slug: cls for cls in SCRAPER_CLASSES}

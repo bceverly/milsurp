@@ -2382,14 +2382,26 @@ _BARREL_DESCRIBED_BY_WORD = re.compile(
 #: belt-feds were filed as accessories because "belt" is one.
 _BELT_FED = re.compile(r"\bbelt[\s-]*fed\b", re.I)
 
+#: A percussion gun made to take metallic cartridges: "Whitney Navy Percussion
+#: Revolver Altered to Cartridge", "Colt 1860 Army Converted to Cartridge". The
+#: cartridge is what the gun was changed to fire, but as the last noun in the
+#: title it read as the thing for sale, and J & J Military Antiques' $1,295
+#: Whitney was filed as ammunition.
+_CARTRIDGE_CONVERSION = re.compile(
+    r"\b(?:altered|converted|conversion|alteration)\s+(?:to|for)\s+"
+    r"(?:(?:metallic|rimfire|centerfire|center\s+fire)\s+)?cartridges?\b",
+    re.I,
+)
+
 
 def _without_parts_mentioned(title_lower: str) -> str:
     """The title less the parts it only mentions: what comes with it, a barrel
-    stated in passing by its length or by a word describing it, and "belt fed".
-    Both accessory tests start from this, so they cannot disagree about what
-    the title is selling."""
+    stated in passing by its length or by a word describing it, "belt fed", and
+    a cartridge conversion. Both accessory tests start from this, so they cannot
+    disagree about what the title is selling."""
     stripped = _BARREL_DESCRIBED.sub(" ", _without_attached_parts(title_lower))
     stripped = _BARREL_DESCRIBED_BY_WORD.sub(" ", stripped)
+    stripped = _CARTRIDGE_CONVERSION.sub(" ", stripped)
     return _BELT_FED.sub(" ", stripped)
 
 

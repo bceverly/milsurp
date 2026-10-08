@@ -3075,9 +3075,10 @@ WooCommerce vendors here, and each one should be measured the same way before
 being switched — an endpoint answering 200 is not evidence that its answer is
 better than the page's.
 
-Forty-nine vendors are read today. Two more are queued in
-[ROADMAP.md](ROADMAP.md) -- WIS Transfers and Liberty Tree Collectors, both
-waiting on a bot-control rule that turns this application away -- grouped by
+Fifty-five vendors are read today. Three more are queued in
+[ROADMAP.md](ROADMAP.md) -- WIS Transfers, Liberty Tree Collectors and Family
+Firearms & Finishes, all waiting on a bot-control rule that turns this
+application away -- grouped by
 the platform they run on because one base class unlocks a whole group.
 
 **A shop with no platform at all** -- a hand-made catalog of section pages, each

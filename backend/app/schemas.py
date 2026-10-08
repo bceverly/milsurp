@@ -1069,6 +1069,7 @@ class ItemOut(UTCModel):
     is_bayonet: bool = False
     is_parts_kit: bool = False
     is_police_surplus: bool = False
+    is_concealed_carry: bool = False
     is_sold: bool
     is_active: bool
     current_price: float | None = None
@@ -1644,7 +1645,7 @@ class HotDealPreferenceOut(BaseModel):
     """One reader's subscription.
 
     Always populated, even where no row exists -- the absence *is* the default
-    and means all three categories, so a page that had to distinguish the two
+    and means all four categories, so a page that had to distinguish the two
     would be reading a storage detail. See models.HotDealPreference.
     """
 
@@ -1652,6 +1653,7 @@ class HotDealPreferenceOut(BaseModel):
     include_rifles: bool
     include_handguns: bool
     include_police_surplus: bool
+    include_concealed_carry: bool = True
     match_saved_searches: bool = False
     #: How many saved searches this reader has, so the page can say what the
     #: switch above would narrow to -- and warn when the answer is nothing.
@@ -1664,6 +1666,7 @@ class HotDealPreferenceUpdate(BaseModel):
     include_rifles: bool | None = None
     include_handguns: bool | None = None
     include_police_surplus: bool | None = None
+    include_concealed_carry: bool | None = None
     match_saved_searches: bool | None = None
 
 

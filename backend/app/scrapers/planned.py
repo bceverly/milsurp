@@ -45,6 +45,21 @@ class PlannedSite:
 PLANNED: tuple[PlannedSite, ...] = (
     # -- blocked at the door -----------------------------------------------
     PlannedSite(
+        slug="shop-family-firearms",
+        name="Family Firearms & Finishes",
+        base_url="https://shopfamilyfirearms.com/",
+        platform="Shift4Shop (3dcart), behind Cloudflare",
+        blocker=(
+            "76 surplus rifles and pistols on one page, every one priced, and a "
+            "parser was written and run -- but Cloudflare answers this "
+            "application's requests with a challenge (cf-mitigated: challenge, "
+            "403; checked 2026-10-08) while letting a plain command-line fetch "
+            "through. That is the shop's bot control telling our client apart, "
+            "and getting past it would be evading it, so this waits on the "
+            "shop allowing the scanner, as Liberty Tree does."
+        ),
+    ),
+    PlannedSite(
         slug="liberty-tree-collectors",
         name="Liberty Tree Collectors",
         base_url="https://www.libertytreecollectors.com/",

@@ -1,6 +1,6 @@
 {
   "slug": "recoil-gun-works",
-  "recorded_at": "2026-09-16T13:58:09+00:00",
+  "recorded_at": "2026-10-08T15:52:30+00:00",
   "pages": [
     {
       "url": "https://www.recoilgunworks.com/police-trade-in/firearms/pd-trade-pistols/",
@@ -9,6 +9,14 @@
     {
       "url": "https://www.recoilgunworks.com/pd-trade-sig-sauer-p226-9mm-da-sa-night-sights/",
       "file": "0002.html.gz"
+    },
+    {
+      "url": "https://www.recoilgunworks.com/pd-trade-17-gen4-9mm-night-sights/",
+      "file": "0003.html.gz"
+    },
+    {
+      "url": "https://www.recoilgunworks.com/pd-trade-glock-17t-9mm-fx-training/",
+      "file": "0004.html.gz"
     }
   ]
 }

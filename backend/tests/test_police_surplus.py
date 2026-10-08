@@ -47,6 +47,9 @@ class TestWhichSectionsAreRead:
             "https://www.recoilgunworks.com/police-trade-in/firearms/pd-trade-pistols/",
             "https://www.recoilgunworks.com/police-trade-in/firearms/pd-trade-rifles/",
             "https://www.recoilgunworks.com/police-trade-in/firearms/pd-trade-shotguns/",
+            # Not police surplus: Sig's certified pre-owned shelf, read since
+            # 2026-10-08 for the concealed-carry category.
+            "https://www.recoilgunworks.com/firearms/sig-sauer-cpo-firearms/",
         }
 
     def test_and_not_the_parent_above_them(self):
@@ -76,6 +79,11 @@ class TestWhichSectionsAreRead:
         reads the vendor's section, and nothing else says so."""
         for cls in (RecoilGunWorksScraper, OfficerStoreScraper):
             for source in cls.sources:
+                if "Pre-Owned" in source["category"]:
+                    # Recoil's Sig certified pre-owned shelf, which is not a
+                    # trade-in and must not read as one.
+                    assert not classify._is_police_surplus(source["category"], is_firearm=True)
+                    continue
                 assert classify._is_police_surplus(source["category"], is_firearm=True)
 
 

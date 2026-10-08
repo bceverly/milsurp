@@ -821,6 +821,12 @@ class Item(Base, TimestampMixin):
     is_police_surplus: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False, index=True
     )
+    #: A compact or subcompact pistol, or a small revolver, in a carry
+    #: cartridge. Beside is_pistol like is_police_surplus, and outranks it in
+    #: the browse filter and the hot-deals buckets. See app/services/carry.py.
+    is_concealed_carry: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, index=True
+    )
 
     is_sold: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     #: When a scan (or the watchlist poller) first saw this listing marked
@@ -1859,7 +1865,8 @@ class HotDeal(Base):
     item_id: Mapped[int] = mapped_column(
         ForeignKey("items.id", ondelete="CASCADE"), unique=True, nullable=False, index=True
     )
-    #: rifle | pistol | police_surplus. The browse filter's own buckets, from
+    #: rifle | pistol | police_surplus | concealed_carry. The browse filter's
+    #: own buckets, from
     #: :data:`app.services.search.KINDS`, so the two pages cannot disagree
     #: about where a police trade-in Glock belongs.
     bucket: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
@@ -1898,7 +1905,7 @@ class HotDeal(Base):
 class HotDealPreference(Base, TimestampMixin):
     """Which hot deals one reader wants mailed, and whether they want any.
 
-    **No row means subscribed to all three**, which is how every existing
+    **No row means subscribed to all four**, which is how every existing
     account gets the feature without a backfill and how every new one gets it
     without a signup step. A row exists only once somebody has changed
     something. The same shape ``EmailPreferenceSite`` uses for "no rows means
@@ -1923,6 +1930,7 @@ class HotDealPreference(Base, TimestampMixin):
     include_rifles: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     include_handguns: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     include_police_surplus: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    include_concealed_carry: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     #: Only deals that match at least one of this reader's saved searches.
     #: Off by default, so turning the feature on changes nothing for anybody
     #: until they ask. The categories above still apply on top of it.
