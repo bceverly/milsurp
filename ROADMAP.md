@@ -98,6 +98,10 @@ the whole catalog as JSON to the widget that draws the grid. See
 | [Kittery Trading Post](https://www.kitterytradingpost.com/used-guns/handguns/) | `kittery-trading-post` | BigCommerce — the used-handgun rack only; ~790 listings, about four in ten carry guns (J-frames, Detective Specials, Micro 9s, P365s, Shields) |
 | [We Buy Guns](https://store.webuyguns.com/handguns/) | `we-buy-guns` | BigCommerce — every handgun used; ~40 listings, about three in ten carry guns |
 | [Greentop](https://www.greentop.com/shooting/used-guns/pistols/) | `greentop` | Magento — Used Pistols and Used Revolvers, ~185; every title states the barrel length, which the carry rule reads |
+| [Muzzle-Loaders.com](https://www.muzzle-loaders.com/collections/traditional-muzzleloaders) | `muzzle-loaders` | Shopify — Traditional Muzzleloaders and Muzzleloader Pistols, ~240 reproduction flintlock and percussion guns; inlines and kits left out |
+| [Tortuga Trading](https://www.tortugatrading.com/collections/firearms) | `tortuga-trading` | Shopify — original antique flintlock arms, ~40; only what the shop files as a firearm |
+| [Track of the Wolf](https://www.trackofthewolf.com/parts/list/2584/1) | `track-of-the-wolf` | Custom — six flintlock and percussion sections paged by path, ~50 antiques, customs and used Pedersolis |
+| [Comer's Gunworks](https://www.comersgunworks.com/catalog/black-powder-weapons-and-defarbing) | `comers-gunworks` | Custom — Black Powder Weapons, ~65 reproductions and a few originals; defarbing services left out |
 
 ### Planned
 
@@ -1130,6 +1134,68 @@ code and a price, "SOLD OUT" with a date, or "Available at Stores".
   - "Back in stock" is also digest news for every watcher, alongside sold and
     price moves. The alert email's subject says "… is back in stock".
 
+### Black powder, a Type of its own — **Shipped** 2026-10-08
+
+Asked for the same day as Concealed carry: percussion and flintlock guns --
+rifles, muskets, pistols, revolvers, fowlers -- originals and reproductions
+alike, as a category of their own, with the shops that sell them (see the
+survey below).
+
+**How a listing qualifies** (`app/services/blackpowder.py`): a firearm, not a
+parts kit, whose finer kind already says percussion or flintlock, or whose
+title says flintlock, percussion, cap and ball, matchlock, wheellock,
+muzzleloader or black powder, or names a gun that only ever was one (Brown
+Bess, Charleville, Hawken, a Kentucky or Pennsylvania rifle, a longrifle, a
+fowler, a blunderbuss, a rifle-musket). **Not** a gun converted to fire
+cartridges (Richards-Mason Colts, Remington pocket conversions, a Snider, an
+Allin trapdoor), even where the armory's model calls it a percussion revolver;
+not a "black powder cartridge" rifle; and not a cartridge gun whose title says
+"black powder frame" or "(black powder loads)" or names its cartridge.
+
+**Measured on production's 14,930 guns** before shipping: 774 for sale qualify.
+The first draft took military rifles sold as "Long Rifle" (a Steyr M95, a
+Carcano) and ".22 Short, Long & Long Rifle"; only the one word "longrifle"
+counts now. "Musket" alone counts -- 1795 and 1808 contract muskets, Potsdams,
+East India Company and Confederate Richmond muskets -- except a cartridge gun
+sold as one (a Peabody-Martini, a Winchester 1873 "44-40 Musket", an SMLE made
+into a .410) and a bayonet-training "fencing musket". A gun filed under the
+shop's own muzzleloading section counts too ("Traditional Muzzleloaders"), and
+a modern inline never does.
+
+**It outranks the other gun Types**, Concealed carry and Police surplus
+included: a percussion revolver is never a carry gun or a trade-in, so it is
+counted once, here. Browse Type, a Hot deals tab with its own email switch,
+migration 0060 (`items.is_black_powder`,
+`hot_deal_preferences.include_black_powder`), and the same single call from the
+scan and from `reclassify`, which fills it in on upgrade.
+
+### A user agent per shop, and Greentop's serial numbers — **Shipped** 2026-10-08
+
+**`scraping.user_agent_overrides`**, a mapping of host to agent, for a shop that
+needs something other than the configured one. Added for Old Steel Arsenal,
+whose server answered production's agent with 429 on every catalog request and
+this application's default agent, and no agent at all, with 200. Keyed by host
+so it reaches every request to that shop -- scan, photographs, watchlist
+re-reads, robots.txt -- and robots.txt is matched against the agent actually
+sent. Empty by default; every other host keeps `user_agent`. The same day,
+every platform's "robots.txt disallows" warning learned to say "could not read
+robots.txt" when that is what happened, which is what had sent the Old Steel
+Arsenal diagnosis to the wrong file.
+
+**Greentop's titles carry each gun's serial number** ("Used GLOCK 19V 9X19
+CHFR895 4" MATTE…"), always the word before the barrel length. It is taken out
+in the scraper now: a serial number does not belong on a public page here, and
+the armory's discovery was proposing every one as a model ("CHFR895",
+"CEZE544") -- four of the 110 the queue held that evening.
+
+**Production's queue, worked through again**: 110 models, 10 makers and a
+caliber, mostly the used-handgun shops' model codes. 24 merged into the rows
+they duplicate (SP 101 into SP101, the VP9 variants into VP9, KELTEC into
+Kel-Tec), about 70 approved (the Kahr, SCCY and Shadow Systems lines, the CZ
+P-10s, a Sig M11-A1 and MK25), and 16 switched off: the serials, title
+fragments ("II 45", "LBL 3"), and codes that name more than one gun ("P15",
+"MC1").
+
 ### Concealed carry, a Type of its own — **Shipped** 2026-10-08
 
 Asked for on 2026-10-08: used compact and subcompact pistols in 9mm, 10mm,
@@ -1156,6 +1222,15 @@ in a carry cartridge (or in none stated, where the model settles it -- a Glock
 It never reads the description: prose compares ("a P365-sized gun"), and a
 duty Glock called "great for carry" is still a duty Glock.
 
+**.32 ACP and .25 ACP were added the same day**, at the owner's request, with
+the pocket pistols that came in them: the Baby Browning and FN 1905/1910, the
+Colt Vest Pocket and Pocket Hammerless, Walther's PP, PPK, TPH and Models 8
+and 9, the Mauser HSc and Sauer 38H, Beretta's 1934/35, 950, Tomcat and Bobcat,
+the CZ 27, Seecamp, Kel-Tec P32 and the rest. That took the category from about
+150 listings for sale to 531. Most of the 338 it gained are WWII collectibles --
+Police Eagle PPKs, wartime HScs, SS-contract PPs -- which are pocket carry
+pistols by design and so moved out of Handguns.
+
 **Measured on production's 6,856 handguns** before shipping: 146 listings for
 sale qualify, and 354 in all, sold ones included. The tests pin the cases it
 gets right and the look-alikes it was caught taking on the way: a CZ Model 38
@@ -1171,6 +1246,42 @@ default like the others. Migration 0059 adds `items.is_concealed_carry` and
 the fields everything else has settled, by one function the scan and
 `reclassify` both call, so the package's catch-up fills it in for every stored
 listing on upgrade.
+
+### Black powder dealers survey, October 8 2026 — **four shipped, two blocked**
+
+Asked for with the Black powder category: the best places to buy percussion
+and flintlock guns, originals and reproductions, Dixie Gun Works by name. 30
+candidates measured, every one fetched with this application's own user agent,
+robots.txt and its crawl delay honored, and every strong one fetched again with
+the application's own HTTP client before it was built.
+
+| Candidate | Verdict |
+| --- | --- |
+| [Muzzle-Loaders.com](https://www.muzzle-loaders.com/) | **Shipped** (`muzzle-loaders`). The largest reproduction catalog found: Pedersoli, Pietta, Investarm, Traditions, about 240 sidelock guns. Its inline muzzleloaders (about 350 of 1,875 products) and its kits are not read |
+| [Tortuga Trading](https://www.tortugatrading.com/) | **Shipped** (`tortuga-trading`). Original English and Continental flintlocks, mostly five figures |
+| [Track of the Wolf](https://www.trackofthewolf.com/) | **Shipped** (`track-of-the-wolf`). Antiques, contemporary customs and used Pedersolis; "shipped out for inspection" reads as not for sale |
+| [Comer's Gunworks](https://www.comersgunworks.com/) | **Shipped** (`comers-gunworks`). Reenactors' reproductions; the maker leads each title because the shop sets it apart |
+| **Dixie Gun Works** | **Blocked**, on the coming-soon list: Cloudflare challenges this application on the home page itself |
+| **Lodgewood Mfg** | **Blocked**, on the coming-soon list: 85 guns, but Cloudflare challenges the application's HTTP client while letting a command-line fetch through, as at Family Firearms & Finishes |
+| Buffalo Arms | **Maybe.** About 160, but robots.txt disallows query strings, so only the first 16 of each section can be read |
+| Antique Weapon Store, October Country, Cimarron | **Maybe.** Small: 22 in stock, about 22, and an importer's 24 at list price |
+| Taylor's & Co. | **Weak.** An importer's MSRP on 336 product pages at a ten-second crawl delay |
+| Middlesex Village Trading, C&C Sutlery, Jedediah Starr, Log Cabin Shop, Fall Creek Suttlery, Midwest Civil War Relics, Kibler's | **Weak.** Fixed catalogs that never move, stock only in prose, stale, tiny, or kits |
+| Chambers Flintlocks, Muzzleloader Builders Supply, Deercreek, Caywood, Atlanta Cutlery, Military Heritage, Henry Krank, Pedersoli's own shop | **Refused.** Kits and parts, made to order, non-firing, or not in the US |
+
+**Shelves at shops already read, not added:** Collectors Firearms' flintlock and
+percussion sections (130 to 160 guns, but their thirty-second crawl delay makes
+it about an hour and a half more per pass); Simpson's "Modern Blackpowder",
+deliberately not read; Kittery's black powder shelves, mostly inline; Greentop's
+used black powder sections, empty today. The black powder rule itself picks up
+what the existing antique dealers already list.
+
+**Two classifier fixes these shops turned up.** A vendor section named
+"muzzleloaders" or "black powder weapons" now counts as a firearms section, as
+"curio & relic" does (not a bare "weapons", which is also where a shop files
+knives). And a muzzleloader described by its stock's wood -- "Pedersoli Rocky
+Mountain Hawken - Maple Stock .54 Cal Percussion" -- is the rifle, not the
+stock, when the title also says percussion or flintlock.
 
 ### Used concealed-carry handguns survey, October 8 2026 — **three shipped, one shelf added**
 
@@ -1215,7 +1326,7 @@ earlier, for the reasons recorded below.
 
 | Candidate | Verdict |
 | --- | --- |
-| [Moka's Raifus](https://mokasraifus.com/) | **Shipped** (`mokas-raifus`). 1,318 products; the gun shelf and the 46 complete kits are read, among them a USGI M1A1 Thompson at $1,494.99 (out of stock, so a restock alert is the way to catch it). DBG Firearms resells a few of their guns, but only 5 of DBG's 130 titles match one here, so these are two shops and not one under two names |
+| [Moka's Raifus](https://mokasraifus.com/) | **Shipped** (`mokas-raifus`). 1,318 products; the gun shelf and the 46 complete kits are read, among them a USGI M1A1 Thompson at $1,494.99 (out of stock, so a restock alert is the way to catch it). DBG Firearms resells a few of their guns, but only 5 of DBG's 130 titles match one here, so these are two shops and not one under two names. **Found the next day: about half its catalog is WooCommerce *variable* products** -- each gun an option of one product ("Welt Waffen Pistol - 1" to "- 6") -- plus an always-in-stock option called "RESTOCK EMAIL SIGNUP", which is a waiting list. WooCommerce calls a product in stock when any option is and quotes its cheapest option, so a sold-out AP66 read as available at $99.99. The Store API base now reads each page's variable products' options in one batched request (`?type=variation&parent[]=...`), sets aside placeholders (restock, sign-up, notify, waitlist, coming soon, pre-order, deposit), and calls a product in stock only when a real option is, priced at the cheapest real one in stock |
 | [Old Steel Arsenal](https://oldsteelarsenal.com/product-category/rifle/) | **Shipped** (`old-steel-arsenal`), 285 listings. Plano, Texas. WooCommerce with the Store API answering: 321 listings in the firearms category (id 836), every one priced. About half are milsurp (Finnish M39s, an S/42 K98k, a Hakim, a Swedish M96, a 1943 Garand, a West German police P6); the rest are used modern guns and suppressors. The rifle, pistol and revolver categories are read; the whole site is 1,170 products, mostly accessories |
 | [J&J Military Antiques](https://jjmilitary.com/) | **Shipped** (`jj-military`), built as a maybe on request. An antique-firearms category of 94: Jenks and Ward-Burton carbines, Colt percussion revolvers. About thirty are parts, tools and empty factory cases, and a part names the gun it fits ("Spencer M-1865 Carbine & Rifle Hinge Pivot Screw") well enough for the classifier to call it a carbine, so anything the shop also files under Gun Parts, Tools or Holsters/Boxes is left out: 62 listings. Its shelf also found a classifier bug: "Whitney Navy Percussion Revolver Altered to Cartridge" read as ammunition, because "cartridge" was the last noun; a cartridge conversion is now stripped before that test |
 | [Shop Family Firearms](https://www.shopfamilyfirearms.com/firearms-for-sale.html) | **Blocked**, on the coming-soon list. Built on request: 76 listings on one `?viewall=1` page (the survey's 27 was the default page size), clean Shift4Shop cards with the shop's catalog id, sale and regular prices, and an availability sentence; the product page has a labeled write-up and the full gallery. Then the first recording failed: Cloudflare answers this application's HTTP client with a challenge (`cf-mitigated: challenge`, 403) while a plain command-line fetch with the same user agent gets the page. That is the shop's bot control telling our client apart, so the scraper was taken back out rather than made to look like something else -- the same call as Liberty Tree and WIS Transfers |

@@ -1,0 +1,14 @@
+{
+  "slug": "muzzle-loaders",
+  "recorded_at": "2026-10-08T22:31:06+00:00",
+  "pages": [
+    {
+      "url": "https://www.muzzle-loaders.com/collections/traditional-muzzleloaders/products.json?limit=250&page=1",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://www.muzzle-loaders.com/collections/muzzleloader-pistols/products.json?limit=250&page=1",
+      "file": "0002.html.gz"
+    }
+  ]
+}

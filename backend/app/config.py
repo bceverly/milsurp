@@ -454,6 +454,25 @@ class ScrapingConfig:
     # Narrow, deliberate exceptions to individual hosts' robots.txt. Empty by
     # default and meant to stay that way; see RobotsException.
     robots_exceptions: tuple[RobotsException, ...] = ()
+    #: A different user agent for particular shops, as ``(host, agent)``
+    #: pairs. Empty by default, and every other host keeps ``user_agent``.
+    #:
+    #: Added 2026-10-08 for Old Steel Arsenal, whose server answered the
+    #: configured agent with 429 on every catalog request while answering this
+    #: application's default agent, and no agent at all, with 200. Keyed by
+    #: host rather than by shop so it reaches every request to that shop --
+    #: the scan, its photographs, a watchlist re-read, its robots.txt -- and
+    #: robots.txt is then read for the agent actually sent. A host matches its
+    #: own subdomains: "oldsteelarsenal.com" covers "www.oldsteelarsenal.com".
+    user_agent_overrides: tuple[tuple[str, str], ...] = ()
+
+    def user_agent_for(self, host: str) -> str:
+        """The agent to send to ``host``: its override, or the default."""
+        host = (host or "").lower().split(":")[0]
+        for wanted, agent in self.user_agent_overrides:
+            if host == wanted or host.endswith("." + wanted):
+                return agent
+        return self.user_agent
 
 
 @dataclass(frozen=True)
@@ -609,6 +628,32 @@ def _database(section: dict[str, Any], state_dir: Path) -> DatabaseConfig:
         max_overflow=int(section.get("max_overflow", 10)),
         pool_recycle_seconds=int(section.get("pool_recycle_seconds", 1800)),
     )
+
+
+def _user_agent_overrides(raw: Any) -> tuple[tuple[str, str], ...]:
+    """Parse ``scraping.user_agent_overrides``: a mapping of host to agent.
+
+    ``oldsteelarsenal.com: "Mozilla/5.0 (compatible; ...)"``. A host is given
+    bare -- no scheme, no path -- and lowercased; an empty agent is refused,
+    because sending none is a decision this file should not make by accident.
+    """
+    if raw in (None, "", {}):
+        return ()
+    if not isinstance(raw, dict):
+        raise ConfigError("scraping.user_agent_overrides must be a mapping of host to agent")
+    pairs: list[tuple[str, str]] = []
+    for host, agent in raw.items():
+        name = str(host or "").strip().lower()
+        if not name or "/" in name or ":" in name:
+            raise ConfigError(
+                f"scraping.user_agent_overrides: {host!r} is not a bare host name "
+                '(write "oldsteelarsenal.com", not a URL)'
+            )
+        text = str(agent or "").strip()
+        if not text:
+            raise ConfigError(f"scraping.user_agent_overrides.{name}: the agent is empty")
+        pairs.append((name.removeprefix("www."), text))
+    return tuple(pairs)
 
 
 def _robots_exceptions(raw: Any) -> tuple[RobotsException, ...]:
@@ -794,6 +839,7 @@ def load_config(path: Path | None = None, mode: str | None = None) -> Config:
         ),
         min_free_disk_gb=float(scr.get("min_free_disk_gb", defaults.min_free_disk_gb)),
         robots_exceptions=_robots_exceptions(scr.get("robots_exceptions")),
+        user_agent_overrides=_user_agent_overrides(scr.get("user_agent_overrides")),
     )
 
     bak = _section(data, "backups")

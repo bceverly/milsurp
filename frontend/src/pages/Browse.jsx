@@ -165,6 +165,9 @@ const KINDS = [
   //: Taken out of Handguns and Police surplus, so a traded-in Glock 19 is
   //: counted once, here. See app/services/carry.py.
   { value: "concealed_carry", label: "Concealed carry" },
+  //: Percussion and flintlock guns, originals and reproductions. Outranks the
+  //: other gun Types, so each is counted once. See app/services/blackpowder.py.
+  { value: "black_powder", label: "Black powder" },
   //: Its own Type rather than scattered through Rifles and Handguns. A
   //: department trade-in is a different thing to be looking for, and the
   //: vendors sell them as their own named sections, so the catalog can say so.

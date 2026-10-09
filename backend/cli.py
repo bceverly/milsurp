@@ -52,6 +52,7 @@ from app.security import (
 from app.services import (
     armory,
     arsenals,
+    blackpowder,
     bootstrap,
     canary,
     carry,
@@ -909,6 +910,10 @@ def cmd_reclassify(  # noqa: PLR0912, PLR0915 - one pass over every derived fiel
             if item.is_concealed_carry != is_carry:
                 item.is_concealed_carry = is_carry
                 moved = True
+            is_bp = blackpowder.decide(session, item)
+            if item.is_black_powder != is_bp:
+                item.is_black_powder = is_bp
+                moved = True
             if moved:
                 changed += 1
         session.commit()
@@ -928,6 +933,9 @@ def cmd_reclassify(  # noqa: PLR0912, PLR0915 - one pass over every derived fiel
         carried = session.execute(
             select(func.count(Item.id)).where(Item.is_concealed_carry.is_(True))
         ).scalar_one()
+        powder = session.execute(
+            select(func.count(Item.id)).where(Item.is_black_powder.is_(True))
+        ).scalar_one()
         # "Other" as the browse page defines it: what none of the four claim.
         #
         # Not "everything that is not a rifle or a handgun", which is what this
@@ -945,7 +953,8 @@ def cmd_reclassify(  # noqa: PLR0912, PLR0915 - one pass over every derived fiel
 
     print(f"Reclassified {changed} of {len(items)} listing(s).")
     print(f"  rifles: {rifles}   handguns: {pistols}   other: {other}")
-    print(f"  bayonets: {bayonets}   parts kits: {kits}   concealed carry: {carried}")
+    print(f"  bayonets: {bayonets}   parts kits: {kits}")
+    print(f"  concealed carry: {carried}   black powder: {powder}")
     _report_protected(protected)
     return 0
 

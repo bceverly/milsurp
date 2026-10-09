@@ -25,6 +25,7 @@ same WordPress install was already serving.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Iterable, Iterator
 from typing import Any
 
@@ -90,6 +91,49 @@ def is_sold(product: dict[str, Any]) -> bool:
     return product.get("is_in_stock") is False
 
 
+#: An option that is not a gun for sale. Moka's Raifus sell each pistol as an
+#: option of one product ("Welt Waffen Pistol - 1" to "- 6") and add an option
+#: called "RESTOCK EMAIL SIGNUP" that never runs out, because it is a waiting
+#: list -- so WooCommerce, which calls a product in stock when any option is,
+#: reported a sold-out AP66 as available, at the price of a pistol long gone.
+_PLACEHOLDER_OPTION = re.compile(
+    r"\b(?:restock|e-?mail|sign[\s-]*up|notify|wait[\s-]*list|coming\s+soon|"
+    r"pre[\s-]*order|deposit)\b",
+    re.I,
+)
+
+#: Parents asked about in one request for their options. The endpoint takes a
+#: list; this keeps the query string to a sensible length.
+OPTION_PARENTS_PER_REQUEST = 50
+
+
+def is_placeholder_option(option: dict[str, Any]) -> bool:
+    """Whether an option is a sign-up, a deposit or a notice rather than a gun."""
+    return bool(_PLACEHOLDER_OPTION.search(str(option.get("variation") or "")))
+
+
+def with_options_settled(product: dict[str, Any], options: list[dict[str, Any]]) -> dict[str, Any]:
+    """A variable product as its *real* options say it is.
+
+    In stock when one of them is; priced at the cheapest one in stock, or at
+    the cheapest of them all when none is, so a sold listing keeps the price it
+    last carried. A product whose options are all placeholders -- or that has
+    none we could read -- is left exactly as the shop reported it.
+    """
+    real = [option for option in options if not is_placeholder_option(option)]
+    if not real:
+        return product
+    available = [option for option in real if not is_sold(option)]
+    priced = [option for option in (available or real) if price_now(option) is not None]
+    settled = dict(product)
+    settled["is_in_stock"] = bool(available)
+    settled["is_on_backorder"] = any(option.get("is_on_backorder") for option in available)
+    if priced:
+        cheapest = min(priced, key=lambda option: price_now(option) or 0.0)
+        settled["prices"] = cheapest["prices"]
+    return settled
+
+
 class WooStoreApiScraper(SiteScraper):
     """One WooCommerce shop, read through its Store API.
 
@@ -149,13 +193,13 @@ class WooStoreApiScraper(SiteScraper):
                 # Not a failure. A shop is entitled to disallow query strings,
                 # and this whole module depends on one — so say so plainly and
                 # stop, rather than failing a scan over a rule we were told.
-                ctx.warn(f"robots.txt disallows {url}; stopping this section there.")
+                ctx.warn(f"{ctx.why_not(url)}; stopping this section there.")
                 return
 
             try:
                 products = self._products(ctx, url)
             except Disallowed:
-                ctx.warn(f"robots.txt disallows {url}; stopping this section there.")
+                ctx.warn(f"{ctx.why_not(url)}; stopping this section there.")
                 return
             except ScrapeError as exc:
                 # The pages already read are worth keeping. Only the first is
@@ -170,6 +214,7 @@ class WooStoreApiScraper(SiteScraper):
                 return
 
             ctx.log(f"{label or 'catalog'} page {page}: {len(products)} listing(s).")
+            products = self._settle_options(ctx, products)
             for product in products:
                 item = self.item_from_product(product, label)
                 if item is None or item.external_key in seen:
@@ -182,6 +227,45 @@ class WooStoreApiScraper(SiteScraper):
             # count is the only signal there is.
             if len(products) < PAGE_SIZE:
                 return
+
+    def _settle_options(
+        self, ctx: ScrapeContext, products: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Each variable product judged by its options, read in batches.
+
+        See :func:`with_options_settled`. A shop with no variable products
+        costs nothing here. One whose options cannot be read keeps the
+        product-level answer and says so, rather than failing the scan.
+        """
+        parents = [p["id"] for p in products if p.get("type") == "variable" and p.get("id")]
+        if not parents:
+            return products
+        options: dict[Any, list[dict[str, Any]]] = {}
+        base = self.base_url.rstrip("/")
+        for start in range(0, len(parents), OPTION_PARENTS_PER_REQUEST):
+            batch = parents[start : start + OPTION_PARENTS_PER_REQUEST]
+            query = "&".join(f"parent%5B%5D={parent}" for parent in batch)
+            for page in range(1, self.max_pages_per_source + 1):
+                url = (
+                    f"{base}/wp-json/wc/store/v1/products?type=variation"
+                    f"&per_page={PAGE_SIZE}&page={page}&{query}"
+                )
+                try:
+                    found = self._products(ctx, url)
+                except (Disallowed, ScrapeError) as exc:
+                    ctx.warn(
+                        f"Could not read the options of {len(batch)} product(s): {exc}. "
+                        "Their stock and price are the product-level ones."
+                    )
+                    break
+                for option in found:
+                    options.setdefault(option.get("parent"), []).append(option)
+                if len(found) < PAGE_SIZE:
+                    break
+        return [
+            with_options_settled(p, options[p["id"]]) if p.get("id") in options else p
+            for p in products
+        ]
 
     def _products(self, ctx: ScrapeContext, url: str) -> list[dict[str, Any]]:
         """The products on one page, or an empty list past the end."""

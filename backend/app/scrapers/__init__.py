@@ -38,6 +38,7 @@ from .clyde_armory import ClydeArmoryScraper
 from .cmp import CmpScraper
 from .co_gun_sales import CoGunSalesScraper
 from .collectors_firearms import CollectorsFirearmsScraper
+from .comers_gunworks import ComersGunworksScraper
 from .david_condon import DavidCondonScraper
 from .dbg_firearms import DbgFirearmsScraper
 from .demo import DemoScraper
@@ -59,6 +60,7 @@ from .lugerman import LugerManScraper
 from .madison_guns import MadisonGunsScraper
 from .merz_antiques import MerzAntiquesScraper
 from .mokas_raifus import MokasRaifusScraper
+from .muzzle_loaders import MuzzleLoadersScraper
 from .nickerson_military import NickersonMilitaryScraper
 from .officer_store import OfficerStoreScraper
 from .old_steel_arsenal import OldSteelArsenalScraper
@@ -72,6 +74,8 @@ from .simpson_ltd import SimpsonLtdScraper
 from .sportsmans_outdoor import SportsmansOutdoorScraper
 from .surplus_defense import SurplusDefenseScraper
 from .target_sports_usa import TargetSportsUsaScraper
+from .tortuga_trading import TortugaTradingScraper
+from .track_of_the_wolf import TrackOfTheWolfScraper
 from .we_buy_guns import WeBuyGunsScraper
 from .what_a_country import WhatACountryScraper
 from .ww2_collectibles import Ww2CollectiblesScraper
@@ -151,6 +155,10 @@ SCRAPER_CLASSES: tuple[type[SiteScraper], ...] = (
     KitteryTradingPostScraper,
     WeBuyGunsScraper,
     GreentopScraper,
+    MuzzleLoadersScraper,
+    TortugaTradingScraper,
+    TrackOfTheWolfScraper,
+    ComersGunworksScraper,
 )
 
 _REGISTRY: dict[str, type[SiteScraper]] = {cls.slug: cls for cls in SCRAPER_CLASSES}

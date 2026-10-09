@@ -84,14 +84,21 @@ from . import pricing, renotify
 
 log = logging.getLogger("milsurp.hotdeals")
 
-#: The four filters, which are the browse page's own buckets under its own
+#: The five filters, which are the browse page's own buckets under its own
 #: names. Ordered as the page offers them.
 #:
-#: Concealed carry and then police surplus come first in :func:`bucket_of`,
+#: Black powder, concealed carry and then police surplus come first in
+#: :func:`bucket_of`,
 #: for the reason ``search.KINDS`` subtracts them from the others: a police
 #: trade-in Glock 19 is a handgun and ``is_pistol`` says so, but counting it
 #: under more than one would show one listing twice.
-BUCKETS: tuple[str, ...] = ("rifle", "pistol", "concealed_carry", "police_surplus")
+BUCKETS: tuple[str, ...] = (
+    "rifle",
+    "pistol",
+    "concealed_carry",
+    "black_powder",
+    "police_surplus",
+)
 
 #: What each is called where a person reads it. Server-side so the page, the
 #: email and the API cannot drift on the wording.
@@ -99,6 +106,7 @@ BUCKET_LABELS = {
     "rifle": "Rifles",
     "pistol": "Handguns",
     "concealed_carry": "Concealed carry",
+    "black_powder": "Black powder",
     "police_surplus": "Police surplus",
 }
 
@@ -147,6 +155,7 @@ BUCKET_PREFERENCE = {
     "rifle": "include_rifles",
     "pistol": "include_handguns",
     "concealed_carry": "include_concealed_carry",
+    "black_powder": "include_black_powder",
     "police_surplus": "include_police_surplus",
 }
 
@@ -225,7 +234,7 @@ def is_due(session: Session, *, now: datetime | None = None) -> bool:
 
 # -- the pass ---------------------------------------------------------------
 def bucket_of(item: Item) -> str | None:
-    """Which of the four filters a listing belongs to, or None for none.
+    """Which of the five filters a listing belongs to, or None for none.
 
     The browse page's partition, applied to a loaded row rather than in SQL --
     see ``search.KINDS``, which is the same rule and the authority on it.
@@ -237,6 +246,8 @@ def bucket_of(item: Item) -> str | None:
     handful of listings that read as both, which are nearly always a rifle
     sold with a pistol or a title the classifier read twice.
     """
+    if item.is_black_powder:
+        return "black_powder"
     if item.is_concealed_carry:
         return "concealed_carry"
     if item.is_police_surplus:
@@ -497,7 +508,7 @@ def preference(session: Session, user: User) -> HotDealPreference:
     """This reader's subscription, created on first sight with the defaults.
 
     Only called where a row is about to be *written*. Readers go through
-    :func:`wants`, which treats a missing row as "subscribed to all four" --
+    :func:`wants`, which treats a missing row as "subscribed to all five" --
     that absence is what gives every existing account the feature without a
     backfill, and creating rows just to read them would throw it away.
     """
@@ -512,7 +523,7 @@ def preference(session: Session, user: User) -> HotDealPreference:
 
 
 def wants(row: HotDealPreference | None, bucket: str) -> bool:
-    """Whether this subscription covers a bucket. None means all four."""
+    """Whether this subscription covers a bucket. None means all five."""
     if row is None:
         return True
     if not row.enabled:

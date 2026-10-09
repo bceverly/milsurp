@@ -425,7 +425,8 @@ class ScrapeContext:
     def _crawl_delay_for(self, url: str) -> float:
         if not self.scraping.obey_robots:
             return 0.0
-        return self.robots.for_url(url).crawl_delay(self.scraping.user_agent) or 0.0
+        agent = self.scraping.user_agent_for(_host_of(url))
+        return self.robots.for_url(url).crawl_delay(agent) or 0.0
 
     def keep_at_least(self, url: str, seconds: float) -> None:
         """Hold this host to a pace no faster than ``seconds`` for this scan.
@@ -445,9 +446,22 @@ class ScrapeContext:
         """
         if not self.scraping.obey_robots:
             return True
-        if self.robots.for_url(url).allows(url, self.scraping.user_agent):
+        if self.robots.for_url(url).allows(url, self.scraping.user_agent_for(_host_of(url))):
             return True
         return self._excepted(url)
+
+    def why_not(self, url: str) -> str:
+        """Why :meth:`allowed` said no, in words a scan log can carry.
+
+        Two different answers that used to read the same: robots.txt saying
+        no, and robots.txt not being readable at all -- a 429 or a 5xx on the
+        file -- which this application also treats as no. Old Steel Arsenal's
+        first scans logged "robots.txt disallows" for three catalog pages its
+        robots.txt allows; the file itself had been refused.
+        """
+        if not self.robots.for_url(url).reachable:
+            return f"could not read robots.txt for {url}, so it was not fetched"
+        return f"robots.txt disallows {url}"
 
     def _excepted(self, url: str) -> bool:
         """Whether a configured exception covers a URL robots.txt refuses.
@@ -474,9 +488,20 @@ class ScrapeContext:
             return True
         return False
 
+    def _agent_header(self, url: str) -> dict[str, str]:
+        """The User-Agent for this host, when it is not the session's default.
+
+        Empty for every host without an override, so the session's own header
+        stands. See ScrapingConfig.user_agent_overrides.
+        """
+        agent = self.scraping.user_agent_for(_host_of(url))
+        return {} if agent == self.scraping.user_agent else {"User-Agent": agent}
+
     def _fetch_robots(self, url: str) -> requests.Response:
         """Fetch a robots.txt, without consulting robots.txt about it."""
-        return self.session.get(url, timeout=self.scraping.request_timeout)
+        return self.session.get(
+            url, timeout=self.scraping.request_timeout, headers=self._agent_header(url)
+        )
 
     def get(self, url: str, **kwargs: Any) -> requests.Response:
         """GET with politeness delay and retries on transient failures."""
@@ -491,12 +516,14 @@ class ScrapeContext:
         if resting > 0:
             raise HostResting(url, resting)
         timeout = kwargs.pop("timeout", self.scraping.request_timeout)
+        # Taken once, outside the retry loop, so a retry sends the same thing.
+        headers = {**self._agent_header(url), **(kwargs.pop("headers", None) or {})}
         last_error: Exception | None = None
         for attempt in range(self.scraping.max_retries):
             self.check_stop()
             self._throttle(url)
             try:
-                response = self.session.get(url, timeout=timeout, **kwargs)
+                response = self.session.get(url, timeout=timeout, headers=headers, **kwargs)
                 self._last_request_at = time.monotonic()
                 if response.status_code == TOO_MANY_REQUESTS:
                     self._slow_down(url, response)

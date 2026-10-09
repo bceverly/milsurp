@@ -232,6 +232,13 @@ scraping:
   # outright with a 429 that never reaches their server. An honest name
   # also cannot go stale the way a pinned browser version does.
   user_agent: "Mozilla/5.0 (compatible; MilsurpMonitor/1.0; +https://milsurpmonitor.com)"
+  # A different user agent for particular shops, keyed by host name (a host
+  # covers its subdomains, so "oldsteelarsenal.com" also covers "www."). Every
+  # request to that host uses it -- the scan, photographs, watchlist re-reads
+  # and robots.txt -- and robots.txt is read for the agent actually sent.
+  # Empty by default; every other host keeps user_agent above.
+  # user_agent_overrides:
+  #   oldsteelarsenal.com: "Mozilla/5.0 (compatible; MilsurpMonitor/1.0; +https://milsurpmonitor.com)"
   request_timeout: 30                # seconds, default: 30
   request_delay: 1.0                 # politeness delay between requests
   max_retries: 4                     # default: 4

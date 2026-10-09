@@ -1554,7 +1554,11 @@ _CATEGORY_FIREARM = re.compile(
     # category: Joe Salter's and Checkpoint Charlie's "Curio & Relic" and
     # Centerfire's "C&R Eligible" hold guns, and an S&W Model 10-5 or an Inglis
     # Hi Power naming no gun noun fell through to accessories there.
-    r"\b(?:firearms?|guns?|curio\s*(?:&|and)\s*relics?)\b|\bc\s*&\s*r\b",
+    r"\b(?:firearms?|guns?|curio\s*(?:&|and)\s*relics?)\b|\bc\s*&\s*r\b"
+    # A muzzleloading shop's sections: Muzzle-Loaders.com's "Traditional
+    # Muzzleloaders", Comer's Gunworks' "Black Powder Weapons". Not a bare
+    # "weapons", which is also how a shop files its knives.
+    r"|\bmuzzle[\s-]?loaders?\b|\bblack[\s-]?powder\s+(?:weapons?|arms|guns?|firearms?)\b",
     re.I,
 )
 
@@ -2394,14 +2398,28 @@ _CARTRIDGE_CONVERSION = re.compile(
 )
 
 
+#: A stock described by its wood on a muzzleloader: "Pedersoli Rocky Mountain
+#: Hawken - Maple Stock .54 Cal Percussion". The stock was the last noun and
+#: read as the thing for sale. Only where the title also says percussion or
+#: flintlock, because "Mauser K98 Walnut Stock" is a stock and must stay one.
+_STOCK_DESCRIBED = re.compile(
+    r"\b(?:walnut|maple|curly\s+maple|wood(?:en)?|hardwood|beech|birch|cherry|"
+    r"laminated?|synthetic)\s+stocks?\b",
+    re.I,
+)
+_MUZZLELOADER_WORD = re.compile(r"\b(?:percussion|flint[\s-]?lock)\b", re.I)
+
+
 def _without_parts_mentioned(title_lower: str) -> str:
     """The title less the parts it only mentions: what comes with it, a barrel
-    stated in passing by its length or by a word describing it, "belt fed", and
-    a cartridge conversion. Both accessory tests start from this, so they cannot
+    stated in passing by its length or by a word describing it, "belt fed", a
+    cartridge conversion, and a muzzleloader's stock described by its wood. Both accessory tests start from this, so they cannot
     disagree about what the title is selling."""
     stripped = _BARREL_DESCRIBED.sub(" ", _without_attached_parts(title_lower))
     stripped = _BARREL_DESCRIBED_BY_WORD.sub(" ", stripped)
     stripped = _CARTRIDGE_CONVERSION.sub(" ", stripped)
+    if _MUZZLELOADER_WORD.search(stripped):
+        stripped = _STOCK_DESCRIBED.sub(" ", stripped)
     return _BELT_FED.sub(" ", stripped)
 
 

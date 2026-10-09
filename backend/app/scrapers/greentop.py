@@ -10,13 +10,35 @@ Magento. Two sections are read, Used Pistols and Used Revolvers, each paged by
 for), the new-gun catalog, and the archive of sold used guns. robots.txt asks
 for five seconds between requests, which the scanner honors, and turns away
 only Magento's sort and page-size parameters, which the walk never builds.
+
+**The serial number comes out of the title.** Greentop write every used gun
+the same way -- "Used GLOCK 19V 9X19 CHFR895 4" MATTE G GTO392819": make,
+model, caliber, *serial*, barrel, finish, grade and their stock code -- and the
+serial is always the word just before the barrel length. Left in, it is a gun's
+serial number on a public page here, and the armory's discovery read each one
+as a model designation ("CHFR895", "CEZE544") and proposed it, a new junk row
+for every gun on every scan.
 """
 
 from __future__ import annotations
 
+import re
+
+from bs4 import Tag
+
+from .base import ScrapedItem
 from .magento import MagentoScraper
 
 SITE_BASE = "https://www.greentop.com/"
+
+
+#: The word before a stated barrel length: '... 9X19 CHFR895 4" MATTE ...'.
+_SERIAL = re.compile(r"\s+\S+(?=\s+\d{1,2}(?:\.\d+)?[\"”]\s)")
+
+
+def without_serial(title: str) -> str:
+    """A Greentop title with the gun's serial number taken out."""
+    return _SERIAL.sub("", title, count=1)
 
 
 class GreentopScraper(MagentoScraper):
@@ -35,3 +57,9 @@ class GreentopScraper(MagentoScraper):
         {"category": "Used Pistols", "url": f"{SITE_BASE}shooting/used-guns/pistols/"},
         {"category": "Used Revolvers", "url": f"{SITE_BASE}shooting/used-guns/revolvers/"},
     )
+
+    def item_from_card(self, card: Tag, page_url: str, category: str) -> ScrapedItem | None:
+        item = super().item_from_card(card, page_url, category)
+        if item is not None:
+            item.title = without_serial(item.title)
+        return item

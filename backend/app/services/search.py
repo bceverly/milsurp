@@ -235,17 +235,31 @@ def _search_terms(search: str) -> list[str]:
 #: traded-in Glock 19 is shopped for as a carry gun, so that is the one bucket
 #: it is counted in (decided 2026-10-08; see app/services/carry.py). It is only
 #: ever true of a handgun, so Rifles needs no term for it.
+#:
+#: Black powder outranks both (added the same day; see
+#: app/services/blackpowder.py): a percussion revolver is never a carry gun or
+#: a trade-in, so it is taken out of every other gun bucket.
 KINDS: dict[str, Any] = {
-    "rifle": Item.is_rifle.is_(True) & Item.is_police_surplus.is_(False),
+    "rifle": (
+        Item.is_rifle.is_(True)
+        & Item.is_police_surplus.is_(False)
+        & Item.is_black_powder.is_(False)
+    ),
     "pistol": (
         Item.is_pistol.is_(True)
         & Item.is_police_surplus.is_(False)
         & Item.is_concealed_carry.is_(False)
+        & Item.is_black_powder.is_(False)
     ),
-    "concealed_carry": Item.is_concealed_carry.is_(True),
+    "concealed_carry": Item.is_concealed_carry.is_(True) & Item.is_black_powder.is_(False),
+    "black_powder": Item.is_black_powder.is_(True),
     "bayonet": Item.is_bayonet.is_(True),
     "parts_kit": Item.is_parts_kit.is_(True),
-    "police_surplus": Item.is_police_surplus.is_(True) & Item.is_concealed_carry.is_(False),
+    "police_surplus": (
+        Item.is_police_surplus.is_(True)
+        & Item.is_concealed_carry.is_(False)
+        & Item.is_black_powder.is_(False)
+    ),
     # No police-surplus term needed: the column is only ever true for a listing
     # that is already a rifle or a handgun, so this clause excludes it already.
     "other": (

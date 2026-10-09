@@ -1,21 +1,21 @@
 {
   "slug": "mokas-raifus",
-  "recorded_at": "2026-10-08T13:42:08+00:00",
+  "recorded_at": "2026-10-08T18:52:17+00:00",
   "pages": [
     {
       "url": "https://mokasraifus.com/wp-json/wc/store/v1/products?per_page=100&page=1&orderby=date&order=desc&category=1198",
       "file": "0001.html.gz"
     },
     {
-      "url": "https://mokasraifus.com/wp-json/wc/store/v1/products?per_page=100&page=2&orderby=date&order=desc&category=1198",
+      "url": "https://mokasraifus.com/wp-json/wc/store/v1/products?type=variation&per_page=100&page=1&parent%5B%5D=133181&parent%5B%5D=132875&parent%5B%5D=123329&parent%5B%5D=121684&parent%5B%5D=120998&parent%5B%5D=118722&parent%5B%5D=115482&parent%5B%5D=113177&parent%5B%5D=106767&parent%5B%5D=106103&parent%5B%5D=105809&parent%5B%5D=103694&parent%5B%5D=103682&parent%5B%5D=103650&parent%5B%5D=101113&parent%5B%5D=101100&parent%5B%5D=101041&parent%5B%5D=101034&parent%5B%5D=101016&parent%5B%5D=100941&parent%5B%5D=99337&parent%5B%5D=99316&parent%5B%5D=98665&parent%5B%5D=97544&parent%5B%5D=97541&parent%5B%5D=97537&parent%5B%5D=97547&parent%5B%5D=97534&parent%5B%5D=94768&parent%5B%5D=94594&parent%5B%5D=94572&parent%5B%5D=94542&parent%5B%5D=94520&parent%5B%5D=92826&parent%5B%5D=92395&parent%5B%5D=92193&parent%5B%5D=91931&parent%5B%5D=91933&parent%5B%5D=91243&parent%5B%5D=91116&parent%5B%5D=91113&parent%5B%5D=91091&parent%5B%5D=91076&parent%5B%5D=91066&parent%5B%5D=91055&parent%5B%5D=87875&parent%5B%5D=82808&parent%5B%5D=80554",
       "file": "0002.html.gz"
     },
     {
-      "url": "https://mokasraifus.com/wp-json/wc/store/v1/products?per_page=100&page=1&orderby=date&order=desc&category=34",
+      "url": "https://mokasraifus.com/wp-json/wc/store/v1/products?type=variation&per_page=100&page=2&parent%5B%5D=133181&parent%5B%5D=132875&parent%5B%5D=123329&parent%5B%5D=121684&parent%5B%5D=120998&parent%5B%5D=118722&parent%5B%5D=115482&parent%5B%5D=113177&parent%5B%5D=106767&parent%5B%5D=106103&parent%5B%5D=105809&parent%5B%5D=103694&parent%5B%5D=103682&parent%5B%5D=103650&parent%5B%5D=101113&parent%5B%5D=101100&parent%5B%5D=101041&parent%5B%5D=101034&parent%5B%5D=101016&parent%5B%5D=100941&parent%5B%5D=99337&parent%5B%5D=99316&parent%5B%5D=98665&parent%5B%5D=97544&parent%5B%5D=97541&parent%5B%5D=97537&parent%5B%5D=97547&parent%5B%5D=97534&parent%5B%5D=94768&parent%5B%5D=94594&parent%5B%5D=94572&parent%5B%5D=94542&parent%5B%5D=94520&parent%5B%5D=92826&parent%5B%5D=92395&parent%5B%5D=92193&parent%5B%5D=91931&parent%5B%5D=91933&parent%5B%5D=91243&parent%5B%5D=91116&parent%5B%5D=91113&parent%5B%5D=91091&parent%5B%5D=91076&parent%5B%5D=91066&parent%5B%5D=91055&parent%5B%5D=87875&parent%5B%5D=82808&parent%5B%5D=80554",
       "file": "0003.html.gz"
     },
     {
-      "url": "https://mokasraifus.com/wp-json/wc/store/v1/products?per_page=100&page=2&orderby=date&order=desc&category=34",
+      "url": "https://mokasraifus.com/wp-json/wc/store/v1/products?type=variation&per_page=100&page=3&parent%5B%5D=133181&parent%5B%5D=132875&parent%5B%5D=123329&parent%5B%5D=121684&parent%5B%5D=120998&parent%5B%5D=118722&parent%5B%5D=115482&parent%5B%5D=113177&parent%5B%5D=106767&parent%5B%5D=106103&parent%5B%5D=105809&parent%5B%5D=103694&parent%5B%5D=103682&parent%5B%5D=103650&parent%5B%5D=101113&parent%5B%5D=101100&parent%5B%5D=101041&parent%5B%5D=101034&parent%5B%5D=101016&parent%5B%5D=100941&parent%5B%5D=99337&parent%5B%5D=99316&parent%5B%5D=98665&parent%5B%5D=97544&parent%5B%5D=97541&parent%5B%5D=97537&parent%5B%5D=97547&parent%5B%5D=97534&parent%5B%5D=94768&parent%5B%5D=94594&parent%5B%5D=94572&parent%5B%5D=94542&parent%5B%5D=94520&parent%5B%5D=92826&parent%5B%5D=92395&parent%5B%5D=92193&parent%5B%5D=91931&parent%5B%5D=91933&parent%5B%5D=91243&parent%5B%5D=91116&parent%5B%5D=91113&parent%5B%5D=91091&parent%5B%5D=91076&parent%5B%5D=91066&parent%5B%5D=91055&parent%5B%5D=87875&parent%5B%5D=82808&parent%5B%5D=80554",
       "file": "0004.html.gz"
     }
   ]

@@ -1636,8 +1636,11 @@ export default function Armory() {
         await api.createArmoryRow(tab, payload);
         setMessage(`Added ${name}. It is awaiting approval and decides nothing yet.`);
       }
-      setEditing(null);
+      // Reload first, close second. Closed while the reload was in flight, the
+      // list still held the row as it was before the save, and opening it
+      // again at once showed the old values -- the marks test caught that.
       await load();
+      setEditing(null);
     } catch (error) {
       setFormError(error.message);
     }

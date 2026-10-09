@@ -191,13 +191,13 @@ class ShopifyScraper(SiteScraper):
                 # Not a failure. A shop is entitled to disallow query strings,
                 # and this whole module depends on one — so say so plainly and
                 # stop, rather than failing a scan over a rule we were told.
-                ctx.warn(f"robots.txt disallows {url}; stopping this section there.")
+                ctx.warn(f"{ctx.why_not(url)}; stopping this section there.")
                 return
 
             try:
                 products = self._products(ctx, url)
             except Disallowed:
-                ctx.warn(f"robots.txt disallows {url}; stopping this section there.")
+                ctx.warn(f"{ctx.why_not(url)}; stopping this section there.")
                 return
             except ScrapeError as exc:
                 # The pages already read are worth keeping; only the first is

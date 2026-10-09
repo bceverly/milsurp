@@ -52,6 +52,7 @@ from ..scrapers import (
 from . import (
     armory,
     arsenals,
+    blackpowder,
     boilerplate,
     carry,
     classify,
@@ -600,12 +601,14 @@ def _settle_last(session: Session, item: Item) -> None:
     A person's correction is the last word, after the vendor's fields, the
     heuristics and the armory: whoever corrected this listing did so knowing
     what the rules said, so anything the rules conclude is what was corrected.
-    And concealed carry is decided from what the listing finally says --
+    And concealed carry and black powder are decided from what the listing
+    finally says --
     including a corrected caliber -- by the same call ``reclassify`` makes. See
     app/services/carry.py.
     """
     overrides.apply_to(session, item)
     item.is_concealed_carry = carry.decide(session, item)
+    item.is_black_powder = blackpowder.decide(session, item)
 
 
 def _apply_catalog(session: Session, item: Item, trusted: bool, *, adopt: bool = False) -> None:

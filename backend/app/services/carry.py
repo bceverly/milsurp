@@ -1,7 +1,8 @@
 """Which handguns are concealed-carry guns.
 
 Asked for on 2026-10-08: a Concealed carry category for compact and
-subcompact pistols in 9mm, 10mm, .40 S&W, .45 ACP and .380 ACP, and the small
+subcompact pistols in 9mm, 10mm, .40 S&W, .45 ACP, .380 ACP, .32 ACP and .25 ACP
+(the last two added the same day), and the small
 revolvers people carry -- .32 H&R Magnum, .327 Federal, .38 Special, .357
 Magnum. It is one of the browse page's Types and one of the hot-deals tabs,
 and it outranks Police surplus there: a traded-in Glock 19 is shopped for as a
@@ -46,6 +47,8 @@ _CARRY_CALIBER = re.compile(
     r"|9\s*x\s*19|10\s*mm|\.?40\s*s\s*&?\s*w|\.?45\s*(?:acp|auto)\b(?!\s*rim)"
     r"|\.?380|9\s*x\s*17|9\s*mm\s*(?:kurz|short|corto)"
     r"|\.?38\s*(?:special|spl|spc)|\.?357\s*mag|\.?327|\.?32\s*h\s*&\s*r|\.?44\s*special"
+    # The pocket-pistol cartridges, added 2026-10-08 at the owner's request.
+    r"|\.?32\s*(?:acp|auto)|7\.65\s*(?:mm)?\s*(?:browning|br)\b|\.?25\s*(?:acp|auto)|6\.35\s*(?:mm)?"
     r")",
     re.I,
 )
@@ -94,6 +97,17 @@ _CARRY_PISTOL = re.compile(
     |\b(?:cr\s*920|mr\s*920|staccato\s*cs?|edc\s*x9|db\s*9|db\s*380|rm\s*380|r51|seecamp|cpx[\s-]*[12])\b
     |\b(?:thunder\s*(?:380|9\s*uc|ultra\s*compact)|bersa\s*(?:bp9|bp380))\b
     |\b(?:sig\s*)?p\s*250\s*(?:compact|sub[\s-]*compact)\b
+    # The .25 and .32 pocket pistols, which came with those cartridges.
+    |\b(?:vest\s*pocket|pocket\s*hammerless|pocket\s*model|baby\s*browning|tomcat|bobcat|jetfire|minx)\b
+    |\b(?:pp|tph|tpx|model\s*[89])\b(?=.*\bwalther\b)|\bwalther\b.*\b(?:pp|tph|model\s*[89])\b
+    |\bh\s*sc\b|\bhsc\b|\b38\s*h\b|\bsauer\b.*\b38\b
+    |\bberetta\b.*\b(?:1934|1935|950|21a?|3032|418|420|70|71)\b|\b(?:1934|1935|950|3032|418)\b(?=.*\bberetta\b)
+    |\b(?:fn|browning|fabrique)\b.*\b(?:1905|1906|1910|baby)\b|\b(?:m\s*)?1910\b(?=.*\b(?:fn|browning)\b)
+    |\b(?:colt)\b.*\b(?:1903|1908)\b|\b(?:1903|1908)\b(?=.*\bcolt\b)
+    |\bcz\s*(?:27|45|83|92)\b|\bvz\.?\s*(?:27|45)\b
+    |\b(?:seecamp|lws\s*32|guardian|raven|jennings|phoenix\s*arms|bauer|astra\s*(?:cub|constable|firecat)|cub\b(?=.*\bastra\b))\b
+    |\bp[\s-]*3[2]\b(?=.*\bkel[\s-]*tec\b)|\bkel[\s-]*tec\b.*\bp[\s-]*32\b
+    |\b(?:pt[\s-]*(?:22|25)|taurus\s*pt[\s-]*25)\b
     """,
     re.I | re.X,
 )

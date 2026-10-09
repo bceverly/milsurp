@@ -401,6 +401,22 @@ class TestARefusalSaysWhichKindItWas:
         assert caught.value.reachable is False
         ctx.close()
 
+    def test_and_so_does_the_warning_a_section_walk_logs(self, obeying):
+        """The platform base classes check before they fetch and log the
+        refusal themselves, and they all said "robots.txt disallows" either
+        way -- Old Steel Arsenal's first scans blamed three catalog pages its
+        robots.txt allows, when the file itself had been refused with a 429."""
+        ctx = ScrapeContext(obeying)
+        ctx.robots._fetch = lambda _url: _Response(429, "")
+        assert not ctx.allowed("https://shop.test/x")
+        assert ctx.why_not("https://shop.test/x").startswith("could not read robots.txt")
+        ctx.close()
+
+        ctx = ScrapeContext(obeying)
+        ctx.robots._fetch = lambda _url: _Response(200, "User-agent: *\nDisallow: /x")
+        assert ctx.why_not("https://shop.test/x") == "robots.txt disallows https://shop.test/x"
+        ctx.close()
+
 
 class _Response:
     def __init__(self, status_code, text=""):

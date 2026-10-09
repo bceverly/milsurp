@@ -91,6 +91,7 @@ function Subscription({ preference, labels, buckets, onChange, busy }) {
     rifle: "include_rifles",
     pistol: "include_handguns",
     concealed_carry: "include_concealed_carry",
+    black_powder: "include_black_powder",
     police_surplus: "include_police_surplus",
   };
   return (
@@ -461,8 +462,8 @@ export default function HotDeals() {
             <p style={{ margin: 0 }}>
               Nothing here at the moment. A listing has to be well under what several
               shops are asking for the same gun, which on a quiet week is nothing at all —
-              and concealed carry and police surplus are small enough corners of the
-              catalog that they are often empty.
+              and the narrower tabs are small enough corners of the catalog that they are
+              often empty.
             </p>
           </div>
         </div>

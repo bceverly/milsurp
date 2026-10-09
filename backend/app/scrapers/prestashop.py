@@ -138,14 +138,14 @@ class PrestaShopScraper(SiteScraper):
             url = base if page == 1 else f"{base}?page={page}"
 
             if not ctx.allowed(url):
-                ctx.warn(f"robots.txt disallows {url}; stopping this section there.")
+                ctx.warn(f"{ctx.why_not(url)}; stopping this section there.")
                 if page == 1:
                     ctx.not_read(category)
                 return
             try:
                 soup = BeautifulSoup(ctx.get_text(url), "html.parser")
             except Disallowed:
-                ctx.warn(f"robots.txt disallows {url}; stopping this section there.")
+                ctx.warn(f"{ctx.why_not(url)}; stopping this section there.")
                 if page == 1:
                     ctx.not_read(category)
                 return

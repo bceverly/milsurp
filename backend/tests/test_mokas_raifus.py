@@ -80,3 +80,81 @@ class TestTheGunShelf:
         assert self.read("Mokas Raifus ADAR Wood Stock", "ADAR", "Stocks") is None
         # Their rifle is filed under Firearms as well, and stays.
         assert self.read("Mokas Raifus ADAR 2-15 Rifle \u2013 5.56x45mm", "ADAR", "Firearms")
+
+
+def option(id_, label, price, in_stock):
+    """One variation as the Store API returns it."""
+    return {
+        "id": id_,
+        "parent": 105809,
+        "variation": f"Condition: {label}",
+        "prices": {"price": price, "currency_minor_unit": 2},
+        "is_in_stock": in_stock,
+    }
+
+
+class TestAProductSoldAsOptions:
+    """Reported from the running site, 2026-10-08: Moka's Raifus' West German
+    AP66 read as available at $99.99, and every one of its pistols was gone.
+    The shop sells each gun as an option of one product, and adds one called
+    "RESTOCK EMAIL SIGNUP" -- a waiting list -- which never runs out.
+    WooCommerce calls a product in stock when any option is, and quotes the
+    cheapest option, sold or not."""
+
+    AP66 = {
+        "id": 105809,
+        "type": "variable",
+        "name": "West German WELT WAFFEN AP66 Pistol \u2013 .32 ACP",
+        "is_in_stock": True,
+        "prices": {"price": "9999", "currency_minor_unit": 2},
+    }
+
+    def test_the_waiting_list_does_not_keep_it_on_sale(self):
+        from app.scrapers.woo_store_api import is_sold, price_now, with_options_settled
+
+        settled = with_options_settled(
+            self.AP66,
+            [
+                option(105832, "Welt Waffen Pistol - 3", "9999", False),
+                option(105830, "Welt Waffen Pistol - 1", "19999", False),
+                option(109808, "RESTOCK EMAIL SIGNUP", "27999", True),
+            ],
+        )
+        assert is_sold(settled)
+        # Gone, and keeping the last real price it carried.
+        assert price_now(settled) == 99.99
+
+    def test_one_real_pistol_left_is_on_sale_at_its_own_price(self):
+        from app.scrapers.woo_store_api import is_sold, price_now, with_options_settled
+
+        settled = with_options_settled(
+            self.AP66,
+            [
+                option(105832, "Welt Waffen Pistol - 3", "9999", False),
+                option(105830, "Welt Waffen Pistol - 1", "19999", True),
+                option(109808, "RESTOCK EMAIL SIGNUP", "27999", True),
+            ],
+        )
+        assert not is_sold(settled)
+        assert price_now(settled) == 199.99
+
+    def test_options_that_are_only_placeholders_change_nothing(self):
+        from app.scrapers.woo_store_api import with_options_settled
+
+        only = [option(1, "Notify me when back in stock", "100", True)]
+        assert with_options_settled(self.AP66, only) is self.AP66
+
+    @pytest.mark.parametrize(
+        "label",
+        ["RESTOCK EMAIL SIGNUP", "Email Signup", "Coming Soon", "Pre-Order Deposit", "Waitlist"],
+    )
+    def test_what_counts_as_a_placeholder(self, label):
+        from app.scrapers.woo_store_api import is_placeholder_option
+
+        assert is_placeholder_option({"variation": f"Condition: {label}"})
+
+    @pytest.mark.parametrize("label", ["Welt Waffen Pistol - 4", "Very Good", "Grade 2"])
+    def test_and_what_is_a_gun(self, label):
+        from app.scrapers.woo_store_api import is_placeholder_option
+
+        assert not is_placeholder_option({"variation": f"Condition: {label}"})

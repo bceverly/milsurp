@@ -1,6 +1,6 @@
 {
   "slug": "jg-sales",
-  "recorded_at": "2026-09-16T13:57:39+00:00",
+  "recorded_at": "2026-10-08T18:52:27+00:00",
   "pages": [
     {
       "url": "https://www.jgsales.com/wp-json/wc/store/v1/products?per_page=100&page=1&orderby=date&order=desc&category=3689",
@@ -9,6 +9,14 @@
     {
       "url": "https://www.jgsales.com/wp-json/wc/store/v1/products?per_page=100&page=1&orderby=date&order=desc&category=3662",
       "file": "0002.html.gz"
+    },
+    {
+      "url": "https://www.jgsales.com/wp-json/wc/store/v1/products?type=variation&per_page=100&page=1&parent%5B%5D=504100&parent%5B%5D=504084",
+      "file": "0003.html.gz"
+    },
+    {
+      "url": "https://www.jgsales.com/wp-json/wc/store/v1/products?per_page=100&page=1&orderby=date&order=desc&category=3663",
+      "file": "0004.html.gz"
     }
   ]
 }

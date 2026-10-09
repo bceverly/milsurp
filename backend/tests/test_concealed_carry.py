@@ -1,6 +1,6 @@
 """Concealed carry: the rule, and the Type it fills.
 
-Asked for on 2026-10-08. The cases below are the guns the rule was measured on
+Asked for on 2026-10-08, with .32 ACP and .25 ACP added later the same day. The cases below are the guns the rule was measured on
 against production's 6,856 handguns, and -- the half that matters as much --
 the look-alikes it was caught taking on the way: a CZ Model 38, a PPS-43, an
 S&W .38 Single Action from the 1870s, a Colt Peacemaker "Centennial".
@@ -56,6 +56,13 @@ class TestWhatIsCarry:
             ('Colt Police Positive .38 Special 2" Snub', "revolver", ".38 Special"),
             ('Colt Python .357 Magnum 3"', "revolver", ".357 Magnum"),
             ('S&W Model 19 .357 2.5"', "revolver", ".357 Magnum"),
+            # The .32 and .25 pocket pistols, added the same day.
+            ("Police Eagle/C Walther PPK - With Scarce Gray Grip", "pistol", ".32 ACP"),
+            ("1942 Commercial Mauser HSC Rig", "pistol", ".32 ACP"),
+            ("Colt M1903 Pocket Hammerless Rig - US Property", "pistol", ".32 ACP"),
+            ("Walther Model 8 - .25 ACP (6.35 Browning) - First Variant", "pistol", ".25 ACP"),
+            ("FN MODEL 1905 ENGRAVED", "pistol", ".25 ACP"),
+            ("Beretta Tomcat 3032", "pistol", ".32 ACP"),
             # The brand before the model number, as Kittery Trading Post writes it.
             ("TAURUS 85 PRE OWNED (1144454)", None, None),
             # A pistol whose barrel the title states, as Greentop's all do.
@@ -78,8 +85,8 @@ class TestWhatIsCarry:
             ('Colt Python .357 Magnum 6"', "revolver", ".357 Magnum"),
             ("S&W Model 10 .38 Special 4 inch Police Trade In", "revolver", ".38 Special"),
             # Small, but not in a cartridge that was asked for.
-            ("Walther PPK .32 ACP", "pistol", ".32 ACP"),
             ("Makarov PM 9x18", "pistol", "9x18mm Makarov"),
+            ("Walther PPK/S .22 LR", "pistol", ".22 LR"),
             ("British Bulldog Revolver .442", "revolver", ".442 Webley"),
             # No cartridge at all.
             ("Colt 1860 Army Percussion", "percussion_revolver", ".44"),

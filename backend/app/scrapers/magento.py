@@ -276,13 +276,13 @@ class MagentoScraper(SiteScraper):
             if not ctx.allowed(url):
                 # A shop is entitled to disallow its own pagination, and one of
                 # these two does. Page one is still a page of listings.
-                ctx.warn(f"robots.txt disallows {url}; stopping this section there.")
+                ctx.warn(f"{ctx.why_not(url)}; stopping this section there.")
                 return
 
             try:
                 soup = BeautifulSoup(ctx.get_text(url), "html.parser")
             except Disallowed:
-                ctx.warn(f"robots.txt disallows {url}; stopping this section there.")
+                ctx.warn(f"{ctx.why_not(url)}; stopping this section there.")
                 return
             except ScrapeError as exc:
                 if pages == 0:

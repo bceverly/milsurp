@@ -45,6 +45,33 @@ class PlannedSite:
 PLANNED: tuple[PlannedSite, ...] = (
     # -- blocked at the door -----------------------------------------------
     PlannedSite(
+        slug="dixie-gun-works",
+        name="Dixie Gun Works",
+        base_url="https://www.dixiegunworks.com/",
+        platform="Behind Cloudflare; robots.txt asks for 29 seconds between requests",
+        blocker=(
+            "The best-known black powder supplier, asked for by name -- but "
+            "Cloudflare answers this application with a challenge (403, "
+            "cf-mitigated: challenge; checked 2026-10-08) on the home page "
+            "itself. That is their bot control saying no, so this waits on "
+            "Dixie allowing the scanner."
+        ),
+    ),
+    PlannedSite(
+        slug="lodgewood",
+        name="Lodgewood Mfg",
+        base_url="https://www.lodgewood.com/",
+        platform="Shift4Shop (3dcart), behind Cloudflare",
+        blocker=(
+            "85 guns, mostly original percussion and flintlock arms, every one "
+            "priced with its stock status -- and a plain command-line fetch "
+            "gets the page, but Cloudflare challenges this application's own "
+            "HTTP client (403, cf-mitigated: challenge; checked 2026-10-08), as "
+            "it does at Family Firearms & Finishes. Waits on the shop allowing "
+            "the scanner."
+        ),
+    ),
+    PlannedSite(
         slug="shop-family-firearms",
         name="Family Firearms & Finishes",
         base_url="https://shopfamilyfirearms.com/",

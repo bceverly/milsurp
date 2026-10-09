@@ -289,6 +289,7 @@ class TestTheThreeFilters:
             "rifle": 0,
             "pistol": 1,
             "concealed_carry": 0,
+            "black_powder": 0,
             "police_surplus": 0,
         }
 

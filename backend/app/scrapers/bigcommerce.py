@@ -353,7 +353,7 @@ class BigCommerceScraper(SiteScraper):
             if not ctx.allowed(url):
                 # Pagination here is a query string, and a shop is entitled to
                 # disallow those. Stop this section rather than fail the scan.
-                ctx.warn(f"robots.txt disallows {url}; stopping this section there.")
+                ctx.warn(f"{ctx.why_not(url)}; stopping this section there.")
                 return
 
             try:
