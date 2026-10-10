@@ -3765,3 +3765,8 @@
 .dealers__lowest {
   margin-left: 8px;
 }
+
+/* The maker's page, beside the shop's. */
+.maker-link {
+  margin-left: 8px;
+}

@@ -401,6 +401,10 @@ class Manufacturer(Base, TimestampMixin):
     #: land in the same ``items.country`` column, and "USSR" against listings
     #: read as "Russia" splits one country into two filters.
     country: Mapped[str | None] = mapped_column(String(64))
+    #: The firm's own site, as an address: "https://www.taurususa.com". What a
+    #: listing of one of its modern-production models searches when the model
+    #: has no page of its own. Migration 0062.
+    website: Mapped[str | None] = mapped_column(String(500))
 
     #: A maker a scan proposed, which nobody has confirmed yet, is pending and
     #: takes no part in matching. See :class:`ArmoryStatus`.
@@ -626,6 +630,15 @@ class FirearmModel(Base, TimestampMixin):
     #: collector's association page is often better on a variant, and a column
     #: called wikipedia_url that holds one of those would be a lie.
     wikipedia_url: Mapped[str | None] = mapped_column(String(500))
+    #: Still made: a new one can be bought and the maker describes it. Every
+    #: part of the new-gun work -- the maker's page, variants, MSRP, new prices
+    #: -- reads only these, which keeps it off a catalog of guns that stopped
+    #: being made a century ago. Migration 0062.
+    modern_production: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    #: The model's own page on its maker's site, when somebody has found it.
+    #: Without one a listing links to a search of the maker's site instead --
+    #: see Manufacturer.website.
+    maker_url: Mapped[str | None] = mapped_column(String(500))
     #: The listing title a pending row was proposed from, so an admin judging
     #: it can see what it came from without going hunting.
     first_seen_in: Mapped[str | None] = mapped_column(Text)

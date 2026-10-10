@@ -80,6 +80,7 @@ def _to_out(
         first_seen_in=row.first_seen_in,
         item_count=counts.get(row.name, 0),
         country=row.country,
+        website=row.website,
     )
 
 
@@ -154,6 +155,7 @@ def create_manufacturer(
         enabled=payload.enabled,
         notes=payload.notes,
         country=(payload.country or None),
+        website=payload.website,
     )
     session.add(row)
     session.flush()
@@ -218,6 +220,9 @@ def update_manufacturer(
         # Blank clears it: "we have not been told" is a real state, and there
         # has to be a way back to it from a country entered by mistake.
         row.country = payload.country.strip() or None
+    if "website" in payload.model_fields_set:
+        # Sent blank to clear it, which the schema has already turned into None.
+        row.website = payload.website
     touched: list[str] = [name for model in row.firearm_models for name in model.spellings]
     session.flush()
 

@@ -27,6 +27,7 @@ from ..schemas import (
     ItemOverrideOut,
     ItemPage,
     ListingHabitOut,
+    MakerLinkOut,
     MarketBandOut,
     OfferOut,
     PhotoOut,
@@ -41,6 +42,7 @@ from ..services import (
     curio,
     delivered,
     inbox,
+    makerlink,
     market,
     overrides,
     pricing,
@@ -943,6 +945,9 @@ def get_item(item_id: int, user: CurrentUser, session: DbSession) -> ItemDetail:
         detail.model_calibers = found.caliber_names
         detail.model_reference_url = found.wikipedia_url
         detail.model_country = found.country
+        link = makerlink.for_item(session, item)
+        if link is not None:
+            detail.maker_link = MakerLinkOut(**vars(link))
         detail.model_status = found.status.value
         detail.model_notes = found.notes
     detail.photos = [

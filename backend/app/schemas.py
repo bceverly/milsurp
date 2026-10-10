@@ -11,7 +11,16 @@ from datetime import UTC, date, datetime
 from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_serializer, field_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    EmailStr,
+    Field,
+    field_serializer,
+    field_validator,
+)
 
 from .models import ArmoryStatus, FirearmKind
 
@@ -20,6 +29,48 @@ def utc(value: datetime | None) -> datetime | None:
     if value is None:
         return None
     return value if value.tzinfo else value.replace(tzinfo=UTC)
+
+
+def _trimmed(value: object) -> object:
+    return value.strip() if isinstance(value, str) else value
+
+
+def _web_address(value: str | None) -> str | None:
+    """A web address a page will turn into a link, or None for a blank box.
+
+    "bobsguns.com" is taken to mean https://bobsguns.com. Anything with another
+    scheme, or spaces, or no dotted host is refused -- "javascript:alert(1)"
+    included, which urlsplit reads as a host and a port.
+    """
+    if not value:
+        return None
+    if "://" not in value:
+        value = f"https://{value}"
+    parts = urlsplit(value)
+    try:
+        parts.port  # noqa: B018 - raises on "javascript:alert(1)" read as host:port
+        valid_port = True
+    except ValueError:
+        valid_port = False
+    if (
+        not valid_port
+        or parts.scheme.lower() not in ("http", "https")
+        or "." not in (parts.hostname or "")
+        or any(c.isspace() for c in value)
+    ):
+        raise ValueError("a web address, like https://example.com")
+    return value
+
+
+#: An optional web address, trimmed, with a blank box read as none. Used
+#: wherever somebody types one in that the app then links to: an FFL dealer's
+#: site, a maker's site, a model's page on it.
+WebAddress = Annotated[
+    str | None,
+    BeforeValidator(_trimmed),
+    Field(default=None, max_length=500),
+    AfterValidator(_web_address),
+]
 
 
 class UTCModel(BaseModel):
@@ -430,6 +481,10 @@ class FirearmModelOut(UTCModel):
     manufacturer_ids: list[int] = Field(default_factory=list)
     manufacturers: list[str] = Field(default_factory=list)
     wikipedia_url: str | None = None
+    #: Still made. See :attr:`app.models.FirearmModel.modern_production`.
+    modern_production: bool = False
+    #: The model's page on its maker's site.
+    maker_url: str | None = None
     status: ArmoryStatus
     position: int
     enabled: bool
@@ -454,6 +509,8 @@ class FirearmModelCreate(BaseModel):
     caliber_ids: list[int] = Field(default_factory=list)
     manufacturer_ids: list[int] = Field(default_factory=list)
     wikipedia_url: str | None = Field(default=None, max_length=500)
+    modern_production: bool = False
+    maker_url: WebAddress = None
     status: ArmoryStatus = ArmoryStatus.PENDING
     position: int = Field(default=1000, ge=0, le=100_000)
     enabled: bool = True
@@ -468,6 +525,9 @@ class FirearmModelUpdate(BaseModel):
     caliber_ids: list[int] | None = None
     manufacturer_ids: list[int] | None = None
     wikipedia_url: str | None = Field(default=None, max_length=500)
+    modern_production: bool | None = None
+    #: Sent blank to clear it.
+    maker_url: WebAddress = None
     status: ArmoryStatus | None = None
     position: int | None = Field(default=None, ge=0, le=100_000)
     enabled: bool | None = None
@@ -876,6 +936,8 @@ class ManufacturerOut(UTCModel):
     #: Where the firm is. The last and weakest answer to a listing with no
     #: country of its own -- see :attr:`app.models.Manufacturer.country`.
     country: str | None = None
+    #: The firm's own site.
+    website: str | None = None
 
 
 class ManufacturerCreate(BaseModel):
@@ -902,6 +964,7 @@ class ManufacturerCreate(BaseModel):
     enabled: bool = True
     notes: str | None = Field(default=None, max_length=4000)
     country: str | None = Field(default=None, max_length=64)
+    website: WebAddress = None
 
 
 class ManufacturerUpdate(BaseModel):
@@ -916,6 +979,8 @@ class ManufacturerUpdate(BaseModel):
     enabled: bool | None = None
     notes: str | None = Field(default=None, max_length=4000)
     country: str | None = Field(default=None, max_length=64)
+    #: Sent blank to clear it.
+    website: WebAddress = None
 
 
 class ArmoryWrite(UTCModel):
@@ -1110,6 +1175,16 @@ class OfferOut(UTCModel):
     subject: str
 
 
+class MakerLinkOut(BaseModel):
+    """One click from a listing to what its maker says about the gun."""
+
+    url: str
+    #: "page" -- the model's own page -- or "search", a search of the maker's site.
+    kind: Literal["page", "search"]
+    maker: str | None = None
+    site: str | None = None
+
+
 class ItemDetail(ItemOut):
     description: str | None = None
     #: What guns like this one were asking when they left the shelf -- the same
@@ -1136,6 +1211,9 @@ class ItemDetail(ItemOut):
     #: this particular gun is said to be from -- so both are shown, and a
     #: disagreement between them is information rather than a bug.
     model_country: str | None = None
+    #: Where the maker describes this gun, for a model still in production:
+    #: its own page, or a search of the maker's site. See services/makerlink.
+    maker_link: MakerLinkOut | None = None
 
     #: Whether *this* reader is watching it, and on what terms. Carried on the
     #: detail response rather than fetched separately: the star has to render
@@ -1793,43 +1871,18 @@ class FflDealerIn(BaseModel):
 
     name: str = Field(min_length=1, max_length=200)
     address: str | None = Field(default=None, max_length=500)
-    url: str | None = Field(default=None, max_length=500)
+    url: WebAddress = None
     transfer_fee: float = Field(ge=0, le=1000)
 
-    @field_validator("name", "address", "url", mode="before")
+    @field_validator("name", "address", mode="before")
     @classmethod
     def _trimmed(cls, value: object) -> object:
-        return value.strip() if isinstance(value, str) else value
+        return _trimmed(value)
 
-    @field_validator("address", "url")
+    @field_validator("address")
     @classmethod
     def _blank_is_none(cls, value: str | None) -> str | None:
         return value or None
-
-    @field_validator("url")
-    @classmethod
-    def _a_web_address(cls, value: str | None) -> str | None:
-        """ "bobsguns.com" is taken to mean https://bobsguns.com; anything with
-        another scheme, or with spaces in it, is refused, since the page turns
-        it into a link."""
-        if value is None:
-            return None
-        if "://" not in value:
-            value = f"https://{value}"
-        parts = urlsplit(value)
-        try:
-            parts.port  # noqa: B018 - raises on "javascript:alert(1)" read as host:port
-            valid_port = True
-        except ValueError:
-            valid_port = False
-        if (
-            not valid_port
-            or parts.scheme.lower() not in ("http", "https")
-            or "." not in (parts.hostname or "")
-            or any(c.isspace() for c in value)
-        ):
-            raise ValueError("a web address, like https://example.com")
-        return value
 
 
 class FflDealerOut(BaseModel):

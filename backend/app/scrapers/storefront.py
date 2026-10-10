@@ -88,9 +88,14 @@ def image_sources(tag: Tag) -> list[str]:
 
     Themes lazy-load, so the ``src`` is often a placeholder and the real URL is
     in ``data-src``, ``data-large_image`` or the largest entry of a ``srcset``.
+
+    Or in ``data-lazy``, Slick carousel's attribute, with no ``src`` at all:
+    every photograph after the first in a Stencil theme's main carousel is
+    written that way. Kittery Trading Post's listings kept only their first
+    photograph until it was read (2026-10-10).
     """
     found: list[str] = []
-    for attribute in ("data-large_image", "data-src", "data-lazy-src", "src"):
+    for attribute in ("data-large_image", "data-src", "data-lazy-src", "data-lazy", "src"):
         value = tag.get(attribute)
         if isinstance(value, str) and value.strip() and not PLACEHOLDER.search(value.strip()):
             found.append(value.strip())

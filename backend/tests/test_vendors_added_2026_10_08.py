@@ -175,3 +175,25 @@ class TestMuzzleLoadersAndTortuga:
             "product_type": "Powder Flasks",
         }
         assert TortugaTradingScraper().item_from_product(flask, "c", "Antique Firearms") is None
+
+
+class TestKitteryGallery:
+    """Every photograph after the first sits in Slick's ``data-lazy`` with no
+    ``src``, and only the first was being kept (2026-10-10)."""
+
+    def test_the_whole_carousel_is_read(self):
+        import gzip
+        from pathlib import Path
+
+        from bs4 import BeautifulSoup
+
+        from app.scrapers.kittery_trading_post import KitteryTradingPostScraper
+
+        page = Path(__file__).parent / "fixtures" / "kittery-trading-post" / "0002.html.gz"
+        soup = BeautifulSoup(gzip.decompress(page.read_bytes()).decode(), "html.parser")
+        url = "https://www.kitterytradingpost.com/smith-wesson-637-2-airweight-pre-owned-1144457/"
+        photos = KitteryTradingPostScraper().gallery(soup, url)
+        assert [p.rsplit("/", 1)[-1].split("?")[0] for p in photos] == [
+            "1144457__95896.1791310651.JPG",
+            "1144457_1__57615.1791310651.JPG",
+        ]

@@ -1089,6 +1089,7 @@ def _seed_makers(
             status=ArmoryStatus.PENDING,
             position=int(entry.get("position") or 1000),
             country=entry.get("country"),
+            website=entry.get("website"),
         )
         session.add(firm)
         makers[name.lower()] = firm
@@ -1119,6 +1120,8 @@ def _seed_models(
             kind=FirearmKind(kind) if kind else None,
             country=entry.get("country"),
             wikipedia_url=entry.get("wikipedia"),
+            modern_production=bool(entry.get("modern_production")),
+            maker_url=entry.get("maker_url"),
             status=ArmoryStatus.PENDING,
             # The order rows are tried in is part of what the file says, as it
             # is for a maker above: the Carcano cavalry carbine is placed ahead
@@ -1235,6 +1238,7 @@ def export_armory(session: Session) -> dict[str, Any]:
                     # took country coverage from 69% to 91% would have done
                     # nothing at all on the far end.
                     "country": row.country,
+                    "website": row.website,
                     "status": row.status.value,
                     "position": row.position if row.position != 1000 else None,
                     "enabled": None if row.enabled else False,
@@ -1265,6 +1269,8 @@ def export_armory(session: Session) -> dict[str, Any]:
                     "calibers": sorted(row.caliber_names),
                     "manufacturers": sorted(row.manufacturer_names),
                     "wikipedia": row.wikipedia_url,
+                    "modern_production": True if row.modern_production else None,
+                    "maker_url": row.maker_url,
                     "status": row.status.value,
                     "position": row.position if row.position != 1000 else None,
                     "enabled": None if row.enabled else False,
@@ -1710,6 +1716,7 @@ def _maker_differences(row: Manufacturer, entry: dict[str, Any]) -> list[str]:
             # a sync created 28 makers on production without the countries
             # the file gave them, and reported nothing to fix afterwards.
             "country": row.country,
+            "website": row.website,
             "status": row.status.value,
             "position": row.position,
             "enabled": row.enabled,
@@ -1719,6 +1726,7 @@ def _maker_differences(row: Manufacturer, entry: dict[str, Any]) -> list[str]:
             "aliases": [str(a) for a in entry.get("aliases") or []],
             "marks": [str(m) for m in entry.get("marks") or []],
             "country": entry.get("country"),
+            "website": entry.get("website"),
             "status": str(entry.get("status") or ArmoryStatus.PENDING.value),
             "position": int(entry.get("position") or 1000),
             "enabled": bool(entry.get("enabled", True)),
@@ -1756,6 +1764,8 @@ def _model_differences(row: FirearmModel, entry: dict[str, Any]) -> list[str]:
             "calibers": sorted(row.caliber_names),
             "manufacturers": sorted(row.manufacturer_names),
             "wikipedia": row.wikipedia_url,
+            "modern_production": row.modern_production,
+            "maker_url": row.maker_url,
             "status": row.status.value,
             "position": row.position,
             "enabled": row.enabled,
@@ -1768,6 +1778,8 @@ def _model_differences(row: FirearmModel, entry: dict[str, Any]) -> list[str]:
             "calibers": sorted(_caliber_list(entry)),
             "manufacturers": sorted(str(m) for m in entry.get("manufacturers") or []),
             "wikipedia": entry.get("wikipedia"),
+            "modern_production": bool(entry.get("modern_production")),
+            "maker_url": entry.get("maker_url"),
             "status": str(entry.get("status") or ArmoryStatus.PENDING.value),
             "position": int(entry.get("position") or 1000),
             "enabled": bool(entry.get("enabled", True)),
@@ -1866,6 +1878,7 @@ def _sync_makers(
         row.aliases = _lines(entry.get("aliases"))
         row.marks = _lines(entry.get("marks"))
         row.country = entry.get("country")
+        row.website = entry.get("website")
         row.status = ArmoryStatus(str(entry.get("status") or ArmoryStatus.PENDING.value))
         row.position = int(entry.get("position") or 1000)
         row.enabled = bool(entry.get("enabled", True))
@@ -1987,6 +2000,8 @@ def _write_model(
         if name.strip().lower() in calibers
     ]
     row.wikipedia_url = entry.get("wikipedia")
+    row.modern_production = bool(entry.get("modern_production"))
+    row.maker_url = entry.get("maker_url")
     row.status = ArmoryStatus(str(entry.get("status") or ArmoryStatus.PENDING.value))
     row.position = int(entry.get("position") or 1000)
     row.enabled = bool(entry.get("enabled", True))

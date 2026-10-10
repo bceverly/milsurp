@@ -216,6 +216,8 @@ const EMPTY_MODEL = {
   caliber_ids: [],
   manufacturer_ids: [],
   wikipedia_url: "",
+  modern_production: false,
+  maker_url: "",
   position: 1000,
   enabled: true,
   notes: "",
@@ -320,6 +322,8 @@ function ModelForm({
           caliber_ids: model.caliber_ids || [],
           manufacturer_ids: model.manufacturer_ids || [],
           wikipedia_url: model.wikipedia_url || "",
+          modern_production: Boolean(model.modern_production),
+          maker_url: model.maker_url || "",
           position: model.position,
           enabled: model.enabled,
           notes: model.notes || "",
@@ -356,6 +360,9 @@ function ModelForm({
           country: form.country.trim() || null,
           position: Number(form.position),
           wikipedia_url: form.wikipedia_url.trim() || null,
+          // Sent blank rather than null to clear it: the update reads an
+          // absent field as "leave it", and null is what absent looks like.
+          maker_url: form.maker_url.trim(),
         });
       }}
     >
@@ -531,6 +538,43 @@ function ModelForm({
 
       <div className="form-row form-row--2">
         <Field
+          label="Modern production"
+          hint="Still made, so a new one can be bought. A listing links to the maker's page for it."
+        >
+          {(id, describedBy) => (
+            <label className="checkbox">
+              <input
+                id={id}
+                aria-describedby={describedBy}
+                type="checkbox"
+                checked={form.modern_production}
+                onChange={set("modern_production")}
+              />
+              <span>Still made</span>
+            </label>
+          )}
+        </Field>
+        <Field
+          label="Maker's page"
+          hint="This model on its maker's site. Left blank, a listing searches the maker's site instead."
+        >
+          {(id, describedBy) => (
+            <input
+              id={id}
+              aria-describedby={describedBy}
+              className="input"
+              type="url"
+              value={form.maker_url}
+              onChange={set("maker_url")}
+              maxLength={500}
+              placeholder="https://"
+            />
+          )}
+        </Field>
+      </div>
+
+      <div className="form-row form-row--2">
+        <Field
           label="Order"
           hint="Lower is tried first. “Mosin-Nagant M44” before “M44”."
         >
@@ -689,6 +733,7 @@ const EMPTY_MAKER = {
   enabled: true,
   notes: "",
   country: "",
+  website: "",
 };
 
 /**
@@ -827,6 +872,7 @@ function MakerForm({ maker, countries, onSubmit, error }) {
           enabled: maker.enabled,
           notes: maker.notes || "",
           country: maker.country || "",
+          website: maker.website || "",
         }
       : EMPTY_MAKER,
   );
@@ -960,6 +1006,22 @@ function MakerForm({ maker, countries, onSubmit, error }) {
           <option key={name} value={name} />
         ))}
       </datalist>
+      <Field
+        label="Website"
+        hint="The firm's own site. A listing of one of its models still in production searches it."
+      >
+        {(id, describedBy) => (
+          <input
+            id={id}
+            aria-describedby={describedBy}
+            className="input"
+            value={form.website}
+            onChange={set("website")}
+            maxLength={500}
+            placeholder="https://www.example.com"
+          />
+        )}
+      </Field>
       <Field label="Notes">
         {(id, describedBy) => (
           <textarea
@@ -2252,6 +2314,9 @@ export default function Armory() {
                         >
                           reference
                         </a>
+                      )}
+                      {row.modern_production && (
+                        <span className="chip chip--info">Still made</span>
                       )}
                       {row.merged_into && (
                         <span className="chip chip--neutral">→ {row.merged_into}</span>

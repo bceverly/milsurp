@@ -4547,6 +4547,184 @@ photo at its edges and a "2 of 7" count. They stop at the ends rather than
 wrapping, as the arrow keys and the thumbnails do, and move the gallery
 underneath with them.
 
+### New-gun prices, and the makers' own pages — **Planned**, in four slices
+
+Asked for on 2026-10-10. A used carry gun's listing says what it costs and
+what used ones like it go for; it does not say what the same gun costs new,
+or where the maker describes it -- which is what a reader goes to Google for.
+Four slices, each shippable on its own and each building on the one before.
+Concealed carry first, because that is where nearly every gun still in
+production is; the milsurp and antique catalog has no new equivalent and is
+kept out of all of it by one flag.
+
+**Why not barrel lengths and finishes on the model.** An armory model is a
+*design*: "Taurus Tracker", "Glock 19", "S&W 642". A barrel length and a
+finish belong to a *product* within it -- the Tracker alone is .44 Magnum,
+.357 and .22, in 2.5", 4" and 6.5", black or stainless, each combination its
+own UPC at its own price. On the model they would either multiply it into
+dozens of rows, breaking the model filter, the valuations and the price
+spectrum, or squeeze lists into fields that cannot say which combination
+exists. They get a layer of their own under the model instead (slice 2).
+
+#### Slice 1 — Modern production, and the maker's page one click away — **Shipped** 2026-10-10
+
+Migration 0062; `services/makerlink.py`; the Armory page's model and maker
+forms. The shipped armory flags 61 concealed-carry models still in production
+-- Glocks, the P365 and P320, M&P and Shield, SP101, MAX-9, the XD-S line,
+Kahrs, SCCYs, Shadow Systems -- links the 33 of them that the queue had
+approved with no maker to their maker, and gives 23 makers their websites.
+The vintage carry guns (Walther PP, Mauser HSc, Beretta 1934, CZ 27, Colt
+1903) are left unflagged on purpose. A model whose armory row names no maker
+still gets the search, through the maker the listing itself names.
+
+* `FirearmModel.modern_production`: still made, or recent enough that the maker
+  has a page for it. Off by default; every later slice reads only these.
+* `Manufacturer.website`, and `FirearmModel.maker_url` for the model's own
+  product page.
+* On a listing whose model is in modern production: **the maker's page** when
+  the model has one, otherwise **a search of the maker's own site** for the
+  model -- the Google search a reader was typing by hand, as one click.
+* Both edited on the Armory page and carried by the export and the shipped
+  armory file, which is how production gets them: the concealed-carry models
+  flagged and their makers' websites filled in.
+
+Value on its own: the one-click link, and a curated list of which models are
+current -- the scope every later slice needs.
+
+#### Slice 2 — Variants, and barrel and finish read off listings
+
+**And Police surplus joins Concealed carry here** (asked for on 2026-10-10).
+Department trade-ins are nearly all current guns -- Glock 17s, 19s, 22s and
+23s, P229s and P320s, M&P40s, Beretta 92s, Sig and Smith & Wesson revolvers,
+and long guns like the Remington 870 and the Colt and S&W carbines -- so they
+want the same new-gun comparison, and "a trade-in at $329 against $549 new"
+is the whole case for buying one. The first step of this slice is the same
+pass slice 1 made over carry: read production's police-surplus listings for
+the models they match, flag the ones still made as modern production, link
+their makers, and carry it all in the shipped armory file. The variants, and
+the barrel and finish read off titles, then cover both categories from the
+start -- the police shops write both just as consistently ("LEO Trade-In
+GLOCK 22 Gen 4 .40S&W", "Sig P229 9mm w/ Rail", "4in Stainless").
+
+* `model_variants` under a model: caliber, barrel length, finish, UPC, the
+  maker's part number, MSRP and its own maker URL. Pending until approved, like
+  every other armory row, and edited on the model's dialog.
+* A listing's **barrel length and finish** read from its title. The used-gun
+  shops write both in fixed places -- Greentop's `3" MATTE`, `4.75" FDE`,
+  `1.875" BLUED`; We Buy Guns' `TWO TONE` -- and finish is a short
+  vocabulary: blued, stainless, matte or black, nickel, two-tone, FDE,
+  Cerakote. Barrel length is already read for the carry rule.
+* **Matching narrows rather than guesses**: model (as today), then caliber,
+  then barrel, then finish, stopping when the listing runs out of information.
+  "TAURUS TRACKER M44 PRE OWNED" narrows to the .44s and no further; "4"
+  STAINLESS" narrows to one. The listing shows what it matched.
+
+Value on its own: used guns compared like with like -- a 2.5" with 2.5"s --
+and the variant facts on the page.
+
+#### Slice 3 — The makers' own sites: MSRP, finishes and barrels
+
+* For modern-production models only, read the maker's product page: MSRP, the
+  calibers, barrel lengths and finishes it is offered in, the UPC and part
+  number of each, and the page's own URL (which fills `maker_url`).
+* One small reader per maker, in the shape of a scraper and under the same
+  rules -- robots.txt, the request delay, a recorded fixture -- starting with
+  the makers behind most carry listings: Smith & Wesson, Ruger, Glock, Sig
+  Sauer, Taurus, Springfield, Kimber, Walther.
+* What it finds arrives as **pending variants** for approval, not as facts.
+* Weekly is plenty: an MSRP changes about once a year.
+
+Value on its own: "MSRP $549" beside a used price, and the full set of
+variants without typing them.
+
+#### Slice 4 — Current new prices
+
+* The current price of each variant new, from gun.deals: its search returns
+  products with UPC and part number, and a product's page lists every store's
+  price with the out-of-stock offers marked (checked 2026-10-10: a black 4"
+  Tracker .44, 2-440041TKR, at about 80 stores in stock from $462.23).
+  robots.txt allows the search pages; it disallows `/api`, `/ajax` and the
+  store redirects, none of which is needed.
+* Per variant, cached daily, and only for variants with a listing for sale:
+  low hundreds of requests a day, not thousands.
+* On the listing: "New: from $462 at 80 stores", or a range across the variants
+  a vague title could be, and "18% under new". A second Hot deals signal beside
+  the used median.
+* **Blocked on their terms of use**, not on robots.txt: gun.deals is an
+  aggregator, and reusing what it aggregates wants their say-so first, as
+  Checkpoint Charlie's gave theirs.
+
+### One listing per gun when a page sells several — **Planned**
+
+Asked for on 2026-10-10. Some shops put a whole run of guns behind one
+product page and let a dropdown or a row of buttons pick between them, with
+the price, the photograph and often the description changing to match. Each
+choice is a gun somebody can buy on its own, and stored as one listing they
+collapse into a single row at one price:
+
+* **Moka's Raifus**, "Hungarian FEG AP Pistol – .32ACP" (items/16651): each
+  pistol pictured and sold by serial number -- "FEG AP Pistol 1 – SN: BB50068
+  – Excellent" -- 41 photographs on one listing at the cheapest price. A
+  WooCommerce *variable* product: every choice is a variation with its own
+  price, stock and image, which the Store API already returns (the scraper
+  fetches them in batches to settle stock and price; see `_settle_options` in
+  `woo_store_api.py`).
+* **Classic Firearms**, "Gunsmith Special Handguns Various Manufacturers and
+  Models" (items/1989): 21 photographs, priced from $10. A Magento
+  *configurable* product: the page carries the option data (`spConfig` /
+  `jsonConfig`) mapping each choice to its own product, price and images.
+
+The shape of the work:
+
+* **A child listing per choice**, keyed `<parent key>#<choice id>` so it is
+  stable across scans, with the choice's own price, stock, photographs and --
+  where the shop gives one -- its own description; the choice's label
+  ("Pistol 1 – SN: BB50068 – Excellent") appended to the title so the grid
+  tells them apart. Sold when that choice is out of stock, gone when the shop
+  removes it, exactly as for any listing.
+* **The parent stops being a listing** once it has children, rather than
+  standing beside them at the cheapest price and counting the same guns twice
+  in every total. Kept as the place the children were read from.
+* **Only where each choice is a different gun.** A variation that is a
+  *configuration* -- a barrel length, a finish, a caliber of the same new
+  rifle -- is one product with options, not several guns, and stays one
+  listing (with the variant work in "New-gun prices" for those). The test is
+  the shop's own wording and data: serial numbers, "each pictured", "will come
+  as shown", per-choice photographs. Decided per scraper, not guessed per page.
+* Per platform, since the data differs: WooCommerce variations first (Moka's,
+  and any Woo shop doing the same), then Magento configurables (Classic),
+  then whatever else turns up. A survey of every shop's catalog for such pages
+  comes first, so the count of hidden guns is known before the work is sized.
+
+### Wikipedia for every maker and model, one click from a listing — **Planned**
+
+Asked for on 2026-10-10: a Wikipedia link for each maker in the armory, a
+separate one for each model, and a way to get to either from a listing.
+
+Half of it exists and is thin. Models have had `wikipedia_url` since the
+armory was written (the file calls it `wikipedia`), shown as "Reference" in
+the listing's "What the armory knows" panel -- one click to open the panel,
+another to follow it -- and **84 of 1,214 approved models have one**. Makers
+have no such field at all.
+
+* `Manufacturer.wikipedia_url`: a column, the maker form, the export and sync,
+  and the undo snapshot, as `website` went in for slice 1 of "New-gun prices".
+  Kept apart from `website`: a firm's own site and an article about it are
+  different links, and a firm long gone (DWM, Erfurt, Remington Rand) has only
+  the second.
+* **On the listing itself**, not only inside the panel: the maker's name and
+  the model's name in the facts each followed by a small Wikipedia link when
+  the armory has one. The panel keeps its "Reference" for the model.
+* **Filling it in, which is most of the work.** By hand for 1,214 models is
+  not going to happen. Wikipedia's own search API answers "Mauser Karabiner
+  98k" with the article, and its pages are licensed for exactly this kind of
+  linking; a pass that proposes an article per approved row -- title match,
+  firearm infobox present, the maker or the caliber in the infobox agreeing
+  with the armory -- would fill the confident ones and leave the rest for a
+  person. Proposed rather than written, like everything else the armory takes
+  in: a model named "Model 1910" has three articles to choose between.
+* Variants have no article of their own and do not get one.
+
 ### Cheapest first, everywhere — **Shipped** 2026-10-09
 
 Asked for: every list of listings opens sorted by price, low to high. The

@@ -234,6 +234,11 @@ changed — filtered to the sites you care about and capped so it stays readable
   so a total missing a part says "at least" and names the part, rather than
   treating shipping as free. The transfer fee is the lowest among your FFL
   dealers, and the listing names which dealer it is.
+- **The maker's page.** A listing of a gun still in production carries one
+  more button beside the shop's: the model's own page on its maker's site, or
+  a search of that site for it when nobody has recorded the page yet. Which
+  models count as still made, and each maker's website, are kept in the
+  armory.
 - **FFL dealers.** The dealers who will receive a gun for you, at `/dealers`:
   name, address, website and transfer fee, each entered by hand. Every
   delivered price — on a listing and on the wishlist — uses the lowest fee on

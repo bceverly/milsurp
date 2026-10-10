@@ -97,6 +97,7 @@ manufacturers:
   status: approved
 - name: Beretta
   country: Italy
+  website: https://www.beretta.com/en-us
   status: approved
   position: 150
 - name: Berlin-Lübecker
@@ -181,6 +182,7 @@ manufacturers:
   status: approved
 - name: Canik
   country: Turkey
+  website: https://www.canikusa.com
   status: approved
 - name: Carcano
   country: Italy
@@ -211,6 +213,7 @@ manufacturers:
   status: approved
 - name: Charter Arms
   country: United States
+  website: https://www.charterfirearms.com
   status: approved
 - name: Châtellerault
   aliases:
@@ -250,6 +253,7 @@ manufacturers:
     listings under two letters.
 - name: Colt
   country: United States
+  website: https://www.colt.com
   status: approved
   position: 120
 - name: Connecticut Arms
@@ -283,6 +287,7 @@ manufacturers:
   - dot
   - dou
   country: Czech Republic
+  website: https://cz-usa.com
   status: approved
   position: 330
 - name: Dance Brothers
@@ -304,6 +309,7 @@ manufacturers:
   country: Germany
   status: approved
 - name: Diamondback Firearms
+  website: https://www.diamondbackfirearms.com
   status: approved
 - name: DPMS
   country: United States
@@ -398,6 +404,7 @@ manufacturers:
   status: approved
 - name: Glock
   country: Austria
+  website: https://us.glock.com
   status: approved
   position: 170
 - name: GREEN HEART
@@ -440,6 +447,7 @@ manufacturers:
   - Heckler & Koch
   - Heckler and Koch
   country: Germany
+  website: https://hk-usa.com
   status: approved
 - name: HEGE WAFFEN
   status: approved
@@ -592,17 +600,20 @@ manufacturers:
   country: Germany
   status: approved
 - name: Kahr
+  website: https://www.kahr.com
   status: approved
 - name: Kel-Tec
   aliases:
   - KELTEC
   country: United States
+  website: https://www.keltecweapons.com
   status: approved
 - name: KELTEC
   status: merged
   enabled: false
 - name: Kimber
   country: United States
+  website: https://www.kimberamerica.com
   status: approved
 - name: Koishikawa
   aliases:
@@ -781,6 +792,7 @@ manufacturers:
   - O.F. Mossberg
   - Mossberg & Sons
   country: United States
+  website: https://www.mossberg.com
   status: approved
 - name: MPi-KM
   status: pending
@@ -943,9 +955,11 @@ manufacturers:
   aliases:
   - Amadeo Rossi
   country: Brazil
+  website: https://www.rossiusa.com
   status: approved
 - name: Ruger
   country: United States
+  website: https://ruger.com
   status: approved
   position: 140
 - name: SACM
@@ -978,6 +992,7 @@ manufacturers:
 - name: SCCY
   aliases:
   - SCCY INC
+  website: https://sccy.com
   status: approved
 - name: SCCY INC
   status: merged
@@ -1008,6 +1023,7 @@ manufacturers:
   country: Russia
   status: approved
 - name: Shadow Systems
+  website: https://shadowsystemscorp.com
   status: approved
 - name: SHARPS
   country: United States
@@ -1031,6 +1047,7 @@ manufacturers:
   - Sig
   - Sauer
   country: Switzerland
+  website: https://www.sigsauer.com
   status: approved
 - name: SIMSON
   country: Germany
@@ -1056,6 +1073,7 @@ manufacturers:
   - S&W
   - Smith and Wesson
   country: United States
+  website: https://www.smith-wesson.com
   status: approved
   position: 130
 - name: SOLD MON
@@ -1080,6 +1098,7 @@ manufacturers:
   marks:
   - SA
   country: United States
+  website: https://www.springfield-armory.com
   status: approved
   position: 70
 - name: Stag Arms
@@ -1118,6 +1137,7 @@ manufacturers:
   status: approved
   position: 250
 - name: Stoeger
+  website: https://www.stoegerindustries.com
   status: approved
 - name: Tanfoglio
   aliases:
@@ -1126,6 +1146,7 @@ manufacturers:
   status: approved
 - name: Taurus
   country: Brazil
+  website: https://www.taurususa.com
   status: approved
 - name: Terni
   aliases:
@@ -1232,6 +1253,7 @@ manufacturers:
   marks:
   - ac
   country: Germany
+  website: https://waltherarms.com
   status: approved
   position: 180
 - name: WBP
@@ -1273,6 +1295,7 @@ manufacturers:
   country: United States
   status: approved
 - name: Wilson Combat
+  website: https://www.wilsoncombat.com
   status: approved
 - name: Winch
   status: pending
@@ -3646,6 +3669,7 @@ models:
   country: Italy
   manufacturers:
   - Beretta
+  modern_production: true
   status: approved
 - name: Beretta 96
   aliases:
@@ -3662,6 +3686,7 @@ models:
   country: Italy
   manufacturers:
   - Beretta
+  modern_production: true
   status: approved
 - name: Beretta M1934
   aliases:
@@ -4340,6 +4365,9 @@ models:
   country: United States
   status: approved
 - name: CM9
+  manufacturers:
+  - Kahr
+  modern_production: true
   status: approved
 - name: CMD 9M
   status: pending
@@ -4617,6 +4645,7 @@ models:
   - .357 Magnum
   manufacturers:
   - Colt
+  modern_production: true
   status: approved
 - name: Colt Single Action Army
   aliases:
@@ -4678,6 +4707,9 @@ models:
 - name: CPX-1
   aliases:
   - CPX1
+  manufacturers:
+  - SCCY
+  modern_production: true
   status: approved
 - name: CPX1
   status: merged
@@ -4685,6 +4717,9 @@ models:
 - name: CPX-2
   aliases:
   - CPX2
+  manufacturers:
+  - SCCY
+  modern_production: true
   status: approved
 - name: CPX2
   status: merged
@@ -4692,11 +4727,17 @@ models:
 - name: CR920
   aliases:
   - CR920P
+  manufacturers:
+  - Shadow Systems
+  modern_production: true
   status: approved
 - name: CR920P
   status: merged
   enabled: false
 - name: CT380
+  manufacturers:
+  - Kahr
+  modern_production: true
   status: approved
 - name: CTAR-21
   status: approved
@@ -4711,8 +4752,14 @@ models:
   - Cugir
   status: approved
 - name: CW380
+  manufacturers:
+  - Kahr
+  modern_production: true
   status: approved
 - name: CW9
+  manufacturers:
+  - Kahr
+  modern_production: true
   status: approved
 - name: CZ 24
   kind: pistol
@@ -4815,6 +4862,7 @@ models:
   - 9mm Luger
   manufacturers:
   - CZ
+  modern_production: true
   status: approved
 - name: CZ75
   aliases:
@@ -4826,6 +4874,7 @@ models:
   - 9mm Luger
   manufacturers:
   - CZ
+  modern_production: true
   status: approved
 - name: CZ-75B
   status: merged
@@ -4840,6 +4889,7 @@ models:
   - 9mm Luger
   manufacturers:
   - CZ
+  modern_production: true
   status: approved
 - name: CZ75D
   status: merged
@@ -4909,6 +4959,9 @@ models:
 - name: DB15
   status: approved
 - name: DB9
+  manufacturers:
+  - Diamondback Firearms
+  modern_production: true
   status: approved
 - name: DC8
   status: approved
@@ -5157,6 +5210,9 @@ models:
   - 5.56x45mm NATO
   status: approved
 - name: EC9S
+  manufacturers:
+  - Ruger
+  modern_production: true
   status: approved
 - name: Egyptian Model 1868
   aliases:
@@ -5174,6 +5230,9 @@ models:
 - name: EMP 4
   aliases:
   - EMP4
+  manufacturers:
+  - Springfield
+  modern_production: true
   status: approved
 - name: EMP4
   status: merged
@@ -5616,6 +5675,9 @@ models:
   - Walther
   status: approved
 - name: G43X
+  manufacturers:
+  - Glock
+  modern_production: true
   status: approved
 - name: G98M
   kind: rifle
@@ -5974,6 +6036,7 @@ models:
   - 9mm Luger
   manufacturers:
   - Glock
+  modern_production: true
   status: approved
 - name: Glock 20
   aliases:
@@ -6016,6 +6079,7 @@ models:
   - .40 S&W
   manufacturers:
   - Glock
+  modern_production: true
   status: approved
 - name: Glock 26
   aliases:
@@ -6026,6 +6090,7 @@ models:
   - 9mm Luger
   manufacturers:
   - Glock
+  modern_production: true
   status: approved
 - name: Glock 27
   aliases:
@@ -6036,6 +6101,7 @@ models:
   - .40 S&W
   manufacturers:
   - Glock
+  modern_production: true
   status: approved
 - name: Glock 29
   aliases:
@@ -6056,6 +6122,7 @@ models:
   - .45 ACP
   manufacturers:
   - Glock
+  modern_production: true
   status: approved
 - name: Glock 31
   aliases:
@@ -6116,6 +6183,7 @@ models:
   - .45 ACP
   manufacturers:
   - Glock
+  modern_production: true
   status: approved
 - name: Glock 42
   aliases:
@@ -6126,6 +6194,7 @@ models:
   - .380 ACP
   manufacturers:
   - Glock
+  modern_production: true
   status: approved
 - name: Glock 43
   aliases:
@@ -6136,6 +6205,7 @@ models:
   - 9mm Luger
   manufacturers:
   - Glock
+  modern_production: true
   status: approved
 - name: Glock 43X
   aliases:
@@ -6146,6 +6216,7 @@ models:
   - 9mm Luger
   manufacturers:
   - Glock
+  modern_production: true
   status: approved
 - name: Glock 44
   aliases:
@@ -6186,6 +6257,7 @@ models:
   - 9mm Luger
   manufacturers:
   - Glock
+  modern_production: true
   status: approved
 - name: GMR-15
   status: merged
@@ -6218,6 +6290,9 @@ models:
 - name: GX2
   status: approved
 - name: GX4
+  manufacturers:
+  - Taurus
+  modern_production: true
   status: approved
 - name: H011
   kind: rifle
@@ -7228,6 +7303,9 @@ models:
 - name: M197A1
   status: approved
 - name: M1991A1
+  manufacturers:
+  - Colt
+  modern_production: true
   status: approved
 - name: M1A1
   status: merged
@@ -7919,6 +7997,9 @@ models:
 - name: MAX-9
   aliases:
   - MAX 9
+  manufacturers:
+  - Ruger
+  modern_production: true
   status: approved
 - name: MAY 15
   status: pending
@@ -7941,6 +8022,9 @@ models:
 - name: MC1
   status: approved
 - name: MC2C
+  manufacturers:
+  - Mossberg
+  modern_production: true
   status: approved
 - name: MC35
   status: approved
@@ -7949,6 +8033,9 @@ models:
   country: Germany
   calibers:
   - 9mm Luger
+  manufacturers:
+  - Canik
+  modern_production: true
   status: approved
 - name: MCP35
   status: approved
@@ -8962,6 +9049,9 @@ models:
 - name: MR920
   aliases:
   - MR920P
+  manufacturers:
+  - Shadow Systems
+  modern_production: true
   status: approved
 - name: MR920P
   status: merged
@@ -9256,6 +9346,9 @@ models:
   status: merged
   enabled: false
 - name: P10C
+  manufacturers:
+  - CZ
+  modern_production: true
   status: approved
 - name: P10F
   status: approved
@@ -9315,6 +9408,9 @@ models:
   - .380 ACP
   status: approved
 - name: P238
+  manufacturers:
+  - Sig Sauer
+  modern_production: true
   status: approved
 - name: P250
   calibers:
@@ -9348,6 +9444,9 @@ models:
 - name: P365X
   calibers:
   - 9mm Luger
+  manufacturers:
+  - Sig Sauer
+  modern_production: true
   status: approved
 - name: P38
   kind: pistol
@@ -9444,6 +9543,9 @@ models:
   country: United States
   calibers:
   - 9mm Luger
+  manufacturers:
+  - Sig Sauer
+  modern_production: true
   status: approved
 - name: P95
   status: approved
@@ -9580,6 +9682,9 @@ models:
   country: Germany
   calibers:
   - 9x18mm Makarov
+  manufacturers:
+  - Kahr
+  modern_production: true
   status: approved
 - name: PM9
   status: merged
@@ -9725,6 +9830,9 @@ models:
   - .45 ACP
   status: approved
 - name: PT22
+  manufacturers:
+  - Taurus
+  modern_production: true
   status: approved
 - name: PT 783
   status: approved
@@ -10168,6 +10276,9 @@ models:
 - name: Ruger LCP-380
   aliases:
   - LCP 380
+  manufacturers:
+  - Ruger
+  modern_production: true
   status: approved
 - name: Ruger Mini-14
   aliases:
@@ -10357,6 +10468,9 @@ models:
 - name: SCT-19
   status: approved
 - name: SD9
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
   status: approved
 - name: SEPT 20
   status: pending
@@ -10560,6 +10674,7 @@ models:
   country: Germany
   manufacturers:
   - Sig Sauer
+  modern_production: true
   status: approved
 - name: Sig Sauer P239
   aliases:
@@ -10578,6 +10693,7 @@ models:
   country: United States
   manufacturers:
   - Sig Sauer
+  modern_production: true
   status: approved
 - name: Sig Sauer P365
   aliases:
@@ -10588,6 +10704,7 @@ models:
   - 9mm Luger
   manufacturers:
   - Sig Sauer
+  modern_production: true
   status: approved
 - name: Sig Sauer SP2022
   aliases:
@@ -10705,6 +10822,9 @@ models:
   aliases:
   - BG38
   - BG380
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
   status: approved
 - name: Smith & Wesson Double Action
   aliases:
@@ -10790,6 +10910,7 @@ models:
   - .357 Magnum
   manufacturers:
   - Smith & Wesson
+  modern_production: true
   status: approved
 - name: Smith & Wesson Model 1917
   aliases:
@@ -11017,6 +11138,7 @@ models:
   - .40 S&W
   manufacturers:
   - Smith & Wesson
+  modern_production: true
   status: approved
 - name: Smith & Wesson M&P45
   aliases:
@@ -11028,6 +11150,7 @@ models:
   - .45 ACP
   manufacturers:
   - Smith & Wesson
+  modern_production: true
   status: approved
 - name: Smith & Wesson M&P9
   aliases:
@@ -11039,6 +11162,7 @@ models:
   - 9mm Luger
   manufacturers:
   - Smith & Wesson
+  modern_production: true
   status: approved
 - name: Smith & Wesson M&P Shield
   aliases:
@@ -11047,6 +11171,7 @@ models:
   country: United States
   manufacturers:
   - Smith & Wesson
+  modern_production: true
   status: approved
 - name: Smith & Wesson Safety Hammerless
   aliases:
@@ -11153,6 +11278,7 @@ models:
   country: United States
   manufacturers:
   - Ruger
+  modern_production: true
   status: approved
 - name: SP-2
   status: approved
@@ -11963,6 +12089,9 @@ models:
 - name: TC9
   status: approved
 - name: TCP 738
+  manufacturers:
+  - Taurus
+  modern_production: true
   status: approved
 - name: TG36
   status: approved
@@ -12031,6 +12160,9 @@ models:
   status: merged
   enabled: false
 - name: TP9
+  manufacturers:
+  - Canik
+  modern_production: true
   status: approved
 - name: TPR9C
   status: approved
@@ -12782,6 +12914,7 @@ models:
   - 9mm Luger
   manufacturers:
   - Heckler Koch
+  modern_production: true
   status: approved
 - name: VP9B
   status: merged
@@ -13110,6 +13243,7 @@ models:
   - MANURHIN
   - Walther
   wikipedia: https://en.wikipedia.org/wiki/Walther_PP
+  modern_production: true
   status: approved
 - name: Walther PPS
   kind: pistol
@@ -13119,6 +13253,7 @@ models:
   - 9mm Luger
   manufacturers:
   - Walther
+  modern_production: true
   status: approved
 - name: WASR 10
   kind: rifle
@@ -13521,6 +13656,9 @@ models:
 - name: XD-9
   aliases:
   - XD9
+  manufacturers:
+  - Springfield
+  modern_production: true
   status: approved
 - name: XD9
   status: merged
@@ -13536,17 +13674,29 @@ models:
 - name: XDM-40
   status: approved
 - name: XDM45
+  manufacturers:
+  - Springfield
+  modern_production: true
   status: approved
 - name: XDM-9
   aliases:
   - XDM9
+  manufacturers:
+  - Springfield
+  modern_production: true
   status: approved
 - name: XDM9
   status: merged
   enabled: false
 - name: XDS-45
+  manufacturers:
+  - Springfield
+  modern_production: true
   status: approved
 - name: XDS-9
+  manufacturers:
+  - Springfield
+  modern_production: true
   status: approved
 - name: XENA-15
   calibers:

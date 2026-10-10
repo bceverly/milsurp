@@ -171,6 +171,8 @@ def _model_out(row: FirearmModel, matched: int = 0, mentions: int | None = None)
         manufacturer_ids=[maker.id for maker in row.manufacturers],
         manufacturers=[maker.name for maker in row.manufacturers],
         wikipedia_url=row.wikipedia_url,
+        modern_production=row.modern_production,
+        maker_url=row.maker_url,
         status=row.status,
         position=row.position,
         enabled=row.enabled,
