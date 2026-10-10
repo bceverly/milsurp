@@ -113,7 +113,7 @@ class TestABoreStatedInWords:
             ("U.S. Caswell and Dodge Model 1798 Contract Flintlock Musket .69 Caliber", ".69"),
             ("A. WURFELEIN .40CAL OVERCOAT PERCUSSION PISTOL, ANTIQUE", ".40"),
             ("USED Remington 700 50 Cal Muzzle Loader", ".50"),
-            ("Original British 18 Bore Single Barrel Percussion Fowling Piece", "18 Bore"),
+            ("Original British 18 Bore Single Barrel Percussion Fowling Piece", "18 Gauge"),
             ("Antique Parker Bros 10 GA GH Dbl Hammerless Grade 2 Shotgun 1889", "10 Gauge"),
             ("Original U.S. Springfield Trapdoor 32 gauge Saddle Ring Carbine", "32 Gauge"),
             ("Belgian Model 1844/1860 civil War imported Musket .72 caliber", ".72"),
@@ -122,6 +122,20 @@ class TestABoreStatedInWords:
     )
     def test_the_ways_it_is_written(self, title, wanted):
         assert extract_caliber(title) == wanted
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "Original Belgian Double Barrel 16 Bore Percussion Fowling Piece",
+            "SPANISH MIQUELET SPORTING FLINTLOCK OF ABOUT 16 BORE",
+            "J. COOPER 16-BORE PERCUSSION SHOTGUN",
+        ],
+    )
+    def test_bore_and_gauge_are_one_measure(self, title):
+        """Balls of the barrel's diameter to the pound, whichever word is used:
+        a 16 bore fowler is a 16 gauge gun. ("16 gauge" itself is spelled
+        "16-gauge" by the cartridge table, an alias of the same armory row.)"""
+        assert extract_caliber(title) == "16 Gauge"
 
     def test_the_06_of_30_06_is_not_a_bore(self):
         assert extract_caliber("M1 Garand Rifle, Semi-Auto, 30-06 caliber") == ".30-06"
@@ -222,3 +236,27 @@ class TestTheSixTheRecomputeGotWrong:
         assert extract_caliber("1887 Zulu War British Martini Henry .577-450") == (
             ".577/450 Martini-Henry"
         )
+
+
+class TestAMeasurementIsNotACaliber:
+    """``12.25"`` is a barrel length. The table's ``.25`` read it as a .25 ACP
+    on an 18th-century Danish flintlock pistol (2026-10-09)."""
+
+    @pytest.mark.parametrize(
+        "text",
+        ['approx. 12.25" round 69 caliber barrel', "a 14.22 inch barrel", "weighs 10.38 lbs"],
+    )
+    def test_a_decimal_number_names_no_cartridge(self, text):
+        assert extract_caliber("Antique flintlock", text) in (None, ".69")
+
+    @pytest.mark.parametrize(
+        ("title", "wanted"),
+        [
+            ("Bayard .25 pocket pistol", ".25 ACP"),
+            ("Colt Police Positive .38 Special", ".38 Special"),
+            ("Lee-Enfield No. 4, cal .303", ".303 British"),
+            ("FN 1910 6.35mm", ".25 ACP"),
+        ],
+    )
+    def test_while_a_written_caliber_still_reads(self, title, wanted):
+        assert extract_caliber(title) == wanted

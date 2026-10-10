@@ -17,6 +17,7 @@ import {
   Flame,
   Logout,
   Mail,
+  MapPin,
   Menu,
   Rifle,
   Shield,
@@ -68,13 +69,17 @@ const NAV = [
   {
     // The things you asked for, from widest to narrowest: a standing question
     // about the catalog, a standing question about particular guns, the guns
-    // you mean to buy, and the guns that are already yours.
+    // you mean to buy, and the guns that are already yours -- then the dealers
+    // they are shipped to.
     heading: "Yours",
     entries: [
       { to: "/saved-searches", label: "Saved searches", icon: Bookmark },
       { to: "/watchlist", label: "Watchlist", icon: Star },
       { to: "/wishlist", label: "Wishlist", icon: Cart },
       { to: "/collection", label: "Collection", icon: BoxIcon },
+      // Last: not something to buy or own, but where it gets sent, and what
+      // every delivered price on the pages above is worked out with.
+      { to: "/dealers", label: "FFL dealers", icon: MapPin },
     ],
   },
   {

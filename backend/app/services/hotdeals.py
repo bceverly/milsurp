@@ -136,9 +136,11 @@ SORTS: dict[str, tuple[Any, ...]] = {
     "newest": (HotDeal.first_listed_at.desc(), HotDeal.id.asc()),
 }
 
-#: The order the page offers them in, and the default when none is asked for.
-SORT_SEQUENCE: tuple[str, ...] = ("discount", "saving", "price_asc", "price_desc", "newest")
-DEFAULT_SORT = "discount"
+#: The order the page offers them in, and the default when none is asked for:
+#: cheapest first, as on every list of listings (asked for on 2026-10-09; it
+#: was the deepest discount).
+SORT_SEQUENCE: tuple[str, ...] = ("price_asc", "discount", "saving", "price_desc", "newest")
+DEFAULT_SORT = "price_asc"
 
 #: What each order is called where a person reads it, server-side for the same
 #: reason :data:`BUCKET_LABELS` is.
@@ -463,13 +465,14 @@ def deals(
     sort: str = DEFAULT_SORT,
     limit: int | None = None,
 ) -> list[HotDeal]:
-    """The current deals, deepest discount first unless asked otherwise.
+    """The current deals, cheapest first unless asked otherwise.
 
-    The default is how far below the median rather than dollars saved: this is
-    a catalog where a 30% saving is $200 on a Mosin and $2,000 on a Luger, and
-    ordering by the dollars would put every expensive gun above every cheap one
-    whatever the bargain was. It is offered as ``saving`` for the reader who
-    wants exactly that, which is a different question rather than a wrong one.
+    Of the two ways to rank by the bargain itself, ``discount`` -- how far
+    below the median -- is offered ahead of ``saving``, dollars off: this is a
+    catalog where a 30% saving is $200 on a Mosin and $2,000 on a Luger, and
+    ordering by the dollars puts every expensive gun above every cheap one
+    whatever the bargain was. ``saving`` is there for the reader who wants
+    exactly that, which is a different question rather than a wrong one.
 
     **The order is applied before the limit, which is the whole reason this
     takes a sort at all.** The page is capped, so a caller that asked for two

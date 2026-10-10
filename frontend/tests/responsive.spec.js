@@ -67,7 +67,7 @@ test.describe("mobile layout", () => {
     // — fit a phone: the test opened the page and proved nothing. And the
     // obvious repair, "seed one listing with ten photos and click the first
     // card", fails whenever admin.spec.js has already run: scanning the Demo
-    // Vendor creates six listings dated now, and those lead "newest first".
+    // Vendor creates six listings dated now, and those can lead the list.
     //
     // So: walk the listings until one qualifies, and fail loudly if none does,
     // rather than pass quietly on a page that cannot demonstrate anything.

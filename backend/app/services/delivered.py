@@ -87,13 +87,17 @@ class Costs:
 
     by_site: dict[int, Shipping] = field(default_factory=dict)
     transfer_fee: float | None = None
+    #: Whose fee that is: the reader's cheapest dealer, by name.
+    transfer_dealer: str | None = None
 
     @classmethod
     def load(cls, session: Session, user: User | None) -> Costs:
         sites = session.execute(select(Site)).scalars().all()
+        dealer = user.cheapest_dealer if user is not None else None
         return cls(
             by_site={site.id: shipping_for_site(site) for site in sites},
-            transfer_fee=user.ffl_transfer_fee if user is not None else None,
+            transfer_fee=dealer.transfer_fee if dealer is not None else None,
+            transfer_dealer=dealer.name if dealer is not None else None,
         )
 
     def shipping(self, item: Item) -> float | None:

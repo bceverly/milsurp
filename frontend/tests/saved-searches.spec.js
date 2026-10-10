@@ -218,7 +218,11 @@ test.describe("a saved search, read back", () => {
     const card = signedIn.locator(".saved-search", { hasText: RICH.name });
     const toggle = card.getByRole("checkbox", { name: "Email me these" });
     await expect(toggle).toBeChecked();
-    await toggle.uncheck();
+    // A click, not uncheck(): uncheck() insists the box ends up unticked, and
+    // the refusal is mocked to arrive at once -- often before Playwright
+    // looks -- so the revert this test is about made uncheck() itself fail
+    // ("Clicking the checkbox did not change its state").
+    await toggle.click();
     await expect(card.getByRole("alert")).toContainText("That limit is not offered.");
     // Optimistic, and so reverted: the box is left saying what the server holds.
     await expect(toggle).toBeChecked();

@@ -28,6 +28,7 @@ from .api import (
     armory,
     auth,
     backups,
+    dealers,
     items,
     manufacturers,
     preferences,
@@ -479,6 +480,7 @@ def create_app() -> FastAPI:
     api.include_router(saved_searches.router)
     api.include_router(watchlist.router)
     api.include_router(wishlist.router)
+    api.include_router(dealers.router)
     api.include_router(collection_api.router)
     app.include_router(api)
 

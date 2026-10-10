@@ -16,6 +16,7 @@ import pytest
 from app.models import (
     CollectionItem,
     EmailPreference,
+    FflDealer,
     FirearmModel,
     Item,
     Site,
@@ -40,7 +41,7 @@ def world(clean_db):
         email="buyer@example.com",
         password_hash=hash_password("buyer-long-passphrase"),
         role=UserRole.NORMAL,
-        ffl_transfer_fee=25.0,
+        ffl_dealers=[FflDealer(name="Corner Guns", transfer_fee=25.0)],
     )
     clean_db.add_all([shop, bare, k31, reader])
     clean_db.commit()
@@ -103,7 +104,7 @@ class TestLines:
 
     def test_missing_shipping_or_fee_makes_it_at_least(self, world):
         session, _shop, bare, k31, reader = world
-        reader.ffl_transfer_fee = None
+        reader.ffl_dealers.clear()
         item = _gun(session, bare, "a", 500, model=k31)
         wishlist.add(session, reader, item)
         session.commit()
@@ -199,15 +200,11 @@ class TestApi:
     def test_the_license_is_saved_and_left_alone_when_unsent(self, client, normal_user):
         headers = normal_user["headers"]
         saved = client.put(
-            "/api/preferences/costs",
-            json={"ffl_transfer_fee": 30, "has_cr_license": True},
-            headers=headers,
+            "/api/preferences/costs", json={"has_cr_license": True}, headers=headers
         ).json()
-        assert saved == {"ffl_transfer_fee": 30.0, "has_cr_license": True}
-        kept = client.put(
-            "/api/preferences/costs", json={"ffl_transfer_fee": 20}, headers=headers
-        ).json()
-        assert kept == {"ffl_transfer_fee": 20.0, "has_cr_license": True}
+        assert saved == {"ffl_transfer_fee": None, "has_cr_license": True}
+        kept = client.put("/api/preferences/costs", json={}, headers=headers).json()
+        assert kept == {"ffl_transfer_fee": None, "has_cr_license": True}
         assert client.get("/api/wishlist", headers=headers).json()["has_cr_license"] is True
 
 

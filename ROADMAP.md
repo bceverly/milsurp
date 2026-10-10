@@ -4525,6 +4525,94 @@ Not done: ranking Hot deals on the delivered price. A per-shop shipping figure
 exists for fewer than a quarter of the shops, so re-ranking on it would reward
 the shops that publish one rather than the cheaper guns.
 
+The one fee became a list of dealers on 2026-10-09; see below.
+
+### FFL dealers, and arrows on the full-size photo — **Shipped** 2026-10-09
+
+**A list of dealers in place of one transfer fee.** A reader keeps each dealer
+they use at `/dealers` (under Yours in the rail): name, address, website and
+transfer fee, entered by hand (`ffl_dealers`, migration 0061; `app/api/dealers.py`).
+Every calculation uses the lowest fee on the list -- `User.ffl_transfer_fee` is
+now that, computed -- so the delivered price on a listing, the wishlist's
+lines and totals, and the C&R waiver all work as before. The listing says whose
+fee it is ("$25 transfer at Corner Guns") and links to the list; the wishlist
+shows the fee and dealer read-only with the same link. A website typed without
+a scheme is taken as `https://`; anything else that is not an http(s) address
+is refused, since the page makes it a link. The migration turns a fee already
+set into a dealer named "My FFL dealer", and the downgrade puts each reader's
+lowest fee back.
+
+**Previous and next on the full-size photo.** The lightbox has arrows over the
+photo at its edges and a "2 of 7" count. They stop at the ends rather than
+wrapping, as the arrow keys and the thumbnails do, and move the gallery
+underneath with them.
+
+### Cheapest first, everywhere — **Shipped** 2026-10-09
+
+Asked for: every list of listings opens sorted by price, low to high. The
+inventory (`search.DEFAULT_SORT`, and the API's default), Hot deals
+(`hotdeals.DEFAULT_SORT`, which was the deepest discount) and the wishlist
+(which was newest added) all do now, and "Price: low to high" heads each sort
+menu. A saved search keeps the sort it was saved with; one saved without a
+sort gets this one. Hot deals' page is capped at two hundred, and the order is
+applied before the cap, so a bucket with more than that shows its two hundred
+cheapest deals rather than its two hundred deepest. Lists of other things --
+the Market's bands, the Shops table, the armory -- keep their own orders.
+
+The demo seed's ten-photo gallery moved with it: it goes to the cheapest
+listing now, the one a screenshot lands on, as it went to the newest before.
+
+### Bore and gauge are one measure — **Fixed** 2026-10-09
+
+The question was whether "N bore" and "N gauge" are the same. They are: both
+are the number of lead balls of the barrel's diameter that make a pound, and
+production's own titles say so ("16 Bore (approximately .65 Caliber)", "20
+Bore (.61 Caliber)", ".753 Caliber (12-Bore)", "54 Bore (.442 Caliber)").
+.410 is the exception, a diameter in inches, and was already its own row.
+
+What was wrong was ours. 10, 12 and 20 Bore had been merged into their gauges
+by hand and the rest had not, so 8 and 16 were each two calibers, and 4, 9,
+13, 17, 18, 22 and 30 existed only as "Bore" -- a 16-bore fowler and a
+16-gauge double did not share a filter entry. In production: 8 Bore and 16
+Bore merged into their gauges, the other seven renamed to "N Gauge" with the
+bore spelling kept as an alias, and every gauge row given its "N Bore" alias.
+The classifier now answers "N Gauge" for "N bore" (`_worded_bore`). The word
+is not a shotgun's alone -- a 22-bore holster pistol and an 8-bore double rifle
+are measured the same way -- and nothing treats a gauge caliber as making a
+listing a shotgun.
+
+### A barrel length is not a caliber — **Fixed** 2026-10-09
+
+Found while reading the bores: an 18th-century Danish flintlock pistol was
+stored as a .25 ACP, because its description gave the barrel as "approx.
+12.25"". The cartridge table's `\.25\b` matched the middle of the number, and so
+did `.22`, `.32`, `.38`, `.380` and `.303` -- any measurement could name a
+cartridge. Every table pattern whose alternative opens on a dot now refuses a
+digit before it (`classify._not_mid_number`); the metric spellings start with
+their digits and are untouched. Listings already stored this way are re-read
+on the next scan or `reclassify`.
+
+### The armory, from production's unmatched guns — **Shipped** 2026-10-09
+
+The queue after the used-handgun shops arrived was 151 models, 5 calibers and
+12 makers, nearly all modern pistols from We Buy Guns, Greentop and Kittery.
+Approved 88 models and 9 makers (renamed out of capitals: Kahr, Shadow Systems,
+Wilson Combat), merged 24 spelling variants into existing rows (GP-100, HK45,
+XD45, SP-101, CPX2, P320C, VP9B ...), and switched off 39 that were serial
+numbers, Pietta catalog numbers or a maker and a year. CPO, Sig's "Certified
+Pre-Owned", is not a maker.
+
+Then from the 4,593 active firearms with no model: six models that did not
+exist (the Mosin-Nagant M1891, the Swedish m/38, the U.S. Model 1816 and 1842
+pistols -- which the musket rows of those years rightly refused -- the Colt
+Model 1908 Pocket Hammerless, and the Model 1855 pistol-carbine), spellings
+dealers use that the rows lacked (P-64, P-210, P14, K-98, Beretta 1934, Swiss
+1929, Colt Model 1860, Model 1917 Eddystone), and a single original chambering
+on fourteen models that had none, so they can fill a listing that states
+none -- including taking 9mm off the M1911A1, which had kept 37 CMP pistols
+from ever getting .45 ACP. Firearms with no caliber went from 1,062 to 962 and
+with no model from 4,593 to 4,493.
+
 ### The collection — **Shipped** 2026-09-30
 
 Everything else here is about buying; this is about having bought. A reader's

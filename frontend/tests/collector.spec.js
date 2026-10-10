@@ -62,7 +62,7 @@ test.describe("collector details", () => {
 });
 
 test.describe("delivered price", () => {
-  test("a missing part is named, and the fee is set where it is used", async ({
+  test("a missing part is named, and the fee is the cheapest dealer's", async ({
     signedIn,
   }) => {
     await openListing(signedIn, K98);
@@ -70,20 +70,25 @@ test.describe("delivered price", () => {
     await expect(delivered).toContainText("At least");
     await expect(delivered).toContainText("your transfer fee");
 
-    await delivered.getByRole("button", { name: /Set your fee|Change fee/ }).click();
-    await signedIn.getByLabel("Your dealer’s transfer fee").fill("-3");
-    await delivered.getByRole("button", { name: "Save" }).click();
-    await expect(delivered.locator(".alert--error")).toBeVisible();
+    // The way to the dealers is on the listing, where the question comes up.
+    await delivered.getByRole("link", { name: "Add your dealer" }).click();
+    await expect(signedIn.getByRole("heading", { name: "FFL dealers" })).toBeVisible();
+    await signedIn.getByRole("button", { name: "Add a dealer" }).click();
+    const dialog = signedIn.getByRole("dialog");
+    await dialog.getByLabel("Name").fill("Delivered Test FFL");
+    await dialog.getByLabel("Transfer fee").fill("25");
+    await dialog.getByRole("button", { name: "Save" }).click();
+    await expect(dialog).toHaveCount(0);
 
-    await signedIn.getByLabel("Your dealer’s transfer fee").fill("25");
-    await delivered.getByRole("button", { name: "Save" }).click();
-    await expect(delivered).toContainText("$25");
-    await expect(delivered.getByRole("button", { name: "Change fee" })).toBeVisible();
-    await expect(delivered).toContainText("$25 transfer");
+    await signedIn.goBack();
+    await expect(delivered).toContainText("$25 transfer at Delivered Test FFL");
+    await expect(delivered.getByRole("link", { name: "Your dealers" })).toBeVisible();
 
-    await delivered.getByRole("button", { name: "Change fee" }).click();
-    await delivered.getByRole("button", { name: "Cancel" }).click();
-    await expect(delivered.locator("form")).toHaveCount(0);
+    // Leave the account as found.
+    await delivered.getByRole("link", { name: "Your dealers" }).click();
+    await signedIn.getByRole("button", { name: "Remove Delivered Test FFL" }).click();
+    await signedIn.getByRole("dialog").getByRole("button", { name: "Remove" }).click();
+    await expect(signedIn.getByText("No dealers yet")).toBeVisible();
   });
 
   test("an administrator can override a shop's shipping", async ({ signedIn }) => {
@@ -263,6 +268,7 @@ test.describe("the navigation", () => {
       "Watchlist",
       "Wishlist",
       "Collection",
+      "FFL dealers",
     ]);
   });
 });

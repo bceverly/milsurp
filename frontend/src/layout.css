@@ -1127,6 +1127,44 @@
   max-height: 100%;
   object-fit: contain;
 }
+/* Previous and next, over the photo at its edges. */
+.lightbox__nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.lightbox__nav:hover,
+.lightbox__nav:focus-visible {
+  background: rgba(255, 255, 255, 0.28);
+}
+.lightbox__nav--prev {
+  left: 14px;
+}
+.lightbox__nav--next {
+  right: 14px;
+}
+.lightbox__count {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
 .lightbox__close {
   position: absolute;
   top: 14px;
@@ -3332,19 +3370,6 @@
   font-size: 12px;
   color: var(--ink-400);
 }
-.delivered__form {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-}
-.delivered__form .input {
-  width: 110px;
-}
-.delivered__form .field__hint {
-  flex-basis: 100%;
-}
 
 /* What guns like this one were asking when they left the shelf. */
 .departures {
@@ -3641,6 +3666,17 @@
 .wishlist-costs .watch__field {
   max-width: 220px;
 }
+/* The fee is read from the reader's dealers, not typed here: a line, with
+   the link to where it is set. */
+.wishlist-fee {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-height: 36px;
+  font-size: 14px;
+  color: var(--ink-900);
+}
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -3720,4 +3756,12 @@
 /* The armory tables' pager: under the table, closer than the inventory's. */
 .armory-pager {
   margin: 14px 0 4px;
+}
+
+/* FFL dealers */
+.dealers__address {
+  white-space: pre-line;
+}
+.dealers__lowest {
+  margin-left: 8px;
 }

@@ -102,12 +102,10 @@ class User(Base, TimestampMixin):
     # Bumped whenever the password changes, which invalidates issued tokens.
     token_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime)
-    #: What this reader's dealer charges to receive a gun for them, so a
-    #: listing can show what it costs delivered rather than what it costs on
-    #: the shelf. Null is "not set", and the page then says so rather than
-    #: pretending the transfer is free. A C&R holder receiving a curio
-    #: directly sets it to 0.
-    ffl_transfer_fee: Mapped[float | None] = mapped_column(Float)
+    # What a dealer charges to receive a gun lives on the reader's FFL dealers
+    # (FflDealer), and the delivered price uses the cheapest of them -- see
+    # ``ffl_transfer_fee`` below. It was one number on this row until
+    # 2026-10-09; migration 0061 moved each into a dealer.
     #: Holds a curio and relic license (an 03 FFL), and so receives a C&R
     #: eligible gun directly, with no dealer and no transfer fee. The
     #: wishlist charges the fee only on what is not eligible when this is set.
@@ -148,10 +146,28 @@ class User(Base, TimestampMixin):
     watched_items: Mapped[list["WatchedItem"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    ffl_dealers: Mapped[list["FflDealer"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan", order_by="FflDealer.id"
+    )
 
     @property
     def is_admin(self) -> bool:
         return self.role == UserRole.ADMIN
+
+    @property
+    def cheapest_dealer(self) -> FflDealer | None:
+        """The dealer with the lowest transfer fee, the first entered on a tie."""
+        return min(self.ffl_dealers, key=lambda dealer: dealer.transfer_fee, default=None)
+
+    @property
+    def ffl_transfer_fee(self) -> float | None:
+        """What a transfer costs this reader: the lowest fee among their
+        dealers, so a listing can show what it costs delivered rather than what
+        it costs on the shelf. None when no dealer is entered, and the page
+        then says so rather than pretending the transfer is free. A C&R holder
+        receiving a curio directly enters themselves at 0."""
+        dealer = self.cheapest_dealer
+        return dealer.transfer_fee if dealer is not None else None
 
 
 # ---------------------------------------------------------------------------
@@ -1129,7 +1145,7 @@ class SavedSearch(Base, TimestampMixin):
     query: Mapped[str] = mapped_column(String(2000), nullable=False, default="")
     #: Also inside ``query``; kept here so the list page can show it and the
     #: digest can order by it without re-parsing.
-    sort: Mapped[str] = mapped_column(String(32), nullable=False, default="newest")
+    sort: Mapped[str] = mapped_column(String(32), nullable=False, default="price_asc")
 
     email_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     #: How many listings the email carries. The cap is on the *email* only:
@@ -1221,6 +1237,28 @@ class CollectionValuation(Base):
     estimate: Mapped[float] = mapped_column(Float, nullable=False)
     #: "left" or "shelf", as the valuation said that day.
     basis: Mapped[str] = mapped_column(String(8), nullable=False)
+
+
+class FflDealer(Base, TimestampMixin):
+    """A dealer who will receive a gun for this reader, and what they charge.
+
+    Entered by hand. A reader may list several -- the shop down the road, the
+    one by work, a kitchen-table FFL -- and every delivered price is worked
+    out at the cheapest of them (User.ffl_transfer_fee).
+    """
+
+    __tablename__ = "ffl_dealers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    address: Mapped[str | None] = mapped_column(String(500))
+    url: Mapped[str | None] = mapped_column(String(500))
+    transfer_fee: Mapped[float] = mapped_column(Float, nullable=False)
+
+    user: Mapped[User] = relationship(back_populates="ffl_dealers")
 
 
 class WishlistItem(Base):

@@ -454,7 +454,7 @@ test.describe("item detail extras", () => {
      * the full-size view, for the same reason every other overlay here does.
      *
      * Finds a listing with a strip rather than taking the first card: which
-     * listing leads "newest first" depends on whether a scan has run, so the
+     * listing leads the default order depends on whether a scan has run, so the
      * first card is not reliably one with more than one photograph.
      */
     await signedIn.goto("/?availability=all");
@@ -494,10 +494,26 @@ test.describe("item detail extras", () => {
     await signedIn.keyboard.press("ArrowLeft");
     await expect(thumbs.nth(0)).toHaveAttribute("aria-current", "true");
 
-    // Escape closes the full-size view and nothing else.
+    // The full-size view has its own arrows over the photo, hidden at the
+    // ends, and moves the gallery underneath with it.
     await signedIn.getByRole("button", { name: /^View .* full size$/ }).click();
     const lightbox = signedIn.getByRole("dialog");
     await expect(lightbox).toBeVisible();
+    const count = await thumbs.count();
+    await expect(lightbox).toContainText(`1 of ${count}`);
+    await expect(lightbox.getByRole("button", { name: "Previous photo" })).toHaveCount(0);
+    await lightbox.getByRole("button", { name: "Next photo" }).click();
+    await expect(lightbox).toContainText(`2 of ${count}`);
+    await expect(thumbs.nth(1)).toHaveAttribute("aria-current", "true");
+    await lightbox.getByRole("button", { name: "Previous photo" }).click();
+    await expect(lightbox).toContainText(`1 of ${count}`);
+    for (let index = 1; index < count; index += 1) {
+      await lightbox.getByRole("button", { name: "Next photo" }).click();
+    }
+    await expect(lightbox).toContainText(`${count} of ${count}`);
+    await expect(lightbox.getByRole("button", { name: "Next photo" })).toHaveCount(0);
+
+    // Escape closes the full-size view and nothing else.
     await signedIn.keyboard.press("Escape");
     await expect(lightbox).toHaveCount(0);
   });

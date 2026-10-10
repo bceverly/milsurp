@@ -107,17 +107,18 @@ test.describe("hot deals", () => {
   }) => {
     const box = signedIn.getByLabel("Sort by");
     // The wording is the server's, so the page and the email cannot drift.
-    await expect(box.locator("option").first()).toHaveText("Biggest discount");
+    // Cheapest first is the default, as on every list of listings.
+    await expect(box.locator("option").first()).toHaveText("Price: low to high");
+    await expect(box).toHaveValue("price_asc");
 
-    const byDiscount = await titles(signedIn);
-    expect(byDiscount.length).toBeGreaterThan(1);
+    const cheapest = await titles(signedIn);
+    expect(cheapest.length).toBeGreaterThan(1);
 
     await box.selectOption("price_desc");
-    await expect.poll(() => titles(signedIn)).not.toEqual(byDiscount);
-    // The seeded catalog's two deals rank opposite ways by discount and by
-    // price, so a straight reversal is the proof the list really turned over.
-    const byPrice = await titles(signedIn);
-    expect([...byPrice].reverse()).toEqual(byDiscount);
+    await expect.poll(() => titles(signedIn)).not.toEqual(cheapest);
+    // A straight reversal is the proof the list really turned over.
+    const dearest = await titles(signedIn);
+    expect([...dearest].reverse()).toEqual(cheapest);
   });
 
   test("and the order is the server's doing, not a shuffle of what was sent", async ({

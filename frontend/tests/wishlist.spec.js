@@ -44,11 +44,11 @@ test.describe("wishlist", () => {
     await expect(table).toContainText(title);
     await expect(signedIn.getByTestId("wishlist-totals")).toBeVisible();
 
-    // The fee and the license are saved where they change the totals.
-    const fee = signedIn.getByLabel("Your dealer’s transfer fee");
-    await fee.fill("35");
-    await fee.press("Enter");
-    await expect(fee).toHaveValue("35");
+    // The fee is read from the dealers, with the way to them beside it; the
+    // license is saved where it changes the totals.
+    const fee = signedIn.getByTestId("wishlist-fee");
+    await expect(fee).toContainText("No dealer yet");
+    await expect(fee.getByRole("link", { name: "Add your dealer" })).toBeVisible();
     const license = signedIn.getByLabel(/I hold a C&R license/);
     await license.check();
     await expect(license).toBeChecked();
@@ -269,7 +269,7 @@ test.describe("wishlist states", () => {
     await expect(k31).toContainText("when sold, same condition");
     const mosin = table.locator("tr", { hasText: "Mosin" });
     await expect(mosin).toContainText("Not stated");
-    await expect(mosin).toContainText("Set your fee above");
+    await expect(mosin).toContainText("Add a dealer above");
     await expect(mosin).toContainText("at least");
     await expect(mosin).toContainText("−$100");
     await expect(mosin).toContainText("asking now");

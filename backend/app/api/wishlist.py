@@ -74,6 +74,7 @@ def _wishlist_out(session: DbSession, user: CurrentUser) -> WishlistOut:
             profit=totals.profit,
         ),
         ffl_transfer_fee=user.ffl_transfer_fee,
+        ffl_dealer=user.cheapest_dealer.name if user.cheapest_dealer else None,
         has_cr_license=user.has_cr_license,
         wishlist_alerts=user.wishlist_alerts,
         budget=user.wishlist_budget,

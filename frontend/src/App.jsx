@@ -31,6 +31,7 @@ const SavedSearches = lazy(() => import("./pages/SavedSearches.jsx"));
 const Watchlist = lazy(() => import("./pages/Watchlist.jsx"));
 const Wishlist = lazy(() => import("./pages/Wishlist.jsx"));
 const CollectionPage = lazy(() => import("./pages/Collection.jsx"));
+const DealersPage = lazy(() => import("./pages/Dealers.jsx"));
 const ShopsPage = lazy(() => import("./pages/Shops.jsx"));
 const SecurityPage = lazy(() => import("./pages/Security.jsx"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword.jsx"));
@@ -112,6 +113,7 @@ export default function App() {
         <Route path="watchlist" element={<Watchlist />} />
         <Route path="wishlist" element={<Wishlist />} />
         <Route path="collection" element={<CollectionPage />} />
+        <Route path="dealers" element={<DealersPage />} />
         <Route
           path="sites"
           element={

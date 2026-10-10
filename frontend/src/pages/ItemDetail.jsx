@@ -24,6 +24,7 @@ import {
   Box,
   Cart,
   ChevronLeft,
+  ChevronRight,
   External,
   Eye,
   Star,
@@ -699,31 +700,12 @@ function SimilarListings({ rows }) {
  *
  * Price, the shop's own firearm shipping and your transfer fee, added up. A
  * part nobody stated is named as missing and the total marked "at least",
- * never treated as free. The fee is set right here, where the question comes
- * up, rather than on a settings page nobody would look for it on.
+ * never treated as free. The fee is the lowest among your FFL dealers, named
+ * beside it, and the link to that list is right here, where the question
+ * comes up.
  */
-function DeliveredPrice({ item, onFeeSaved }) {
-  const [editing, setEditing] = useState(false);
-  const [fee, setFee] = useState("");
-  const [error, setError] = useState(null);
+function DeliveredPrice({ item }) {
   if (item.delivered_price == null) return null;
-
-  async function save(event) {
-    event.preventDefault();
-    setError(null);
-    const value = fee.trim() === "" ? null : Number(fee);
-    if (value !== null && (Number.isNaN(value) || value < 0)) {
-      setError("A dollar amount, or blank to clear it.");
-      return;
-    }
-    try {
-      await api.saveCosts({ ffl_transfer_fee: value });
-      setEditing(false);
-      onFeeSaved();
-    } catch (err) {
-      setError(err.message);
-    }
-  }
 
   const money = (value) => formatMoney(value, item.currency);
   return (
@@ -743,59 +725,22 @@ function DeliveredPrice({ item, onFeeSaved }) {
         )}{" "}
         +{" "}
         {item.transfer_fee != null ? (
-          <>{money(item.transfer_fee)} transfer</>
+          <>
+            {money(item.transfer_fee)} transfer
+            {item.transfer_dealer && <> at {item.transfer_dealer}</>}
+          </>
         ) : (
           <span className="delivered__missing">your transfer fee</span>
         )}{" "}
-        {!editing && (
-          <button
-            type="button"
-            className="btn btn--ghost btn--sm"
-            onClick={() => {
-              setFee(item.transfer_fee != null ? String(item.transfer_fee) : "");
-              setEditing(true);
-            }}
-          >
-            {item.transfer_fee != null ? "Change fee" : "Set your fee"}
-          </button>
-        )}
+        <Link className="btn btn--ghost btn--sm" to="/dealers">
+          {item.transfer_fee != null ? "Your dealers" : "Add your dealer"}
+        </Link>
       </div>
       {item.shipping_note && (
         <div className="delivered__note">
           {item.site_name}: {item.shipping_note}
         </div>
       )}
-      {editing && (
-        <form className="delivered__form" onSubmit={save}>
-          <label className="visually-hidden" htmlFor="ffl-fee">
-            Your dealer&rsquo;s transfer fee
-          </label>
-          <input
-            id="ffl-fee"
-            className="input"
-            inputMode="decimal"
-            placeholder="e.g. 25"
-            value={fee}
-            autoFocus
-            onChange={(event) => setFee(event.target.value)}
-          />
-          <button type="submit" className="btn btn--primary btn--sm">
-            Save
-          </button>
-          <button
-            type="button"
-            className="btn btn--ghost btn--sm"
-            onClick={() => setEditing(false)}
-          >
-            Cancel
-          </button>
-          <span className="field__hint">
-            What your dealer charges to receive a gun for you. 0 if you receive curios on
-            a C&amp;R license. Used on every listing.
-          </span>
-        </form>
-      )}
-      {error && <p className="alert alert--error">{error}</p>}
     </div>
   );
 }
@@ -1275,7 +1220,7 @@ export default function ItemDetail() {
           </div>
           {/* Directly under the shelf price, because it is the same question
               answered honestly: what this costs by the time it is yours. */}
-          <DeliveredPrice item={item} onFeeSaved={reloadItem} />
+          <DeliveredPrice item={item} />
           {/* Beside the price, because it is a question about the price:
               whether waiting is likely to make it smaller. */}
           <WillItDrop item={item} />
@@ -1465,6 +1410,38 @@ export default function ItemDetail() {
             <X size={20} />
           </button>
           <AuthImage src={current.url} alt={item.title} />
+          {/* Over the photo rather than beside it, so a phone keeps the
+              whole width. Hidden at the ends rather than wrapping, the way
+              the arrow keys and the thumbnails behave. */}
+          {photos.length > 1 && (
+            <>
+              {activePhoto > 0 && (
+                <button
+                  type="button"
+                  className="lightbox__nav lightbox__nav--prev"
+                  onClick={() => setActivePhoto((index) => Math.max(index - 1, 0))}
+                  aria-label="Previous photo"
+                >
+                  <ChevronLeft size={26} />
+                </button>
+              )}
+              {activePhoto < photos.length - 1 && (
+                <button
+                  type="button"
+                  className="lightbox__nav lightbox__nav--next"
+                  onClick={() =>
+                    setActivePhoto((index) => Math.min(index + 1, photos.length - 1))
+                  }
+                  aria-label="Next photo"
+                >
+                  <ChevronRight size={26} />
+                </button>
+              )}
+              <div className="lightbox__count" aria-live="polite">
+                {activePhoto + 1} of {photos.length}
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

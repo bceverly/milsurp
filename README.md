@@ -232,8 +232,12 @@ changed — filtered to the sites you care about and capped so it stays readable
   override it on the site's page. Only nine of thirty-nine shops state a flat
   firearm charge (surveyed 2026-09-30) — the rest calculate it at checkout —
   so a total missing a part says "at least" and names the part, rather than
-  treating shipping as free. The transfer fee is set once, on any listing,
-  where the question comes up.
+  treating shipping as free. The transfer fee is the lowest among your FFL
+  dealers, and the listing names which dealer it is.
+- **FFL dealers.** The dealers who will receive a gun for you, at `/dealers`:
+  name, address, website and transfer fee, each entered by hand. Every
+  delivered price — on a listing and on the wishlist — uses the lowest fee on
+  the list, and the table marks that dealer.
 - **Collection.** What you own, what you paid, and what each is worth now, at
   `/collection`. Each gun is matched to an armory model from its title and
   valued against that model's listings — what they left the shelf at where

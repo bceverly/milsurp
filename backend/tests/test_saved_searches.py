@@ -90,7 +90,7 @@ class TestTheStoredQuery:
         email must never be silently capped at whatever page the user happened
         to be on when they saved it."""
         parsed = search_service.parse_query("kind=rifle&page=7&per_page=12&include_facets=false")
-        assert parsed.as_query_string() == "availability=available&kind=rifle&sort=newest"
+        assert parsed.as_query_string() == "availability=available&kind=rifle&sort=price_asc"
 
     def test_the_stored_form_is_canonical(self):
         """Same clicks in a different order, same saved search."""

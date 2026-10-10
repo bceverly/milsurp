@@ -238,17 +238,19 @@ def _widen_one_gallery(session: Session, store: ImageStore, now: datetime) -> No
 
     Which listing does not matter: the responsive test walks the inventory
     until it finds one, because the card order is not stable -- scanning the
-    Demo Vendor creates six listings dated now, and those lead "newest first".
-    What matters is that such a listing exists at all, since without one the
-    test can only prove that a page it cannot stress does not break.
+    Demo Vendor creates six listings, which can lead the list. What matters is
+    that such a listing exists at all, since without one the test can only
+    prove that a page it cannot stress does not break.
 
-    Newest active is chosen because it is the one a screenshot lands on, so the
-    documentation shows a full gallery rather than a strip of two.
+    The cheapest active one is chosen because the inventory lists cheapest
+    first, so it is the one a screenshot lands on and the documentation shows a
+    full gallery rather than a strip of two. (It was the newest while the
+    inventory led with the newest.)
     """
     newest = session.execute(
         select(Item)
-        .where(Item.is_active.is_(True))
-        .order_by(Item.first_seen_at.desc(), Item.id.desc())
+        .where(Item.is_active.is_(True), Item.is_sold.is_(False))
+        .order_by(Item.current_price.is_(None).asc(), Item.current_price.asc(), Item.id.asc())
         .limit(1)
     ).scalar_one_or_none()
     if newest is None:

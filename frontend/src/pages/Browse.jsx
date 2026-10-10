@@ -129,14 +129,15 @@ function SaveSearch({ params }) {
   );
 }
 
-//: The orders somebody reaches for, commonest first: what is new, what just
-//: got cheaper, then by price. Oldest and alphabetical are for finding one
-//: listing again, and sit at the end.
+//: The orders somebody reaches for: cheapest first, the default everywhere a
+//: list of listings is sorted, then what is new and what just got cheaper.
+//: Oldest and alphabetical are for finding one listing again, and sit at the
+//: end.
 const SORTS = [
-  { value: "newest", label: "Newest first" },
-  { value: "price_drop", label: "Recently reduced" },
   { value: "price_asc", label: "Price: low to high" },
   { value: "price_desc", label: "Price: high to low" },
+  { value: "newest", label: "Newest first" },
+  { value: "price_drop", label: "Recently reduced" },
   { value: "oldest", label: "Oldest first" },
   { value: "title", label: "Title A–Z" },
 ];
@@ -516,7 +517,7 @@ export default function Browse() {
   const debouncedSearch = useDebounced(searchText, 350);
 
   const page = Number(params.get("page") || 1);
-  const sort = params.get("sort") || "newest";
+  const sort = params.get("sort") || "price_asc";
   const availability = params.get("availability") || "available";
   const kind = params.get("kind") || "";
   // How many each Type would show. Counted by the API over every other filter

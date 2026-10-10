@@ -405,10 +405,18 @@ export const api = {
   armorySyncPlan: () => request("/api/armory/sync/plan"),
   applyArmorySync: () => request("/api/armory/sync", { method: "POST" }),
 
-  // --- what a reader pays on top of a listing: their dealer's transfer fee ---
+  // --- what a reader pays on top of a listing: the C&R license here, and the
+  // transfer fee as the lowest among their FFL dealers ---
   costs: () => request("/api/preferences/costs"),
   saveCosts: (payload) =>
     request("/api/preferences/costs", { method: "PUT", body: payload }),
+
+  // --- the reader's FFL dealers; each call answers with the whole list ---
+  dealers: () => request("/api/dealers"),
+  addDealer: (payload) => request("/api/dealers", { method: "POST", body: payload }),
+  updateDealer: (id, payload) =>
+    request(`/api/dealers/${id}`, { method: "PUT", body: payload }),
+  deleteDealer: (id) => request(`/api/dealers/${id}`, { method: "DELETE" }),
 
   // --- the reader's own collection ---
   collection: () => request("/api/collection"),

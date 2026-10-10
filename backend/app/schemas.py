@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 from typing import Annotated, Any, Literal
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_serializer, field_validator
 
@@ -1045,6 +1046,8 @@ class ItemOut(UTCModel):
     #: missing, so the total is shown as a floor. See services/delivered.py.
     shipping: float | None = None
     transfer_fee: float | None = None
+    #: The dealer that fee is from: the cheapest of the reader's.
+    transfer_dealer: str | None = None
     delivered_price: float | None = None
     delivered_complete: bool = False
     shipping_note: str | None = None
@@ -1770,6 +1773,7 @@ class InboxStateOut(BaseModel):
 class CostPreferenceOut(BaseModel):
     """What a reader pays on top of a listing, for the delivered price."""
 
+    #: The lowest fee among the reader's FFL dealers; set there, not here.
     ffl_transfer_fee: float | None = None
     #: Holds a C&R license, so a C&R-eligible gun comes with no transfer fee.
     #: The wishlist reads it; the delivered price on a listing does not, since
@@ -1778,10 +1782,66 @@ class CostPreferenceOut(BaseModel):
 
 
 class CostPreferenceIn(BaseModel):
-    #: Null clears it. A C&R holder receiving a curio directly sets 0.
-    ffl_transfer_fee: float | None = Field(default=None, ge=0, le=1000)
-    #: Left out, it is left as it was: older clients send only the fee.
+    #: Left out, it is left as it was. The transfer fee is no longer set here
+    #: but on the reader's FFL dealers, and a fee sent by an older client is
+    #: ignored.
     has_cr_license: bool | None = None
+
+
+class FflDealerIn(BaseModel):
+    """A dealer as the reader types it in."""
+
+    name: str = Field(min_length=1, max_length=200)
+    address: str | None = Field(default=None, max_length=500)
+    url: str | None = Field(default=None, max_length=500)
+    transfer_fee: float = Field(ge=0, le=1000)
+
+    @field_validator("name", "address", "url", mode="before")
+    @classmethod
+    def _trimmed(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("address", "url")
+    @classmethod
+    def _blank_is_none(cls, value: str | None) -> str | None:
+        return value or None
+
+    @field_validator("url")
+    @classmethod
+    def _a_web_address(cls, value: str | None) -> str | None:
+        """ "bobsguns.com" is taken to mean https://bobsguns.com; anything with
+        another scheme, or with spaces in it, is refused, since the page turns
+        it into a link."""
+        if value is None:
+            return None
+        if "://" not in value:
+            value = f"https://{value}"
+        parts = urlsplit(value)
+        try:
+            parts.port  # noqa: B018 - raises on "javascript:alert(1)" read as host:port
+            valid_port = True
+        except ValueError:
+            valid_port = False
+        if (
+            not valid_port
+            or parts.scheme.lower() not in ("http", "https")
+            or "." not in (parts.hostname or "")
+            or any(c.isspace() for c in value)
+        ):
+            raise ValueError("a web address, like https://example.com")
+        return value
+
+
+class FflDealerOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    address: str | None = None
+    url: str | None = None
+    transfer_fee: float
+    #: The cheapest, whose fee every delivered price uses.
+    lowest: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -2016,6 +2076,8 @@ class WishlistOut(BaseModel):
     lines: list[WishlistLineOut]
     totals: WishlistTotalsOut
     ffl_transfer_fee: float | None = None
+    #: The dealer that fee is from: the cheapest of the reader's.
+    ffl_dealer: str | None = None
     has_cr_license: bool = False
     wishlist_alerts: bool = False
     budget: float | None = None

@@ -158,20 +158,18 @@ class TestDelivered:
         rates = delivered.shipping_for_site(shops[0])
         assert (rates.handgun, rates.overridden) == (19.0, True)
 
-    def test_the_fee_is_saved_and_priced_in(self, client, normal_user):
+    def test_the_fee_is_the_cheapest_dealers(self, client, normal_user):
         headers = normal_user["headers"]
         assert client.get("/api/preferences/costs", headers=headers).json() == {
             "ffl_transfer_fee": None,
             "has_cr_license": False,
         }
-        saved = client.put("/api/preferences/costs", json={"ffl_transfer_fee": 30}, headers=headers)
-        assert saved.json() == {"ffl_transfer_fee": 30.0, "has_cr_license": False}
-        assert (
-            client.put(
-                "/api/preferences/costs", json={"ffl_transfer_fee": -1}, headers=headers
-            ).status_code
-            == 422
-        )
+        client.post("/api/dealers", json={"name": "A", "transfer_fee": 30}, headers=headers)
+        client.post("/api/dealers", json={"name": "B", "transfer_fee": 20}, headers=headers)
+        assert client.get("/api/preferences/costs", headers=headers).json() == {
+            "ffl_transfer_fee": 20.0,
+            "has_cr_license": False,
+        }
 
     def test_an_administrator_can_override_and_clear_a_sites_shipping(self, client, admin_headers):
         site_id = client.get("/api/sites", headers=admin_headers).json()[0]["id"]

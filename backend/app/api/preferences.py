@@ -44,7 +44,8 @@ def _to_out(preference: EmailPreference) -> EmailPreferenceOut:
 
 @router.get("/preferences/costs", response_model=CostPreferenceOut)
 def get_costs(user: CurrentUser) -> CostPreferenceOut:
-    """What this reader pays on top of a listing: their dealer's transfer fee."""
+    """What this reader pays on top of a listing: the lowest transfer fee among
+    their FFL dealers (set on /dealers), and whether they hold a C&R license."""
     return CostPreferenceOut(
         ffl_transfer_fee=user.ffl_transfer_fee, has_cr_license=user.has_cr_license
     )
@@ -54,8 +55,7 @@ def get_costs(user: CurrentUser) -> CostPreferenceOut:
 def set_costs(
     payload: CostPreferenceIn, user: CurrentUser, session: DbSession
 ) -> CostPreferenceOut:
-    """Set or clear it. Every firearm's delivered price is worked out with it."""
-    user.ffl_transfer_fee = payload.ffl_transfer_fee
+    """Set the C&R license. The fee is the dealers' and is not set here."""
     if payload.has_cr_license is not None:
         user.has_cr_license = payload.has_cr_license
     session.commit()

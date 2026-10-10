@@ -12,6 +12,7 @@ lets scrapers call it without a database session.
 
 from __future__ import annotations
 
+import functools
 import re
 from typing import TypedDict
 
@@ -609,6 +610,28 @@ def is_vaguer(new: str | None, stored: str | None) -> bool:
     return bool(_ONLY_A_BORE.match(new.strip())) and _same_bore(new, stored)
 
 
+#: Where an inch caliber's leading dot begins an alternative in a pattern:
+#: at the start, after ``|``, after a lookbehind of its own (``(?<![a-z])\.38``)
+#: or after an opening group -- unless a digit comes
+#: just before that group, as in ``7\.5x53(?:\.5)?``, where the dot is the
+#: middle of a number on purpose.
+_LEADING_DOT = re.compile(r"(^|\||(?<!\d)\((?:\?:)?|\(\?<![^)]*\))\\\.(?!\?)")
+
+
+@functools.cache
+def _not_mid_number(pattern: str) -> re.Pattern[str]:
+    """A table pattern, compiled so an inch caliber cannot start mid-number.
+
+    ``.25`` is how a dealer writes the cartridge and ``12.25"`` is how the
+    same dealer writes a barrel length, and the table's ``\\.25\\b`` matched
+    both: an 18th-century Danish flintlock pistol, "approx. 12.25" round 69
+    caliber barrel", was stored as a .25 ACP (2026-10-09). Every alternative
+    that opens on a dot now refuses a digit before it. The metric spellings
+    begin with their digits -- ``\\b6\\.35`` -- and are not touched.
+    """
+    return re.compile(_LEADING_DOT.sub(r"\1(?<!\\d)\\.", pattern))
+
+
 def _first_match(table: tuple[tuple[str, str], ...], text: str) -> str | None:
     """The first caliber in the table whose pattern matches, or None.
 
@@ -625,7 +648,7 @@ def _first_match(table: tuple[tuple[str, str], ...], text: str) -> str | None:
     firm before the general country".
     """
     for pattern, caliber in table:
-        if re.search(pattern, text):
+        if _not_mid_number(pattern).search(text):
             return caliber
     return None
 
@@ -645,7 +668,7 @@ def _longest_match(table: tuple[tuple[str, str], ...], text: str) -> str | None:
     """
     best: tuple[int, str] | None = None
     for pattern, caliber in table:
-        match = re.search(pattern, text)
+        match = _not_mid_number(pattern).search(text)
         if match is None:
             continue
         # Counted in letters and digits, not characters, so that a rule
@@ -821,10 +844,18 @@ def _worded_bore(text: str) -> str | None:
     """
     if found := _CALIBER_WORD.search(text) or _CALIBER_WORD_FIRST.search(text):
         return f".{found.group(1)}"
-    if found := _GAUGE_WORD.search(text):
+    # **Bore and gauge are one measure** -- how many lead balls of the barrel's
+    # diameter make a pound -- and a dealer writing British says "16 bore"
+    # where an American says "16 gauge": "16 Bore (approximately .65
+    # Caliber)", "20 Bore (.61 Caliber)", ".753 Caliber (12-Bore)" in
+    # production's own titles. So both are one caliber, named in gauge with the
+    # bore spelling as its alias. Until 2026-10-09 "N Bore" was its own caliber
+    # wherever nobody had merged it by hand, which split 8 and 16 in two and
+    # filed fowling pieces and flintlock pistols away from guns of their size.
+    # Not a shotgun-only word for all that: a 22-bore holster pistol and an
+    # 8-bore double rifle are measured the same way.
+    if found := _GAUGE_WORD.search(text) or _BORE_WORD.search(text):
         return f"{found.group(1)} Gauge"
-    if found := _BORE_WORD.search(text):
-        return f"{found.group(1)} Bore"
     return None
 
 

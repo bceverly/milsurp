@@ -47,7 +47,7 @@ function Profit({ value }) {
 /** Why this line has the fee it has, in a few words. */
 function feeWords(line) {
   if (line.fee_waived) return "C&R, no dealer";
-  if (line.fee_missing) return "Set your fee above";
+  if (line.fee_missing) return "Add a dealer above";
   if (line.curio === "unknown") return "C&R status unknown";
   return null;
 }
@@ -248,7 +248,9 @@ function MoneyField({ label, value, max, placeholder, onSave }) {
 }
 
 /**
- * The fee, the license, the budget and the alerts, saved as they change.
+ * The license, the budget and the alerts, saved as they change, and the
+ * transfer fee they are worked out with: the lowest among the reader's FFL
+ * dealers, which are kept on their own page.
  *
  * The boxes are ticked at once and put back if the save fails, so they
  * answer the click rather than the round trip.
@@ -275,15 +277,20 @@ function Settings({ data, onSaved }) {
   const fee = data.ffl_transfer_fee;
   return (
     <div className="wishlist-costs">
-      <MoneyField
-        label="Your dealer’s transfer fee"
-        value={fee}
-        max="1000"
-        placeholder="Not set"
-        onSave={(next) =>
-          save(() => api.saveCosts({ ffl_transfer_fee: next, has_cr_license: holds }))
-        }
-      />
+      <div className="watch__field" data-testid="wishlist-fee">
+        <span>Transfer fee</span>
+        <span className="wishlist-fee">
+          {fee != null ? (
+            <>
+              {formatMoney(fee)}
+              {data.ffl_dealer && <span className="muted"> at {data.ffl_dealer}</span>}
+            </>
+          ) : (
+            <span className="muted">No dealer yet</span>
+          )}{" "}
+          <Link to="/dealers">{fee != null ? "Your dealers" : "Add your dealer"}</Link>
+        </span>
+      </div>
       <MoneyField
         label="Your budget"
         value={data.budget}
@@ -299,7 +306,7 @@ function Settings({ data, onSaved }) {
               const next = event.target.checked;
               setHolds(next);
               save(
-                () => api.saveCosts({ ffl_transfer_fee: fee, has_cr_license: next }),
+                () => api.saveCosts({ has_cr_license: next }),
                 () => setHolds(!next),
               );
             }}
@@ -337,7 +344,8 @@ export default function Wishlist() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [bought, setBought] = useState(null);
-  const [sort, setSort] = useState({ key: "added", direction: "desc" });
+  // Cheapest first, the default on every list of listings.
+  const [sort, setSort] = useState({ key: "price", direction: "asc" });
 
   const load = useCallback(() => {
     api

@@ -451,7 +451,9 @@ QUERY_PARAMS: dict[str, bool] = {
 _NOT_A_FILTER = ("page", "per_page", "include_facets", "view")
 
 DEFAULT_AVAILABILITY = "available"
-DEFAULT_SORT = "newest"
+#: Cheapest first, everywhere a list of listings is sorted (asked for on
+#: 2026-10-09; it was newest first).
+DEFAULT_SORT = "price_asc"
 
 
 class BadQuery(ValueError):

@@ -53,6 +53,7 @@ from ..services import (
 )
 from ..services.image_store import ImageStore, ImageStoreError
 from ..services.search import (
+    DEFAULT_SORT,
     KINDS,
     SORTS,
     UNKNOWN,
@@ -208,6 +209,7 @@ def _to_out(
     if costs is not None and (landed := costs.delivered(item)) is not None:
         data.shipping = landed.shipping
         data.transfer_fee = landed.transfer_fee
+        data.transfer_dealer = costs.transfer_dealer
         data.delivered_price = landed.total
         data.delivered_complete = landed.complete
         data.shipping_note = landed.shipping_note
@@ -609,7 +611,7 @@ def list_items(
     guns_only: bool = Query(
         default=False, description="Priced guns only, no parts kits (a valuation's comparables)."
     ),
-    sort: str = Query(default="newest"),
+    sort: str = Query(default=DEFAULT_SORT),
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=48, ge=1, le=200),
     include_facets: bool = Query(default=True),
