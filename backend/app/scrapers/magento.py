@@ -23,6 +23,7 @@ page one, which is not a failure and is reported rather than worked around.
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Iterable, Iterator
 from dataclasses import replace
@@ -48,6 +49,7 @@ from .base import (
     text_of,
     vendors_answer,
 )
+from .choices import Choice, split, splits, with_numbered_photos
 from .storefront import image_sources, parse_price
 
 #: Magento serves a resized copy from a cache path that names the size and ends
@@ -68,6 +70,57 @@ _CENTS = ".decimal, .price-cents, sup"
 
 #: The numeric product id Magento writes onto the card's wrapper.
 _ITEM_ID = re.compile(r"product-item-info_(\d+)")
+
+
+def custom_option_choices(text: str, soup: BeautifulSoup) -> tuple[list[str], list[Choice]]:
+    """A product's custom options, when one of them is a choice of guns.
+
+    Magento 1's *custom options* -- not a configurable product -- are what
+    Classic Firearms sell their grab bags with: "Gunsmith Special Handguns" is
+    one product with a radio button per gun ("1 - Phoenix Arms HP22B Pistol ...
+    $119.99"), described to the page's script as ``new Product.Options({...})``
+    with each choice's title and price. A sold one is a disabled button.
+
+    The price is the choice's own, as the page shows it beside the gun: the
+    product's base is a placeholder (``"productPrice":1``) that the catalog card
+    turned into the "$10" every grab bag was listed at.
+    """
+    start = text.find("new Product.Options(")
+    if start < 0:
+        return [], []
+    try:
+        config, _end = json.JSONDecoder().raw_decode(text[start + len("new Product.Options(") :])
+    except ValueError:
+        return [], []
+    if not isinstance(config, dict):
+        return [], []
+    names: list[str] = []
+    choices: list[Choice] = []
+    for option_id, values in config.items():
+        if not isinstance(values, dict) or len(values) < 2:
+            continue
+        heading = soup.select_one(f'dt label[for^="options_{option_id}"]') or soup.select_one(
+            "#product-options-wrapper dt label"
+        )
+        names.append(text_of(heading).rstrip("* ").strip() if heading else "")
+        for value_id, value in values.items():
+            if not isinstance(value, dict):
+                continue
+            button = soup.select_one(f'input[name="options[{option_id}]"][value="{value_id}"]')
+            label = soup.select_one(f'label[for="{button.get("id")}"]') if button else None
+            price = value.get("price")
+            title = _plain_text(value.get("title"))
+            choices.append(
+                Choice(
+                    key=f"{option_id}-{value_id}",
+                    label=title,
+                    title=title,
+                    price=float(price) if isinstance(price, int | float) and price > 0 else None,
+                    is_sold=bool(button is not None and button.has_attr("disabled"))
+                    or "out of stock" in (text_of(label) if label else "").lower(),
+                )
+            )
+    return names, choices
 
 
 def full_size(url: str) -> str:
@@ -299,7 +352,7 @@ class MagentoScraper(SiteScraper):
                 if item is None or item.external_key in seen:
                     continue
                 seen.add(item.external_key)
-                yield self.with_detail(ctx, item)
+                yield from self._detailed(ctx, item)
 
             following = self.next_page(soup, url)
             if self.follow_facets and pages == 1:
@@ -350,7 +403,7 @@ class MagentoScraper(SiteScraper):
                 if item is None or item.external_key in seen:
                     continue
                 seen.add(item.external_key)
-                yield self.with_detail(ctx, item)
+                yield from self._detailed(ctx, item)
 
         if not complete:
             self._report_coverage(ctx, page_url, len(reached - {None}), whole)
@@ -544,6 +597,25 @@ class MagentoScraper(SiteScraper):
         return f"path-{urlparse(link).path.strip('/').replace('/', '-')[:180]}"
 
     # -- the product page ---------------------------------------------------
+    @property
+    def _page_choices(self) -> dict[str, tuple[list[str], list[Choice]]]:
+        """The choices each product page offered, by listing key, until
+        :meth:`_detailed` collects them. Per instance."""
+        found = self.__dict__.get("_choices_found")
+        if found is None:
+            found = self.__dict__["_choices_found"] = {}
+        return found
+
+    def _detailed(self, ctx: ScrapeContext, item: ScrapedItem) -> Iterator[ScrapedItem]:
+        """The listing with its product page read -- or, when the page sells
+        several guns, a listing for each. See :mod:`.choices`."""
+        detailed = self.with_detail(ctx, item)
+        names, choices = self._page_choices.pop(item.external_key, ([], []))
+        if choices and splits(names, choices):
+            yield from split(detailed, with_numbered_photos(choices, detailed.image_urls))
+        else:
+            yield detailed
+
     def with_detail(self, ctx: ScrapeContext, item: ScrapedItem) -> ScrapedItem:
         """Fill in what only the product page has.
 
@@ -553,7 +625,8 @@ class MagentoScraper(SiteScraper):
         if not ctx.needs_detail(item.external_key):
             return item
         try:
-            soup = BeautifulSoup(ctx.get_text(item.url), "html.parser")
+            text = ctx.get_text(item.url)
+            soup = BeautifulSoup(text, "html.parser")
         except Disallowed:
             ctx.warn(f"robots.txt disallows {item.url}; keeping the catalog entry only.")
             return item
@@ -566,6 +639,7 @@ class MagentoScraper(SiteScraper):
             say(f"Could not read {item.url}: {exc}. Keeping the catalog entry only.")
             return item
 
+        self._page_choices[item.external_key] = custom_option_choices(text, soup)
         node = product_json_ld(soup)
         if node is not None:
             found = self._from_json_ld(item, node)

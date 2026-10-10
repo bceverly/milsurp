@@ -88,6 +88,11 @@ class ScrapedItem:
     #: rather than being orphaned by a change of key. See
     #: ``BigCommerceScraper.key_from_inner_id`` for the case that needed it.
     replaces_keys: list[str] = field(default_factory=list)
+    #: The key of the product page this listing is one choice of, when the
+    #: page sells several guns and each became a listing of its own. The scan
+    #: retires the combined listing stored under that key: it was never one
+    #: gun. See ``app.scrapers.choices``.
+    split_from: str | None = None
 
     def __post_init__(self) -> None:
         self.external_key = (self.external_key or "").strip()[:255]

@@ -25,7 +25,7 @@ import traceback
 from collections.abc import Callable, Iterable
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import case, func, select, update
+from sqlalchemy import case, delete, func, select, update
 from sqlalchemy.orm import Session
 
 from ..config import Config, get_config
@@ -460,6 +460,25 @@ def _fill_derived(
     return adopt
 
 
+def _first_seen(session: Session, site: Site, scraped: ScrapedItem) -> datetime | None:
+    """When the page a split listing came from was first seen, if it was.
+
+    The first scan that reads a page's choices makes a listing of each -- 297
+    of them at Moka's alone -- and none of those guns is new: they were on the
+    page all along. Dated now, every one would arrive in the digest, the
+    saved-search emails and What changed as a new listing. Dated as the page
+    was, they arrive as what they are. A choice added to a page later is new,
+    and is dated when it was seen.
+    """
+    if not scraped.split_from:
+        return None
+    return session.execute(
+        select(Item.first_seen_at).where(
+            Item.site_id == site.id, Item.external_key == scraped.split_from
+        )
+    ).scalar_one_or_none()
+
+
 def _upsert_item(
     session: Session,
     site: Site,
@@ -474,7 +493,7 @@ def _upsert_item(
         item = Item(
             site_id=site.id,
             external_key=scraped.external_key,
-            first_seen_at=seen_at,
+            first_seen_at=_first_seen(session, site, scraped) or seen_at,
         )
         session.add(item)
 
@@ -845,6 +864,49 @@ def _shrink_warning(
         f"nothing was de-listed. If the shop really did remove them, run "
         f"`cli.py scan --site {slug} --accept-delist`."
     )
+
+
+def _retire_split_parents(
+    session: Session, site: Site, keys: set[str], seen_keys: set[str], config: Config
+) -> int:
+    """Remove the combined listings whose choices now stand as listings of their own.
+
+    A product page that sells several guns was one listing until the scraper
+    learned to read its choices (``app.scrapers.choices``); now each choice is
+    a listing, carrying ``split_from`` with the page's key, and the old row is
+    a listing of nobody's gun at nobody's price -- Classic's "$10" grab bag.
+
+    **Deleted, not de-listed.** A de-listed listing is one that left the shelf,
+    and the market reads those as departures: the grab bag would be counted as
+    a gun that went for $10. Its photographs go with it -- each choice has its
+    own copy, or downloads one. Only once the scraper ran to completion, as for
+    any de-listing, and never a key this run yielded itself.
+    """
+    retiring = keys - seen_keys
+    if not retiring:
+        return 0
+    # Columns, not rows: loading the listings into the session and deleting
+    # underneath them would leave stale objects in its identity map, and the
+    # scan goes on using that session.
+    ids = list(
+        session.execute(
+            select(Item.id).where(Item.site_id == site.id, Item.external_key.in_(retiring))
+        ).scalars()
+    )
+    if not ids:
+        return 0
+    store = ImageStore(config)
+    for filename, thumb in session.execute(
+        select(ItemPhoto.filename, ItemPhoto.thumb_filename).where(ItemPhoto.item_id.in_(ids))
+    ).all():
+        store.delete(filename)
+        if thumb and thumb != filename:
+            store.delete(thumb)
+    session.execute(
+        delete(Item).where(Item.id.in_(ids)), execution_options={"synchronize_session": False}
+    )
+    session.commit()
+    return len(ids)
 
 
 def _mark_delisted(going: list[Item], seen_at: datetime) -> int:
@@ -1492,6 +1554,8 @@ def run_scan(  # noqa: PLR0912,PLR0915 - one linear scan lifecycle; see ROADMAP
                 # so the counters and the de-list set stay honest.
                 seen_keys: set[str] = set()
                 dropped_keys: set[str] = set()
+                #: Product pages whose choices arrived as listings of their own.
+                split_parents: set[str] = set()
                 created = updated = changes = 0
                 duplicates = 0
                 processed = 0
@@ -1510,6 +1574,8 @@ def run_scan(  # noqa: PLR0912,PLR0915 - one linear scan lifecycle; see ROADMAP
                         updated += 1
                     if dropped:
                         dropped_keys.add(entry.external_key)
+                    if entry.split_from:
+                        split_parents.add(entry.split_from)
                     seen_keys.add(entry.external_key)
                     processed += 1
 
@@ -1521,6 +1587,13 @@ def run_scan(  # noqa: PLR0912,PLR0915 - one linear scan lifecycle; see ROADMAP
 
                 session.commit()
                 log(f"Scraper returned {len(seen_keys)} listing(s).")
+                if split_parents:
+                    retired = _retire_split_parents(session, site, split_parents, seen_keys, config)
+                    if retired:
+                        log(
+                            f"Replaced {retired} listing(s) that sold several guns on one page "
+                            "with a listing for each gun."
+                        )
                 if duplicates:
                     log(f"Collapsed {duplicates} repeated key(s).")
 

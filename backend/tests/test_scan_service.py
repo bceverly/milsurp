@@ -1838,3 +1838,58 @@ class TestOnlyOneProcessScansASite:
         assert scan_service.reap_stale_runs(clean_db) == 1
         clean_db.expire_all()
         assert clean_db.get(ScanRun, old.id).status == ScanStatus.FAILED
+
+
+class TestOnePageSplitIntoListings:
+    """A product page that sells several guns, read first as one listing and
+    then as a listing per gun (app.scrapers.choices): the combined row goes,
+    and is neither de-listed -- the market would read it as a departure -- nor
+    counted toward the guard against a scan that suddenly reads less."""
+
+    def test_the_combined_listing_is_replaced_by_its_choices(self, fake_site, clean_db):
+        FakeScraper.payload = [listing("bag", price=10.0), listing("other")]
+        scan_service.run_scan(fake_site.id)
+        bag_id = clean_db.query(Item).filter_by(external_key="bag").one().id
+
+        FakeScraper.payload = [
+            listing("bag#1", price=119.99, split_from="bag"),
+            listing("bag#2", price=269.99, split_from="bag", is_sold=True),
+            listing("other"),
+        ]
+        run = clean_db.get(ScanRun, scan_service.run_scan(fake_site.id))
+        clean_db.expire_all()
+        assert clean_db.get(Item, bag_id) is None
+        keys = {
+            row.external_key: (row.current_price, row.is_sold, row.is_active)
+            for row in clean_db.query(Item).filter_by(site_id=fake_site.id)
+        }
+        assert keys == {
+            "bag#1": (119.99, False, True),
+            "bag#2": (269.99, True, True),
+            "other": (500.0, False, True),
+        }
+        assert run.status == ScanStatus.SUCCESS
+        assert "Replaced 1 listing(s)" in (run.log or "")
+
+    def test_the_guns_are_dated_as_the_page_was_not_as_new(self, fake_site, clean_db):
+        FakeScraper.payload = [listing("bag", price=10.0)]
+        scan_service.run_scan(fake_site.id)
+        page_seen = clean_db.query(Item).filter_by(external_key="bag").one().first_seen_at
+
+        FakeScraper.payload = [listing("bag#1", split_from="bag")]
+        scan_service.run_scan(fake_site.id)
+        clean_db.expire_all()
+        child = clean_db.query(Item).filter_by(external_key="bag#1").one()
+        assert child.first_seen_at == page_seen
+
+    def test_an_interrupted_scan_removes_nothing(self, fake_site, clean_db):
+        FakeScraper.payload = [listing("bag", price=10.0)]
+        scan_service.run_scan(fake_site.id)
+        FakeScraper.payload = [
+            listing("bag#1", split_from="bag"),
+            listing("bag#2", split_from="bag"),
+        ]
+        FakeScraper.fail_after = 1
+        scan_service.run_scan(fake_site.id)
+        clean_db.expire_all()
+        assert clean_db.query(Item).filter_by(external_key="bag").one().is_active

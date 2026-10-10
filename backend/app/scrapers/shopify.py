@@ -44,6 +44,7 @@ from .base import (
     flatten_html,
     normalize_whitespace,
 )
+from .choices import Choice, split, splits
 
 #: Shopify's own cap. Asking for more is not an error; it just returns 250.
 PAGE_SIZE = 250
@@ -112,6 +113,46 @@ def is_sold_out(product: dict[str, Any]) -> bool:
     """
     variants = product.get("variants") or []
     return bool(variants) and not any(variant.get("available") for variant in variants)
+
+
+def option_names(product: dict[str, Any]) -> list[str]:
+    """The headings of a product's option menus, Shopify's "Title" aside."""
+    return [
+        str(option.get("name") or "")
+        for option in product.get("options") or []
+        if isinstance(option, dict) and option.get("name") != "Title"
+    ]
+
+
+def variant_choices(product: dict[str, Any], url: str) -> list[Choice]:
+    """Each variant of a product as a :class:`~.choices.Choice`.
+
+    Sold is the variant's own ``available`` flag, so a Good that has sold out
+    beside a Fair still in stock is told apart. A product with one variant --
+    "Default Title", which is every gun sold one at a time -- gives nothing.
+    """
+    variants = [v for v in product.get("variants") or [] if isinstance(v, dict)]
+    if len(variants) < 2 or not option_names(product):
+        return []
+    choices = []
+    for variant in variants:
+        try:
+            price: float | None = float(variant["price"])
+        except (KeyError, TypeError, ValueError):
+            price = None
+        image = variant.get("featured_image") or {}
+        src = image.get("src") if isinstance(image, dict) else None
+        choices.append(
+            Choice(
+                key=str(variant.get("id")),
+                label=normalize_whitespace(str(variant.get("title") or "")),
+                price=price if price and price > 0 else None,
+                is_sold=not variant.get("available", False),
+                image_urls=[original_image(src)] if isinstance(src, str) else [],
+                url=f"{url}?variant={variant.get('id')}",
+            )
+        )
+    return choices
 
 
 class ShopifyScraper(SiteScraper):
@@ -217,7 +258,14 @@ class ShopifyScraper(SiteScraper):
                 if item is None or item.external_key in seen:
                     continue
                 seen.add(item.external_key)
-                yield item
+                # A product whose variants are separate guns -- Centerfire's
+                # "Condition: Good / Fair", each its own price, stock and often
+                # photograph -- becomes a listing per variant.
+                choices = variant_choices(product, item.url)
+                if choices and splits(option_names(product), choices):
+                    yield from split(item, choices)
+                else:
+                    yield item
 
             # A short page is the last page. Shopify has no "next" link in this
             # document, so the count is the only signal there is.

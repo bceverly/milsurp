@@ -4654,7 +4654,36 @@ variants without typing them.
   aggregator, and reusing what it aggregates wants their say-so first, as
   Checkpoint Charlie's gave theirs.
 
-### One listing per gun when a page sells several — **Planned**
+### One listing per gun when a page sells several — **Shipped** 2026-10-10 for WooCommerce, Magento custom options and Shopify; BigCommerce planned
+
+**What shipped** (`app/scrapers/choices.py`): a scraper that reads a page's
+choices hands them to `splits()`, which applies the rule below, and `split()`
+makes a listing of each -- keyed `<page key>#<choice id>`, with the choice's
+own price, its own sold or for-sale state (a page mixing the two is the usual
+case: fourteen of Moka's sixteen M1934s sold, two not), its own photograph
+where it has one and its own description where the shop wrote one. Each
+carries `split_from`; once a scan has run to completion the combined listing
+it names is **deleted**, photographs and all, rather than de-listed -- the
+market reads a de-listed listing as a departure, and Classic's grab bag would
+have counted as a gun that went for $10 -- and it is kept out of the guard
+against a scan that suddenly reads less. A listing made from a page that was
+already stored is dated as the page was, so the first scan's ~300 does not
+arrive in the digest and the saved-search emails as new. Wired in for:
+
+* **Woo Store API** (Moka's): the variations the scraper already fetched in
+  batches to settle stock and price. Replayed against the recording, 36 pages
+  became 240 listings.
+* **WooCommerce product pages** (CO Gun Sales): `data-product_variations` on
+  the page it already reads -- seven MAS 50s by number, nine Lugers by maker
+  and year, each with its own write-up. A product with too many variations
+  for the page to carry, written `false`, stays one listing.
+* **Magento 1 custom options** (Classic): the grab bags' `new Product.Options`
+  -- twenty handguns, each priced as shown beside it and matched to its own
+  photograph by number (`hg1_2.png` ... `hg20.jpg`), the sold ones being
+  disabled buttons. Classic's "Various Grips / Conditions" pages turned out to
+  carry no options at all: the shop picks, and they stay one listing.
+* **Shopify** (Centerfire): variants, each with its own `available` flag.
+
 
 Asked for on 2026-10-10. Some shops put a whole run of guns behind one
 product page and let a dropdown or a row of buttons pick between them, with
@@ -4691,10 +4720,48 @@ The shape of the work:
   listing (with the variant work in "New-gun prices" for those). The test is
   the shop's own wording and data: serial numbers, "each pictured", "will come
   as shown", per-choice photographs. Decided per scraper, not guessed per page.
-* Per platform, since the data differs: WooCommerce variations first (Moka's,
-  and any Woo shop doing the same), then Magento configurables (Classic),
-  then whatever else turns up. A survey of every shop's catalog for such pages
-  comes first, so the count of hidden guns is known before the work is sized.
+* **Grade tiers split too** (asked for the same day): "Good $279.99 / Fair
+  $259.99" on one Centerfire page is two listings, each at its own price --
+  the condition is what a buyer is choosing between, and the price filter,
+  the market figures and Hot deals all want the grade they are pricing.
+
+**The survey, 2026-10-10.** Every enabled shop: the Shopify and Woo Store API
+catalogs read whole, every other shop's product pages sampled (12 each, from
+production's own listing URLs), all through `ScrapeContext`. What turned up:
+
+| Shop | Platform | What the choices are | How many |
+|---|---|---|---|
+| Moka's Raifus | Woo Store API | Individual guns ("Radom P-83 Pistol - 1" ... "- 21"), condition tiers (NOS / Excellent / Very Good), receivers by maker | **61 pages, 297 variations**, of 148 products |
+| Classic Firearms | Magento 1 *custom options* (`options[...]` radios, not a configurable) | Grab bags of unrelated guns -- "Gunsmith Special Handguns" is 20 guns, a Phoenix HP22B to an XD-M Elite, 9 of them sold out, priced "$10" as a page; and "Various Grips / Conditions" pages | **5 grab bags of ~20 guns** and ~20 "Various" pages, of 254 |
+| CO Gun Sales | WooCommerce (HTML) | Numbered guns (a MAS 50, 1-6), Lugers by maker and year ($2,399 to $4,999.99), revolvers by box | 3 of 12 sampled, so ~50 of 202 |
+| Centerfire Systems | Shopify | Condition tiers (vz.50, M1935, P38, K31, Star), SKS by stock damage, kits matching / non-matching | 11 of 549, 7 of them tiers |
+| Arms of America | BigCommerce | "Rifle Selection: 1-5" on every Swiss rifle | 4 of 4 |
+| Arms Unlimited | BigCommerce | Surplus Zastavas blued or stainless, a used 870 as Wingmaster / Express / Police Magnum | ~6 of 17 |
+| Recoil Gun Works | BigCommerce | Condition tiers on trade-ins (Unissued ... Fair), grips | ~20 of 265 |
+
+**Not split** -- one listing, as now: IMA's "Hand Select: Yes / No" (20
+products, +$100: a service on the same gun); Legacy's optional certificate of
+authenticity; Clyde's magazine size; J & G's "No Preference / Scant / Straight
+grip" 1903s (a lot with a preference, not a choice of guns); a new gun's color
+or finish (WBP's Jack rifles, Canik colors -- those are variants for the new-gun
+work). And no choices at all in the samples of 44 other shops.
+
+**The rule the survey points to.** The option's *name* does not decide it:
+Moka's calls numbered pistols "Condition", Arms of America calls rifles
+"Options", CO Gun Sales calls revolvers "Box". What decides it is whether
+the choices are different guns -- numbered or serial-numbered, a different
+maker or model, a condition grade, a damage state -- usually with their own
+price and often their own photograph. An upcharge for a service, an
+accessory, or a preference over a random pick is not.
+
+**The order, by guns recovered for the work.** WooCommerce first: Moka's
+through the Store API it already reads (variations are fetched in batches
+today), then CO Gun Sales' `data-product_variations` on the product page it
+already fetches. Then Classic's Magento 1 custom options, which recovers the
+grab bags. Then Shopify's tiers (Centerfire), which arrive in the
+products.json already read. BigCommerce last: Arms of America, Arms Unlimited
+and Recoil load each choice's price on demand, so it is a second request per
+choice.
 
 ### Wikipedia for every maker and model, one click from a listing — **Planned**
 

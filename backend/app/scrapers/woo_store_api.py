@@ -38,6 +38,7 @@ from .base import (
     flatten_html,
     normalize_whitespace,
 )
+from .choices import Choice, split, splits
 
 #: Products per request. The endpoint caps this at 100 and rejects more.
 PAGE_SIZE = 100
@@ -134,6 +135,15 @@ def with_options_settled(product: dict[str, Any], options: list[dict[str, Any]])
     return settled
 
 
+def _option_names(product: dict[str, Any]) -> list[str]:
+    """The headings of the dropdowns a variable product's options come from."""
+    return [
+        str(attribute.get("name") or "")
+        for attribute in product.get("attributes") or []
+        if isinstance(attribute, dict) and attribute.get("has_variations", True)
+    ]
+
+
 class WooStoreApiScraper(SiteScraper):
     """One WooCommerce shop, read through its Store API.
 
@@ -214,13 +224,24 @@ class WooStoreApiScraper(SiteScraper):
                 return
 
             ctx.log(f"{label or 'catalog'} page {page}: {len(products)} listing(s).")
-            products = self._settle_options(ctx, products)
+            options = self._read_options(ctx, products)
             for product in products:
-                item = self.item_from_product(product, label)
+                real = [
+                    option
+                    for option in options.get(product.get("id"), [])
+                    if not is_placeholder_option(option)
+                ]
+                settled = with_options_settled(product, real) if real else product
+                item = self.item_from_product(settled, label)
                 if item is None or item.external_key in seen:
                     continue
                 seen.add(item.external_key)
-                yield item
+                # A page that sells several guns becomes a listing per gun.
+                choices = [self._choice(option) for option in real]
+                if choices and splits(_option_names(product), choices):
+                    yield from split(item, choices)
+                else:
+                    yield item
 
             # A short page is the last page. The endpoint reports its totals in
             # response headers, which this fetcher does not surface, so the
@@ -228,18 +249,20 @@ class WooStoreApiScraper(SiteScraper):
             if len(products) < PAGE_SIZE:
                 return
 
-    def _settle_options(
+    def _read_options(
         self, ctx: ScrapeContext, products: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
-        """Each variable product judged by its options, read in batches.
+    ) -> dict[Any, list[dict[str, Any]]]:
+        """Every variable product's options, by parent id, read in batches.
 
-        See :func:`with_options_settled`. A shop with no variable products
-        costs nothing here. One whose options cannot be read keeps the
-        product-level answer and says so, rather than failing the scan.
+        What they are for is two things: the product judged by its real
+        options (:func:`with_options_settled`), and -- when they are separate
+        guns -- a listing for each (:mod:`.choices`). A shop with no variable
+        products costs nothing here. One whose options cannot be read keeps
+        the product-level answer and says so, rather than failing the scan.
         """
         parents = [p["id"] for p in products if p.get("type") == "variable" and p.get("id")]
         if not parents:
-            return products
+            return {}
         options: dict[Any, list[dict[str, Any]]] = {}
         base = self.base_url.rstrip("/")
         for start in range(0, len(parents), OPTION_PARENTS_PER_REQUEST):
@@ -262,10 +285,31 @@ class WooStoreApiScraper(SiteScraper):
                     options.setdefault(option.get("parent"), []).append(option)
                 if len(found) < PAGE_SIZE:
                     break
-        return [
-            with_options_settled(p, options[p["id"]]) if p.get("id") in options else p
-            for p in products
-        ]
+        return options
+
+    @staticmethod
+    def _choice(option: dict[str, Any]) -> Choice:
+        """One variation as a :class:`~.choices.Choice`.
+
+        Its label is the values without the attribute names: the feed says
+        "Condition: Radom P-83 Pistol - 1", and "Condition" is the shop's
+        heading for the dropdown, not part of what the gun is called.
+        """
+        raw = html_to_text(str(option.get("variation") or "")) or ""
+        values = [part.split(":", 1)[-1].strip() for part in raw.split(",")]
+        return Choice(
+            key=str(option.get("id")),
+            label=" / ".join(value for value in values if value) or raw,
+            price=price_now(option),
+            is_sold=is_sold(option),
+            image_urls=[
+                image["src"]
+                for image in option.get("images") or []
+                if isinstance(image, dict) and isinstance(image.get("src"), str)
+            ],
+            url=str(option["permalink"]) if option.get("permalink") else None,
+            description=html_to_text(option.get("description")),
+        )
 
     def _products(self, ctx: ScrapeContext, url: str) -> list[dict[str, Any]]:
         """The products on one page, or an empty list past the end."""

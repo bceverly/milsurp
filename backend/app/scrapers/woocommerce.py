@@ -46,6 +46,7 @@ from .base import (
     text_of,
     vendors_answer,
 )
+from .choices import Choice, split, splits
 from .storefront import background_images, image_sources, parse_price
 
 #: The post id WordPress puts in every card's class list: `post-1398033`. It is
@@ -76,6 +77,66 @@ def full_size(url: str) -> str:
 def same_photograph(url: str) -> str:
     """What two URLs share when they are the same picture at two sizes."""
     return SCALED.sub("", full_size(url))
+
+
+def page_choices(soup: BeautifulSoup, base: str) -> tuple[list[str], list[Choice]]:
+    """A variable product's options, from the product page: the dropdowns'
+    headings, and each option as a :class:`~.choices.Choice`.
+
+    WooCommerce writes every variation into the form as JSON --
+    ``data-product_variations`` -- with its price, stock, picture and often a
+    description of its own: CO Gun Sales' MAS 50s, one per number, each
+    described. A product with too many variations is written ``false`` and
+    loaded by script instead; that, like a page with no form, gives nothing,
+    and the product stays one listing. So does a variation that leaves an
+    attribute open ("any"), which is not one gun.
+    """
+    form = soup.select_one("form.variations_form")
+    raw = form.get("data-product_variations") if form else None
+    if not isinstance(raw, str):
+        return [], []
+    try:
+        variations = json.loads(raw)
+    except ValueError:
+        return [], []
+    if not isinstance(variations, list):
+        return [], []
+    names: list[str] = []
+    shown: dict[str, dict[str, str]] = {}
+    for select in form.select("select") if form else []:
+        attribute = str(select.get("data-attribute_name") or select.get("name") or "")
+        heading = form.select_one(f'label[for="{select.get("id")}"]') if form else None
+        names.append(text_of(heading) if heading else attribute.removeprefix("attribute_"))
+        shown[attribute] = {
+            str(option.get("value")): text_of(option) for option in select.select("option")
+        }
+    choices: list[Choice] = []
+    for variation in variations:
+        if not isinstance(variation, dict):
+            continue
+        values = [
+            shown.get(attribute, {}).get(str(value), str(value))
+            for attribute, value in (variation.get("attributes") or {}).items()
+        ]
+        if not values or not all(values):
+            return [], []
+        label = " / ".join(values)
+        if store_api.is_placeholder_option({"variation": label}):
+            continue
+        image = variation.get("image") or {}
+        src = image.get("full_src") or image.get("url") or image.get("src")
+        price = variation.get("display_price")
+        choices.append(
+            Choice(
+                key=str(variation.get("variation_id")),
+                label=label,
+                price=float(price) if isinstance(price, int | float) else None,
+                is_sold=not variation.get("is_in_stock", True),
+                image_urls=[full_size(urljoin(base, src))] if isinstance(src, str) else [],
+                description=store_api.html_to_text(variation.get("variation_description")),
+            )
+        )
+    return names, choices
 
 
 def price_now(card: Tag) -> float | None:
@@ -192,12 +253,22 @@ class WooCommerceScraper(SiteScraper):
     #: empty shop.
     _sections_resting = 0
 
+    @property
+    def _page_choices(self) -> dict[str, tuple[list[str], list[Choice]]]:
+        """The options each product page offered, by listing key, until
+        :meth:`_detailed` collects them. Per instance, and emptied per scan."""
+        found = self.__dict__.get("_choices_found")
+        if found is None:
+            found = self.__dict__["_choices_found"] = {}
+        return found
+
     def _stream(self, ctx: ScrapeContext) -> Iterator[ScrapedItem]:
         if self.min_request_delay:
             ctx.keep_at_least(self.base_url, self.min_request_delay)
         self._detail_failures = 0
         self._gave_up_on_details = False
         self._sections_resting = 0
+        self._page_choices.clear()
         seen: set[str] = set()
         opened = 0
         for source in self.sources:
@@ -343,8 +414,16 @@ class WooCommerceScraper(SiteScraper):
             record = records.get(item.external_key)
             if record is not None and ctx.needs_detail(item.external_key):
                 yield self._from_store_api(item, record)
+                continue
+            detailed = self.with_detail(ctx, item)
+            # A product page that sells several guns becomes a listing per gun.
+            # with_detail leaves what it found here rather than returning it,
+            # so a subclass that overrides it and calls up still gets this.
+            names, choices = self._page_choices.pop(item.external_key, ([], []))
+            if choices and splits(names, choices):
+                yield from split(detailed, choices)
             else:
-                yield self.with_detail(ctx, item)
+                yield detailed
 
     def next_page(self, soup: BeautifulSoup, current: str) -> str | None:
         for selector in self.next_page_selectors:
@@ -702,6 +781,7 @@ class WooCommerceScraper(SiteScraper):
             return item
 
         self._detail_failures = 0
+        self._page_choices[item.external_key] = page_choices(soup, item.url)
         description = self._first_text(soup, self.detail_description_selectors)
         images = self.gallery(soup, item.url)
         return replace(
