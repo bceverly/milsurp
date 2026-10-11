@@ -5,7 +5,6 @@
  * these tests hold the panel's shape, so its answer is supplied here.
  */
 import { test, expect, openPage } from "./fixtures.js";
-import { loadShipped } from "./armory-helpers.js";
 
 const FACTS = {
   caliber_id: 1,
@@ -72,14 +71,30 @@ test("an unknown figure says so rather than leaving a blank", async ({ signedIn 
 test("each caliber in the Armory has the same button", async ({ signedIn }) => {
   await answerWith(signedIn, FACTS);
   await openPage(signedIn, "Armory");
-  await loadShipped(signedIn);
+  // A caliber of its own, rather than the shipped armory: loading that puts
+  // hundreds of pending rows ahead of the specs that run after this one.
+  const name = `Ammo Test ${Date.now()}`;
+  const csrf = (await signedIn.context().cookies()).find(
+    (c) => c.name === "milsurp_csrf",
+  );
+  const made = await signedIn.request.post("/api/armory/calibers", {
+    headers: csrf ? { "X-CSRF-Token": csrf.value } : {},
+    data: { name },
+  });
+  expect(made.ok()).toBe(true);
   await signedIn.getByRole("tab", { name: "Calibers" }).click();
-  const first = signedIn
-    .locator("tbody tr")
-    .first()
-    .getByRole("button", { name: /^Ammunition information for / });
-  await first.click();
+  await signedIn.getByLabel("Search").fill(name);
+  await expect(signedIn).toHaveURL(/[?&]q=/);
+  const row = signedIn.locator("tbody tr", { hasText: name });
+  await row.getByRole("button", { name: `Ammunition information for ${name}` }).click();
   await expect(signedIn.getByTestId("ammunition-panel")).toContainText("67¢ a round");
+  // The Armory remembers its tab, and the specs after this one expect Models.
+  await signedIn.keyboard.press("Escape");
+  await signedIn.getByRole("tab", { name: "Models" }).click();
+  await expect(signedIn.getByRole("tab", { name: "Models" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
 });
 
 test("an administrator sets how often the caliber data refreshes", async ({
