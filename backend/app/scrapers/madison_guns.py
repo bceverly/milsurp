@@ -26,7 +26,7 @@ scan, and the alternative is noticing in six months that a Trapdoor was never
 imported.
 
 robots.txt names a long list of AI crawlers and gives them ``Crawl-delay: 10``.
-We are not one of them -- the configured user agent is MilsurpMonitor -- so the
+We are not one of them -- the configured user agent is a desktop Chrome -- so the
 ``User-agent: *`` group applies and asks for nothing but the cart and account
 paths, which `app.robots` already honors. The faceted-nav parameter
 ``_bc_fsnf`` is disallowed for everybody; the base class paginates with

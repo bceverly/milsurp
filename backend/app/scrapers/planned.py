@@ -112,7 +112,9 @@ PLANNED: tuple[PlannedSite, ...] = (
             "(x-amzn-waf-action: challenge, 202, empty) -- robots.txt "
             "included -- while a browser gets the page. Pretending to be a "
             "browser would be evading their bot control, so this waits on "
-            "WIS allowing the MilsurpMonitor agent."
+            "WIS allowing us. (The default agent became a Windows Chrome "
+            "string on 2026-10-11; that is not a way round this, and a "
+            "planned shop is not scanned either way.)"
         ),
     ),
 )

@@ -221,6 +221,8 @@ manufacturers:
   - MAC
   country: France
   status: approved
+- name: Chefur Customs
+  status: approved
 - name: Chiappa
   aliases:
   - Chiappa Firearms
@@ -843,6 +845,9 @@ manufacturers:
 - name: North
   status: pending
   enabled: false
+- name: North Korean
+  status: pending
+  enabled: false
 - name: Ordnance
   status: pending
   enabled: false
@@ -964,6 +969,9 @@ manufacturers:
   position: 140
 - name: SACM
   country: France
+  status: approved
+- name: Sadu
+  country: Romania
   status: approved
 - name: SAGEM
   country: France
@@ -1226,6 +1234,9 @@ manufacturers:
   - Universal
   country: United States
   status: approved
+- name: USGI
+  status: pending
+  enabled: false
 - name: UZI
   status: pending
   enabled: false
@@ -1273,6 +1284,9 @@ manufacturers:
   - Webley & Son
   - P. Webley & Son
   country: United Kingdom
+  status: approved
+- name: Welt Waffen
+  country: Germany
   status: approved
 - name: Westinghouse
   country: United States
@@ -1625,6 +1639,8 @@ calibers:
   status: approved
 - name: '.25'
   status: merged
+- name: 25-06 Remington
+  status: approved
 - name: .257 Roberts
   status: approved
 - name: .25 ACP
@@ -2837,6 +2853,9 @@ calibers:
   status: approved
 - name: 8x22mm
   status: approved
+- name: 8x24
+  status: pending
+  enabled: false
 - name: 8x31mm
   status: approved
 - name: 8x50mmR
@@ -3007,6 +3026,8 @@ calibers:
   status: approved
 - name: 9X23mm Largo
   status: merged
+- name: 9x25mm
+  status: approved
 - name: 9x57mm
   aliases:
   - 9x57
@@ -3319,6 +3340,9 @@ models:
   status: approved
 - name: AM-15
   status: merged
+  enabled: false
+- name: AMAV427
+  status: pending
   enabled: false
 - name: AMD 65
   status: merged
@@ -4762,6 +4786,8 @@ models:
   modern_production: true
   status: approved
 - name: CZ 24
+  aliases:
+  - vz. 24
   kind: pistol
   country: Czech Republic
   calibers:
@@ -8142,6 +8168,9 @@ models:
 - name: MOD. 1400
   status: pending
   enabled: false
+- name: MOD2
+  status: pending
+  enabled: false
 - name: MOD. 28
   status: pending
   enabled: false
@@ -8847,6 +8876,9 @@ models:
   - Winchester
   status: approved
 - name: Model Of 1922
+  status: merged
+  enabled: false
+- name: MODEL OF 1941
   status: merged
   enabled: false
 - name: MOS8
@@ -9865,6 +9897,8 @@ models:
   enabled: false
 - name: PTR 113
   status: approved
+- name: PTR44
+  status: approved
 - name: PUMP 10
   status: pending
   enabled: false
@@ -9901,6 +9935,8 @@ models:
   status: pending
   enabled: false
 - name: R61
+  status: approved
+- name: R73
   status: approved
 - name: RA-5R
   status: approved
@@ -10599,6 +10635,8 @@ models:
 - name: SHOT 3
   status: pending
   enabled: false
+- name: SHT 22
+  status: approved
 - name: SIDE 10
   status: pending
   enabled: false
@@ -10761,6 +10799,8 @@ models:
   country: Hungary
   calibers:
   - .380 ACP
+  status: approved
+- name: SMC-918
   status: approved
 - name: Smith Carbine
   aliases:
@@ -11812,6 +11852,8 @@ models:
   status: approved
 - name: SW22
   status: approved
+- name: SW40F
+  status: approved
 - name: SW 500
   status: pending
   enabled: false
@@ -12094,6 +12136,8 @@ models:
   modern_production: true
   status: approved
 - name: TG36
+  status: approved
+- name: TH10
   status: approved
 - name: TH9
   status: approved
@@ -12746,6 +12790,7 @@ models:
 - name: U.S. Model 1941
   aliases:
   - Model 1941
+  - MODEL OF 1941
   kind: rifle
   country: United States
   calibers:
@@ -12880,6 +12925,8 @@ models:
 - name: USR 54
   status: pending
   enabled: false
+- name: V10
+  status: approved
 - name: Vetterli Model 1878
   aliases:
   - M1878 Vetterli
@@ -12954,6 +13001,9 @@ models:
   calibers:
   - 8mm Mauser
   status: approved
+- name: vz. 24
+  status: merged
+  enabled: false
 - name: vz.24
   status: merged
   enabled: false

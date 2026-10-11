@@ -28,6 +28,15 @@ any of it; and the same URL answered 200 from the CDN cache and 429 the moment
 it missed, which is what made it look like a rate limit for months. Either half
 of that pair alone passed. See ``ScrapingConfig.user_agent``.
 
+**And that is the agent production is configured with.** Every scheduled scan
+from 2026-10-06 failed on its first request -- an empty 429 at every pace down
+to one request in four minutes -- and the nightly canary flagged it. The
+answer is the per-host override (``scraping.user_agent_overrides``), not the
+global agent: with ``checkpointcharlies.com`` mapped to the application's own
+``MilsurpMonitor/1.0`` string, the same catalog request answered 200 from the
+production VM (checked 2026-10-11). The shop has given its permission to be
+read.
+
 The detail-page fallback in the WooCommerce base class was built here and
 stays: it is right for any shop that serves a catalog and refuses product
 pages, and this one is simply no longer an example of that.

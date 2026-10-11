@@ -9,13 +9,14 @@ reached their server; the same URL answered 200 from the CDN cache and 429 the
 moment it missed, which is what made it look like pace for so long.
 
 Either half alone was fine. Linux with a current Chrome passed; Windows with
-Chrome 124 passed. That is how specific the match was, and it is why this file
-exists: the failure was invisible, lasted more than a week, and came from a
-single string nobody had looked at.
+Chrome 124 passed. That is how specific the match was.
 
-So the rule now is to **say what we are**. It is honest, it cannot go stale the
-way a pinned browser version does, and it gives a vendor something to allow or
-refuse deliberately and an address to complain to.
+The default became the application's own name for a while, and production kept
+the Linux string in its config anyway, which refused Checkpoint Charlie's again
+from 2026-10-06. Since 2026-10-11 the default -- and production -- is current
+Chrome on Windows, checked from the production VM against that shop. These
+tests hold the shape of it: a Windows desktop Chrome, never the blocked pair,
+and a version recent enough not to be a signature of its own.
 """
 
 from __future__ import annotations
@@ -26,9 +27,11 @@ import pytest
 
 from app.config import ScrapingConfig
 
-#: The pair Hostinger's edge refuses, and any close relative of it.
 BLOCKED_PLATFORM = "X11; Linux x86_64"
 BLOCKED_CHROME = "Chrome/124."
+#: The oldest Chrome the default may claim. Raise it with the default: an agent
+#: still claiming a two-year-old browser is how the blocked string became one.
+OLDEST_CHROME = 150
 
 
 @pytest.fixture
@@ -40,43 +43,35 @@ class TestItDoesNotClaimToBeTheBlockedBrowser:
     def test_not_the_exact_pair_that_was_refused(self, agent):
         assert not (BLOCKED_PLATFORM in agent and BLOCKED_CHROME in agent)
 
-    def test_it_does_not_pin_a_browser_version_at_all(self, agent):
-        """A version number is a thing that goes stale. Claiming Chrome 124 was
-        still claiming it two years later, which is exactly what made it a
-        recognizable signature rather than a disguise."""
-        assert not re.search(r"Chrome/\d+", agent)
-        assert not re.search(r"Firefox/\d+", agent)
-        assert not re.search(r"Safari/\d+", agent)
+    def test_not_linux_at_all(self, agent):
+        """Linux with a current Chrome passed, but Linux is where headless
+        tooling runs; a desktop platform is the less remarkable claim."""
+        assert "Linux" not in agent
 
 
-class TestItSaysWhatItIs:
-    def test_it_names_this_application(self, agent):
-        assert "MilsurpMonitor" in agent
+class TestItIsADesktopChromeOnWindows:
+    def test_windows(self, agent):
+        assert "Windows NT 10.0; Win64; x64" in agent
 
-    def test_it_carries_somewhere_to_complain(self, agent):
-        """A vendor who wants this to stop should not have to guess who to ask.
-        RFC-style bot etiquette, and the reason an honest agent is worth more
-        than a convincing one."""
-        assert "+http" in agent
+    def test_a_current_chrome(self, agent):
+        found = re.search(r"Chrome/(\d+)\.", agent)
+        assert found, agent
+        assert int(found.group(1)) >= OLDEST_CHROME
 
-    def test_it_is_a_single_well_formed_header_line(self, agent):
-        assert agent.strip() == agent
-        assert "\n" not in agent and "\r" not in agent
-        assert agent.isascii()
+    def test_the_whole_shape_a_browser_sends(self, agent):
+        assert agent.startswith("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        assert agent.endswith("Safari/537.36")
 
 
-class TestTheSampleAgrees:
-    def test_the_shipped_config_does_not_reintroduce_it(self):
-        """The default in the code is only half the story: config.yaml.sample
-        sets the value explicitly, so an installation copying it would get
-        whatever that line says regardless of the dataclass."""
-        import pathlib
+class TestTheSampleConfigSaysTheSame:
+    def test_a_new_installation_starts_with_the_default(self):
+        """The installer copies config.yaml.sample into place, so a fresh
+        install's agent is whatever the sample says -- which has to agree with
+        the default, or a new deployment quietly starts out blocked."""
+        from pathlib import Path
 
-        sample = pathlib.Path(__file__).resolve().parents[2] / "config.yaml.sample"
-        line = next(
-            row
-            for row in sample.read_text(encoding="utf-8").splitlines()
-            if row.strip().startswith("user_agent:")
-        )
-        assert BLOCKED_CHROME not in line
-        assert "MilsurpMonitor" in line
+        import yaml
+
+        sample = Path(__file__).resolve().parents[2] / "config.yaml.sample"
+        stated = yaml.safe_load(sample.read_text(encoding="utf-8"))["scraping"]["user_agent"]
+        assert stated == ScrapingConfig().user_agent

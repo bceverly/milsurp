@@ -506,7 +506,11 @@ _SCOPE_WORD = re.compile(r"\b(?:scope|sight|optic|telescop|magnif)", re.I)
 #: this: "10.35x22mm" has no boundary between the 22 and the mm, so a pattern
 #: ending in \b matched nothing at all. Three calibers in the catalog were being
 #: missed for that reason alone.
-_METRIC_CALIBER = re.compile(r"\b\d{1,2}(?:\.\d+)?\s*[x×]\s*\d{2,3}\s*(?:r\b|mm\b|\b)")
+#:
+#: Not after a slash: "5/8x24" and "1/2x28" are a barrel's thread pitch, and the
+#: word boundary between the slash and the 8 made "8x24" a cartridge -- one a
+#: scan proposed to the armory on 2026-10-11, off a G3 kit's threaded barrel.
+_METRIC_CALIBER = re.compile(r"(?<![/\d.])\b\d{1,2}(?:\.\d+)?\s*[x×]\s*\d{2,3}\s*(?:r\b|mm\b|\b)")
 
 
 def _metric_caliber(haystack: str) -> str | None:

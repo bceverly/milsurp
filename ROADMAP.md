@@ -4654,7 +4654,7 @@ variants without typing them.
   aggregator, and reusing what it aggregates wants their say-so first, as
   Checkpoint Charlie's gave theirs.
 
-### One listing per gun when a page sells several — **Shipped** 2026-10-10 for WooCommerce, Magento custom options and Shopify; BigCommerce planned
+### One listing per gun when a page sells several — **Shipped** 2026-10-10 (WooCommerce, Magento custom options, Shopify) and 2026-10-11 (BigCommerce)
 
 **What shipped** (`app/scrapers/choices.py`): a scraper that reads a page's
 choices hands them to `splits()`, which applies the rule below, and `split()`
@@ -4683,6 +4683,20 @@ arrive in the digest and the saved-search emails as new. Wired in for:
   disabled buttons. Classic's "Various Grips / Conditions" pages turned out to
   carry no options at all: the shop picks, and they stay one listing.
 * **Shopify** (Centerfire): variants, each with its own `available` flag.
+* **BigCommerce** (Recoil, Arms of America, Arms Unlimited), 2026-10-11. A
+  Stencil page names its choices and nothing else: what each costs, whether
+  it is in stock and its picture are asked of the shop when one is clicked, at
+  `/remote/v1/product-attributes/<id>`. So is it here -- one POST per choice,
+  through `ScrapeContext.post`, which is `get` under every rule (robots.txt
+  allows the endpoint and turns away only the older `/remote.php`). Asked only
+  when the menu's labels have not already ruled the page out, so an add-on menu
+  -- Legacy's certificate -- costs nothing; any refusal keeps the page whole.
+  One menu per page: two menus (grips by condition) multiply into combinations
+  most of which are never stocked, and are left for later. Checked live: Arms
+  of America's Swiss rifles as five listings each, Arms Unlimited's used 870
+  as Wingmaster $250 / Express $299 / Police Magnum $369 and its M83s blued
+  $269 / stainless $349, Recoil's S&W 64 wood grips sold and rubber at $369.99
+  available -- and the M88A, blued or chrome at one price, left as one.
 
 
 Asked for on 2026-10-10. Some shops put a whole run of guns behind one
@@ -4791,6 +4805,23 @@ have no such field at all.
   person. Proposed rather than written, like everything else the armory takes
   in: a model named "Model 1910" has three articles to choose between.
 * Variants have no article of their own and do not get one.
+
+### The user agent is a Windows Chrome — **Changed** 2026-10-11
+
+The nightly canary flagged Checkpoint Charlie's, and it had not scanned since
+2026-10-06: every scheduled scan failed on its first request, an empty 429 at
+every pace. Production's config still carried `X11; Linux x86_64 ...
+Chrome/124.0.0.0` -- the exact string their CDN blocklists, documented in the
+scraper since it was first diagnosed -- while the default had long since
+become `MilsurpMonitor/1.0`. Asked for: production and the installer both on a
+Windows Chrome. Production's `scraping.user_agent` changed (backup alongside
+as `config.yaml.bak-2026-10-11-useragent`), the default in `ScrapingConfig`
+and `config.yaml.sample` to match, and `test_user_agent.py` now holds the
+shape -- a Windows desktop Chrome, never Linux, never the blocked pair, no
+older than Chrome 150 -- and that the sample and the default agree, since the
+installer copies the sample. Checked from the production VM: Checkpoint
+Charlie's catalog and Store API both 200 with it. The Old Steel override in
+production now names the same string and is redundant; it is harmless to keep.
 
 ### Cheapest first, everywhere — **Shipped** 2026-10-09
 

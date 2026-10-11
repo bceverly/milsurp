@@ -226,19 +226,20 @@ scraping:
   # It changes how long a scan takes. Collectors Firearms asks for ten seconds
   # between requests, which makes their scan half an hour of wall clock.
   obey_robots: true                  # default: true
-  # Say what we are. Claiming to be a browser looks harmless and is not:
-  # "X11; Linux x86_64 ... Chrome/124.0.0.0" is the stock user agent of
-  # headless scraping tools, and at least one vendor's CDN refuses it
-  # outright with a 429 that never reaches their server. An honest name
-  # also cannot go stale the way a pinned browser version does.
-  user_agent: "Mozilla/5.0 (compatible; MilsurpMonitor/1.0; +https://milsurpmonitor.com)"
+  # Current Chrome on Windows. Not "X11; Linux x86_64 ... Chrome/124.0.0.0":
+  # that is the stock user agent of headless scraping tools, and at least one
+  # vendor's CDN refuses it outright with a 429 that never reaches their
+  # server. The Chrome version is pinned and ages -- bump it when it falls well
+  # behind the current release. A shop that needs a different string gets one
+  # through user_agent_overrides below.
+  user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
   # A different user agent for particular shops, keyed by host name (a host
   # covers its subdomains, so "oldsteelarsenal.com" also covers "www."). Every
   # request to that host uses it -- the scan, photographs, watchlist re-reads
   # and robots.txt -- and robots.txt is read for the agent actually sent.
   # Empty by default; every other host keeps user_agent above.
   # user_agent_overrides:
-  #   oldsteelarsenal.com: "Mozilla/5.0 (compatible; MilsurpMonitor/1.0; +https://milsurpmonitor.com)"
+  #   example-shop.com: "Mozilla/5.0 (compatible; MilsurpMonitor/1.0; +https://milsurpmonitor.com)"
   request_timeout: 30                # seconds, default: 30
   request_delay: 1.0                 # politeness delay between requests
   max_retries: 4                     # default: 4

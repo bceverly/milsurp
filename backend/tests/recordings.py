@@ -33,7 +33,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from app.scrapers.base import ScrapeCanceled
+from app.scrapers.base import ScrapeCanceled, ScrapeError
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
@@ -158,5 +158,12 @@ def replaying(context: Any, recording: Recording) -> Any:
         except NotRecorded as exc:
             raise ScrapeCanceled(str(exc)) from exc
 
+    def post(url: str, **_kwargs: Any) -> Any:
+        # A recording holds pages, and a POST asks a question it cannot have
+        # recorded an answer to. Answered as a refusal, which is what the
+        # scrapers already take as "keep the page as it was" -- never sent.
+        raise ScrapeError(f"POST {url}: not part of a recording")
+
     context.get_text = get_text  # type: ignore[method-assign]
+    context.post = post  # type: ignore[method-assign]
     return context

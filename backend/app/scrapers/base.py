@@ -510,6 +510,21 @@ class ScrapeContext:
 
     def get(self, url: str, **kwargs: Any) -> requests.Response:
         """GET with politeness delay and retries on transient failures."""
+        return self._request("GET", url, **kwargs)
+
+    def post(self, url: str, **kwargs: Any) -> requests.Response:
+        """POST, under every rule a GET is: robots.txt, the cooldown register,
+        the request delay, the retries and the 429 handling.
+
+        For the one kind of read a shop answers only to a POST: BigCommerce's
+        ``/remote/v1/product-attributes/<id>``, which is how its own product
+        page learns what a chosen option costs and whether it is in stock --
+        a question asked, not an order placed. Nothing here posts anything
+        that changes a shop's state.
+        """
+        return self._request("POST", url, **kwargs)
+
+    def _request(self, method: str, url: str, **kwargs: Any) -> requests.Response:
         if not self.allowed(url):
             raise Disallowed(url, reachable=self.robots.for_url(url).reachable)
 
@@ -528,7 +543,9 @@ class ScrapeContext:
             self.check_stop()
             self._throttle(url)
             try:
-                response = self.session.get(url, timeout=timeout, headers=headers, **kwargs)
+                response = self.session.request(
+                    method, url, timeout=timeout, headers=headers, **kwargs
+                )
                 self._last_request_at = time.monotonic()
                 if response.status_code == TOO_MANY_REQUESTS:
                     self._slow_down(url, response)
@@ -553,7 +570,7 @@ class ScrapeContext:
                         # more attempts at a pace that has been shown not to
                         # help.
                         raise ScrapeError(
-                            f"GET {url}: {TOO_MANY_REQUESTS} at the slowest pace available "
+                            f"{method} {url}: {TOO_MANY_REQUESTS} at the slowest pace available "
                             f"({self._delay_for(url):.0f}s between requests). The site is "
                             f"refusing this request rather than asking us to slow down."
                         )
@@ -573,7 +590,7 @@ class ScrapeContext:
                 cooldown.succeeded(url)
                 return response
         raise ScrapeError(
-            f"GET {url} failed after {self.scraping.max_retries} attempts: {last_error}",
+            f"{method} {url} failed after {self.scraping.max_retries} attempts: {last_error}",
             status=getattr(getattr(last_error, "response", None), "status_code", None),
         )
 

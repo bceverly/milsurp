@@ -2744,12 +2744,20 @@ file is more often unexported than unwanted.
 
 ### What this application calls itself
 
-`Mozilla/5.0 (compatible; MilsurpMonitor/1.0; +https://milsurpmonitor.com)` —
-its own name and an address to complain to, rather than an imitation of a
-browser.
+`Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like
+Gecko) Chrome/156.0.0.0 Safari/537.36` — current Chrome on Windows, since
+2026-10-11, in the default and in production alike. The Chrome version is
+pinned and ages; bump it when it falls well behind the current release
+(`test_user_agent.py` holds the shape and a minimum version). A shop that needs
+something else gets it through `scraping.user_agent_overrides`.
 
-**That is not tidiness; it is a bug fix.** The agent used to claim Chrome 124
-on Linux, and Checkpoint Charlie's refused every uncached request for nine
+For a while the default was the application's own name,
+`Mozilla/5.0 (compatible; MilsurpMonitor/1.0; +https://milsurpmonitor.com)` —
+but production's config still carried the old Linux string, which is how
+Checkpoint Charlie's went unscanned from 2026-10-06 until the nightly canary
+flagged it. What follows is why that string must never come back.
+
+The agent used to claim Chrome 124 on Linux, and Checkpoint Charlie's refused every uncached request for nine
 days because of it. They sit behind Hostinger's CDN, and the CDN was matching
 one exact pair — `X11; Linux x86_64` with `Chrome/124.0.0.0`, the stock string
 of headless scraping tooling. Either half alone passed: Linux with a current

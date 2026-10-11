@@ -182,7 +182,8 @@ class TestStopIsHeardWhileAScanIsWaiting:
 
         from app.scrapers.base import ScrapeContext
 
-        source = inspect.getsource(ScrapeContext.get)
+        # The retry loop behind get() and post() alike.
+        source = inspect.getsource(ScrapeContext._request)
         assert "self.sleep(" in source
         assert "time.sleep(" not in source
 

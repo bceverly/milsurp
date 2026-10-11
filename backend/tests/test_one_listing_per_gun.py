@@ -242,3 +242,91 @@ class TestCenterfire:
 
     def test_ima_hand_select_stays_one_listing(self, ctx_factory):
         assert not [i for i in scan_of("ima-usa", ctx_factory) if i.split_from]
+
+
+class TestBigCommerce:
+    """A Stencil page names its choices; what each costs and whether it is in
+    stock come from the shop's own ``/remote/v1/product-attributes`` endpoint,
+    asked once per choice as the page would ask it."""
+
+    P226 = "https://www.recoilgunworks.com/pd-trade-sig-sauer-p226-9mm-da-sa-night-sights/"
+
+    def recorded_page(self):
+        recording = load("recoil-gun-works")
+        return recording.text(self.P226)
+
+    def test_the_menu_is_read_off_the_page(self):
+        from app.scrapers.bigcommerce import page_options
+
+        options = page_options(BeautifulSoup(self.recorded_page(), "html.parser"))
+        assert options.product_id == "822"
+        assert options.field == "attribute[364]"
+        assert options.names == ["Condition"]
+        assert [c.label for c in options.choices][:3] == ["Unissued", "Excellent", "Very Good"]
+
+    def test_each_grade_is_priced_and_stocked_on_its_own(self):
+        from app.scrapers.recoil_gun_works import RecoilGunWorksScraper
+
+        answers = {
+            "574": (699.99, False),
+            "592": (599.99, True),
+            "311": (529.99, True),
+            "312": (499.99, False),
+            "313": (479.99, True),
+        }
+        asked = []
+
+        class Ctx(FakeContext):
+            def post(self, url, data, **_kwargs):
+                asked.append((url, data["attribute[364]"]))
+                price, instock = answers[data["attribute[364]"]]
+
+                class Answer:
+                    def json(self):
+                        return {
+                            "data": {
+                                "price": {"without_tax": {"value": price}},
+                                "instock": instock,
+                                "purchasable": True,
+                                "image": {"data": f"https://cdn.test/{{:size}}/{price}.jpg"},
+                            }
+                        }
+
+                return Answer()
+
+        parent = ScrapedItem(external_key="822", url=self.P226, title="PD Trade | Sig P226")
+        made = list(RecoilGunWorksScraper()._detailed(Ctx(self.recorded_page()), parent))
+        assert {url for url, _ in asked} == {
+            "https://www.recoilgunworks.com/remote/v1/product-attributes/822"
+        }
+        assert [(m.title.rsplit(" - ", 1)[-1], m.price, m.is_sold) for m in made] == [
+            ("Unissued", 699.99, True),
+            ("Excellent", 599.99, False),
+            ("Very Good", 529.99, False),
+            ("Good", 499.99, True),
+            ("Fair", 479.99, False),
+        ]
+        assert made[0].image_urls == ["https://cdn.test/original/699.99.jpg"]
+
+    def test_an_add_on_menu_is_not_even_priced(self):
+        from app.scrapers.bigcommerce import PageOptions, _ruled_out
+
+        certificate = PageOptions(
+            "1",
+            "attribute[9]",
+            ["Certificate of Authenticity"],
+            [Choice(key="1", label="None"), Choice(key="2", label="Signed & Laminated")],
+        )
+        assert _ruled_out(certificate)
+
+    def test_a_refused_price_leaves_the_page_whole(self):
+        from app.scrapers.base import ScrapeError
+        from app.scrapers.recoil_gun_works import RecoilGunWorksScraper
+
+        class Ctx(FakeContext):
+            def post(self, url, **_kwargs):
+                raise ScrapeError(f"POST {url}: refused")
+
+        parent = ScrapedItem(external_key="822", url=self.P226, title="PD Trade | Sig P226")
+        [made] = list(RecoilGunWorksScraper()._detailed(Ctx(self.recorded_page()), parent))
+        assert made.external_key == "822"

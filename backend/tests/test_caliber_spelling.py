@@ -260,3 +260,15 @@ class TestAMeasurementIsNotACaliber:
     )
     def test_while_a_written_caliber_still_reads(self, title, wanted):
         assert extract_caliber(title) == wanted
+
+
+class TestAThreadPitchIsNotACaliber:
+    """ "5/8x24" is how a barrel is threaded. Read as a metric cartridge, it
+    proposed an "8x24" caliber to the armory (2026-10-11)."""
+
+    @pytest.mark.parametrize("text", ["barrel threaded 5/8x24", "1/2x28 RH threads", "9/16x24"])
+    def test_the_threads_name_no_cartridge(self, text):
+        assert extract_caliber("Parts kit", text) is None
+
+    def test_a_real_metric_cartridge_still_reads(self):
+        assert extract_caliber("Siamese Mauser", "chambered for the 8x52r cartridge") == "8x52R"

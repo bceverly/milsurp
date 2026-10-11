@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Iterator
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup, Tag
@@ -44,6 +44,7 @@ from .base import (
     text_of,
     vendors_answer,
 )
+from .choices import Choice, split, splits
 from .storefront import image_sources, parse_price
 
 #: The id a Stencil theme puts on a card when it puts one anywhere.
@@ -214,6 +215,73 @@ def path_key(link: str) -> str:
     return f"path-{path}" if path else f"path-{link}"
 
 
+#: The option menus a choice of gun can come in. A text box, a checkbox or a
+#: file upload is something added to an order, never a different gun.
+_MENU_KINDS = frozenset(
+    {"set-radio", "set-rectangle", "set-select", "swatch", "product-list", "set-swatch"}
+)
+
+
+@dataclass(frozen=True)
+class PageOptions:
+    """A Stencil product page's one menu of choices, before any is priced."""
+
+    product_id: str
+    #: The form field the choice is sent as: ``attribute[364]``.
+    field: str
+    names: list[str]
+    choices: list[Choice]
+
+
+def page_options(soup: BeautifulSoup) -> PageOptions | None:
+    """The page's choices, when it has exactly one menu of them.
+
+    Several menus multiply -- grips by condition is a dozen combinations, most
+    never stocked -- and are left for a later pass. Each choice is keyed by
+    the shop's own option value id, which is also what pricing it sends.
+    """
+    product_id = soup.select_one('input[name="product_id"]')
+    if product_id is None or not product_id.get("value"):
+        return None
+    menus = [
+        field
+        for field in soup.select("[data-product-attribute]")
+        if field.get("data-product-attribute") in _MENU_KINDS
+    ]
+    if len(menus) != 1:
+        return None
+    menu = menus[0]
+    heading = menu.select_one("label.form-label, .form-label")
+    name = text_of(heading).split(":")[0].strip() if heading else ""
+    choices: list[Choice] = []
+    field_name = ""
+    for control in menu.select('input[name^="attribute["], select[name^="attribute["]'):
+        field_name = str(control.get("name"))
+        if control.name == "select":
+            for option in control.select("option"):
+                value = str(option.get("value") or "")
+                if value:
+                    choices.append(Choice(key=value, label=text_of(option)))
+            continue
+        value = str(control.get("value") or "")
+        label = menu.select_one(f'label[for="{control.get("id")}"]')
+        if value and label is not None:
+            choices.append(Choice(key=value, label=text_of(label)))
+    if len(choices) < 2 or not field_name:
+        return None
+    return PageOptions(str(product_id["value"]), field_name, [name], choices)
+
+
+def _ruled_out(options: PageOptions) -> bool:
+    """Whether the labels alone say these are not separate guns: an add-on
+    menu, or a "no preference" among the choices. Priced or not, the answer
+    would be no, so it is not worth a request per choice to hear it."""
+    return not splits(
+        options.names,
+        [replace(choice, price=float(n)) for n, choice in enumerate(options.choices)],
+    )
+
+
 class BigCommerceScraper(SiteScraper):
     """One BigCommerce shop. Subclasses supply the slug, name and sources."""
 
@@ -382,7 +450,7 @@ class BigCommerceScraper(SiteScraper):
                 if item is None or item.external_key in seen:
                     continue
                 seen.add(item.external_key)
-                yield self.with_detail(ctx, item)
+                yield from self._detailed(ctx, item)
 
             url = self.next_page(soup, url)
 
@@ -480,6 +548,85 @@ class BigCommerceScraper(SiteScraper):
         return None
 
     # -- the product page ---------------------------------------------------
+    @property
+    def _page_options(self) -> dict[str, PageOptions | None]:
+        """The option menu each product page offered, by listing key, until
+        :meth:`_detailed` collects it. Per instance."""
+        found = self.__dict__.get("_options_found")
+        if found is None:
+            found = self.__dict__["_options_found"] = {}
+        return found
+
+    def _detailed(self, ctx: ScrapeContext, item: ScrapedItem) -> Iterator[ScrapedItem]:
+        """The listing with its product page read -- or, when the page sells
+        several guns, a listing for each. See :mod:`.choices`.
+
+        A Stencil page names its choices but not what each costs or whether it
+        is in stock: the page asks the shop when one is clicked. So does this,
+        one request per choice -- but only once the labels have not already
+        ruled it out (an add-on, a "no preference"), so a page whose options
+        are a certificate or a magazine costs nothing extra.
+        """
+        detailed = self.with_detail(ctx, item)
+        options = self._page_options.pop(item.external_key, None)
+        if options is None or _ruled_out(options):
+            yield detailed
+            return
+        choices = self._price_choices(ctx, detailed, options)
+        if choices and splits(options.names, choices):
+            yield from split(detailed, choices)
+        else:
+            yield detailed
+
+    def _price_choices(
+        self, ctx: ScrapeContext, item: ScrapedItem, options: PageOptions
+    ) -> list[Choice]:
+        """Each choice's price, stock and picture, as the page would ask them.
+
+        Asked of ``/remote/v1/product-attributes/<id>`` -- the shop's own
+        storefront endpoint, allowed by robots.txt (which turns away the older
+        ``/remote.php``), read under every rule a GET is. Any failure leaves
+        the page as one listing rather than guessing.
+        """
+        base = urljoin(item.url, "/")
+        url = urljoin(base, f"remote/v1/product-attributes/{options.product_id}")
+        priced: list[Choice] = []
+        for choice in options.choices:
+            try:
+                response = ctx.post(
+                    url,
+                    data={
+                        "action": "add",
+                        "product_id": options.product_id,
+                        options.field: choice.key,
+                        "qty[]": "1",
+                    },
+                    headers={
+                        "X-Requested-With": "XMLHttpRequest",
+                        "stencil-config": "{}",
+                        "stencil-options": "{}",
+                    },
+                )
+                data = response.json().get("data") or {}
+            except (Disallowed, ScrapeError, ValueError, AttributeError) as exc:
+                ctx.log(f"Could not price the choices of {item.url}: {exc}. Keeping it whole.")
+                return []
+            price = ((data.get("price") or {}).get("without_tax") or {}).get("value")
+            image = (data.get("image") or {}).get("data")
+            priced.append(
+                replace(
+                    choice,
+                    price=float(price) if isinstance(price, int | float) and price > 0 else None,
+                    is_sold=not (data.get("instock") and data.get("purchasable", True)),
+                    image_urls=(
+                        [full_size(image.replace("{:size}", "original"))]
+                        if isinstance(image, str)
+                        else []
+                    ),
+                )
+            )
+        return priced
+
     def with_detail(self, ctx: ScrapeContext, item: ScrapedItem) -> ScrapedItem:
         """Fill in the description and the gallery, if they are still needed."""
         if self._gave_up_on_details:
@@ -527,6 +674,7 @@ class BigCommerceScraper(SiteScraper):
             return item
 
         self._detail_failures = 0
+        self._page_options[item.external_key] = page_options(soup)
         images = self.gallery(soup, item.url)
         fields = custom_fields(soup) if self.custom_field_map else {}
         stated = self._stated(fields)

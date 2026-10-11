@@ -398,12 +398,23 @@ class ScrapingConfig:
     #: alone was fine -- Linux with a current Chrome passed, Windows with
     #: Chrome 124 passed -- which is how specific the match was.
     #:
-    #: So it says what it is now. That is the honest answer, it cannot go stale
-    #: the way a pinned browser version does, and it gives a vendor something to
-    #: allow or refuse on purpose and an address to complain to. Verified
-    #: against **all 28 shops** with the canary before it was changed: every one
-    #: answered, including the one that had been refusing us for nine days.
-    user_agent: str = "Mozilla/5.0 (compatible; MilsurpMonitor/1.0; +https://milsurpmonitor.com)"
+    #: It said what it was for a while -- "MilsurpMonitor/1.0" with an address --
+    #: and production kept the Linux string in its own config regardless, which
+    #: is how Checkpoint Charlie's went unscanned again from 2026-10-06 until
+    #: the canary caught it. On 2026-10-11 the default and production both
+    #: became current Chrome on Windows: a desktop browser's string, and not the
+    #: blocklisted pair. Checked from the production VM against the shop that
+    #: refused the old one: 200 on the catalog and the Store API alike.
+    #:
+    #: **The version is pinned and will age.** Chrome 156 now; a CDN that
+    #: starts treating an old version as a bot signature is the failure this
+    #: comment began with, so bump it when it falls well behind current Chrome
+    #: (test_user_agent.py checks the shape, not the number). A shop that wants
+    #: a different string gets one through ``user_agent_overrides``.
+    user_agent: str = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+    )
     # Honor robots.txt: its Disallow rules and its Crawl-delay. On by default
     # and meant to stay on. It is here as a setting because a vendor may give a
     # deployment explicit permission to ignore their rules, and because a test
