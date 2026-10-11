@@ -48,6 +48,7 @@ from ..models import (
     FirearmModel,
     Item,
     Manufacturer,
+    ModelVariant,
     firearm_model_manufacturers,
 )
 from . import arsenals, classify, manufacturers
@@ -1090,6 +1091,7 @@ def _seed_makers(
             position=int(entry.get("position") or 1000),
             country=entry.get("country"),
             website=entry.get("website"),
+            wikipedia_url=entry.get("wikipedia"),
         )
         session.add(firm)
         makers[name.lower()] = firm
@@ -1135,6 +1137,7 @@ def _seed_models(
             for name in _caliber_list(entry)
             if name.strip().lower() in calibers
         ]
+        _write_variants(gun, entry.get("variants") or [], calibers)
         for maker_name in entry.get("manufacturers") or []:
             key = str(maker_name).strip().lower()
             maker = makers.get(key)
@@ -1213,7 +1216,11 @@ def export_armory(session: Session) -> dict[str, Any]:
     models = (
         session.execute(
             select(FirearmModel)
-            .options(selectinload(FirearmModel.manufacturers), selectinload(FirearmModel.calibers))
+            .options(
+                selectinload(FirearmModel.manufacturers),
+                selectinload(FirearmModel.calibers),
+                selectinload(FirearmModel.variants),
+            )
             .order_by(func.lower(FirearmModel.name))
         )
         .scalars()
@@ -1239,6 +1246,7 @@ def export_armory(session: Session) -> dict[str, Any]:
                     # nothing at all on the far end.
                     "country": row.country,
                     "website": row.website,
+                    "wikipedia": row.wikipedia_url,
                     "status": row.status.value,
                     "position": row.position if row.position != 1000 else None,
                     "enabled": None if row.enabled else False,
@@ -1271,6 +1279,7 @@ def export_armory(session: Session) -> dict[str, Any]:
                     "wikipedia": row.wikipedia_url,
                     "modern_production": True if row.modern_production else None,
                     "maker_url": row.maker_url,
+                    "variants": _variant_entries(row),
                     "status": row.status.value,
                     "position": row.position if row.position != 1000 else None,
                     "enabled": None if row.enabled else False,
@@ -1717,6 +1726,7 @@ def _maker_differences(row: Manufacturer, entry: dict[str, Any]) -> list[str]:
             # the file gave them, and reported nothing to fix afterwards.
             "country": row.country,
             "website": row.website,
+            "wikipedia": row.wikipedia_url,
             "status": row.status.value,
             "position": row.position,
             "enabled": row.enabled,
@@ -1727,6 +1737,7 @@ def _maker_differences(row: Manufacturer, entry: dict[str, Any]) -> list[str]:
             "marks": [str(m) for m in entry.get("marks") or []],
             "country": entry.get("country"),
             "website": entry.get("website"),
+            "wikipedia": entry.get("wikipedia"),
             "status": str(entry.get("status") or ArmoryStatus.PENDING.value),
             "position": int(entry.get("position") or 1000),
             "enabled": bool(entry.get("enabled", True)),
@@ -1766,6 +1777,7 @@ def _model_differences(row: FirearmModel, entry: dict[str, Any]) -> list[str]:
             "wikipedia": row.wikipedia_url,
             "modern_production": row.modern_production,
             "maker_url": row.maker_url,
+            "variants": _variant_entries(row),
             "status": row.status.value,
             "position": row.position,
             "enabled": row.enabled,
@@ -1780,6 +1792,7 @@ def _model_differences(row: FirearmModel, entry: dict[str, Any]) -> list[str]:
             "wikipedia": entry.get("wikipedia"),
             "modern_production": bool(entry.get("modern_production")),
             "maker_url": entry.get("maker_url"),
+            "variants": [_without_blanks(dict(v)) for v in entry.get("variants") or []],
             "status": str(entry.get("status") or ArmoryStatus.PENDING.value),
             "position": int(entry.get("position") or 1000),
             "enabled": bool(entry.get("enabled", True)),
@@ -1843,6 +1856,18 @@ def apply_sync(
     calibers = _sync_calibers(session, data.get("calibers") or [], done, prune, sink)
     _sync_models(session, data.get("models") or [], calibers, done, prune, sink)
     if any(done.values()):
+        session.flush()
+        # A listing linked to a variant the file no longer has. The link is
+        # the application's to keep (Item.variant_id), and the next scan
+        # re-matches it.
+        session.execute(
+            update(Item)
+            .where(
+                Item.variant_id.is_not(None),
+                Item.variant_id.not_in(select(ModelVariant.id)),
+            )
+            .values(variant_id=None)
+        )
         invalidate()
     return done
 
@@ -1879,6 +1904,7 @@ def _sync_makers(
         row.marks = _lines(entry.get("marks"))
         row.country = entry.get("country")
         row.website = entry.get("website")
+        row.wikipedia_url = entry.get("wikipedia")
         row.status = ArmoryStatus(str(entry.get("status") or ArmoryStatus.PENDING.value))
         row.position = int(entry.get("position") or 1000)
         row.enabled = bool(entry.get("enabled", True))
@@ -1984,6 +2010,59 @@ def _sync_models(
                 done["deleted"] += 1
 
 
+def _variant_entries(row: FirearmModel) -> list[dict[str, Any]]:
+    """A model's variants as the file carries them, in a stable order."""
+    return [
+        _without_blanks(
+            {
+                "label": variant.label,
+                "caliber": variant.caliber.name if variant.caliber else None,
+                "barrel": variant.barrel_inches,
+                "finish": variant.finish,
+                "upc": variant.upc,
+                "part": variant.maker_part,
+                "msrp": variant.msrp,
+                "maker_url": variant.maker_url,
+                "source": None if variant.source == "hand" else variant.source,
+                "status": variant.status.value,
+                "enabled": None if variant.enabled else False,
+            }
+        )
+        for variant in sorted(row.variants, key=lambda v: v.label.lower())
+    ]
+
+
+def _write_variants(
+    row: FirearmModel, entries: list[dict[str, Any]], calibers: dict[str, Caliber]
+) -> None:
+    """Make a model's variants what the file says, matched by label.
+
+    In place rather than replaced, so a variant the file still lists keeps its
+    id -- and the listings linked to it keep the link.
+    """
+    by_label = {variant.label.lower(): variant for variant in row.variants}
+    wanted = []
+    for entry in entries:
+        label = str(entry.get("label") or "").strip()
+        if not label:
+            continue
+        variant = by_label.get(label.lower()) or ModelVariant(label=label)
+        caliber = str(entry.get("caliber") or "").strip().lower()
+        variant.label = label
+        variant.caliber = calibers.get(caliber) if caliber else None
+        variant.barrel_inches = entry.get("barrel")
+        variant.finish = entry.get("finish")
+        variant.upc = str(entry["upc"]) if entry.get("upc") else None
+        variant.maker_part = entry.get("part")
+        variant.msrp = entry.get("msrp")
+        variant.maker_url = entry.get("maker_url")
+        variant.source = str(entry.get("source") or "hand")
+        variant.status = ArmoryStatus(str(entry.get("status") or ArmoryStatus.PENDING.value))
+        variant.enabled = bool(entry.get("enabled", True))
+        wanted.append(variant)
+    row.variants = wanted
+
+
 def _write_model(
     row: FirearmModel,
     entry: dict[str, Any],
@@ -2002,6 +2081,7 @@ def _write_model(
     row.wikipedia_url = entry.get("wikipedia")
     row.modern_production = bool(entry.get("modern_production"))
     row.maker_url = entry.get("maker_url")
+    _write_variants(row, entry.get("variants") or [], calibers)
     row.status = ArmoryStatus(str(entry.get("status") or ArmoryStatus.PENDING.value))
     row.position = int(entry.get("position") or 1000)
     row.enabled = bool(entry.get("enabled", True))

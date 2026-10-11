@@ -260,7 +260,7 @@ class TestBigCommerce:
 
         options = page_options(BeautifulSoup(self.recorded_page(), "html.parser"))
         assert options.product_id == "822"
-        assert options.field == "attribute[364]"
+        assert options.sends["574"] == {"attribute[364]": "574"}
         assert options.names == ["Condition"]
         assert [c.label for c in options.choices][:3] == ["Unissued", "Excellent", "Very Good"]
 
@@ -313,9 +313,9 @@ class TestBigCommerce:
 
         certificate = PageOptions(
             "1",
-            "attribute[9]",
             ["Certificate of Authenticity"],
             [Choice(key="1", label="None"), Choice(key="2", label="Signed & Laminated")],
+            {"1": {"attribute[9]": "1"}, "2": {"attribute[9]": "2"}},
         )
         assert _ruled_out(certificate)
 
@@ -330,3 +330,54 @@ class TestBigCommerce:
         parent = ScrapedItem(external_key="822", url=self.P226, title="PD Trade | Sig P226")
         [made] = list(RecoilGunWorksScraper()._detailed(Ctx(self.recorded_page()), parent))
         assert made.external_key == "822"
+
+    TWO_MENUS = """
+    <input name="product_id" value="77">
+    <div data-product-attribute="set-rectangle"><label class="form-label">Grip:</label>
+      <input type="radio" id="g1" name="attribute[10]" value="101"><label for="g1">Wood</label>
+      <input type="radio" id="g2" name="attribute[10]" value="102"><label for="g2">Rubber</label>
+    </div>
+    <div data-product-attribute="set-select"><label class="form-label">Condition:</label>
+      <select name="attribute[11]"><option value="">Choose</option>
+        <option value="201">Good</option><option value="202">Fair</option></select>
+    </div>
+    """
+
+    def test_two_menus_are_priced_as_combinations_and_only_stocked_ones_kept(self):
+        from app.scrapers.bigcommerce import page_options
+        from app.scrapers.recoil_gun_works import RecoilGunWorksScraper
+
+        options = page_options(BeautifulSoup(self.TWO_MENUS, "html.parser"))
+        assert options.names == ["Grip", "Condition"]
+        assert [c.label for c in options.choices] == [
+            "Wood / Good",
+            "Wood / Fair",
+            "Rubber / Good",
+            "Rubber / Fair",
+        ]
+        assert options.sends["101-202"] == {"attribute[10]": "101", "attribute[11]": "202"}
+
+        stocked = {("101", "201"): 449.99, ("102", "202"): 369.99}
+
+        class Ctx(FakeContext):
+            def post(self, url, data, **_kwargs):
+                key = (data["attribute[10]"], data["attribute[11]"])
+
+                class Answer:
+                    def json(self):
+                        return {
+                            "data": {
+                                "price": {"without_tax": {"value": stocked.get(key, 399.99)}},
+                                "instock": key in stocked,
+                                "purchasable": True,
+                            }
+                        }
+
+                return Answer()
+
+        parent = ScrapedItem(external_key="77", url="https://shop.test/p", title="S&W 64")
+        made = list(RecoilGunWorksScraper()._detailed(Ctx(self.TWO_MENUS), parent))
+        assert [(m.title, m.price, m.is_sold) for m in made] == [
+            ("S&W 64 - Wood / Good", 449.99, False),
+            ("S&W 64 - Rubber / Fair", 369.99, False),
+        ]

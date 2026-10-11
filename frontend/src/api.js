@@ -411,6 +411,23 @@ export const api = {
   saveCosts: (payload) =>
     request("/api/preferences/costs", { method: "PUT", body: payload }),
 
+  // --- a model's variants: caliber, barrel, finish, UPC, MSRP ---
+  modelVariants: (modelId) => request(`/api/armory/models/${modelId}/variants`),
+  addVariant: (modelId, payload) =>
+    request(`/api/armory/models/${modelId}/variants`, { method: "POST", body: payload }),
+  updateVariant: (id, payload) =>
+    request(`/api/armory/variants/${id}`, { method: "PATCH", body: payload }),
+  deleteVariant: (id) => request(`/api/armory/variants/${id}`, { method: "DELETE" }),
+
+  // --- Wikipedia articles proposed for armory rows, decided on the Armory page ---
+  referenceProposals: () => request("/api/armory/references"),
+  acceptReferences: (ids) =>
+    request("/api/armory/references/accept", { method: "POST", body: { ids } }),
+  acceptConfidentReferences: () =>
+    request("/api/armory/references/accept-confident", { method: "POST" }),
+  rejectReferences: (ids) =>
+    request("/api/armory/references/reject", { method: "POST", body: { ids } }),
+
   // --- the reader's FFL dealers; each call answers with the whole list ---
   dealers: () => request("/api/dealers"),
   addDealer: (payload) => request("/api/dealers", { method: "POST", body: payload }),

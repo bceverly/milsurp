@@ -386,6 +386,128 @@ function ArmoryPanel({ item, onClose }) {
 }
 
 /**
+ * Which version of the model this is, and what it costs new from the maker.
+ *
+ * Exactly one when the title's barrel and finish narrow the model to it; the
+ * ones it could be when they do not -- "TAURUS TRACKER M44 PRE OWNED" could be
+ * any of the .44s. Only for a model still in production. See
+ * app/services/variants.py.
+ */
+/**
+ * What the variant costs new today: the lowest in-stock price gun.deals lists
+ * and how many stores have it (app/services/newprices.py), linked to the page
+ * it came from, and how far under or over that this listing is. Nothing when
+ * it has not been asked or no store has one in stock.
+ */
+function NewPrice({ variant, price, money }) {
+  if (variant.new_price == null) return null;
+  const stores = variant.new_stores || 0;
+  const under =
+    price != null && price > 0 ? Math.round((1 - price / variant.new_price) * 100) : null;
+  return (
+    <div className="variant-note__new" data-testid="new-price">
+      New: from {money(variant.new_price)} at {stores} store{stores === 1 ? "" : "s"}
+      {under != null && under !== 0 && (
+        <span className={under > 0 ? "variant-note__under" : "muted"}>
+          {" "}
+          · {Math.abs(under)}% {under > 0 ? "under" : "over"} new
+        </span>
+      )}
+      {variant.new_price_url && (
+        <>
+          {" "}
+          ·{" "}
+          <a href={variant.new_price_url} target="_blank" rel="noopener noreferrer">
+            gun.deals
+          </a>
+        </>
+      )}
+    </div>
+  );
+}
+
+function range(values, money) {
+  const low = Math.min(...values);
+  const high = Math.max(...values);
+  return (
+    <>
+      {money(low)}
+      {high !== low && <>–{money(high)}</>}
+    </>
+  );
+}
+
+function VariantNote({ item }) {
+  const money = (value) => formatMoney(value, item.currency);
+  if (item.variant) {
+    const v = item.variant;
+    return (
+      <div className="variant-note" data-testid="variant-note">
+        <span className="variant-note__label">Variant:</span> {v.label}
+        {v.msrp != null && <> · MSRP {money(v.msrp)}</>}
+        {v.maker_url && (
+          <>
+            {" "}
+            ·{" "}
+            <a href={v.maker_url} target="_blank" rel="noopener noreferrer">
+              maker&rsquo;s page
+            </a>
+          </>
+        )}
+        <NewPrice variant={v} price={item.current_price} money={money} />
+      </div>
+    );
+  }
+  const options = item.variant_candidates || [];
+  if (!options.length) return null;
+  const msrps = options.map((v) => v.msrp).filter((p) => p != null);
+  const news = options.map((v) => v.new_price).filter((p) => p != null);
+  return (
+    <div className="variant-note" data-testid="variant-note">
+      <span className="variant-note__label">
+        Could be any of {options.length} versions
+      </span>
+      {msrps.length > 0 && <> · MSRP {range(msrps, money)}</>}
+      {news.length > 0 && <> · new from {range(news, money)}</>}
+      <ul className="variant-note__list">
+        {options.map((v) => (
+          <li key={v.id}>
+            {v.label}
+            {v.msrp != null && <span className="muted"> · {money(v.msrp)}</span>}
+            {v.new_price != null && (
+              <span className="muted"> · new {money(v.new_price)}</span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * One click to the Wikipedia article the armory has for a maker or a model.
+ *
+ * Inline beside the name rather than only inside "What the armory knows":
+ * asked for on 2026-10-11, for the reader who would otherwise be off to a
+ * search engine. Nothing when the armory has no article.
+ */
+function WikiLink({ url, about }) {
+  if (!url) return null;
+  return (
+    <a
+      className="wiki-link"
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={`${about} on Wikipedia`}
+    >
+      Wikipedia
+      <External size={12} />
+    </a>
+  );
+}
+
+/**
  * What the maker says about this gun, one click away.
  *
  * Only for a model still in production -- the server decides, and sends
@@ -1266,6 +1388,7 @@ export default function ItemDetail() {
                 {item.model_kind && (
                   <span className="detail__model-kind">{kindLabel(item.model_kind)}</span>
                 )}{" "}
+                <WikiLink url={item.model_reference_url} about={item.model} />
                 {/* The reference link used to sit here on its own, which put
                     the least of what the armory knows on the page and left
                     the rest — the pattern's country, what it chambers, who
@@ -1287,10 +1410,17 @@ export default function ItemDetail() {
             <Fact label="Made">{item.manufacture_year}</Fact>
             <Fact label="Manufacturer" always source={sources.manufacturer}>
               {item.manufacturer}
+              {item.manufacturer && (
+                <WikiLink url={item.maker_wikipedia_url} about={item.manufacturer} />
+              )}
             </Fact>
             <Fact label="Caliber" always source={sources.caliber}>
               {item.caliber}
             </Fact>
+            <Fact label="Barrel">
+              {item.barrel_inches != null ? `${item.barrel_inches}"` : null}
+            </Fact>
+            <Fact label="Finish">{item.finish}</Fact>
             <Fact label="Country" always source={sources.country}>
               {item.country}
             </Fact>
@@ -1341,6 +1471,7 @@ export default function ItemDetail() {
             View on {item.site_name || "vendor site"}
           </a>
           <MakerLink link={item.maker_link} />
+          <VariantNote item={item} />
           {/* After the buy button, for the step that comes after it. Only for
               a firearm: a collection is a list of guns. */}
           {item.delivered_price != null && <BoughtThis item={item} />}

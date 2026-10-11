@@ -179,6 +179,7 @@ manufacturers:
   status: approved
 - name: Bushmaster
   country: United States
+  website: https://www.bushmaster.com
   status: approved
 - name: Canik
   country: Turkey
@@ -722,6 +723,8 @@ manufacturers:
   - Unique Court
   country: France
   status: approved
+- name: Manufacturing California Compliant
+  status: pending
 - name: MANURHIN
   country: France
   status: approved
@@ -857,6 +860,8 @@ manufacturers:
 - name: PAATZ
   country: Germany
   status: approved
+- name: Panzer Arms
+  status: pending
 - name: Parker Bros
   aliases:
   - Parker Brothers
@@ -909,6 +914,7 @@ manufacturers:
   position: 270
 - name: Remington
   country: United States
+  website: https://www.remarms.com
   status: approved
   position: 90
 - name: Remington Rand
@@ -945,6 +951,7 @@ manufacturers:
   aliases:
   - Rock River
   country: United States
+  website: https://www.rockriverarms.com
   status: approved
 - name: Rogers & Spencer
   aliases:
@@ -1111,6 +1118,7 @@ manufacturers:
   position: 70
 - name: Stag Arms
   country: United States
+  website: https://stagarms.com
   status: approved
 - name: Standard Products
   country: United States
@@ -1516,6 +1524,8 @@ calibers:
   aliases:
   - 18 Bore
   status: approved
+- name: 1x28
+  status: pending
 - name: 20 Bore
   status: merged
 - name: 20 gauge
@@ -1527,6 +1537,8 @@ calibers:
   status: approved
 - name: '.22'
   status: merged
+- name: '.222'
+  status: pending
 - name: .22-250 Remington
   aliases:
   - 22-250 Remington
@@ -1687,6 +1699,8 @@ calibers:
 - name: 2x11
   status: pending
   enabled: false
+- name: 2x28
+  status: pending
 - name: '.30'
   status: merged
 - name: .30-03
@@ -1909,6 +1923,8 @@ calibers:
   status: approved
 - name: '.34'
   status: merged
+- name: '.348'
+  status: pending
 - name: .34 Caliber
   aliases:
   - 34 Caliber
@@ -2050,6 +2066,8 @@ calibers:
   aliases:
   - 40 Caliber
   status: approved
+- name: '.405'
+  status: pending
 - name: 40 Caliber
   status: merged
 - name: .40 S&W
@@ -3024,6 +3042,8 @@ calibers:
   - 9x23
   - 9X23mm Largo
   status: approved
+- name: 9x23mm
+  status: pending
 - name: 9X23mm Largo
   status: merged
 - name: 9x25mm
@@ -3051,6 +3071,8 @@ models:
   enabled: false
 - name: 1766/68
   status: approved
+- name: 1868/71
+  status: pending
 - name: 1871/79
   calibers:
   - 11x52mm
@@ -3123,6 +3145,8 @@ models:
 - name: AAHE 12
   status: pending
   enabled: false
+- name: AAR-15
+  status: pending
 - name: AAR15
   calibers:
   - 6.5mm Grendel
@@ -3358,6 +3382,8 @@ models:
 - name: AND 410
   status: pending
   enabled: false
+- name: AOM130
+  status: pending
 - name: AP5
   kind: pistol
   country: Turkey
@@ -3401,6 +3427,8 @@ models:
 - name: AR10
   status: merged
   enabled: false
+- name: AR12
+  status: pending
 - name: AR 15
   status: merged
   enabled: false
@@ -3682,6 +3710,7 @@ models:
   - 12 gauge
   manufacturers:
   - Beretta
+  modern_production: true
   status: approved
 - name: Beretta 92FS
   aliases:
@@ -3849,6 +3878,8 @@ models:
 - name: BM62
   status: merged
   enabled: false
+- name: BM-9
+  status: pending
 - name: Bodeo M1889
   aliases:
   - M1889
@@ -3878,8 +3909,12 @@ models:
   calibers:
   - 7x57mm Mauser
   status: approved
+- name: BRF-15
+  status: pending
 - name: BRG9
   status: approved
+- name: BRHP 13
+  status: pending
 - name: British Mod. 1895
   aliases:
   - Mod. 1895
@@ -4066,6 +4101,8 @@ models:
   calibers:
   - 9mm Luger
   status: approved
+- name: BYYK115
+  status: pending
 - name: C355
   status: pending
   enabled: false
@@ -4120,6 +4157,8 @@ models:
   calibers:
   - .22 LR
   status: approved
+- name: CANW609
+  status: pending
 - name: Carcano 1891/28
   aliases:
   - 1891/28
@@ -4818,6 +4857,8 @@ models:
 - name: CZ-27
   status: merged
   enabled: false
+- name: CZ 38
+  status: pending
 - name: CZ 45
   status: approved
 - name: CZ 50
@@ -5240,6 +5281,12 @@ models:
   - Ruger
   modern_production: true
   status: approved
+- name: EG-220
+  status: pending
+- name: EG-240
+  status: pending
+- name: EGX500
+  status: pending
 - name: Egyptian Model 1868
   aliases:
   - Model 1868
@@ -5402,6 +5449,8 @@ models:
 - name: FH25
   status: pending
   enabled: false
+- name: FH 30
+  status: pending
 - name: Finnish Model 28/30
   aliases:
   - Model 28/30
@@ -6040,6 +6089,7 @@ models:
   - 9mm Luger
   manufacturers:
   - Glock
+  modern_production: true
   status: approved
 - name: Glock 17T
   aliases:
@@ -6073,6 +6123,7 @@ models:
   - 10mm Auto
   manufacturers:
   - Glock
+  modern_production: true
   status: approved
 - name: Glock 21
   aliases:
@@ -6085,6 +6136,7 @@ models:
   - .45 ACP
   manufacturers:
   - Glock
+  modern_production: true
   status: approved
 - name: Glock 22
   aliases:
@@ -6095,6 +6147,7 @@ models:
   - .40 S&W
   manufacturers:
   - Glock
+  modern_production: true
   status: approved
 - name: Glock 23
   aliases:
@@ -6159,6 +6212,7 @@ models:
   - .357 Sig
   manufacturers:
   - Glock
+  modern_production: true
   status: approved
 - name: Glock 32
   aliases:
@@ -6189,6 +6243,7 @@ models:
   - 9mm Luger
   manufacturers:
   - Glock
+  modern_production: true
   status: approved
 - name: Glock 35
   aliases:
@@ -6199,6 +6254,7 @@ models:
   - .40 S&W
   manufacturers:
   - Glock
+  modern_production: true
   status: approved
 - name: Glock 36
   aliases:
@@ -6263,6 +6319,7 @@ models:
   - 9mm Luger
   manufacturers:
   - Glock
+  modern_production: true
   status: approved
 - name: Glock 47
   aliases:
@@ -6273,6 +6330,7 @@ models:
   - 9mm Luger
   manufacturers:
   - Glock
+  modern_production: true
   status: approved
 - name: Glock 48
   aliases:
@@ -6320,6 +6378,8 @@ models:
   - Taurus
   modern_production: true
   status: approved
+- name: H001
+  status: pending
 - name: H011
   kind: rifle
   country: United States
@@ -6388,6 +6448,7 @@ models:
   - .45 ACP
   manufacturers:
   - Heckler Koch
+  modern_production: true
   status: approved
 - name: HK45
   status: merged
@@ -6414,6 +6475,8 @@ models:
   calibers:
   - 12 gauge
   status: approved
+- name: HP22B
+  status: pending
 - name: HP 35
   aliases:
   - Hi Power
@@ -6636,6 +6699,8 @@ models:
   manufacturers:
   - Israel Weapon Industries
   status: approved
+- name: IZH-70
+  status: pending
 - name: JAN 21
   status: pending
   enabled: false
@@ -6732,6 +6797,8 @@ models:
   - Steyr
   wikipedia: https://en.wikipedia.org/wiki/Karabiner_98k
   status: approved
+- name: KC9
+  status: pending
 - name: KDS9C
   status: approved
 - name: KG-99
@@ -6861,6 +6928,7 @@ models:
   country: United States
   manufacturers:
   - Rock River Arms
+  modern_production: true
   status: approved
 - name: LAR-8
   status: approved
@@ -7109,6 +7177,8 @@ models:
 - name: M14S
   status: merged
   enabled: false
+- name: M1500
+  status: pending
 - name: M16
   aliases:
   - M16A4
@@ -8195,6 +8265,8 @@ models:
 - name: MOD 795
   status: pending
   enabled: false
+- name: MODEL 02
+  status: pending
 - name: MODEL 03/38
   status: approved
 - name: Model 06
@@ -8210,6 +8282,7 @@ models:
   - .38 Special
   manufacturers:
   - Smith & Wesson
+  modern_production: true
   status: approved
 - name: Model 100e
   calibers:
@@ -8660,6 +8733,8 @@ models:
 - name: MODEL 60A
   status: pending
   enabled: false
+- name: MODEL 62
+  status: pending
 - name: MODEL 620A
   status: pending
   enabled: false
@@ -9038,6 +9113,7 @@ models:
   - 12 gauge
   manufacturers:
   - Mossberg
+  modern_production: true
   status: approved
 - name: Mossberg 590
   aliases:
@@ -9049,6 +9125,7 @@ models:
   - 12 gauge
   manufacturers:
   - Mossberg
+  modern_production: true
   status: approved
 - name: MP-15
   status: merged
@@ -9266,6 +9343,8 @@ models:
   country: United Kingdom
   status: merged
   enabled: false
+- name: NO 3
+  status: pending
 - name: NO 38
   calibers:
   - .38 RF
@@ -9303,6 +9382,8 @@ models:
 - name: No4 Mk I
   status: merged
   enabled: false
+- name: NO 832
+  status: pending
 - name: Norinco MODEL 213
   aliases:
   - MODEL 213
@@ -9355,6 +9436,8 @@ models:
   manufacturers:
   - OVIEDO
   status: approved
+- name: OZ9
+  status: pending
 - name: P018S
   kind: pistol
   country: Italy
@@ -9433,6 +9516,8 @@ models:
   calibers:
   - 9mm Luger
   status: approved
+- name: P22Q
+  status: pending
 - name: P230
   status: approved
 - name: P232
@@ -9595,6 +9680,10 @@ models:
   calibers:
   - .224 Caliber
   status: approved
+- name: PA37
+  status: pending
+- name: PA-63
+  status: pending
 - name: PA63
   status: approved
 - name: PA7
@@ -10096,6 +10185,7 @@ models:
   country: United States
   manufacturers:
   - Remington
+  modern_production: true
   status: approved
 - name: Remington 870
   aliases:
@@ -10108,6 +10198,7 @@ models:
   - 12 gauge
   manufacturers:
   - Remington
+  modern_production: true
   status: approved
 - name: Remington Double Derringer
   aliases:
@@ -10299,6 +10390,8 @@ models:
 - name: RR51
   status: pending
   enabled: false
+- name: RS22
+  status: pending
 - name: Ruger 10/22
   aliases:
   - 10/22
@@ -10324,6 +10417,7 @@ models:
   country: United States
   manufacturers:
   - Ruger
+  modern_production: true
   status: approved
 - name: Russian M91/59
   aliases:
@@ -10449,6 +10543,8 @@ models:
 - name: SB30
   status: pending
   enabled: false
+- name: SBA3
+  status: pending
 - name: SC9
   status: approved
 - name: SCAR 16S
@@ -10693,6 +10789,7 @@ models:
   - .45 ACP
   manufacturers:
   - Sig Sauer
+  modern_production: true
   status: approved
 - name: Sig Sauer P226
   aliases:
@@ -10702,6 +10799,7 @@ models:
   country: Germany
   manufacturers:
   - Sig Sauer
+  modern_production: true
   status: approved
 - name: Sig Sauer P229
   aliases:
@@ -10761,6 +10859,8 @@ models:
 - name: SIX 38
   status: pending
   enabled: false
+- name: SIX8
+  status: pending
 - name: SK-100
   calibers:
   - .22 LR
@@ -11056,6 +11156,7 @@ models:
   - .38 Special
   manufacturers:
   - Smith & Wesson
+  modern_production: true
   status: approved
 - name: Smith & Wesson Model 66
   aliases:
@@ -11282,6 +11383,8 @@ models:
   country: United Kingdom
   wikipedia: https://en.wikipedia.org/wiki/Snider%E2%80%93Enfield
   status: approved
+- name: SOB 47
+  status: pending
 - name: SOHN 38H
   calibers:
   - .32 ACP
@@ -11592,6 +11695,7 @@ models:
   country: United States
   manufacturers:
   - Stag Arms
+  modern_production: true
   status: approved
 - name: Star Model 30M
   aliases:
@@ -12125,6 +12229,10 @@ models:
   manufacturers:
   - Fratelli Tanfoglio
   status: approved
+- name: TAR 12P
+  status: pending
+- name: TAR12P
+  status: pending
 - name: Taylor's Company 1860
   status: approved
   enabled: false
@@ -12281,6 +12389,8 @@ models:
   - 8mm Mauser
   status: approved
   position: 990
+- name: TX9
+  status: pending
 - name: Type 1
   status: approved
   enabled: false
@@ -12915,6 +13025,7 @@ models:
   - '.40'
   manufacturers:
   - Heckler Koch
+  modern_production: true
   status: approved
 - name: USP40
   status: approved
@@ -13759,6 +13870,7 @@ models:
   - 5.56x45mm NATO
   manufacturers:
   - Bushmaster
+  modern_production: true
   status: approved
 - name: XM15
   kind: rifle
@@ -13767,6 +13879,7 @@ models:
   - 5.56x45mm NATO
   manufacturers:
   - Bushmaster
+  modern_production: true
   status: approved
 - name: XM177
   status: approved

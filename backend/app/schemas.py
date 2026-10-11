@@ -938,6 +938,8 @@ class ManufacturerOut(UTCModel):
     country: str | None = None
     #: The firm's own site.
     website: str | None = None
+    #: The firm's Wikipedia article.
+    wikipedia_url: str | None = None
 
 
 class ManufacturerCreate(BaseModel):
@@ -965,6 +967,7 @@ class ManufacturerCreate(BaseModel):
     notes: str | None = Field(default=None, max_length=4000)
     country: str | None = Field(default=None, max_length=64)
     website: WebAddress = None
+    wikipedia_url: WebAddress = None
 
 
 class ManufacturerUpdate(BaseModel):
@@ -981,6 +984,95 @@ class ManufacturerUpdate(BaseModel):
     country: str | None = Field(default=None, max_length=64)
     #: Sent blank to clear it.
     website: WebAddress = None
+    #: Sent blank to clear it.
+    wikipedia_url: WebAddress = None
+
+
+class VariantOut(BaseModel):
+    """One version of a model, as a buyer chooses it. See models.ModelVariant."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    model_id: int
+    label: str
+    caliber_id: int | None = None
+    caliber: str | None = None
+    barrel_inches: float | None = None
+    finish: str | None = None
+    upc: str | None = None
+    maker_part: str | None = None
+    msrp: float | None = None
+    maker_url: str | None = None
+    source: str = "hand"
+    status: ArmoryStatus
+    enabled: bool = True
+    #: Today's lowest in-stock price new, from gun.deals; see services/newprices.
+    new_price: float | None = None
+    new_stores: int | None = None
+    new_price_url: str | None = None
+
+
+class VariantIn(BaseModel):
+    label: str = Field(min_length=1, max_length=200)
+    caliber_id: int | None = None
+    barrel_inches: float | None = Field(default=None, gt=0, le=40)
+    #: One of the vocabulary in services/variants.FINISHES; anything else is
+    #: read into it ("matte black" is Black) or refused.
+    finish: str | None = Field(default=None, max_length=32)
+    upc: str | None = Field(default=None, pattern=r"^\d{8,14}$")
+    maker_part: str | None = Field(default=None, max_length=64)
+    msrp: float | None = Field(default=None, ge=0, le=1_000_000)
+    maker_url: WebAddress = None
+    status: ArmoryStatus = ArmoryStatus.PENDING
+    enabled: bool = True
+
+
+class VariantUpdate(BaseModel):
+    label: str | None = Field(default=None, min_length=1, max_length=200)
+    caliber_id: int | None = None
+    barrel_inches: float | None = Field(default=None, gt=0, le=40)
+    finish: str | None = Field(default=None, max_length=32)
+    upc: str | None = Field(default=None, pattern=r"^\d{8,14}$")
+    maker_part: str | None = Field(default=None, max_length=64)
+    msrp: float | None = Field(default=None, ge=0, le=1_000_000)
+    maker_url: WebAddress = None
+    status: ArmoryStatus | None = None
+    enabled: bool | None = None
+
+
+class VariantBrief(BaseModel):
+    """A variant as a listing shows it."""
+
+    id: int
+    label: str
+    msrp: float | None = None
+    maker_url: str | None = None
+    upc: str | None = None
+    #: What it costs new today, across how many stores, and where that was read.
+    new_price: float | None = None
+    new_stores: int | None = None
+    new_price_url: str | None = None
+
+
+class ReferenceProposalOut(BaseModel):
+    """A Wikipedia article proposed for a maker or model. See services/wikipedia."""
+
+    id: int
+    #: "model" or "manufacturer".
+    target_type: str
+    target_id: int
+    target_name: str
+    url: str
+    title: str
+    #: The article's title names the row and it sits in a firearm category.
+    confident: bool
+    reason: str | None = None
+
+
+class ReferenceDecision(BaseModel):
+    changed: int
+    message: str
 
 
 class ArmoryWrite(UTCModel):
@@ -1214,6 +1306,16 @@ class ItemDetail(ItemOut):
     #: Where the maker describes this gun, for a model still in production:
     #: its own page, or a search of the maker's site. See services/makerlink.
     maker_link: MakerLinkOut | None = None
+    #: The Wikipedia article of the maker the listing names, where the armory
+    #: has one. The model's is ``model_reference_url``.
+    maker_wikipedia_url: str | None = None
+    #: What the title states, read by services/variants.
+    barrel_inches: float | None = None
+    finish: str | None = None
+    #: The variant of the model those narrow the listing to, when exactly one;
+    #: otherwise the ones it could be, for a model in modern production.
+    variant: VariantBrief | None = None
+    variant_candidates: list[VariantBrief] = Field(default_factory=list)
 
     #: Whether *this* reader is watching it, and on what terms. Carried on the
     #: detail response rather than fetched separately: the star has to render

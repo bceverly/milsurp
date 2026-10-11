@@ -4547,7 +4547,7 @@ photo at its edges and a "2 of 7" count. They stop at the ends rather than
 wrapping, as the arrow keys and the thumbnails do, and move the gallery
 underneath with them.
 
-### New-gun prices, and the makers' own pages — **Planned**, in four slices
+### New-gun prices, and the makers' own pages — **Shipped** 2026-10-10 (slice 1) and 2026-10-11 (slices 2–4)
 
 Asked for on 2026-10-10. A used carry gun's listing says what it costs and
 what used ones like it go for; it does not say what the same gun costs new,
@@ -4591,7 +4591,21 @@ still gets the search, through the maker the listing itself names.
 Value on its own: the one-click link, and a curated list of which models are
 current -- the scope every later slice needs.
 
-#### Slice 2 — Variants, and barrel and finish read off listings
+#### Slice 2 — Variants, and barrel and finish read off listings — **Shipped** 2026-10-11
+
+**What shipped**: migration 0064, `ModelVariant`, `services/variants.py`,
+`api/variants.py`, the variants editor in the model's dialog (with "Approve
+all pending") and the variant line on a listing. Police surplus was flagged
+in production first -- 25 models and 4 maker websites -- and exported, so the
+shipped armory now carries 86 modern-production models and 27 websites. A
+listing's barrel and finish are read only for a model in modern production,
+on every scan and by `cli.py reclassify`; it is linked to a variant only when
+narrowing leaves exactly one, and a stated barrel or finish no approved
+variant has matches none. `items.variant_id` has no foreign key, like the
+other armory links on `items`: SQLite cannot add one beside the generated
+search column. Variants travel in the export and the shipped file, matched by
+label on sync so their ids -- and the listings linked to them -- are kept.
+
 
 **And Police surplus joins Concealed carry here** (asked for on 2026-10-10).
 Department trade-ins are nearly all current guns -- Glock 17s, 19s, 22s and
@@ -4622,7 +4636,29 @@ GLOCK 22 Gen 4 .40S&W", "Sig P229 9mm w/ Rail", "4in Stainless").
 Value on its own: used guns compared like with like -- a 2.5" with 2.5"s --
 and the variant facts on the page.
 
-#### Slice 3 — The makers' own sites: MSRP, finishes and barrels
+#### Slice 3 — The makers' own sites: MSRP, finishes and barrels — **Shipped** 2026-10-11
+
+**What shipped**: `services/makersites.py` and `cli.py armory makers
+[--maker NAME]`, run by hand rather than on a schedule -- every pass produces
+pending variants for a person to approve, so it runs when somebody is there
+to do that. A second pass refreshes MSRP and the maker URL on a variant it
+already found (by part number, else UPC) and leaves the approval alone.
+
+* **Ruger**: the line's "models" page (`/products/<line>/models.html`) for the
+  cards, then each model's spec sheet for MSRP, UPC, barrel and finish.
+* **Smith & Wesson**: the `pistols` and `revolvers` category pages, whose
+  `__NEXT_DATA__` carries every product's SKU, MSRP, caliber, barrel and
+  finish -- two requests for the whole catalog. A product is given to the
+  armory model its name carries most specifically, with a model number only
+  counted beside the word before it: "Model 10" is not the 10 in "10mm" on a
+  Model 610.
+* **Not built, and why.** Taurus answers its Store API and sitemap with 403:
+  a bot control, so it is not read. Springfield's robots.txt asks for a
+  300-second crawl delay, which makes a catalog a day's work. Glock publishes
+  no MSRP. Sig Sauer, Kimber and Walther are left for later.
+* **Not found by the readers**, so worth a "Maker's page" on the model (or
+  variants typed in): the Ruger EC9s, the LCP .380 and the S&W Model 64.
+
 
 * For modern-production models only, read the maker's product page: MSRP, the
   calibers, barrel lengths and finishes it is offered in, the UPC and part
@@ -4637,7 +4673,23 @@ and the variant facts on the page.
 Value on its own: "MSRP $549" beside a used price, and the full set of
 variants without typing them.
 
-#### Slice 4 — Current new prices
+#### Slice 4 — Current new prices — **Shipped** 2026-10-11
+
+**What shipped**: migration 0065, `services/newprices.py`, an hourly batch of
+60 in the scheduler (on the photo pool, first an hour after start) and `cli.py
+armory new-prices [--limit N]`. On a listing linked to a variant: "New: from
+$462.23 at 80 stores · 18% under new · gun.deals"; on a vague one, the range
+of new prices across the versions it could be. **Read by identifier only** --
+the variant's UPC, or a part number that exactly one gun.deals product
+carries -- never by name: one search for "Taurus Tracker 44 Magnum" returned
+five products, two of them blemished seconds and one a police trade-in. Only
+facts are kept (the lowest in-stock price, the count of stores, the link to
+the page they came from); none of gun.deals' own content is copied. Their
+terms of use, read 2026-10-11, claim copyright in the site's contents and say
+nothing of automated reading. Recorded pages in
+`backend/tests/fixtures/gundeals/`. Not yet a Hot deals signal: that wants a
+few weeks of prices to see how often "under new" is real.
+
 
 * The current price of each variant new, from gun.deals: its search returns
   products with UPC and part number, and a product's page lists every store's
@@ -4650,9 +4702,8 @@ variants without typing them.
 * On the listing: "New: from $462 at 80 stores", or a range across the variants
   a vague title could be, and "18% under new". A second Hot deals signal beside
   the used median.
-* **Blocked on their terms of use**, not on robots.txt: gun.deals is an
-  aggregator, and reusing what it aggregates wants their say-so first, as
-  Checkpoint Charlie's gave theirs.
+* ~~Blocked on their terms of use~~: read 2026-10-11, and they say nothing
+  of automated reading; what is kept is facts and a link back, as above.
 
 ### One listing per gun when a page sells several — **Shipped** 2026-10-10 (WooCommerce, Magento custom options, Shopify) and 2026-10-11 (BigCommerce)
 
@@ -4691,8 +4742,12 @@ arrive in the digest and the saved-search emails as new. Wired in for:
   allows the endpoint and turns away only the older `/remote.php`). Asked only
   when the menu's labels have not already ruled the page out, so an add-on menu
   -- Legacy's certificate -- costs nothing; any refusal keeps the page whole.
-  One menu per page: two menus (grips by condition) multiply into combinations
-  most of which are never stocked, and are left for later. Checked live: Arms
+  **Two or more menus** (grips by condition), also 2026-10-11: each
+  combination -- "Wood / Good" -- is priced as one choice, since that is what
+  the shop prices and stocks, and the combinations it does not stock are
+  dropped rather than listed as sold: most of a grid is never stocked at all.
+  A page of more than 16 combinations is a configurator, not a shelf, and
+  stays one listing. Checked live: Arms
   of America's Swiss rifles as five listings each, Arms Unlimited's used 870
   as Wingmaster $250 / Express $299 / Police Magnum $369 and its M83s blued
   $269 / stainless $349, Recoil's S&W 64 wood grips sold and rubber at $369.99
@@ -4777,7 +4832,23 @@ products.json already read. BigCommerce last: Arms of America, Arms Unlimited
 and Recoil load each choice's price on demand, so it is a second request per
 choice.
 
-### Wikipedia for every maker and model, one click from a listing — **Planned**
+### Wikipedia for every maker and model, one click from a listing — **Shipped** 2026-10-11
+
+**What shipped**: migration 0063 (`manufacturers.wikipedia_url` and a
+`reference_proposals` table), `services/wikipedia.py`, `api/references.py`,
+`cli.py armory wikipedia [--limit N] [--only manufacturers|models]`, a "Wikipedia
+suggestions" panel on the Armory page, and a small Wikipedia link beside the
+maker's and the model's names on a listing. The pass asks Wikipedia's search
+API for each approved row with no article, at one request a second under its
+own descriptive user agent, and judges each result by the article's
+categories: a firearm, cartridge or maker category is required, and a person
+(births, deaths, living people) is refused -- "Arisaka" found the colonel,
+who sits in rifle categories too. A proposal whose title names the row
+(accents and an encyclopedia's extra words like "rifle" or "Corporation"
+aside) is marked confident, and the panel can take every confident one in a
+click. Nothing is written to a row until it is accepted; a rejected article
+is never proposed for that row again.
+
 
 Asked for on 2026-10-10: a Wikipedia link for each maker in the armory, a
 separate one for each model, and a way to get to either from a listing.

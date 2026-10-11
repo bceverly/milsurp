@@ -405,6 +405,10 @@ class Manufacturer(Base, TimestampMixin):
     #: listing of one of its modern-production models searches when the model
     #: has no page of its own. Migration 0062.
     website: Mapped[str | None] = mapped_column(String(500))
+    #: The firm's Wikipedia article. Kept apart from ``website``: a firm long
+    #: gone -- DWM, Erfurt, Remington Rand -- has an article and no site.
+    #: Migration 0063.
+    wikipedia_url: Mapped[str | None] = mapped_column(String(500))
 
     #: A maker a scan proposed, which nobody has confirmed yet, is pending and
     #: takes no part in matching. See :class:`ArmoryStatus`.
@@ -648,6 +652,10 @@ class FirearmModel(Base, TimestampMixin):
         secondary=firearm_model_calibers,
         order_by="Caliber.name",
     )
+    #: The versions a buyer chooses between. See ModelVariant.
+    variants: Mapped[list["ModelVariant"]] = relationship(
+        back_populates="model", cascade="all, delete-orphan", order_by="ModelVariant.label"
+    )
     merged_into: Mapped["FirearmModel | None"] = relationship(remote_side="FirearmModel.id")
     manufacturers: Mapped[list["Manufacturer"]] = relationship(
         secondary=firearm_model_manufacturers,
@@ -862,6 +870,15 @@ class Item(Base, TimestampMixin):
     is_black_powder: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False, index=True
     )
+    #: The barrel length and finish the title states -- '3" MATTE', "4in
+    #: Stainless" -- read by app.services.variants, and the variant of the
+    #: listing's model they narrow it to, when they narrow it to exactly one.
+    #: ``variant_id`` is kept by the application rather than a foreign key:
+    #: adding one to ``items`` means a SQLite rebuild its generated column does
+    #: not survive (migration 0064). Deleting a variant clears it.
+    barrel_inches: Mapped[float | None] = mapped_column(Float)
+    finish: Mapped[str | None] = mapped_column(String(32))
+    variant_id: Mapped[int | None] = mapped_column(Integer, index=True)
 
     is_sold: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     #: When a scan (or the watchlist poller) first saw this listing marked
@@ -1272,6 +1289,85 @@ class FflDealer(Base, TimestampMixin):
     transfer_fee: Mapped[float] = mapped_column(Float, nullable=False)
 
     user: Mapped[User] = relationship(back_populates="ffl_dealers")
+
+
+class ModelVariant(Base, TimestampMixin):
+    """One version of a model as a buyer chooses it: caliber, barrel, finish.
+
+    A model is a design -- "Taurus Tracker" -- and a variant is a product
+    within it: the 4" black .44 Magnum, UPC 725327351238, MSRP $X. Barrel
+    lengths and finishes live here rather than on the model so the model stays
+    one row for the filter, the valuations and the price spectrum, while a
+    listing that says "4" STAINLESS" can be matched to the one it is. Pending
+    until approved, like every other armory row; written by hand or proposed
+    from a maker's own site (``source``). Slice 2 of "New-gun prices" in
+    ROADMAP.md; migration 0064.
+    """
+
+    __tablename__ = "model_variants"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    model_id: Mapped[int] = mapped_column(
+        ForeignKey("firearm_models.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    #: What it is called on the page: "Tracker .44 Magnum 4\" Matte Black".
+    label: Mapped[str] = mapped_column(String(200), nullable=False)
+    caliber_id: Mapped[int | None] = mapped_column(ForeignKey("calibers.id", ondelete="SET NULL"))
+    barrel_inches: Mapped[float | None] = mapped_column(Float)
+    #: One of variants.FINISHES: "Blued", "Stainless", "Black" ...
+    finish: Mapped[str | None] = mapped_column(String(32))
+    upc: Mapped[str | None] = mapped_column(String(20), index=True)
+    #: The maker's own part or model number: "2-440041TKR".
+    maker_part: Mapped[str | None] = mapped_column(String(64))
+    msrp: Mapped[float | None] = mapped_column(Float)
+    maker_url: Mapped[str | None] = mapped_column(String(500))
+    #: "hand", or where a pass found it: "maker-site".
+    source: Mapped[str] = mapped_column(String(16), default="hand", nullable=False)
+    status: Mapped[ArmoryStatus] = mapped_column(
+        Enum(ArmoryStatus, native_enum=False, length=16),
+        default=ArmoryStatus.PENDING,
+        nullable=False,
+    )
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    #: What it costs new today: the lowest in-stock price gun.deals lists for
+    #: its UPC, across how many stores, from which page, asked when. Slice 4 of
+    #: "New-gun prices" (app/services/newprices.py); migration 0065.
+    new_price: Mapped[float | None] = mapped_column(Float)
+    new_stores: Mapped[int | None] = mapped_column(Integer)
+    new_price_url: Mapped[str | None] = mapped_column(String(500))
+    new_price_checked_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    model: Mapped[FirearmModel] = relationship(back_populates="variants")
+    caliber: Mapped["Caliber | None"] = relationship()
+
+
+class ReferenceProposal(Base, TimestampMixin):
+    """A Wikipedia article proposed for a maker or model that has none.
+
+    Written by ``cli.py armory wikipedia`` (``app.services.wikipedia``) and
+    decided on the Armory page: accepting one writes its address onto the row,
+    rejecting one keeps it here so the same article is never proposed again.
+    ``confident`` is the pass's own judgment -- the article's title names the
+    row and the article sits in a firearm category -- and is what "accept all
+    confident" takes; it is a label, not a decision.
+    """
+
+    __tablename__ = "reference_proposals"
+    __table_args__ = (
+        UniqueConstraint("target_type", "target_id", "url", name="uq_reference_proposal"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    #: "model" or "manufacturer".
+    target_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    target_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    url: Mapped[str] = mapped_column(String(500), nullable=False)
+    title: Mapped[str] = mapped_column(String(300), nullable=False)
+    confident: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    #: Why it was proposed, in a phrase: "title matches; in Category:Rifles of Russia".
+    reason: Mapped[str | None] = mapped_column(String(500))
+    #: "pending", "accepted" or "rejected".
+    status: Mapped[str] = mapped_column(String(16), default="pending", nullable=False, index=True)
 
 
 class WishlistItem(Base):

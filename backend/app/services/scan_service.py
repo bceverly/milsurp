@@ -64,6 +64,7 @@ from . import (
     provenance,
     scanalerts,
     traits,
+    variants,
 )
 from .image_store import ImageStore, StoredImage, difference_hash, looks_like
 
@@ -628,6 +629,9 @@ def _settle_last(session: Session, item: Item) -> None:
     overrides.apply_to(session, item)
     item.is_concealed_carry = carry.decide(session, item)
     item.is_black_powder = blackpowder.decide(session, item)
+    # The barrel, the finish and the variant they narrow the model to, from
+    # the model and caliber now settled. See app/services/variants.py.
+    variants.settle(session, item)
 
 
 def _apply_catalog(session: Session, item: Item, trusted: bool, *, adopt: bool = False) -> None:

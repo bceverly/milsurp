@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime, timedelta
 
@@ -64,6 +65,11 @@ class Scheduler:
         self._photo_pool: ThreadPoolExecutor | None = None
         self._photo_future: Future | None = None
         self._seconds_since_photo_check = 0.0
+        #: New-gun prices from gun.deals: asked on the photo worker, at most
+        #: hourly, and only for variants a day stale. See services/newprices.
+        self._newprice_future: Future | None = None
+        #: An hour after start, not at it: a restart is not a reason to ask.
+        self._last_new_prices: float = time.monotonic()
         #: When a market report was last attempted per reader, so a failed
         #: delivery is retried hourly rather than on every tick.
         self._market_report_tried: dict[int, datetime] = {}
@@ -175,6 +181,47 @@ class Scheduler:
         self._dispatch_hot_deals()
         self._dispatch_inbox()
         self._dispatch_offer_endings()
+        self._dispatch_new_prices()
+
+    # -- new-gun prices -----------------------------------------------------
+    #: Seconds between looks for variants whose new price is a day old.
+    NEW_PRICE_EVERY = 3600
+    #: Variants asked about per run, each a request or two at a polite pace.
+    NEW_PRICE_BATCH = 60
+
+    def _dispatch_new_prices(self) -> None:
+        """Ask gun.deals what the due variants cost new. See services/newprices.
+
+        On the photo worker, which is single and low priority, so it can never
+        hold a slot a scan needs; and never a second run while one is going.
+        """
+        now = time.monotonic()
+        if now - self._last_new_prices < self.NEW_PRICE_EVERY:
+            return
+        with self._lock:
+            if self._newprice_future is not None and not self._newprice_future.done():
+                return
+            if self._photo_pool is None:
+                return
+            self._last_new_prices = now
+            self._newprice_future = self._photo_pool.submit(self._ask_new_prices)
+
+    def _ask_new_prices(self) -> None:
+        from .scrapers.base import ScrapeContext
+        from .services import newprices
+
+        ctx = ScrapeContext(self.config)
+        try:
+            with session_scope() as session:
+                counts = newprices.run(
+                    session, ctx, limit=self.NEW_PRICE_BATCH, log=lambda _message: None
+                )
+            if counts["asked"]:
+                log.info("New-gun prices: %s", counts)
+        except Exception:
+            log.exception("New-gun price run raised")
+        finally:
+            ctx.close()
 
     # -- hot deals ----------------------------------------------------------
     def _dispatch_hot_deals(self) -> None:

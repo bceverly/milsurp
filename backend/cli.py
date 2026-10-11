@@ -64,6 +64,7 @@ from app.services import (
     provenance,
     scan_service,
     twofactor,
+    variants,
     webpush,
 )
 from app.services import backup as backup_service
@@ -914,6 +915,10 @@ def cmd_reclassify(  # noqa: PLR0912, PLR0915 - one pass over every derived fiel
             if item.is_black_powder != is_bp:
                 item.is_black_powder = is_bp
                 moved = True
+            was = (item.barrel_inches, item.finish, item.variant_id)
+            variants.settle(session, item)
+            if (item.barrel_inches, item.finish, item.variant_id) != was:
+                moved = True
             if moved:
                 changed += 1
         session.commit()
@@ -1023,6 +1028,61 @@ def _armory_tidy(args: argparse.Namespace) -> int:
     return 0
 
 
+def _armory_makers(args: argparse.Namespace) -> int:
+    """Read the makers' own sites for variants; see app.services.makersites."""
+    from app.scrapers.base import ScrapeContext
+    from app.services import makersites
+
+    config = get_config()
+    ctx = ScrapeContext(config)
+    try:
+        with session_scope() as session:
+            totals = makersites.run(session, ctx, maker=args.maker)
+    finally:
+        ctx.close()
+    print(
+        f"Read {totals['models']} model(s): {totals['proposed']} variant(s) proposed, "
+        f"{totals['refreshed']} refreshed, {totals['unread']} with no page found."
+    )
+    print("Approve them in each model's dialog on the Armory page.")
+    return 0
+
+
+def _armory_new_prices(args: argparse.Namespace) -> int:
+    """Ask gun.deals what due variants cost new; see app.services.newprices."""
+    from app.scrapers.base import ScrapeContext
+    from app.services import newprices
+
+    ctx = ScrapeContext(get_config())
+    try:
+        with session_scope() as session:
+            counts = newprices.run(session, ctx, limit=args.limit)
+    finally:
+        ctx.close()
+    print(
+        f"Asked about {counts['asked']} variant(s): {counts['priced']} priced, "
+        f"{counts['none_in_stock']} with none in stock, {counts['unknown']} not found."
+    )
+    return 0
+
+
+def _armory_wikipedia(args: argparse.Namespace) -> int:
+    """Propose Wikipedia articles; see app.services.wikipedia."""
+    from app.services import wikipedia
+
+    kinds = {"models": ("model",), "manufacturers": ("manufacturer",)}.get(
+        args.only or "", ("manufacturer", "model")
+    )
+    with session_scope() as session:
+        counts = wikipedia.run(session, wikipedia.http_fetch(), limit=args.limit, kinds=kinds)
+    print(
+        f"Asked about {counts['asked']} row(s): {counts['proposed']} proposed "
+        f"({counts['confident']} confident), nothing suitable for {counts['nothing']}."
+    )
+    print("Accept or reject them on the Armory page, under Wikipedia suggestions.")
+    return 0
+
+
 def cmd_armory(args: argparse.Namespace) -> int:
     """Seed, export and sync the armory of models and calibers.
 
@@ -1056,6 +1116,9 @@ def cmd_armory(args: argparse.Namespace) -> int:
         # adding a seventh return to this function.
         "qualify": lambda: _armory_qualify(args),
         "tidy": lambda: _armory_tidy(args),
+        "wikipedia": lambda: _armory_wikipedia(args),
+        "makers": lambda: _armory_makers(args),
+        "new-prices": lambda: _armory_new_prices(args),
         "export": None,
     }
     if action == "export":
@@ -1857,6 +1920,33 @@ def _add_armory_commands(sub) -> None:
         help="Also delete rows the file does not list. Off by default: the "
         "armory is curated in two places and a row missing from the file is "
         "more often unexported than unwanted.",
+    )
+    armory_makers = armory_sub.add_parser(
+        "makers",
+        help="Read the makers' own sites for each modern-production model's variants, "
+        "MSRP and UPC; new ones wait for approval on the Armory page.",
+    )
+    armory_makers.add_argument(
+        "--maker", help="Only this maker. Readers so far: Ruger, Smith & Wesson."
+    )
+    armory_prices = armory_sub.add_parser(
+        "new-prices",
+        help="Ask gun.deals what each due variant costs new (the scheduler does "
+        "this hourly; this runs it now).",
+    )
+    armory_prices.add_argument("--limit", type=int, help="Ask about at most this many.")
+    armory_wiki = armory_sub.add_parser(
+        "wikipedia",
+        help="Propose a Wikipedia article for each approved maker and model with "
+        "none; they wait on the Armory page to be accepted or rejected.",
+    )
+    armory_wiki.add_argument(
+        "--limit", type=int, help="Ask about at most this many rows (a second each)."
+    )
+    armory_wiki.add_argument(
+        "--only",
+        choices=("models", "manufacturers"),
+        help="Only one table. Both by default, makers first.",
     )
     armory_cmd.set_defaults(func=cmd_armory)
 

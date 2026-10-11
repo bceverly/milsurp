@@ -17,7 +17,16 @@ from sqlalchemy.orm import selectinload
 
 from ..deps import AdminUser, AppConfig, CurrentUser, DbSession
 from ..logsafe import client_address
-from ..models import FirearmModel, Item, ItemPhoto, PriceHistory, Site, UserRole
+from ..models import (
+    FirearmModel,
+    Item,
+    ItemPhoto,
+    Manufacturer,
+    ModelVariant,
+    PriceHistory,
+    Site,
+    UserRole,
+)
 from ..schemas import (
     FacetValue,
     ItemDetail,
@@ -36,6 +45,7 @@ from ..schemas import (
     PricePointOut,
     PricePositionOut,
     SimilarListingOut,
+    VariantBrief,
 )
 from ..services import (
     audit,
@@ -50,6 +60,7 @@ from ..services import (
     scorecards,
     similar,
     traits,
+    variants,
     watchlist,
     wishlist,
 )
@@ -870,6 +881,48 @@ def export_items(
     )
 
 
+def _variants_onto(session: DbSession, item: Item, detail: ItemDetail) -> None:
+    """The variant the listing is, or the ones it could be (services/variants)."""
+    model = item.firearm_model
+    if model is None or not model.modern_production:
+        return
+
+    def brief(row: ModelVariant) -> VariantBrief:
+        return VariantBrief(
+            id=row.id,
+            label=row.label,
+            msrp=row.msrp,
+            maker_url=row.maker_url,
+            upc=row.upc,
+            new_price=row.new_price,
+            new_stores=row.new_stores,
+            new_price_url=row.new_price_url,
+        )
+
+    if item.variant_id is not None:
+        row = session.get(ModelVariant, item.variant_id)
+        if row is not None:
+            detail.variant = brief(row)
+            return
+    detail.variant_candidates = [brief(row) for row in variants.candidates(session, item)[:12]]
+
+
+def _maker_article(session: DbSession, named: str | None) -> str | None:
+    """The Wikipedia article of the maker a listing names, matched on any of the
+    maker's spellings, as the listing's own manufacturer field was."""
+    wanted = (named or "").strip().lower()
+    if not wanted:
+        return None
+    for maker in session.execute(
+        select(Manufacturer).where(
+            Manufacturer.wikipedia_url.is_not(None), Manufacturer.enabled.is_(True)
+        )
+    ).scalars():
+        if wanted in (spelling.lower() for spelling in maker.spellings):
+            return maker.wikipedia_url
+    return None
+
+
 @router.get("/{item_id}", response_model=ItemDetail)
 def get_item(item_id: int, user: CurrentUser, session: DbSession) -> ItemDetail:
     item = (
@@ -938,6 +991,10 @@ def get_item(item_id: int, user: CurrentUser, session: DbSession) -> ItemDetail:
         detail.watch_note = watch.note
         detail.watch_alert_immediately = watch.alert_immediately
         detail.watch_alert_restock = watch.alert_restock
+    detail.maker_wikipedia_url = _maker_article(session, item.manufacturer)
+    detail.barrel_inches = item.barrel_inches
+    detail.finish = item.finish
+    _variants_onto(session, item, detail)
     if item.firearm_model is not None:
         found = item.firearm_model
         detail.model_kind = found.kind.value if found.kind else None

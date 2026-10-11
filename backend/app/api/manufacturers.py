@@ -81,6 +81,7 @@ def _to_out(
         item_count=counts.get(row.name, 0),
         country=row.country,
         website=row.website,
+        wikipedia_url=row.wikipedia_url,
     )
 
 
@@ -156,6 +157,7 @@ def create_manufacturer(
         notes=payload.notes,
         country=(payload.country or None),
         website=payload.website,
+        wikipedia_url=payload.wikipedia_url,
     )
     session.add(row)
     session.flush()
@@ -223,6 +225,8 @@ def update_manufacturer(
     if "website" in payload.model_fields_set:
         # Sent blank to clear it, which the schema has already turned into None.
         row.website = payload.website
+    if "wikipedia_url" in payload.model_fields_set:
+        row.wikipedia_url = payload.wikipedia_url
     touched: list[str] = [name for model in row.firearm_models for name in model.spellings]
     session.flush()
 

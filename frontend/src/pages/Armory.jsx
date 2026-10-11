@@ -734,6 +734,7 @@ const EMPTY_MAKER = {
   notes: "",
   country: "",
   website: "",
+  wikipedia_url: "",
 };
 
 /**
@@ -873,6 +874,7 @@ function MakerForm({ maker, countries, onSubmit, error }) {
           notes: maker.notes || "",
           country: maker.country || "",
           website: maker.website || "",
+          wikipedia_url: maker.wikipedia_url || "",
         }
       : EMPTY_MAKER,
   );
@@ -1019,6 +1021,22 @@ function MakerForm({ maker, countries, onSubmit, error }) {
             onChange={set("website")}
             maxLength={500}
             placeholder="https://www.example.com"
+          />
+        )}
+      </Field>
+      <Field
+        label="Wikipedia"
+        hint="The firm's article. Kept apart from its website: a firm long gone has an article and no site."
+      >
+        {(id, describedBy) => (
+          <input
+            id={id}
+            aria-describedby={describedBy}
+            className="input"
+            value={form.wikipedia_url}
+            onChange={set("wikipedia_url")}
+            maxLength={500}
+            placeholder="https://en.wikipedia.org/wiki/…"
           />
         )}
       </Field>
@@ -1218,6 +1236,446 @@ function ArmoryApply({ onClose, onApplied }) {
         </>
       )}
     </Modal>
+  );
+}
+
+//: The finishes a variant can be: services/variants.FINISHES, in its order.
+const FINISHES = [
+  "Black",
+  "Blued",
+  "Stainless",
+  "Two-tone",
+  "Nickel",
+  "Chrome",
+  "Hard Chrome",
+  "FDE",
+  "OD Green",
+  "Gray",
+  "Parkerized",
+  "Cerakote",
+];
+
+const EMPTY_VARIANT = {
+  label: "",
+  caliber_id: "",
+  barrel_inches: "",
+  finish: "",
+  upc: "",
+  maker_part: "",
+  msrp: "",
+  maker_url: "",
+  status: "approved",
+};
+
+/**
+ * A model's variants, edited in the model's own dialog.
+ *
+ * A model is a design and a variant a product within it -- the 4" black .44
+ * Tracker, with its UPC and MSRP. A listing that states a barrel and a finish
+ * is matched to the one it is (services/variants.py), and every change here
+ * re-matches the model's listings at once. Slice 2 of "New-gun prices".
+ */
+function VariantsEditor({ model, calibers }) {
+  const [rows, setRows] = useState(null);
+  const [form, setForm] = useState(EMPTY_VARIANT);
+  const [editingId, setEditingId] = useState(null);
+  const [error, setError] = useState("");
+
+  const load = useCallback(() => {
+    api
+      .modelVariants(model.id)
+      .then(setRows)
+      .catch((err) => setError(err.message));
+  }, [model.id]);
+  useEffect(load, [load]);
+
+  const set = (key) => (event) =>
+    setForm((prev) => ({ ...prev, [key]: event.target.value }));
+
+  const payload = () => ({
+    label: form.label.trim(),
+    caliber_id: form.caliber_id ? Number(form.caliber_id) : null,
+    barrel_inches: form.barrel_inches === "" ? null : Number(form.barrel_inches),
+    finish: form.finish || null,
+    upc: form.upc.trim() || null,
+    maker_part: form.maker_part.trim() || null,
+    msrp: form.msrp === "" ? null : Number(form.msrp),
+    maker_url: form.maker_url.trim(),
+    status: form.status,
+  });
+
+  const submit = async (event) => {
+    event.preventDefault();
+    setError("");
+    try {
+      if (editingId) await api.updateVariant(editingId, payload());
+      else await api.addVariant(model.id, payload());
+      setForm(EMPTY_VARIANT);
+      setEditingId(null);
+      load();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const remove = async (row) => {
+    setError("");
+    try {
+      await api.deleteVariant(row.id);
+      load();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  // What a maker's site proposed arrives pending; this is where it is let in.
+  const approve = async (ids) => {
+    setError("");
+    try {
+      for (const id of ids) await api.updateVariant(id, { status: "approved" });
+      load();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+  const pendingIds = (rows || [])
+    .filter((row) => row.status !== "approved")
+    .map((r) => r.id);
+
+  const edit = (row) => {
+    setEditingId(row.id);
+    setForm({
+      label: row.label,
+      caliber_id: row.caliber_id ? String(row.caliber_id) : "",
+      barrel_inches: row.barrel_inches ?? "",
+      finish: row.finish || "",
+      upc: row.upc || "",
+      maker_part: row.maker_part || "",
+      msrp: row.msrp ?? "",
+      maker_url: row.maker_url || "",
+      status: row.status,
+    });
+  };
+
+  return (
+    <section className="variants" data-testid="variants-editor">
+      <h3>Variants</h3>
+      <p className="field__hint">
+        The versions a buyer chooses between. A listing whose title states a barrel and
+        finish is matched to the one it is.
+      </p>
+      {error && <p className="alert alert--error">{error}</p>}
+      {pendingIds.length > 1 && (
+        <button
+          type="button"
+          className="btn btn--secondary btn--sm"
+          onClick={() => approve(pendingIds)}
+        >
+          Approve all pending ({pendingIds.length})
+        </button>
+      )}
+      {rows && rows.length > 0 && (
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Variant</th>
+                <th>Barrel</th>
+                <th>Finish</th>
+                <th>MSRP</th>
+                <th aria-label="Actions" />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.id}>
+                  <td>
+                    {row.label}
+                    <div className="muted">
+                      {[row.caliber, row.upc && `UPC ${row.upc}`, row.maker_part]
+                        .filter(Boolean)
+                        .join(" · ")}
+                      {row.status !== "approved" && " · awaiting approval"}
+                    </div>
+                  </td>
+                  <td>{row.barrel_inches != null ? `${row.barrel_inches}"` : "—"}</td>
+                  <td>{row.finish || "—"}</td>
+                  <td>{row.msrp != null ? `$${row.msrp.toFixed(2)}` : "—"}</td>
+                  <td className="table__actions">
+                    {row.status !== "approved" && (
+                      <button
+                        type="button"
+                        className="btn btn--secondary btn--sm"
+                        aria-label={`Approve ${row.label}`}
+                        onClick={() => approve([row.id])}
+                      >
+                        Approve
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="btn btn--ghost btn--sm"
+                      aria-label={`Edit ${row.label}`}
+                      onClick={() => edit(row)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn--ghost btn--sm"
+                      aria-label={`Delete ${row.label}`}
+                      onClick={() => remove(row)}
+                    >
+                      <Trash size={14} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <form className="variants__form" onSubmit={submit}>
+        <Field label="Variant">
+          {(id) => (
+            <input
+              id={id}
+              className="input"
+              value={form.label}
+              onChange={set("label")}
+              maxLength={200}
+              placeholder='Tracker .44 Magnum 4" Black'
+            />
+          )}
+        </Field>
+        <div className="form-row form-row--3">
+          <Field label="Variant caliber">
+            {(id) => (
+              <select
+                id={id}
+                className="select"
+                value={form.caliber_id}
+                onChange={set("caliber_id")}
+              >
+                <option value="">—</option>
+                {(calibers || []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </Field>
+          <Field label="Barrel (inches)">
+            {(id) => (
+              <input
+                id={id}
+                className="input"
+                inputMode="decimal"
+                value={form.barrel_inches}
+                onChange={set("barrel_inches")}
+              />
+            )}
+          </Field>
+          <Field label="Finish">
+            {(id) => (
+              <select
+                id={id}
+                className="select"
+                value={form.finish}
+                onChange={set("finish")}
+              >
+                <option value="">—</option>
+                {FINISHES.map((name) => (
+                  <option key={name}>{name}</option>
+                ))}
+              </select>
+            )}
+          </Field>
+        </div>
+        <div className="form-row form-row--3">
+          <Field label="UPC">
+            {(id) => (
+              <input
+                id={id}
+                className="input"
+                inputMode="numeric"
+                value={form.upc}
+                onChange={set("upc")}
+              />
+            )}
+          </Field>
+          <Field label="Maker's part number">
+            {(id) => (
+              <input
+                id={id}
+                className="input"
+                value={form.maker_part}
+                onChange={set("maker_part")}
+              />
+            )}
+          </Field>
+          <Field label="MSRP">
+            {(id) => (
+              <input
+                id={id}
+                className="input"
+                inputMode="decimal"
+                value={form.msrp}
+                onChange={set("msrp")}
+              />
+            )}
+          </Field>
+        </div>
+        <Field label="Variant's page">
+          {(id) => (
+            <input
+              id={id}
+              className="input"
+              type="url"
+              value={form.maker_url}
+              onChange={set("maker_url")}
+              placeholder="https://"
+            />
+          )}
+        </Field>
+        <div className="page-head__actions">
+          <button
+            type="submit"
+            className="btn btn--primary btn--sm"
+            disabled={!form.label.trim()}
+          >
+            {editingId ? "Save variant" : "Add variant"}
+          </button>
+          {editingId && (
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              onClick={() => {
+                setEditingId(null);
+                setForm(EMPTY_VARIANT);
+              }}
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+      </form>
+    </section>
+  );
+}
+
+/**
+ * Wikipedia articles proposed for makers and models, waiting on a person.
+ *
+ * Written by ``cli.py armory wikipedia`` (see app/services/wikipedia.py), which
+ * proposes the first search result whose categories say it is about a gun or
+ * a gun maker. "Confident" means the article's title also names the row. Each
+ * is accepted -- which writes the link onto the row -- or rejected, which keeps
+ * it from being proposed again. Nothing shows until there is something to
+ * decide.
+ */
+function WikipediaSuggestions({ onDecided }) {
+  const [rows, setRows] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const load = useCallback(() => {
+    api
+      .referenceProposals()
+      .then(setRows)
+      .catch((err) => setError(err.message));
+  }, []);
+  useEffect(load, [load]);
+
+  const decide = async (call) => {
+    setBusy(true);
+    setError("");
+    try {
+      await call();
+      load();
+      onDecided?.();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!rows.length && !error) return null;
+  const confident = rows.filter((row) => row.confident).length;
+  return (
+    <div className="panel wiki-suggestions" data-testid="wikipedia-suggestions">
+      <div className="panel__head">
+        <h2>Wikipedia suggestions</h2>
+        {confident > 0 && (
+          <button
+            type="button"
+            className="btn btn--primary btn--sm"
+            disabled={busy}
+            onClick={() => decide(() => api.acceptConfidentReferences())}
+          >
+            Accept all confident ({confident})
+          </button>
+        )}
+      </div>
+      {error && <p className="alert alert--error">{error}</p>}
+      <div className="table-wrap">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>For</th>
+              <th>Article</th>
+              <th>Why</th>
+              <th aria-label="Decide" />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.id}>
+                <td>
+                  {row.target_name}
+                  <div className="muted">
+                    {row.target_type === "manufacturer" ? "Maker" : "Model"}
+                  </div>
+                </td>
+                <td>
+                  <a href={row.url} target="_blank" rel="noopener noreferrer">
+                    {row.title}
+                  </a>
+                  {row.confident && (
+                    <span className="chip chip--success wiki-suggestions__chip">
+                      Confident
+                    </span>
+                  )}
+                </td>
+                <td className="muted">{row.reason}</td>
+                <td className="table__actions">
+                  <button
+                    type="button"
+                    className="btn btn--secondary btn--sm"
+                    disabled={busy}
+                    aria-label={`Accept ${row.title} for ${row.target_name}`}
+                    onClick={() => decide(() => api.acceptReferences([row.id]))}
+                  >
+                    Accept
+                  </button>{" "}
+                  <button
+                    type="button"
+                    className="btn btn--ghost btn--sm"
+                    disabled={busy}
+                    aria-label={`Reject ${row.title} for ${row.target_name}`}
+                    onClick={() => decide(() => api.rejectReferences([row.id]))}
+                  >
+                    Reject
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
@@ -1832,6 +2290,8 @@ export default function Armory() {
           are promoted they decide nothing.
         </p>
       )}
+
+      <WikipediaSuggestions onDecided={load} />
       {message && <p className="alert alert--success">{message}</p>}
       {failure && <p className="alert alert--error">{failure}</p>}
 
@@ -2479,6 +2939,9 @@ export default function Armory() {
               onAddCaliber={addCaliber}
               error={formError}
             />
+          )}
+          {tab === "models" && editing.id && (
+            <VariantsEditor model={editing} calibers={allCalibers} />
           )}
           {tab === "calibers" && (
             <CaliberForm

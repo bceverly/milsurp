@@ -222,35 +222,34 @@ _MENU_KINDS = frozenset(
 )
 
 
+#: The most combinations a page of several menus is priced in: each is a
+#: request, and a page past this is a configurator rather than a shelf.
+MAX_COMBINATIONS = 16
+
+
 @dataclass(frozen=True)
 class PageOptions:
-    """A Stencil product page's one menu of choices, before any is priced."""
+    """A Stencil product page's choices, before any is priced.
+
+    One menu gives one choice per option. Several give one per combination --
+    "Wood Grip / Good" -- since that is what a buyer picks and what the shop
+    prices and stocks.
+    """
 
     product_id: str
-    #: The form field the choice is sent as: ``attribute[364]``.
-    field: str
+    #: The menus' headings.
     names: list[str]
     choices: list[Choice]
+    #: What each choice is sent as, by choice key: ``{"attribute[364]": "574"}``.
+    sends: dict[str, dict[str, str]]
+
+    @property
+    def combined(self) -> bool:
+        return len(self.names) > 1
 
 
-def page_options(soup: BeautifulSoup) -> PageOptions | None:
-    """The page's choices, when it has exactly one menu of them.
-
-    Several menus multiply -- grips by condition is a dozen combinations, most
-    never stocked -- and are left for a later pass. Each choice is keyed by
-    the shop's own option value id, which is also what pricing it sends.
-    """
-    product_id = soup.select_one('input[name="product_id"]')
-    if product_id is None or not product_id.get("value"):
-        return None
-    menus = [
-        field
-        for field in soup.select("[data-product-attribute]")
-        if field.get("data-product-attribute") in _MENU_KINDS
-    ]
-    if len(menus) != 1:
-        return None
-    menu = menus[0]
+def _menu(menu: Tag) -> tuple[str, str, list[Choice]] | None:
+    """One menu's heading, form field and options."""
     heading = menu.select_one("label.form-label, .form-label")
     name = text_of(heading).split(":")[0].strip() if heading else ""
     choices: list[Choice] = []
@@ -269,7 +268,40 @@ def page_options(soup: BeautifulSoup) -> PageOptions | None:
             choices.append(Choice(key=value, label=text_of(label)))
     if len(choices) < 2 or not field_name:
         return None
-    return PageOptions(str(product_id["value"]), field_name, [name], choices)
+    return name, field_name, choices
+
+
+def page_options(soup: BeautifulSoup) -> PageOptions | None:
+    """The page's choices: each option of a single menu, or each combination of
+    several -- up to :data:`MAX_COMBINATIONS`. Keyed by the shop's own option
+    value ids, joined for a combination, which is also what pricing sends."""
+    product_id = soup.select_one('input[name="product_id"]')
+    if product_id is None or not product_id.get("value"):
+        return None
+    menus = [
+        read
+        for field in soup.select("[data-product-attribute]")
+        if field.get("data-product-attribute") in _MENU_KINDS and (read := _menu(field))
+    ]
+    if not menus:
+        return None
+    total = 1
+    for _name, _field, options in menus:
+        total *= len(options)
+    if total > MAX_COMBINATIONS:
+        return None
+    combinations: list[list[tuple[str, Choice]]] = [[]]
+    for _name, field_name, options in menus:
+        combinations = [
+            [*done, (field_name, option)] for done in combinations for option in options
+        ]
+    choices = []
+    sends = {}
+    for picked in combinations:
+        key = "-".join(option.key for _field, option in picked)
+        choices.append(Choice(key=key, label=" / ".join(option.label for _f, option in picked)))
+        sends[key] = {field_name: option.key for field_name, option in picked}
+    return PageOptions(str(product_id["value"]), [name for name, _f, _o in menus], choices, sends)
 
 
 def _ruled_out(options: PageOptions) -> bool:
@@ -598,7 +630,7 @@ class BigCommerceScraper(SiteScraper):
                     data={
                         "action": "add",
                         "product_id": options.product_id,
-                        options.field: choice.key,
+                        **options.sends[choice.key],
                         "qty[]": "1",
                     },
                     headers={
@@ -625,6 +657,13 @@ class BigCommerceScraper(SiteScraper):
                     ),
                 )
             )
+        if options.combined:
+            # Most combinations of two menus were never stocked -- every grip
+            # by every grade is offered, a handful exist -- and a listing for
+            # each that is not would be a shelf of phantom sold guns. A
+            # combination that sells later stops being offered, and its
+            # listing is de-listed like any other that leaves the shelf.
+            priced = [choice for choice in priced if not choice.is_sold]
         return priced
 
     def with_detail(self, ctx: ScrapeContext, item: ScrapedItem) -> ScrapedItem:

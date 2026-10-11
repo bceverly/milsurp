@@ -32,10 +32,12 @@ from .api import (
     items,
     manufacturers,
     preferences,
+    references,
     saved_searches,
     scans,
     sites,
     system,
+    variants,
     watchlist,
     wishlist,
 )
@@ -473,6 +475,8 @@ def create_app() -> FastAPI:
     api.include_router(hotdeals_api.router)
     api.include_router(inbox_api.router)
     api.include_router(push_api.router)
+    api.include_router(references.router)
+    api.include_router(variants.router)
     api.include_router(armory.router)
     api.include_router(scans.router)
     api.include_router(items.router)

@@ -239,6 +239,17 @@ changed — filtered to the sites you care about and capped so it stays readable
   a search of that site for it when nobody has recorded the page yet. Which
   models count as still made, and each maker's website, are kept in the
   armory.
+- **Which version it is, and what it costs new.** A gun still in production
+  is narrowed from its title — caliber, then barrel length, then finish — to
+  the version of the model it is, or the few it could be, each with the
+  maker's MSRP where the armory has it. Where gun.deals lists that exact
+  product (by UPC or part number, never by name), the listing adds the lowest
+  in-stock new price, how many stores have it, how far under new this one
+  is, and a link to the page the price came from. Asked hourly, at most once
+  a day per version, and only for versions with a listing for sale.
+- **Wikipedia.** A small link beside the maker's and the model's names on a
+  listing, when the armory has an article for either. Articles are proposed
+  by `cli.py armory wikipedia` and accepted or rejected on the Armory page.
 - **FFL dealers.** The dealers who will receive a gun for you, at `/dealers`:
   name, address, website and transfer fee, each entered by hand. Every
   delivered price — on a listing and on the wishlist — uses the lowest fee on
@@ -3720,6 +3731,9 @@ backend/cli.py armory tidy      # fill blanks from a row's own listings; retire 
 backend/cli.py armory export    # write this database's armory to a committable file
 backend/cli.py armory sync      # reconcile this database with such a file (--apply, --prune)
 backend/cli.py armory arsenals  # read the arsenal off listings already filed
+backend/cli.py armory wikipedia # propose Wikipedia articles for makers and models (--limit, --only)
+backend/cli.py armory makers    # read makers' sites for pending variants and MSRPs (--maker)
+backend/cli.py armory new-prices  # ask gun.deals what due variants cost new (--limit)
 backend/cli.py fetch-photos     # drain the photo queue without re-scraping
 backend/cli.py running-scans    # list in-flight scans; exit 1 if any
 backend/cli.py infer            # fill blank caliber/country/maker from other vendors

@@ -231,6 +231,8 @@ def clean_db(_database):
         # go before `sites`: a check recorded in one test is otherwise the
         # Message-ID the next test's identical message is refused under.
         for table in (
+            # Points at makers and models by id, with no foreign key to clear it.
+            "reference_proposals",
             "vendor_emails",
             "inbox_settings",
             "hot_deal_notices",

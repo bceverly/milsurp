@@ -542,6 +542,7 @@ class TestTheExporterCarriesEveryColumn:
             marks="ewx\nS/99",
             country="Belgium",
             website="https://everything.example",
+            wikipedia_url="https://en.wikipedia.org/wiki/Everything_Works",
             notes="a note",
             position=42,
             enabled=False,
