@@ -50,6 +50,15 @@ copies is an internal price spread, not a deal.
 All four are settings rather than constants, because they are policy and the
 person who should be able to change them is an administrator with a browser.
 
+**A second signal: under the price new** (asked for 2026-10-11). A listing
+linked to exactly one variant whose new price is known (app.services.variants,
+app.services.newprices) is also a deal when it is at least
+``min_under_new_percent`` under that price -- and no more than the same
+ceiling, for the same reason. A deal found that way alone has no peer figures,
+and :func:`headline` says "under the price new" rather than claiming a median
+it does not have; one found both ways keeps its peer headline and carries the
+new price as well.
+
 **Peers are exactly the ones the listing page draws**, sold ones included, and
 that is deliberate: a reader who clicks through from here to a listing must not
 find a different number under the same words. What is narrowed is the pool of
@@ -62,11 +71,11 @@ from __future__ import annotations
 import logging
 import time
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from typing import Any
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from ..models import (
@@ -75,6 +84,7 @@ from ..models import (
     HotDealPreference,
     HotDealSetting,
     Item,
+    ModelVariant,
     SavedSearch,
     User,
     as_utc,
@@ -121,13 +131,21 @@ BUCKET_LABELS = {
 #: hundred rows it was given would be sorting the top two hundred *by
 #: discount*, which is the wrong two hundred for every order but that one.
 SORTS: dict[str, tuple[Any, ...]] = {
-    "discount": (HotDeal.discount_percent.desc(), HotDeal.id.asc()),
+    # A deal found only against the new price has no median: it ranks by how
+    # far under new it is, and its saving is measured from the new price.
+    "discount": (
+        func.coalesce(HotDeal.discount_percent, HotDeal.under_new_percent).desc(),
+        HotDeal.id.asc(),
+    ),
     # Dollars off, which is a genuinely different question from percent off and
     # the reason both are offered. The docstring on :func:`deals` explains why
     # this is not the *default*: a 30% saving is $200 on a Mosin and $2,000 on
     # a Luger, so this order leads with the expensive guns whatever the bargain
     # was. That is a fine thing to ask for and a poor thing to assume.
-    "saving": ((HotDeal.median_price - HotDeal.price).desc(), HotDeal.id.asc()),
+    "saving": (
+        (func.coalesce(HotDeal.median_price, HotDeal.new_price) - HotDeal.price).desc(),
+        HotDeal.id.asc(),
+    ),
     "price_asc": (HotDeal.price.asc(), HotDeal.id.asc()),
     "price_desc": (HotDeal.price.desc(), HotDeal.id.asc()),
     # ``first_listed_at`` is carried across a rebuild, so this really is "new
@@ -183,14 +201,23 @@ class Placed:
     item: Item
     bucket: str
     price: float
-    median: float
-    discount: float
-    cheaper_than: int
-    peers: int
-    vendors: int
+    #: The peer figures; None for a listing placed only against new.
+    median: float | None
+    discount: float | None
+    cheaper_than: int | None
+    peers: int | None
+    vendors: int | None
     #: What makes two of these the *same offer*: the same gun, at the same
     #: shop, at the same price. See :func:`_collapse_duplicates`.
     offer: tuple[object, int, float]
+    #: The variant's lowest new price and how far under it, where known.
+    new_price: float | None = None
+    under_new: float | None = None
+
+    @property
+    def depth(self) -> float:
+        """How good a deal, for ordering: below the median, else under new."""
+        return self.discount if self.discount is not None else (self.under_new or 0.0)
 
 
 @dataclass(frozen=True)
@@ -371,17 +398,92 @@ def _collapse_duplicates(keepers: list[Placed]) -> list[tuple[Placed, int]]:
         (min(group, key=lambda entry: entry.item.id or 0), len(group))
         for group in by_offer.values()
     ]
-    return sorted(collapsed, key=lambda pair: (-pair[0].discount, pair[0].item.id or 0))
+    return sorted(collapsed, key=lambda pair: (-pair[0].depth, pair[0].item.id or 0))
 
 
 def qualifies(placed: Placed, row: HotDealSetting) -> bool:
     """Whether one placed listing clears the rule. See the module docstring."""
+    if placed.discount is None or placed.cheaper_than is None or placed.vendors is None:
+        return False
     return (
         placed.cheaper_than >= row.min_cheaper_than
         and placed.discount >= row.min_discount_percent
         and placed.discount <= row.max_discount_percent
         and placed.vendors >= row.min_vendors
     )
+
+
+def under_new(session: Session, row: HotDealSetting) -> dict[int, tuple[Item, float, float]]:
+    """Listings far enough under their variant's new price, by item id:
+    ``(item, new price, percent under)``.
+
+    The second signal, asked for 2026-10-11. Only a listing linked to exactly
+    one variant (``Item.variant_id``; see app.services.variants) whose new
+    price is known is asked -- a vague title is several guns at several
+    prices and is not compared with any one of them. The ceiling the peer
+    rule uses applies here too, for the same reason: past it the listing is
+    not the same object as the gun it was matched to.
+    """
+    rows = session.execute(
+        select(Item, ModelVariant.new_price)
+        .join(ModelVariant, ModelVariant.id == Item.variant_id)
+        .where(
+            Item.is_active.is_(True),
+            Item.is_sold.is_(False),
+            Item.current_price.is_not(None),
+            ModelVariant.new_price.is_not(None),
+        )
+    ).all()
+    found = {}
+    for item, new_price in rows:
+        price = float(item.current_price or 0)
+        if price <= 0 or not new_price or bucket_of(item) is None:
+            continue
+        under = 100.0 * (new_price - price) / new_price
+        if row.min_under_new_percent <= under <= row.max_discount_percent:
+            found[item.id] = (item, float(new_price), under)
+    return found
+
+
+def _with_new(
+    placed: list[Placed], row: HotDealSetting, cheap_new: dict[int, tuple[Item, float, float]]
+) -> list[Placed]:
+    """The peer rule's deals, each with its new price where known, and the
+    listings that are deals only against new."""
+    known_new = {item_id: (new, under) for item_id, (_item, new, under) in cheap_new.items()}
+    keepers = []
+    for entry in placed:
+        if not qualifies(entry, row):
+            continue
+        new, under = known_new.pop(entry.item.id, (None, None))
+        keepers.append(replace(entry, new_price=new, under_new=under))
+    for item_id, (new, under) in known_new.items():
+        item = cheap_new[item_id][0]
+        price = float(item.current_price or 0)
+        keepers.append(
+            Placed(
+                item=item,
+                bucket=bucket_of(item) or "",
+                price=price,
+                median=None,
+                discount=None,
+                cheaper_than=None,
+                peers=None,
+                vendors=None,
+                offer=(("variant", item.variant_id), item.site_id, round(price, 2)),
+                new_price=new,
+                under_new=under,
+            )
+        )
+    return keepers
+
+
+def headline(deal: HotDeal) -> str:
+    """The deal in one phrase, the same on the page and in the email: below
+    the usual price when its peers say so, otherwise under new."""
+    if deal.discount_percent is not None:
+        return f"{round(deal.discount_percent)}% below the usual price"
+    return f"{round(deal.under_new_percent or 0)}% under the price new"
 
 
 def refresh(session: Session, *, now: datetime | None = None) -> RefreshResult:
@@ -401,7 +503,7 @@ def refresh(session: Session, *, now: datetime | None = None) -> RefreshResult:
     row = settings(session)
 
     placed, considered = _place_everything(session)
-    keepers = _collapse_duplicates([entry for entry in placed if qualifies(entry, row)])
+    keepers = _collapse_duplicates(_with_new(placed, row, under_new(session, row)))
 
     since: dict[int, datetime] = dict(
         session.execute(select(HotDeal.item_id, HotDeal.first_listed_at)).all()
@@ -415,10 +517,14 @@ def refresh(session: Session, *, now: datetime | None = None) -> RefreshResult:
                 bucket=entry.bucket,
                 price=entry.price,
                 median_price=entry.median,
-                discount_percent=round(entry.discount, 1),
+                discount_percent=round(entry.discount, 1) if entry.discount is not None else None,
                 cheaper_than=entry.cheaper_than,
                 peer_count=entry.peers,
                 vendor_count=entry.vendors,
+                new_price=entry.new_price,
+                under_new_percent=(
+                    round(entry.under_new, 1) if entry.under_new is not None else None
+                ),
                 duplicate_count=duplicates,
                 first_listed_at=as_utc(since.get(entry.item.id)) or now,
                 computed_at=now,

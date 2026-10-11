@@ -19,10 +19,17 @@ Readers so far (measured 2026-10-11):
   the finish. robots.txt allows all of it.
 * **Smith & Wesson** -- two category pages carry the whole handgun catalog;
   see :class:`SmithWessonReader`.
+* **Kimber** -- a sitemap of every product page, and a page per product; see
+  :class:`KimberReader`.
+* **Walther** -- a product grid per line; see :class:`WaltherReader`.
+
+Kimber's and Walther's terms of use forbid automated collection; reading them
+anyway, by hand and lightly, was decided on 2026-10-11 (ROADMAP.md).
 
 Measured and not built, with the reason, in ROADMAP.md: Taurus answers its
-own Store API and sitemap with 403; Springfield asks for 300 seconds between
-requests; the rest want a reader each.
+own Store API and sitemap with 403, and Sig Sauer with a Cloudflare challenge
+-- both bot controls, so neither is read; Springfield asks for 300 seconds
+between requests; Glock publishes no MSRP.
 """
 
 from __future__ import annotations
@@ -311,10 +318,251 @@ def _records(data: Any) -> list[dict[str, Any]]:
     return found
 
 
-Reader = RugerReader | SmithWessonReader
+def _starts_at(have: list[str], need: list[str]) -> int | None:
+    """Where a name's words appear together, in order, or None."""
+    for at in range(len(have) - len(need) + 1):
+        if have[at : at + len(need)] == need:
+            return at
+    return None
+
+
+def _earliest_owner(
+    words: list[str], models: list[FirearmModel], drop: frozenset[str]
+) -> FirearmModel | None:
+    """The model whose name appears earliest in a product's name, and the
+    longer name between two that start together.
+
+    A maker names its products line first: "micro-9-stainless-raptor" is a
+    Micro 9 finished like a Raptor, and "stainless-target-ii" is a Stainless
+    Target II, not a Stainless II.
+    """
+    best: tuple[int, int, FirearmModel] | None = None
+    for model in models:
+        for spelling in model.spellings:
+            need = _tokens(spelling, drop)
+            at = _starts_at(words, need) if need else None
+            if at is None:
+                continue
+            if best is None or (at, -len(need)) < best[:2]:
+                best = (at, -len(need), model)
+    return best[2] if best else None
+
+
+class KimberReader:
+    """kimberamerica.com: a sitemap of product pages, and a page per product.
+
+    The category pages are tiles linking to sub-categories and carry no
+    prices, but ``sitemap.xml`` lists every product at the top level of the
+    site (``/micro-9-esv-black-1``) -- one request for the catalog. A product
+    page states its MSRP, calibers, specifications (barrel length, slide or
+    barrel finish), product number and usually UPC. The configurable "family"
+    pages (``/custom-ii-walnut``: $0.00, no specifications) carry no product
+    number and are passed over. Only pages whose address names the model are
+    asked for, and each goes to the model named earliest in it.
+    """
+
+    maker = "Kimber"
+    home = "https://www.kimberamerica.com/"
+    _MAKER_WORDS = frozenset({"kimber"})
+
+    def __init__(self) -> None:
+        self._slugs: list[str] | None = None
+
+    def slugs(self, ctx: ScrapeContext) -> list[str]:
+        if self._slugs is None:
+            text = ctx.get_text(urljoin(self.home, "sitemap.xml"))
+            found = []
+            for loc in re.findall(r"<loc>\s*([^<\s]+)\s*</loc>", text):
+                path = loc.removeprefix(self.home.rstrip("/")).strip("/")
+                if path and "/" not in path and path not in found:
+                    found.append(path)
+            self._slugs = found
+        return self._slugs
+
+    def read(
+        self, ctx: ScrapeContext, model: FirearmModel, siblings: list[FirearmModel]
+    ) -> list[Found]:
+        found = []
+        for slug in self.slugs(ctx):
+            words = _tokens(slug.replace("-", " "))
+            if _earliest_owner(words, siblings, self._MAKER_WORDS) is not model:
+                continue
+            url = urljoin(self.home, slug)
+            try:
+                product = kimber_product(ctx.get_text(url), url)
+            except ScrapeError:
+                continue
+            if product is not None:
+                found.append(product)
+        return found
+
+
+def _label(maker: str, name: str, caliber: str | None, number: str) -> str:
+    """'Kimber Micro 9 Stainless 9 mm (3700482)': the caliber only when the
+    product's name does not already say it."""
+    stated = caliber if caliber and _compact(caliber) not in _compact(name) else None
+    return " ".join(p for p in (f"{maker} {name}", stated, f"({number})") if p)[:200]
+
+
+def _lines(html: str) -> list[str]:
+    soup = BeautifulSoup(html, "html.parser")
+    for tag in soup(["script", "style"]):
+        tag.decompose()
+    return [" ".join(line.split()) for line in soup.get_text("\n").splitlines() if line.strip()]
+
+
+def _after(lines: list[str], label: str) -> str | None:
+    """The value of the first "Label: value" line, or the line after "Label"."""
+    for at, line in enumerate(lines):
+        if line.lower().startswith(label.lower() + ":"):
+            value = line.split(":", 1)[1].strip()
+            return value or (lines[at + 1] if at + 1 < len(lines) else None)
+        if line.lower() == label.lower() and at + 1 < len(lines):
+            return lines[at + 1]
+    return None
+
+
+def _section(lines: list[str], heading: str, label: str) -> str | None:
+    """A labeled value within a specification section: the barrel's length."""
+    for at, line in enumerate(lines):
+        if line == heading:
+            return _after(lines[at + 1 : at + 6], label)
+    return None
+
+
+def kimber_product(html: str, url: str) -> Found | None:
+    """One Kimber product page, or None when it is not a single product."""
+    lines = _lines(html)
+    text = "\n".join(lines)
+    part = re.search(r"Product #:\s*([A-Za-z0-9-]+)", text)
+    if not part:
+        return None
+    title = BeautifulSoup(html, "html.parser").title
+    name = (title.get_text() if title else "").split("|")[0].strip()
+    msrp = _money(_after(lines, "MSRP"))
+    caliber = _after(lines, "Calibers")
+    stated = _section(lines, "Barrel", "Length (inches)")
+    barrel = None
+    if stated:
+        try:
+            barrel = float(stated.split()[0])
+        except ValueError:
+            barrel = None
+    finish_text = _section(lines, "Slide", "Finish") or _section(lines, "Barrel", "Finish")
+    upc = re.search(r"UPC:\s*(\d{8,14})", text)
+    number = part.group(1)
+    return Found(
+        maker_part=number,
+        label=_label("Kimber", name, caliber, number),
+        caliber=caliber,
+        barrel_inches=barrel,
+        finish=variants.normalize_finish(finish_text) or variants.read_finish(name),
+        upc=upc.group(1) if upc else None,
+        msrp=msrp or None,
+        url=url,
+    )
+
+
+class WaltherReader:
+    """waltherarms.com: a product grid per line, from the site's navigation.
+
+    A line's page (``/defense/pdp``) and the pages under it that the
+    navigation names (``/defense/pdp/pro``, ``/defense/pdp/two-tone`` ...) are
+    grids of J2Commerce product tiles, each with the product's name (barrel
+    and finish written into it: 'PDP Two-Tone Compact 4" FDE'), its MSRP, the
+    item number and the caliber. The tiles alone are read -- one request a
+    page; the UPC is only on the product's own page, and the item number is
+    enough to find a new price by.
+    """
+
+    maker = "Walther"
+    home = "https://waltherarms.com/"
+    _MAKER_WORDS = frozenset({"walther"})
+
+    def __init__(self) -> None:
+        self._nav: list[str] | None = None
+
+    def nav(self, ctx: ScrapeContext) -> list[str]:
+        if self._nav is None:
+            soup = BeautifulSoup(ctx.get_text(self.home), "html.parser")
+            found: list[str] = []
+            for link in soup.select('a[href^="/"]'):
+                href = str(link.get("href")).split("#")[0].split("?")[0].rstrip("/")
+                if href.count("/") >= 2 and href not in found:
+                    found.append(href)
+            self._nav = found
+        return self._nav
+
+    def line_pages(self, ctx: ScrapeContext, model: FirearmModel) -> list[str]:
+        if model.maker_url and "waltherarms.com" in model.maker_url:
+            return [model.maker_url]
+        wanted = {_compact(" ".join(_tokens(s, self._MAKER_WORDS))) for s in model.spellings}
+        lines = [
+            href
+            for href in self.nav(ctx)
+            if href.count("/") == 2 and _compact(href.rsplit("/", 1)[1]) in wanted
+        ]
+        return [
+            urljoin(self.home, href.lstrip("/"))
+            for line in lines
+            for href in self.nav(ctx)
+            if (href == line or href.startswith(line + "/")) and "feature" not in href
+        ]
+
+    def read(
+        self, ctx: ScrapeContext, model: FirearmModel, _siblings: list[FirearmModel]
+    ) -> list[Found]:
+        found: dict[str, Found] = {}
+        for page in self.line_pages(ctx, model):
+            try:
+                text = ctx.get_text(page)
+            except ScrapeError:
+                # One sub-line gone from the site costs its own tiles only.
+                continue
+            for product in walther_tiles(text, page):
+                found.setdefault(product.maker_part, product)
+        return list(found.values())
+
+
+def walther_tiles(html: str, page: str) -> list[Found]:
+    """Every product tile on a Walther line page."""
+    found = []
+    for tile in BeautifulSoup(html, "html.parser").select(".j2commerce-product-item"):
+        title = tile.select_one(".j2commerce-product-title a")
+        if title is None:
+            continue
+        specs = {}
+        for item in tile.select("ul.uk-specs li"):
+            words = " ".join(item.get_text(" ", strip=True).split())
+            for label in ("Item Number", "Caliber", "Capacity", "Barrel Length", "Finish"):
+                if words.startswith(label):
+                    specs[label] = words[len(label) :].strip()
+        number = specs.get("Item Number")
+        if not number:
+            continue
+        name = " ".join(title.get_text(" ", strip=True).split())
+        caliber = specs.get("Caliber")
+        price = tile.select_one(".j2commerce-product-price")
+        found.append(
+            Found(
+                maker_part=number,
+                label=_label("Walther", name, caliber, number),
+                caliber=caliber,
+                barrel_inches=variants.read_barrel(specs.get("Barrel Length") or name),
+                finish=variants.normalize_finish(specs.get("Finish")) or variants.read_finish(name),
+                msrp=_money(price.get_text()) if price else None,
+                url=urljoin(page, str(title.get("href"))),
+            )
+        )
+    return found
+
+
+Reader = RugerReader | SmithWessonReader | KimberReader | WaltherReader
 READERS: dict[str, Callable[[], Reader]] = {
     "Ruger": RugerReader,
     "Smith & Wesson": SmithWessonReader,
+    "Kimber": KimberReader,
+    "Walther": WaltherReader,
 }
 
 

@@ -307,3 +307,32 @@ test.describe("hot deals", () => {
     await expect(floor).toHaveValue("20");
   });
 });
+
+// The second signal (2026-10-11): a deal found only against the price new has
+// no peer group, so its row names the new price instead of "Usually ...", and
+// the headline is the server's own wording.
+test("a deal found against the price new says so, and claims no median", async ({
+  signedIn,
+}) => {
+  await signedIn.route(/\/api\/hot-deals(\?.*)?$/, async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.deals[0] = {
+      ...body.deals[0],
+      headline: "27% under the price new",
+      median_price: null,
+      discount_percent: null,
+      cheaper_than: null,
+      peer_count: null,
+      vendor_count: null,
+      new_price: 549.99,
+      under_new_percent: 27.3,
+    };
+    await route.fulfill({ response, json: body });
+  });
+  await openPage(signedIn, "Hot deals");
+  const row = signedIn.locator(".deal").first();
+  await expect(row.locator(".deal__headline")).toHaveText("27% under the price new");
+  await expect(row.getByTestId("deal-new")).toHaveText("New from $549.99");
+  await expect(row.locator(".deal__meta")).not.toContainText("Usually");
+});

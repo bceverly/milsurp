@@ -29,6 +29,7 @@ import Modal from "../components/Modal.jsx";
 import SortHeader from "../components/SortHeader.jsx";
 import { COLLATOR, compareCalibers } from "../sorting.js";
 import Field from "../components/Field.jsx";
+import AmmunitionButton from "../components/AmmunitionInfo.jsx";
 import {
   ChevronLeft,
   ChevronRight,
@@ -223,7 +224,14 @@ const EMPTY_MODEL = {
   notes: "",
 };
 
-const EMPTY_CALIBER = { name: "", aliases: "", notes: "", enabled: true };
+const EMPTY_CALIBER = {
+  name: "",
+  aliases: "",
+  notes: "",
+  enabled: true,
+  wikipedia_url: "",
+  bullet_diameter_in: "",
+};
 
 //: How many ids one promote or send-back request carries. The endpoint caps a
 //: single call, and select-all on a grown armory would sail past it.
@@ -638,6 +646,8 @@ function CaliberForm({ caliber, onSubmit, error }) {
           aliases: caliber.aliases || "",
           notes: caliber.notes || "",
           enabled: caliber.enabled !== false,
+          wikipedia_url: caliber.wikipedia_url || "",
+          bullet_diameter_in: caliber.bullet_diameter_in ?? "",
         }
       : EMPTY_CALIBER,
   );
@@ -653,7 +663,12 @@ function CaliberForm({ caliber, onSubmit, error }) {
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        onSubmit(form);
+        // A blank diameter is "not known", not zero.
+        onSubmit({
+          ...form,
+          bullet_diameter_in:
+            form.bullet_diameter_in === "" ? null : Number(form.bullet_diameter_in),
+        });
       }}
     >
       <Field label="Name" hint="The spelling this application will use everywhere.">
@@ -703,6 +718,44 @@ function CaliberForm({ caliber, onSubmit, error }) {
           </label>
         )}
       </Field>
+      {/* For the ammunition facts: the article is where the bullet's diameter
+          and weights are read from, once, and again after every edit here. */}
+      <div className="form-row">
+        <Field
+          label="Wikipedia article"
+          hint="The cartridge's article. Usually proposed for you under Wikipedia suggestions."
+        >
+          {(id, describedBy) => (
+            <input
+              id={id}
+              aria-describedby={describedBy}
+              className="input"
+              type="url"
+              value={form.wikipedia_url}
+              onChange={set("wikipedia_url")}
+              placeholder="https://en.wikipedia.org/wiki/…"
+            />
+          )}
+        </Field>
+        <Field
+          label="Bullet diameter (inches)"
+          hint="Read from the article; type it where the article has none."
+        >
+          {(id, describedBy) => (
+            <input
+              id={id}
+              aria-describedby={describedBy}
+              className="input"
+              type="number"
+              step="0.0001"
+              min="0"
+              max="2"
+              value={form.bullet_diameter_in}
+              onChange={set("bullet_diameter_in")}
+            />
+          )}
+        </Field>
+      </div>
       <Field label="Notes">
         {(id, describedBy) => (
           <textarea
@@ -2826,6 +2879,7 @@ export default function Armory() {
                     )}
                     <td>{statusChip(row.status)}</td>
                     <td className="table__actions">
+                      {tab === "calibers" && <AmmunitionButton caliber={row.name} />}
                       <button
                         type="button"
                         className="btn btn--ghost btn--sm"

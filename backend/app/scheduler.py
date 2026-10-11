@@ -70,6 +70,11 @@ class Scheduler:
         self._newprice_future: Future | None = None
         #: An hour after start, not at it: a restart is not a reason to ask.
         self._last_new_prices: float = time.monotonic()
+        #: Caliber data (services/ammunition): looked at once a minute, so
+        #: "Refresh now" starts within one; run on the photo worker.
+        self._ammo_future: Future | None = None
+        self._last_ammo_look: float = 0.0
+        self._last_ammo_articles: float = 0.0
         #: When a market report was last attempted per reader, so a failed
         #: delivery is retried hourly rather than on every tick.
         self._market_report_tried: dict[int, datetime] = {}
@@ -182,6 +187,7 @@ class Scheduler:
         self._dispatch_inbox()
         self._dispatch_offer_endings()
         self._dispatch_new_prices()
+        self._dispatch_ammunition()
 
     # -- new-gun prices -----------------------------------------------------
     #: Seconds between looks for variants whose new price is a day old.
@@ -222,6 +228,64 @@ class Scheduler:
             log.exception("New-gun price run raised")
         finally:
             ctx.close()
+
+    # -- caliber data -------------------------------------------------------
+    AMMO_LOOK_EVERY = 60
+    AMMO_ARTICLES_EVERY = 3600
+
+    def _dispatch_ammunition(self) -> None:
+        """Refresh the caliber data when it is due or was asked for, and read
+        any new or edited caliber's Wikipedia facts hourly in between.
+
+        Due is measured from the settings row's ``last_run_at`` and its
+        frequency (daily, weekly or every 2 weeks), for the reason hot deals
+        are: a timer would reset on every restart. Never a second run while
+        one is going, and on the photo worker so it cannot hold a scan's slot.
+        """
+        now = time.monotonic()
+        if now - self._last_ammo_look < self.AMMO_LOOK_EVERY:
+            return
+        self._last_ammo_look = now
+        with self._lock:
+            if self._ammo_future is not None and not self._ammo_future.done():
+                return
+            if self._photo_pool is None:
+                return
+        from .services import ammunition
+
+        try:
+            with session_scope() as session:
+                due = ammunition.is_due(session)
+        except Exception:
+            log.exception("Caliber data: could not read the settings")
+            return
+        articles = now - self._last_ammo_articles >= self.AMMO_ARTICLES_EVERY
+        if not due and not articles:
+            return
+        self._last_ammo_articles = now
+        with self._lock:
+            self._ammo_future = self._photo_pool.submit(self._refresh_ammunition, due)
+
+    def _refresh_ammunition(self, full: bool) -> None:
+        from .scrapers.base import ScrapeContext
+        from .services import ammunition, wikipedia
+
+        fetch = wikipedia.http_fetch()
+        quiet = lambda _message: None  # noqa: E731
+        try:
+            if not full:
+                with session_scope() as session:
+                    ammunition.refresh_articles(session, fetch, limit=60, log=quiet)
+                return
+            ctx = ScrapeContext(self.config)
+            try:
+                with session_scope() as session:
+                    summary = ammunition.refresh(session, ctx, fetch=fetch, log=quiet)
+                log.info("Caliber data: %s", summary)
+            finally:
+                ctx.close()
+        except Exception:
+            log.exception("Caliber data refresh raised")
 
     # -- hot deals ----------------------------------------------------------
     def _dispatch_hot_deals(self) -> None:

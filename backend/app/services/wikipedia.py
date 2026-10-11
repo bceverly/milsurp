@@ -1,4 +1,4 @@
-"""Proposing a Wikipedia article for each maker and model that has none.
+"""Proposing a Wikipedia article for each maker, model and caliber that has none.
 
 84 of 1,214 approved models carried a link when this was written, and makers
 none at all (``Manufacturer.wikipedia_url`` is new); typing 1,200 addresses by
@@ -18,6 +18,12 @@ ones "accept all confident" takes -- and that is a label, not a decision.
 it, one request a second, ``maxlag`` so a busy server is left alone, and a
 search plus one batched category lookup per row. The links themselves are what
 Wikipedia's license is for; nothing of the article is copied.
+
+**Calibers** joined on 2026-10-11, for the ammunition facts: an accepted
+cartridge article is where app.services.ammunition reads the bullet's
+diameter and weights from. A cartridge category is required, and a title
+names the row when it is the same cartridge written either way --
+"7.62×54mmR" is "7.62x54R".
 """
 
 from __future__ import annotations
@@ -36,6 +42,7 @@ from sqlalchemy.orm import Session
 
 from ..models import (
     ArmoryStatus,
+    Caliber,
     FirearmModel,
     Manufacturer,
     ReferenceProposal,
@@ -64,6 +71,13 @@ _MAKER_CATEGORY = re.compile(
     r"arsenal|armou?ries|ammunition manufacturers",
     re.I,
 )
+
+#: Categories an article about a cartridge sits in.
+_CARTRIDGE_CATEGORY = re.compile(r"cartridges|ammunition", re.I)
+
+#: Words a cartridge article's title adds: "9×19mm Parabellum" keeps its name,
+#: but ".303 British cartridge" is ".303 British".
+_CARTRIDGE_WORDS = re.compile(r"\b(?:cartridge|round|ammunition)\b", re.I)
 
 #: Categories that make an article about a person, not a gun or a firm:
 #: "Arisaka" found "Arisaka Nariakira", the colonel, before this.
@@ -164,6 +178,20 @@ def names_it(title: str, spellings: Iterable[str]) -> bool:
     return False
 
 
+def _cartridge(text: str) -> str:
+    """A cartridge's name run together: "7.62×54mmR" and "7.62x54R" are both
+    "762x54r"."""
+    plain = _CARTRIDGE_WORDS.sub(" ", text.lower().replace("×", "x"))
+    plain = re.sub(r"(?<=\d)\s*mm\b|(?<=\d)mm(?=[a-z])", "", plain)
+    return re.sub(r"[^a-z0-9]", "", plain)
+
+
+def names_cartridge(title: str, spellings: Iterable[str]) -> bool:
+    """Whether an article's title is one of a caliber's spellings."""
+    core = _cartridge(title)
+    return any(core and core == _cartridge(spelling) for spelling in spellings)
+
+
 def search(fetch: Fetch, query: str) -> list[str]:
     answer = fetch(
         {
@@ -211,7 +239,9 @@ def candidate(
     """The first search result that is an article about this kind of thing."""
     titles = search(fetch, query)
     found = categories(fetch, titles)
-    wanted = _MAKER_CATEGORY if kind == "manufacturer" else _GUN_CATEGORY
+    wanted = {"manufacturer": _MAKER_CATEGORY, "caliber": _CARTRIDGE_CATEGORY}.get(
+        kind, _GUN_CATEGORY
+    )
     for title in titles:
         url = article_url(title)
         if url in refused:
@@ -222,15 +252,22 @@ def candidate(
         matched = [c.removeprefix("Category:") for c in cats if wanted.search(c)]
         if not matched:
             continue
-        confident = names_it(title, spellings)
+        confident = (
+            names_cartridge(title, spellings) if kind == "caliber" else names_it(title, spellings)
+        )
         reason = ("title matches; " if confident else "") + f"in Category:{matched[0]}"
         return Candidate(title, url, confident, reason)
     return None
 
 
-def _query_for(row: FirearmModel | Manufacturer) -> tuple[str, str]:
+Row = FirearmModel | Manufacturer | Caliber
+
+
+def _query_for(row: Row) -> tuple[str, str]:
     if isinstance(row, Manufacturer):
         return "manufacturer", f"{row.name} firearms"
+    if isinstance(row, Caliber):
+        return "caliber", f"{row.name} cartridge"
     maker = row.manufacturer_names[0] if row.manufacturer_names else ""
     words = set(_words(row.name))
     if maker and not set(_words(maker)) <= words:
@@ -298,8 +335,20 @@ def run(
     return counts
 
 
-def _unlinked(session: Session, kind: str) -> list[FirearmModel] | list[Manufacturer]:
+def _unlinked(session: Session, kind: str) -> list[Row]:
     """The approved rows of one table with no article, oldest first."""
+    if kind == "caliber":
+        return list(
+            session.execute(
+                select(Caliber)
+                .where(
+                    Caliber.status == ArmoryStatus.APPROVED,
+                    Caliber.enabled.is_(True),
+                    Caliber.wikipedia_url.is_(None),
+                )
+                .order_by(Caliber.id)
+            ).scalars()
+        )
     if kind == "manufacturer":
         return list(
             session.execute(
@@ -325,7 +374,9 @@ def _unlinked(session: Session, kind: str) -> list[FirearmModel] | list[Manufact
     )
 
 
-def _target(session: Session, proposal: ReferenceProposal) -> FirearmModel | Manufacturer | None:
+def _target(session: Session, proposal: ReferenceProposal) -> Row | None:
+    if proposal.target_type == "caliber":
+        return session.get(Caliber, proposal.target_id)
     if proposal.target_type == "manufacturer":
         return session.get(Manufacturer, proposal.target_id)
     return session.get(FirearmModel, proposal.target_id)

@@ -446,6 +446,10 @@ class CaliberOut(UTCModel):
     #: Off takes it out of matching without deleting it. See migration 0018:
     #: deleting is not how a row gets rejected here.
     enabled: bool = True
+    #: The cartridge's Wikipedia article and its bullet's diameter in inches,
+    #: for the ammunition facts (app.services.ammunition).
+    wikipedia_url: str | None = None
+    bullet_diameter_in: float | None = None
 
 
 class CaliberCreate(BaseModel):
@@ -454,6 +458,8 @@ class CaliberCreate(BaseModel):
     status: ArmoryStatus = ArmoryStatus.PENDING
     notes: str | None = Field(default=None, max_length=4000)
     enabled: bool = True
+    wikipedia_url: WebAddress = None
+    bullet_diameter_in: float | None = Field(default=None, gt=0, lt=2)
 
 
 class CaliberUpdate(BaseModel):
@@ -462,6 +468,8 @@ class CaliberUpdate(BaseModel):
     status: ArmoryStatus | None = None
     notes: str | None = Field(default=None, max_length=4000)
     enabled: bool | None = None
+    wikipedia_url: WebAddress = None
+    bullet_diameter_in: float | None = Field(default=None, gt=0, lt=2)
 
 
 class FirearmModelOut(UTCModel):
@@ -1781,12 +1789,19 @@ class HotDealOut(UTCModel):
     item: ItemOut
     bucket: str
     bucket_label: str
+    #: The deal in one phrase, the same as the email's: "38% below the usual
+    #: price", or "27% under the price new" for one found only against new.
+    headline: str = ""
     price: float
-    median_price: float
-    discount_percent: float
-    cheaper_than: int
-    peer_count: int
-    vendor_count: int
+    #: The peer figures; None on a deal found only against the new price.
+    median_price: float | None = None
+    discount_percent: float | None = None
+    cheaper_than: int | None = None
+    peer_count: int | None = None
+    vendor_count: int | None = None
+    #: The listing's variant's lowest new price, and how far under it.
+    new_price: float | None = None
+    under_new_percent: float | None = None
     #: How many identical offers this row stands for -- the same gun, at the
     #: same shop, at the same price. One, for nearly all of them.
     duplicate_count: int
@@ -1804,6 +1819,7 @@ class HotDealSettingsOut(UTCModel):
     min_discount_percent: int
     max_discount_percent: int
     min_vendors: int
+    min_under_new_percent: int = 25
     renotify_after_days: int = 30
     last_run_at: datetime | None = None
     last_status: str | None = None
@@ -1822,6 +1838,7 @@ class HotDealSettingsUpdate(BaseModel):
     min_discount_percent: int | None = None
     max_discount_percent: int | None = None
     min_vendors: int | None = None
+    min_under_new_percent: int | None = None
     renotify_after_days: int | None = None
 
 
@@ -2244,3 +2261,63 @@ class WishlistSettingsIn(BaseModel):
 
     alerts: bool | None = None
     budget: float | None = Field(default=None, ge=0, le=10_000_000)
+
+
+class BulletWeightOut(BaseModel):
+    """One weight of bullet a cartridge is loaded with, and its cheapest prices."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    grains: float
+    source: str
+    #: Dollars per round of the cheapest factory box at this weight.
+    factory_cpr: float | None = None
+    #: Dollars per projectile of the cheapest box of bullets at this weight.
+    projectile_cost: float | None = None
+
+
+class AmmunitionOut(UTCModel):
+    """Everything known about what it costs to shoot a caliber.
+
+    The Ammunition information panel, on the Armory page and on a listing.
+    Each figure carries its source and date; None is "not known", which the
+    panel says rather than leaving a blank.
+    """
+
+    caliber_id: int
+    caliber: str
+    wikipedia_url: str | None = None
+    bullet_diameter_in: float | None = None
+    bullet_weights: list[BulletWeightOut] = Field(default_factory=list)
+    #: Dollars per round: the average of each weight's cheapest box.
+    factory_cpr: float | None = None
+    #: "ammoseek" or "milsurp-munitions".
+    factory_source: str | None = None
+    factory_url: str | None = None
+    factory_checked_at: datetime | None = None
+    lee_dies: bool | None = None
+    lee_url: str | None = None
+    lee_checked_at: datetime | None = None
+    projectile_cost: float | None = None
+    projectile_url: str | None = None
+    projectile_checked_at: datetime | None = None
+
+
+class AmmoSettingsOut(UTCModel):
+    """How often the caliber data is refreshed, and how the last refresh went."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    refresh_days: int
+    #: The frequencies offered, days to label: daily, weekly, every 2 weeks.
+    choices: dict[int, str] = Field(default_factory=dict)
+    requested_at: datetime | None = None
+    last_run_at: datetime | None = None
+    last_status: str | None = None
+    last_error: str | None = None
+    last_summary: str | None = None
+    last_seconds: float | None = None
+
+
+class AmmoSettingsUpdate(BaseModel):
+    refresh_days: int

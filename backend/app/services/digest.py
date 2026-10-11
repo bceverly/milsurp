@@ -1403,7 +1403,21 @@ def _deal_row(deal, base_url: str, site_name: str, photo_cid: str | None) -> str
     """
     item = deal.item
     price = _money(item.current_price, item.currency)
-    usual = _money(deal.median_price, item.currency)
+    # A deal found only against the new price has no peer group to name;
+    # one found against both names both.
+    evidence = []
+    if deal.median_price is not None:
+        evidence.append(
+            f"Usually {_money(deal.median_price, item.currency)} &middot; "
+            f"{deal.peer_count} listed across {deal.vendor_count} "
+            f"shop{'s' if deal.vendor_count != 1 else ''}"
+        )
+    if deal.new_price is not None:
+        evidence.append(f"New from {_money(deal.new_price, item.currency)}")
+    facts = "".join(
+        f'<div style="color:{MUTED};font-size:12px;margin:4px 0 0;">{line}</div>'
+        for line in evidence
+    )
     more = (
         f'<span style="color:{MUTED};font-size:12px;margin-left:8px;">'
         f"and {deal.duplicate_count - 1} more like it at this shop</span>"
@@ -1429,14 +1443,11 @@ def _deal_row(deal, base_url: str, site_name: str, photo_cid: str | None) -> str
         <td valign="top" style="padding:14px 0;border-bottom:1px solid #E3E8F0;">
           <div style="font-size:12px;font-weight:700;letter-spacing:.08em;
                text-transform:uppercase;color:{BLUE};">
-            {round(deal.discount_percent)}% below the usual price</div>
+            {_e(hotdeals.headline(deal))}</div>
           <a href="{_e(here)}" style="color:{NAVY};font-weight:600;font-size:15px;
              text-decoration:none;line-height:1.35;">{_e(truncate(item.title, TITLE_CHARS))}</a>
           <div style="color:{MUTED};font-size:12px;margin:5px 0 0;">{_e(site_name)}</div>
-          <div style="color:{MUTED};font-size:12px;margin:4px 0 0;">
-            Usually {usual} &middot; {deal.peer_count} listed across
-            {deal.vendor_count} shop{'s' if deal.vendor_count != 1 else ''}
-          </div>
+          {facts}
           <div style="margin:8px 0 0;">
             <span style="color:{NAVY};font-weight:700;font-size:16px;">{price}</span>{more}
           </div>
@@ -1472,10 +1483,7 @@ def render_hot_deals(
     # same judgment the digest's subject makes about a saved search.
     if total == 1:
         only = next(rows[0] for rows in grouped.values() if rows)
-        subject = (
-            f"{BRAND}: {truncate(only.item.title, 52)} is "
-            f"{round(only.discount_percent)}% below the usual price"
-        )
+        subject = f"{BRAND}: {truncate(only.item.title, 52)} is {hotdeals.headline(only)}"
     else:
         subject = f"{BRAND}: {total} listings well below the usual price"
 

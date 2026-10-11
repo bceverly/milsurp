@@ -37,7 +37,7 @@ FINISHES: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("FDE", re.compile(r"\b(?:fde|flat\s+dark\s+earth|dark\s+earth|coyote)\b", re.I)),
     ("OD Green", re.compile(r"\b(?:od\s*green|odg|olive\s+drab)\b", re.I)),
     ("Hard Chrome", re.compile(r"\bhard\s+chrome\b", re.I)),
-    ("Stainless", re.compile(r"\b(?:stainless|sts|ss)\b", re.I)),
+    ("Stainless", re.compile(r"\b(?:stainless|sts|ss|satin\s+silver)\b", re.I)),
     ("Nickel", re.compile(r"\b(?:nickel|nkl)\b", re.I)),
     ("Chrome", re.compile(r"\bchrome\b", re.I)),
     ("Blued", re.compile(r"\b(?:blued?|bluing|blu)\b", re.I)),

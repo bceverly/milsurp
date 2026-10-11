@@ -86,6 +86,7 @@ def snapshot(row: Any) -> dict[str, Any]:
         "modern_production",
         "maker_url",
         "website",
+        "bullet_diameter_in",
     ):
         if hasattr(row, name):
             fields[name] = getattr(row, name)

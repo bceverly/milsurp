@@ -1045,6 +1045,8 @@ def _seed_calibers(
             aliases=_lines(entry.get("aliases")),
             status=ArmoryStatus.PENDING,
             enabled=bool(entry.get("enabled", True)),
+            wikipedia_url=entry.get("wikipedia"),
+            bullet_diameter_in=entry.get("bullet_diameter_in"),
         )
         session.add(cartridge)
         calibers[name.lower()] = cartridge
@@ -1263,6 +1265,8 @@ def export_armory(session: Session) -> dict[str, Any]:
                     "status": row.status.value,
                     "enabled": None if row.enabled else False,
                     "notes": row.notes,
+                    "wikipedia": row.wikipedia_url,
+                    "bullet_diameter_in": row.bullet_diameter_in,
                 }
             )
             for row in calibers
@@ -1757,11 +1761,15 @@ def _caliber_differences(row: Caliber, entry: dict[str, Any]) -> list[str]:
             "aliases": row.spellings[1:],
             "status": row.status.value,
             "notes": row.notes,
+            "wikipedia": row.wikipedia_url,
+            "bullet_diameter_in": row.bullet_diameter_in,
         },
         {
             "aliases": [str(a) for a in entry.get("aliases") or []],
             "status": str(entry.get("status") or ArmoryStatus.PENDING.value),
             "notes": entry.get("notes"),
+            "wikipedia": entry.get("wikipedia"),
+            "bullet_diameter_in": entry.get("bullet_diameter_in"),
         },
     )
 
@@ -1949,6 +1957,11 @@ def _sync_calibers(
         row.aliases = _lines(entry.get("aliases"))
         row.status = ArmoryStatus(str(entry.get("status") or ArmoryStatus.PENDING.value))
         row.notes = entry.get("notes")
+        if row.wikipedia_url != entry.get("wikipedia"):
+            # A different article has different facts: read it again.
+            row.wikipedia_read_at = None
+        row.wikipedia_url = entry.get("wikipedia")
+        row.bullet_diameter_in = entry.get("bullet_diameter_in")
 
     if prune:
         for key, row in list(known.items()):

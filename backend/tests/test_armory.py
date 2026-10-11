@@ -518,6 +518,23 @@ class TestTheExporterCarriesEveryColumn:
         # It holds local row ids and is a record of edits made here rather than
         # anything the armory knows about guns.
         "merge_undo",
+        # What a caliber costs to shoot (app.services.ammunition): measured by
+        # each installation on its own schedule and stale in a week, so a
+        # price, a die check or "read at" in a file would be a wrong answer
+        # carried to every armory it reaches. The article and the diameter
+        # are knowledge and do travel.
+        "wikipedia_read_at",
+        "factory_cpr",
+        "factory_source",
+        "factory_url",
+        "factory_checked_at",
+        "lee_dies",
+        "lee_url",
+        "lee_checked_at",
+        "projectile_cost",
+        "projectile_url",
+        "projectile_checked_at",
+        "ammoseek_query",
     }
 
     #: What the file calls a column, where the two differ.
@@ -561,6 +578,8 @@ class TestTheExporterCarriesEveryColumn:
             notes="a note",
             enabled=False,
             status=ArmoryStatus.APPROVED,
+            wikipedia_url="https://example.invalid/9x99",
+            bullet_diameter_in=0.355,
         )
         clean_db.add(row)
         clean_db.commit()

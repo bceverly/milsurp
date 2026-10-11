@@ -250,6 +250,14 @@ changed — filtered to the sites you care about and capped so it stays readable
 - **Wikipedia.** A small link beside the maker's and the model's names on a
   listing, when the armory has an article for either. Articles are proposed
   by `cli.py armory wikipedia` and accepted or rejected on the Armory page.
+- **What it costs to shoot.** "Ammunition information" on every caliber in
+  the Armory and beside a listing's caliber: the bullet's diameter and
+  weights (from the cartridge's Wikipedia article), what a round of factory
+  ammunition costs — the cheapest box at each weight, box price over rounds,
+  from AmmoSeek or, for the cartridges nobody else loads, Milsurp Munitions —
+  whether Lee Precision makes dies for it, and what a projectile costs to
+  reload with. Refreshed daily, weekly or every two weeks (an administrator's
+  choice on the Settings page, weekly by default, with a "Refresh now").
 - **FFL dealers.** The dealers who will receive a gun for you, at `/dealers`:
   name, address, website and transfer fee, each entered by hand. Every
   delivered price — on a listing and on the wishlist — uses the lowest fee on
@@ -3734,6 +3742,7 @@ backend/cli.py armory arsenals  # read the arsenal off listings already filed
 backend/cli.py armory wikipedia # propose Wikipedia articles for makers and models (--limit, --only)
 backend/cli.py armory makers    # read makers' sites for pending variants and MSRPs (--maker)
 backend/cli.py armory new-prices  # ask gun.deals what due variants cost new (--limit)
+backend/cli.py armory ammunition  # refresh the caliber data now (--articles-only)
 backend/cli.py fetch-photos     # drain the photo queue without re-scraping
 backend/cli.py running-scans    # list in-flight scans; exit 1 if any
 backend/cli.py infer            # fill blank caliber/country/maker from other vendors

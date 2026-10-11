@@ -4652,10 +4652,35 @@ already found (by part number, else UPC) and leaves the approval alone.
   armory model its name carries most specifically, with a model number only
   counted beside the word before it: "Model 10" is not the 10 in "10mm" on a
   Model 610.
-* **Not built, and why.** Taurus answers its Store API and sitemap with 403:
-  a bot control, so it is not read. Springfield's robots.txt asks for a
-  300-second crawl delay, which makes a catalog a day's work. Glock publishes
-  no MSRP. Sig Sauer, Kimber and Walther are left for later.
+* **Kimber** (2026-10-11): `sitemap.xml` lists every product page at the top
+  level of the site, so the catalog is one request; the reader then asks only
+  for the pages whose address names the model, and gives each product to the
+  model named earliest in it ("micro-9-stainless-raptor" is a Micro 9). A
+  product page states MSRP, caliber, barrel, slide finish, product number and
+  usually UPC; the configurable family pages ($0.00, no product number) are
+  passed over. The armory had **no Kimber models at all** -- 49 of 54 Kimber
+  listings for sale matched nothing -- so the shipped armory now carries 17,
+  flagged as modern production: Custom II, Stainless II, Pro Carry II, Ultra
+  Carry II, Stainless Target II, CDP II, Micro 9, R7 Mako, K6s, EVO SP, 2K11,
+  Aegis Elite, Hero Custom, KHX, Raptor II, Desert Warrior, and the existing
+  KDS9C given its maker.
+* **Walther** (2026-10-11): each line's page, and the sub-line pages under it
+  that the site's navigation names (the PDP's Pro, F-Series, Two-Tone, Steel
+  Frame, Match ...), is a grid of product tiles with the name, MSRP, item
+  number and caliber -- one request a page; the UPC is only on the product
+  page and is not asked for. The shipped armory adds the PDP, PPQ, CCP, Creed,
+  Q4 and Q5 Match as modern production, gives the existing P22 its maker, and
+  teaches the PPK "PPK/S" and "PPKS". The PPQ, Creed, Q4 and Q5 are no longer
+  on Walther's site, so the reader finds nothing for them.
+* **Both read against their terms of use**, which forbid automated
+  collection (Kimber: no "page scrape, robot, spider"; Walther: no "data
+  mining, harvesting or similar collection"). Decided 2026-10-11 to read them
+  anyway, by hand and lightly, for the MSRP and specifications only.
+* **Not built, and why.** Taurus answers its Store API and sitemap with 403,
+  and **Sig Sauer answers its home page with a Cloudflare challenge** (403,
+  `cf-mitigated: challenge`, 2026-10-11): bot controls, so neither is read.
+  Springfield's robots.txt asks for a 300-second crawl delay, which makes a
+  catalog a day's work. Glock publishes no MSRP.
 * **Not found by the readers**, so worth a "Maker's page" on the model (or
   variants typed in): the Ruger EC9s, the LCP .380 and the S&W Model 64.
 
@@ -4687,8 +4712,17 @@ facts are kept (the lowest in-stock price, the count of stores, the link to
 the page they came from); none of gun.deals' own content is copied. Their
 terms of use, read 2026-10-11, claim copyright in the site's contents and say
 nothing of automated reading. Recorded pages in
-`backend/tests/fixtures/gundeals/`. Not yet a Hot deals signal: that wants a
-few weeks of prices to see how often "under new" is real.
+`backend/tests/fixtures/gundeals/`.
+
+**And a Hot deals signal** (2026-10-11, migration 0066): a listing linked to
+one variant whose new price is known is a hot deal when it is at least
+`min_under_new_percent` under new -- 25% by default, set on the Hot deals
+page beside the other thresholds -- and no more than the same ceiling, for
+the same reason (past it, the listing is not the gun it was matched to).
+A deal found only that way has no peer figures and says "27% under the price
+new"; one found both ways keeps "38% below the usual price" and shows the new
+price beside it. One headline, `hotdeals.headline`, words both the page and
+the email.
 
 
 * The current price of each variant new, from gun.deals: its search returns
@@ -4876,6 +4910,169 @@ have no such field at all.
   person. Proposed rather than written, like everything else the armory takes
   in: a model named "Model 1910" has three articles to choose between.
 * Variants have no article of their own and do not get one.
+
+### Ammunition: what it costs to shoot it — **Shipped** 2026-10-11 (all five slices)
+
+**What shipped**: migration 0067 (`calibers` gains the article, the diameter,
+factory and projectile costs with their sources and dates, Lee dies and
+AmmoSeek's query; `caliber_bullet_weights`, one caliber to many weights;
+`ammo_settings`), `services/ammunition.py`, `api/ammunition.py`, calibers in
+the Wikipedia suggestions (`services/wikipedia.py`, a cartridge category
+required, "7.62×54mmR" naming "7.62x54R"), the **Ammunition information**
+panel on every caliber row of the Armory and beside a listing's caliber, a
+**Caliber data** panel on the Settings page for administrators, and `cli.py
+armory ammunition [--articles-only]`. Recorded pages in
+`backend/tests/fixtures/ammo/`. As built, against what is planned below:
+
+* "Same grain weight" is within 3% of one of the caliber's weights: AmmoSeek's
+  148 gr is 150 gr, its 180 gr is not 174 gr. A caliber with no weights yet
+  is measured at the weight offered most often, so one junk listing -- three
+  "46 grain" 7.62x54R crates on the recorded page -- is never the answer.
+* AmmoSeek is asked with the first 100 offers of each caliber, which it sorts
+  cheapest per round first; a caliber's query is found once from its page and
+  kept. Three requests per caliber for sale per refresh (the page the first
+  time, factory ammunition, projectiles), five seconds apart; Lee's catalog
+  is five pages; Milsurp Munitions' whole catalog is one.
+* An AmmoSeek failure for one caliber falls through to Milsurp Munitions; a
+  robots.txt refusal stops the refresh.
+* The Wikipedia facts are read hourly for any caliber linked or edited since
+  they were last read, and proposals for calibers without an article are
+  made at each full refresh.
+
+Asked for on 2026-10-11: "understanding what it costs to shoot a gun is
+probably more important to the economics than the purchase price in most
+cases." For each caliber in the armory: its bullet diameter and the bullet
+weights it is loaded with, what a round of factory ammunition costs, whether
+Lee makes reloading dies for it, and what a reloader pays per projectile --
+shown behind an **Ammunition information** button on the caliber's row in the
+Armory and on every listing's page.
+
+**Measured on 2026-10-11, before any of it was written:**
+
+* **AmmoSeek: readable, but its terms forbid it.** The pages answer 200 with
+  no Cloudflare challenge, robots.txt turns away only the outbound links, the
+  report links and the news (and GPTBot entirely), and every caliber page
+  fills its table from one POST to `/` (`search_ammo=1` plus the page's own
+  query string -- `gun=rifle&cal=277` for 7.62x54R) returning retailer, brand,
+  grains, casing, condition, price, rounds and cost per round. But the terms of
+  service (`/tos/`) say: "You may not scrape or collect information from
+  AmmoSeek.com in an automated fashion without prior consent of the owners of
+  AmmoSeek, LLC." The data call was not made while measuring. **Decided
+  2026-10-11 to read it anyway**: what is wanted is a rough cost of shooting a
+  caliber, not AmmoSeek's listings, so it is read gently and kept small -- one
+  request per caliber a day, only for calibers with a listing for sale, only
+  the derived cost per round kept, always with a link back to AmmoSeek's page
+  for the caliber -- and a block, a challenge or a robots.txt change stops it
+  rather than being worked around. Asking AmmoSeek's consent is still worth
+  doing and would remove the question.
+* **Milsurp Munitions: open.** WooCommerce; the Store API answers
+  (`/wp-json/wc/store/v1/products`), robots.txt turns away only the cart and
+  admin, the site links no terms page, and each product names its bullet
+  weight -- "8x50R Mannlicher (205gr SP)", $59.95. The rounds in a box is in
+  the title or the description and has to be read, not assumed.
+* **Lee Precision: open.** nopCommerce; robots.txt turns away the cart,
+  account and autocomplete paths, none of which is needed, and the conditions
+  of use say nothing of automated reading.
+
+#### Slice 1 — Bullet diameter and bullet weights, from Wikipedia
+
+* `Caliber.wikipedia_url`, proposed and accepted exactly as makers' and
+  models' are (`services/wikipedia.py`, the suggestions panel), with a
+  cartridge category required.
+* From an accepted article's cartridge infobox: **bullet diameter** (inches
+  and millimeters, as the infobox gives both) onto the caliber, and each
+  **bullet weight** in its ballistic-performance table into a new
+  `caliber_bullet_weights` table -- one caliber, many weights (7.62x54R: 147,
+  150, 174, 181, 185, 203 gr ...). Read through the MediaWiki API's parsed
+  wikitext, not by scraping the article's HTML.
+* Proposed, like everything the armory takes in: a diameter or a weight list
+  waits for approval on the caliber, and an armory editor can type them where
+  Wikipedia has no infobox. Exported and synced with the shipped armory.
+* **Read once, not on a schedule** (asked for 2026-10-11): when a caliber is
+  added to the armory, or edited, and once for every caliber when this ships.
+  A cartridge's diameter does not change.
+
+#### Slice 2 — Reloading dies, from Lee Precision
+
+* Per caliber: whether Lee sells a die set for it, and the product page's
+  link. Read from Lee's own catalog (the die-set category and its product
+  pages), matched by the caliber's name and aliases; a match is proposed, and a
+  caliber Lee does not list is recorded as "none found" with the date, so a
+  wildcat is not asked about every week.
+* Refreshed on the same schedule as the ammunition prices below, and by the
+  same "Refresh now".
+
+#### Slice 3 — Factory ammunition cost per round
+
+* **For each of the caliber's bullet weights, the lowest-priced in-stock box**;
+  the caliber's cost per round is the **average of those lowest prices per
+  round** across its weights, with each weight's own low kept beside it, so a
+  reader sees 147 gr at 38¢ and 203 gr at 61¢ rather than only 49¢. Box price
+  divided by rounds in the box: no shipping, no hazmat, no tax.
+* From AmmoSeek. **Where AmmoSeek lists nothing for a caliber, Milsurp
+  Munitions**, which loads obsolete military cartridges (8x50R, 6.5 Carcano,
+  7.5 Swiss ...): the cheapest in-stock product for the caliber, by the same
+  rule.
+* Stored on the caliber with its source, link and date, only for calibers with
+  a listing for sale.
+* **Refreshed automatically, on a schedule an administrator sets** (asked for
+  2026-10-11): a "Caliber data" section on the Settings page with a refresh
+  frequency of **daily, weekly or every 2 weeks, weekly by default** -- ammunition
+  prices do not move fast -- and a **Refresh now** button that starts a full
+  refresh of every caliber at once. The schedule covers AmmoSeek, Milsurp
+  Munitions, Lee and the projectile prices; Wikipedia is not on it (slice 1).
+
+#### Slice 4 — The Ammunition information button
+
+* On the Armory page, a button on each caliber's row; on a listing's page, a
+  button beside the caliber in the facts. Both open the same panel: bullet
+  diameter, the bullet weights, factory cost per round (and per weight), Lee
+  dies with a link, and the projectile cost from slice 5 -- each with its
+  source and date, and "not known" rather than a blank where there is none.
+
+#### Slice 5 — Reloading projectiles cost per round
+
+* From AmmoSeek's reloading bullets section, by **bullet diameter** (from
+  slice 1) and weight: the average price per projectile of the cheapest
+  in-stock offers, under the same gentle rules as slice 3.
+
+### Reloading recipes per caliber, from Hodgdon — **Planned**, waits on Hodgdon's written consent
+
+Asked for on 2026-10-11, to follow the ammunition work above: for each caliber,
+Hodgdon's published loads -- **bullet weight, powder, starting (low) charge and
+maximum (high) charge** -- as rows under the caliber, one per bullet weight and
+powder: a .308 Winchester with six powders listed for 150 gr and seven for
+180 gr is thirteen rows. Read once, when a caliber is added or edited, like
+its Wikipedia facts. Most valuable exactly where factory ammunition is
+expensive or not made at all, which is much of this catalog.
+
+**Measured 2026-10-11: readable, and explicitly refused.** The Reloading Data
+Center (`hodgdonreloading.com/rldc/`) answers 200 behind Cloudflare with no
+challenge; robots.txt allows everything but `/wp-admin/` and asks for **10
+seconds between requests**; and the loads come as JSON from one endpoint
+(`wp-content/plugins/rldc/retrieve_data.php`, actions `get_filters` and
+`get_loads`, the selected cartridge, bullet weights and powders POSTed as
+JSON in a session). But every page's footer says: "All Reloading Data Center
+information is proprietary to Hodgdon Powder Co. Use of this data is strictly
+limited to personal, non-commercial purposes. Any automated scraping,
+redistribution, or incorporation into third-party platforms, software, or
+apps without written consent is prohibited and may result in legal action."
+
+Two things set it apart from the AmmoSeek decision. What would be stored is
+Hodgdon's published data itself, not a figure derived from it -- the
+"redistribution" the notice names. And **load data is safety data**: a charge
+weight misread by a parser and shown as Hodgdon's is an overpressure waiting
+to happen, with Hodgdon's name on it. So this **waits on Hodgdon's written
+consent**, and when it comes:
+
+* `caliber_loads`: caliber, bullet weight (gr), bullet description, powder,
+  start charge, maximum charge (gr), velocities and pressure where given, and
+  Hodgdon's own page for the cartridge. One caliber, many rows.
+* Shown in the Ammunition information panel with Hodgdon's warning text, a
+  link to their page for the cartridge, and "always confirm against the
+  current published data" -- never as the last word.
+* Matched to armory calibers through their names and aliases; a cartridge
+  Hodgdon does not list is "none published", dated.
 
 ### The user agent is a Windows Chrome — **Changed** 2026-10-11
 

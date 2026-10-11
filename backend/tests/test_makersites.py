@@ -1,7 +1,9 @@
 """Reading a maker's site for a model's variants (app.services.makersites).
 
 Slice 3 of "New-gun prices" in ROADMAP.md. Ruger's pages are recorded: the
-LCP's model cards and one spec sheet.
+LCP's model cards and one spec sheet. Kimber's and Walther's were recorded on
+2026-10-11: Kimber's sitemap and three product pages, Walther's home page (its
+navigation) and two line pages.
 """
 
 from __future__ import annotations
@@ -133,3 +135,138 @@ class TestTheSmithWessonReader:
         assert makersites._carries(["model", "10", "classic"], ["model", "10"])
         assert not makersites._carries(["model", "610", "10", "mm"], ["model", "10"])
         assert makersites._carries(["m", "p", "9", "shield", "plus"], ["m", "p", "shield"])
+
+
+def _modern(session, maker_name, *names):
+    maker = Manufacturer(name=maker_name, status=ArmoryStatus.APPROVED)
+    rows = []
+    for name, aliases in names:
+        row = FirearmModel(
+            name=name, aliases=aliases, status=ArmoryStatus.APPROVED, modern_production=True
+        )
+        row.manufacturers = [maker]
+        rows.append(row)
+    session.add_all([maker, *rows])
+    session.commit()
+    return rows
+
+
+KIMBER = "https://www.kimberamerica.com/"
+KIMBER_PAGES = {
+    KIMBER + "sitemap.xml": "kimber-sitemap.xml.gz",
+    KIMBER + "micro9-stainless-rosewood-lg": "kimber-micro9-stainless-rosewood-lg.html.gz",
+    KIMBER + "k6s-dasa-2": "kimber-k6s-dasa-2.html.gz",
+    KIMBER + "custom-ii-walnut": "kimber-custom-ii-walnut.html.gz",
+}
+
+
+class RecordedSite:
+    """Serves the recorded pages it is given, and refuses everything else."""
+
+    def __init__(self, pages):
+        self.pages = pages
+        self.asked = []
+
+    def get_text(self, url, **_kwargs):
+        self.asked.append(url)
+        if url in self.pages:
+            return page(self.pages[url])
+        raise ScrapeError(f"GET {url}: not recorded")
+
+    def keep_at_least(self, *_args):
+        pass
+
+
+class TestTheKimberReader:
+    def test_a_product_page_is_one_variant(self):
+        found = makersites.kimber_product(page("kimber-micro9-stainless-rosewood-lg.html.gz"), "u")
+        assert (found.maker_part, found.upc, found.msrp) == ("3700482", "669278374826", 939.0)
+        assert (found.barrel_inches, found.finish, found.caliber) == (3.15, "Stainless", "9 mm")
+        assert found.label == "Kimber Micro 9 Stainless (Rosewood LG) 9 mm (3700482)"
+
+    def test_a_revolver_and_a_page_with_no_upc(self):
+        found = makersites.kimber_product(page("kimber-k6s-dasa-2.html.gz"), "u")
+        assert (found.maker_part, found.upc, found.msrp) == ("3400021CA", None, 1117.0)
+        assert (found.barrel_inches, found.finish) == (2.0, "Stainless")
+
+    def test_a_family_page_with_no_product_number_is_not_a_variant(self):
+        assert makersites.kimber_product(page("kimber-custom-ii-walnut.html.gz"), "u") is None
+
+    def test_only_pages_naming_the_model_are_asked_for(self, clean_db):
+        micro9, custom, k6s = _modern(
+            clean_db,
+            "Kimber",
+            ("Kimber Micro 9", "Micro 9\nMicro9"),
+            ("Kimber Custom II", "Custom II"),
+            ("Kimber K6s", "K6s"),
+        )
+        site = RecordedSite(KIMBER_PAGES)
+        reader = makersites.KimberReader()
+        found = reader.read(site, micro9, [micro9, custom, k6s])
+        assert "3700482" in {f.maker_part for f in found}
+        asked = [u.removeprefix(KIMBER) for u in site.asked]
+        assert asked[0] == "sitemap.xml"
+        assert all(u.startswith(("micro-9", "micro9")) for u in asked[1:])
+        assert "micro-9-stainless-raptor" in asked
+        # One sitemap for every model the reader is asked about.
+        reader.read(site, k6s, [micro9, custom, k6s])
+        assert site.asked.count(KIMBER + "sitemap.xml") == 1
+
+    def test_the_model_named_first_owns_a_product(self):
+        def owner(slug, models):
+            found = makersites._earliest_owner(
+                makersites._tokens(slug.replace("-", " ")), models, frozenset({"kimber"})
+            )
+            return found.name if found else None
+
+        class Row:
+            def __init__(self, name, *spellings):
+                self.name = name
+                self.spellings = [name, *spellings]
+
+        rows = [
+            Row("Kimber Micro 9", "Micro 9", "Micro9"),
+            Row("Kimber Raptor II", "Raptor II", "Stainless Raptor"),
+            Row("Kimber Stainless II", "Stainless II"),
+            Row("Kimber Stainless Target II", "Stainless Target II"),
+        ]
+        assert owner("micro-9-stainless-raptor", rows) == "Kimber Micro 9"
+        assert owner("stainless-target-ii", rows) == "Kimber Stainless Target II"
+        assert owner("stainless-ii-texas-edition", rows) == "Kimber Stainless II"
+        assert owner("micro9-khx", rows) == "Kimber Micro 9"
+        assert owner("custom-crimson-carry-ii", rows) is None
+
+
+WALTHER = "https://waltherarms.com/"
+
+
+class TestTheWaltherReader:
+    def test_a_line_page_is_a_grid_of_variants(self):
+        found = makersites.walther_tiles(page("walther-ppk-s.html.gz"), WALTHER + "legacy/ppk-s")
+        first = found[0]
+        assert (first.maker_part, first.msrp, first.barrel_inches, first.finish) == (
+            "4796004",
+            969.0,
+            3.3,
+            "Stainless",
+        )
+        assert first.label == 'Walther PPK/S 3.3" Stainless 7RD .380 ACP (4796004)'
+        assert first.url == WALTHER + "legacy/ppk-s/ppk-s-3-3-in-stainless-7rd-380-acp"
+
+    def test_the_line_and_its_sub_lines_come_from_the_navigation(self, clean_db):
+        [pdp] = _modern(clean_db, "Walther", ("Walther PDP", "PDP"))
+        site = RecordedSite(
+            {
+                WALTHER: "walther-home.html.gz",
+                WALTHER + "defense/pdp/standard": "walther-pdp-standard.html.gz",
+            }
+        )
+        reader = makersites.WaltherReader()
+        pages = reader.line_pages(site, pdp)
+        assert WALTHER + "defense/pdp" in pages
+        assert WALTHER + "defense/pdp/pro/pro-x" in pages
+        assert not any("feature" in p for p in pages)
+        # A sub-line that cannot be read is passed over; the rest still count.
+        found = makersites.WaltherReader().read(site, pdp, [pdp])
+        assert len(found) == len({f.maker_part for f in found}) > 5
+        assert {f.msrp for f in found} >= {699.0, 799.0}

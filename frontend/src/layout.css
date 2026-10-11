@@ -3826,3 +3826,35 @@
   color: var(--green-600);
   font-weight: 600;
 }
+
+/* Ammunition information: what it costs to shoot a caliber. */
+.ammo__facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 8px 16px;
+  margin: 0 0 16px;
+  font-size: 14px;
+}
+.ammo__facts dt {
+  font-weight: 600;
+}
+.ammo__facts dd {
+  margin: 0;
+}
+.ammo__weights {
+  font-size: 13.5px;
+}
+@media (max-width: 600px) {
+  .ammo__facts {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+  .ammo__facts dd {
+    margin-bottom: 8px;
+  }
+}
+.ammo-link {
+  display: block;
+  margin-top: 2px;
+  font-size: 12.5px;
+}

@@ -682,3 +682,71 @@ class TestTheOrderCanBeChosen:
         assert set(hotdeals.SORT_SEQUENCE) == set(hotdeals.SORTS)
         assert set(hotdeals.SORT_LABELS) == set(hotdeals.SORTS)
         assert hotdeals.DEFAULT_SORT in hotdeals.SORTS
+
+
+class TestUnderNew:
+    """The second signal, asked for 2026-10-11: a listing linked to one variant
+    whose new price is known, far enough under it."""
+
+    def variant(self, session, model, new_price):
+        from app.models import ArmoryStatus, ModelVariant
+
+        made = ModelVariant(
+            model_id=model.id,
+            label="K31 new",
+            status=ArmoryStatus.APPROVED,
+            new_price=new_price,
+        )
+        session.add(made)
+        session.flush()
+        return made
+
+    def test_a_lone_listing_well_under_new_is_a_deal_with_no_median(self, clean_db, shop):
+        model, a, _b = shop
+        item = listing(clean_db, a, model, 600.0)
+        item.variant_id = self.variant(clean_db, model, 800.0).id
+        clean_db.commit()
+        hotdeals.refresh(clean_db)
+        [deal] = hotdeals.deals(clean_db)
+        assert (deal.item_id, deal.new_price, deal.under_new_percent) == (item.id, 800.0, 25.0)
+        assert deal.median_price is None and deal.peer_count is None
+        assert hotdeals.headline(deal) == "25% under the price new"
+
+    def test_not_far_enough_under_new_or_too_far_is_not(self, clean_db, shop):
+        model, a, _b = shop
+        variant = self.variant(clean_db, model, 800.0)
+        for price in (700.0, 200.0):  # 12.5% under; 75% under, past the ceiling
+            listing(clean_db, a, model, price).variant_id = variant.id
+        clean_db.commit()
+        hotdeals.refresh(clean_db)
+        assert hotdeals.deals(clean_db) == []
+
+    def test_a_vague_listing_with_no_variant_is_not_asked(self, clean_db, shop):
+        model, a, _b = shop
+        self.variant(clean_db, model, 800.0)
+        listing(clean_db, a, model, 500.0)
+        clean_db.commit()
+        hotdeals.refresh(clean_db)
+        assert hotdeals.deals(clean_db) == []
+
+    def test_a_peer_deal_keeps_its_headline_and_gains_the_new_price(self, clean_db, shop):
+        made = shelf(clean_db, shop, [500.0], [1000.0, 1000.0, 1050.0, 1100.0])
+        made[0].variant_id = self.variant(clean_db, shop[0], 1250.0).id
+        clean_db.commit()
+        hotdeals.refresh(clean_db)
+        [deal] = hotdeals.deals(clean_db)
+        assert hotdeals.headline(deal) == "50% below the usual price"
+        assert (deal.new_price, deal.under_new_percent) == (1250.0, 60.0)
+
+    def test_the_threshold_is_a_setting(self, clean_db, shop, client, admin_headers):
+        model, a, _b = shop
+        listing(clean_db, a, model, 700.0).variant_id = self.variant(clean_db, model, 800.0).id
+        clean_db.commit()
+        response = client.patch(
+            "/api/hot-deals/settings", json={"min_under_new_percent": 10}, headers=admin_headers
+        )
+        assert response.status_code == 200, response.text
+        hotdeals.refresh(clean_db)
+        [deal] = client.get("/api/hot-deals", headers=admin_headers).json()["deals"]
+        assert deal["headline"] == "12% under the price new"
+        assert deal["median_price"] is None

@@ -233,6 +233,10 @@ def clean_db(_database):
         for table in (
             # Points at makers and models by id, with no foreign key to clear it.
             "reference_proposals",
+            # One policy row, like hot_deal_settings; and the weights go before
+            # their calibers.
+            "ammo_settings",
+            "caliber_bullet_weights",
             "vendor_emails",
             "inbox_settings",
             "hot_deal_notices",

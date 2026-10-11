@@ -50,18 +50,31 @@ function DealRow({ deal }) {
           loading="lazy"
         />
         <span className="deal__text">
-          <span className="deal__headline">
-            {Math.round(deal.discount_percent)}% below the usual price
-          </span>
+          {/* Worded by the server, so the page and the email say the same
+              thing: below the usual price, or under the price new for a
+              deal found only against new. */}
+          <span className="deal__headline">{deal.headline}</span>
           <span className="deal__title">{item.title}</span>
           <span className="deal__meta">
             <span>{item.site_name}</span>
-            <span>
-              Usually {formatMoney(deal.median_price, item.currency)} &middot;{" "}
-              {deal.peer_count} listed across {deal.vendor_count} shop
-              {deal.vendor_count === 1 ? "" : "s"}
-            </span>
-            <span>Cheaper than {deal.cheaper_than}% of them</span>
+            {deal.median_price != null && (
+              <>
+                <span>
+                  Usually {formatMoney(deal.median_price, item.currency)} &middot;{" "}
+                  {deal.peer_count} listed across {deal.vendor_count} shop
+                  {deal.vendor_count === 1 ? "" : "s"}
+                </span>
+                <span>Cheaper than {deal.cheaper_than}% of them</span>
+              </>
+            )}
+            {deal.new_price != null && (
+              <span data-testid="deal-new">
+                New from {formatMoney(deal.new_price, item.currency)}
+                {deal.median_price != null && deal.under_new_percent != null && (
+                  <> &middot; {Math.round(deal.under_new_percent)}% under</>
+                )}
+              </span>
+            )}
             {/* Dealers buy surplus by the crate and list it a rifle at a
                 time. Nine identical rows is not nine things to tell somebody,
                 so they collapse — and the row says how many it stands for
@@ -194,6 +207,15 @@ function Controls({ settings, choices, onChange, onRefresh, busy }) {
       suffix: " shops",
       min: 1,
       max: 5,
+    },
+    {
+      // The second signal: a listing linked to one variant whose new price
+      // is known, far enough under it. The ceiling above applies to it too.
+      key: "min_under_new_percent",
+      label: "Or be at least",
+      suffix: "% under the price new (same ceiling)",
+      min: 5,
+      max: 60,
     },
     {
       // Covers watchlist target alerts as well as these emails: one answer to

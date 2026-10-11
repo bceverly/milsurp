@@ -419,6 +419,14 @@ export const api = {
     request(`/api/armory/variants/${id}`, { method: "PATCH", body: payload }),
   deleteVariant: (id) => request(`/api/armory/variants/${id}`, { method: "DELETE" }),
 
+  // --- what it costs to shoot a caliber, and how often that is refreshed ---
+  ammunition: (caliber) =>
+    request(`/api/ammunition?caliber=${encodeURIComponent(caliber)}`),
+  ammoSettings: () => request("/api/ammunition/settings"),
+  updateAmmoSettings: (payload) =>
+    request("/api/ammunition/settings", { method: "PATCH", body: payload }),
+  refreshAmmo: () => request("/api/ammunition/refresh", { method: "POST" }),
+
   // --- Wikipedia articles proposed for armory rows, decided on the Armory page ---
   referenceProposals: () => request("/api/armory/references"),
   acceptReferences: (ids) =>

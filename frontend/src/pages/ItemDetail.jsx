@@ -20,6 +20,7 @@ function kindLabel(kind) {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 import Modal from "../components/Modal.jsx";
+import AmmunitionButton from "../components/AmmunitionInfo.jsx";
 import {
   Box,
   Cart,
@@ -1416,6 +1417,14 @@ export default function ItemDetail() {
             </Fact>
             <Fact label="Caliber" always source={sources.caliber}>
               {item.caliber}
+              {/* What it costs to shoot, beside what it costs to buy: asked
+                  for on 2026-10-11. */}
+              {item.caliber && (
+                <AmmunitionButton
+                  caliber={item.caliber}
+                  className="link-button ammo-link"
+                />
+              )}
             </Fact>
             <Fact label="Barrel">
               {item.barrel_inches != null ? `${item.barrel_inches}"` : null}

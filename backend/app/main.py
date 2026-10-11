@@ -25,6 +25,7 @@ from sqlalchemy.exc import OperationalError
 from . import __version__
 from .api import (
     access,
+    ammunition,
     armory,
     auth,
     backups,
@@ -476,6 +477,7 @@ def create_app() -> FastAPI:
     api.include_router(inbox_api.router)
     api.include_router(push_api.router)
     api.include_router(references.router)
+    api.include_router(ammunition.router)
     api.include_router(variants.router)
     api.include_router(armory.router)
     api.include_router(scans.router)

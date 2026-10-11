@@ -6800,12 +6800,223 @@ models:
 - name: KC9
   status: pending
 - name: KDS9C
+  aliases:
+  - KDS9
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Kimber
+  modern_production: true
   status: approved
 - name: KG-99
   kind: pistol
   country: Germany
   calibers:
   - 9mm Luger
+  status: approved
+- name: Kimber 2K11
+  aliases:
+  - 2K11
+  kind: pistol
+  country: United States
+  calibers:
+  - .45 ACP
+  - 9mm Luger
+  manufacturers:
+  - Kimber
+  modern_production: true
+  status: approved
+- name: Kimber Aegis Elite
+  aliases:
+  - Aegis Elite
+  - Ultra Aegis
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  - .45 ACP
+  manufacturers:
+  - Kimber
+  modern_production: true
+  status: approved
+- name: Kimber CDP II
+  aliases:
+  - CDP II
+  - Ultra CDP
+  - Pro CDP
+  - Custom CDP
+  - Compact CDP
+  kind: pistol
+  country: United States
+  calibers:
+  - .45 ACP
+  - 9mm Luger
+  manufacturers:
+  - Kimber
+  modern_production: true
+  status: approved
+- name: Kimber Custom II
+  aliases:
+  - Custom II
+  kind: pistol
+  country: United States
+  calibers:
+  - .45 ACP
+  - 9mm Luger
+  - 10mm Auto
+  manufacturers:
+  - Kimber
+  modern_production: true
+  status: approved
+- name: Kimber Desert Warrior
+  aliases:
+  - Desert Warrior
+  kind: pistol
+  country: United States
+  calibers:
+  - .45 ACP
+  - 10mm Auto
+  manufacturers:
+  - Kimber
+  modern_production: true
+  status: approved
+- name: Kimber EVO SP
+  aliases:
+  - EVO SP
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Kimber
+  modern_production: true
+  status: approved
+- name: Kimber Hero Custom
+  aliases:
+  - Hero Custom
+  kind: pistol
+  country: United States
+  calibers:
+  - .45 ACP
+  - 9mm Luger
+  manufacturers:
+  - Kimber
+  modern_production: true
+  status: approved
+- name: Kimber K6s
+  aliases:
+  - K6s
+  - K6xs
+  kind: revolver
+  country: United States
+  calibers:
+  - .357 Magnum
+  - .38 Special
+  manufacturers:
+  - Kimber
+  modern_production: true
+  status: approved
+- name: Kimber KHX
+  aliases:
+  - KHX
+  kind: pistol
+  country: United States
+  calibers:
+  - .45 ACP
+  - 9mm Luger
+  manufacturers:
+  - Kimber
+  modern_production: true
+  status: approved
+- name: Kimber Micro 9
+  aliases:
+  - Micro 9
+  - Micro9
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Kimber
+  modern_production: true
+  status: approved
+- name: Kimber Pro Carry II
+  aliases:
+  - Pro Carry II
+  kind: pistol
+  country: United States
+  calibers:
+  - .45 ACP
+  - 9mm Luger
+  manufacturers:
+  - Kimber
+  modern_production: true
+  status: approved
+- name: Kimber R7 Mako
+  aliases:
+  - R7 Mako
+  - R7
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Kimber
+  modern_production: true
+  status: approved
+- name: Kimber Raptor II
+  aliases:
+  - Raptor II
+  - Stainless Raptor
+  kind: pistol
+  country: United States
+  calibers:
+  - .45 ACP
+  - 9mm Luger
+  manufacturers:
+  - Kimber
+  modern_production: true
+  status: approved
+- name: Kimber Stainless II
+  aliases:
+  - Stainless II
+  kind: pistol
+  country: United States
+  calibers:
+  - .45 ACP
+  - 9mm Luger
+  - 10mm Auto
+  manufacturers:
+  - Kimber
+  modern_production: true
+  status: approved
+- name: Kimber Stainless Target II
+  aliases:
+  - Stainless Target II
+  - STS Target II
+  kind: pistol
+  country: United States
+  calibers:
+  - .45 ACP
+  - 9mm Luger
+  - 10mm Auto
+  manufacturers:
+  - Kimber
+  modern_production: true
+  status: approved
+- name: Kimber Ultra Carry II
+  aliases:
+  - Ultra Carry II
+  kind: pistol
+  country: United States
+  calibers:
+  - .45 ACP
+  - 9mm Luger
+  manufacturers:
+  - Kimber
+  modern_production: true
   status: approved
 - name: KIT-5
   status: pending
@@ -9496,10 +9707,15 @@ models:
 - name: P211
   status: approved
 - name: P22
+  aliases:
+  - P22Q
   kind: pistol
   country: Germany
   calibers:
   - .22 LR
+  manufacturers:
+  - Walther
+  modern_production: true
   status: approved
 - name: P220R
   status: merged
@@ -13261,6 +13477,29 @@ models:
   manufacturers:
   - Walther
   status: approved
+- name: Walther CCP
+  aliases:
+  - CCP
+  kind: pistol
+  country: Germany
+  calibers:
+  - 9mm Luger
+  - .380 ACP
+  manufacturers:
+  - Walther
+  modern_production: true
+  status: approved
+- name: Walther Creed
+  aliases:
+  - Creed
+  kind: pistol
+  country: Germany
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Walther
+  modern_production: true
+  status: approved
 - name: Walther GSP
   kind: pistol
   country: Germany
@@ -13378,6 +13617,20 @@ models:
   - Walther
   wikipedia: https://en.wikipedia.org/wiki/Walther_P38
   status: approved
+- name: Walther PDP
+  aliases:
+  - PDP
+  - PDP F
+  - PDP Compact
+  - PDP Pro
+  kind: pistol
+  country: Germany
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Walther
+  modern_production: true
+  status: approved
 - name: Walther PP
   aliases:
   - Walther Model PP
@@ -13395,6 +13648,9 @@ models:
 - name: Walther PPK
   aliases:
   - PPK
+  - PPK/S
+  - PPKS
+  - PPK-S
   kind: pistol
   country: Germany
   calibers:
@@ -13406,11 +13662,50 @@ models:
   wikipedia: https://en.wikipedia.org/wiki/Walther_PP
   modern_production: true
   status: approved
+- name: Walther PPQ
+  aliases:
+  - PPQ
+  - PPQ M2
+  - PPQ SC
+  kind: pistol
+  country: Germany
+  calibers:
+  - 9mm Luger
+  - .40 S&W
+  - .22 LR
+  manufacturers:
+  - Walther
+  modern_production: true
+  status: approved
 - name: Walther PPS
   kind: pistol
   country: Germany
   calibers:
   - .40 S&W
+  - 9mm Luger
+  manufacturers:
+  - Walther
+  modern_production: true
+  status: approved
+- name: Walther Q4
+  aliases:
+  - Q4 SF
+  - Q4 TAC
+  kind: pistol
+  country: Germany
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Walther
+  modern_production: true
+  status: approved
+- name: Walther Q5 Match
+  aliases:
+  - Q5 Match
+  - Q5
+  kind: pistol
+  country: Germany
+  calibers:
   - 9mm Luger
   manufacturers:
   - Walther

@@ -48,6 +48,9 @@ LIMITS = {
     "min_discount_percent": (5, 60),
     "max_discount_percent": (25, 90),
     "min_vendors": (1, 5),
+    # Under new: a used gun at 5% under new is not news, and the ceiling
+    # (max_discount_percent) bounds it from above.
+    "min_under_new_percent": (5, 60),
     # A year at most: past that a "reminder" is a new message about a listing
     # nobody remembers. 0 turns reminders off.
     "renotify_after_days": (0, 365),
@@ -111,12 +114,15 @@ def _state(
                 item=_to_out(deal.item, site_names, costs),
                 bucket=deal.bucket,
                 bucket_label=hotdeals.label(deal.bucket),
+                headline=hotdeals.headline(deal),
                 price=deal.price,
                 median_price=deal.median_price,
                 discount_percent=deal.discount_percent,
                 cheaper_than=deal.cheaper_than,
                 peer_count=deal.peer_count,
                 vendor_count=deal.vendor_count,
+                new_price=deal.new_price,
+                under_new_percent=deal.under_new_percent,
                 duplicate_count=deal.duplicate_count,
                 first_listed_at=deal.first_listed_at,
             )
@@ -241,7 +247,10 @@ def update_settings(
     # Checked after the assignments rather than against the payload, because
     # the page sends only what changed: raising the floor above a ceiling that
     # is staying put is the same mistake and arrives as one field.
-    if row.min_discount_percent >= row.max_discount_percent:
+    if (
+        row.min_discount_percent >= row.max_discount_percent
+        or row.min_under_new_percent > row.max_discount_percent
+    ):
         session.rollback()
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,

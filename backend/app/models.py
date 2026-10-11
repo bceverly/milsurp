@@ -548,10 +548,93 @@ class Caliber(Base, TimestampMixin):
 
     merged_into: Mapped["Caliber | None"] = relationship(remote_side="Caliber.id")
 
+    # -- What it costs to shoot (migration 0067; "Ammunition" in ROADMAP.md) --
+    #: The cartridge's Wikipedia article, proposed and accepted as a maker's
+    #: or a model's is (app.services.wikipedia).
+    wikipedia_url: Mapped[str | None] = mapped_column(String(500))
+    #: The bullet's diameter in inches, from the article's infobox or typed.
+    bullet_diameter_in: Mapped[float | None] = mapped_column(Float)
+    #: When the article's facts were last read. Cleared when the caliber is
+    #: edited, which is what makes it due again: read once, not on a clock.
+    wikipedia_read_at: Mapped[datetime | None] = mapped_column(DateTime)
+    #: What a round of factory ammunition costs: the average, across the
+    #: caliber's bullet weights, of each weight's cheapest in-stock box divided
+    #: by the rounds in it. No shipping, hazmat or tax.
+    factory_cpr: Mapped[float | None] = mapped_column(Float)
+    #: "ammoseek" or "milsurp-munitions", and the page the price came from.
+    factory_source: Mapped[str | None] = mapped_column(String(32))
+    factory_url: Mapped[str | None] = mapped_column(String(500))
+    factory_checked_at: Mapped[datetime | None] = mapped_column(DateTime)
+    #: Whether Lee Precision sells a die set for it: None until asked.
+    lee_dies: Mapped[bool | None] = mapped_column(Boolean)
+    lee_url: Mapped[str | None] = mapped_column(String(500))
+    lee_checked_at: Mapped[datetime | None] = mapped_column(DateTime)
+    #: What a reloader pays per projectile, averaged across the weights as
+    #: factory_cpr is, from AmmoSeek's reloading bullets by diameter.
+    projectile_cost: Mapped[float | None] = mapped_column(Float)
+    projectile_url: Mapped[str | None] = mapped_column(String(500))
+    projectile_checked_at: Mapped[datetime | None] = mapped_column(DateTime)
+    #: AmmoSeek's own query for this caliber ("gun=rifle&cal=277&seo_name=..."),
+    #: found once from its caliber page and kept.
+    ammoseek_query: Mapped[str | None] = mapped_column(String(300))
+
+    bullet_weights: Mapped[list["CaliberBulletWeight"]] = relationship(
+        back_populates="caliber",
+        cascade="all, delete-orphan",
+        order_by="CaliberBulletWeight.grains",
+    )
+
     @property
     def spellings(self) -> list[str]:
         """Every string that means this cartridge, canonical name first."""
         return _spellings(self.name, self.aliases)
+
+
+class CaliberBulletWeight(Base):
+    """One weight of bullet a cartridge is loaded with, and what it costs.
+
+    One caliber, many weights: 7.62x54R is loaded at 150, 174 and 181 grains,
+    among others. From the cartridge's Wikipedia infobox, or typed by an
+    armory editor. Each weight carries its own cheapest factory round and
+    cheapest projectile, which the caliber's figures average.
+    """
+
+    __tablename__ = "caliber_bullet_weights"
+    __table_args__ = (UniqueConstraint("caliber_id", "grains", name="uq_caliber_bullet_weight"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    caliber_id: Mapped[int] = mapped_column(
+        ForeignKey("calibers.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    grains: Mapped[float] = mapped_column(Float, nullable=False)
+    #: "wikipedia" or "manual". A refresh of the article replaces its own.
+    source: Mapped[str] = mapped_column(String(16), default="wikipedia", nullable=False)
+    factory_cpr: Mapped[float | None] = mapped_column(Float)
+    projectile_cost: Mapped[float | None] = mapped_column(Float)
+
+    caliber: Mapped[Caliber] = relationship(back_populates="bullet_weights")
+
+
+class AmmoSetting(Base):
+    """How often the caliber data is refreshed, and how the last refresh went.
+
+    One row, like the hot-deal and backup settings. Ammunition prices move
+    slowly, so the choice is daily, weekly (the default) or every two weeks;
+    "Refresh now" sets ``requested_at`` and the scheduler starts a full
+    refresh on its next tick.
+    """
+
+    __tablename__ = "ammo_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    refresh_days: Mapped[int] = mapped_column(Integer, default=7, nullable=False)
+    requested_at: Mapped[datetime | None] = mapped_column(DateTime)
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime)
+    last_status: Mapped[str | None] = mapped_column(String(16))
+    last_error: Mapped[str | None] = mapped_column(String(500))
+    #: What the last refresh did, in a sentence.
+    last_summary: Mapped[str | None] = mapped_column(String(500))
+    last_seconds: Mapped[float | None] = mapped_column(Float)
 
 
 class FirearmModel(Base, TimestampMixin):
@@ -1358,7 +1441,7 @@ class ReferenceProposal(Base, TimestampMixin):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    #: "model" or "manufacturer".
+    #: "model", "manufacturer" or "caliber".
     target_type: Mapped[str] = mapped_column(String(16), nullable=False)
     target_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
     url: Mapped[str] = mapped_column(String(500), nullable=False)
@@ -1980,6 +2063,15 @@ class HotDealSetting(Base, TimestampMixin):
     #: shop's other copies is an internal price spread rather than a deal.
     min_vendors: Mapped[int] = mapped_column(Integer, default=2, nullable=False)
 
+    #: The second signal (asked for 2026-10-11): how far under its variant's
+    #: new price a listing must be to count, as a percentage. Only a listing
+    #: linked to exactly one variant with a known new price is asked, and the
+    #: ceiling above still applies -- a part matched to a gun is not 90% under
+    #: new either.
+    min_under_new_percent: Mapped[int] = mapped_column(
+        Integer, default=25, server_default="25", nullable=False
+    )
+
     #: Days after which a price we already mailed somebody about may be mailed
     #: again as a reminder; 0 means never. Covers hot-deal emails *and*
     #: watchlist target alerts, so one setting answers "how long do we stay
@@ -2028,14 +2120,20 @@ class HotDeal(Base):
     #: live price to tell a stale row from a current one, and it is what an
     #: alert's watermark is measured against -- see :class:`HotDealNotice`.
     price: Mapped[float] = mapped_column(Float, nullable=False)
-    median_price: Mapped[float] = mapped_column(Float, nullable=False)
+    #: The peer figures. None on a deal found only against the new price, whose
+    #: group may be too small for a median (migration 0066).
+    median_price: Mapped[float | None] = mapped_column(Float)
     #: How far below the median, as a percentage. The sort key for the page:
     #: the whole point is "show me the best ones first".
-    discount_percent: Mapped[float] = mapped_column(Float, nullable=False, index=True)
+    discount_percent: Mapped[float | None] = mapped_column(Float, index=True)
     #: How many peers this undercuts, as a percentage.
-    cheaper_than: Mapped[int] = mapped_column(Integer, nullable=False)
-    peer_count: Mapped[int] = mapped_column(Integer, nullable=False)
-    vendor_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    cheaper_than: Mapped[int | None] = mapped_column(Integer)
+    peer_count: Mapped[int | None] = mapped_column(Integer)
+    vendor_count: Mapped[int | None] = mapped_column(Integer)
+    #: The listing's variant's lowest new price, and how far under it the
+    #: listing is, when it is linked to one whose new price is known.
+    new_price: Mapped[float | None] = mapped_column(Float)
+    under_new_percent: Mapped[float | None] = mapped_column(Float)
 
     #: How many identical offers this row stands for: the same gun, at the
     #: same shop, at the same price. One, for nearly all of them.

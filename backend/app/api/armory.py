@@ -156,6 +156,8 @@ def _caliber_out(row: Caliber, items: dict[str, int], models: dict[int, int]) ->
         item_count=items.get(row.name, 0),
         model_count=models.get(row.id, 0),
         enabled=row.enabled,
+        wikipedia_url=row.wikipedia_url,
+        bullet_diameter_in=row.bullet_diameter_in,
     )
 
 
@@ -324,6 +326,9 @@ def update_caliber(
     changes = _emptied(payload.model_dump(exclude_unset=True))
     if "name" in changes and changes["name"] != row.name:
         _reject_duplicate(session, Caliber, changes["name"])
+    # An edited caliber has its article read again (app.services.ammunition):
+    # the Wikipedia facts are read once, and again whenever the row changes.
+    row.wikipedia_read_at = None
     # Both sides of the edit: the spellings it used to answer to have to be
     # re-matched as well as the ones it answers to now, or a removed alias
     # leaves its listings pointing at a rule that no longer exists.

@@ -26,7 +26,7 @@ const LIMITS = [1, 3, 5, 10, 15, 20, 25, 50];
 
 export default function SettingsPage() {
   useTitle("Email digest");
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [prefs, setPrefs] = useState(null);
   const [sites, setSites] = useState([]);
   const [history, setHistory] = useState([]);
@@ -438,6 +438,8 @@ export default function SettingsPage() {
         onChange={(saved) => setPrefs(saved)}
       />
 
+      {isAdmin && <CaliberDataPanel />}
+
       <div className="panel">
         <div className="panel__head">
           <h2>Recent digests</h2>
@@ -511,6 +513,108 @@ export default function SettingsPage() {
  * to show. What somebody checking a delivery actually wants to read is the
  * words and the prices, which is exactly what the text part is.
  */
+/**
+ * The caliber data's refresh, for an administrator: how often (daily, weekly
+ * or every 2 weeks; weekly by default) and a full refresh now. Asked for on
+ * 2026-10-11. See app/services/ammunition.py.
+ */
+function CaliberDataPanel() {
+  const [state, setState] = useState(null);
+  const [message, setMessage] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api
+      .ammoSettings()
+      .then(setState)
+      .catch((err) => setMessage({ ok: false, text: err.message }));
+  }, []);
+
+  async function choose(event) {
+    setMessage(null);
+    try {
+      setState(
+        await api.updateAmmoSettings({ refresh_days: Number(event.target.value) }),
+      );
+    } catch (err) {
+      setMessage({ ok: false, text: err.message });
+    }
+  }
+
+  async function refreshNow() {
+    setBusy(true);
+    setMessage(null);
+    try {
+      setState(await api.refreshAmmo());
+      setMessage({ ok: true, text: "A full refresh starts within a minute." });
+    } catch (err) {
+      setMessage({ ok: false, text: err.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!state) {
+    return message ? <p className="alert alert--error">{message.text}</p> : null;
+  }
+  return (
+    <div className="panel" data-testid="caliber-data">
+      <div className="panel__head">
+        <h2>Caliber data</h2>
+        <button
+          type="button"
+          className="btn btn--ghost"
+          onClick={refreshNow}
+          disabled={busy || Boolean(state.requested_at)}
+        >
+          {state.requested_at ? "Refresh asked for" : "Refresh now"}
+        </button>
+      </div>
+      <div className="panel__body">
+        <p className="muted" style={{ marginTop: 0 }}>
+          What each caliber costs to shoot: factory ammunition from AmmoSeek (or Milsurp
+          Munitions where AmmoSeek has none), projectiles from AmmoSeek, and Lee Precision
+          dies, for every caliber with a listing for sale. Each caliber&rsquo;s Wikipedia
+          facts are read once, and again when it is edited.
+        </p>
+        <Field label="Refresh">
+          {(id) => (
+            <select
+              id={id}
+              className="input"
+              value={state.refresh_days}
+              onChange={choose}
+              style={{ maxWidth: 220 }}
+            >
+              {Object.entries(state.choices).map(([days, label]) => (
+                <option key={days} value={days}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          )}
+        </Field>
+        <p className="muted" data-testid="caliber-data-last">
+          {state.last_run_at ? (
+            <>
+              Last refreshed {formatRelative(state.last_run_at)}
+              {state.last_status === "failed" ? " and failed: " : ": "}
+              {state.last_error || state.last_summary}
+            </>
+          ) : (
+            "Not refreshed yet."
+          )}
+        </p>
+        {message && (
+          <p className={`alert ${message.ok ? "alert--success" : "alert--error"}`}>
+            {message.text}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /**
  * The monthly market report: an opt-in of its own, apart from the digest.
  *
