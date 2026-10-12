@@ -100,7 +100,7 @@ class RugerReader:
     def models_pages(self, ctx: ScrapeContext, model: FirearmModel) -> list[str]:
         """The product line's model pages: the model's own recorded page, or
         the lines in Ruger's navigation whose name is the model's."""
-        if _on_site(model.maker_url, "ruger.com"):
+        if model.maker_url and _on_site(model.maker_url, "ruger.com"):
             return [model.maker_url]
         soup = BeautifulSoup(ctx.get_text(self.home), "html.parser")
         wanted = {
@@ -504,7 +504,7 @@ class WaltherReader:
         return self._nav
 
     def line_pages(self, ctx: ScrapeContext, model: FirearmModel) -> list[str]:
-        if _on_site(model.maker_url, "waltherarms.com"):
+        if model.maker_url and _on_site(model.maker_url, "waltherarms.com"):
             return [model.maker_url]
         wanted = {_compact(" ".join(_tokens(s, self._MAKER_WORDS))) for s in model.spellings}
         lines = [
