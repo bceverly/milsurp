@@ -14,11 +14,11 @@ responses>=0.26.3          # stub HTTP for scraper tests
 
 # Linting and formatting
 ruff>=0.16.10
-black>=26.5.1
+black>=26.10.0
 mypy>=2.4.0
 bandit[toml]>=1.9.4      # security-focused static analysis
 types-PyYAML>=6.0.12.20260906
-types-requests>=2.33.0.20260906
+types-requests>=2.33.0.20261006
 
 # An independent implementation of RFC 8188/8291, used by the web push tests to
 # decrypt what our own encryption produced. It is the cross-check that makes
