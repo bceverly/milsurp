@@ -270,3 +270,17 @@ class TestTheWaltherReader:
         found = makersites.WaltherReader().read(site, pdp, [pdp])
         assert len(found) == len({f.maker_part for f in found}) > 5
         assert {f.msrp for f in found} >= {699.0, 799.0}
+
+
+class TestARecordedPageIsTheMakersOwn:
+    """CodeQL alerts #46 and #47 (2026-10-12): a recorded page was trusted as
+    the maker's when its address merely contained "ruger.com"."""
+
+    def test_by_host_not_by_substring(self):
+        assert makersites._on_site("https://ruger.com/products/lcp/models.html", "ruger.com")
+        assert makersites._on_site("https://www.ruger.com/x", "ruger.com")
+        assert makersites._on_site("https://WWW.Ruger.com/x", "ruger.com")
+        assert not makersites._on_site("https://elsewhere.example/?ruger.com", "ruger.com")
+        assert not makersites._on_site("https://ruger.com.example.net/x", "ruger.com")
+        assert not makersites._on_site("https://notruger.com/x", "ruger.com")
+        assert not makersites._on_site(None, "waltherarms.com")

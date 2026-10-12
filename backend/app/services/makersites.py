@@ -39,7 +39,7 @@ import re
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 
 from bs4 import BeautifulSoup, Tag
 from sqlalchemy import select
@@ -77,6 +77,16 @@ def _digits(text: str | None) -> str | None:
     return digits if 8 <= len(digits) <= 14 else None
 
 
+def _on_site(url: str | None, domain: str) -> bool:
+    """Whether *url* is on *domain* or one of its subdomains, by its host.
+
+    Not ``domain in url``, which "https://elsewhere.example/?ruger.com" passes
+    -- the substring check CodeQL flagged (alerts #46 and #47, 2026-10-12).
+    """
+    host = (urlsplit(url or "").hostname or "").lower()
+    return host == domain or host.endswith(f".{domain}")
+
+
 def _compact(text: str) -> str:
     return re.sub(r"[^a-z0-9]", "", text.lower())
 
@@ -90,7 +100,7 @@ class RugerReader:
     def models_pages(self, ctx: ScrapeContext, model: FirearmModel) -> list[str]:
         """The product line's model pages: the model's own recorded page, or
         the lines in Ruger's navigation whose name is the model's."""
-        if model.maker_url and "ruger.com" in model.maker_url:
+        if _on_site(model.maker_url, "ruger.com"):
             return [model.maker_url]
         soup = BeautifulSoup(ctx.get_text(self.home), "html.parser")
         wanted = {
@@ -494,7 +504,7 @@ class WaltherReader:
         return self._nav
 
     def line_pages(self, ctx: ScrapeContext, model: FirearmModel) -> list[str]:
-        if model.maker_url and "waltherarms.com" in model.maker_url:
+        if _on_site(model.maker_url, "waltherarms.com"):
             return [model.maker_url]
         wanted = {_compact(" ".join(_tokens(s, self._MAKER_WORDS))) for s in model.spellings}
         lines = [

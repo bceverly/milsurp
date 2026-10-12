@@ -160,7 +160,13 @@ printf '\n'
 if [ -n "$(ls -A "$MILSURP_E2E_NYC_DIR" 2>/dev/null)" ]; then
   info "Reporting coverage…"
   (cd frontend && npx --no-install nyc --temp-dir "$MILSURP_E2E_NYC_DIR" report) || STATUS=1
-  "$VENV_PY" scripts/coverage_badges.py --frontend-only --quiet || true
+  # The README badge only from a run that passed, thresholds included -- as
+  # test-backend.sh does. A run of one or two specs measures a slice of the
+  # bundle and fails the thresholds, and until 2026-10-12 it rewrote the badge
+  # anyway: 51.6% went out on the README from a run of two spec files.
+  if [ "$STATUS" -eq 0 ]; then
+    "$VENV_PY" scripts/coverage_badges.py --frontend-only --quiet || true
+  fi
 else
   printf '  \033[91m✗\033[0m No coverage collected. Was the bundle built with COVERAGE=1?\n'
   STATUS=1
