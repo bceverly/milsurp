@@ -364,6 +364,24 @@ function ArmoryPanel({ item, onClose }) {
         </p>
       )}
       <div className="armory-panel__actions">
+        {/* The model's own page on its maker's site, found by
+            app/services/makerpages.py and accepted on the Armory's Maker pages
+            tab (2026-10-12). Here rather than under the buy button: it is
+            something the armory knows about the model. */}
+        {item.maker_link?.url && (
+          <a
+            className="btn btn--secondary btn--sm"
+            href={item.maker_link.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            data-testid="maker-link"
+          >
+            <External size={14} />
+            {item.maker_link.maker
+              ? `${item.maker_link.maker}'s page`
+              : `${item.maker_link.site || "The maker"}'s page`}
+          </a>
+        )}
         {item.model_reference_url && (
           <a
             className="btn btn--secondary btn--sm"
@@ -504,31 +522,6 @@ function WikiLink({ url, about }) {
     >
       Wikipedia
       <External size={12} />
-    </a>
-  );
-}
-
-/**
- * What the maker says about this gun, one click away.
- *
- * Only for a model still in production -- the server decides, and sends
- * nothing otherwise. The model's own page on the maker's site when the armory
- * has it, or else a search of that site for the model: the search a reader
- * was typing into Google by hand. See services/makerlink.py.
- */
-function MakerLink({ link }) {
-  if (!link) return null;
-  const whose = link.maker || link.site || "the maker";
-  return (
-    <a
-      className="btn btn--secondary maker-link"
-      href={link.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      data-testid="maker-link"
-    >
-      <External size={16} />
-      {link.kind === "page" ? `${whose}: product page` : `Search ${link.site || whose}`}
     </a>
   );
 }
@@ -1479,7 +1472,6 @@ export default function ItemDetail() {
             <External size={16} />
             View on {item.site_name || "vendor site"}
           </a>
-          <MakerLink link={item.maker_link} />
           <VariantNote item={item} />
           {/* After the buy button, for the step that comes after it. Only for
               a firearm: a collection is a list of guns. */}

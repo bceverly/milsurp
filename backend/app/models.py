@@ -1430,7 +1430,8 @@ class ModelVariant(Base, TimestampMixin):
 
 
 class ReferenceProposal(Base, TimestampMixin):
-    """A Wikipedia article proposed for a maker or model that has none.
+    """A Wikipedia article proposed for a maker, model or caliber that has none
+    -- or, with ``field="maker_page"``, a model's page on its maker's site.
 
     Written by ``cli.py armory wikipedia`` (``app.services.wikipedia``) and
     decided on the Armory page: accepting one writes its address onto the row,
@@ -1456,6 +1457,11 @@ class ReferenceProposal(Base, TimestampMixin):
     reason: Mapped[str | None] = mapped_column(String(500))
     #: "pending", "accepted" or "rejected".
     status: Mapped[str] = mapped_column(String(16), default="pending", nullable=False, index=True)
+    #: What accepting it writes: "wikipedia" (the row's ``wikipedia_url``) or
+    #: "maker_page" (a model's ``maker_url``; app.services.makerpages). Migration 0071.
+    field: Mapped[str] = mapped_column(
+        String(16), default="wikipedia", server_default="wikipedia", nullable=False
+    )
 
 
 class WishlistItem(Base):

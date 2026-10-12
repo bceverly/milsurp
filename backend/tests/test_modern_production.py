@@ -50,38 +50,37 @@ def _gun(
 
 
 class TestTheLink:
-    def test_without_a_page_it_searches_the_makers_own_site(self, clean_db):
-        link = makerlink.for_item(clean_db, _gun(clean_db))
-        assert link.kind == "search"
-        assert link.site == "taurususa.com"
-        assert link.url == "https://www.google.com/search?q=site%3Ataurususa.com+Tracker"
-        assert link.maker == "Taurus"
+    """The model's own page, or nothing: the Google search of the maker's site
+    that stood in for a missing page was dropped on 2026-10-12 ("i wasn't
+    just looking for a button to run a google search")."""
 
-    def test_the_models_own_page_wins(self, clean_db):
-        page = "https://www.taurususa.com/revolvers/tracker"
-        link = makerlink.for_item(clean_db, _gun(clean_db, maker_url=page))
-        assert (link.kind, link.url, link.site) == ("page", page, "taurususa.com")
+    PAGE = "https://www.taurususa.com/revolvers/tracker"
 
-    def test_nothing_for_a_gun_no_longer_made(self, clean_db):
-        assert makerlink.for_item(clean_db, _gun(clean_db, modern=False)) is None
+    def test_without_a_page_there_is_no_link(self, clean_db):
+        assert makerlink.for_item(clean_db, _gun(clean_db)) is None
 
-    def test_nothing_when_nobody_knows_the_makers_site(self, clean_db):
-        assert makerlink.for_item(clean_db, _gun(clean_db, website=None)) is None
+    def test_the_models_own_page(self, clean_db):
+        link = makerlink.for_item(clean_db, _gun(clean_db, maker_url=self.PAGE))
+        assert (link.kind, link.url, link.site, link.maker) == (
+            "page",
+            self.PAGE,
+            "taurususa.com",
+            "Taurus",
+        )
 
-    def test_the_listings_own_maker_is_the_one_searched(self, clean_db):
-        item = _gun(clean_db, listing_maker="Rossi")
+    def test_a_page_found_is_a_page_shown(self, clean_db):
+        """A model with a page has one whether or not it is flagged as still
+        made: the page is the evidence."""
+        link = makerlink.for_item(clean_db, _gun(clean_db, modern=False, maker_url=self.PAGE))
+        assert link.url == self.PAGE
+
+    def test_the_listings_own_maker_is_the_one_named(self, clean_db):
+        item = _gun(clean_db, listing_maker="Rossi", maker_url="https://rossiusa.com/r92")
         rossi = Manufacturer(name="Rossi", website="rossiusa.com", status=ArmoryStatus.APPROVED)
         clean_db.add(rossi)
         item.firearm_model.manufacturers.append(rossi)
         clean_db.commit()
-        assert makerlink.for_item(clean_db, item).site == "rossiusa.com"
-
-    def test_a_model_with_no_maker_uses_the_one_the_listing_names(self, clean_db):
-        """ "KAHR CW9 PRE OWNED" approved a "CW9" that knows nothing of Kahr."""
-        item = _gun(clean_db)
-        item.firearm_model.manufacturers = []
-        clean_db.commit()
-        assert makerlink.for_item(clean_db, item).site == "taurususa.com"
+        assert makerlink.for_item(clean_db, item).maker == "Rossi"
 
 
 class TestTheArmoryEditsIt:
@@ -119,9 +118,9 @@ class TestTheArmoryEditsIt:
         )
 
     def test_the_listing_carries_the_link(self, client, admin_headers, clean_db):
-        item = _gun(clean_db)
+        item = _gun(clean_db, maker_url="https://www.taurususa.com/revolvers/tracker")
         shown = client.get(f"/api/items/{item.id}", headers=admin_headers).json()
-        assert shown["maker_link"]["kind"] == "search"
+        assert shown["maker_link"]["kind"] == "page"
         assert shown["maker_link"]["site"] == "taurususa.com"
 
 

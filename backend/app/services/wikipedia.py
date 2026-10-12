@@ -9,8 +9,8 @@ maker -- judged by the article's categories, not by its title alone, because
 answer with a district of Paris.
 
 **Proposed, never written.** Each candidate becomes a ``ReferenceProposal``
-for somebody to accept or reject on the Armory page; a rejected one is kept,
-so the same article is not proposed again. ``confident`` marks the ones whose
+for somebody to accept or reject on the Armory's Wikipedia tab; a rejected one
+is kept, and once a row has one nothing more is proposed for it (2026-10-12). ``confident`` marks the ones whose
 article title names the row as well as sitting in a firearm category -- the
 ones "accept all confident" takes -- and that is a label, not a decision.
 
@@ -48,7 +48,7 @@ from ..models import (
     ReferenceProposal,
     User,
 )
-from . import audit
+from . import armory, audit
 
 API = "https://en.wikipedia.org/w/api.php"
 #: Wikipedia asks API clients to say what they are and how to reach whoever
@@ -290,26 +290,39 @@ def run(
     pending = {
         (p.target_type, p.target_id)
         for p in session.execute(
-            select(ReferenceProposal).where(ReferenceProposal.status == "pending")
+            select(ReferenceProposal).where(
+                ReferenceProposal.status == "pending", ReferenceProposal.field == "wikipedia"
+            )
         ).scalars()
     }
-    refused: dict[tuple[str, int], set[str]] = {}
-    for proposal in session.execute(
-        select(ReferenceProposal).where(ReferenceProposal.status == "rejected")
-    ).scalars():
-        refused.setdefault((proposal.target_type, proposal.target_id), set()).add(proposal.url)
+    # **A rejection is final for the row, not only for the article.** Kept
+    # per article at first, so the next refresh proposed the search's second
+    # result -- and on 2026-10-12 every one of the 131 pending was a second
+    # guess, nearly all wrong: ".54" offered 7.62x54mmR, ".36" "Cartridge
+    # (firearms)". The first result is the search's best; once a person has
+    # said no to it, the row is theirs to link by hand on its edit form.
+    refused = {
+        (proposal.target_type, proposal.target_id)
+        for proposal in session.execute(
+            select(ReferenceProposal).where(
+                ReferenceProposal.status == "rejected", ReferenceProposal.field == "wikipedia"
+            )
+        ).scalars()
+    }
     for kind in kinds:
         for row in _unlinked(session, kind):
             if limit is not None and counts["asked"] >= limit:
                 return counts
-            if (kind, row.id) in pending:
+            if (kind, row.id) in pending or (kind, row.id) in refused:
+                continue
+            # Nor a caliber named by a bare size: ".44" or "6mm" is not one
+            # cartridge, and no article is about it.
+            if kind == "caliber" and armory.is_vague_caliber(row.name):
                 continue
             counts["asked"] += 1
             _kind, query = _query_for(row)
             try:
-                found = candidate(
-                    fetch, query, row.spellings, kind, refused.get((kind, row.id), set())
-                )
+                found = candidate(fetch, query, row.spellings, kind, set())
             except (requests.RequestException, ValueError) as exc:
                 log(f"  {row.name}: Wikipedia did not answer ({exc}); trying the next.")
                 continue
@@ -393,9 +406,11 @@ def accept(session: Session, ids: Iterable[int], actor: User | None) -> int:
     ).scalars():
         row = _target(session, proposal)
         proposal.status = "accepted"
-        if row is None or row.wikipedia_url:
+        # A maker's page is a model's only (app.services.makerpages).
+        column = "maker_url" if proposal.field == "maker_page" else "wikipedia_url"
+        if row is None or not hasattr(row, column) or getattr(row, column):
             continue
-        row.wikipedia_url = proposal.url
+        setattr(row, column, proposal.url)
         taken += 1
         audit.record(
             session,
@@ -404,8 +419,12 @@ def accept(session: Session, ids: Iterable[int], actor: User | None) -> int:
             target_type=proposal.target_type,
             target_id=row.id,
             target_label=row.name,
-            detail=f"Wikipedia: {proposal.title}",
-            before={"wikipedia_url": None},
+            detail=(
+                f"Maker's page: {proposal.url}"
+                if column == "maker_url"
+                else f"Wikipedia: {proposal.title}"
+            ),
+            before={column: None},
         )
     session.commit()
     return taken
@@ -425,12 +444,16 @@ def reject(session: Session, ids: Iterable[int]) -> int:
     return count
 
 
-def pending(session: Session) -> list[tuple[ReferenceProposal, str]]:
-    """Every pending proposal with the name of the row it is for."""
+def pending(session: Session, field: str | None = None) -> list[tuple[ReferenceProposal, str]]:
+    """Every pending proposal with the name of the row it is for -- of one
+    kind, "wikipedia" or "maker_page", or of both."""
     found = []
+    clause = ReferenceProposal.status == "pending"
+    if field:
+        clause = clause & (ReferenceProposal.field == field)
     for proposal in session.execute(
         select(ReferenceProposal)
-        .where(ReferenceProposal.status == "pending")
+        .where(clause)
         .order_by(ReferenceProposal.confident.desc(), ReferenceProposal.id)
     ).scalars():
         row = _target(session, proposal)

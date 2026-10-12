@@ -6,7 +6,7 @@ written onto a row only when somebody accepts them. Asked for on 2026-10-11.
 
 from __future__ import annotations
 
-from app.models import ArmoryStatus, FirearmModel, Manufacturer, ReferenceProposal
+from app.models import ArmoryStatus, Caliber, FirearmModel, Manufacturer, ReferenceProposal
 from app.services import wikipedia
 
 
@@ -107,11 +107,29 @@ class TestProposing:
         assert again["asked"] == 0
         k98 = clean_db.query(ReferenceProposal).filter_by(target_type="model").one()
         wikipedia.reject(clean_db, [k98.id])
-        third = wikipedia.run(clean_db, FAKE, log=lambda _m: None)
-        # Asked again, and offered nothing it was already told no to.
-        assert third["asked"] == 1
+        # The search's second result is a gun article too, and would be the
+        # next guess -- which is what filled the queue on 2026-10-12. A row a
+        # person has said no to is not asked about again.
+        second = FakeWikipedia(
+            results=FAKE.results,
+            categories={**FAKE.categories, "Mauser Model 1898": ["Category:Bolt-action rifles"]},
+        )
+        third = wikipedia.run(clean_db, second, log=lambda _m: None)
+        assert third["asked"] == 0
         urls = {p.url for p in clean_db.query(ReferenceProposal).filter_by(target_type="model")}
         assert urls == {"https://en.wikipedia.org/wiki/Karabiner_98k"}
+
+    def test_a_caliber_named_by_a_bare_size_is_never_asked_about(self, clean_db):
+        clean_db.add_all(
+            [
+                Caliber(name=".44", status=ArmoryStatus.APPROVED),
+                Caliber(name="6mm", status=ArmoryStatus.APPROVED),
+                Caliber(name=".30 Caliber", status=ArmoryStatus.APPROVED),
+            ]
+        )
+        clean_db.commit()
+        counts = wikipedia.run(clean_db, FAKE, kinds=("caliber",), log=lambda _m: None)
+        assert counts["asked"] == 0
 
 
 class TestDeciding:

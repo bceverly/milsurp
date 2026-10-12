@@ -223,6 +223,51 @@ class TestPhotographsByNumber:
         )
         assert [c.image_urls for c in found] == [[urls[0]], [urls[1]]]
 
+    def test_every_way_the_shop_writes_the_number(self):
+        """The "Video Team Special" page (2026-10-12) named its photographs
+        four ways, none of which the first rule read, and every gun showed all
+        twenty-one pictures."""
+        base = "https://cdn.test/media/catalog/product/"
+        urls = [
+            base + "v/i/video-team-specials-graphic-min_1.jpg",
+            base + "h/g/hgnvts-1.jpg",
+            base + "2/_/2_bst20409-min.jpg",
+            base + "o/p/op4-min_1.jpg",
+            base + "h/g/hgnvts-10.jpg",
+            base + "1/2/12_dbx3663-min.png",
+        ]
+        labels = [
+            "1 - Taurus Raging Hunter - AGH319043",
+            "2 - Beretta J92XRD21 Pistol - BST20409",
+            "4 - Smith & Wesson M&P9 11822 - NKN6975",
+            "10 - S&W M&P Shield Plus Carry Comp 9mm - EHN2032",
+            "12 - Diamondback DBx57CFB 5.7x28mm Pistol - DBX3663",
+        ]
+        found = with_numbered_photos(
+            [Choice(key=str(n), label=label) for n, label in enumerate(labels)], urls
+        )
+        assert [[u.rsplit("/", 1)[-1] for u in c.image_urls] for c in found] == [
+            ["hgnvts-1.jpg"],
+            ["2_bst20409-min.jpg"],
+            ["op4-min_1.jpg"],
+            ["hgnvts-10.jpg"],
+            ["12_dbx3663-min.png"],
+        ]
+
+    def test_a_gun_whose_photo_is_not_found_shows_none_not_the_pile(self):
+        urls = ["https://x.test/media/hg1.png", "https://x.test/media/hg2.png"]
+        choices = [
+            Choice(key="a", label="1 - A gun"),
+            Choice(key="b", label="2 - Another"),
+            Choice(key="c", label="3 - A third, unphotographed"),
+        ]
+        parent = ScrapedItem(
+            external_key="bag", url="https://x.test/bag", title="Grab bag", image_urls=urls
+        )
+        made = split(parent, with_numbered_photos(choices, urls))
+        assert [m.image_urls for m in made] == [[urls[0]], [urls[1]], []]
+        assert made[2].images_are_complete
+
 
 class TestCenterfire:
     """Shopify variants: "Condition: Good / Fair", each in stock or not."""

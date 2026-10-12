@@ -2,22 +2,20 @@
 
 Slice 1 of "New-gun prices, and the makers' own pages" (ROADMAP.md): a
 reader looking at a used carry gun was searching Google for the maker's page
-by hand. Only for a model still in production -- a 1903 Springfield has no
-page on anybody's current site -- and in order of how direct it is:
+by hand.
 
-1. the model's own page, when somebody has recorded it (``maker_url``);
-2. a search of the maker's own site for the model, when the maker's site is
-   known (``Manufacturer.website``) -- the search the reader was typing;
-3. otherwise nothing: a search of the whole web is no better than the one
-   the reader would type, and a link that lands somewhere vague teaches them
-   not to click it.
+**The model's own page, or nothing** (2026-10-12). It was that page when the
+armory had it and otherwise a Google search of the maker's site, which is not
+what was asked for: "i wasn't just looking for a button to run a google
+search". The pages are found by app.services.makerpages, accepted on the
+Armory, and shown inside "What the armory knows" on a listing.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
-from urllib.parse import quote_plus, urlsplit
+from urllib.parse import urlsplit
 
 from sqlalchemy import select
 
@@ -32,7 +30,7 @@ if TYPE_CHECKING:
 @dataclass(frozen=True)
 class MakerLink:
     url: str
-    #: "page" for the model's own page, "search" for a search of the maker's site.
+    #: Always "page" now; kept for the response's shape.
     kind: str
     #: Whose site it is, for the link's wording.
     maker: str | None
@@ -78,27 +76,14 @@ def _maker_for(session: Session, item: Item, model: FirearmModel) -> Manufacture
 
 
 def for_item(session: Session, item: Item) -> MakerLink | None:
-    """Where this listing's maker describes the gun, or None. See the module."""
+    """The model's own page on its maker's site, or None. See the module."""
     model = item.firearm_model
-    if model is None or not model.modern_production:
+    if model is None or not model.maker_url:
         return None
     maker = _maker_for(session, item, model)
-    if model.maker_url:
-        return MakerLink(
-            url=model.maker_url,
-            kind="page",
-            maker=maker.name if maker else None,
-            site=_host(model.maker_url),
-        )
-    if maker is None or not maker.website:
-        return None
-    site = _host(maker.website)
-    if site is None:
-        return None
-    query = f"site:{site} {model.name}"
     return MakerLink(
-        url=f"https://www.google.com/search?q={quote_plus(query)}",
-        kind="search",
-        maker=maker.name,
-        site=site,
+        url=model.maker_url,
+        kind="page",
+        maker=maker.name if maker else None,
+        site=_host(model.maker_url),
     )

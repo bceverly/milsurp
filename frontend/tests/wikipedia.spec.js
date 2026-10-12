@@ -1,6 +1,6 @@
 /**
- * Wikipedia for makers and models: proposed articles decided on the Armory
- * page, and one click from a listing to the maker's and the model's article.
+ * Wikipedia for makers, models and calibers: proposed articles decided on the
+ * Armory's Wikipedia tab, and one click from a listing to the maker's and the model's article.
  * Which articles are proposed is the server's business (app/services/wikipedia);
  * these check the page shows and sends what it should.
  */
@@ -29,7 +29,7 @@ const PROPOSALS = [
   },
 ];
 
-test("proposed articles are accepted and rejected on the Armory page", async ({
+test("proposed articles are accepted and rejected on the Armory's Wikipedia tab", async ({
   signedIn,
 }) => {
   let remaining = [...PROPOSALS];
@@ -51,7 +51,19 @@ test("proposed articles are accepted and rejected on the Armory page", async ({
     await route.fulfill({ json: { changed: 1, message: "ok" } });
   });
   await openPage(signedIn, "Armory");
+  // A tab of their own since 2026-10-12, saying how many are waiting; not a
+  // panel above every tab.
+  await expect(signedIn.getByTestId("wikipedia-suggestions")).toHaveCount(0);
+  await signedIn.getByRole("tab", { name: "Wikipedia (2)" }).click();
+  await expect(signedIn).toHaveURL(/#wikipedia$/);
   const panel = signedIn.getByTestId("wikipedia-suggestions");
+  await expect(panel).toContainText("Mauser");
+  // A suggestion has no status, so Showing does not apply; Search does.
+  await expect(signedIn.getByLabel("Showing")).toBeDisabled();
+  await signedIn.getByLabel("Search").fill("gewehr");
+  await expect(panel).not.toContainText("Mauser");
+  await expect(panel).toContainText("Karabiner 98k");
+  await signedIn.getByLabel("Search").fill("");
   await expect(panel).toContainText("Mauser");
   await expect(panel.getByRole("link", { name: "Gewehr 98" })).toHaveAttribute(
     "href",
@@ -61,7 +73,10 @@ test("proposed articles are accepted and rejected on the Armory page", async ({
   await panel.getByRole("button", { name: "Accept all confident (1)" }).click();
   await expect(panel).not.toContainText("Mauser");
   await panel.getByRole("button", { name: "Reject Gewehr 98 for Karabiner 98k" }).click();
-  await expect(signedIn.getByTestId("wikipedia-suggestions")).toHaveCount(0);
+  await expect(panel).toContainText("No suggestions waiting.");
+  await expect(
+    signedIn.getByRole("tab", { name: "Wikipedia", exact: true }),
+  ).toBeVisible();
   expect(sent.map(([path]) => path)).toEqual([
     "/api/armory/references/accept-confident",
     "/api/armory/references/reject",
@@ -87,4 +102,42 @@ test("a listing links its maker and its model to Wikipedia", async ({ signedIn }
     signedIn.getByRole("link", { name: "Mauser on Wikipedia" }),
   ).toHaveAttribute("href", "https://en.wikipedia.org/wiki/Mauser");
   await expect(signedIn.getByRole("link", { name: /on Wikipedia$/ })).toHaveCount(2);
+});
+
+test("a model's page on its maker's site is decided on its own tab", async ({
+  signedIn,
+}) => {
+  const rows = [
+    {
+      id: 7,
+      field: "maker_page",
+      target_type: "model",
+      target_id: 3,
+      target_name: "Glock 19",
+      url: "https://us.glock.com/en/products/commercial-firearms/pistols/g19-v",
+      title: "g19-v",
+      confident: true,
+      reason: "in the maker's sitemap: /en/products/commercial-firearms/pistols/g19-v",
+    },
+    { ...PROPOSALS[0], field: "wikipedia" },
+  ];
+  const sent = [];
+  await signedIn.route("**/api/armory/references**", async (route) => {
+    const request = route.request();
+    if (request.method() === "GET") {
+      await route.fulfill({ json: rows });
+      return;
+    }
+    sent.push(request.url());
+    await route.fulfill({ json: { changed: 1, message: "ok" } });
+  });
+  await openPage(signedIn, "Armory");
+  await signedIn.getByRole("tab", { name: "Maker pages (1)" }).click();
+  await expect(signedIn).toHaveURL(/#maker-pages$/);
+  const panel = signedIn.getByTestId("maker-page-suggestions");
+  await expect(panel).toContainText("Glock 19");
+  // Each tab its own kind: the Wikipedia article is not here.
+  await expect(panel).not.toContainText("Mauser");
+  await panel.getByRole("button", { name: "Accept all confident (1)" }).click();
+  await expect.poll(() => sent[0]).toContain("accept-confident?field=maker_page");
 });

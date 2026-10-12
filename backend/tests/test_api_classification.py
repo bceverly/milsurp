@@ -69,6 +69,15 @@ class TestTheSeededDesignations:
             ".45-70 Government"
         )
 
+    def test_22_lr_with_neither_the_point_nor_run_together(self):
+        """Migration 0072: Kittery Trading Post's "caliber: 22 LR", unread, left
+        a Taurus PT22 with the ".25 ACP" an older rule took from its 2.25" barrel."""
+        found = classify.extract_caliber(
+            "TAURUS PT22 POLY PRE OWNED (1142852)",
+            'Features: STS SLIDE; 2.25"; W/CASE Action Design: handgun: pistol caliber: 22 LR',
+        )
+        assert found == ".22 LR"
+
     def test_the_co_occurrence_rules_survived_the_move(self):
         """Eleven of the forty-eight patterns were "these two things appear in
         the same listing", which a phrase cannot say. They are the `requires`

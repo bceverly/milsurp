@@ -1871,6 +1871,35 @@ class TestOnePageSplitIntoListings:
         assert run.status == ScanStatus.SUCCESS
         assert "Replaced 1 listing(s)" in (run.log or "")
 
+    def test_a_photo_file_its_choices_share_is_kept(self, fake_site, clean_db, app_config):
+        """The store names a file by its contents, so the grab bag and the gun
+        it shows share one file. Deleting the bag deleted it: 662 Classic
+        Firearms listings lost their photographs on 2026-10-11."""
+        store = ImageStore(app_config)
+        shared, only_bags = f"{fake_site.slug}/aa/shared.jpg", f"{fake_site.slug}/bb/only.jpg"
+        for name in (shared, only_bags):
+            path = store.absolute_path(name)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"jpeg")
+        bag = Item(site_id=fake_site.id, external_key="bag", url="https://x.test/bag", title="Bag")
+        gun = Item(
+            site_id=fake_site.id, external_key="bag#3", url="https://x.test/bag", title="XD-M"
+        )
+        clean_db.add_all([bag, gun])
+        clean_db.flush()
+        clean_db.add_all(
+            [
+                ItemPhoto(item_id=bag.id, source_url="https://x.test/hg3.png", filename=shared),
+                ItemPhoto(item_id=bag.id, source_url="https://x.test/all.png", filename=only_bags),
+                ItemPhoto(item_id=gun.id, source_url="https://x.test/hg3.png", filename=shared),
+            ]
+        )
+        clean_db.commit()
+        site = clean_db.get(Site, fake_site.id)
+        assert scan_service._retire_split_parents(clean_db, site, {"bag"}, set(), app_config) == 1
+        assert store.absolute_path(shared).exists()
+        assert not store.absolute_path(only_bags).exists()
+
     def test_the_guns_are_dated_as_the_page_was_not_as_new(self, fake_site, clean_db):
         FakeScraper.payload = [listing("bag", price=10.0)]
         scan_service.run_scan(fake_site.id)

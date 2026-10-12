@@ -429,12 +429,21 @@ export const api = {
   refreshAmmo: (parts) =>
     request("/api/ammunition/refresh", { method: "POST", body: { parts: parts || [] } }),
 
-  // --- Wikipedia articles proposed for armory rows, decided on the Armory page ---
+  // --- Wikipedia articles and makers' pages proposed for armory rows, decided
+  // on the Armory's Wikipedia and Maker pages tabs. Every kind comes back;
+  // each carries its "field".
   referenceProposals: () => request("/api/armory/references"),
   acceptReferences: (ids) =>
     request("/api/armory/references/accept", { method: "POST", body: { ids } }),
-  acceptConfidentReferences: () =>
-    request("/api/armory/references/accept-confident", { method: "POST" }),
+  // One kind only: "wikipedia" or "maker_page", so one tab's button never
+  // accepts the other tab's suggestions.
+  acceptConfidentReferences: (field) =>
+    request(
+      `/api/armory/references/accept-confident?field=${encodeURIComponent(field)}`,
+      {
+        method: "POST",
+      },
+    ),
   rejectReferences: (ids) =>
     request("/api/armory/references/reject", { method: "POST", body: { ids } }),
 

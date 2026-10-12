@@ -76,6 +76,10 @@ class Choice:
     #: guns -- Classic's grab bags -- where "parent title - label" would read
     #: "Gunsmith Special Handguns - 1 - Phoenix Arms HP22B Pistol ...".
     title: str | None = None
+    #: Set where the page's photographs are each one gun's: a choice whose own
+    #: could not be found shows none rather than the whole gallery, which is
+    #: every other gun on the page (see with_numbered_photos).
+    own_photos_only: bool = False
 
 
 def splits(  # noqa: PLR0911 - one return per rule, in the docstring's order
@@ -137,7 +141,8 @@ def split(parent: ScrapedItem, choices: list[Choice]) -> list[ScrapedItem]:
     Keyed ``<parent key>#<choice key>`` so a choice keeps its listing -- and
     its price history and watchers -- from scan to scan. Each carries
     ``split_from`` so the scan can retire the combined listing it replaces.
-    A choice with no photograph of its own shows the page's.
+    A choice with no photograph of its own shows the page's -- unless the
+    page's photographs are each another choice's (``own_photos_only``).
     """
     children = []
     for choice in choices:
@@ -151,8 +156,11 @@ def split(parent: ScrapedItem, choices: list[Choice]) -> list[ScrapedItem]:
                 price=choice.price if choice.price is not None else parent.price,
                 is_sold=choice.is_sold,
                 description=choice.description or parent.description,
-                image_urls=list(choice.image_urls) or list(parent.image_urls),
-                images_are_complete=bool(choice.image_urls) or parent.images_are_complete,
+                image_urls=list(choice.image_urls)
+                or ([] if choice.own_photos_only else list(parent.image_urls)),
+                images_are_complete=bool(choice.image_urls)
+                or choice.own_photos_only
+                or parent.images_are_complete,
                 split_from=parent.external_key,
                 replaces_keys=[],
             )
@@ -165,27 +173,68 @@ def _number(label: str) -> str | None:
     return found.group(1).lstrip("0") or "0" if found else None
 
 
+#: The gun's number in a photograph's file name, as Classic Firearms write it --
+#: four ways on two pages (2026-10-12): "hg3_1", "hgnvts-5" and "op4-min_1",
+#: the number after a word; "2_bst20409-min", the number first.
+_PHOTO_NUMBER = (
+    re.compile(r"^0*(\d{1,3})[_-]"),
+    re.compile(r"^[a-z]+[-_]?0*(\d{1,3})(?:[-_](?:\d{1,2}|min))*$"),
+)
+#: The stock or serial number a grab bag's gun ends its title with: "... -
+#: BST20409", "... - ZC12345 ".
+_STOCK_NUMBER = re.compile(r"-\s*([A-Za-z0-9]{5,})\s*$")
+
+
+def _photo_number(url: str) -> str | None:
+    name = url.rsplit("/", 1)[-1].split("?", 1)[0]
+    stem = name.rsplit(".", 1)[0].lower()
+    for pattern in _PHOTO_NUMBER:
+        found = pattern.match(stem)
+        if found:
+            return found.group(1).lstrip("0") or "0"
+    return None
+
+
 def with_numbered_photos(choices: list[Choice], urls: list[str]) -> list[Choice]:
-    """Each numbered choice given the page's photographs named for its number.
+    """Each numbered choice given the page's photographs named for it.
 
     Classic Firearms number the guns in a grab bag ("1 - Phoenix Arms HP22B
     ...", "2 - Smith & Wesson M&P 40 ...") and name each one's photograph
     for it -- ``hg1_2.png``, ``hg2_1.png`` -- with the twenty side by side in
-    one gallery and nothing else tying photograph to gun. A choice with a
-    photograph of its own, or no number, is left as it is.
+    one gallery and nothing else tying photograph to gun. Two signals, the
+    stronger first: the stock number the gun's title ends with, found in the
+    file's name ("... - BST20409" is ``2_bst20409-min.jpg``); then the gun's
+    number (see :data:`_PHOTO_NUMBER`).
+
+    **Where most of the guns find a photograph, the gallery is theirs**, and a
+    gun whose own could not be found shows none rather than all of them: the
+    "Video Team Special" page wrote its file names three new ways, none
+    matched, and each of its twenty guns showed all twenty-one pictures
+    (2026-10-12). A choice with a photograph of its own, or no number, is left
+    as it is.
     """
-    stems = []
-    for url in urls:
-        name = url.rsplit("/", 1)[-1].split("?", 1)[0]
-        stem = name.rsplit(".", 1)[0].lower()
-        found = re.fullmatch(r"[a-z]*0*(\d{1,3})(?:_\d+)?", stem)
-        stems.append((found.group(1) if found else None, url))
-    matched = []
+    numbered = [(url, _photo_number(url)) for url in urls]
+    matched: list[Choice] = []
+    found_any = 0
+    asked = 0
     for choice in choices:
         number = _number(choice.label)
         if choice.image_urls or number is None:
             matched.append(choice)
             continue
-        mine = [url for stem, url in stems if stem == number]
+        asked += 1
+        stock = _STOCK_NUMBER.search(choice.title or choice.label or "")
+        mine = []
+        if stock:
+            code = stock.group(1).lower()
+            mine = [url for url in urls if code in url.rsplit("/", 1)[-1].lower()]
+        if not mine:
+            mine = [url for url, n in numbered if n == number]
+        found_any += bool(mine)
         matched.append(replace(choice, image_urls=mine) if mine else choice)
+    if asked and found_any * 2 >= asked:
+        matched = [
+            replace(choice, own_photos_only=True) if _number(choice.label) is not None else choice
+            for choice in matched
+        ]
     return matched

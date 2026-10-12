@@ -1052,6 +1052,27 @@ def _armory_makers(args: argparse.Namespace) -> int:
     return 0
 
 
+def _armory_maker_pages(args: argparse.Namespace) -> int:
+    """Find each modern model's own page on its maker's site; see
+    app.services.makerpages."""
+    from app.scrapers.base import ScrapeContext
+    from app.services import makerpages
+
+    ctx = ScrapeContext(get_config())
+    try:
+        with session_scope() as session:
+            totals = makerpages.run(session, ctx, maker=args.maker)
+    finally:
+        ctx.close()
+    print(
+        f"Asked about {totals['asked']} model(s): {totals['proposed']} page(s) proposed, "
+        f"{totals['confident']} of them confident; {totals['nothing']} with no page found; "
+        f"{totals['unread']} maker site(s) with no sitemap that could be read."
+    )
+    print("Accept or reject them on the Armory page's Maker pages tab.")
+    return 0
+
+
 def _armory_new_prices(args: argparse.Namespace) -> int:
     """Ask gun.deals what due variants cost new; see app.services.newprices."""
     from app.scrapers.base import ScrapeContext
@@ -1143,6 +1164,7 @@ def cmd_armory(args: argparse.Namespace) -> int:
         "tidy": lambda: _armory_tidy(args),
         "wikipedia": lambda: _armory_wikipedia(args),
         "makers": lambda: _armory_makers(args),
+        "maker-pages": lambda: _armory_maker_pages(args),
         "new-prices": lambda: _armory_new_prices(args),
         "ammunition": lambda: _armory_ammunition(args),
         "export": None,
@@ -1955,6 +1977,12 @@ def _add_armory_commands(sub) -> None:
     armory_makers.add_argument(
         "--maker", help="Only this maker. Readers so far: Ruger, Smith & Wesson, Kimber, Walther."
     )
+    armory_pages = armory_sub.add_parser(
+        "maker-pages",
+        help="Find each modern-production model's own page on its maker's site, from the "
+        "maker's sitemap; they wait for acceptance on the Armory's Maker pages tab.",
+    )
+    armory_pages.add_argument("--maker", help="Only this maker, by its armory name.")
     armory_prices = armory_sub.add_parser(
         "new-prices",
         help="Ask gun.deals what each due variant costs new (the scheduler does "

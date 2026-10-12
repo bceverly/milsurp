@@ -384,24 +384,38 @@ def match_pages(session: Session, entries: list[tuple[str, list[str]]]) -> dict[
     only fills in after: read loosely and first come first served, ".308
     Marlin Express" claimed 7.62x51 NATO, "9mm Browning Long" 9mm Luger and
     "22 S, L, LR" .22 LR on AmmoSeek (2026-10-11).
+
+    Among the pages a caliber's spellings name, **the one named by its
+    earliest spelling** -- its own name first, then its aliases in order:
+    5.56x45mm NATO is Ammo.com's "5.56x45" page rather than its "223", which
+    is also one of its spellings. A caliber with a vague name is never
+    matched (see :func:`armory.is_vague_caliber`).
     """
-    spelled: dict[str, str] = {}
+    ranked: dict[str, tuple[str, int]] = {}
     for row in session.execute(
         select(Caliber).where(Caliber.status == ArmoryStatus.APPROVED, Caliber.enabled.is_(True))
     ).scalars():
-        for spelling in row.spellings:
-            spelled.setdefault(_spelled(spelling), row.name)
+        if armory.is_vague_caliber(row.name):
+            continue
+        for rank, spelling in enumerate(row.spellings):
+            ranked.setdefault(_spelled(spelling), (row.name, rank))
     found: dict[str, str] = {}
+    best: dict[str, int] = {}
     for path, names in entries:
         for name in names:
-            mine = spelled.get(_spelled(name))
-            if mine and mine not in found:
-                found[mine] = path
+            mine = ranked.get(_spelled(name))
+            if mine and path not in found.values() and mine[1] < best.get(mine[0], 1 << 30):
+                found[mine[0]], best[mine[0]] = path, mine[1]
     for path, names in entries:
         for name in names:
-            mine = armory.canonical_caliber(session, name)
-            if mine and mine not in found and path not in found.values():
-                found[mine] = path
+            loose = armory.canonical_caliber(session, name)
+            if (
+                loose
+                and not armory.is_vague_caliber(loose)
+                and loose not in found
+                and path not in found.values()
+            ):
+                found[loose] = path
                 break
     return found
 
@@ -412,21 +426,41 @@ _AMMO_COM_PAGE = re.compile(
 )
 
 
-def _ammo_com_names(label: str) -> list[str]:
+#: Pages whose own name says less than the cartridge: Ammo.com's "8mm" is
+#: the 8mm Mauser (2026-10-12, found priced against the rimmed 8x57 JR).
+AMMO_COM_HINTS = {"8mm-ammo": ["8mm Mauser"]}
+_ABBREVIATED = (("Win", "Winchester"), ("Rem", "Remington"), ("Mag", "Magnum"))
+
+
+def _ammo_com_names(label: str, page: str = "") -> list[str]:
     """The names one caliber link stands for.
 
     "40 Cal (S&W) Ammo" is "40 Cal (S&W)", "40 Cal" and "40 S&W"; "22 Long
     Rifle (LR) Ammo" is also "22 LR". A link to a caliber with nothing in
     stock says so first ("Out of stock 32 S&W Ammo").
+
+    And the way the armory writes them: an inch caliber with its point
+    (".22-250", ".300 Blackout", ".50 BMG") and the abbreviations spelled out
+    ("300 Win Magnum" is ".300 Winchester Magnum") -- without which 52 of the
+    122 pages matched nothing on the first production run (2026-10-12).
     """
     label = re.sub(r"^\s*out of stock\s*", "", label, flags=re.I)
     label = re.sub(r"\s+(?:ammo(?:\s+for\s+sale)?|shotgun\s+shells)\s*$", "", label, flags=re.I)
     label = label.strip()
-    names = [label]
+    names = [*AMMO_COM_HINTS.get(page.rstrip("/").rsplit("/", 1)[-1], []), label]
     bracketed = re.match(r"^(\S+)\s.*?\(([^)]+)\)", label)
     if bracketed:
         names.append(re.sub(r"\s*\([^)]*\)", "", label).strip())
         names.append(f"{bracketed.group(1)} {bracketed.group(2)}")
+    for name in list(names):
+        spelled = name
+        for short, long in _ABBREVIATED:
+            spelled = re.sub(rf"\b{short}\b", long, spelled)
+        # Two or three digits not followed by a metric size or a gauge: inches.
+        inches = re.match(r"^\d{2,3}(?![\d.]*\s*(?:mm|x\d|gauge|ga\b|buck))", name, re.I)
+        for variant in (spelled, f".{name}" if inches else "", f".{spelled}" if inches else ""):
+            if variant and variant not in names:
+                names.append(variant)
     return [n for n in names if n]
 
 
@@ -437,7 +471,7 @@ def ammo_com_calibers(html: str) -> list[tuple[str, list[str]]]:
         href = str(link.get("href")).rstrip("/")
         label = text_of(link)
         if _AMMO_COM_PAGE.match(href) and label and href not in found:
-            found[href] = _ammo_com_names(label)
+            found[href] = _ammo_com_names(label, href)
     return list(found.items())
 
 
@@ -587,6 +621,26 @@ def lee_dies(html: str) -> list[tuple[str, str]]:
     return found
 
 
+def lee_names(name: str) -> list[str]:
+    """The cartridges one Lee die set is for.
+
+    One set often loads two: "38 Special / 357 Magnum", "40 S&W / 10MM Auto",
+    and written shorter, "44 Special/Magnum" and "38 ACP/Super", where the
+    second takes the first's number. Read whole, only the first was credited,
+    and .357 Magnum came out with no Lee dies (2026-10-12). "32/20 Winchester"
+    is one cartridge, the .32-20, and is left alone.
+    """
+    parts = [p.strip() for p in re.split(r"(?<!\d)\s*/\s*|\s*/\s*(?!\d)", name) if p.strip()]
+    if len(parts) < 2:
+        return [name]
+    number = re.match(r"^\.?\d[\d.x]*", parts[0])
+    found = [name]
+    for part in parts:
+        bare = not re.search(r"\d", part) and number
+        found.append(f"{number.group(0)} {part}" if bare and number else part)
+    return found
+
+
 def gauge_bore(name: str) -> float | None:
     """The bore diameter of a gauge named like "12 Gauge", "20 ga" or ".410"."""
     found = _GAUGE.match(name or "")
@@ -716,7 +770,7 @@ def _record(caliber: Caliber, found: dict[float, float], field: str) -> None:
 
 
 def _from_ammo_com(
-    ctx: ScrapeContext, page: str | None, weights: list[float]
+    ctx: ScrapeContext, page: str | None, weights: list[float], *, any_load: bool = False
 ) -> dict[float, float]:
     """Each weight's cheapest round on Ammo.com's page for a caliber.
 
@@ -724,10 +778,15 @@ def _from_ammo_com(
     are done: the list is cheapest first, so a weight not on them is not
     sold at a price that would change the figure. A gauge has no weights in
     grains, and its boxes name none ("1 oz", "00 Buck"), so its cheapest
-    round of any load stands in.
+    round of any load stands in (*any_load*) -- not the weight offered most
+    often, which on a shotshell page is a slug's: 20 gauge came out at $4 a
+    round on the first production run (2026-10-12).
     """
     if not page:
         return {}
+    if any_load:
+        offers_ = ammo_com_offers(ctx.get_text(page))
+        return {0.0: round(min(o.each for o in offers_), 4)} if offers_ else {}
     offers: list[Offer] = []
     found: dict[float, float] = {}
     for number in range(1, AMMO_COM_PAGES + 1):
@@ -759,7 +818,7 @@ def _factory(
     found: dict[float, float] = {}
     unread = False
     try:
-        found = _from_ammo_com(ctx, page, weights)
+        found = _from_ammo_com(ctx, page, weights, any_load=gauge_bore(caliber.name) is not None)
     except Disallowed:
         raise
     except ScrapeError:
@@ -791,14 +850,32 @@ def _factory(
     return caliber.factory_source
 
 
+#: Rimfire cartridges, which cannot be reloaded: .22 LR was priced against
+#: .224" centerfire bullets on the first production run (2026-10-12).
+RIMFIRE = re.compile(
+    r"^\s*(?:\.?22\s*(?:lr|long(?:\s*rifle)?|short|wmr|wrf|win(?:chester)?\s*(?:mag|auto)|magnum|cb|bb)"
+    r"|\.?17\s*(?:hmr|wsm|hm2|mach\s*2)|5\s*mm\s*rem(?:ington)?\s*mag|\.?25\s*stevens)\b",
+    re.I,
+)
+
+
+def is_rimfire(name: str) -> bool:
+    return bool(RIMFIRE.match(name or ""))
+
+
 def _projectiles(caliber: Caliber, bullets: list[tuple[float, Offer]], now: datetime) -> bool:
     """Price one caliber's projectiles by its diameter. Whether any were found.
 
     Linked to the cheapest of the bullets priced, on Graf & Sons' own page.
+    None for a rimfire cartridge, which is not reloaded.
     """
     caliber.projectile_checked_at = now
     weights = [w.grains for w in caliber.bullet_weights]
-    offers = at_diameter(bullets, caliber.bullet_diameter_in) if caliber.bullet_diameter_in else []
+    offers = (
+        at_diameter(bullets, caliber.bullet_diameter_in)
+        if caliber.bullet_diameter_in and not is_rimfire(caliber.name)
+        else []
+    )
     found = lows(offers, weights)
     caliber.projectile_cost = round(mean(found.values()), 4) if found else None
     priced = [
@@ -820,9 +897,10 @@ def _refresh_lee(session: Session, ctx: ScrapeContext, now: datetime) -> str:
         return f"Lee not read ({exc})"
     dies: dict[str, str] = {}
     for name, url in catalog:
-        mine = armory.canonical_caliber(session, name)
-        if mine:
-            dies.setdefault(mine, url)
+        for part in lee_names(name):
+            mine = armory.canonical_caliber(session, part)
+            if mine:
+                dies.setdefault(mine, url)
     for caliber in session.execute(select(Caliber)).scalars():
         caliber.lee_dies = caliber.name in dies
         caliber.lee_url = dies.get(caliber.name)

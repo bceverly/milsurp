@@ -516,6 +516,18 @@ def model_registry(session: Session) -> ModelRegistry:
 # ---------------------------------------------------------------------------
 # What the rest of the application asks
 # ---------------------------------------------------------------------------
+#: A caliber named by a bare size -- "8mm", ".44", ".22 Caliber", "6.5mm" --
+#: which says too little to be one cartridge. Such a row is never priced from a
+#: shop's caliber page ("6mm" took Ammo.com's 6mm ARC) nor given a Wikipedia
+#: article ("Cartridge (firearms)" for ".36", "7.62x54mmR" for ".54"), both
+#: measured on 2026-10-12.
+_VAGUE_CALIBER = re.compile(r"^\s*\.?\d+(?:\.\d+)?\s*(?:mm|cal(?:iber)?)?\s*$", re.I)
+
+
+def is_vague_caliber(name: str | None) -> bool:
+    return bool(_VAGUE_CALIBER.match(name or ""))
+
+
 def canonical_caliber(session: Session, text: str | None) -> str | None:
     """The spelling this application uses for whatever cartridge that names.
 

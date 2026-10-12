@@ -457,11 +457,19 @@ def _price_distribution(session: DbSession, base: Select) -> PriceDistributionOu
     )
 
 
+#: How many values one facet sends. Every one, in practice: the page shows the
+#: top few and searches the rest, and it can only search what it was sent. At
+#: 40, 10mm Auto -- 32 listings, 58th of 301 calibers -- could not be found in
+#: the Caliber filter at all, and neither could most makers or models
+#: (2026-10-12). The ceiling is a guard, not a cut.
+FACET_LIMIT = 5000
+
+
 def _tally(
     session: DbSession,
     base: Select,
     column,
-    limit: int = 40,
+    limit: int = FACET_LIMIT,
     keep: list[str] | None = None,
 ) -> list[FacetValue]:
     """One text facet's values over ``base``, most common first.
@@ -520,7 +528,9 @@ def _model_counts(
         .join(FirearmModel, FirearmModel.id == Item.firearm_model_id)
         .group_by(FirearmModel.id, FirearmModel.name)
     )
-    rows = list(session.execute(counted.order_by(func.count(Item.id).desc()).limit(40)).all())
+    rows = list(
+        session.execute(counted.order_by(func.count(Item.id).desc()).limit(FACET_LIMIT)).all()
+    )
     listed = {str(row[0]) for row in rows}
     absent = [int(value) for value in keep or [] if value.isdigit() and value not in listed]
     if absent:

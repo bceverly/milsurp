@@ -15,6 +15,9 @@ async function openListingWith(page, makerLink) {
     const response = await route.fetch();
     const item = await response.json();
     item.maker_link = makerLink;
+    // Matched to a model, so "What the armory knows" is there to open.
+    item.model = item.model || "Tracker";
+    item.firearm_model_id = item.firearm_model_id || 1;
     await route.fulfill({ response, json: item });
   });
   await page.goto("/?availability=all");
@@ -23,23 +26,14 @@ async function openListingWith(page, makerLink) {
 }
 
 test.describe("the maker's page on a listing", () => {
-  test("a search of the maker's own site, when the model has no page", async ({
-    signedIn,
-  }) => {
-    const url = "https://www.google.com/search?q=site%3Ataurususa.com+Tracker";
-    await openListingWith(signedIn, {
-      url,
-      kind: "search",
-      maker: "Taurus",
-      site: "taurususa.com",
-    });
-    const link = signedIn.getByTestId("maker-link");
-    await expect(link).toHaveText("Search taurususa.com");
-    await expect(link).toHaveAttribute("href", url);
-    await expect(link).toHaveAttribute("target", "_blank");
-  });
+  // Inside "What the armory knows" since 2026-10-12, and only the model's own
+  // page: the search of the maker's site it fell back to is gone.
+  async function openArmory(page) {
+    await page.getByRole("button", { name: "What the armory knows" }).click();
+    return page.getByRole("dialog");
+  }
 
-  test("the model's own page, when the armory has it", async ({ signedIn }) => {
+  test("the model's own page, in what the armory knows", async ({ signedIn }) => {
     const url = "https://www.taurususa.com/revolvers/tracker";
     await openListingWith(signedIn, {
       url,
@@ -47,15 +41,20 @@ test.describe("the maker's page on a listing", () => {
       maker: "Taurus",
       site: "taurususa.com",
     });
-    const link = signedIn.getByTestId("maker-link");
-    await expect(link).toHaveText("Taurus: product page");
+    // Not under the buy button any more: nowhere until the popup opens.
+    await expect(signedIn.getByTestId("maker-link")).toHaveCount(0);
+    const dialog = await openArmory(signedIn);
+    const link = dialog.getByTestId("maker-link");
+    await expect(link).toHaveText("Taurus's page");
     await expect(link).toHaveAttribute("href", url);
+    await expect(link).toHaveAttribute("target", "_blank");
   });
 
-  test("nothing at all for a gun no longer made", async ({ signedIn }) => {
+  test("nothing at all when the armory has no page", async ({ signedIn }) => {
     await openListingWith(signedIn, null);
     await expect(signedIn.getByRole("link", { name: /^View on / })).toBeVisible();
-    await expect(signedIn.getByTestId("maker-link")).toHaveCount(0);
+    const dialog = await openArmory(signedIn);
+    await expect(dialog.getByTestId("maker-link")).toHaveCount(0);
   });
 });
 

@@ -170,8 +170,69 @@ _NOT_A_DESIGNATION = frozenset(
         "sbs",
         "sxs",
         "with",
+        # More of the same, from the 311 rows pending in production on
+        # 2026-10-12, none of them a model: "IN 357" (chambered in), "OR 10A",
+        # "SIDE 12" (side by side), "PUMP 16", "SET 28", "SHOT 3", "RIB 12",
+        # "TRAP 12", "FULL 2", "ONLY 100", "RARE 5", "OLD 8", "TOP 22", "THE
+        # 200", "TO 3", "OVER 20", "AND 410", "FOR 22", "COLT 5" (".45 Colt 5
+        # 1/2 inch"), "FDE - 24", "KIT-5", "SA 7", "II 45" and "III 10".
+        "in",
+        "or",
+        "on",
+        "and",
+        "for",
+        "over",
+        "the",
+        "to",
+        "side",
+        "pump",
+        "set",
+        "shot",
+        "rib",
+        "trap",
+        "full",
+        "only",
+        "rare",
+        "old",
+        "top",
+        "sold",
+        "hold",
+        "colt",
+        "fde",
+        "blk",
+        "kit",
+        "sa",
+        "ii",
+        "iii",
+        # A sale date: "SOLD!!! MON MAY 15", "WED DEC 7".
+        "jan",
+        "feb",
+        "mar",
+        "apr",
+        "may",
+        "jun",
+        "jul",
+        "aug",
+        "sep",
+        "sept",
+        "oct",
+        "nov",
+        "dec",
+        "mon",
+        "tue",
+        "wed",
+        "thu",
+        "fri",
+        "sat",
+        "sun",
     )
 )
+
+#: A dealer's stock or serial code: four letters and three digits run
+#: together, as one shop writes every Glock it sells ("GLOCK 19XV 9X19 AMAV427
+#: 4\" FDE"). Nine of those were pending on 2026-10-12, and no designation in
+#: the armory has that shape.
+_STOCK_CODE = re.compile(r"[A-Z]{4}\d{3}")
 
 
 #: What the trade writes about a gun, as opposed to who made it. Used only to
@@ -437,6 +498,8 @@ def _designations(text: str) -> Iterable[re.Match[str]]:
     for match in DESIGNATION.finditer(text):
         head = re.split(r"[\s.-]", match.group(0))[0].lower()
         if head in _NOT_A_DESIGNATION or match.group(0).lower() in _NOT_A_DESIGNATION:
+            continue
+        if _STOCK_CODE.fullmatch(match.group(0)):
             continue
         yield match
 

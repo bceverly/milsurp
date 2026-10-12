@@ -70,6 +70,11 @@ _NOT_CARRY_CALIBER = re.compile(r"makarov|9\s*x\s*18|largo|steyr|nambu|\.357\s*s
 #: handgun even so: a Lefaucheux pinfire (a different 10mm entirely), a
 #: carbine, an AR.
 _ANY_SIZE = re.compile(r"^\s*(?:10\s*mm(?:\s*auto)?|5\.7\s*x\s*28(?:\s*mm)?)\s*$", re.I)
+
+#: The same calibers as the spellings a listing stores them under, lowercased,
+#: for SQL: a handgun in one of them is under Handguns as well as Concealed
+#: carry (see search.KINDS). Matches :data:`_ANY_SIZE`.
+ANY_SIZE_CALIBERS = ("10mm auto", "10mm", "10 mm", "5.7x28mm", "5.7x28", "5.7x28 mm")
 _NOT_A_HANDGUN = re.compile(
     r"pin[\s-]*fire|lefaucheux|lefacheux|carbine|\bpcc\b|\bar[\s-]*10\b|\bbrace[d]?\b"
     r"|\bp\s*s?\s*90\b",

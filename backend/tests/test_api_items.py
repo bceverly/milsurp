@@ -287,6 +287,39 @@ class TestTheTypeCounts:
         assert counts[""] == sum(counts[k] for k in self.TYPES)
         assert counts[""] == client.get("/api/items", headers=admin_headers).json()["total"]
 
+    def test_a_full_size_10mm_is_a_handgun_and_a_carry_gun(
+        self, client, admin_headers, inventory, seeded
+    ):
+        """The one exception to the partition (2026-10-12): 10mm Auto and
+        5.7x28mm count as carry guns at any size, and filed only there a Glock
+        20 was nowhere under Handguns. A 9mm carry gun is still in one."""
+        site = seeded.query(Site).first()
+        for key, title, caliber in (
+            ("g20", "Glock 20 Gen 4 10mm", "10mm Auto"),
+            ("g26", "Glock 26 Gen 5 9mm", "9mm Luger"),
+        ):
+            seeded.add(
+                Item(
+                    site_id=site.id,
+                    external_key=key,
+                    url=f"https://x.test/{key}",
+                    title=title,
+                    caliber=caliber,
+                    is_pistol=True,
+                    is_concealed_carry=True,
+                )
+            )
+        seeded.commit()
+
+        def titles(kind):
+            body = client.get(f"/api/items?kind={kind}", headers=admin_headers).json()
+            return {row["title"] for row in body["items"]}
+
+        assert "Glock 20 Gen 4 10mm" in titles("pistol")
+        assert "Glock 20 Gen 4 10mm" in titles("concealed_carry")
+        assert "Glock 26 Gen 5 9mm" not in titles("pistol")
+        assert "Glock 26 Gen 5 9mm" in titles("concealed_carry")
+
     def test_choosing_a_type_does_not_change_them(self, client, admin_headers, inventory):
         """Otherwise picking Rifles would report zero handguns, and the numbers
         would only ever describe the choice already made."""
@@ -817,6 +850,28 @@ class TestFacetsLeaveRoomForASecondChoice:
         assert traits["unmarked"] == 2
         assert traits["import_marked"] == 1
         assert traits["all_matching"] == 1
+
+    def test_every_value_is_sent_not_the_top_forty(self, seeded):
+        """10mm Auto had 32 listings and ranked 58th of 301 calibers, so the
+        Caliber filter -- the top 40 -- could not find it at all (2026-10-12)."""
+        from sqlalchemy import select
+
+        from app.api.items import _tally
+
+        site = seeded.query(Site).first()
+        for n in range(45):
+            seeded.add(
+                Item(
+                    site_id=site.id,
+                    external_key=f"rare-{n}",
+                    url=f"https://x.test/rare-{n}",
+                    title=f"Rare {n}",
+                    caliber=f"Rare cartridge {n}",
+                )
+            )
+        seeded.commit()
+        values = {row.value for row in _tally(seeded, select(Item), Item.caliber)}
+        assert {f"Rare cartridge {n}" for n in range(45)} <= values
 
     def test_a_ticked_value_past_the_cut_is_still_listed(self, inventory, seeded):
         """A checkbox that vanishes once ticked cannot be unticked."""

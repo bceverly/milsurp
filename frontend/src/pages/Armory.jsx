@@ -51,7 +51,16 @@ const TABS = [
   { key: "manufacturers", label: "Manufacturers" },
   { key: "models", label: "Models" },
   { key: "calibers", label: "Calibers" },
+  // The suggested articles, waiting on a person (2026-10-12): they sat above
+  // every tab, pushing the tables down, whichever tab was being worked on.
+  { key: "wikipedia", label: "Wikipedia" },
+  // Each modern model's own page on its maker's site, found in the maker's
+  // sitemap (app/services/makerpages.py) and decided here (2026-10-12).
+  { key: "maker_pages", label: "Maker pages" },
 ];
+
+/** The two tabs of suggestions, and which kind each shows. */
+const SUGGESTION_FIELD = { wikipedia: "wikipedia", maker_pages: "maker_page" };
 
 // Manufacturers first: what the armory is browsed by (asked for on 2026-10-12).
 const DEFAULT_TAB = "manufacturers";
@@ -68,7 +77,13 @@ const DEFAULT_TAB = "manufacturers";
  * Written singular, because it names *the* section. Read either way, so a
  * hand-typed or older plural link still lands where it means to.
  */
-const TAB_HASH = { manufacturers: "manufacturer", models: "model", calibers: "caliber" };
+const TAB_HASH = {
+  manufacturers: "manufacturer",
+  models: "model",
+  calibers: "caliber",
+  wikipedia: "wikipedia",
+  maker_pages: "maker-pages",
+};
 const TAB_FROM_HASH = {
   manufacturer: "manufacturers",
   manufacturers: "manufacturers",
@@ -76,6 +91,9 @@ const TAB_FROM_HASH = {
   models: "models",
   caliber: "calibers",
   calibers: "calibers",
+  wikipedia: "wikipedia",
+  "maker-pages": "maker_pages",
+  maker_pages: "maker_pages",
 };
 
 /** Which tab a URL fragment asks for, falling back to the default. */
@@ -1619,35 +1637,34 @@ function VariantsEditor({ model, calibers }) {
   );
 }
 
+/** What a suggestion is for, as its row says it. */
+const TARGET_LABEL = { manufacturer: "Maker", model: "Model", caliber: "Caliber" };
+
 /**
- * Wikipedia articles proposed for makers and models, waiting on a person.
+ * Wikipedia articles proposed for makers, models and calibers, waiting on a
+ * person: the Armory's Wikipedia tab.
  *
- * Written by ``cli.py armory wikipedia`` (see app/services/wikipedia.py), which
- * proposes the first search result whose categories say it is about a gun or
- * a gun maker. "Confident" means the article's title also names the row. Each
- * is accepted -- which writes the link onto the row -- or rejected, which keeps
- * it from being proposed again. Nothing shows until there is something to
- * decide.
+ * Proposed by ``cli.py armory wikipedia`` and the caliber data's refresh (see
+ * app/services/wikipedia.py), which take the first search result whose
+ * categories say it is about a gun, a gun maker or a cartridge. "Confident"
+ * means the article's title also names the row. Each is accepted -- which
+ * writes the link onto the row -- or rejected, which keeps it from being
+ * proposed again.
+ *
+ * The Armory loads them, for the count on the tab, and hands them here with
+ * the search box's text. The Showing filter is about a row's status, which a
+ * suggestion does not have, so it is left out.
  */
-function WikipediaSuggestions({ onDecided }) {
-  const [rows, setRows] = useState([]);
+function WikipediaSuggestions({ rows, failure, search, onDecided, field = "wikipedia" }) {
+  const makers = field === "maker_page";
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-
-  const load = useCallback(() => {
-    api
-      .referenceProposals()
-      .then(setRows)
-      .catch((err) => setError(err.message));
-  }, []);
-  useEffect(load, [load]);
 
   const decide = async (call) => {
     setBusy(true);
     setError("");
     try {
       await call();
-      load();
       onDecided?.();
     } catch (err) {
       setError(err.message);
@@ -1656,79 +1673,109 @@ function WikipediaSuggestions({ onDecided }) {
     }
   };
 
-  if (!rows.length && !error) return null;
-  const confident = rows.filter((row) => row.confident).length;
+  const wanted = search.trim().toLowerCase();
+  const shown = wanted
+    ? rows.filter((row) =>
+        [row.target_name, row.title, row.reason].some((text) =>
+          String(text || "")
+            .toLowerCase()
+            .includes(wanted),
+        ),
+      )
+    : rows;
+  const confident = shown.filter((row) => row.confident);
   return (
-    <div className="panel wiki-suggestions" data-testid="wikipedia-suggestions">
+    <div
+      className="panel wiki-suggestions"
+      data-testid={makers ? "maker-page-suggestions" : "wikipedia-suggestions"}
+    >
       <div className="panel__head">
-        <h2>Wikipedia suggestions</h2>
-        {confident > 0 && (
+        <h2>{makers ? "Maker page suggestions" : "Wikipedia suggestions"}</h2>
+        {confident.length > 0 && (
           <button
             type="button"
             className="btn btn--primary btn--sm"
             disabled={busy}
-            onClick={() => decide(() => api.acceptConfidentReferences())}
+            onClick={() =>
+              decide(() =>
+                wanted
+                  ? api.acceptReferences(confident.map((row) => row.id))
+                  : api.acceptConfidentReferences(field),
+              )
+            }
           >
-            Accept all confident ({confident})
+            Accept all confident ({confident.length})
           </button>
         )}
       </div>
-      {error && <p className="alert alert--error">{error}</p>}
-      <div className="table-wrap">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>For</th>
-              <th>Article</th>
-              <th>Why</th>
-              <th aria-label="Decide" />
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.id}>
-                <td>
-                  {row.target_name}
-                  <div className="muted">
-                    {row.target_type === "manufacturer" ? "Maker" : "Model"}
-                  </div>
-                </td>
-                <td>
-                  <a href={row.url} target="_blank" rel="noopener noreferrer">
-                    {row.title}
-                  </a>
-                  {row.confident && (
-                    <span className="chip chip--success wiki-suggestions__chip">
-                      Confident
-                    </span>
-                  )}
-                </td>
-                <td className="muted">{row.reason}</td>
-                <td className="table__actions">
-                  <button
-                    type="button"
-                    className="btn btn--secondary btn--sm"
-                    disabled={busy}
-                    aria-label={`Accept ${row.title} for ${row.target_name}`}
-                    onClick={() => decide(() => api.acceptReferences([row.id]))}
-                  >
-                    Accept
-                  </button>{" "}
-                  <button
-                    type="button"
-                    className="btn btn--ghost btn--sm"
-                    disabled={busy}
-                    aria-label={`Reject ${row.title} for ${row.target_name}`}
-                    onClick={() => decide(() => api.rejectReferences([row.id]))}
-                  >
-                    Reject
-                  </button>
-                </td>
+      {(error || failure) && <p className="alert alert--error">{error || failure}</p>}
+      {shown.length === 0 ? (
+        <div className="panel__body">
+          <p className="muted" style={{ margin: 0 }}>
+            {rows.length === 0
+              ? makers
+                ? "No suggestions waiting. New ones come from cli.py armory maker-pages, which reads the sitemaps of the makers of every model marked as still made."
+                : "No suggestions waiting. New ones come from the Wikipedia part of the caliber data on Site settings, and from cli.py armory wikipedia."
+              : "No suggestion matches the search."}
+          </p>
+        </div>
+      ) : (
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>For</th>
+                <th>{makers ? "Page" : "Article"}</th>
+                <th>Why</th>
+                <th aria-label="Decide" />
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {shown.map((row) => (
+                <tr key={row.id}>
+                  <td>
+                    {row.target_name}
+                    <div className="muted">
+                      {TARGET_LABEL[row.target_type] || row.target_type}
+                    </div>
+                  </td>
+                  <td>
+                    <a href={row.url} target="_blank" rel="noopener noreferrer">
+                      {row.title}
+                    </a>
+                    {row.confident && (
+                      <span className="chip chip--success wiki-suggestions__chip">
+                        Confident
+                      </span>
+                    )}
+                  </td>
+                  <td className="muted">{row.reason}</td>
+                  <td className="table__actions">
+                    <button
+                      type="button"
+                      className="btn btn--secondary btn--sm"
+                      disabled={busy}
+                      aria-label={`Accept ${row.title} for ${row.target_name}`}
+                      onClick={() => decide(() => api.acceptReferences([row.id]))}
+                    >
+                      Accept
+                    </button>{" "}
+                    <button
+                      type="button"
+                      className="btn btn--ghost btn--sm"
+                      disabled={busy}
+                      aria-label={`Reject ${row.title} for ${row.target_name}`}
+                      onClick={() => decide(() => api.rejectReferences([row.id]))}
+                    >
+                      Reject
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -2058,6 +2105,30 @@ export default function Armory() {
     setSelected(new Set());
   }, [tab]);
 
+  // The Wikipedia suggestions, loaded here rather than by their tab so the tab
+  // can say how many are waiting.
+  const [proposals, setProposals] = useState([]);
+  const [proposalError, setProposalError] = useState("");
+  const loadProposals = useCallback(() => {
+    api
+      .referenceProposals()
+      .then((found) => {
+        setProposals(found);
+        setProposalError("");
+      })
+      .catch((err) => setProposalError(err.message));
+  }, []);
+  useEffect(loadProposals, [loadProposals]);
+  // How many of each kind are waiting, for the tabs' labels.
+  const waiting = useMemo(() => {
+    const counts = {};
+    for (const row of proposals) {
+      const field = row.field || "wikipedia";
+      counts[field] = (counts[field] || 0) + 1;
+    }
+    return counts;
+  }, [proposals]);
+
   // Everything on arrival; after that a changed filter reloads only what it
   // filters.
   useEffect(() => {
@@ -2324,16 +2395,18 @@ export default function Armory() {
           >
             <Refresh /> Apply shipped armory…
           </button>
-          <button
-            type="button"
-            className="btn btn--primary"
-            onClick={() => {
-              setFormError("");
-              setEditing({});
-            }}
-          >
-            <Plus /> Add {SINGULAR[tab]}
-          </button>
+          {!SUGGESTION_FIELD[tab] && (
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={() => {
+                setFormError("");
+                setEditing({});
+              }}
+            >
+              <Plus /> Add {SINGULAR[tab]}
+            </button>
+          )}
         </div>
       </div>
 
@@ -2345,7 +2418,6 @@ export default function Armory() {
         </p>
       )}
 
-      <WikipediaSuggestions onDecided={load} />
       {message && <p className="alert alert--success">{message}</p>}
       {failure && <p className="alert alert--error">{failure}</p>}
 
@@ -2357,6 +2429,12 @@ export default function Armory() {
               aria-describedby={describedBy}
               className="input"
               value={statusFilter}
+              disabled={Boolean(SUGGESTION_FIELD[tab])}
+              title={
+                SUGGESTION_FIELD[tab]
+                  ? "A suggestion has no status: Showing does not apply to it"
+                  : undefined
+              }
               onChange={(event) => setStatusFilter(event.target.value)}
             >
               {STATUSES.map((entry) => (
@@ -2392,6 +2470,9 @@ export default function Armory() {
             onClick={() => setTab(entry.key)}
           >
             {entry.label}
+            {SUGGESTION_FIELD[entry.key] &&
+              waiting[SUGGESTION_FIELD[entry.key]] > 0 &&
+              ` (${waiting[SUGGESTION_FIELD[entry.key]]})`}
           </button>
         ))}
       </div>
@@ -2487,7 +2568,21 @@ export default function Armory() {
         </div>
       )}
 
-      {tab === "manufacturers" ? (
+      {SUGGESTION_FIELD[tab] ? (
+        <WikipediaSuggestions
+          key={tab}
+          field={SUGGESTION_FIELD[tab]}
+          rows={proposals.filter(
+            (row) => (row.field || "wikipedia") === SUGGESTION_FIELD[tab],
+          )}
+          failure={proposalError}
+          search={search}
+          onDecided={() => {
+            loadProposals();
+            load();
+          }}
+        />
+      ) : tab === "manufacturers" ? (
         <div className="table-wrap">
           <table className="table">
             <thead>

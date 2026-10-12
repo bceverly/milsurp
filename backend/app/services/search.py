@@ -23,7 +23,7 @@ from sqlalchemy import Select, and_, any_, column, false, func, not_, or_, selec
 from sqlalchemy.orm import Session
 
 from ..models import FirearmModel, Item, utcnow
-from . import curio, traits
+from . import carry, curio, traits
 
 log = logging.getLogger("milsurp.search")
 
@@ -221,8 +221,13 @@ def _search_terms(search: str) -> list[str]:
     return terms[:MAX_SEARCH_TERMS]
 
 
-#: The browse filter's Types, which **partition the catalog**: every listing is
-#: in exactly one, and the counts beside them sum to the total.
+#: The browse filter's Types, which **very nearly partition the catalog**:
+#: every listing is in one, and the counts beside them sum to the total --
+#: except for the handguns of the two calibers that count as carry guns at any
+#: size, 10mm Auto and 5.7x28mm (see app/services/carry.py), which are under
+#: Handguns as well. Asked for on 2026-10-12: filed only under Concealed carry,
+#: a Glock 20 or a Colt Delta Elite was nowhere under Handguns, and "10mm"
+#: there found nothing but three Lefaucheux pinfires.
 #:
 #: Police surplus is the reason rifle and pistol carry an exclusion. A police
 #: trade-in Glock is a handgun and ``is_pistol`` says so -- that is the true
@@ -248,7 +253,10 @@ KINDS: dict[str, Any] = {
     "pistol": (
         Item.is_pistol.is_(True)
         & Item.is_police_surplus.is_(False)
-        & Item.is_concealed_carry.is_(False)
+        & (
+            Item.is_concealed_carry.is_(False)
+            | func.lower(Item.caliber).in_(carry.ANY_SIZE_CALIBERS)
+        )
         & Item.is_black_powder.is_(False)
     ),
     "concealed_carry": Item.is_concealed_carry.is_(True) & Item.is_black_powder.is_(False),

@@ -926,9 +926,15 @@ def _retire_split_parents(
 
     **Deleted, not de-listed.** A de-listed listing is one that left the shelf,
     and the market reads those as departures: the grab bag would be counted as
-    a gun that went for $10. Its photographs go with it -- each choice has its
-    own copy, or downloads one. Only once the scraper ran to completion, as for
+    a gun that went for $10. Only once the scraper ran to completion, as for
     any de-listing, and never a key this run yielded itself.
+
+    **Its photographs' files go only where nothing else uses them.** The store
+    names a file by its contents, so the choice showing "hg3_1.png" and the
+    grab bag showing the same picture share one file. This said each choice
+    had "its own copy" and deleted them all: on 2026-10-11 at 14:15 it took
+    the files of 662 Classic Firearms listings with their parents, leaving the
+    rows pointing at nothing -- the Springfield XD-M Elite among them.
     """
     retiring = keys - seen_keys
     if not retiring:
@@ -944,17 +950,37 @@ def _retire_split_parents(
     if not ids:
         return 0
     store = ImageStore(config)
-    for filename, thumb in session.execute(
-        select(ItemPhoto.filename, ItemPhoto.thumb_filename).where(ItemPhoto.item_id.in_(ids))
-    ).all():
-        store.delete(filename)
-        if thumb and thumb != filename:
-            store.delete(thumb)
+    files = {
+        name
+        for row in session.execute(
+            select(ItemPhoto.filename, ItemPhoto.thumb_filename).where(ItemPhoto.item_id.in_(ids))
+        ).all()
+        for name in row
+        if name
+    }
+    for name in files - _files_in_use(session, files, ids):
+        store.delete(name)
     session.execute(
         delete(Item).where(Item.id.in_(ids)), execution_options={"synchronize_session": False}
     )
     session.commit()
     return len(ids)
+
+
+def _files_in_use(session: Session, files: set[str], leaving: list[int]) -> set[str]:
+    """Which of *files* a photograph of some other listing still points at."""
+    if not files:
+        return set()
+    used: set[str] = set()
+    for column in (ItemPhoto.filename, ItemPhoto.thumb_filename):
+        used.update(
+            name
+            for name in session.execute(
+                select(column).where(column.in_(files), ItemPhoto.item_id.not_in(leaving))
+            ).scalars()
+            if name
+        )
+    return used
 
 
 def _mark_delisted(going: list[Item], seen_at: datetime) -> int:

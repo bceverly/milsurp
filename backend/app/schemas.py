@@ -1076,6 +1076,8 @@ class ReferenceProposalOut(BaseModel):
     #: The article's title names the row and it sits in a firearm category.
     confident: bool
     reason: str | None = None
+    #: "wikipedia", or "maker_page" for a model's page on its maker's site.
+    field: str = "wikipedia"
 
 
 class ReferenceDecision(BaseModel):

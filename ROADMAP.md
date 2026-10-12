@@ -5148,6 +5148,78 @@ pages are about gauges in general. Lee's reloading answer for a gauge is its
 Load-All II shotshell reloader, read from the gauges that page offers (12, 16,
 20, 28, .410).
 
+### Each model's own page on its maker's site — **Shipped** 2026-10-12
+
+Asked for: "i wasn't just looking for a button to run a google search, i had
+hoped you could scan, find the appropriate manufacturer's product page, store
+that link in the armory and then surface it ... inside of the 'what the armory
+knows' popup dialog". Slice 1 had linked a model with no recorded page to a
+Google search of its maker's site; nothing had ever filled `maker_url` (the
+variant readers of slice 3 had never been run in production either).
+
+* `services/makerpages.py` and `cli.py armory maker-pages [--maker NAME]`:
+  for every model in modern production with no page, the maker's **sitemap**
+  is read once -- robots.txt's `Sitemap:` lines, or `/sitemap.xml`, following
+  an index into the sitemaps it names -- and the model is matched to the page
+  whose address is its name: Glock's `/pistols/g19-v`, Kimber's
+  `/pistols/micro-9`, Taurus's `/revolvers/taurus-judge/`, Beretta's
+  `/by-gun-family/px4-storm-family`. Ruger and Walther publish no sitemap that
+  can be read, so the variant readers' product-line pages stand in. Sig Sauer,
+  HK and Mossberg answer with bot controls and are not read.
+* Measured on production's 218 such models that day: a page for 150, 77 of
+  them confident. Fixed along the way, each now a test: a run-together name
+  found inside a longer number ("Model 10" took S&W's "model-103-1-handcuffs",
+  "Model 64" the Model 640), reviews, announcements and safety notices
+  (Kahr's "pistol-review", Taurus's "gx4safetynotice"), tag, category, parts
+  and accessory sections, Beretta's sitemaps for other countries (its
+  address in the armory is `/en-us`), and Glock's agency pages ahead of the
+  public ones.
+* **Proposed, never written**: each find is a `ReferenceProposal` with
+  `field="maker_page"` (migration 0071), decided on the Armory's new **Maker
+  pages** tab exactly as an article is on the Wikipedia tab -- accepting writes
+  `maker_url`, and a rejection is final for the model.
+* On a listing, the page is a button inside **What the armory knows**,
+  beside the Wikipedia reference. The search of the maker's site is gone, and
+  a model with a page shows it whether or not it is flagged as still made.
+
+### Rejected means rejected, and the filters list everything — **Fixed** 2026-10-12
+
+* **A Wikipedia suggestion rejected for a row is the last one for that row.**
+  Rejection was per article, so each refresh proposed the search's next result:
+  all 131 pending on 2026-10-12 were second guesses, nearly all wrong (".54" →
+  7.62×54mmR, ".36" → "Cartridge (firearms)"). After a no, the row's article is
+  set by hand on its edit form, if it has one. Calibers named by a bare size
+  (".44", "6mm", ".30 Caliber"; `armory.is_vague_caliber`, shared with the
+  Ammo.com matching) are never asked about. The 131 were rejected in
+  production.
+* **One article for several calibers** needs nothing new: the same address can
+  be typed into each caliber's "Wikipedia article" field, and calibers that are
+  the same cartridge are better merged, which keeps every spelling as an alias
+  of the one row that carries the article.
+* **Scans propose fewer non-models.** The 311 models pending in production were
+  all already switched off -- which is how a row is kept from being proposed
+  again; a deleted one comes back -- but they showed what the designation rule
+  let through: "IN 357", "SIDE 12", "PUMP 16", "MAY 15", "SET 28", and nine
+  dealer stock codes like "AMAV427". Those words, the months and the weekdays
+  joined `_NOT_A_DESIGNATION`, and four letters run into three digits is read
+  as a stock code.
+* **Every value in the browse filters, not the top 40.** 10mm Auto had 32
+  listings, 58th of 301 calibers, so the Caliber filter -- which sent the 40
+  most common -- could not find it, by scrolling or by its search box; nor could
+  most of the 272 makers or 1,201 models. The page already shows the top few
+  and searches the rest; it now has the rest to search.
+
+### The Wikipedia suggestions get a tab of their own — **Changed** 2026-10-12
+
+Asked for: the suggestions "under a 'wikipedia' tab next to 'manufacturers',
+'Models' and 'Calibers'", with Showing having no effect on it and Search
+working. They were a panel above every tab. The tab says how many are waiting
+("Wikipedia (12)") and lives in the URL like the others (`#wikipedia`). Showing
+is disabled there -- a suggestion has no status -- and Search narrows the list
+by the row's name, the article's title or the reason given; "Accept all
+confident" then accepts only the confident ones the search shows. A
+caliber's suggestion now says "Caliber" rather than "Model".
+
 ### Site settings, and the caliber data a part at a time — **Shipped** 2026-10-12
 
 Asked for: "different buttons (including a 'do all' button) for 1) updating
@@ -5207,6 +5279,24 @@ ammo.com for ammo and grafs.com for reloading bullets." Measured first:
   the product handle's count (`...-500bx-4cs`) is taken there. The bullets
   within .0015" of the caliber's diameter are priced as the factory figure
   is, and linked to the cheapest of them.
+
+**The first production run (2026-10-12) found four faults, fixed:** 52 of
+Ammo.com's 122 caliber pages matched nothing, mostly because it writes inch
+calibers without the point and abbreviates ("300 Win Magnum"), so both
+spellings are now tried; vague armory calibers ("6mm", ".22 Caliber") took
+specific pages (6mm ARC) and are now never matched; a caliber with two pages
+takes the one its earliest spelling names (5.56x45mm NATO the "5.56x45" page,
+not "223"); and Ammo.com's "8mm" is pinned to the 8mm Mauser, which had been
+priced against the rimmed 8x57 JR. A gauge is priced by its cheapest round of
+any load -- the weight offered most often on a shotshell page is a slug's, and
+20 gauge came out at $4 -- and a rimfire cartridge gets no projectile cost,
+.22 LR having been priced against .224" centerfire bullets. And one Lee die
+set often loads two cartridges ("38 Special / 357 Magnum", "44 Special/Magnum",
+"40 S&W / 10MM Auto"), of which only the first was credited, so .357 Magnum,
+.44 Magnum, .38 Super, .40 S&W and .32 H&R Magnum showed no dies. Three aliases
+were added to the armory for Ammo.com's names: ".300 Blackout", ".22-250" and
+"25-06". 72 of the 122 pages now match; most of the rest are cartridges no
+listing here is in, buckshot sizes and "Surplus".
 
 Milsurp Munitions stays the fallback for factory ammunition, and a caliber
 page Ammo.com fails to serve keeps the figure it gave before. Migration 0069

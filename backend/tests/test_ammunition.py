@@ -72,11 +72,12 @@ class TestAmmoCom:
     def test_the_caliber_pages_and_their_names(self):
         calibers = dict(ammunition.ammo_com_calibers(page("ammocom-rifle.html.gz")))
         assert calibers["https://ammo.com/rifle/7.62x54r-ammo"] == ["7.62x54r"]
-        assert calibers["https://ammo.com/handgun/40-cal-ammo"] == [
-            "40 Cal (S&W)",
-            "40 Cal",
-            "40 S&W",
-        ]
+        forty = calibers["https://ammo.com/handgun/40-cal-ammo"]
+        assert forty[:3] == ["40 Cal (S&W)", "40 Cal", "40 S&W"]
+        # And with the point the armory writes an inch caliber with.
+        assert ".40 S&W" in forty
+        # Ammo.com's "8mm" is the 8mm Mauser (AMMO_COM_HINTS).
+        assert calibers["https://ammo.com/rifle/8mm-ammo"][0] == "8mm Mauser"
         # A caliber with nothing in stock is still a page, named without it.
         assert calibers["https://ammo.com/rifle/6.5x52mm-carcano-ammo"] == ["6.5x52mm Carcano"]
 
@@ -509,6 +510,79 @@ class TestMatchingShopPages:
         assert pages[".22 LR"] == "/22-lr"
 
 
+class TestTheFirstProductionRun:
+    """What the first run against Ammo.com and Graf & Sons got wrong (2026-10-12)."""
+
+    def test_inch_calibers_are_written_the_armory_way(self):
+        names = ammunition._ammo_com_names("300 Win Magnum Ammo")
+        assert ".300 Winchester Magnum" in names
+        assert ".22-250" in ammunition._ammo_com_names("22-250 Ammo")
+        # Not a metric size, a gauge or a buckshot size.
+        assert ammunition._ammo_com_names("7.62x39 Ammo") == ["7.62x39"]
+        assert ammunition._ammo_com_names("12 Gauge Shotgun Shells") == ["12 Gauge"]
+        assert ".00 Buck" not in ammunition._ammo_com_names("00 Buck Ammo")
+
+    def test_a_vague_caliber_is_never_matched(self, clean_db):
+        clean_db.add_all(
+            [
+                Caliber(name="6mm", status=ArmoryStatus.APPROVED),
+                Caliber(name=".22 Caliber", status=ArmoryStatus.APPROVED),
+            ]
+        )
+        clean_db.commit()
+        pages = ammunition.match_pages(
+            clean_db, [("/6mm-arc", ["6mm ARC", "6mm"]), ("/22", ["22 Caliber"])]
+        )
+        assert pages == {}
+
+    def test_a_calibers_own_name_beats_its_alias(self, clean_db):
+        clean_db.add(
+            Caliber(
+                name="5.56x45mm NATO",
+                aliases="5.56x45\n223",
+                status=ArmoryStatus.APPROVED,
+            )
+        )
+        clean_db.commit()
+        pages = ammunition.match_pages(clean_db, [("/223-rem", ["223"]), ("/5.56x45", ["5.56x45"])])
+        # "223" is listed first, but "5.56x45" comes earlier in the aliases.
+        assert pages == {"5.56x45mm NATO": "/5.56x45"}
+
+    def test_one_lee_die_set_loads_two_cartridges(self):
+        """.357 Magnum came out with no Lee dies: Lee sells the set as "38
+        Special / 357 Magnum", and only the first name was credited."""
+        assert ammunition.lee_names("38 Special / 357 Magnum")[1:] == [
+            "38 Special",
+            "357 Magnum",
+        ]
+        # The second written short takes the first's number.
+        assert ammunition.lee_names("44 Special/Magnum")[1:] == ["44 Special", "44 Magnum"]
+        assert ammunition.lee_names("38 ACP/Super")[1:] == ["38 ACP", "38 Super"]
+        # One cartridge, the .32-20, not two.
+        assert ammunition.lee_names("32/20 Winchester") == ["32/20 Winchester"]
+        assert ammunition.lee_names("9mm Luger") == ["9mm Luger"]
+
+    def test_rimfire_is_not_reloaded(self):
+        assert ammunition.is_rimfire(".22 LR")
+        assert ammunition.is_rimfire(".17 HMR")
+        assert ammunition.is_rimfire(".22 WMR")
+        assert not ammunition.is_rimfire(".22 Hornet")
+        assert not ammunition.is_rimfire(".22-250 Remington")
+        assert not ammunition.is_rimfire(".223 Remington")
+        lr = Caliber(name=".22 LR", bullet_diameter_in=0.2235)
+        bullets = ammunition.grafs_bullets(
+            [
+                {
+                    "title": "Hornady .224 Diameter Bullets 40 grain Box of 100",
+                    "handle": "h",
+                    "variants": [{"available": True, "price": "20.00", "title": "Default Title"}],
+                }
+            ]
+        )
+        assert not ammunition._projectiles(lr, bullets, utcnow())
+        assert lr.projectile_cost is None
+
+
 class TestWhenAmmoComFails:
     class Failing(RecordedSites):
         def get_text(self, url, **kwargs):
@@ -543,7 +617,7 @@ class TestWhenAmmoComFails:
         assert (mosin_round.factory_cpr, mosin_round.factory_source) == (0.6715, "ammo-com")
         assert (mannlicher.factory_cpr, mannlicher.factory_source) == (2.9975, "milsurp-munitions")
 
-    def test_a_gauge_is_priced_by_its_cheapest_round(self, clean_db):
+    def test_a_gauge_is_priced_by_its_cheapest_round_not_its_slugs(self, clean_db):
         class Shells(RecordedSites):
             def get_text(self, url, **kwargs):
                 if url == ammunition.AMMO_COM + "shotgun":
@@ -551,9 +625,11 @@ class TestWhenAmmoComFails:
                         '<a href="https://ammo.com/shotgun/12-ga-ammo">12 Gauge Shotgun Shells</a>'
                     )
                 if url == ammunition.AMMO_COM + "shotgun/12-ga-ammo":
-                    # The 7.62x54R page with the weights taken out of its titles,
-                    # as a shotshell's are ("1 oz", "00 Buck").
-                    return page("ammocom-7.62x54r.html.gz").replace(" Grain ", " ")
+                    # The 7.62x54R page with its cheapest boxes in ounces, as a
+                    # shotshell's are, and the rest in grains, as a slug's are.
+                    # The weight offered most often is then 150 gr at $1.22; the
+                    # cheapest round is 62.5 cents, which is the answer.
+                    return page("ammocom-7.62x54r.html.gz").replace(" 148 Grain ", " 1 oz ")
                 return super().get_text(url, **kwargs)
 
         twelve = Caliber(name="12 Gauge", status=ArmoryStatus.APPROVED)

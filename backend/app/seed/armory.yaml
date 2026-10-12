@@ -94,6 +94,7 @@ manufacturers:
   status: approved
 - name: Benelli
   country: Italy
+  website: https://www.benelliusa.com/
   status: approved
 - name: Beretta
   country: Italy
@@ -117,6 +118,7 @@ manufacturers:
   status: approved
 - name: Bersa
   country: Argentina
+  website: https://bersausa.com/
   status: approved
 - name: Berthier
   country: France
@@ -171,6 +173,7 @@ manufacturers:
   - BUL Armory
   - BUL Transmark
   country: Israel
+  website: https://www.bularmory.com/
   status: approved
 - name: Burnside
   aliases:
@@ -370,6 +373,7 @@ manufacturers:
   aliases:
   - Fabrique Nationale
   country: Belgium
+  website: https://fnamerica.com/
   status: approved
   position: 320
 - name: Forehand & Wadsworth
@@ -488,6 +492,7 @@ manufacturers:
   country: Japan
   status: approved
 - name: HS Produkt
+  website: https://www.hs-produkt.hr/
   status: approved
 - name: Husqvarna
   country: Sweden
@@ -1162,6 +1167,7 @@ manufacturers:
   marks:
   - bnz
   country: Austria
+  website: https://www.steyr-arms.com/
   status: approved
   position: 250
 - name: Stoeger
@@ -1304,6 +1310,7 @@ manufacturers:
   - Webley & Son
   - P. Webley & Son
   country: United Kingdom
+  website: https://www.webleyandscott.com/
   status: approved
 - name: Welt Waffen
   country: Germany
@@ -1583,6 +1590,8 @@ calibers:
 - name: .22-250 Remington
   aliases:
   - 22-250 Remington
+  - .22-250
+  - 22-250
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.22-250_Remington
   bullet_diameter_in: 0.224
@@ -1641,6 +1650,8 @@ calibers:
   - 22 Long
   - .22 Long RF
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.22_long
+  bullet_diameter_in: 0.222
 - name: 22 Long
   status: merged
 - name: 22 Long Rifle
@@ -1713,6 +1724,10 @@ calibers:
 - name: '.25'
   status: merged
 - name: 25-06 Remington
+  aliases:
+  - .25-06 Remington
+  - .25-06
+  - 25-06
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.25-06_Remington
   bullet_diameter_in: 0.257
@@ -1796,6 +1811,8 @@ calibers:
 - name: .300 AAC Blackout
   aliases:
   - 300 BLK
+  - .300 Blackout
+  - 300 Blackout
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.300_AAC_Blackout
   bullet_diameter_in: 0.308
@@ -2007,6 +2024,8 @@ calibers:
   - 32 S&W Short
   - 32 Short CF
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.32_S%26W
+  bullet_diameter_in: 0.312
 - name: .32 S&W Long
   aliases:
   - 32 S&W Long
@@ -2060,6 +2079,8 @@ calibers:
   - .348 WCF
   - 348 Winchester
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.348_Winchester
+  bullet_diameter_in: 0.348
 - name: .34 Caliber
   aliases:
   - 34 Caliber
@@ -2081,9 +2102,15 @@ calibers:
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.357_SIG
   bullet_diameter_in: 0.3551
-- name: '.358'
-  status: pending
-  enabled: false
+- name: .358 Winchester
+  aliases:
+  - .358 Win
+  - 358 Winchester
+  - 358 Win
+  - '.358'
+  status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.358_Winchester
+  bullet_diameter_in: 0.358
 - name: 35 Caliber
   status: approved
 - name: .35 Remington
@@ -2193,6 +2220,8 @@ calibers:
   - 38 RF
   - 38 Rimfire
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.38_rimfire
+  bullet_diameter_in: 0.374
 - name: 38 Rimfire
   status: merged
 - name: .38 Special
@@ -2222,6 +2251,8 @@ calibers:
   - 38/200
   - 38-200 Caliber
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.38_S%26W
+  bullet_diameter_in: 0.361
 - name: 38 S&W
   status: merged
 - name: '.39'
@@ -2236,6 +2267,8 @@ calibers:
   - .405 WCF
   - 405 Winchester
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.405_Winchester
+  bullet_diameter_in: 0.4115
 - name: 40 Caliber
   status: merged
 - name: .40 S&W
@@ -2252,8 +2285,10 @@ calibers:
   status: approved
 - name: '.410'
   status: merged
+  bullet_diameter_in: 0.41
 - name: .410 bore
   status: merged
+  bullet_diameter_in: 0.41
 - name: .410 Gauge
   aliases:
   - .410 bore
@@ -2264,6 +2299,7 @@ calibers:
   bullet_diameter_in: 0.41
 - name: 410 Gauge
   status: merged
+  bullet_diameter_in: 0.41
 - name: 41 Caliber
   status: merged
 - name: .41 Colt
@@ -2279,6 +2315,8 @@ calibers:
   - .41 Rem Mag
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+  wikipedia: https://en.wikipedia.org/wiki/.41_Remington_Magnum
+  bullet_diameter_in: 0.41
 - name: .41 RF
   aliases:
   - 41 Rimfire
@@ -2347,6 +2385,8 @@ calibers:
   aliases:
   - 44 Colt
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.44_Colt
+  bullet_diameter_in: 0.451
 - name: .44 Evans
   aliases:
   - 44 Evans
@@ -2417,6 +2457,8 @@ calibers:
   - 454 Casull
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+  wikipedia: https://en.wikipedia.org/wiki/.454_Casull
+  bullet_diameter_in: 0.452
 - name: '.455'
   aliases:
   - 455 Caliber
@@ -2669,6 +2711,8 @@ calibers:
   - 577/45
   - 577-450 Martini
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.577%2F450_Martini%E2%80%93Henry
+  bullet_diameter_in: 0.455
 - name: 577 Caliber
   status: merged
 - name: 5.7x28mm
@@ -2872,6 +2916,9 @@ calibers:
   status: approved
 - name: '.73'
   status: approved
+- name: '.731'
+  status: pending
+  enabled: false
 - name: 7.35mm Carcano
   status: merged
 - name: 7.35x51mm Carcano
@@ -2964,7 +3011,7 @@ calibers:
   - M43
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/7.62%C3%9739mm
-  bullet_diameter_in: 0.3091
+  bullet_diameter_in: 0.3118
 - name: 7.62x45
   status: merged
 - name: 7.62x45mm
@@ -3121,6 +3168,8 @@ calibers:
   - 7x64
   - 7x64 Brenneke
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/7%C3%9764mm
+  bullet_diameter_in: 0.2854
 - name: 7x65R
   aliases:
   - 7.x65R
@@ -3376,11 +3425,16 @@ calibers:
   - 9x23
   - 9X23mm Largo
   status: approved
-- name: 9x23mm
-  status: pending
-  enabled: false
 - name: 9X23mm Largo
   status: merged
+- name: 9x23mm Steyr
+  aliases:
+  - 9mm Steyr
+  - 9x23 Steyr
+  - 9×23mm Steyr
+  status: approved
+  wikipedia: https://en.wikipedia.org/wiki/9%C3%9723mm_Steyr
+  bullet_diameter_in: 0.3555
 - name: 9x25mm
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/9%C3%9725mm_Dillon
@@ -4342,10 +4396,13 @@ models:
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Beretta PX4 Storm
+  aliases:
+  - PX4
   kind: pistol
   country: Italy
   manufacturers:
   - Beretta
+  modern_production: true
   status: approved
 - name: Bern 1911
   status: merged
@@ -4653,6 +4710,19 @@ models:
   manufacturers:
   - BSW
   status: approved
+- name: BUL Cherokee
+  aliases:
+  - Transmark Cherokee
+  - BUL Transmark Cherokee
+  kind: pistol
+  country: Israel
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - BUL
+  wikipedia: https://en.wikipedia.org/wiki/BUL_Cherokee
+  modern_production: true
+  status: approved
 - name: BUL M5
   aliases:
   - M5
@@ -4676,6 +4746,19 @@ models:
   modern_production: true
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: BUL Storm
+  aliases:
+  - Transmark Storm
+  - BUL Transmark Storm
+  kind: pistol
+  country: Israel
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - BUL
+  wikipedia: https://en.wikipedia.org/wiki/BUL_Storm
+  modern_production: true
+  status: approved
 - name: Burnside Carbine
   aliases:
   - Burnside 5th Model
@@ -5040,15 +5123,6 @@ models:
   modern_production: true
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
-- name: Cherokee
-  kind: pistol
-  country: Israel
-  calibers:
-  - 9mm Luger
-  manufacturers:
-  - BUL
-  wikipedia: https://en.wikipedia.org/wiki/BUL_Cherokee
-  status: approved
 - name: CHFR895
   status: pending
   enabled: false
@@ -11374,6 +11448,7 @@ models:
   - 5.7x28mm
   manufacturers:
   - Kel-Tec
+  modern_production: true
   status: approved
 - name: P53
   kind: rifle
@@ -11931,7 +12006,8 @@ models:
 - name: PX4
   kind: pistol
   country: Italy
-  status: approved
+  status: merged
+  enabled: false
 - name: PX-9
   status: merged
   enabled: false
@@ -13122,6 +13198,9 @@ models:
   manufacturers:
   - Sig Sauer
   status: approved
+- name: SIG SAUER 1911
+  status: pending
+  enabled: false
 - name: Sig Sauer 1911
   aliases:
   - Sig 1911
@@ -13138,9 +13217,6 @@ models:
   modern_production: true
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
-- name: SIG SAUER 1911
-  status: pending
-  enabled: false
 - name: Sig Sauer 47/8
   aliases:
   - 47/8
@@ -13904,6 +13980,7 @@ models:
   - .38 Special
   manufacturers:
   - Smith & Wesson
+  modern_production: true
   status: approved
 - name: Smith & Wesson Model 360
   aliases:
@@ -14423,6 +14500,7 @@ models:
   - 5.56x45mm NATO
   manufacturers:
   - Smith & Wesson
+  modern_production: true
   status: approved
 - name: Smith & Wesson M&P 22 Compact
   aliases:
@@ -14919,6 +14997,7 @@ models:
   country: United States
   manufacturers:
   - Springfield
+  modern_production: true
   status: approved
 - name: Springfield Echelon
   aliases:
@@ -15139,6 +15218,7 @@ models:
   - .22 LR
   manufacturers:
   - Ruger
+  modern_production: true
   status: approved
 - name: SR22P
   status: merged
@@ -15420,15 +15500,6 @@ models:
   - 9mm Luger
   manufacturers:
   - Rock Island Arsenal
-  status: approved
-- name: Storm
-  kind: pistol
-  country: Israel
-  calibers:
-  - 9mm Luger
-  manufacturers:
-  - BUL
-  wikipedia: https://en.wikipedia.org/wiki/BUL_Storm
   status: approved
 - name: STR-9
   kind: pistol
@@ -16082,6 +16153,7 @@ models:
   - 10mm Auto
   manufacturers:
   - Taurus
+  modern_production: true
   status: approved
 - name: TH9
   kind: pistol
@@ -17010,6 +17082,7 @@ models:
   - .45 ACP
   manufacturers:
   - Heckler Koch
+  modern_production: true
   status: approved
 - name: USP9
   kind: pistol
