@@ -55,6 +55,14 @@ class TestSpellingsAreLiteral:
         assert pattern.search("SMITH  &  WESSON revolver")
         assert pattern.search("smith & wesson")
 
+    def test_an_ampersand_forgives_the_spaces_around_it(self):
+        """ "S & W M1917" and "H & K USP" matched nothing (2026-10-12): a
+        spelling written "S&W" was one word and the title's "S & W" three."""
+        assert service.pattern_for(["S&W M1917"]).search("S & W M1917 U.S. PROPERTY")
+        assert service.pattern_for(["Smith & Wesson"]).search("SMITH&WESSON")
+        assert service.pattern_for(["M&P9"]).search("M & P9")
+        assert not service.pattern_for(["S&W"]).search("AT&T")
+
     def test_it_matches_whole_words_only(self):
         pattern = service.pattern_for(["FN"])
         assert pattern.search("an FN Mauser")

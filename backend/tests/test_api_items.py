@@ -839,3 +839,58 @@ class TestFacetsLeaveRoomForASecondChoice:
         seeded.commit()
         kept = _model_counts(seeded, base, keep=[str(mosin.id), str(k98.id), "nonsense"])
         assert {row.label for row in kept} == {"K98k", "M91/30"}
+
+
+class TestRemovingFromTheFilter:
+    """``not_<facet>``: everything but what is ticked. Asked for on 2026-10-11,
+    to take "the pile of $75 Rough Riders" off a page."""
+
+    @staticmethod
+    def _facet(body, name):
+        return {row["value"]: row["count"] for row in body["facets"][name]}
+
+    def test_everything_but_a_caliber(self, client, admin_headers, inventory):
+        body = client.get("/api/items?not_caliber=8mm Mauser", headers=admin_headers).json()
+        assert {item["caliber"] for item in body["items"]} == {"7.62x54R", "9mm", ".303 British"}
+        # The removed value stays in its list, so it can be put back.
+        assert self._facet(body, "calibers")["8mm Mauser"] == 1
+
+    def test_a_listing_with_no_value_is_not_removed_with_it(self, client, admin_headers, inventory):
+        everything = "availability=all"
+        body = client.get(
+            f"/api/items?{everything}&not_caliber=8mm Mauser", headers=admin_headers
+        ).json()
+        # The bayonet has no caliber, and taking 8mm Mauser away keeps it.
+        assert "Bayonet, German" in {item["title"] for item in body["items"]}
+        unknown = client.get(
+            f"/api/items?{everything}&not_caliber=Unknown", headers=admin_headers
+        ).json()
+        assert "Bayonet, German" not in {item["title"] for item in unknown["items"]}
+
+    def test_removals_combine_with_choices(self, client, admin_headers, inventory):
+        body = client.get(
+            "/api/items?country=Germany&not_caliber=9mm", headers=admin_headers
+        ).json()
+        assert [item["title"] for item in body["items"]] == ["GERMAN K98 Mauser rifle"]
+
+    def test_a_site_removed_by_id(self, client, admin_headers, inventory, seeded):
+        rti = seeded.query(Site).filter_by(slug="royal-tiger").one()
+        body = client.get(f"/api/items?not_site_id={rti.id}", headers=admin_headers).json()
+        assert body["total"] == 1
+        bad = client.get("/api/items?not_site_id=royal", headers=admin_headers)
+        assert bad.status_code == 422
+
+    def test_the_export_takes_them_too(self, client, admin_headers, inventory):
+        rows = client.get(
+            "/api/items/export?format=json&not_country=Germany", headers=admin_headers
+        ).json()
+        assert {row["country"] for row in rows} == {"Russia", "United Kingdom"}
+
+    def test_a_saved_search_keeps_them(self):
+        from app.services import search
+
+        query = search.parse_query("not_caliber=.22 LR&not_model=12&caliber=9mm")
+        assert query.filters["excluded"] == {"caliber": [".22 LR"], "model": ["12"]}
+        assert "not_caliber=.22+LR" in query.as_query_string()
+        with pytest.raises(search.BadQuery):
+            search.parse_query("not_model=rough")

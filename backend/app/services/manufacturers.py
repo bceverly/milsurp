@@ -55,7 +55,16 @@ def pattern_for(spellings: list[str]) -> re.Pattern[str]:
     # front of a space depending on the version, and rewriting the space
     # afterwards turned "Smith & Wesson" into a pattern looking for a literal
     # backslash.
-    body = "|".join(r"\s+".join(re.escape(part) for part in text.split()) for text in alternatives)
+    # And an ampersand forgives the spaces dealers put round it: "S & W M1917",
+    # "H & K USP" and "M & P" were matching nothing (2026-10-12), because a
+    # spelling written "S&W" is one word and the title's "S & W" is three.
+    body = "|".join(
+        r"\s+".join(
+            r"\s*&\s*".join(re.escape(piece) for piece in part.split("&"))
+            for part in re.sub(r"\s*&\s*", "&", text).split()
+        )
+        for text in alternatives
+    )
     # \b does not do anything useful next to "&" or ".", so the boundary is
     # asserted only where the spelling actually starts or ends with a word
     # character -- otherwise "S&W" would never match at all.

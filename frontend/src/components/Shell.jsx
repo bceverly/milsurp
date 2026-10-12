@@ -25,6 +25,7 @@ import {
   Sparkle,
   TrendDown,
   Sites as SitesIcon,
+  Settings as GearIcon,
   Store as StoreIcon,
   Star,
   Tag as TagIcon,
@@ -108,6 +109,9 @@ const NAV = [
       { to: "/users", label: "Users", icon: UsersIcon },
       { to: "/audit", label: "Audit log", icon: HistoryIcon },
       { to: "/backups", label: "Backups", icon: DatabaseIcon },
+      // Last: the site's own schedules and thresholds -- the caliber data and
+      // how hot deals are found -- kept off the pages they affect (2026-10-12).
+      { to: "/site-settings", label: "Site settings", icon: GearIcon },
     ],
   },
 ];

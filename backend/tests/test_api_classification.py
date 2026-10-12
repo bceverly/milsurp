@@ -42,7 +42,8 @@ def _fresh_registries(restore_classification_rules):
 class TestTheSeededDesignations:
     def test_the_migration_filled_it(self, client, admin_headers):
         rows = client.get("/api/caliber-designations", headers=admin_headers).json()
-        assert len(rows) == 52
+        # 52 from migration 0030, and 23 spellings no rule knew from 0068.
+        assert len(rows) == 75
         # Order is the contract: the first match wins, so the list must come
         # back sorted by position and not by anything else.
         assert [row["position"] for row in rows] == sorted(row["position"] for row in rows)
@@ -52,6 +53,21 @@ class TestTheSeededDesignations:
         assert classify.extract_caliber("Japanese Arisaka Type 99") == "7.7x58mm Arisaka"
         assert classify.extract_caliber("Walther P.38 AC 42") == "9mm Luger"
         assert classify.extract_caliber("Colt AR-15 SP1") == "5.56x45mm NATO"
+
+    def test_the_spellings_dealers_actually_write(self):
+        """Migration 0068, from production's listings with no caliber."""
+        assert classify.extract_caliber("USED Browning Buck Mark 22LR Semi Auto Target Pistol") == (
+            ".22 LR"
+        )
+        assert classify.extract_caliber("USED Charter Arms Undercover 38SPL Snub Nose") == (
+            ".38 Special"
+        )
+        assert classify.extract_caliber("STEVENS MODEL 66 BOLT ACTION RIFLE FOR 22 S, L, LR") == (
+            ".22 LR"
+        )
+        assert classify.extract_caliber("US M-1884 Trapdoor Springfield 45/70 Rifle") == (
+            ".45-70 Government"
+        )
 
     def test_the_co_occurrence_rules_survived_the_move(self):
         """Eleven of the forty-eight patterns were "these two things appear in

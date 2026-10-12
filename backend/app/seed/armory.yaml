@@ -312,6 +312,7 @@ manufacturers:
   country: Germany
   status: approved
 - name: Diamondback Firearms
+  country: United States
   website: https://www.diamondbackfirearms.com
   status: approved
 - name: DPMS
@@ -603,6 +604,7 @@ manufacturers:
   country: Germany
   status: approved
 - name: Kahr
+  country: United States
   website: https://www.kahr.com
   status: approved
 - name: Kel-Tec
@@ -725,6 +727,7 @@ manufacturers:
   status: approved
 - name: Manufacturing California Compliant
   status: pending
+  enabled: false
 - name: MANURHIN
   country: France
   status: approved
@@ -861,7 +864,8 @@ manufacturers:
   country: Germany
   status: approved
 - name: Panzer Arms
-  status: pending
+  country: Turkey
+  status: approved
 - name: Parker Bros
   aliases:
   - Parker Brothers
@@ -995,6 +999,12 @@ manufacturers:
   status: approved
   position: 40
 - name: SAR Arms
+  aliases:
+  - Sarsilmaz
+  - Sarsılmaz
+  - SAR USA
+  - Sarsilmaz Defense
+  country: Turkey
   status: approved
 - name: Sauer
   country: Germany
@@ -1007,6 +1017,7 @@ manufacturers:
 - name: SCCY
   aliases:
   - SCCY INC
+  country: United States
   website: https://sccy.com
   status: approved
 - name: SCCY INC
@@ -1038,6 +1049,7 @@ manufacturers:
   country: Russia
   status: approved
 - name: Shadow Systems
+  country: United States
   website: https://shadowsystemscorp.com
   status: approved
 - name: SHARPS
@@ -1317,6 +1329,7 @@ manufacturers:
   country: United States
   status: approved
 - name: Wilson Combat
+  country: United States
   website: https://www.wilsoncombat.com
   status: approved
 - name: Winch
@@ -1358,6 +1371,7 @@ calibers:
   aliases:
   - 10.15x61R
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/10.15%C3%9761mmR
 - name: 10.15x61R
   status: merged
 - name: 10.35x22mm
@@ -1374,6 +1388,8 @@ calibers:
   - 10.4x38R
   - 10.4x38mmRF
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.41_Swiss
+  bullet_diameter_in: 0.415
 - name: 10.4x47mmR
   aliases:
   - 10.4x47R
@@ -1395,6 +1411,7 @@ calibers:
   - 10 GA
   - 10 Bore
   status: approved
+  bullet_diameter_in: 0.775
 - name: 10mm
   status: merged
 - name: 10mm Auto
@@ -1402,6 +1419,8 @@ calibers:
   - 10mm
   - 10 mm
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/10mm_Auto
+  bullet_diameter_in: 0.4
 - name: 10x32
   status: pending
   enabled: false
@@ -1431,12 +1450,16 @@ calibers:
   - 11mm Mle 1873
   - 11x17.8mmR
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/11mm_French_Ordnance
+  bullet_diameter_in: 0.4512
 - name: 11mm Mauser
   aliases:
   - 11.15x60mmR
   - 11.15x60R Mauser
   - 11x60R
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/11%C3%9760mm_Mauser
+  bullet_diameter_in: 0.446
 - name: 11mm Pinfire
   aliases:
   - 11mm Lefaucheux
@@ -1450,6 +1473,8 @@ calibers:
   - 11mm Gras
   - 11x59R
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/11%C3%9759mmR_Gras
+  bullet_diameter_in: 0.4449
 - name: 12.7x44mmR
   aliases:
   - 12.7x44R
@@ -1464,6 +1489,8 @@ calibers:
   - 12-gauge
   - 12 Bore
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/Military_12-gauge_cartridges
+  bullet_diameter_in: 0.729
 - name: 12mm
   status: approved
 - name: 12mm Pinfire
@@ -1498,6 +1525,7 @@ calibers:
   - 16-gauge
   - 16 Bore
   status: approved
+  bullet_diameter_in: 0.662
 - name: 16x42
   status: approved
 - name: '.177'
@@ -1512,6 +1540,8 @@ calibers:
   aliases:
   - 17 HMR
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.17_HMR
+  bullet_diameter_in: 0.172
 - name: 17 HMR
   status: merged
 - name: .17 WSM
@@ -1520,12 +1550,15 @@ calibers:
   - ',17 Winchester Super Mag'
   - .17 Winchester Super Mag
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.17_Winchester_Super_Magnum
+  bullet_diameter_in: 0.172
 - name: 18 Gauge
   aliases:
   - 18 Bore
   status: approved
 - name: 1x28
   status: pending
+  enabled: false
 - name: 20 Bore
   status: merged
 - name: 20 gauge
@@ -1535,20 +1568,33 @@ calibers:
   - 20-gauge
   - 20 Bore
   status: approved
+  bullet_diameter_in: 0.615
 - name: '.22'
   status: merged
+- name: .220 Swift
+  aliases:
+  - 220 Swift
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+  wikipedia: https://en.wikipedia.org/wiki/.220_Swift
+  bullet_diameter_in: 0.224
 - name: '.222'
-  status: pending
+  status: merged
 - name: .22-250 Remington
   aliases:
   - 22-250 Remington
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.22-250_Remington
+  bullet_diameter_in: 0.224
 - name: 22-250 Remington
   status: merged
 - name: .222 Remington
   aliases:
   - 222 Remington
+  - '.222'
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.222_Remington
+  bullet_diameter_in: 0.224
 - name: '.223'
   status: merged
 - name: .223/5.56
@@ -1565,6 +1611,7 @@ calibers:
   aliases:
   - 224 Caliber
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.22_caliber
 - name: 22.4 MM
   status: approved
 - name: 22 CAL
@@ -1578,6 +1625,7 @@ calibers:
   status: approved
   notes: 'A bore, not a cartridge: Simpson Ltd file 272 listings under it and 213 of them name nothing
     finer. Deliberately not merged into .22 LR.'
+  wikipedia: https://en.wikipedia.org/wiki/.22_caliber
 - name: 22 Gauge
   aliases:
   - 22 Bore
@@ -1586,6 +1634,8 @@ calibers:
   aliases:
   - 5.6x35mmR
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.22_Hornet
+  bullet_diameter_in: 0.224
 - name: .22 Long
   aliases:
   - 22 Long
@@ -1607,6 +1657,8 @@ calibers:
   - 22 Rimfire
   - 5.6mm
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.22_long_rifle
+  bullet_diameter_in: 0.223
 - name: 22 LR
   status: merged
 - name: 22 Magnum
@@ -1622,6 +1674,8 @@ calibers:
   aliases:
   - 22 Short
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.22_short
+  bullet_diameter_in: 0.222
 - name: 22 Short
   status: merged
 - name: .22 S/L/LR
@@ -1630,11 +1684,15 @@ calibers:
   aliases:
   - 22 Magnum
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.22_Winchester_Magnum_Rimfire
+  bullet_diameter_in: 0.224
 - name: .22 WRF
   aliases:
   - 22 WRF
   - .22 Winchester Rimfire
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.22_Winchester_Rimfire
+  bullet_diameter_in: 0.2285
 - name: '.243'
   status: merged
 - name: .243 Winchester
@@ -1643,18 +1701,25 @@ calibers:
   - 243 Winchester
   - '.243'
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.243_Winchester
+  bullet_diameter_in: 0.243
 - name: 243 Winchester
   status: merged
 - name: 24 Gauge
   aliases:
   - 24 Bore
   status: approved
+  bullet_diameter_in: 0.579
 - name: '.25'
   status: merged
 - name: 25-06 Remington
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.25-06_Remington
+  bullet_diameter_in: 0.257
 - name: .257 Roberts
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.257_Roberts
+  bullet_diameter_in: 0.257
 - name: .25 ACP
   aliases:
   - 6.35mm Browning
@@ -1665,6 +1730,8 @@ calibers:
   - '.25'
   - '6.35'
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.25_ACP
+  bullet_diameter_in: 0.2512
 - name: 25 ACP
   status: merged
 - name: 26.5mm
@@ -1678,10 +1745,14 @@ calibers:
   - 270 Winchester
   - '.270'
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.270_Winchester
+  bullet_diameter_in: 0.277
 - name: '.28'
   status: merged
 - name: '.284'
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.284_Winchester
+  bullet_diameter_in: 0.2839
 - name: .28 Caliber
   aliases:
   - 28 Caliber
@@ -1694,6 +1765,7 @@ calibers:
   - 28-gauge
   - 28 Bore
   status: approved
+  bullet_diameter_in: 0.55
 - name: 28-gauge
   status: merged
 - name: 2x11
@@ -1701,12 +1773,15 @@ calibers:
   enabled: false
 - name: 2x28
   status: pending
+  enabled: false
 - name: '.30'
   status: merged
 - name: .30-03
   aliases:
   - 30-03
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.30-03_Springfield
+  bullet_diameter_in: 0.308
 - name: .30-06 Springfield
   aliases:
   - .30-06
@@ -1716,14 +1791,20 @@ calibers:
   - .30 Gov't 06
   - 30 CAL M1
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.30-06_Springfield
+  bullet_diameter_in: 0.308
 - name: .300 AAC Blackout
   aliases:
   - 300 BLK
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.300_AAC_Blackout
+  bullet_diameter_in: 0.308
 - name: .300 Winchester Magnum
   aliases:
   - 300 Winchester Magnum
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.300_Winchester_Magnum
+  bullet_diameter_in: 0.308
 - name: .30-30
   status: merged
 - name: .30-30 Winchester
@@ -1731,12 +1812,16 @@ calibers:
   - .30-30
   - .30 WCF
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.30-30_Winchester
+  bullet_diameter_in: 0.308
 - name: .303 British
   aliases:
   - 7.7x56mmR
   - '.303'
   - 303 British
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.303_British
+  bullet_diameter_in: 0.312
 - name: .30-40
   status: merged
 - name: .30-40 Krag
@@ -1744,6 +1829,8 @@ calibers:
   - .30-40
   - 30-40 Krag
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.30-40_Krag
+  bullet_diameter_in: 0.308
 - name: 30-40 Krag
   status: merged
 - name: '.308'
@@ -1773,6 +1860,8 @@ calibers:
   - .30 M1 Carbine
   - 30 Carbine
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.30_carbine
+  bullet_diameter_in: 0.3078
 - name: 30 Gauge
   aliases:
   - 30 Bore
@@ -1784,6 +1873,8 @@ calibers:
   - 30 Luger
   - 7.65 PARA MM
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/7.65%C3%9721mm_Parabellum
+  bullet_diameter_in: 0.3091
 - name: 30 Luger
   status: merged
 - name: .30 Mauser
@@ -1831,6 +1922,17 @@ calibers:
   - 32-20 Caliber
   - 32-20 WCF
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.32-20_Winchester
+  bullet_diameter_in: 0.3125
+- name: .327 Federal Magnum
+  aliases:
+  - .327 Federal
+  - 327 Federal
+  - .327 Fed Mag
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+  wikipedia: https://en.wikipedia.org/wiki/.327_Federal_Magnum
+  bullet_diameter_in: 0.312
 - name: .32 ACP
   aliases:
   - 7.65mm Browning
@@ -1840,6 +1942,8 @@ calibers:
   - .32ACP
   - 32 ACP
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.32_ACP
+  bullet_diameter_in: 0.3125
 - name: .32ACP
   status: merged
 - name: 32 ACP
@@ -1852,6 +1956,7 @@ calibers:
   - '.32'
   - .32 Cal
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.32_caliber
 - name: .32 Centerfire
   aliases:
   - 32 Centerfire
@@ -1869,12 +1974,17 @@ calibers:
   - 32 French Long
   - 7.65x20mm
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/7.65%C3%9720mm_Long
+  bullet_diameter_in: 0.3091
 - name: 32 Gauge
   aliases:
   - 32 Bore
   status: approved
+  bullet_diameter_in: 0.526
 - name: .32 H&R Magnum
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.32_H%26R_Magnum
+  bullet_diameter_in: 0.312
 - name: .32 RF
   aliases:
   - .32 Rimfire
@@ -1901,6 +2011,8 @@ calibers:
   aliases:
   - 32 S&W Long
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.32_S%26W_Long
+  bullet_diameter_in: 0.312
 - name: 32 S&W Long
   status: merged
 - name: .32 Teat-fire
@@ -1911,20 +2023,43 @@ calibers:
   aliases:
   - 32 Wadcutter
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.32_S%26W_Long
+  bullet_diameter_in: 0.312
 - name: .32 Winchester Special
   aliases:
   - .32 WS
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.32_Winchester_Special
+  bullet_diameter_in: 0.321
 - name: .32 WS
   status: merged
+- name: '.33'
+  status: pending
+  enabled: false
 - name: .338 Lapua
   aliases:
   - 338 Lapua
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.338_Lapua_Magnum
+  bullet_diameter_in: 0.339
+- name: .338 Winchester Magnum
+  aliases:
+  - .338 Win Mag
+  - 338 Win Mag
+  - .338WM
+  - 338WM
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+  wikipedia: https://en.wikipedia.org/wiki/.338_Winchester_Magnum
+  bullet_diameter_in: 0.338
 - name: '.34'
   status: merged
-- name: '.348'
-  status: pending
+- name: .348 Winchester
+  aliases:
+  - '.348'
+  - .348 WCF
+  - 348 Winchester
+  status: approved
 - name: .34 Caliber
   aliases:
   - 34 Caliber
@@ -1940,8 +2075,12 @@ calibers:
   - .357 Mag
   - '.357'
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.357_Magnum
+  bullet_diameter_in: 0.357
 - name: .357 Sig
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.357_SIG
+  bullet_diameter_in: 0.3551
 - name: '.358'
   status: pending
   enabled: false
@@ -1949,6 +2088,8 @@ calibers:
   status: approved
 - name: .35 Remington
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.35_Remington
+  bullet_diameter_in: 0.358
 - name: '.36'
   aliases:
   - '36'
@@ -1963,6 +2104,15 @@ calibers:
   status: merged
 - name: '.37'
   status: approved
+- name: .375 H&H Magnum
+  aliases:
+  - .375 H&H
+  - 375 H&H
+  - .375 H&H Flanged
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+  wikipedia: https://en.wikipedia.org/wiki/.375_H%26H_Magnum
+  bullet_diameter_in: 0.375
 - name: '.38'
   aliases:
   - 38 Caliber
@@ -1982,6 +2132,8 @@ calibers:
   - 9x17
   - 380 Caliber
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.380_ACP
+  bullet_diameter_in: 0.355
 - name: 380 ACP
   status: merged
 - name: 380 Caliber
@@ -2002,12 +2154,18 @@ calibers:
   - .38-40
   - 38-40 Winchester
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.38-40_Winchester
+  bullet_diameter_in: 0.4005
 - name: 38-40 Winchester
   status: merged
 - name: .38-55 Winchester
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.38-55_Winchester
+  bullet_diameter_in: 0.377
 - name: .38 ACP
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.38_ACP
+  bullet_diameter_in: 0.356
 - name: 38 Caliber
   status: merged
 - name: .38 Centerfire
@@ -2028,6 +2186,8 @@ calibers:
   aliases:
   - 38 Long Colt
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.38_Long_Colt
+  bullet_diameter_in: 0.357
 - name: .38 RF
   aliases:
   - 38 RF
@@ -2043,6 +2203,8 @@ calibers:
   - 38 Special
   - .38spl
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.38_Special
+  bullet_diameter_in: 0.357
 - name: .38spl
   status: merged
 - name: .38 Super
@@ -2051,6 +2213,8 @@ calibers:
   - .38 Super Auto
   - 9x23mmSR
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.38_Super
+  bullet_diameter_in: 0.356
 - name: .38 S&W
   aliases:
   - 38 S&W
@@ -2066,14 +2230,20 @@ calibers:
   aliases:
   - 40 Caliber
   status: approved
-- name: '.405'
-  status: pending
+- name: .405 Winchester
+  aliases:
+  - '.405'
+  - .405 WCF
+  - 405 Winchester
+  status: approved
 - name: 40 Caliber
   status: merged
 - name: .40 S&W
   aliases:
   - .40S&W
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.40_S%26W
+  bullet_diameter_in: 0.4
 - name: .40S&W
   status: merged
 - name: '.41'
@@ -2090,6 +2260,8 @@ calibers:
   - 410 Gauge
   - '.410'
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.410_bore
+  bullet_diameter_in: 0.41
 - name: 410 Gauge
   status: merged
 - name: 41 Caliber
@@ -2098,6 +2270,15 @@ calibers:
   aliases:
   - 41 Colt
   status: approved
+- name: .41 Remington Magnum
+  aliases:
+  - .41 Magnum
+  - .41 Mag
+  - 41 Mag
+  - 41 Magnum
+  - .41 Rem Mag
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: .41 RF
   aliases:
   - 41 Rimfire
@@ -2116,8 +2297,12 @@ calibers:
   aliases:
   - 43 Egyptian
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.43_Egyptian
+  bullet_diameter_in: 0.448
 - name: 43 SPANISH
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.43_Spanish
+  bullet_diameter_in: 0.439
 - name: '.44'
   aliases:
   - .44 cal
@@ -2130,6 +2315,8 @@ calibers:
   - .442 RIC
   - '.442'
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.442_Webley
+  bullet_diameter_in: 0.436
 - name: 44-40
   status: merged
 - name: 44-40 WCF
@@ -2142,10 +2329,14 @@ calibers:
   - 44-40 WCF
   - 44-40
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.44-40_Winchester
+  bullet_diameter_in: 0.429
 - name: .444 Marlin
   aliases:
   - 444 Marlin
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.444_Marlin
+  bullet_diameter_in: 0.429
 - name: 44 Caliber
   status: merged
 - name: .44 Centerfire
@@ -2164,12 +2355,16 @@ calibers:
   aliases:
   - 44 Henry
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.44_Henry
+  bullet_diameter_in: 0.446
 - name: .44 Magnum
   aliases:
   - 44 Magnum
   - 44 Mag
   - .44 Mag
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.44_Magnum
+  bullet_diameter_in: 0.429
 - name: 4.4mm
   status: approved
 - name: .44 RF
@@ -2183,6 +2378,17 @@ calibers:
   aliases:
   - 44 Russian
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.44_Russian
+  bullet_diameter_in: 0.429
+- name: .44 Special
+  aliases:
+  - 44 Special
+  - .44 Spl
+  - 44 Spl
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+  wikipedia: https://en.wikipedia.org/wiki/.44_Special
+  bullet_diameter_in: 0.429
 - name: '.45'
   aliases:
   - 45 Caliber
@@ -2206,6 +2412,11 @@ calibers:
   status: merged
 - name: '.451'
   status: approved
+- name: .454 Casull
+  aliases:
+  - 454 Casull
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: '.455'
   aliases:
   - 455 Caliber
@@ -2220,6 +2431,8 @@ calibers:
   - '.455'
   - 455 Caliber
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.455_Webley
+  bullet_diameter_in: 0.454
 - name: 455 Webley
   status: merged
 - name: .455 Webley Auto
@@ -2230,6 +2443,8 @@ calibers:
   aliases:
   - 45-60 Winchester
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.45-60_Winchester
+  bullet_diameter_in: 0.458
 - name: .45-70 Government
   aliases:
   - .45-70
@@ -2238,10 +2453,19 @@ calibers:
   - 45-70 Government
   - 45 GOVT
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.45-70
+  bullet_diameter_in: 0.458
 - name: 45-70 Government
   status: merged
 - name: '.458'
   status: approved
+- name: .458 SOCOM
+  aliases:
+  - 458 SOCOM
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+  wikipedia: https://en.wikipedia.org/wiki/.458_SOCOM
+  bullet_diameter_in: 0.4579
 - name: .45 ACP
   aliases:
   - 11.43x23mm
@@ -2249,6 +2473,8 @@ calibers:
   - 45ACP
   - 45 ACP
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.45_ACP
+  bullet_diameter_in: 0.452
 - name: 45 ACP
   status: merged
 - name: 45 Caliber
@@ -2261,6 +2487,8 @@ calibers:
   - 11.5x33mmR
   - 45 Colt
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.45_Colt
+  bullet_diameter_in: 0.452
 - name: 45 Colt
   status: merged
 - name: 45 GOVT
@@ -2271,6 +2499,15 @@ calibers:
   aliases:
   - 46 Caliber
   status: approved
+- name: .460 S&W Magnum
+  aliases:
+  - .460 S&W
+  - 460 S&W
+  - 460 S&W Mag
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+  wikipedia: https://en.wikipedia.org/wiki/.460_S%26W_Magnum
+  bullet_diameter_in: 0.452
 - name: 46 Caliber
   status: merged
 - name: '.47'
@@ -2281,12 +2518,15 @@ calibers:
   status: approved
 - name: .476 Enfield
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.476_Enfield
+  bullet_diameter_in: 0.455
 - name: '.48'
   status: approved
 - name: 4 Gauge
   aliases:
   - 4 Bore
   status: approved
+  bullet_diameter_in: 1.052
 - name: 4mm RF
   status: approved
 - name: 4mm Übungsmunition M20
@@ -2301,6 +2541,16 @@ calibers:
   aliases:
   - 50 Caliber
   status: approved
+- name: .500 S&W Magnum
+  aliases:
+  - .500 S&W
+  - 500 S&W
+  - 500 S&W Mag
+  - .500 S&W Mag
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+  wikipedia: https://en.wikipedia.org/wiki/.500_S%26W_Magnum
+  bullet_diameter_in: 0.5
 - name: 50-70 Caliber
   status: merged
 - name: .50-70 Government
@@ -2308,6 +2558,8 @@ calibers:
   - 50-70 Government
   - 50-70 Caliber
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.50-70_Government
+  bullet_diameter_in: 0.515
 - name: 50 Caliber
   status: merged
 - name: .50 Spencer
@@ -2340,6 +2592,8 @@ calibers:
   - 5.45x39
   - 5.45x45mm
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/5.45%C3%9739mm
+  bullet_diameter_in: 0.2205
 - name: 5.45x45mm
   status: merged
 - name: 54 Caliber
@@ -2371,6 +2625,8 @@ calibers:
   - 5.56x456 NATO
   - '.223'
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/5.56%C3%9745mm_NATO
+  bullet_diameter_in: 0.2244
 - name: 5.56x45 NATO
   status: merged
 - name: 5.5mm
@@ -2419,6 +2675,8 @@ calibers:
   aliases:
   - 5.7x28
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/FN_5.7%C3%9728mm
+  bullet_diameter_in: 0.2244
 - name: '.58'
   aliases:
   - 15mm
@@ -2441,6 +2699,8 @@ calibers:
   - 60 Caliber
   - '.60'
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.60_caliber
+  bullet_diameter_in: 0.6
 - name: '.61'
   status: approved
 - name: '.62'
@@ -2475,10 +2735,14 @@ calibers:
   - 6.5 Creedmoor
   - 6.5 Creedmore
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/6.5mm_Creedmoor
+  bullet_diameter_in: 0.264
 - name: 6.5mm Grendel
   aliases:
   - 6.5 Grendel
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/6.5mm_Grendel
+  bullet_diameter_in: 0.2642
 - name: 6.5x50
   status: merged
 - name: 6.5x50mm Arisaka
@@ -2486,6 +2750,8 @@ calibers:
   - 6.5x50mm Japanese
   - 6.5x50
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/6.5%C3%9750mmSR_Arisaka
+  bullet_diameter_in: 0.261
 - name: 6.5x50mm Japanese
   status: merged
 - name: 6.5x50sr
@@ -2499,6 +2765,8 @@ calibers:
   - 6.5mm Mannlicher-Carcano
   - 6.5x52
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/6.5%C3%9752mm_Carcano
+  bullet_diameter_in: 0.2677
 - name: 6.5x53.5SR Deaudetau
   aliases:
   - 6.5x50sr
@@ -2512,6 +2780,8 @@ calibers:
   aliases:
   - 6.5x53R
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/6.5%C3%9753mmR
+  bullet_diameter_in: 0.2618
 - name: 6.5x55
   status: merged
 - name: 6.5x55mmR
@@ -2527,6 +2797,8 @@ calibers:
   - 6.5x55 Swedish
   - 6.5x55
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/6.5%C3%9755mm_Swedish
+  bullet_diameter_in: 0.2642
 - name: 6.5x55 Swedish
   status: merged
 - name: 6.5x63mm
@@ -2541,6 +2813,8 @@ calibers:
   aliases:
   - 6.8 SPC
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/6.8mm_Remington_SPC
+  bullet_diameter_in: 0.277
 - name: '.69'
   aliases:
   - 69 Caliber
@@ -2563,6 +2837,8 @@ calibers:
   - .236 Navy
   - 6x60mm Lee
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/6mm_Lee_Navy
+  bullet_diameter_in: 0.244
 - name: 6x68Smm
   status: approved
 - name: '.70'
@@ -2602,6 +2878,8 @@ calibers:
   aliases:
   - 7.35mm Carcano
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/7.35%C3%9751mm_Carcano
+  bullet_diameter_in: 0.298
 - name: '.74'
   status: approved
 - name: '.75'
@@ -2633,6 +2911,8 @@ calibers:
   - 7.5x54mm
   - 7.5x54
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/7.5%C3%9754mm_French
+  bullet_diameter_in: 0.3087
 - name: 7.5x55
   status: merged
 - name: 7.5x55mm Swiss
@@ -2645,6 +2925,8 @@ calibers:
   - 7.5x55
   - 7.5mm
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/7.5%C3%9755mm_Swiss
+  bullet_diameter_in: 0.3063
 - name: 7.5x55 Swiss
   status: merged
 - name: '.76'
@@ -2663,6 +2945,8 @@ calibers:
   - 7.62x25mm
   - 7.62x25
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/7.62%C3%9725mm_Tokarev
+  bullet_diameter_in: 0.3091
 - name: 7.62x38mmR
   status: merged
 - name: 7.62x38mmR Nagant
@@ -2671,18 +2955,24 @@ calibers:
   - 7.62x38R
   - 7.62x38mmR
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/7.62%C3%9738mmR
+  bullet_diameter_in: 0.3079
 - name: 7.62x39mm
   aliases:
   - 7.62 Soviet
   - 7.62x39
   - M43
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/7.62%C3%9739mm
+  bullet_diameter_in: 0.3091
 - name: 7.62x45
   status: merged
 - name: 7.62x45mm
   aliases:
   - 7.62x45
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/7.62%C3%9745mm
+  bullet_diameter_in: 0.3083
 - name: 7.62x51
   status: merged
 - name: 7.62x51 NATO
@@ -2700,10 +2990,14 @@ calibers:
   - 308 WIN
   - 308 Caliber
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/7.62%C3%9751mm_NATO
+  bullet_diameter_in: 0.308
 - name: 7.62x53mmR
   aliases:
   - 7.62x53R
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/7.62%C3%9754mmR
+  bullet_diameter_in: 0.3118
 - name: 7.62x54mmR
   aliases:
   - 7.62x54R
@@ -2712,6 +3006,8 @@ calibers:
   - 7,62x54R
   - 7.62x54Rmm
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/7.62%C3%9754mmR
+  bullet_diameter_in: 0.3118
 - name: 7.62x54Rmm
   status: merged
 - name: 7.63mm
@@ -2724,6 +3020,8 @@ calibers:
   - 7.63x25mm
   - 7.63X25
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/7.63%C3%9725mm_Mauser
+  bullet_diameter_in: 0.3094
 - name: 7.63X25
   status: merged
 - name: 7.63x25mm
@@ -2752,6 +3050,8 @@ calibers:
   - 7.65 Belgian
   - 7.65x53
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/7.65%C3%9753mm_Argentine
+  bullet_diameter_in: 0.3126
 - name: 7.65x54
   status: approved
 - name: '.77'
@@ -2768,6 +3068,8 @@ calibers:
   - 7.7x58
   - 7.7mm Japanese
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/7.7%C3%9758mm_Arisaka
+  bullet_diameter_in: 0.3118
 - name: '.78'
   status: approved
 - name: '.79'
@@ -2776,12 +3078,16 @@ calibers:
   status: merged
 - name: 7.92mm KURZ
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/7.92%C3%9733mm_Kurz
+  bullet_diameter_in: 0.3236
 - name: 7.92x94mm Patronen
   aliases:
   - 7.92x94
   - 7.92x94mm
   - 13mm Patronen
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/7.92%C3%9794mm_Patronen
+  bullet_diameter_in: 0.3244
 - name: 7 Gauge
   aliases:
   - 7 Bore
@@ -2804,8 +3110,12 @@ calibers:
   - .275 Rigby
   - 7x57
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/7%C3%9757mm_Mauser
+  bullet_diameter_in: 0.2854
 - name: 7x61
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/7%C3%9761mm_Sharpe_%26_Hart
+  bullet_diameter_in: 0.284
 - name: 7x64mm
   aliases:
   - 7x64
@@ -2837,6 +3147,7 @@ calibers:
   aliases:
   - 8 Bore
   status: approved
+  bullet_diameter_in: 0.835
 - name: 8mm
   status: approved
 - name: 8mm French Ordnance
@@ -2846,6 +3157,8 @@ calibers:
   - 8mm Mle 1892
   - 8mm Revolver
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/8mm_French_Ordnance
+  bullet_diameter_in: 0.3287
 - name: 8mm Mauser
   aliases:
   - 7.92x57mm
@@ -2860,11 +3173,15 @@ calibers:
   - 8x57
   - 7.92mm
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/7.92%C3%9757mm_Mauser
+  bullet_diameter_in: 0.3236
 - name: 8mm Nambu
   aliases:
   - 8x22mm Nambu
   - 8x22 Nambu
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/8%C3%9722mm_Nambu
+  bullet_diameter_in: 0.3201
 - name: 8mm Pinfire
   aliases:
   - 8mm Lefaucheux
@@ -2880,6 +3197,8 @@ calibers:
   aliases:
   - 8x50R
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/8%C3%9750mmR_Mannlicher
+  bullet_diameter_in: 0.3236
 - name: 8x50mmR Lebel
   aliases:
   - 8mm Lebel
@@ -2891,6 +3210,7 @@ calibers:
   - 8x50mmR Austrian
   - 8mm Mannlicher
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/Mannlicher_M1895
 - name: 8x50R
   status: merged
 - name: 8x52mmR
@@ -2921,6 +3241,8 @@ calibers:
   - 8x56mm
   - 8x56mmR
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/8%C3%9756mmR
+  bullet_diameter_in: 0.3287
 - name: 8x57
   status: merged
 - name: 8X57JS CAL
@@ -2943,6 +3265,8 @@ calibers:
   - 8x58R
   - 8x58mmR
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/8%C3%9758mmR_Danish_Krag
+  bullet_diameter_in: 0.3228
 - name: 8x58mm Sauer
   status: approved
 - name: 8x60mm
@@ -2969,10 +3293,14 @@ calibers:
   status: approved
 - name: 9.3x57mm
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/9.3%C3%9757mm_Mauser
+  bullet_diameter_in: 0.3661
 - name: 9.3x62mm
   aliases:
   - 9.3x62
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/9.3%C3%9762mm
+  bullet_diameter_in: 0.3661
 - name: 9.3x74R
   aliases:
   - 9.3x74mmR
@@ -3009,6 +3337,8 @@ calibers:
   - 9 MM
   - 9 LUGER MM
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/9%C3%9719mm_Parabellum
+  bullet_diameter_in: 0.3547
 - name: 9x17
   status: merged
 - name: 9x18mm
@@ -3020,12 +3350,16 @@ calibers:
   - 9mm Mak
   - 9x18mm
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/9%C3%9718mm_Makarov
+  bullet_diameter_in: 0.365
 - name: 9x20mm
   status: merged
 - name: 9x20mm Browning
   aliases:
   - 9x20mm
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/9mm_Browning_Long
+  bullet_diameter_in: 0.3578
 - name: 9x22mmR
   status: merged
 - name: 9x22mmR Japanese
@@ -3044,15 +3378,20 @@ calibers:
   status: approved
 - name: 9x23mm
   status: pending
+  enabled: false
 - name: 9X23mm Largo
   status: merged
 - name: 9x25mm
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/9%C3%9725mm_Dillon
+  bullet_diameter_in: 0.356
 - name: 9x57mm
   aliases:
   - 9x57
   - 9x57 Mauser
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/9%C3%9757mm_Mauser
+  bullet_diameter_in: 0.3583
 - name: Blanks
   status: approved
   enabled: false
@@ -3073,6 +3412,7 @@ models:
   status: approved
 - name: 1868/71
   status: pending
+  enabled: false
 - name: 1871/79
   calibers:
   - 11x52mm
@@ -3096,8 +3436,6 @@ models:
 - name: 32/20
   status: pending
   enabled: false
-- name: 38/44
-  status: approved
 - name: 45/70
   status: pending
   enabled: false
@@ -3119,18 +3457,24 @@ models:
   country: United States
   calibers:
   - .300 AAC Blackout
+  manufacturers:
+  - DPMS
   status: approved
 - name: A300
   kind: rifle
   country: Italy
   calibers:
   - 12 gauge
+  manufacturers:
+  - Beretta
   status: approved
 - name: A931
   kind: rifle
   country: Italy
   calibers:
   - 12 gauge
+  manufacturers:
+  - Beretta
   status: approved
 - name: AA-15
   status: approved
@@ -3145,21 +3489,20 @@ models:
 - name: AAHE 12
   status: pending
   enabled: false
-- name: AAR-15
-  status: pending
 - name: AAR15
-  calibers:
-  - 6.5mm Grendel
-  status: approved
+  status: merged
+  enabled: false
 - name: AAR17
   calibers:
   - .17 HMR
   status: approved
 - name: AB-10
   kind: pistol
-  country: Germany
+  country: United States
   calibers:
   - 9mm Luger
+  manufacturers:
+  - Intratec
   status: approved
 - name: AB 63
   kind: rifle
@@ -3179,6 +3522,12 @@ models:
   - 8mm Mauser
   status: approved
 - name: AC556
+  kind: rifle
+  country: United States
+  calibers:
+  - 5.56x45mm NATO
+  manufacturers:
+  - Ruger
   status: approved
 - name: AF 409
   status: approved
@@ -3191,6 +3540,8 @@ models:
   country: Sweden
   calibers:
   - 6.5x55mm Swedish
+  manufacturers:
+  - Carl Gustaf
   status: approved
 - name: AG-42B
   kind: rifle
@@ -3312,6 +3663,8 @@ models:
   country: China
   calibers:
   - 7.62x39mm
+  manufacturers:
+  - Polytech
   status: approved
 - name: AKSU47
   status: approved
@@ -3326,7 +3679,18 @@ models:
   country: Italy
   calibers:
   - 12 gauge
+  manufacturers:
+  - Beretta
   status: approved
+- name: Alexander Arms AAR-15
+  aliases:
+  - AAR-15
+  - AAR15
+  kind: rifle
+  country: United States
+  modern_production: true
+  status: approved
+  notes: Approved 2026-10-12 from the pending queue.
 - name: Allen & Thurber Pepperbox
   aliases:
   - Allen and Thurber Pepperbox
@@ -3384,6 +3748,7 @@ models:
   enabled: false
 - name: AOM130
   status: pending
+  enabled: false
 - name: AP5
   kind: pistol
   country: Turkey
@@ -3427,8 +3792,6 @@ models:
 - name: AR10
   status: merged
   enabled: false
-- name: AR12
-  status: pending
 - name: AR 15
   status: merged
   enabled: false
@@ -3464,6 +3827,8 @@ models:
   country: Belgium
   calibers:
   - 5.56x45mm NATO
+  manufacturers:
+  - FN
   status: approved
 - name: AR-7
   status: approved
@@ -3542,6 +3907,8 @@ models:
   country: United States
   calibers:
   - .45 Colt
+  manufacturers:
+  - Colt
   status: approved
 - name: ASTON M1842
   aliases:
@@ -3581,7 +3948,7 @@ models:
   aliases:
   - Model 400
   kind: pistol
-  country: Germany
+  country: Spain
   calibers:
   - 9mm Luger
   manufacturers:
@@ -3634,6 +4001,8 @@ models:
   country: Austria
   calibers:
   - .30-06 Springfield
+  manufacturers:
+  - Steyr
   status: approved
 - name: AV1
   status: merged
@@ -3646,7 +4015,20 @@ models:
   country: Germany
   calibers:
   - 8mm Mauser
+  manufacturers:
+  - Mauser
   status: approved
+- name: Baby Browning
+  aliases:
+  - Browning Baby
+  kind: pistol
+  country: Belgium
+  calibers:
+  - .25 ACP
+  manufacturers:
+  - FN
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Baby Nambu
   aliases:
   - Nambu Type B
@@ -3655,6 +4037,20 @@ models:
   calibers:
   - 7mm Nambu
   status: approved
+- name: Baikal IZH-70
+  aliases:
+  - IZH-70
+  - IJ-70
+  - IZH70
+  kind: pistol
+  country: Russia
+  calibers:
+  - .380 ACP
+  - 9x18mm Makarov
+  manufacturers:
+  - Izhevsk
+  status: approved
+  notes: Approved 2026-10-12 from the pending queue.
 - name: Ballard Rifle
   aliases:
   - Ballard Sporting Rifle
@@ -3692,6 +4088,8 @@ models:
   country: Belgium
   calibers:
   - 5.7x28mm
+  manufacturers:
+  - FN
   status: approved
 - name: Benelli M4
   aliases:
@@ -3703,6 +4101,18 @@ models:
   manufacturers:
   - Benelli
   status: approved
+- name: Benelli Supernova
+  aliases:
+  - Supernova Tactical
+  kind: shotgun
+  country: Italy
+  calibers:
+  - 12 gauge
+  manufacturers:
+  - Benelli
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Beretta 1301
   kind: shotgun
   country: Italy
@@ -3712,21 +4122,98 @@ models:
   - Beretta
   modern_production: true
   status: approved
+- name: Beretta 21A Bobcat
+  aliases:
+  - Beretta 21A
+  - 21A Bobcat
+  - Bobcat
+  kind: pistol
+  country: Italy
+  calibers:
+  - .22 LR
+  - .25 ACP
+  manufacturers:
+  - Beretta
+  modern_production: true
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+- name: Beretta 3032 Tomcat
+  aliases:
+  - Tomcat
+  - Beretta 3032
+  - 30X Tomcat
+  kind: pistol
+  country: Italy
+  calibers:
+  - .32 ACP
+  manufacturers:
+  - Beretta
+  modern_production: true
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+- name: Beretta 84 Cheetah
+  aliases:
+  - Beretta 84
+  - 84BB
+  - 84FS
+  - Cheetah
+  - 80X Cheetah
+  - Beretta 85
+  - Beretta 86
+  kind: pistol
+  country: Italy
+  calibers:
+  - .32 ACP
+  - .380 ACP
+  manufacturers:
+  - Beretta
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Beretta 92FS
   aliases:
   - 92FS
   - Beretta M9
   - M9A1
   - M9A3
+  - Beretta 92
+  - 92A1
+  - 92G
+  - 92X
+  - 92X RDO
+  - 92XI
+  - 92G Elite
+  - Beretta 92X
   kind: pistol
   country: Italy
+  calibers:
+  - 9mm Luger
   manufacturers:
   - Beretta
   modern_production: true
   status: approved
+- name: Beretta 950
+  aliases:
+  - 950B
+  - 950BS
+  - Jetfire
+  - Beretta Minx
+  kind: pistol
+  country: Italy
+  calibers:
+  - .22 Short
+  - .25 ACP
+  manufacturers:
+  - Beretta
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Beretta 96
   aliases:
   - Mod 96
+  - 96A1
+  - Beretta 96A1
+  - 96FS
+  - 96G
   kind: pistol
   country: Italy
   calibers:
@@ -3737,6 +4224,9 @@ models:
 - name: Beretta APX
   kind: pistol
   country: Italy
+  calibers:
+  - .40 S&W
+  - 9mm Luger
   manufacturers:
   - Beretta
   modern_production: true
@@ -3779,6 +4269,78 @@ models:
   manufacturers:
   - Beretta
   status: approved
+- name: Beretta M38/49
+  aliases:
+  - M38/49
+  kind: rifle
+  country: Italy
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Beretta
+  status: approved
+- name: Beretta M9-22
+  aliases:
+  - M9-22
+  - M9 22
+  - M9A1-22
+  - M9A1 22
+  - Beretta M9 22
+  - 92FS 22
+  - 92 22
+  kind: pistol
+  country: Italy
+  calibers:
+  - .22 LR
+  manufacturers:
+  - Beretta
+  modern_production: true
+  status: approved
+  position: 880
+  notes: Added 2026-10-12.
+- name: Beretta Model 70
+  aliases:
+  - Beretta 70
+  - Beretta M70
+  - Beretta 70S
+  - Beretta Model 70S
+  - Beretta Puma
+  - Beretta 71
+  - Beretta Model 71
+  - Beretta Jaguar
+  kind: pistol
+  country: Italy
+  calibers:
+  - .22 LR
+  - .32 ACP
+  - .380 ACP
+  manufacturers:
+  - Beretta
+  status: approved
+  position: 900
+  notes: Added 2026-10-12.
+- name: Beretta Model 76
+  aliases:
+  - Beretta 76
+  kind: pistol
+  country: Italy
+  calibers:
+  - .22 LR
+  manufacturers:
+  - Beretta
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+- name: Beretta Nano
+  aliases:
+  - BU9 Nano
+  kind: pistol
+  country: Italy
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Beretta
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Beretta PX4 Storm
   kind: pistol
   country: Italy
@@ -3812,6 +4374,22 @@ models:
   manufacturers:
   - Bernardelli
   status: approved
+- name: Bersa Thunder
+  aliases:
+  - Thunder 380
+  - Thunder 380CC
+  - Thunder 9
+  kind: pistol
+  country: Argentina
+  calibers:
+  - .22 LR
+  - .380 ACP
+  - 9mm Luger
+  manufacturers:
+  - Bersa
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Berthier M1907/15
   aliases:
   - Model 1907/15
@@ -3837,6 +4415,8 @@ models:
 - name: BFR 444
   kind: revolver
   country: United States
+  manufacturers:
+  - Marlin
   status: approved
 - name: BG380
   status: merged
@@ -3846,6 +4426,8 @@ models:
   country: Italy
   calibers:
   - 12 gauge
+  manufacturers:
+  - Beretta
   status: approved
 - name: BL-4
   status: pending
@@ -3878,8 +4460,6 @@ models:
 - name: BM62
   status: merged
   enabled: false
-- name: BM-9
-  status: pending
 - name: Bodeo M1889
   aliases:
   - M1889
@@ -3909,12 +4489,29 @@ models:
   calibers:
   - 7x57mm Mauser
   status: approved
-- name: BRF-15
-  status: pending
 - name: BRG9
   status: approved
 - name: BRHP 13
   status: pending
+  enabled: false
+- name: Brigade BM-9
+  aliases:
+  - BM-9
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  modern_production: true
+  status: approved
+  notes: Approved 2026-10-12 from the pending queue.
+- name: Brigade BRF-15
+  aliases:
+  - BRF-15
+  kind: rifle
+  country: United States
+  modern_production: true
+  status: approved
+  notes: Approved 2026-10-12 from the pending queue.
 - name: British Mod. 1895
   aliases:
   - Mod. 1895
@@ -3999,6 +4596,19 @@ models:
   status: approved
 - name: Browning 1900
   status: approved
+- name: Browning Buck Mark
+  aliases:
+  - Buck Mark
+  - Buckmark
+  kind: pistol
+  country: United States
+  calibers:
+  - .22 LR
+  manufacturers:
+  - Browning
+  modern_production: true
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
 - name: Browning M1922
   aliases:
   - M1922
@@ -4054,6 +4664,18 @@ models:
   - BUL
   wikipedia: https://en.wikipedia.org/wiki/BUL_M-5
   status: approved
+- name: BUL SAS II
+  aliases:
+  - SAS II
+  kind: pistol
+  country: Israel
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - BUL
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Burnside Carbine
   aliases:
   - Burnside 5th Model
@@ -4075,6 +4697,8 @@ models:
   country: China
   calibers:
   - 5.56x45mm NATO
+  manufacturers:
+  - Norinco
   status: approved
 - name: BY 40
   status: pending
@@ -4100,9 +4724,12 @@ models:
   country: Germany
   calibers:
   - 9mm Luger
+  manufacturers:
+  - Mauser
   status: approved
 - name: BYYK115
   status: pending
+  enabled: false
 - name: C355
   status: pending
   enabled: false
@@ -4117,6 +4744,8 @@ models:
   country: Germany
   calibers:
   - 10.6x25mm German Ordnance
+  manufacturers:
+  - Mauser
   status: approved
 - name: C93
   status: pending
@@ -4136,6 +4765,8 @@ models:
   - Bolo Mauser
   kind: pistol
   country: Germany
+  calibers:
+  - 7.63mm Mauser
   manufacturers:
   - Mauser
   status: approved
@@ -4145,6 +4776,8 @@ models:
   country: United States
   calibers:
   - 7.62x51 NATO
+  manufacturers:
+  - Century Arms
   status: approved
 - name: CAI 460
   status: pending
@@ -4159,6 +4792,7 @@ models:
   status: approved
 - name: CANW609
   status: pending
+  enabled: false
 - name: Carcano 1891/28
   aliases:
   - 1891/28
@@ -4343,6 +4977,19 @@ models:
 - name: CARL GUSTAV AB 1896
   status: merged
   enabled: false
+- name: CC9
+  aliases:
+  - H&K CC9
+  - HK CC9
+  kind: pistol
+  country: Germany
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Heckler Koch
+  modern_production: true
+  status: approved
+  notes: Approved 2026-10-12 from the pending queue.
 - name: CCF-15F
   calibers:
   - 5.56x45mm NATO
@@ -4368,6 +5015,31 @@ models:
 - name: CG63
   status: merged
   enabled: false
+- name: Charter Arms Bulldog
+  aliases:
+  - Bulldog
+  kind: revolver
+  country: United States
+  calibers:
+  - .44 Special
+  manufacturers:
+  - Charter Arms
+  modern_production: true
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+- name: Charter Arms Undercover
+  aliases:
+  - Undercover
+  - Lavender Lady
+  kind: revolver
+  country: United States
+  calibers:
+  - .38 Special
+  manufacturers:
+  - Charter Arms
+  modern_production: true
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
 - name: Cherokee
   kind: pistol
   country: Israel
@@ -4414,6 +5086,8 @@ models:
   country: China
   calibers:
   - 7.62x25mm Tokarev
+  manufacturers:
+  - Norinco
   status: approved
 - name: Chinese Type 13
   aliases:
@@ -4426,8 +5100,14 @@ models:
 - name: Cimarron 1860
   kind: rifle
   country: United States
+  manufacturers:
+  - Cimarron
   status: approved
 - name: CM9
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
   manufacturers:
   - Kahr
   modern_production: true
@@ -4504,6 +5184,17 @@ models:
   manufacturers:
   - Colt
   status: approved
+- name: Colt Agent
+  aliases:
+  - Agent 2nd Issue
+  kind: revolver
+  country: United States
+  calibers:
+  - .38 Special
+  manufacturers:
+  - Colt
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Colt Army Special
   kind: revolver
   country: United States
@@ -4512,7 +5203,54 @@ models:
   manufacturers:
   - Colt
   status: approved
+- name: Colt Cobra
+  aliases:
+  - Cobra Revolver
+  kind: revolver
+  country: United States
+  calibers:
+  - .38 Special
+  manufacturers:
+  - Colt
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Colt Commander
+  aliases:
+  - Colt Combat Commander
+  - Colt Lightweight Commander
+  - Combat Commander
+  - Lightweight Commander
+  - Colt Gold Cup Commander
+  - Colt Commander Gold
+  kind: pistol
+  country: United States
+  calibers:
+  - .38 Super
+  - .45 ACP
+  - 9mm Luger
+  manufacturers:
+  - Colt
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Colt Defender
+  aliases:
+  - Defender Series 90
+  kind: pistol
+  country: United States
+  calibers:
+  - .45 ACP
+  - 9mm Luger
+  manufacturers:
+  - Colt
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Colt Detective Special
+  aliases:
+  - Detective Special
+  - Colt MFG Detective Special
   kind: revolver
   country: United States
   calibers:
@@ -4520,6 +5258,18 @@ models:
   manufacturers:
   - Colt
   status: approved
+- name: Colt Diamondback
+  aliases:
+  - Diamondback
+  kind: revolver
+  country: United States
+  calibers:
+  - .22 LR
+  - .38 Special
+  manufacturers:
+  - Colt
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
 - name: Colt Dragoon
   aliases:
   - First Model Dragoon
@@ -4536,6 +5286,21 @@ models:
   - Colt
   wikipedia: https://en.wikipedia.org/wiki/Colt_Dragoon_Revolver
   status: approved
+- name: Colt Gold Cup
+  aliases:
+  - Gold Cup
+  - Gold Cup National Match
+  - Gold Cup Trophy
+  kind: pistol
+  country: United States
+  calibers:
+  - .45 ACP
+  manufacturers:
+  - Colt
+  modern_production: true
+  status: approved
+  position: 950
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Colt Government Model
   aliases:
   - Colt Government
@@ -4548,6 +5313,18 @@ models:
   manufacturers:
   - Colt
   status: approved
+- name: Colt King Cobra
+  aliases:
+  - King Cobra
+  kind: revolver
+  country: United States
+  calibers:
+  - .357 Magnum
+  manufacturers:
+  - Colt
+  modern_production: true
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
 - name: Colt M1849
   aliases:
   - M1849
@@ -4669,6 +5446,7 @@ models:
   - Colt Model 1917 Revolver
   - Colt 1917 Revolver
   - U.S. Model 1917 Revolver
+  - Colt M 1917
   kind: revolver
   country: United States
   calibers:
@@ -4677,6 +5455,33 @@ models:
   - Colt
   wikipedia: https://en.wikipedia.org/wiki/M1917_revolver
   status: approved
+  position: 900
+- name: Colt Mustang
+  aliases:
+  - Mustang Pocketlite
+  - Mustang XSP
+  kind: pistol
+  country: United States
+  calibers:
+  - .380 ACP
+  manufacturers:
+  - Colt
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Colt New Agent
+  aliases:
+  - New Agent
+  kind: pistol
+  country: United States
+  calibers:
+  - .45 ACP
+  - 9mm Luger
+  manufacturers:
+  - Colt
+  status: approved
+  position: 890
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Colt New Line
   kind: revolver
   country: United States
@@ -4710,6 +5515,18 @@ models:
   - Colt
   modern_production: true
   status: approved
+- name: Colt SF-VI
+  aliases:
+  - SF-VI
+  - SF VI
+  kind: revolver
+  country: United States
+  calibers:
+  - .38 Special
+  manufacturers:
+  - Colt
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Colt Single Action Army
   aliases:
   - SAA
@@ -4770,6 +5587,10 @@ models:
 - name: CPX-1
   aliases:
   - CPX1
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
   manufacturers:
   - SCCY
   modern_production: true
@@ -4780,6 +5601,10 @@ models:
 - name: CPX-2
   aliases:
   - CPX2
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
   manufacturers:
   - SCCY
   modern_production: true
@@ -4790,6 +5615,10 @@ models:
 - name: CR920
   aliases:
   - CR920P
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
   manufacturers:
   - Shadow Systems
   modern_production: true
@@ -4798,6 +5627,10 @@ models:
   status: merged
   enabled: false
 - name: CT380
+  kind: pistol
+  country: United States
+  calibers:
+  - .380 ACP
   manufacturers:
   - Kahr
   modern_production: true
@@ -4815,15 +5648,36 @@ models:
   - Cugir
   status: approved
 - name: CW380
+  kind: pistol
+  country: United States
+  calibers:
+  - .380 ACP
   manufacturers:
   - Kahr
   modern_production: true
   status: approved
 - name: CW9
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
   manufacturers:
   - Kahr
   modern_production: true
   status: approved
+- name: CZ 2075 RAMI
+  aliases:
+  - CZ 2075
+  - 2075 RAMI
+  - CZ RAMI
+  kind: pistol
+  country: Czech Republic
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - CZ
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: CZ 24
   aliases:
   - vz. 24
@@ -4857,8 +5711,6 @@ models:
 - name: CZ-27
   status: merged
   enabled: false
-- name: CZ 38
-  status: pending
 - name: CZ 45
   status: approved
 - name: CZ 50
@@ -4894,8 +5746,18 @@ models:
 - name: CZ-52
   aliases:
   - CZ- 52
+  kind: pistol
+  country: Czech Republic
+  calibers:
+  - 7.62x25mm Tokarev
+  manufacturers:
+  - CZ
   status: approved
 - name: CZ 527
+  kind: rifle
+  country: Czech Republic
+  manufacturers:
+  - CZ
   status: approved
 - name: CZ 70
   kind: pistol
@@ -4999,6 +5861,8 @@ models:
   country: Czech Republic
   calibers:
   - 8mm Mauser
+  manufacturers:
+  - CZ
   status: approved
 - name: Czech Model 1898/22
   aliases:
@@ -5017,15 +5881,55 @@ models:
   calibers:
   - 9x18mm Makarov
   status: approved
+- name: CZ vz. 38
+  aliases:
+  - CZ 38
+  - CZ Model 38
+  - CZ vz 38
+  - vz. 38
+  - CZ-38
+  kind: pistol
+  country: Czech Republic
+  calibers:
+  - .380 ACP
+  manufacturers:
+  - CZ
+  status: approved
+  notes: Approved 2026-10-12 from the pending queue.
 - name: DALY 12
   status: pending
   enabled: false
 - name: DAN44
   status: pending
   enabled: false
+- name: Dan Wesson DWX
+  aliases:
+  - DWX
+  - DWX Compact
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Dan Wesson Guardian
+  kind: pistol
+  country: United States
+  calibers:
+  - .38 Super
+  - .45 ACP
+  - 9mm Luger
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: DB15
   status: approved
 - name: DB9
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
   manufacturers:
   - Diamondback Firearms
   modern_production: true
@@ -5047,6 +5951,12 @@ models:
   status: pending
   enabled: false
 - name: DR920
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Shadow Systems
   status: approved
 - name: DS9
   kind: pistol
@@ -5105,6 +6015,8 @@ models:
 - name: DSM 37
   kind: rifle
   country: Germany
+  manufacturers:
+  - Mauser
   status: approved
 - name: Dutch 1871/88
   aliases:
@@ -5265,28 +6177,40 @@ models:
   country: Germany
   calibers:
   - .22 LR
+  manufacturers:
+  - Erma
   status: approved
 - name: E40W
   kind: rifle
   country: Germany
   calibers:
   - .22 LR
+  manufacturers:
+  - Erma
   status: approved
 - name: EA-15
   calibers:
   - 5.56x45mm NATO
   status: approved
 - name: EC9S
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
   manufacturers:
   - Ruger
   modern_production: true
   status: approved
-- name: EG-220
-  status: pending
-- name: EG-240
-  status: pending
-- name: EGX500
-  status: pending
+- name: Ed Brown KC9
+  aliases:
+  - KC9
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  modern_production: true
+  status: approved
+  notes: Approved 2026-10-12 from the pending queue.
 - name: Egyptian Model 1868
   aliases:
   - Model 1868
@@ -5303,6 +6227,10 @@ models:
 - name: EMP 4
   aliases:
   - EMP4
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
   manufacturers:
   - Springfield
   modern_production: true
@@ -5353,6 +6281,8 @@ models:
   country: Germany
   calibers:
   - .22 LR
+  manufacturers:
+  - Mauser
   status: approved
 - name: ES340B
   status: merged
@@ -5362,6 +6292,8 @@ models:
   country: Germany
   calibers:
   - .22 LR
+  manufacturers:
+  - Mauser
   status: approved
 - name: ES340N
   status: merged
@@ -5411,6 +6343,12 @@ models:
   - 6.5x52mm Carcano
   status: approved
 - name: EVO 3
+  kind: pistol
+  country: Czech Republic
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - CZ
   status: approved
 - name: FA-1
   status: pending
@@ -5427,6 +6365,32 @@ models:
 - name: FDE - 24
   status: pending
   enabled: false
+- name: FEG AP
+  aliases:
+  - AP-MBP
+  - FEG AP Pistol
+  - FEG APK
+  kind: pistol
+  country: Hungary
+  calibers:
+  - .32 ACP
+  - .380 ACP
+  manufacturers:
+  - FEG
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: FEG PA-63
+  aliases:
+  - PA-63
+  - PA63
+  kind: pistol
+  country: Hungary
+  calibers:
+  - 9x18mm Makarov
+  manufacturers:
+  - FEG
+  status: approved
+  notes: Approved 2026-10-12 from the pending queue.
 - name: Femaru M37
   aliases:
   - M37
@@ -5451,6 +6415,7 @@ models:
   enabled: false
 - name: FH 30
   status: pending
+  enabled: false
 - name: Finnish Model 28/30
   aliases:
   - Model 28/30
@@ -5558,24 +6523,87 @@ models:
   status: merged
   enabled: false
 - name: FN 509
+  kind: pistol
+  country: Belgium
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - FN
   status: approved
 - name: FN510
+  kind: pistol
+  country: Belgium
+  calibers:
+  - 10mm Auto
+  manufacturers:
+  - FN
   status: approved
 - name: FN 510T
+  kind: pistol
+  country: Belgium
+  calibers:
+  - 10mm Auto
+  manufacturers:
+  - FN
   status: approved
 - name: FN 545T
+  kind: pistol
+  country: Belgium
+  calibers:
+  - .45 ACP
+  manufacturers:
+  - FN
   status: approved
 - name: FNH 545
   status: approved
 - name: FN HERSTAL 1935
   status: approved
-- name: FNS-40
-  status: approved
-- name: FNS-40L
-  status: approved
-- name: FNS-9
+- name: FN Model 509
+  aliases:
+  - Model 509
+  kind: pistol
+  country: Belgium
   calibers:
   - 9mm Luger
+  manufacturers:
+  - FN
+  status: approved
+- name: FN Reflex
+  aliases:
+  - Reflex MRD
+  - Reflex XL
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - FN
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: FNS-40
+  kind: pistol
+  country: Belgium
+  calibers:
+  - .40 S&W
+  manufacturers:
+  - FN
+  status: approved
+- name: FNS-40L
+  kind: pistol
+  country: Belgium
+  calibers:
+  - .40 S&W
+  manufacturers:
+  - FN
+  status: approved
+- name: FNS-9
+  kind: pistol
+  country: Belgium
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - FN
   status: approved
 - name: FN Trombone
   aliases:
@@ -5599,6 +6627,8 @@ models:
   country: Belgium
   calibers:
   - 9mm Luger
+  manufacturers:
+  - FN
   status: approved
 - name: FOR 22
   status: pending
@@ -5622,6 +6652,8 @@ models:
   country: France
   calibers:
   - '.71'
+  manufacturers:
+  - Tulle Arsenal
   status: approved
 - name: French M80
   aliases:
@@ -5640,6 +6672,8 @@ models:
   country: France
   calibers:
   - 8mm
+  manufacturers:
+  - Manufacture d'Armes de Saint-Étienne
   status: approved
 - name: French MLE 1822/42
   aliases:
@@ -5657,6 +6691,8 @@ models:
   country: France
   calibers:
   - 11x59mmR Gras
+  manufacturers:
+  - Tulle Arsenal
   status: approved
 - name: French MLE 1892
   aliases:
@@ -5674,6 +6710,8 @@ models:
   country: France
   calibers:
   - 7.5x54mm French
+  manufacturers:
+  - Manufacture d'Armes de Saint-Étienne
   status: approved
 - name: French Model 1935S
   aliases:
@@ -5691,6 +6729,8 @@ models:
   country: France
   calibers:
   - 7.5x54mm French
+  manufacturers:
+  - Manufacture d'Armes de Saint-Étienne
   status: approved
 - name: FRF2
   kind: rifle
@@ -5734,6 +6774,12 @@ models:
 - name: G36
   aliases:
   - G36K
+  kind: rifle
+  country: Germany
+  calibers:
+  - 5.56x45mm NATO
+  manufacturers:
+  - Heckler Koch
   status: approved
 - name: G36K
   status: merged
@@ -5750,6 +6796,10 @@ models:
   - Walther
   status: approved
 - name: G43X
+  kind: pistol
+  country: Austria
+  calibers:
+  - 9mm Luger
   manufacturers:
   - Glock
   modern_production: true
@@ -5797,6 +6847,8 @@ models:
   country: Germany
   calibers:
   - 6.5x55mm Swedish
+  manufacturers:
+  - Mauser
   status: approved
 - name: German 1914/30
   aliases:
@@ -5805,6 +6857,8 @@ models:
   country: Germany
   calibers:
   - .32 ACP
+  manufacturers:
+  - Mauser
   status: approved
 - name: German 1934/06
   aliases:
@@ -5813,6 +6867,8 @@ models:
   country: Germany
   calibers:
   - .30 Luger
+  manufacturers:
+  - Mauser
   status: approved
 - name: German M1850
   aliases:
@@ -5835,6 +6891,8 @@ models:
   country: Germany
   calibers:
   - .30 Luger
+  manufacturers:
+  - DWM
   status: approved
 - name: German M71
   aliases:
@@ -5867,6 +6925,8 @@ models:
   country: Germany
   calibers:
   - .22 LR
+  manufacturers:
+  - GECO
   status: approved
 - name: German MOD 9
   aliases:
@@ -5912,6 +6972,8 @@ models:
   country: Germany
   calibers:
   - .32 ACP
+  manufacturers:
+  - Mauser
   status: approved
   position: 100
 - name: German MODEL 1925
@@ -5941,6 +7003,8 @@ models:
   country: Germany
   calibers:
   - .32 ACP
+  manufacturers:
+  - Walther
   status: approved
 - name: German MODEL 34
   aliases:
@@ -5968,6 +7032,8 @@ models:
   - Model 410
   kind: rifle
   country: Germany
+  manufacturers:
+  - Mauser
   status: approved
 - name: German MODEL 50
   aliases:
@@ -5998,6 +7064,8 @@ models:
   country: Germany
   calibers:
   - .25 ACP
+  manufacturers:
+  - Walther
   status: approved
 - name: German Type 3
   aliases:
@@ -6067,6 +7135,8 @@ models:
 - name: Gewehr 98M
   kind: rifle
   country: Germany
+  manufacturers:
+  - Mauser
   status: approved
 - name: GHM9
   status: approved
@@ -6083,6 +7153,8 @@ models:
 - name: Glock 17
   aliases:
   - Glock G17
+  - Glock 17L
+  - Glock 17 L
   kind: pistol
   country: Austria
   calibers:
@@ -6106,6 +7178,8 @@ models:
   - Glock G19
   - Glock 19X
   - Glock G19X
+  - Glock 19V
+  - Glock G19V
   kind: pistol
   country: Austria
   calibers:
@@ -6163,6 +7237,7 @@ models:
 - name: Glock 26
   aliases:
   - Glock G26
+  - Glock 26X
   kind: pistol
   country: Austria
   calibers:
@@ -6237,6 +7312,8 @@ models:
 - name: Glock 34
   aliases:
   - Glock G34
+  - Glock 34MOS
+  - Glock 34 MOS
   kind: pistol
   country: Austria
   calibers:
@@ -6343,6 +7420,18 @@ models:
   - Glock
   modern_production: true
   status: approved
+- name: Glock 49
+  aliases:
+  - Glock G49
+  kind: pistol
+  country: Austria
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Glock
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: GMR-15
   status: merged
   enabled: false
@@ -6352,8 +7441,16 @@ models:
 - name: GP100
   aliases:
   - GP-100
-  kind: pistol
+  kind: revolver
   country: United States
+  calibers:
+  - .22 LR
+  - .327 Federal Magnum
+  - .357 Magnum
+  - .38 Special
+  - 10mm Auto
+  manufacturers:
+  - Ruger
   status: approved
 - name: GSG 5
   kind: rifle
@@ -6372,21 +7469,32 @@ models:
   status: pending
   enabled: false
 - name: GX2
+  kind: pistol
+  country: Brazil
+  manufacturers:
+  - Taurus
   status: approved
 - name: GX4
+  kind: pistol
+  country: Brazil
+  calibers:
+  - 9mm Luger
   manufacturers:
   - Taurus
   modern_production: true
   status: approved
-- name: H001
-  status: pending
 - name: H011
   kind: rifle
   country: United States
   calibers:
   - .44-40 Winchester
+  manufacturers:
+  - Winchester
   status: approved
 - name: HAFDASA Ballester Molina 1911
+  aliases:
+  - Ballester Molina
+  - Ballester-Molina
   kind: pistol
   country: Argentina
   calibers:
@@ -6420,10 +7528,161 @@ models:
   status: approved
 - name: HD-18
   status: approved
+- name: Heckler & Koch 45
+  aliases:
+  - HK45
+  - HK45C
+  - H&K 45
+  - H&K 45C
+  - HK 45
+  - 45 Tactical
+  kind: pistol
+  country: Germany
+  calibers:
+  - .45 ACP
+  manufacturers:
+  - Heckler Koch
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Heckler & Koch HK93
+  aliases:
+  - HK93
+  - HK 93
+  - H&K 93
+  kind: rifle
+  country: Germany
+  calibers:
+  - 5.56x45mm NATO
+  manufacturers:
+  - Heckler Koch
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Heckler & Koch Mark 23
+  aliases:
+  - Mark 23
+  - Mk 23
+  - Mk23
+  - HK Mark 23
+  - H&K Mark 23
+  kind: pistol
+  country: Germany
+  calibers:
+  - .45 ACP
+  manufacturers:
+  - Heckler Koch
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Heckler & Koch P2000
+  aliases:
+  - P2000
+  - P2000SK
+  - H&K P2000
+  - HK P2000
+  kind: pistol
+  country: Germany
+  calibers:
+  - .40 S&W
+  - 9mm Luger
+  manufacturers:
+  - Heckler Koch
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Heckler & Koch P30
+  aliases:
+  - P30
+  - P30L
+  - P30SK
+  - H&K P30
+  - HK P30
+  kind: pistol
+  country: Germany
+  calibers:
+  - .40 S&W
+  - 9mm Luger
+  manufacturers:
+  - Heckler Koch
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Heckler & Koch P8
+  aliases:
+  - H&K P8
+  - HK P8
+  - P8A1
+  kind: pistol
+  country: Germany
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Heckler Koch
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Heckler & Koch USP
+  aliases:
+  - USP
+  - H&K USP
+  - HK USP
+  - USP Compact
+  - USP Tactical
+  - USP Elite
+  - USP Expert
+  kind: pistol
+  country: Germany
+  calibers:
+  - .40 S&W
+  - .45 ACP
+  - 9mm Luger
+  manufacturers:
+  - Heckler Koch
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Heckler & Koch VP9
+  aliases:
+  - VP9
+  - VP9A1
+  - VP9SK
+  - VP9 SK
+  - VP9A1F
+  - VP9A1K
+  - VP9A1 K
+  - VP9B
+  - VP9F
+  - VP9X
+  kind: pistol
+  country: Germany
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Heckler Koch
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Henry H001
+  aliases:
+  - H001
+  - Henry Lever Action 22
+  - Henry Classic Lever Action .22
+  kind: rifle
+  country: United States
+  calibers:
+  - .22 LR
+  modern_production: true
+  status: approved
+  notes: Approved 2026-10-12 from the pending queue.
 - name: HF986
   status: pending
   enabled: false
 - name: HK11
+  kind: rifle
+  country: Germany
+  calibers:
+  - 7.62x51 NATO
+  manufacturers:
+  - Heckler Koch
   status: approved
 - name: HK21
   kind: rifle
@@ -6438,18 +7697,22 @@ models:
 - name: HK4
   kind: pistol
   country: Germany
+  calibers:
+  - .22 LR
+  - .25 ACP
+  - .32 ACP
+  - .380 ACP
+  manufacturers:
+  - Heckler Koch
   status: approved
 - name: HK 45
   aliases:
   - HK45
   kind: pistol
   country: Germany
-  calibers:
-  - .45 ACP
-  manufacturers:
-  - Heckler Koch
   modern_production: true
-  status: approved
+  status: merged
+  enabled: false
 - name: HK45
   status: merged
   enabled: false
@@ -6458,16 +7721,19 @@ models:
 - name: HK 91
   kind: rifle
   country: Germany
-  calibers:
-  - 7.62x51 NATO
-  manufacturers:
-  - Heckler Koch
-  status: approved
+  status: merged
+  enabled: false
 - name: HK91
+  aliases:
+  - HK 91
+  - H&K 91
+  - HK-91
   kind: rifle
   country: Germany
   calibers:
   - 7.62x51 NATO
+  manufacturers:
+  - Heckler Koch
   status: approved
 - name: HNOS 12
   kind: rifle
@@ -6475,8 +7741,17 @@ models:
   calibers:
   - 12 gauge
   status: approved
-- name: HP22B
-  status: pending
+- name: Howa M1500
+  aliases:
+  - M1500
+  - Howa 1500
+  kind: rifle
+  country: Japan
+  manufacturers:
+  - Howa
+  modern_production: true
+  status: approved
+  notes: Approved 2026-10-12 from the pending queue.
 - name: HP 35
   aliases:
   - Hi Power
@@ -6547,6 +7822,8 @@ models:
   country: Italy
   calibers:
   - 12 gauge
+  manufacturers:
+  - Breda
   status: approved
 - name: II 308
   status: pending
@@ -6574,12 +7851,16 @@ models:
   country: United States
   calibers:
   - .30 Carbine
+  manufacturers:
+  - Inland
   status: approved
 - name: ILM140
   kind: carbine
   country: United States
   calibers:
   - .30 Carbine
+  manufacturers:
+  - Inland
   status: approved
 - name: ILM150
   status: approved
@@ -6681,6 +7962,8 @@ models:
   country: Italy
   calibers:
   - 9mm Luger
+  manufacturers:
+  - Beretta
   status: approved
 - name: Italian Model 36
   aliases:
@@ -6699,8 +7982,6 @@ models:
   manufacturers:
   - Israel Weapon Industries
   status: approved
-- name: IZH-70
-  status: pending
 - name: JAN 21
   status: pending
   enabled: false
@@ -6724,6 +8005,8 @@ models:
   country: Japan
   calibers:
   - 6.5x50mm Arisaka
+  manufacturers:
+  - Koishikawa
   status: approved
 - name: Joslyn M1864
   kind: carbine
@@ -6768,6 +8051,27 @@ models:
 - name: K80
   status: pending
   enabled: false
+- name: Kahr P-Series
+  aliases:
+  - Kahr P9
+  - Kahr P380
+  - Kahr PM9
+  - Kahr PM40
+  - Kahr P45
+  - Kahr K9
+  - Kahr MK9
+  kind: pistol
+  country: United States
+  calibers:
+  - .380 ACP
+  - .40 S&W
+  - .45 ACP
+  - 9mm Luger
+  manufacturers:
+  - Kahr
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: KAR 98
   status: merged
   enabled: false
@@ -6797,8 +8101,6 @@ models:
   - Steyr
   wikipedia: https://en.wikipedia.org/wiki/Karabiner_98k
   status: approved
-- name: KC9
-  status: pending
 - name: KDS9C
   aliases:
   - KDS9
@@ -6810,6 +8112,34 @@ models:
   - Kimber
   modern_production: true
   status: approved
+- name: Kel-Tec P17
+  aliases:
+  - Keltec P17
+  kind: pistol
+  country: United States
+  calibers:
+  - .22 LR
+  manufacturers:
+  - Kel-Tec
+  modern_production: true
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+- name: Kel-Tec P-3AT
+  aliases:
+  - P3AT
+  - P-3AT
+  - PR-3AT
+  - PR3AT
+  - Keltec P3AT
+  kind: pistol
+  country: United States
+  calibers:
+  - .380 ACP
+  manufacturers:
+  - Kel-Tec
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: KG-99
   kind: pistol
   country: Germany
@@ -6835,8 +8165,8 @@ models:
   kind: pistol
   country: United States
   calibers:
-  - 9mm Luger
   - .45 ACP
+  - 9mm Luger
   manufacturers:
   - Kimber
   modern_production: true
@@ -6864,8 +8194,8 @@ models:
   country: United States
   calibers:
   - .45 ACP
-  - 9mm Luger
   - 10mm Auto
+  - 9mm Luger
   manufacturers:
   - Kimber
   modern_production: true
@@ -6930,6 +8260,20 @@ models:
   - Kimber
   modern_production: true
   status: approved
+- name: Kimber Micro
+  aliases:
+  - Micro Carry
+  - Micro CDP
+  - Micro Raptor
+  kind: pistol
+  country: United States
+  calibers:
+  - .380 ACP
+  manufacturers:
+  - Kimber
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Kimber Micro 9
   aliases:
   - Micro 9
@@ -6942,6 +8286,7 @@ models:
   - Kimber
   modern_production: true
   status: approved
+  position: 890
 - name: Kimber Pro Carry II
   aliases:
   - Pro Carry II
@@ -6986,8 +8331,8 @@ models:
   country: United States
   calibers:
   - .45 ACP
-  - 9mm Luger
   - 10mm Auto
+  - 9mm Luger
   manufacturers:
   - Kimber
   modern_production: true
@@ -7000,8 +8345,8 @@ models:
   country: United States
   calibers:
   - .45 ACP
-  - 9mm Luger
   - 10mm Auto
+  - 9mm Luger
   manufacturers:
   - Kimber
   modern_production: true
@@ -7009,6 +8354,7 @@ models:
 - name: Kimber Ultra Carry II
   aliases:
   - Ultra Carry II
+  - Ultra CSE
   kind: pistol
   country: United States
   calibers:
@@ -7137,6 +8483,8 @@ models:
 - name: LAR-15
   kind: rifle
   country: United States
+  calibers:
+  - 5.56x45mm NATO
   manufacturers:
   - Rock River Arms
   modern_production: true
@@ -7150,8 +8498,20 @@ models:
   status: pending
   enabled: false
 - name: LC9
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Ruger
   status: approved
 - name: LC9S
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Ruger
   status: approved
 - name: Lebel Model 1886
   aliases:
@@ -7355,6 +8715,20 @@ models:
 - name: LV40
   status: pending
   enabled: false
+- name: LWRC SIX8
+  aliases:
+  - SIX8
+  - SIX8 A5
+  - SIX8A5
+  kind: rifle
+  country: United States
+  calibers:
+  - 6.8mm SPC
+  manufacturers:
+  - LWRC
+  modern_production: true
+  status: approved
+  notes: Approved 2026-10-12 from the pending queue.
 - name: LWS 32
   calibers:
   - .32 ACP
@@ -7370,6 +8744,12 @@ models:
 - name: M10X
   status: approved
 - name: M11A1
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Sig Sauer
   status: approved
 - name: M12
   status: pending
@@ -7388,8 +8768,6 @@ models:
 - name: M14S
   status: merged
   enabled: false
-- name: M1500
-  status: pending
 - name: M16
   aliases:
   - M16A4
@@ -7610,6 +8988,10 @@ models:
 - name: M197A1
   status: approved
 - name: M1991A1
+  kind: pistol
+  country: United States
+  calibers:
+  - .45 ACP
   manufacturers:
   - Colt
   modern_production: true
@@ -7708,8 +9090,6 @@ models:
   status: approved
   enabled: false
   notes: 'Disabled: identifies nothing on its own -- the Carcano M38, the Mosin M38 and the Swedish m/38.'
-- name: M38/49
-  status: approved
 - name: M38H
   status: approved
 - name: M4
@@ -7742,6 +9122,8 @@ models:
   country: United States
   calibers:
   - 5.56x45mm NATO
+  manufacturers:
+  - Windham Weaponry
   status: approved
 - name: M4E1
   status: approved
@@ -7763,14 +9145,10 @@ models:
 - name: M66
   status: pending
   enabled: false
-- name: M68
-  status: approved
 - name: M70
   status: approved
   enabled: false
   notes: 'Disabled: identifies nothing on its own -- a Zastava rifle and a Zastava pistol.'
-- name: M70A
-  status: approved
 - name: M70B1
   status: approved
 - name: M72B1
@@ -7836,7 +9214,22 @@ models:
   status: pending
   enabled: false
 - name: M9A4
+  kind: pistol
+  country: Italy
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Beretta
   status: approved
+- name: Maadi Helwan
+  aliases:
+  - Helwan
+  kind: pistol
+  country: Egypt
+  calibers:
+  - 9mm Luger
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
 - name: MAC-10
   status: approved
 - name: MAC11
@@ -7864,9 +9257,11 @@ models:
   status: approved
 - name: MAK 90
   kind: rifle
-  country: Germany
+  country: China
   calibers:
   - 7.62x39mm
+  manufacturers:
+  - Norinco
   status: approved
 - name: MAK-90
   aliases:
@@ -7919,6 +9314,19 @@ models:
 - name: MARK 2
   status: pending
   enabled: false
+- name: Marlin Papoose
+  aliases:
+  - Papoose
+  - Marlin 70PPS
+  kind: rifle
+  country: United States
+  calibers:
+  - .22 LR
+  manufacturers:
+  - Marlin
+  modern_production: true
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
 - name: MARS 100
   kind: rifle
   country: Germany
@@ -7977,6 +9385,8 @@ models:
   country: France
   calibers:
   - 9mm Luger
+  manufacturers:
+  - Manufacture d'Armes de Saint-Étienne
   status: approved
 - name: MAS Modèle 1873
   status: approved
@@ -8141,6 +9551,9 @@ models:
   - Mauser
   status: approved
 - name: Mauser HSc
+  aliases:
+  - Model HSc
+  - Mauser Model HSc
   kind: pistol
   country: Germany
   calibers:
@@ -8298,12 +9711,28 @@ models:
   manufacturers:
   - Mauser
   status: approved
+- name: Mauser WTP
+  aliases:
+  - WTP I
+  - WTP II
+  kind: pistol
+  country: Germany
+  calibers:
+  - .25 ACP
+  manufacturers:
+  - Mauser
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: MAX 9
   status: merged
   enabled: false
 - name: MAX-9
   aliases:
   - MAX 9
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
   manufacturers:
   - Ruger
   modern_production: true
@@ -8329,6 +9758,10 @@ models:
 - name: MC1
   status: approved
 - name: MC2C
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
   manufacturers:
   - Mossberg
   modern_production: true
@@ -8336,8 +9769,12 @@ models:
 - name: MC35
   status: approved
 - name: MC9
+  aliases:
+  - Canik MC9
+  - MC9LS
+  - Mete MC9
   kind: pistol
-  country: Germany
+  country: Turkey
   calibers:
   - 9mm Luger
   manufacturers:
@@ -8397,6 +9834,12 @@ models:
   status: approved
   enabled: false
 - name: MK25
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Sig Sauer
   status: approved
 - name: MK 3
   kind: rifle
@@ -8478,6 +9921,7 @@ models:
   enabled: false
 - name: MODEL 02
   status: pending
+  enabled: false
 - name: MODEL 03/38
   status: approved
 - name: Model 06
@@ -8814,8 +10258,6 @@ models:
 - name: MODEL 30S
   status: pending
   enabled: false
-- name: Model 31
-  status: approved
 - name: Model 311A
   status: approved
 - name: MODEL 317
@@ -8849,8 +10291,6 @@ models:
   status: approved
   enabled: false
   notes: 'Disabled: identifies nothing on its own -- a Remington rolling block and a Colt derringer.'
-- name: Model 41
-  status: approved
 - name: MODEL 418
   status: pending
   enabled: false
@@ -8892,8 +10332,6 @@ models:
 - name: MODEL 500A
   status: pending
   enabled: false
-- name: Model 509
-  status: approved
 - name: MODEL 511
   status: pending
   enabled: false
@@ -8946,6 +10384,7 @@ models:
   enabled: false
 - name: MODEL 62
   status: pending
+  enabled: false
 - name: MODEL 620A
   status: pending
   enabled: false
@@ -8980,8 +10419,6 @@ models:
 - name: Model 6904
   status: approved
   enabled: false
-- name: Model 6906
-  status: approved
 - name: MODEL 69A
   status: pending
   enabled: false
@@ -9100,6 +10537,8 @@ models:
 - name: MODELO 1921
   kind: pistol
   country: Spain
+  manufacturers:
+  - Astra
   status: approved
 - name: MODELO 1935
   kind: rifle
@@ -9123,12 +10562,16 @@ models:
   country: United States
   calibers:
   - '.41'
+  manufacturers:
+  - Colt
   status: approved
 - name: Model of 1905
   kind: revolver
   country: United States
   calibers:
   - .38 Special
+  manufacturers:
+  - Smith & Wesson
   status: approved
 - name: MODEL OF 1911
   aliases:
@@ -9318,6 +10761,8 @@ models:
 - name: Mossberg 500
   aliases:
   - Model 500
+  - Mossberg 500A
+  - 500A
   kind: shotgun
   country: United States
   calibers:
@@ -9338,6 +10783,20 @@ models:
   - Mossberg
   modern_production: true
   status: approved
+- name: Mossberg MC1sc
+  aliases:
+  - MC1SC
+  - MC1 SC
+  - Mossberg MC1
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Mossberg
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: MP-15
   status: merged
   enabled: false
@@ -9369,6 +10828,10 @@ models:
 - name: MR920
   aliases:
   - MR920P
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
   manufacturers:
   - Shadow Systems
   modern_production: true
@@ -9381,12 +10844,16 @@ models:
   country: Germany
   calibers:
   - .22 LR
+  manufacturers:
+  - Mauser
   status: approved
 - name: MS 350B
   kind: rifle
   country: Germany
   calibers:
   - .22 LR
+  manufacturers:
+  - Mauser
   status: approved
 - name: MS 420
   kind: rifle
@@ -9397,6 +10864,8 @@ models:
 - name: MS-420
   kind: rifle
   country: Germany
+  manufacturers:
+  - Mauser
   status: approved
 - name: MS420
   kind: rifle
@@ -9472,6 +10941,8 @@ models:
   country: China
   calibers:
   - 7.62x54mmR
+  manufacturers:
+  - Norinco
   status: approved
 - name: NHM 91
   aliases:
@@ -9541,6 +11012,7 @@ models:
   - No.2 MkI
   - No2 MkI
   - No.2 Mk.I
+  - Enfield No. 2
   kind: revolver
   country: United Kingdom
   calibers:
@@ -9556,6 +11028,7 @@ models:
   enabled: false
 - name: NO 3
   status: pending
+  enabled: false
 - name: NO 38
   calibers:
   - .38 RF
@@ -9595,6 +11068,7 @@ models:
   enabled: false
 - name: NO 832
   status: pending
+  enabled: false
 - name: Norinco MODEL 213
   aliases:
   - MODEL 213
@@ -9647,15 +11121,21 @@ models:
   manufacturers:
   - OVIEDO
   status: approved
-- name: OZ9
-  status: pending
 - name: P018S
   kind: pistol
   country: Italy
   calibers:
   - 9mm Luger
+  manufacturers:
+  - Bernardelli
   status: approved
 - name: P01S
+  kind: pistol
+  country: Czech Republic
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - CZ
   status: approved
 - name: P.04
   kind: pistol
@@ -9672,11 +11152,27 @@ models:
   status: merged
   enabled: false
 - name: P10C
+  aliases:
+  - P-10C
+  - P-10 C
+  - CZ P-10C
+  - P10 C
+  - CZ P10C
+  kind: pistol
+  country: Czech Republic
+  calibers:
+  - 9mm Luger
   manufacturers:
   - CZ
   modern_production: true
   status: approved
 - name: P10F
+  kind: pistol
+  country: Czech Republic
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - CZ
   status: approved
 - name: P14
   status: approved
@@ -9690,6 +11186,8 @@ models:
   country: United States
   calibers:
   - '.40'
+  manufacturers:
+  - Smith & Wesson
   status: approved
 - name: P210
   aliases:
@@ -9697,6 +11195,10 @@ models:
   - P 210
   - SIG P210
   - SIG P-210
+  - P/49
+  - P-49
+  - M/49
+  - SIG M/49
   kind: pistol
   country: Switzerland
   calibers:
@@ -9705,6 +11207,12 @@ models:
   - Sig Sauer
   status: approved
 - name: P211
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Sig Sauer
   status: approved
 - name: P22
   aliases:
@@ -9721,33 +11229,67 @@ models:
   status: merged
   enabled: false
 - name: P224
+  kind: pistol
+  country: Germany
   calibers:
   - '.40'
+  manufacturers:
+  - Sig Sauer
   status: approved
 - name: P227
+  kind: pistol
+  country: Germany
+  calibers:
+  - .45 ACP
+  manufacturers:
+  - Sig Sauer
   status: approved
 - name: P228
   kind: pistol
   country: Germany
   calibers:
   - 9mm Luger
+  manufacturers:
+  - Sig Sauer
   status: approved
 - name: P22Q
   status: pending
+  enabled: false
 - name: P230
-  status: approved
-- name: P232
+  aliases:
+  - P230SL
+  - Sig P230
+  - Sig Sauer P230
+  kind: pistol
+  country: Germany
   calibers:
+  - .32 ACP
   - .380 ACP
   status: approved
+- name: P232
+  kind: pistol
+  country: Germany
+  calibers:
+  - .380 ACP
+  manufacturers:
+  - Sig Sauer
+  status: approved
 - name: P238
+  kind: pistol
+  country: United States
+  calibers:
+  - .380 ACP
   manufacturers:
   - Sig Sauer
   modern_production: true
   status: approved
 - name: P250
+  kind: pistol
+  country: United States
   calibers:
   - '.40'
+  manufacturers:
+  - Sig Sauer
   status: approved
 - name: P.30
   calibers:
@@ -9760,14 +11302,20 @@ models:
   status: merged
   enabled: false
 - name: P322
+  kind: pistol
+  country: United States
   calibers:
   - .22 LR
+  manufacturers:
+  - Sig Sauer
   status: approved
 - name: P.35
   kind: pistol
   country: Poland
   calibers:
   - 9mm Luger
+  manufacturers:
+  - Radom
   status: approved
 - name: P35
   status: approved
@@ -9775,6 +11323,8 @@ models:
   status: pending
   enabled: false
 - name: P365X
+  kind: pistol
+  country: United States
   calibers:
   - 9mm Luger
   manufacturers:
@@ -9818,6 +11368,12 @@ models:
   - Sig Sauer
   status: approved
 - name: P50
+  kind: pistol
+  country: United States
+  calibers:
+  - 5.7x28mm
+  manufacturers:
+  - Kel-Tec
   status: approved
 - name: P53
   kind: rifle
@@ -9837,6 +11393,13 @@ models:
   - Radom
   status: approved
 - name: P7
+  aliases:
+  - P7M8
+  - P7M13
+  - P7M10
+  - H&K P7
+  - HK P7
+  - Heckler & Koch P7
   kind: pistol
   country: Germany
   calibers:
@@ -9896,12 +11459,9 @@ models:
   calibers:
   - .224 Caliber
   status: approved
-- name: PA37
-  status: pending
-- name: PA-63
-  status: pending
 - name: PA63
-  status: approved
+  status: merged
+  enabled: false
 - name: PA7
   status: pending
   enabled: false
@@ -9911,6 +11471,70 @@ models:
   calibers:
   - 9mm Luger
   status: approved
+- name: Panzer Arms AR12
+  aliases:
+  - AR12
+  kind: shotgun
+  country: Turkey
+  calibers:
+  - 12 gauge
+  manufacturers:
+  - Panzer Arms
+  modern_production: true
+  status: approved
+  notes: Approved 2026-10-12 from the pending queue.
+- name: Panzer Arms EG-220
+  aliases:
+  - EG-220
+  - EG220
+  kind: shotgun
+  country: Turkey
+  calibers:
+  - 12 gauge
+  manufacturers:
+  - Panzer Arms
+  modern_production: true
+  status: approved
+  notes: Approved 2026-10-12 from the pending queue.
+- name: Panzer Arms EG-240
+  aliases:
+  - EG-240
+  - EG240
+  kind: shotgun
+  country: Turkey
+  calibers:
+  - 12 gauge
+  manufacturers:
+  - Panzer Arms
+  modern_production: true
+  status: approved
+  notes: Approved 2026-10-12 from the pending queue.
+- name: Panzer Arms EGX500
+  aliases:
+  - EGX500
+  - EGX-500
+  kind: shotgun
+  country: Turkey
+  calibers:
+  - 12 gauge
+  manufacturers:
+  - Panzer Arms
+  modern_production: true
+  status: approved
+  notes: Approved 2026-10-12 from the pending queue.
+- name: Panzer Arms PA37
+  aliases:
+  - PA37
+  - PA-37
+  kind: shotgun
+  country: Turkey
+  calibers:
+  - 12 gauge
+  manufacturers:
+  - Panzer Arms
+  modern_production: true
+  status: approved
+  notes: Approved 2026-10-12 from the pending queue.
 - name: pattern 1756
   status: approved
 - name: Pattern 1769
@@ -9943,6 +11567,12 @@ models:
   status: pending
   enabled: false
 - name: PD380
+  kind: pistol
+  country: Germany
+  calibers:
+  - .380 ACP
+  manufacturers:
+  - Walther
   status: approved
 - name: PE-57
   status: approved
@@ -9963,9 +11593,27 @@ models:
   - 8mm Mauser
   status: approved
 - name: PF-9
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Kel-Tec
   status: approved
 - name: PFC9
   status: approved
+- name: Phoenix Arms HP22
+  aliases:
+  - HP22B
+  - HP22A
+  - HP22
+  kind: pistol
+  country: United States
+  calibers:
+  - .22 LR
+  modern_production: true
+  status: approved
+  notes: Approved 2026-10-12 from the pending queue.
 - name: Pietta 1851
   status: pending
   enabled: false
@@ -9991,15 +11639,29 @@ models:
   country: Germany
   calibers:
   - .380 ACP
+  manufacturers:
+  - Walther
   status: approved
 - name: PM-12
   aliases:
   - PM12
+  kind: pistol
+  country: Italy
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Beretta
   status: approved
 - name: PM12
   status: merged
   enabled: false
 - name: PM12S
+  kind: pistol
+  country: Italy
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Beretta
   status: approved
 - name: PM-63
   aliases:
@@ -10016,7 +11678,7 @@ models:
   aliases:
   - PM9
   kind: pistol
-  country: Germany
+  country: United States
   calibers:
   - 9x18mm Makarov
   manufacturers:
@@ -10034,6 +11696,12 @@ models:
   status: merged
   enabled: false
 - name: PMR-30
+  kind: pistol
+  country: United States
+  calibers:
+  - .22 WMR
+  manufacturers:
+  - Kel-Tec
   status: approved
 - name: PO8
   kind: pistol
@@ -10061,6 +11729,8 @@ models:
   country: Poland
   calibers:
   - .22 LR
+  manufacturers:
+  - Radom
   status: approved
 - name: Portuguese 1904/39
   aliases:
@@ -10134,8 +11804,26 @@ models:
   country: Germany
   calibers:
   - .22 LR
+  manufacturers:
+  - Walther
   status: approved
+- name: PSA Dagger
+  aliases:
+  - Palmetto Dagger
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: PSG1
+  kind: rifle
+  country: Germany
+  calibers:
+  - 7.62x51 NATO
+  manufacturers:
+  - Heckler Koch
   status: approved
 - name: PSL
   kind: rifle
@@ -10158,15 +11846,25 @@ models:
   aliases:
   - PT 111
   kind: pistol
-  country: Germany
+  country: Brazil
   calibers:
   - 9mm Luger
+  manufacturers:
+  - Taurus
   status: approved
 - name: PT-145
+  kind: pistol
+  country: Brazil
   calibers:
   - .45 ACP
+  manufacturers:
+  - Taurus
   status: approved
 - name: PT22
+  kind: pistol
+  country: Brazil
+  calibers:
+  - .22 LR
   manufacturers:
   - Taurus
   modern_production: true
@@ -10175,13 +11873,15 @@ models:
   status: approved
 - name: PT 809
   kind: pistol
-  country: Germany
+  country: Brazil
   calibers:
   - 9mm Luger
+  manufacturers:
+  - Taurus
   status: approved
 - name: PT 917
   kind: pistol
-  country: Germany
+  country: Brazil
   calibers:
   - 9mm Luger
   manufacturers:
@@ -10189,13 +11889,16 @@ models:
   status: approved
 - name: PT 92
   kind: pistol
-  country: Germany
+  country: Brazil
+  status: merged
+  enabled: false
+- name: PT99
+  kind: pistol
+  country: Brazil
   calibers:
   - 9mm Luger
   manufacturers:
   - Taurus
-  status: approved
-- name: PT99
   status: approved
 - name: PTI 45
   status: pending
@@ -10249,7 +11952,7 @@ models:
   aliases:
   - MOD 35
   kind: pistol
-  country: Germany
+  country: Poland
   calibers:
   - 9mm Luger
   manufacturers:
@@ -10259,12 +11962,25 @@ models:
   aliases:
   - Model 35
   kind: pistol
-  country: Germany
+  country: Poland
   calibers:
   - 9mm Luger
   manufacturers:
   - Radom
   status: approved
+- name: Radom P-83 Wanad
+  aliases:
+  - P83 Wanad
+  - P-83 Wanad
+  - Radom P83
+  kind: pistol
+  country: Poland
+  calibers:
+  - 9x18mm Makarov
+  manufacturers:
+  - Radom
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
 - name: Radom Vis 35
   aliases:
   - Vis 35
@@ -10580,6 +12296,28 @@ models:
   - Rogers & Spencer
   wikipedia: https://en.wikipedia.org/wiki/Rogers_%26_Spencer_Army_Model_1865
   status: approved
+- name: Rossi M68
+  aliases:
+  - M68
+  kind: revolver
+  country: Brazil
+  calibers:
+  - .38 Special
+  manufacturers:
+  - Rossi
+  status: approved
+- name: Rossi RS22
+  aliases:
+  - RS22
+  kind: rifle
+  country: Brazil
+  calibers:
+  - .22 LR
+  manufacturers:
+  - Rossi
+  modern_production: true
+  status: approved
+  notes: Approved 2026-10-12 from the pending queue.
 - name: RPB31
   status: pending
   enabled: false
@@ -10606,8 +12344,6 @@ models:
 - name: RR51
   status: pending
   enabled: false
-- name: RS22
-  status: pending
 - name: Ruger 10/22
   aliases:
   - 10/22
@@ -10618,23 +12354,367 @@ models:
   manufacturers:
   - Ruger
   status: approved
-- name: Ruger LCP-380
+- name: Ruger-57
   aliases:
-  - LCP 380
+  - Ruger 57
+  kind: pistol
+  country: United States
+  calibers:
+  - 5.7x28mm
   manufacturers:
   - Ruger
   modern_production: true
   status: approved
-- name: Ruger Mini-14
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Ruger American Pistol
   aliases:
-  - Mini-14
-  - Mini 14
+  - Ruger American Compact
+  - Ruger American A9
+  - American A9
+  kind: pistol
+  country: United States
+  calibers:
+  - .45 ACP
+  - 9mm Luger
+  manufacturers:
+  - Ruger
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Ruger American Rifle
+  aliases:
+  - Ruger American Gen 2
+  - Ruger American Generation II
+  - Ruger American Ranch
+  - Ruger American Predator
   kind: rifle
   country: United States
   manufacturers:
   - Ruger
   modern_production: true
   status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Ruger Bearcat
+  aliases:
+  - Bearcat
+  - New Bearcat
+  kind: revolver
+  country: United States
+  calibers:
+  - .22 LR
+  manufacturers:
+  - Ruger
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Ruger Blackhawk
+  aliases:
+  - Blackhawk
+  - NM Blackhawk
+  - New Model Blackhawk
+  - Blkhwk
+  - NM Blkhwk
+  - Blackhawk Convertible
+  kind: revolver
+  country: United States
+  calibers:
+  - .30 Carbine
+  - .357 Magnum
+  - .41 Remington Magnum
+  - .45 Colt
+  manufacturers:
+  - Ruger
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Ruger Charger
+  aliases:
+  - Ruger 22 Charger
+  - 22 Charger
+  kind: pistol
+  country: United States
+  calibers:
+  - .22 LR
+  manufacturers:
+  - Ruger
+  modern_production: true
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+- name: Ruger LCP-380
+  aliases:
+  - LCP 380
+  - LCP
+  - LCP II
+  - LCP MAX
+  - Ruger LCP
+  kind: pistol
+  country: United States
+  calibers:
+  - .380 ACP
+  manufacturers:
+  - Ruger
+  modern_production: true
+  status: approved
+- name: Ruger LCR
+  aliases:
+  - LCR
+  - LCRx
+  kind: revolver
+  country: United States
+  calibers:
+  - .22 LR
+  - .327 Federal Magnum
+  - .357 Magnum
+  - .38 Special
+  - 9mm Luger
+  manufacturers:
+  - Ruger
+  modern_production: true
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+- name: Ruger Mark Series
+  aliases:
+  - Ruger Mark I
+  - Ruger MK I
+  - Ruger MKI
+  - Ruger Mark II
+  - Ruger MK II
+  - Ruger MKII
+  - Ruger Mark III
+  - Ruger MK III
+  - Ruger MKIII
+  - Ruger Mark IV
+  - Ruger MK IV
+  - Ruger MKIV
+  - Ruger 22/45
+  - MKIV 22/45
+  - 22/45 Lite
+  - Ruger Standard Model
+  - Ruger Standard
+  - Rugar Mark I
+  kind: pistol
+  country: United States
+  calibers:
+  - .22 LR
+  manufacturers:
+  - Ruger
+  modern_production: true
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+- name: Ruger Mini-14
+  aliases:
+  - Mini-14
+  - Mini 14
+  kind: rifle
+  country: United States
+  calibers:
+  - 5.56x45mm NATO
+  manufacturers:
+  - Ruger
+  modern_production: true
+  status: approved
+- name: Ruger No. 1
+  aliases:
+  - Ruger No.1
+  - Ruger No 1
+  - 'Ruger #1'
+  kind: rifle
+  country: United States
+  manufacturers:
+  - Ruger
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Ruger Police Service-Six
+  aliases:
+  - Police Service Six
+  - Police Service-Six
+  - Service Six
+  - Speed Six
+  kind: revolver
+  country: United States
+  calibers:
+  - .357 Magnum
+  - .38 Special
+  manufacturers:
+  - Ruger
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+- name: Ruger Precision Rifle
+  aliases:
+  - Ruger Precision Rimfire
+  kind: rifle
+  country: United States
+  manufacturers:
+  - Ruger
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Ruger P-Series
+  aliases:
+  - Ruger P95
+  - P95DC
+  - Ruger P97
+  - P97DC
+  - Ruger P89
+  - Ruger P90
+  - Ruger P345
+  - Ruger P85
+  - Ruger P94
+  - Ruger P944
+  kind: pistol
+  country: United States
+  calibers:
+  - .40 S&W
+  - .45 ACP
+  - 9mm Luger
+  manufacturers:
+  - Ruger
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Ruger Redhawk
+  aliases:
+  - Redhawk
+  kind: revolver
+  country: United States
+  calibers:
+  - .357 Magnum
+  - .44 Magnum
+  - .45 Colt
+  manufacturers:
+  - Ruger
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Ruger RXM
+  aliases:
+  - RXM
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Ruger
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Ruger Security-9
+  aliases:
+  - Security-9
+  - Security 9
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Ruger
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Ruger Security-Six
+  aliases:
+  - Security Six
+  - Security-Six
+  kind: revolver
+  country: United States
+  calibers:
+  - .357 Magnum
+  - .38 Special
+  manufacturers:
+  - Ruger
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Ruger Single-Six
+  aliases:
+  - Single Six
+  - Single-Six
+  - NM Single Six
+  kind: revolver
+  country: United States
+  calibers:
+  - .22 LR
+  - .22 WMR
+  manufacturers:
+  - Ruger
+  modern_production: true
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+- name: Ruger SR1911
+  aliases:
+  - SR1911
+  - SR-1911
+  - Ruger 1911
+  - Ruger Commander
+  kind: pistol
+  country: United States
+  calibers:
+  - .45 ACP
+  - 10mm Auto
+  - 9mm Luger
+  manufacturers:
+  - Ruger
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Ruger Super Blackhawk
+  aliases:
+  - Super Blackhawk
+  - NM Super Blackhawk
+  - Spr Blkhwk
+  - NM Spr Blkhwk
+  - New Model Super Blackhawk
+  kind: revolver
+  country: United States
+  calibers:
+  - .44 Magnum
+  manufacturers:
+  - Ruger
+  modern_production: true
+  status: approved
+  position: 880
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Ruger Super Redhawk
+  aliases:
+  - Super Redhawk
+  kind: revolver
+  country: United States
+  calibers:
+  - .44 Magnum
+  manufacturers:
+  - Ruger
+  modern_production: true
+  status: approved
+  position: 880
+  notes: Added 2026-10-11 for listings with no caliber.
+- name: Ruger Vaquero
+  aliases:
+  - Vaquero
+  - New Vaquero
+  - Vanquero
+  kind: revolver
+  country: United States
+  calibers:
+  - .357 Magnum
+  - .38 Special
+  - .44-40 Winchester
+  - .45 Colt
+  manufacturers:
+  - Ruger
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Ruger Wrangler
+  aliases:
+  - Wrangler
+  kind: revolver
+  country: United States
+  calibers:
+  - .22 LR
+  manufacturers:
+  - Ruger
+  modern_production: true
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
 - name: Russian M91/59
   aliases:
   - M91/59
@@ -10677,6 +12757,8 @@ models:
   country: Italy
   calibers:
   - 12 gauge
+  manufacturers:
+  - Beretta
   status: approved
 - name: SA 22
   kind: rifle
@@ -10699,6 +12781,12 @@ models:
   status: pending
   enabled: false
 - name: SA-35
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Springfield
   status: approved
 - name: SA-459
   kind: rifle
@@ -10718,6 +12806,8 @@ models:
   country: Hungary
   calibers:
   - 7.62x39mm
+  manufacturers:
+  - FEG
   status: approved
 - name: SAGEM M1935S
   aliases:
@@ -10736,13 +12826,30 @@ models:
   country: Romania
   calibers:
   - 7.62x39mm
+  manufacturers:
+  - Cugir
   status: approved
 - name: SAR2
   status: approved
 - name: SAR9
+  aliases:
+  - SAR 9
+  - SAR9C
+  - SAR9 RD
+  - SAR9 Gen 3
+  - SAR9X
+  - Sarsilmaz SAR9
+  kind: pistol
+  country: Turkey
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - SAR Arms
+  modern_production: true
   status: approved
 - name: SAR9C
-  status: approved
+  status: merged
+  enabled: false
 - name: Savage M1861
   aliases:
   - M1861
@@ -10753,6 +12860,18 @@ models:
   manufacturers:
   - Savage
   status: approved
+- name: Savage Model 1907
+  aliases:
+  - Savage 1907
+  kind: pistol
+  country: United States
+  calibers:
+  - .32 ACP
+  - .380 ACP
+  manufacturers:
+  - Savage
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
 - name: SB1
   status: pending
   enabled: false
@@ -10761,6 +12880,7 @@ models:
   enabled: false
 - name: SBA3
   status: pending
+  enabled: false
 - name: SC9
   status: approved
 - name: SCAR 16S
@@ -10772,6 +12892,12 @@ models:
   - FN
   status: approved
 - name: SCAR 17S
+  kind: rifle
+  country: Belgium
+  calibers:
+  - 7.62x51 NATO
+  manufacturers:
+  - FN
   status: approved
 - name: Schmidt-Rubin K31
   aliases:
@@ -10816,6 +12942,14 @@ models:
 - name: SCT-19
   status: approved
 - name: SD9
+  aliases:
+  - SD9VE
+  - SD9 VE
+  - S&W SD9
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
   manufacturers:
   - Smith & Wesson
   modern_production: true
@@ -10849,6 +12983,12 @@ models:
   status: merged
   enabled: false
 - name: SG 553P
+  kind: pistol
+  country: Switzerland
+  calibers:
+  - 5.56x45mm NATO
+  manufacturers:
+  - Sig Sauer
   status: approved
 - name: Sharps 1874
   aliases:
@@ -10975,7 +13115,29 @@ models:
 - name: SIG 542
   status: approved
 - name: SIG 543
+  kind: rifle
+  country: Switzerland
+  calibers:
+  - 5.56x45mm NATO
+  manufacturers:
+  - Sig Sauer
   status: approved
+- name: Sig Sauer 1911
+  aliases:
+  - Sig 1911
+  - 1911 Scorpion
+  - 1911 C3
+  - Emperor Scorpion
+  kind: pistol
+  country: United States
+  calibers:
+  - .45 ACP
+  - 9mm Luger
+  manufacturers:
+  - Sig Sauer
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: SIG SAUER 1911
   status: pending
   enabled: false
@@ -10987,6 +13149,33 @@ models:
   manufacturers:
   - Sig Sauer
   status: approved
+- name: Sig Sauer 516
+  aliases:
+  - Sig 516
+  kind: rifle
+  country: United States
+  calibers:
+  - 5.56x45mm NATO
+  manufacturers:
+  - Sig Sauer
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Sig Sauer MCX
+  aliases:
+  - MCX
+  - MCX Spear
+  - Sig MCX
+  kind: rifle
+  country: United States
+  calibers:
+  - .300 AAC Blackout
+  - 5.56x45mm NATO
+  - 7.62x39mm
+  manufacturers:
+  - Sig Sauer
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Sig Sauer Model 1913
   aliases:
   - Model 1913
@@ -11011,8 +13200,15 @@ models:
   aliases:
   - P226
   - P226R
+  - Sig Sauer 226
+  - Sig 226
   kind: pistol
   country: Germany
+  calibers:
+  - .22 LR
+  - .357 Sig
+  - .40 S&W
+  - 9mm Luger
   manufacturers:
   - Sig Sauer
   modern_production: true
@@ -11022,8 +13218,14 @@ models:
   - P229
   - P229R
   - P229 DAK
+  - P229ST
+  - P229 ST
   kind: pistol
   country: Germany
+  calibers:
+  - .357 Sig
+  - .40 S&W
+  - 9mm Luger
   manufacturers:
   - Sig Sauer
   modern_production: true
@@ -11041,8 +13243,25 @@ models:
   - P320
   - P320C
   - P320F
+  - Sig Sauer 320
+  - Sig 320
+  - P320XTEN
+  - P320 XTEN
+  - X-Ten
+  - X Ten
+  - XTEN
+  - Sig Sauer M17
+  - Sig M17
+  - Sig Sauer M18
+  - Sig M18
   kind: pistol
   country: United States
+  calibers:
+  - .357 Sig
+  - .40 S&W
+  - .45 ACP
+  - 10mm Auto
+  - 9mm Luger
   manufacturers:
   - Sig Sauer
   modern_production: true
@@ -11050,6 +13269,11 @@ models:
 - name: Sig Sauer P365
   aliases:
   - P365
+  - P365XL
+  - P365 XL
+  - P365-XL
+  - P365 Macro
+  - P365XL Rose
   kind: pistol
   country: United States
   calibers:
@@ -11072,11 +13296,26 @@ models:
   manufacturers:
   - Sig Sauer
   status: approved
+- name: SIG SG 550
+  aliases:
+  - SG 550
+  - SG550
+  - SG 551
+  - SG551
+  - SIG 550
+  - SIG 551
+  - SG 551-2
+  kind: rifle
+  country: Switzerland
+  calibers:
+  - 5.56x45mm NATO
+  manufacturers:
+  - Sig Sauer
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: SIX 38
   status: pending
   enabled: false
-- name: SIX8
-  status: pending
 - name: SK-100
   calibers:
   - .22 LR
@@ -11103,6 +13342,8 @@ models:
   country: Italy
   calibers:
   - 12 gauge
+  manufacturers:
+  - Benelli
   status: approved
 - name: SLP1
   status: approved
@@ -11115,6 +13356,8 @@ models:
   country: Hungary
   calibers:
   - .380 ACP
+  manufacturers:
+  - FEG
   status: approved
 - name: SMC-918
   status: approved
@@ -11129,6 +13372,28 @@ models:
   manufacturers:
   - Massachusetts Arms
   status: approved
+- name: Smith & Wesson 22A
+  aliases:
+  - S&W 22A
+  - 22A-1
+  kind: pistol
+  country: United States
+  calibers:
+  - .22 LR
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+- name: Smith & Wesson 38/44
+  aliases:
+  - 38/44
+  kind: revolver
+  country: United States
+  calibers:
+  - .38 Special
+  manufacturers:
+  - Smith & Wesson
+  status: approved
 - name: Smith & Wesson 38 Single Action
   aliases:
   - S&W 38 Single Action
@@ -11140,6 +13405,9 @@ models:
   - S&W .32 Single Action
   kind: revolver
   country: United States
+  calibers:
+  - .32 S&W
+  - .38 S&W
   manufacturers:
   - Smith & Wesson
   status: approved
@@ -11178,10 +13446,31 @@ models:
   aliases:
   - BG38
   - BG380
+  - M&P Bodyguard
+  - Bodyguard 380
+  - Bodyguard 38
+  - Bodyguard380
+  kind: pistol
+  country: United States
+  calibers:
+  - .38 Special
+  - .380 ACP
   manufacturers:
   - Smith & Wesson
   modern_production: true
   status: approved
+- name: Smith & Wesson CSX
+  aliases:
+  - S&W CSX
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Double Action
   aliases:
   - S&W 32 D.A.
@@ -11210,6 +13499,20 @@ models:
   manufacturers:
   - Smith & Wesson
   status: approved
+- name: Smith & Wesson Governor
+  aliases:
+  - S&W Governor
+  kind: revolver
+  country: United States
+  calibers:
+  - .410 Gauge
+  - .45 ACP
+  - .45 Colt
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Hand Ejector
   aliases:
   - S&W Hand Ejector
@@ -11222,12 +13525,49 @@ models:
   - S&W .32 Hand Ejector
   - Smith & Wesson Model 1903 Hand Ejector
   - S&W Model 1903
+  - Military & Police
+  - M&P Military & Police
+  - M&P .38
+  - .38 M&P
+  - M&P 38
+  - M&P 1905
+  - Pre-Model M&P
+  - Mark II Hand Eject
+  - .455 Mark II
+  - Mark II HE
   kind: revolver
   country: United States
   manufacturers:
   - Smith & Wesson
   status: approved
   position: 1010
+- name: Smith & Wesson K-22
+  aliases:
+  - K-22
+  - K22 Masterpiece
+  - K-22 Outdoorsman
+  - K-22 Masterpiece
+  kind: revolver
+  country: United States
+  calibers:
+  - .22 LR
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Smith & Wesson K-38
+  aliases:
+  - K-38
+  - K-38 Combat Masterpiece
+  - K-38 Target Masterpiece
+  kind: revolver
+  country: United States
+  calibers:
+  - .38 Special
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
 - name: Smith & Wesson Model 10
   aliases:
   - S&W Model 10
@@ -11241,6 +13581,21 @@ models:
   manufacturers:
   - Smith & Wesson
   status: approved
+- name: Smith & Wesson Model 12
+  aliases:
+  - S&W Model 12
+  - Smith and Wesson Model 12
+  - Used S&W 12
+  - Smith & Wesson 12
+  - Model 12 Airweight
+  kind: revolver
+  country: United States
+  calibers:
+  - .38 Special
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Model 13
   aliases:
   - Smith & Wesson 13
@@ -11254,6 +13609,20 @@ models:
   manufacturers:
   - Smith & Wesson
   status: approved
+- name: Smith & Wesson Model 14
+  aliases:
+  - S&W Model 14
+  - Smith and Wesson Model 14
+  - Used S&W 14
+  - Smith & Wesson 14
+  kind: revolver
+  country: United States
+  calibers:
+  - .38 Special
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Model 19
   aliases:
   - S&W Model 19
@@ -11277,6 +13646,10 @@ models:
   - Smith & Wesson M1917
   - S&W M-1917
   - Model 1917 Smith & Wesson
+  - S & W M1917
+  - S & W Model 1917
+  - S & W 1917
+  - S&W M 1917
   kind: revolver
   country: United States
   calibers:
@@ -11285,6 +13658,35 @@ models:
   - Smith & Wesson
   wikipedia: https://en.wikipedia.org/wiki/M1917_revolver
   status: approved
+  position: 900
+- name: Smith & Wesson Model 20
+  aliases:
+  - S&W Model 20
+  - Smith and Wesson Model 20
+  - Used S&W 20
+  kind: revolver
+  country: United States
+  calibers:
+  - .357 Magnum
+  - .38 Special
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Smith & Wesson Model 25
+  aliases:
+  - S&W Model 25
+  - Smith and Wesson Model 25
+  - Used S&W 25
+  kind: revolver
+  country: United States
+  calibers:
+  - .45 ACP
+  - .45 Colt
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Model 27
   aliases:
   - Smith & Wesson 27
@@ -11298,6 +13700,21 @@ models:
   manufacturers:
   - Smith & Wesson
   status: approved
+- name: Smith & Wesson Model 28
+  aliases:
+  - S&W Model 28
+  - Smith and Wesson Model 28
+  - Used S&W 28
+  - Smith & Wesson 28
+  - Highway Patrolman
+  kind: revolver
+  country: United States
+  calibers:
+  - .357 Magnum
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Model 29
   aliases:
   - Model 29
@@ -11334,6 +13751,147 @@ models:
   - Smith & Wesson
   wikipedia: https://en.wikipedia.org/wiki/Smith_%26_Wesson_Model_3
   status: approved
+- name: Smith & Wesson Model 31
+  aliases:
+  - Model 31
+  kind: revolver
+  country: United States
+  calibers:
+  - .32 S&W Long
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+- name: Smith & Wesson Model 317
+  aliases:
+  - S&W 317
+  - Model 317
+  kind: revolver
+  country: United States
+  calibers:
+  - .22 LR
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+- name: Smith & Wesson Model 32
+  aliases:
+  - S&W Model 32
+  - Smith and Wesson Model 32
+  - Used S&W 32
+  - Terrier
+  kind: revolver
+  country: United States
+  calibers:
+  - .38 S&W
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Smith & Wesson Model 327 M&P R8
+  aliases:
+  - M&P R8
+  - 327 M&P R8
+  kind: revolver
+  country: United States
+  calibers:
+  - .357 Magnum
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  status: approved
+  notes: Added 2026-10-12 for M&P listings that matched no model.
+- name: Smith & Wesson Model 329
+  aliases:
+  - Smith & Wesson 329
+  - S&W 329
+  - S&W Model 329
+  - Smith and Wesson Model 329
+  - 329PD
+  - S&W 329PD
+  - Smith & Wesson 329PD
+  kind: revolver
+  country: United States
+  calibers:
+  - .44 Magnum
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Smith & Wesson Model 33
+  aliases:
+  - S&W Model 33
+  - Smith and Wesson Model 33
+  - Used S&W 33
+  kind: revolver
+  country: United States
+  calibers:
+  - .38 S&W
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Smith & Wesson Model 332
+  aliases:
+  - Smith & Wesson 332
+  - S&W 332
+  - S&W Model 332
+  - Smith and Wesson Model 332
+  - 332 Airlite
+  kind: revolver
+  country: United States
+  calibers:
+  - .32 H&R Magnum
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Smith & Wesson Model 34
+  aliases:
+  - S&W Model 34
+  - Smith and Wesson Model 34
+  - Used S&W 34
+  - Kit Gun
+  kind: revolver
+  country: United States
+  calibers:
+  - .22 LR
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Smith & Wesson Model 340
+  aliases:
+  - Smith & Wesson 340
+  - S&W 340
+  - S&W Model 340
+  - Smith and Wesson Model 340
+  - 340PD
+  - S&W 340PD
+  - Smith & Wesson 340PD
+  kind: revolver
+  country: United States
+  calibers:
+  - .357 Magnum
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Smith & Wesson Model 351
+  aliases:
+  - Smith & Wesson 351
+  - S&W 351
+  - S&W 351C
+  - 351PD
+  kind: revolver
+  country: United States
+  calibers:
+  - .22 WMR
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
 - name: Smith & Wesson Model 36
   aliases:
   - S&W Model 36
@@ -11347,6 +13905,235 @@ models:
   manufacturers:
   - Smith & Wesson
   status: approved
+- name: Smith & Wesson Model 360
+  aliases:
+  - Smith & Wesson 360
+  - S&W 360
+  - S&W Model 360
+  - Smith and Wesson Model 360
+  - 360PD
+  - S&W 360PD
+  - Smith & Wesson 360PD
+  kind: revolver
+  country: United States
+  calibers:
+  - .357 Magnum
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Smith & Wesson Model 37
+  aliases:
+  - Smith & Wesson 37 Airweight
+  - S&W 37 Airweight
+  - Model 37 Airweight
+  kind: revolver
+  country: United States
+  calibers:
+  - .38 Special
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+- name: Smith & Wesson Model 386
+  aliases:
+  - Smith & Wesson 386
+  - S&W 386
+  - S&W Model 386
+  - Smith and Wesson Model 386
+  kind: revolver
+  country: United States
+  calibers:
+  - .357 Magnum
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Smith & Wesson Model 4006
+  aliases:
+  - Smith & Wesson 4006
+  - S&W 4006
+  - S&W Model 4006
+  - Smith and Wesson Model 4006
+  - Shorty Forty
+  kind: pistol
+  country: United States
+  calibers:
+  - .40 S&W
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Smith & Wesson Model 41
+  aliases:
+  - Model 41
+  kind: pistol
+  country: United States
+  calibers:
+  - .22 LR
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+- name: Smith & Wesson Model 410
+  aliases:
+  - Smith & Wesson 410
+  - S&W 410
+  - S&W Model 410
+  - Smith and Wesson Model 410
+  kind: pistol
+  country: United States
+  calibers:
+  - .40 S&W
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Smith & Wesson Model 442
+  aliases:
+  - Smith & Wesson 442
+  - S&W 442
+  - 442 Airweight
+  - Model 442
+  kind: revolver
+  country: United States
+  calibers:
+  - .38 Special
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+- name: Smith & Wesson Model 460
+  aliases:
+  - Smith & Wesson 460
+  - S&W 460
+  - 460 XVR
+  - 460XVR
+  kind: revolver
+  country: United States
+  calibers:
+  - .460 S&W Magnum
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+- name: Smith & Wesson Model 49
+  aliases:
+  - Smith & Wesson 49
+  - S&W 49
+  - Model 49 Bodyguard
+  kind: revolver
+  country: United States
+  calibers:
+  - .38 Special
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+- name: Smith & Wesson Model 500
+  aliases:
+  - Smith & Wesson 500
+  - S&W 500
+  - SW 500
+  - Model 500 X-Frame
+  kind: revolver
+  country: United States
+  calibers:
+  - .500 S&W Magnum
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+- name: Smith & Wesson Model 57
+  aliases:
+  - S&W Model 57
+  - Smith and Wesson Model 57
+  - Used S&W 57
+  kind: revolver
+  country: United States
+  calibers:
+  - .41 Remington Magnum
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Smith & Wesson Model 581
+  aliases:
+  - Smith & Wesson 581
+  - S&W 581
+  - S&W Model 581
+  - Smith and Wesson Model 581
+  kind: revolver
+  country: United States
+  calibers:
+  - .357 Magnum
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Smith & Wesson Model 586
+  aliases:
+  - Smith & Wesson 586
+  - S&W 586
+  - S&W Model 586
+  - Smith and Wesson Model 586
+  kind: revolver
+  country: United States
+  calibers:
+  - .357 Magnum
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Smith & Wesson Model 60
+  aliases:
+  - S&W Model 60
+  - Smith and Wesson Model 60
+  - Used S&W 60
+  - Smith & Wesson 60
+  kind: revolver
+  country: United States
+  calibers:
+  - .357 Magnum
+  - .38 Special
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Smith & Wesson Model 619
+  aliases:
+  - Smith & Wesson 619
+  - S&W 619
+  - S&W Model 619
+  - Smith and Wesson Model 619
+  kind: revolver
+  country: United States
+  calibers:
+  - .357 Magnum
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Smith & Wesson Model 625
+  aliases:
+  - Smith & Wesson 625
+  - S&W 625
+  - S&W Model 625
+  - Smith and Wesson Model 625
+  kind: revolver
+  country: United States
+  calibers:
+  - .45 ACP
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Model 629
   aliases:
   - Smith & Wesson 629
@@ -11360,6 +14147,21 @@ models:
   manufacturers:
   - Smith & Wesson
   status: approved
+- name: Smith & Wesson Model 637
+  aliases:
+  - Smith & Wesson 637
+  - S&W 637
+  - 637 Airweight
+  - Model 637
+  kind: revolver
+  country: United States
+  calibers:
+  - .38 Special
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
 - name: Smith & Wesson Model 64
   aliases:
   - S&W Model 64
@@ -11374,6 +14176,64 @@ models:
   - Smith & Wesson
   modern_production: true
   status: approved
+- name: Smith & Wesson Model 640
+  aliases:
+  - Smith & Wesson 640
+  - S&W 640
+  - S&W Model 640
+  - Smith and Wesson Model 640
+  kind: revolver
+  country: United States
+  calibers:
+  - .357 Magnum
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Smith & Wesson Model 642
+  aliases:
+  - Smith & Wesson 642
+  - S&W 642
+  - 642 Airweight
+  - Model 642
+  kind: revolver
+  country: United States
+  calibers:
+  - .38 Special
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+- name: Smith & Wesson Model 648
+  aliases:
+  - Smith & Wesson 648
+  - S&W 648
+  - S&W Model 648
+  - Smith and Wesson Model 648
+  kind: revolver
+  country: United States
+  calibers:
+  - .22 WMR
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Smith & Wesson Model 65
+  aliases:
+  - S&W Model 65
+  - Smith and Wesson Model 65
+  - Used S&W 65
+  - Smith & Wesson 65
+  kind: revolver
+  country: United States
+  calibers:
+  - .357 Magnum
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Model 66
   aliases:
   - S&W Model 66
@@ -11413,6 +14273,61 @@ models:
   manufacturers:
   - Smith & Wesson
   status: approved
+- name: Smith & Wesson Model 69
+  aliases:
+  - S&W Model 69
+  - Smith and Wesson Model 69
+  - Used S&W 69
+  - Smith & Wesson 69
+  - 69 Combat Magnum
+  kind: revolver
+  country: United States
+  calibers:
+  - .44 Magnum
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Smith & Wesson Model 6906
+  aliases:
+  - Model 6906
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+- name: Smith & Wesson Model 910
+  aliases:
+  - Smith & Wesson 910
+  - S&W 910
+  - S&W Model 910
+  - Smith and Wesson Model 910
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Smith & Wesson
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Smith & Wesson Model 986
+  aliases:
+  - Smith & Wesson 986
+  - S&W 986
+  - S&W Model 986
+  - Smith and Wesson Model 986
+  kind: revolver
+  country: United States
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Model No. 1
   aliases:
   - S&W Model No. 1
@@ -11426,6 +14341,12 @@ models:
   - S&W Model No. 1 Second Issue
   - S&W Model No. 1 Third Issue
   - Smith & Wesson No. 1 Third Issue
+  - S&W Model No.1
+  - Model Number One
+  - S&W Model 1 Second Issue
+  - Smith & Wesson Model 1 Second Issue
+  - Smith & Wesson No.1
+  - Model No.1
   kind: revolver
   country: United States
   calibers:
@@ -11451,6 +14372,12 @@ models:
   - S&W Model No. 1-1/2
   - Smith & Wesson Model 1 1/2
   - Smith & Wesson Model 1-1/2
+  - S&W 1 ½
+  - Model 1.5
+  - Number 1 1/2
+  - Model 1½
+  - New Model 1 ½
+  - Smith and Wesson Model 1.5
   kind: revolver
   country: United States
   manufacturers:
@@ -11469,6 +14396,12 @@ models:
   - No. 2 Old Army
   - S&W No. 2 Old Army
   - Smith & Wesson Model 2 Army
+  - Number 2 Army
+  - Number 2 Revolver
+  - No.2 Army
+  - 'S&W #2 Army'
+  - 'Model #2'
+  - Smith & Wesson Number 2
   kind: revolver
   country: United States
   manufacturers:
@@ -11480,15 +14413,61 @@ models:
   - M&P15
   - M&P 15
   - MP-15
+  - M&P-15
+  - M&P15X
+  - M&P®15
+  - M&P®15X
   kind: rifle
   country: United States
+  calibers:
+  - 5.56x45mm NATO
   manufacturers:
   - Smith & Wesson
   status: approved
+- name: Smith & Wesson M&P 22 Compact
+  aliases:
+  - M&P 22 Compact
+  - M&P22 Compact
+  kind: pistol
+  country: United States
+  calibers:
+  - .22 LR
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+- name: Smith & Wesson M&P 22 Magnum
+  aliases:
+  - M&P 22 Magnum
+  kind: pistol
+  country: United States
+  calibers:
+  - .22 WMR
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  status: approved
+  notes: Added 2026-10-12 for M&P listings that matched no model.
+- name: Smith & Wesson M&P 340
+  aliases:
+  - M&P 340
+  - M&P340
+  kind: revolver
+  country: United States
+  calibers:
+  - .357 Magnum
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  status: approved
+  notes: Added 2026-10-12 for M&P listings that matched no model.
 - name: Smith & Wesson M&P40
   aliases:
   - M&P40
   - M&P 40
+  - M&P40C
+  - M&P 40C
   kind: pistol
   country: United States
   calibers:
@@ -11501,6 +14480,7 @@ models:
   aliases:
   - M&P45
   - M&P 45
+  - M&P45 M2.0
   kind: pistol
   country: United States
   calibers:
@@ -11513,6 +14493,9 @@ models:
   aliases:
   - M&P9
   - M&P 9
+  - M&P9C
+  - M&P 9c
+  - M&P9 M2.0
   kind: pistol
   country: United States
   calibers:
@@ -11521,15 +14504,98 @@ models:
   - Smith & Wesson
   modern_production: true
   status: approved
-- name: Smith & Wesson M&P Shield
+- name: Smith & Wesson M&P FPC
   aliases:
-  - M&P Shield
-  kind: pistol
+  - M&P FPC
+  kind: carbine
   country: United States
+  calibers:
+  - 9mm Luger
   manufacturers:
   - Smith & Wesson
   modern_production: true
   status: approved
+  notes: Added 2026-10-12 for M&P listings that matched no model.
+- name: Smith & Wesson M&P M2.0
+  aliases:
+  - M&P 2.0
+  - M&P2.0
+  - M&P M2.0
+  - M&P Metal 2.0
+  - M&P Pro Series
+  - M&P Compact
+  - M&P M2.0 Carry Comp
+  - M&P 10 M2.0
+  - M&P 10mm
+  - M&P10MM
+  - S&W M&P |
+  - Smith & Wesson M&P |
+  kind: pistol
+  country: United States
+  calibers:
+  - .40 S&W
+  - .45 ACP
+  - 10mm Auto
+  - 9mm Luger
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  status: approved
+  notes: Added 2026-10-12 for M&P listings that matched no model.
+- name: Smith & Wesson M&P Shield
+  aliases:
+  - M&P Shield
+  - M&P PC Shield
+  - PC Shield
+  - M&P9 Shield
+  - M&P40 Shield
+  - M&P45 Shield
+  - M&P 9 Shield
+  - Smith & Wesson Shield
+  - S&W Shield
+  kind: pistol
+  country: United States
+  calibers:
+  - .40 S&W
+  - .45 ACP
+  - 9mm Luger
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  status: approved
+  position: 900
+- name: Smith & Wesson M&P Shield EZ
+  aliases:
+  - Shield EZ
+  - Shiels EZ
+  - M&P 380 Shield
+  - M&P380 Shield
+  - M&P380 Shield EZ
+  kind: pistol
+  country: United States
+  calibers:
+  - .380 ACP
+  - 9mm Luger
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  status: approved
+  position: 895
+  notes: Added 2026-10-12 for M&P listings that matched no model.
+- name: Smith & Wesson M&P Shield Plus
+  aliases:
+  - Shield Plus
+  - M&P9 Shield Plus
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  status: approved
+  position: 890
+  notes: Added 2026-10-11 for listings with no caliber.
 - name: Smith & Wesson Safety Hammerless
   aliases:
   - Safety Hammerless
@@ -11552,9 +14618,30 @@ models:
   manufacturers:
   - Smith & Wesson
   status: approved
+- name: Smith & Wesson SW1911
+  aliases:
+  - SW1911
+  - SW1911SC
+  - SW1911 Pro
+  - S&W 1911
+  - Smith & Wesson 1911
+  - PC1911
+  - PC 1911
+  - 1911 Pro Series
+  kind: pistol
+  country: United States
+  calibers:
+  - .45 ACP
+  - 9mm Luger
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Victory
   aliases:
   - Victory Model
+  - S&W Victory
   kind: revolver
   country: United States
   calibers:
@@ -11601,6 +14688,7 @@ models:
   status: approved
 - name: SOB 47
   status: pending
+  enabled: false
 - name: SOHN 38H
   calibers:
   - .32 ACP
@@ -11609,6 +14697,12 @@ models:
   status: pending
   enabled: false
 - name: SP-01
+  kind: pistol
+  country: Czech Republic
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - CZ
   status: approved
 - name: SP-1
   status: approved
@@ -11635,6 +14729,12 @@ models:
   - SP-101
   kind: revolver
   country: United States
+  calibers:
+  - .22 LR
+  - .327 Federal Magnum
+  - .357 Magnum
+  - .38 Special
+  - 9mm Luger
   manufacturers:
   - Ruger
   modern_production: true
@@ -11650,12 +14750,16 @@ models:
   country: Germany
   calibers:
   - .22 LR
+  manufacturers:
+  - Walther
   status: approved
 - name: SP 4
   kind: pistol
   country: Switzerland
   calibers:
   - 9mm Luger
+  manufacturers:
+  - Sig Sauer
   status: approved
 - name: SP47
   kind: pistol
@@ -11668,6 +14772,8 @@ models:
   country: Germany
   calibers:
   - 9mm Luger
+  manufacturers:
+  - Heckler Koch
   status: approved
 - name: SP5K
   kind: pistol
@@ -11716,6 +14822,8 @@ models:
   country: Spain
   calibers:
   - .25 ACP
+  manufacturers:
+  - Astra
   status: approved
 - name: SPAS-15
   kind: shotgun
@@ -11772,6 +14880,12 @@ models:
   status: approved
   position: 1010
 - name: SPP 9
+  kind: pistol
+  country: Austria
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Steyr
   status: approved
 - name: Springfield 1903
   status: merged
@@ -11779,15 +14893,86 @@ models:
 - name: Springfield 1911
   status: approved
   enabled: false
+- name: Springfield 911
+  aliases:
+  - Springfield Armory 911
+  kind: pistol
+  country: United States
+  calibers:
+  - .380 ACP
+  - 9mm Luger
+  manufacturers:
+  - Springfield
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Springfield Armory 1903
   status: merged
   enabled: false
 - name: Springfield Armory 1911
+  aliases:
+  - Springfield 1911
+  - Defender Mil Spec
+  - Range Officer
+  - Range Ofcr
   kind: pistol
   country: United States
   manufacturers:
   - Springfield
   status: approved
+- name: Springfield Echelon
+  aliases:
+  - Echelon
+  - Echelon Compact
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Springfield
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Springfield Emissary
+  aliases:
+  - Emissary
+  kind: pistol
+  country: United States
+  calibers:
+  - .45 ACP
+  - 9mm Luger
+  manufacturers:
+  - Springfield
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Springfield Garrison
+  aliases:
+  - Springfield Armory Garrison
+  kind: pistol
+  country: United States
+  calibers:
+  - .45 ACP
+  - 9mm Luger
+  manufacturers:
+  - Springfield
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Springfield Hellcat
+  aliases:
+  - Hellcat
+  - Hellcat OSP
+  - Hellcat Pro
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Springfield
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Springfield M1847
   aliases:
   - M1847
@@ -11879,11 +15064,81 @@ models:
   manufacturers:
   - Springfield
   status: approved
+- name: Springfield Model 2020
+  aliases:
+  - Model 2020 Waypoint
+  - 2020 Waypoint
+  - Springfield 2020
+  - 2020 Rimfire
+  kind: rifle
+  country: United States
+  manufacturers:
+  - Springfield
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Springfield Operator
+  aliases:
+  - Loaded Operator
+  - Springfield Armory Operator
+  - TRP Operator
+  kind: pistol
+  country: United States
+  calibers:
+  - .45 ACP
+  manufacturers:
+  - Springfield
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Springfield Prodigy
+  aliases:
+  - Prodigy
+  - Prodigy DS
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Springfield
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Springfield Ronin
+  kind: pistol
+  country: United States
+  calibers:
+  - .45 ACP
+  - 9mm Luger
+  manufacturers:
+  - Springfield
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Springfield Saint
+  aliases:
+  - Saint Edge
+  - Saint Victor
+  - Saint EVAC
+  - Springfield Armory Saint
+  kind: rifle
+  country: United States
+  calibers:
+  - 5.56x45mm NATO
+  manufacturers:
+  - Springfield
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: SR22
   aliases:
   - SR22P
+  kind: pistol
+  country: United States
   calibers:
   - .22 LR
+  manufacturers:
+  - Ruger
   status: approved
 - name: SR22P
   status: merged
@@ -11891,14 +15146,28 @@ models:
 - name: SR-25
   status: approved
 - name: SR40C
+  kind: pistol
+  country: United States
+  calibers:
+  - .40 S&W
+  manufacturers:
+  - Ruger
   status: approved
 - name: SR9
   kind: pistol
   country: United States
   calibers:
   - 9mm Luger
+  manufacturers:
+  - Ruger
   status: approved
 - name: SR9C
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Ruger
   status: approved
 - name: SS45R
   status: approved
@@ -11909,15 +15178,31 @@ models:
 - name: STAG-15
   kind: rifle
   country: United States
+  calibers:
+  - 5.56x45mm NATO
   manufacturers:
   - Stag Arms
   modern_production: true
   status: approved
+- name: Star Firestar
+  aliases:
+  - Firestar Plus
+  - Firestar M43
+  kind: pistol
+  country: Spain
+  calibers:
+  - .40 S&W
+  - .45 ACP
+  - 9mm Luger
+  manufacturers:
+  - Star
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Star Model 30M
   aliases:
   - Model 30M
   kind: pistol
-  country: United States
+  country: Spain
   calibers:
   - 9mm Luger
   manufacturers:
@@ -12050,6 +15335,21 @@ models:
   manufacturers:
   - Steyr
   status: approved
+- name: Steyr C9
+  aliases:
+  - C9-A2
+  - Steyr S9
+  - Steyr M9-A2
+  - Steyr L9
+  kind: pistol
+  country: Austria
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Steyr
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Steyr M1895
   status: merged
   enabled: false
@@ -12103,6 +15403,8 @@ models:
   country: United States
   calibers:
   - 5.56x45mm NATO
+  manufacturers:
+  - Remington
   status: approved
 - name: STG 57
   aliases:
@@ -12116,6 +15418,8 @@ models:
   country: United States
   calibers:
   - 9mm Luger
+  manufacturers:
+  - Rock Island Arsenal
   status: approved
 - name: Storm
   kind: pistol
@@ -12127,6 +15431,12 @@ models:
   wikipedia: https://en.wikipedia.org/wiki/BUL_Storm
   status: approved
 - name: STR-9
+  kind: pistol
+  country: Turkey
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Stoeger
   status: approved
 - name: SUHL 9
   kind: rifle
@@ -12169,17 +15479,44 @@ models:
   country: Germany
   calibers:
   - 8mm Mauser
+  manufacturers:
+  - Mauser
   status: approved
 - name: SW22
+  kind: pistol
+  country: United States
+  calibers:
+  - .22 LR
+  manufacturers:
+  - Smith & Wesson
   status: approved
 - name: SW40F
+  kind: pistol
+  country: United States
+  calibers:
+  - .40 S&W
+  manufacturers:
+  - Smith & Wesson
   status: approved
 - name: SW 500
   status: pending
   enabled: false
 - name: SW99
+  kind: pistol
+  country: United States
+  calibers:
+  - .40 S&W
+  - 9mm Luger
+  manufacturers:
+  - Smith & Wesson
   status: approved
 - name: SW9F
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Smith & Wesson
   status: approved
 - name: Swedish M1870
   aliases:
@@ -12188,6 +15525,8 @@ models:
   country: Sweden
   calibers:
   - 12.7x44mmR
+  manufacturers:
+  - Carl Gustaf
   status: approved
 - name: Swedish m/38
   aliases:
@@ -12225,6 +15564,8 @@ models:
   country: Sweden
   calibers:
   - .22 LR
+  manufacturers:
+  - Husqvarna
   status: approved
 - name: Swedish Model 1805
   aliases:
@@ -12255,6 +15596,8 @@ models:
   country: Switzerland
   calibers:
   - 7.5x55mm Swiss
+  manufacturers:
+  - W+F Bern
   status: approved
 - name: Swiss M11
   aliases:
@@ -12263,6 +15606,8 @@ models:
   country: Switzerland
   calibers:
   - 7.5x55mm Swiss
+  manufacturers:
+  - W+F Bern
   status: approved
 - name: Swiss M1870/87/15
   aliases:
@@ -12397,6 +15742,8 @@ models:
   country: Switzerland
   calibers:
   - .30 Luger
+  manufacturers:
+  - W+F Bern
   status: approved
   position: 100
 - name: Swiss Model 1929
@@ -12415,12 +15762,16 @@ models:
   country: Switzerland
   calibers:
   - .22 LR
+  manufacturers:
+  - Hammerli
   status: approved
 - name: SWP 45
   kind: rifle
   country: Germany
   calibers:
   - 8mm Mauser
+  manufacturers:
+  - Mauser
   status: approved
 - name: T38
   kind: rifle
@@ -12445,16 +15796,279 @@ models:
   manufacturers:
   - Fratelli Tanfoglio
   status: approved
-- name: TAR 12P
-  status: pending
 - name: TAR12P
   status: pending
+  enabled: false
+- name: Taurus G2C
+  aliases:
+  - G2C
+  - G2S
+  - Taurus G2
+  kind: pistol
+  country: Brazil
+  calibers:
+  - .40 S&W
+  - 9mm Luger
+  manufacturers:
+  - Taurus
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Taurus G3
+  aliases:
+  - G3C
+  - G3X
+  - G3XL
+  - Taurus G3C
+  kind: pistol
+  country: Brazil
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Taurus
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Taurus Judge
+  aliases:
+  - Judge
+  kind: revolver
+  country: Brazil
+  calibers:
+  - .410 Gauge
+  - .45 Colt
+  manufacturers:
+  - Taurus
+  modern_production: true
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+- name: Taurus Model 44
+  aliases:
+  - Taurus 44
+  kind: revolver
+  country: Brazil
+  calibers:
+  - .44 Magnum
+  manufacturers:
+  - Taurus
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Taurus Model 605
+  aliases:
+  - Taurus 605
+  kind: revolver
+  country: Brazil
+  calibers:
+  - .357 Magnum
+  manufacturers:
+  - Taurus
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Taurus Model 650
+  aliases:
+  - Taurus 650
+  kind: revolver
+  country: Brazil
+  calibers:
+  - .357 Magnum
+  manufacturers:
+  - Taurus
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+- name: Taurus Model 66
+  aliases:
+  - Taurus 66
+  kind: revolver
+  country: Brazil
+  calibers:
+  - .357 Magnum
+  manufacturers:
+  - Taurus
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Taurus Model 692
+  aliases:
+  - Taurus 692
+  kind: revolver
+  country: Brazil
+  calibers:
+  - .357 Magnum
+  - 9mm Luger
+  manufacturers:
+  - Taurus
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Taurus Model 82
+  aliases:
+  - Taurus 82
+  - Taurus 82S
+  kind: revolver
+  country: Brazil
+  calibers:
+  - .38 Special
+  manufacturers:
+  - Taurus
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+- name: Taurus Model 85
+  aliases:
+  - Taurus 85
+  - Taurus 85SS
+  kind: revolver
+  country: Brazil
+  calibers:
+  - .38 Special
+  manufacturers:
+  - Taurus
+  modern_production: true
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
+- name: Taurus Poly Protector
+  aliases:
+  - Poly Protector
+  kind: revolver
+  country: Brazil
+  calibers:
+  - .357 Magnum
+  manufacturers:
+  - Taurus
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Taurus PT1911
+  aliases:
+  - PT1911
+  - PT-1911
+  - PT1911AR
+  - Taurus 1911
+  kind: pistol
+  country: Brazil
+  calibers:
+  - .45 ACP
+  - 9mm Luger
+  manufacturers:
+  - Taurus
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Taurus PT709 Slim
+  aliases:
+  - PT709
+  - 709 Slim
+  - PT-709
+  kind: pistol
+  country: Brazil
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Taurus
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Taurus PT92
+  aliases:
+  - PT92
+  - PT-92
+  - PT92AF
+  - PT 92
+  - Taurus 92
+  kind: pistol
+  country: Brazil
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Taurus
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Taurus PT945
+  aliases:
+  - Taurus 945
+  - PT945
+  - PT-945
+  kind: pistol
+  country: Brazil
+  calibers:
+  - .45 ACP
+  manufacturers:
+  - Taurus
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Taurus Raging Bull
+  aliases:
+  - Raging Bull
+  kind: revolver
+  country: Brazil
+  calibers:
+  - .44 Magnum
+  - .454 Casull
+  manufacturers:
+  - Taurus
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Taurus Raging Hunter
+  aliases:
+  - Raging Hunter
+  kind: revolver
+  country: Brazil
+  calibers:
+  - .357 Magnum
+  - .44 Magnum
+  - .454 Casull
+  manufacturers:
+  - Taurus
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Taurus Spectrum
+  kind: pistol
+  country: Brazil
+  calibers:
+  - .380 ACP
+  manufacturers:
+  - Taurus
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Taurus Tracker
+  aliases:
+  - Tracker
+  - 44 Tracker
+  kind: revolver
+  country: Brazil
+  calibers:
+  - .17 HMR
+  - .22 WMR
+  - .357 Magnum
+  - .44 Magnum
+  manufacturers:
+  - Taurus
+  modern_production: true
+  status: approved
+  position: 880
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Taurus TX9
+  aliases:
+  - TX9
+  kind: pistol
+  country: Brazil
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Taurus
+  modern_production: true
+  status: approved
+  notes: Approved 2026-10-12 from the pending queue.
 - name: Taylor's Company 1860
   status: approved
   enabled: false
 - name: TC9
   status: approved
 - name: TCP 738
+  kind: pistol
+  country: Brazil
+  calibers:
+  - .380 ACP
   manufacturers:
   - Taurus
   modern_production: true
@@ -12462,8 +16076,20 @@ models:
 - name: TG36
   status: approved
 - name: TH10
+  kind: pistol
+  country: Brazil
+  calibers:
+  - 10mm Auto
+  manufacturers:
+  - Taurus
   status: approved
 - name: TH9
+  kind: pistol
+  country: Brazil
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Taurus
   status: approved
 - name: THE 200
   status: pending
@@ -12501,6 +16127,18 @@ models:
 - name: TO 3
   status: pending
   enabled: false
+- name: Tokarev TAR 12P
+  aliases:
+  - TAR 12P
+  - TAR12P
+  - TAR-12P
+  kind: shotgun
+  country: Turkey
+  calibers:
+  - 12 gauge
+  modern_production: true
+  status: approved
+  notes: Approved 2026-10-12 from the pending queue.
 - name: TOP 22
   status: pending
   enabled: false
@@ -12528,11 +16166,21 @@ models:
   status: merged
   enabled: false
 - name: TP9
+  kind: pistol
+  country: Turkey
+  calibers:
+  - 9mm Luger
   manufacturers:
   - Canik
   modern_production: true
   status: approved
 - name: TPR9C
+  kind: pistol
+  country: Argentina
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Bersa
   status: approved
 - name: TR-12
   kind: shotgun
@@ -12553,6 +16201,12 @@ models:
   - Triplett & Scott
   status: approved
 - name: TS 2
+  kind: pistol
+  country: Czech Republic
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - CZ
   status: approved
 - name: TSR-15
   status: approved
@@ -12605,8 +16259,6 @@ models:
   - 8mm Mauser
   status: approved
   position: 990
-- name: TX9
-  status: pending
 - name: Type 1
   status: approved
   enabled: false
@@ -12647,6 +16299,12 @@ models:
   status: merged
   enabled: false
 - name: U22
+  kind: pistol
+  country: Italy
+  calibers:
+  - .22 LR
+  manufacturers:
+  - Beretta
   status: approved
 - name: Uberti 1847
   kind: revolver
@@ -12666,9 +16324,33 @@ models:
   status: merged
   enabled: false
 - name: UMP40
+  kind: pistol
+  country: Germany
+  calibers:
+  - .40 S&W
+  manufacturers:
+  - Heckler Koch
   status: approved
 - name: UMP45
+  kind: pistol
+  country: Germany
+  calibers:
+  - .45 ACP
+  manufacturers:
+  - Heckler Koch
   status: approved
+- name: Unique Kriegsmodell
+  aliases:
+  - Unique 17
+  - Unique Model 17
+  kind: pistol
+  country: France
+  calibers:
+  - .32 ACP
+  manufacturers:
+  - Unique
+  status: approved
+  notes: Added 2026-10-11 for listings with no caliber.
 - name: U.S. 30/06
   aliases:
   - 30/06
@@ -12685,6 +16367,8 @@ models:
   country: United States
   calibers:
   - '.50'
+  manufacturers:
+  - Remington
   status: approved
 - name: USAS-12
   status: approved
@@ -12695,12 +16379,16 @@ models:
   country: United States
   calibers:
   - 5.56x45mm NATO
+  manufacturers:
+  - Armalite
   status: approved
 - name: U.S. M1812
   aliases:
   - M1812
   kind: rifle
   country: United States
+  manufacturers:
+  - Springfield
   status: approved
 - name: U.S. M1816
   aliases:
@@ -12733,6 +16421,8 @@ models:
   country: United States
   calibers:
   - '.44'
+  manufacturers:
+  - Colt
   status: approved
 - name: U.S. M1854
   aliases:
@@ -12762,6 +16452,8 @@ models:
   country: United States
   calibers:
   - .52 RF
+  manufacturers:
+  - SHARPS
   status: approved
 - name: U.S. M1863
   aliases:
@@ -12786,6 +16478,8 @@ models:
   country: United States
   calibers:
   - '.41'
+  manufacturers:
+  - Colt
   status: approved
 - name: U.S. M1892
   aliases:
@@ -12794,6 +16488,8 @@ models:
   country: United States
   calibers:
   - .25 ACP
+  manufacturers:
+  - Winchester
   status: approved
 - name: U.S. M540X
   aliases:
@@ -12802,12 +16498,16 @@ models:
   country: United States
   calibers:
   - .22 LR
+  manufacturers:
+  - Remington
   status: approved
 - name: U.S. Mod.0
   aliases:
   - Mod.0
   kind: rifle
   country: United States
+  manufacturers:
+  - Colt
   status: approved
 - name: U.S. MOD 2
   aliases:
@@ -12824,6 +16524,8 @@ models:
   country: United States
   calibers:
   - '.41'
+  manufacturers:
+  - Colt
   status: approved
 - name: U.S. Model 100
   aliases:
@@ -12832,6 +16534,8 @@ models:
   country: United States
   calibers:
   - 7.62x51 NATO
+  manufacturers:
+  - Winchester
   status: approved
 - name: U.S. Model 1000
   aliases:
@@ -12848,6 +16552,8 @@ models:
   country: United States
   calibers:
   - 12 gauge
+  manufacturers:
+  - Remington
   status: approved
 - name: U.S. Model 12A
   aliases:
@@ -12856,6 +16562,8 @@ models:
   country: United States
   calibers:
   - .22 LR
+  manufacturers:
+  - Remington
   status: approved
 - name: U.S. Model 1740
   aliases:
@@ -12868,6 +16576,8 @@ models:
   - Model 1797
   kind: rifle
   country: United States
+  manufacturers:
+  - Springfield
   status: approved
 - name: U.S. Model 1798
   aliases:
@@ -12882,6 +16592,8 @@ models:
   country: United States
   calibers:
   - '.69'
+  manufacturers:
+  - Springfield
   status: approved
 - name: U.S. Model 1816
   aliases:
@@ -12921,6 +16633,8 @@ models:
   country: United States
   calibers:
   - '.69'
+  manufacturers:
+  - Springfield
   status: approved
   position: 100
 - name: U.S. Model 1830
@@ -12946,6 +16660,8 @@ models:
   country: United States
   calibers:
   - '.54'
+  manufacturers:
+  - Springfield
   status: approved
   notes: Added 2026-10-09 from production's unmatched listings.
 - name: U.S. Model 1847
@@ -12953,6 +16669,8 @@ models:
   - Model 1847
   kind: carbine
   country: United States
+  manufacturers:
+  - Springfield
   status: approved
 - name: U.S. MODEL 1852
   aliases:
@@ -12961,6 +16679,8 @@ models:
   country: United States
   calibers:
   - '.69'
+  manufacturers:
+  - ASTON
   status: approved
 - name: U.S. Model 1855 Pistol Carbine
   aliases:
@@ -12972,6 +16692,8 @@ models:
   country: United States
   calibers:
   - '.58'
+  manufacturers:
+  - Springfield
   status: approved
   notes: Added 2026-10-09 from production's unmatched listings.
 - name: U.S. Model 1858
@@ -12989,12 +16711,16 @@ models:
   country: United States
   calibers:
   - '.54'
+  manufacturers:
+  - SHARPS
   status: approved
 - name: U.S. Model 1860
   aliases:
   - Model 1860
   kind: rifle
   country: United States
+  manufacturers:
+  - Spencer
   status: approved
 - name: U.S. Model 1861
   aliases:
@@ -13011,6 +16737,8 @@ models:
   country: United States
   calibers:
   - '.36'
+  manufacturers:
+  - Colt
   status: approved
 - name: U.S. Model 1863
   aliases:
@@ -13028,6 +16756,8 @@ models:
   country: United States
   calibers:
   - .38 Special
+  manufacturers:
+  - Joslyn
   status: approved
 - name: U.S. Model 1874
   aliases:
@@ -13044,6 +16774,8 @@ models:
   country: United States
   calibers:
   - '.44'
+  manufacturers:
+  - Spencer
   status: approved
 - name: U.S. Model 1886
   aliases:
@@ -13063,6 +16795,8 @@ models:
   country: United States
   calibers:
   - 12 gauge
+  manufacturers:
+  - Winchester
   status: approved
 - name: U.S. Model 1896
   aliases:
@@ -13106,12 +16840,16 @@ models:
   country: United States
   calibers:
   - .45 ACP
+  manufacturers:
+  - Thompson
   status: approved
 - name: U.S. Model 1937
   aliases:
   - Model 1937
   kind: rifle
   country: United States
+  manufacturers:
+  - Springfield
   status: approved
 - name: U.S. Model 1941
   aliases:
@@ -13145,6 +16883,8 @@ models:
   country: United States
   calibers:
   - .22 LR
+  manufacturers:
+  - SHARPS
   status: approved
 - name: U.S. Model 32
   aliases:
@@ -13153,6 +16893,8 @@ models:
   country: United States
   calibers:
   - .32 ACP
+  manufacturers:
+  - Harrington & Richardson
   status: approved
 - name: U.S. Model 327
   aliases:
@@ -13161,6 +16903,8 @@ models:
   country: United States
   calibers:
   - .357 Magnum
+  manufacturers:
+  - Smith & Wesson
   status: approved
 - name: U.S. MODEL 416
   aliases:
@@ -13169,6 +16913,8 @@ models:
   country: United States
   calibers:
   - .22 LR
+  manufacturers:
+  - Stevens
   status: approved
 - name: U.S. Model 510
   aliases:
@@ -13177,6 +16923,8 @@ models:
   country: United States
   calibers:
   - .22 LR
+  manufacturers:
+  - Remington
   status: approved
 - name: U.S. Model 64
   aliases:
@@ -13201,6 +16949,8 @@ models:
   country: United States
   calibers:
   - .22 LR
+  manufacturers:
+  - Marlin
   status: approved
 - name: U.S. MODEL 88
   aliases:
@@ -13225,6 +16975,8 @@ models:
   country: United States
   calibers:
   - .22 LR
+  manufacturers:
+  - Winchester
   status: approved
 - name: U.S. Model 95
   aliases:
@@ -13236,7 +16988,7 @@ models:
   status: approved
 - name: USP 40
   kind: pistol
-  country: Austria
+  country: Germany
   calibers:
   - '.40'
   manufacturers:
@@ -13244,10 +16996,28 @@ models:
   modern_production: true
   status: approved
 - name: USP40
+  kind: pistol
+  country: Germany
+  calibers:
+  - .40 S&W
+  manufacturers:
+  - Heckler Koch
   status: approved
 - name: USP45
+  kind: pistol
+  country: Germany
+  calibers:
+  - .45 ACP
+  manufacturers:
+  - Heckler Koch
   status: approved
 - name: USP9
+  kind: pistol
+  country: Germany
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Heckler Koch
   status: approved
 - name: USR 54
   status: pending
@@ -13270,6 +17040,8 @@ models:
   country: Germany
   calibers:
   - 8mm Mauser
+  manufacturers:
+  - Walther
   status: approved
 - name: VK98
   kind: rifle
@@ -13284,12 +17056,9 @@ models:
   - VP9X
   kind: pistol
   country: Germany
-  calibers:
-  - 9mm Luger
-  manufacturers:
-  - Heckler Koch
   modern_production: true
-  status: approved
+  status: merged
+  enabled: false
 - name: VP9B
   status: merged
   enabled: false
@@ -13297,8 +17066,20 @@ models:
   status: merged
   enabled: false
 - name: VP9K
+  kind: pistol
+  country: Germany
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Heckler Koch
   status: approved
 - name: VP9L
+  kind: pistol
+  country: Germany
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Heckler Koch
   status: approved
 - name: VP9X
   status: merged
@@ -13308,12 +17089,16 @@ models:
   country: United States
   calibers:
   - 12 gauge
+  manufacturers:
+  - Rock Island Arsenal
   status: approved
 - name: VX11
   kind: rifle
   country: United States
   calibers:
   - 7.62x51 NATO
+  manufacturers:
+  - Winchester
   status: approved
 - name: VZ 24
   aliases:
@@ -13385,6 +17170,8 @@ models:
   country: Czech Republic
   calibers:
   - 7.62x39mm
+  manufacturers:
+  - CZ
   status: approved
   position: 100
 - name: VZ 58
@@ -13426,6 +17213,8 @@ models:
   country: Czech Republic
   calibers:
   - .32 ACP
+  manufacturers:
+  - CZ
   status: approved
 - name: W625
   kind: rifle
@@ -13440,6 +17229,8 @@ models:
   country: Germany
   calibers:
   - .22 LR
+  manufacturers:
+  - SIMSON
   status: approved
 - name: W625B
   kind: rifle
@@ -13483,8 +17274,8 @@ models:
   kind: pistol
   country: Germany
   calibers:
-  - 9mm Luger
   - .380 ACP
+  - 9mm Luger
   manufacturers:
   - Walther
   modern_production: true
@@ -13635,6 +17426,9 @@ models:
   aliases:
   - Walther Model PP
   - Manurhin PP
+  - Walther Mod PP
+  - Walther Modell PP
+  - Walther Mod. PP
   kind: pistol
   country: Germany
   calibers:
@@ -13670,9 +17464,9 @@ models:
   kind: pistol
   country: Germany
   calibers:
-  - 9mm Luger
-  - .40 S&W
   - .22 LR
+  - .40 S&W
+  - 9mm Luger
   manufacturers:
   - Walther
   modern_production: true
@@ -13724,6 +17518,8 @@ models:
   country: Romania
   calibers:
   - 7.62x39mm
+  manufacturers:
+  - Cugir
   status: approved
 - name: WASR10
   status: merged
@@ -13890,11 +17686,40 @@ models:
 - name: WF BERN MAUSER 1896
   status: approved
   enabled: false
+- name: Wilson Combat CQB
+  aliases:
+  - CQB Elite
+  - Wilson CQB
+  kind: pistol
+  country: United States
+  calibers:
+  - .45 ACP
+  - 9mm Luger
+  manufacturers:
+  - Wilson Combat
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Wilson Combat EDC X9
+  aliases:
+  - EDC X9
+  - Wilson CMBT EDC X9
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Wilson Combat
+  modern_production: true
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: WIN-13
   kind: rifle
   country: United States
   calibers:
   - 7.62x51 NATO
+  manufacturers:
+  - Winchester
   status: approved
 - name: WINCHESTER 1917
   kind: rifle
@@ -14087,6 +17912,8 @@ models:
   country: United States
   calibers:
   - 12 gauge
+  manufacturers:
+  - Mossberg
   status: approved
 - name: X300
   status: pending
@@ -14099,12 +17926,30 @@ models:
   status: pending
   enabled: false
 - name: XD-10
+  kind: pistol
+  country: United States
+  calibers:
+  - 10mm Auto
+  manufacturers:
+  - Springfield
   status: approved
 - name: XD-40
+  kind: pistol
+  country: United States
+  calibers:
+  - .40 S&W
+  manufacturers:
+  - Springfield
   status: approved
 - name: XD-45
   aliases:
   - XD45
+  kind: pistol
+  country: United States
+  calibers:
+  - .45 ACP
+  manufacturers:
+  - Springfield
   status: approved
 - name: XD45
   status: merged
@@ -14112,6 +17957,11 @@ models:
 - name: XD-9
   aliases:
   - XD9
+  - XD 9
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
   manufacturers:
   - Springfield
   modern_production: true
@@ -14124,12 +17974,30 @@ models:
   country: United States
   calibers:
   - .45 ACP
+  manufacturers:
+  - Springfield
   status: approved
 - name: XDE-9
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Springfield
   status: approved
 - name: XDM-40
+  kind: pistol
+  country: United States
+  calibers:
+  - .40 S&W
+  manufacturers:
+  - Springfield
   status: approved
 - name: XDM45
+  kind: pistol
+  country: United States
+  calibers:
+  - .45 ACP
   manufacturers:
   - Springfield
   modern_production: true
@@ -14137,6 +18005,10 @@ models:
 - name: XDM-9
   aliases:
   - XDM9
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
   manufacturers:
   - Springfield
   modern_production: true
@@ -14145,11 +18017,21 @@ models:
   status: merged
   enabled: false
 - name: XDS-45
+  kind: pistol
+  country: United States
+  calibers:
+  - .45 ACP
   manufacturers:
   - Springfield
   modern_production: true
   status: approved
 - name: XDS-9
+  aliases:
+  - XDS 3.3
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
   manufacturers:
   - Springfield
   modern_production: true
@@ -14179,6 +18061,12 @@ models:
 - name: XM177
   status: approved
 - name: XR920
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Shadow Systems
   status: approved
 - name: XTM-22
   status: approved
@@ -14192,6 +18080,8 @@ models:
   country: Yugoslavia
   calibers:
   - 8mm Mauser
+  manufacturers:
+  - Zastava
   status: approved
 - name: Yugoslavian M48
   status: merged
@@ -14257,11 +18147,33 @@ models:
   wikipedia: https://en.wikipedia.org/wiki/Zastava_M59/66
   status: approved
   position: 100
+- name: Zastava M70A
+  aliases:
+  - M70A
+  kind: pistol
+  country: Yugoslavia
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Zastava
+  status: approved
+- name: Zastava M70 Pistol
+  aliases:
+  - Zastava 70-1
+  - Crvena Zastava 70
+  kind: pistol
+  country: Yugoslavia
+  calibers:
+  - .32 ACP
+  manufacturers:
+  - Zastava
+  status: approved
+  notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Zastava M77
   aliases:
   - M77
   kind: rifle
-  country: United States
+  country: Yugoslavia
   manufacturers:
   - Zastava
   status: approved
@@ -14322,6 +18234,17 @@ models:
   status: approved
 - name: ZERO 1S
   status: approved
+- name: Zev OZ9
+  aliases:
+  - OZ9
+  - OZ9C
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  modern_production: true
+  status: approved
+  notes: Approved 2026-10-12 from the pending queue.
 - name: ZFK 55
   kind: rifle
   country: Switzerland
@@ -14343,6 +18266,14 @@ models:
   country: Czech Republic
   calibers:
   - .30-06 Springfield
+  manufacturers:
+  - CZ
   status: approved
 - name: ZPAP92
+  kind: pistol
+  country: Yugoslavia
+  calibers:
+  - 7.62x39mm
+  manufacturers:
+  - Zastava
   status: approved

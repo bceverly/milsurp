@@ -10,34 +10,42 @@ purchase price in most cases." For each caliber in the armory:
   ``bwN``. Read once, and again whenever the caliber is edited, never on a
   clock: a cartridge's diameter does not change.
 * **Factory cost per round**: for each of the caliber's weights, the cheapest
-  in-stock box on AmmoSeek within 3% of that weight, divided by the rounds in
+  in-stock box on Ammo.com within 3% of that weight, divided by the rounds in
   it; the caliber's figure is the average of those. Box price over rounds,
-  nothing else -- no shipping, hazmat or tax. Where AmmoSeek lists nothing,
+  nothing else -- no shipping, hazmat or tax. Where Ammo.com lists nothing,
   **Milsurp Munitions**, which loads the obsolete military cartridges nobody
   else does: its cheapest in-stock box.
 * **Lee dies**: whether Lee Precision's rifle or handgun die catalog has a
   set for it, with the link.
-* **Projectile cost**: AmmoSeek's reloading bullets at the caliber's diameter,
-  averaged across its weights as the factory figure is.
+* **Projectile cost**: Graf & Sons' reloading bullets at the caliber's
+  diameter, averaged across its weights as the factory figure is.
 
-**AmmoSeek's terms forbid automated collection without consent.** Reading it
-anyway was decided on 2026-10-11, for a rough cost of shooting rather than
-AmmoSeek's listings, so it is read lightly: each refresh asks only about
-calibers with a listing for sale here, on the schedule an administrator sets
-(daily, weekly or every two weeks; weekly by default), through
-``ScrapeContext`` and so under robots.txt, the request delay and the cooldown
-register -- a block or a challenge stops it rather than being worked around.
-Only the derived figures are kept, each with a link back to the page.
+**AmmoSeek was the first source for both, and was dropped on 2026-10-12.** Its
+terms forbid automated collection, and about an hour into the first refresh
+in production its bot control refused the scanner. Ammo.com and Graf & Sons
+replaced it: neither's terms of use say anything against reading the site,
+and neither's robots.txt closes the pages read here. Each is read lightly
+all the same -- only about calibers with a listing for sale here, on the
+schedule an administrator sets (daily, weekly or every two weeks; weekly by
+default), through ``ScrapeContext`` and so under robots.txt, the request
+delay and the cooldown register. Only the derived figures are kept, each with
+a link back to the page.
 
-Measured 2026-10-11: an AmmoSeek caliber page (``/ammo/7.62x54r``) carries its
-query (``gun=rifle&cal=277&seo_name=7.62x54r``) and fills its table from one
-POST to ``/`` returning JSON, cheapest per round first; reloading bullets are
-the same POST with ``search_reloading=1&reloading_type=bullets`` and a bullet
-caliber from the bullets form, which names them by diameter (``.311" diam.``).
+Measured 2026-10-12: Ammo.com is a Magento store whose category pages
+(``/rifle``, ``/handgun``, ``/rimfire``, ``/shotgun``) link one page per
+caliber (``/rifle/7.62x54r-ammo``), and a caliber page lists its in-stock
+boxes 40 at a time, cheapest per round first, each naming its weight in the
+title ("... 7.62x54r Ammo - 20 Rounds of 180 Grain SP Ammunition") and its
+rounds and price beside it. Graf & Sons is a Shopify store whose public
+``/collections/bullets/products.json`` holds its whole bullet catalog, about
+2,900 products in 12 pages of 250, each title stating diameter, weight and
+count ("Prvi Partizan .311 Diameter Bullets 174 grain ... Bag of 50", or
+"SIERRA 6.5(.264) 153g BULLET TMK 500/bx").
 """
 
 from __future__ import annotations
 
+import contextlib
 import html as htmlib
 import json
 import re
@@ -47,7 +55,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from statistics import mean
 from typing import Any
-from urllib.parse import parse_qsl, quote, unquote, urljoin
+from urllib.parse import quote, unquote, urljoin
 
 from bs4 import BeautifulSoup
 from sqlalchemy import select
@@ -57,10 +65,47 @@ from ..models import AmmoSetting, ArmoryStatus, Caliber, CaliberBulletWeight, It
 from ..scrapers.base import Disallowed, ScrapeContext, ScrapeError, text_of
 from . import armory, wikipedia
 
-AMMOSEEK = "https://ammoseek.com/"
+AMMO_COM = "https://ammo.com/"
+#: Ammo.com's category pages, each linking a page per caliber.
+AMMO_COM_CATEGORIES = ("rifle", "handgun", "rimfire", "shotgun")
+#: Pages of a caliber read at most: 40 boxes each, cheapest first, so three
+#: hold every weight anyone loads at a price that matters.
+AMMO_COM_PAGES = 3
+GRAFS = "https://grafs.com/"
+GRAFS_BULLETS = "collections/bullets/products.json?limit=250&page={page}"
+#: A ceiling on the catalog's pages, which ends long before it on an empty one.
+GRAFS_PAGES = 30
+#: More than this a bullet is a count misread, not a price -- a check behind
+#: the handle's count (see grafs_bullets), not a substitute for it.
+MOST_PER_BULLET = 10.0
+#: A title's count below this is boxes in a case, not bullets in a box.
+FEWEST_BULLETS = 10
 MILSURP_MUNITIONS = "https://milsurpmunitions.com/"
 LEE = "https://leeprecision.com/"
 LEE_DIE_CATEGORIES = ("reloading-dies-rifle-dies", "reloading-dies-hand-gun-dies")
+#: Lee's shotshell reloader, whose page lists the gauges it is made for.
+LEE_SHOTSHELL = "load-all-ii"
+
+#: A shotgun's "bullet" diameter: the bore of each gauge, which is what a slug
+#: is sized to. Asked for on 2026-10-12, in place of an article that has none.
+GAUGE_BORES = {
+    "4": 1.052,
+    "8": 0.835,
+    "10": 0.775,
+    "12": 0.729,
+    "16": 0.662,
+    "20": 0.615,
+    "24": 0.579,
+    "28": 0.550,
+    "32": 0.526,
+    "410": 0.410,
+}
+_GAUGE = re.compile(r"^\s*\.?(\d{1,3})\s*(?:gauge|ga\.?|bore)?\s*$", re.I)
+
+#: The three parts of a refresh, each of which can be asked for alone (2026-10-12):
+#: the calibers' Wikipedia facts; reloading -- Graf & Sons' bullets and Lee's
+#: dies; and factory ammunition prices from Ammo.com and Milsurp Munitions.
+PARTS = ("wikipedia", "reloading", "prices")
 
 #: The refresh frequencies an administrator chooses between, in days.
 FREQUENCIES = {1: "Daily", 7: "Weekly", 14: "Every 2 weeks"}
@@ -69,14 +114,11 @@ DEFAULT_DAYS = 7
 GRAINS_PER_GRAM = 15.4323584
 MM_PER_INCH = 25.4
 #: How close an offer's bullet must be to a weight to count as that weight:
-#: AmmoSeek's 148 gr and 150 gr are the same choice, 174 gr and 180 gr are not.
+#: a 148 gr and a 150 gr load are the same choice, 174 gr and 180 gr are not.
 SAME_WEIGHT = 0.03
-#: How close a bullet caliber's diameter must be to the cartridge's: .311" for
-#: a 7.62x54R stated as 7.92 mm (.3118").
+#: How close a bullet's diameter must be to the cartridge's: .311" for a
+#: 7.62x54R stated as 7.92 mm (.3118").
 SAME_DIAMETER = 0.0015
-#: Offers asked for per query. Sorted cheapest per round first, so the first
-#: hundred hold every weight's low that matters.
-OFFERS = 100
 
 
 # -- Wikipedia --------------------------------------------------------------
@@ -141,34 +183,83 @@ def _number(text: str | None) -> float | None:
     return float(found.group(0)) if found else None
 
 
+#: A number and the unit written with it: "0.308 in (7.82 mm)" is inches,
+#: "{{convert|5.7|mm|in}}" is millimeters, "150 gr" is grains.
+_TEMPLATE = re.compile(r"\{\{\s*(?:convert|cvt)\s*\|\s*([\d.]+)\s*\|\s*([a-z\"]+)", re.I)
+_WITH_UNIT = re.compile(r"(\d+(?:\.\d+)?|\.\d+)\s*(mm|in\b|inch|\"|gr\b|grains?|g\b|grams?)?", re.I)
+
+
+def _measure(text: str | None) -> tuple[float | None, str | None]:
+    """The first number in an infobox value and the unit written with it,
+    or None for the unit when the value does not say."""
+    found = _TEMPLATE.search(text or "")
+    if found:
+        number, unit = found.group(1), found.group(2)
+    else:
+        plain = _WITH_UNIT.search((text or "").replace(",", ""))
+        if not plain:
+            return None, None
+        number, unit = plain.group(1), plain.group(2)
+    try:
+        value = float(number)
+    except ValueError:
+        return None, None
+    unit = (unit or "").lower()
+    named = next(
+        (
+            name
+            for prefix, name in (
+                ("mm", "mm"),
+                ("in", "in"),
+                ('"', "in"),
+                ("gram", "g"),
+                ("gr", "gr"),
+                ("g", "g"),
+            )
+            if unit.startswith(prefix)
+        ),
+        None,
+    )
+    return value, named
+
+
 def article_facts(wikitext: str) -> ArticleFacts:
     """The bullet's diameter in inches and its weights in grains, from a
-    cartridge article's infobox. Each is empty when the article does not say."""
+    cartridge article's infobox. Each is empty when the article does not say.
+
+    **A unit written with a number beats the page's flag.** The flags
+    (``is_SI_specs``, ``is_SI_ballistics``, ``bwunit``) say how the infobox
+    displays, and articles state values every way regardless: 7.62x51 NATO
+    gives "0.308 in (7.82 mm)", .22 LR a ``{{convert}}`` in inches, .303
+    British grains under ``is_SI_ballistics=yes``. Read by the flag alone
+    those were 0.0121", 0.0088" and a 2,315 gr bullet (2026-10-11). The flag
+    decides only where the value says nothing, and a bullet weight is grams
+    only when labeled so or too light to be grains: no bullet weighs 40 g.
+    """
     box = _infobox(wikitext)
     if box is None:
         return ArticleFacts(None, [])
     params = _params(box)
     diameter = None
-    stated = params.get("bullet")
-    number = _number(stated)
-    if number:
-        metric = (
-            params.get("is_si_specs", "").lower().startswith("y")
-            or "mm" in (stated or "").lower()
-            or number > 1.5
+    value, unit = _measure(params.get("bullet"))
+    if value:
+        metric = unit == "mm" or (
+            unit is None and (params.get("is_si_specs", "").lower().startswith("y") or value > 1.5)
         )
-        diameter = round(number / MM_PER_INCH, 4) if metric else number
-    grams = "gram" in params.get("bwunit", "").lower() or (
-        params.get("is_si_ballistics", "").lower().startswith("y")
-        and "grain" not in params.get("bwunit", "").lower()
-    )
+        diameter = round(value / MM_PER_INCH, 4) if metric else value
+    labeled = params.get("bwunit", "").lower()
     weights: list[float] = []
     for key in sorted((k for k in params if re.fullmatch(r"bw\d+", k)), key=lambda k: int(k[2:])):
-        value = _number(params[key])
+        value, unit = _measure(params[key])
         if not value:
             continue
+        grams = unit == "g" or (
+            unit is None and ("gram" in labeled or ("grain" not in labeled and value < 40))
+        )
         grains = float(round(value * GRAINS_PER_GRAM if grams else value))
-        if grains not in weights:
+        # Under ten grains is a footnote or a misread, not a bullet: the 11mm
+        # French Ordnance article gave a "6" (2026-10-12).
+        if grains >= 10 and grains not in weights:
             weights.append(grains)
     return ArticleFacts(diameter, sorted(weights))
 
@@ -207,7 +298,9 @@ def refresh_articles(
     log: Callable[[str], None] = print,
 ) -> int:
     """Read the facts of every caliber whose article has not been read since
-    it was linked or edited. Returns how many were read."""
+    it was linked or edited. Returns how many were read. Gauges, which have
+    no article worth reading, take their bore from :data:`GAUGE_BORES`."""
+    set_gauge_bores(session)
     due = list(
         session.execute(
             select(Caliber)
@@ -240,6 +333,8 @@ class Offer:
     grains: float | None
     price: float
     rounds: int
+    #: The product's own page, where there is one to link to.
+    url: str | None = None
 
     @property
     def each(self) -> float:
@@ -252,21 +347,6 @@ def _price(text: Any) -> float | None:
         return float(found.group(0).replace(",", "")) if found else None
     except ValueError:
         return None
-
-
-def ammoseek_offers(payload: dict[str, Any]) -> list[Offer]:
-    """The offers in an AmmoSeek results answer."""
-    found = []
-    for row in payload.get("data") or []:
-        price = _price(row.get("price"))
-        try:
-            rounds = int(row.get("count") or 0)
-        except (TypeError, ValueError):
-            rounds = 0
-        grains = _number(str(row.get("grains") or ""))
-        if price and rounds > 0:
-            found.append(Offer(grains, price, rounds))
-    return found
 
 
 def lows(offers: Iterable[Offer], weights: Iterable[float]) -> dict[float, float]:
@@ -292,67 +372,169 @@ def lows(offers: Iterable[Offer], weights: Iterable[float]) -> dict[float, float
     return found
 
 
-# -- AmmoSeek ---------------------------------------------------------------
-def ammoseek_calibers(html: str) -> list[tuple[str, list[str]]]:
-    """Every caliber on AmmoSeek's caliber list: its page and its names.
+def _spelled(text: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", text.lower().replace("×", "x"))
 
-    "7.7 Japanese (7.7x58mm, 7.7 Arisaka, 7.7x58 Arisaka)" is four names.
+
+def match_pages(session: Session, entries: list[tuple[str, list[str]]]) -> dict[str, str]:
+    """The armory caliber each of a shop's caliber pages is for, by caliber name.
+
+    *entries* is ``(page, names)`` per page. **A page whose name is one of the
+    caliber's own spellings wins**, and the armory's looser reading of a name
+    only fills in after: read loosely and first come first served, ".308
+    Marlin Express" claimed 7.62x51 NATO, "9mm Browning Long" 9mm Luger and
+    "22 S, L, LR" .22 LR on AmmoSeek (2026-10-11).
     """
-    found = []
-    for link in BeautifulSoup(html, "html.parser").select('a[href^="/ammo/"]'):
-        label = text_of(link)
-        head, _sep, rest = label.partition("(")
-        names = [head.strip(), *(n.strip() for n in rest.rstrip(") ").split(",") if n.strip())]
-        found.append((str(link.get("href")), [n for n in names if n]))
-    return found
-
-
-def ammoseek_pages(session: Session, html: str) -> dict[str, str]:
-    """The armory caliber each AmmoSeek page is for, by caliber name."""
+    spelled: dict[str, str] = {}
+    for row in session.execute(
+        select(Caliber).where(Caliber.status == ArmoryStatus.APPROVED, Caliber.enabled.is_(True))
+    ).scalars():
+        for spelling in row.spellings:
+            spelled.setdefault(_spelled(spelling), row.name)
     found: dict[str, str] = {}
-    for path, names in ammoseek_calibers(html):
+    for path, names in entries:
+        for name in names:
+            mine = spelled.get(_spelled(name))
+            if mine and mine not in found:
+                found[mine] = path
+    for path, names in entries:
         for name in names:
             mine = armory.canonical_caliber(session, name)
-            if mine and mine not in found:
+            if mine and mine not in found and path not in found.values():
                 found[mine] = path
                 break
     return found
 
 
-def query_of(html: str) -> str | None:
-    """The query an AmmoSeek results page sends for its own table."""
-    found = re.search(r'data-qstring="([^"]*)"', html)
-    return htmlib.unescape(found.group(1)).lstrip("&") if found else None
+# -- Ammo.com ------------------------------------------------------------------
+_AMMO_COM_PAGE = re.compile(
+    r"^https://ammo\.com/(?:" + "|".join(AMMO_COM_CATEGORIES) + r")/[a-z0-9._-]+/?$"
+)
 
 
-def _ask_ammoseek(ctx: ScrapeContext, fields: dict[str, str], referer: str) -> dict[str, Any]:
-    data = {"draw": "1", "start": "0", "length": str(OFFERS), **fields}
-    response = ctx.post(
-        AMMOSEEK,
-        data=data,
-        headers={"X-Requested-With": "XMLHttpRequest", "Referer": referer},
-    )
-    try:
-        return dict(response.json())
-    except (ValueError, json.JSONDecodeError) as exc:
-        raise ScrapeError(f"AmmoSeek answered with something other than JSON ({exc})") from exc
+def _ammo_com_names(label: str) -> list[str]:
+    """The names one caliber link stands for.
+
+    "40 Cal (S&W) Ammo" is "40 Cal (S&W)", "40 Cal" and "40 S&W"; "22 Long
+    Rifle (LR) Ammo" is also "22 LR". A link to a caliber with nothing in
+    stock says so first ("Out of stock 32 S&W Ammo").
+    """
+    label = re.sub(r"^\s*out of stock\s*", "", label, flags=re.I)
+    label = re.sub(r"\s+(?:ammo(?:\s+for\s+sale)?|shotgun\s+shells)\s*$", "", label, flags=re.I)
+    label = label.strip()
+    names = [label]
+    bracketed = re.match(r"^(\S+)\s.*?\(([^)]+)\)", label)
+    if bracketed:
+        names.append(re.sub(r"\s*\([^)]*\)", "", label).strip())
+        names.append(f"{bracketed.group(1)} {bracketed.group(2)}")
+    return [n for n in names if n]
 
 
-def bullet_calibers(html: str) -> list[tuple[str, float]]:
-    """AmmoSeek's bullet calibers, ``(id, diameter in inches)``, from its
-    bullets search form: '.311" diam.' is 0.311."""
+def ammo_com_calibers(html: str) -> list[tuple[str, list[str]]]:
+    """The caliber pages one Ammo.com category page links: ``(page, names)``."""
+    found: dict[str, list[str]] = {}
+    for link in BeautifulSoup(html, "html.parser").select("a[href]"):
+        href = str(link.get("href")).rstrip("/")
+        label = text_of(link)
+        if _AMMO_COM_PAGE.match(href) and label and href not in found:
+            found[href] = _ammo_com_names(label)
+    return list(found.items())
+
+
+def ammo_com_offers(html: str) -> list[Offer]:
+    """The in-stock boxes on one page of an Ammo.com caliber.
+
+    The weight from the title ("... 20 Rounds of 180 Grain SP Ammunition"),
+    the rounds from the line beside it ("20 Rounds") and the price actually
+    asked -- the sale price where there is one. A box stating no rounds is
+    passed over rather than guessed.
+    """
     found = []
-    select_ = BeautifulSoup(html, "html.parser").select_one("#bulletsCaliberSelect")
-    for option in select_.select("option") if select_ else []:
-        diameter = re.match(r"\s*(\.\d+)\"?\s*diam", text_of(option))
-        if diameter and option.get("value"):
-            found.append((str(option.get("value")), float(diameter.group(1))))
+    soup = BeautifulSoup(html, "html.parser")
+    for item in soup.select(".b-category-product-list__item"):
+        if item.select_one(".b-availability__in-stock") is None:
+            continue
+        name_tag = item.select_one(".b-product-list-item__product-name")
+        facts_tag = item.select_one(".b-product-list-item__attributes-short")
+        title = text_of(name_tag) if name_tag else ""
+        facts = text_of(facts_tag) if facts_tag else ""
+        price_tag = item.select_one('.price[id^="product-price-"]') or item.select_one(".price")
+        price = _price(text_of(price_tag)) if price_tag else None
+        rounds = re.search(r"([\d,]+)\s*rounds?\b", facts, re.I)
+        grains = re.search(r"(\d+(?:\.\d+)?)\s*(?:grains?|gr)\b", title, re.I)
+        count = int(rounds.group(1).replace(",", "")) if rounds else 0
+        if price and count > 0:
+            found.append(Offer(float(grains.group(1)) if grains else None, price, count))
     return found
 
 
-def nearest_bullet(options: list[tuple[str, float]], diameter: float) -> str | None:
-    best = min(options, key=lambda option: abs(option[1] - diameter), default=None)
-    return best[0] if best and abs(best[1] - diameter) <= SAME_DIAMETER else None
+def ammo_com_more(html: str, page: int) -> bool:
+    """Whether a caliber's page *page* links the page after it."""
+    return f"?p={page + 1}" in html
+
+
+# -- Graf & Sons ---------------------------------------------------------------
+#: A diameter written as three or four decimals: ".311", "(.264)", '.452"'.
+_DIAMETER = re.compile(r"(?<![\d.])(\.\d{3,4})(?!\d)")
+#: Grains, written out or run into the shape after it ("105gTCFP"): a "g"
+#: before a capital or a mark is grains, before "a" or "auge" it is not.
+_BULLET_GRAINS = re.compile(r"(\d{2,3}(?:\.\d)?)\s*(?:grains?|gr|g)(?-i:(?![a-z]))", re.I)
+_BULLET_COUNT = re.compile(
+    r"(?:\b(?:box|bag|tin|pack|bucket|case|each)\s+of|\bper|\bp/)\s*([\d,]+)"
+    r"|([\d,]+)\s*(?:/?\s*(?:bx|box|b|bag|bg|pk)\b|ct\b|count\b|pcs?\b|each\b|ea\b|bullets\b"
+    r"|per\s+(?:box|bag)\b)",
+    re.I,
+)
+
+
+def _count(text: str) -> int:
+    counted = _BULLET_COUNT.search(text)
+    return int((counted.group(1) or counted.group(2)).replace(",", "")) if counted else 0
+
+
+def grafs_bullets(products: list[dict[str, Any]]) -> list[tuple[float, Offer]]:
+    """Graf & Sons' in-stock bullets: ``(diameter in inches, offer)``.
+
+    Every fact is in the title, which is written several ways: "Prvi Partizan
+    .311 Diameter Bullets 174 grain Full Metal Jacket ... Bag of 50", "SIERRA
+    6.5(.264) 153g BULLET TMK 500/bx", "PULL DOWN 30c (.308) 160g BULLET (30-30)
+    P/100". A variant naming its own count ("100 ct") overrides the product's.
+    A product missing any of the three is passed over rather than guessed.
+
+    **A count under ten is a case of boxes**: Graf & Sons sells Winchester's
+    147 gr .308 as "Box of 4" at $165.99 and Federal's Fusion as "Box of 4" at
+    $32.99, which their handles say are four boxes of 500 and a box of 50. The
+    handle's count is taken there, and a product whose handle says none is
+    passed over.
+    """
+    found = []
+    for product in products:
+        title = htmlib.unescape(str(product.get("title") or ""))
+        diameter = _DIAMETER.search(title)
+        grains = _BULLET_GRAINS.search(title)
+        if not diameter or not grains:
+            continue
+        inches = float(diameter.group(1))
+        if not 0.1 < inches < 1.1:
+            continue
+        url = urljoin(GRAFS, f"products/{product.get('handle')}") if product.get("handle") else None
+        for variant in product.get("variants") or []:
+            if not variant.get("available"):
+                continue
+            named = str(variant.get("title") or "")
+            count = _count(named if named != "Default Title" else "") or _count(title)
+            if 0 < count < FEWEST_BULLETS:
+                count = _count(str(product.get("handle") or "").replace("-", " "))
+                count = count if count >= FEWEST_BULLETS else 0
+            price = _price(variant.get("price"))
+            if price and count > 0 and price / count <= MOST_PER_BULLET:
+                found.append((inches, Offer(float(grains.group(1)), price, count, url)))
+    return found
+
+
+def at_diameter(bullets: list[tuple[float, Offer]], diameter: float) -> list[Offer]:
+    """The bullets made for a cartridge of *diameter*."""
+    return [offer for inches, offer in bullets if abs(inches - diameter) <= SAME_DIAMETER]
 
 
 # -- Milsurp Munitions -------------------------------------------------------
@@ -405,6 +587,45 @@ def lee_dies(html: str) -> list[tuple[str, str]]:
     return found
 
 
+def gauge_bore(name: str) -> float | None:
+    """The bore diameter of a gauge named like "12 Gauge", "20 ga" or ".410"."""
+    found = _GAUGE.match(name or "")
+    if not found or (
+        "gauge" not in name.lower() and "ga" not in name.lower() and "410" not in name
+    ):
+        return None
+    return GAUGE_BORES.get(found.group(1))
+
+
+def set_gauge_bores(session: Session) -> int:
+    """Give every gauge in the armory its bore as its diameter, where it has none."""
+    changed = 0
+    for caliber in session.execute(select(Caliber)).scalars():
+        bore = gauge_bore(caliber.name)
+        if bore and caliber.bullet_diameter_in is None:
+            caliber.bullet_diameter_in = bore
+            changed += 1
+    session.commit()
+    return changed
+
+
+def lee_shotshells(html: str) -> list[str]:
+    """The gauges Lee's Load-All II page offers: "12 Gauge", ".410".
+
+    From the page's own choice of gauge -- the dropdown whose every option is
+    a gauge -- not the site-wide cartridge finder sharing the page, which
+    lists hundreds of cartridges and the gauges among them. Each option's own
+    words only: the page leaves ``<option>`` unclosed, so an option's text
+    runs on into every one after it.
+    """
+    for select_ in BeautifulSoup(html, "html.parser").select("select"):
+        names = [next(option.stripped_strings, "") for option in select_.select("option")]
+        offered = [n for n in names if n and not n.lower().startswith("select")]
+        if offered and all(re.search(r"gauge|\b410\b", n, re.I) for n in offered):
+            return [".410" if "410" in n else n for n in offered]
+    return []
+
+
 def lee_catalog(ctx: ScrapeContext) -> list[tuple[str, str]]:
     """Every die set Lee lists, from its rifle and handgun die categories."""
     found: list[tuple[str, str]] = []
@@ -415,6 +636,11 @@ def lee_catalog(ctx: ScrapeContext) -> list[tuple[str, str]]:
             if not fresh:
                 break
             found.extend(fresh)
+    # Shotshells too, which are reloaded on a Load-All rather than with dies
+    # (asked for on 2026-10-12). One page; a failure costs only these.
+    load_all = urljoin(LEE, LEE_SHOTSHELL)
+    with contextlib.suppress(ScrapeError):
+        found.extend((gauge, load_all) for gauge in lee_shotshells(ctx.get_text(load_all)))
     return found
 
 
@@ -429,11 +655,35 @@ def settings(session: Session) -> AmmoSetting:
 
 
 def is_due(session: Session, now: datetime | None = None) -> bool:
+    return bool(due_parts(session, now))
+
+
+def due_parts(session: Session, now: datetime | None = None) -> tuple[str, ...]:
+    """The parts of a refresh to run now: those asked for, or all of them when
+    the schedule says so, or none.
+
+    The schedule runs from the last *full* refresh, so updating one part by
+    hand does not put the others off for another week.
+    """
     row = settings(session)
     if row.requested_at is not None:
-        return True
-    last = as_utc(row.last_run_at)
-    return last is None or (now or utcnow()) - last >= timedelta(days=row.refresh_days or 7)
+        asked = tuple(p for p in PARTS if p in (row.requested_parts or "").split(","))
+        return asked or PARTS
+    last = as_utc(row.last_full_at)
+    if last is None or (now or utcnow()) - last >= timedelta(days=row.refresh_days or 7):
+        return PARTS
+    return ()
+
+
+def ask_for(session: Session, parts: Iterable[str]) -> None:
+    """Ask the scheduler for a refresh of *parts*, on its next tick."""
+    wanted = [p for p in PARTS if p in set(parts)]
+    if not wanted:
+        raise ValueError(f"Nothing to refresh: the parts are {', '.join(PARTS)}.")
+    row = settings(session)
+    row.requested_at = utcnow()
+    row.requested_parts = ",".join(wanted)
+    session.commit()
 
 
 def for_sale(session: Session) -> list[Caliber]:
@@ -465,23 +715,29 @@ def _record(caliber: Caliber, found: dict[float, float], field: str) -> None:
             setattr(by_weight[grains], field, each)
 
 
-def _from_ammoseek(
-    ctx: ScrapeContext, caliber: Caliber, path: str | None, weights: list[float]
+def _from_ammo_com(
+    ctx: ScrapeContext, page: str | None, weights: list[float]
 ) -> dict[float, float]:
-    """Each weight's cheapest round on AmmoSeek, finding its query the first
-    time and keeping it."""
-    if not path:
+    """Each weight's cheapest round on Ammo.com's page for a caliber.
+
+    Pages are read until every weight has a price or the cheapest few pages
+    are done: the list is cheapest first, so a weight not on them is not
+    sold at a price that would change the figure. A gauge has no weights in
+    grains, and its boxes name none ("1 oz", "00 Buck"), so its cheapest
+    round of any load stands in.
+    """
+    if not page:
         return {}
-    page = urljoin(AMMOSEEK, path.lstrip("/"))
-    if not caliber.ammoseek_query:
-        caliber.ammoseek_query = query_of(ctx.get_text(page))
-    if not caliber.ammoseek_query:
-        return {}
-    fields = dict(parse_qsl(caliber.ammoseek_query, keep_blank_values=True))
-    fields["search_ammo"] = "1"
-    found = lows(ammoseek_offers(_ask_ammoseek(ctx, fields, page)), weights)
-    if found:
-        caliber.factory_source, caliber.factory_url = "ammoseek", page
+    offers: list[Offer] = []
+    found: dict[float, float] = {}
+    for number in range(1, AMMO_COM_PAGES + 1):
+        html = ctx.get_text(page if number == 1 else f"{page}?p={number}")
+        offers.extend(ammo_com_offers(html))
+        found = lows(offers, weights)
+        if (weights and len(found) == len(weights)) or not ammo_com_more(html, number):
+            break
+    if not found and not weights and offers:
+        found = {0.0: round(min(offer.each for offer in offers), 4)}
     return found
 
 
@@ -493,17 +749,25 @@ def _factory(
     milsurp: list[tuple[str, Offer]],
     now: datetime,
 ) -> str | None:
-    """Price one caliber's factory ammunition. Returns where it came from."""
+    """Price one caliber's factory ammunition. Returns where it came from.
+
+    A page Ammo.com could not serve this time keeps the figure it gave before,
+    unless Milsurp Munitions has one now: "not read" is not "none for sale".
+    """
     weights = [weight.grains for weight in caliber.bullet_weights]
+    page = pages.get(caliber.name)
     found: dict[float, float] = {}
+    unread = False
     try:
-        found = _from_ammoseek(ctx, caliber, pages.get(caliber.name), weights)
-    except ScrapeError as exc:
-        # One caliber AmmoSeek could not answer for still gets the fallback.
-        # A Disallowed is not caught here: robots.txt saying no stops the run.
-        if isinstance(exc, Disallowed):
-            raise
-    if not found:
+        found = _from_ammo_com(ctx, page, weights)
+    except Disallowed:
+        raise
+    except ScrapeError:
+        # One caliber Ammo.com could not answer for still gets the fallback.
+        unread = True
+    if found:
+        caliber.factory_source, caliber.factory_url = "ammo-com", page
+    else:
         mine = [
             offer
             for name, offer in milsurp
@@ -514,6 +778,8 @@ def _factory(
             found = {cheapest.grains or 0.0: round(cheapest.each, 4)}
             caliber.factory_source = "milsurp-munitions"
             caliber.factory_url = urljoin(MILSURP_MUNITIONS, "?s=" + quote(caliber.name))
+    if not found and unread and caliber.factory_source == "ammo-com":
+        return caliber.factory_source
     caliber.factory_checked_at = now
     if not found:
         caliber.factory_cpr = None
@@ -525,24 +791,23 @@ def _factory(
     return caliber.factory_source
 
 
-def _projectiles(
-    ctx: ScrapeContext, caliber: Caliber, options: list[tuple[str, float]], now: datetime
-) -> bool:
-    """Price one caliber's projectiles by its diameter. Whether any were found."""
+def _projectiles(caliber: Caliber, bullets: list[tuple[float, Offer]], now: datetime) -> bool:
+    """Price one caliber's projectiles by its diameter. Whether any were found.
+
+    Linked to the cheapest of the bullets priced, on Graf & Sons' own page.
+    """
     caliber.projectile_checked_at = now
-    bullet = (
-        nearest_bullet(options, caliber.bullet_diameter_in) if caliber.bullet_diameter_in else None
-    )
-    found: dict[float, float] = {}
-    if bullet:
-        payload = _ask_ammoseek(
-            ctx,
-            {"search_reloading": "1", "reloading_type": "bullets", "cal": bullet},
-            AMMOSEEK,
-        )
-        found = lows(ammoseek_offers(payload), [w.grains for w in caliber.bullet_weights])
+    weights = [w.grains for w in caliber.bullet_weights]
+    offers = at_diameter(bullets, caliber.bullet_diameter_in) if caliber.bullet_diameter_in else []
+    found = lows(offers, weights)
     caliber.projectile_cost = round(mean(found.values()), 4) if found else None
-    caliber.projectile_url = AMMOSEEK if found else None
+    priced = [
+        offer
+        for offer in offers
+        if any(abs((offer.grains or 0) - w) <= w * SAME_WEIGHT for w in found)
+    ]
+    cheapest = min(priced, key=lambda offer: offer.each, default=None)
+    caliber.projectile_url = (cheapest.url or GRAFS) if found and cheapest else None
     _record(caliber, found, "projectile_cost")
     return bool(found)
 
@@ -570,26 +835,56 @@ def _refresh_lee(session: Session, ctx: ScrapeContext, now: datetime) -> str:
 class Sources:
     """What one refresh read once and uses for every caliber."""
 
+    #: Ammo.com's page for each armory caliber, by caliber name.
     pages: dict[str, str]
-    options: list[tuple[str, float]]
+    #: Graf & Sons' bullets, ``(diameter, offer)``.
+    bullets: list[tuple[float, Offer]]
     milsurp: list[tuple[str, Offer]]
     notes: list[str]
 
 
-def _sources(session: Session, ctx: ScrapeContext) -> Sources:
+def grafs_catalog(ctx: ScrapeContext) -> list[tuple[float, Offer]]:
+    """Graf & Sons' whole bullet catalog, a page of 250 at a time."""
+    found: list[tuple[float, Offer]] = []
+    for number in range(1, GRAFS_PAGES + 1):
+        text = ctx.get_text(urljoin(GRAFS, GRAFS_BULLETS.format(page=number)))
+        try:
+            products = list(json.loads(text).get("products") or [])
+        except (ValueError, AttributeError) as exc:
+            raise ScrapeError(
+                f"Graf & Sons answered with something other than JSON ({exc})"
+            ) from exc
+        if not products:
+            break
+        found.extend(grafs_bullets(products))
+    return found
+
+
+def _sources(session: Session, ctx: ScrapeContext, parts: Iterable[str] = PARTS) -> Sources:
+    """Read once what the parts asked for need: Ammo.com's caliber pages and
+    Milsurp Munitions for prices, Graf & Sons' catalog for reloading."""
+    parts = set(parts)
     found = Sources({}, [], [], [])
-    try:
-        found.pages = ammoseek_pages(session, ctx.get_text(urljoin(AMMOSEEK, "calibers/")))
-        found.options = bullet_calibers(
-            ctx.get_text(urljoin(AMMOSEEK, "type1_genform.pl?f=bullets"))
-        )
-    except (Disallowed, ScrapeError) as exc:
-        found.notes.append(f"AmmoSeek not read ({exc})")
-    try:
-        text = ctx.get_text(urljoin(MILSURP_MUNITIONS, "wp-json/wc/store/v1/products?per_page=100"))
-        found.milsurp = milsurp_offers(json.loads(text))
-    except (Disallowed, ScrapeError, ValueError) as exc:
-        found.notes.append(f"Milsurp Munitions not read ({exc})")
+    if "prices" in parts:
+        try:
+            entries: list[tuple[str, list[str]]] = []
+            for category in AMMO_COM_CATEGORIES:
+                entries.extend(ammo_com_calibers(ctx.get_text(urljoin(AMMO_COM, category))))
+            found.pages = match_pages(session, entries)
+        except (Disallowed, ScrapeError) as exc:
+            found.notes.append(f"Ammo.com not read ({exc})")
+        try:
+            text = ctx.get_text(
+                urljoin(MILSURP_MUNITIONS, "wp-json/wc/store/v1/products?per_page=100")
+            )
+            found.milsurp = milsurp_offers(json.loads(text))
+        except (Disallowed, ScrapeError, ValueError) as exc:
+            found.notes.append(f"Milsurp Munitions not read ({exc})")
+    if "reloading" in parts:
+        try:
+            found.bullets = grafs_catalog(ctx)
+        except (Disallowed, ScrapeError) as exc:
+            found.notes.append(f"Graf & Sons not read ({exc})")
     return found
 
 
@@ -599,32 +894,36 @@ def _price_calibers(
     sources: Sources,
     now: datetime,
     log: Callable[[str], None],
+    parts: Iterable[str] = PARTS,
 ) -> str:
-    """Price every caliber for sale. Returns a summary."""
+    """Price every caliber for sale, for the parts asked for. Returns a summary."""
+    parts = set(parts)
     priced = projectiles = 0
     asked = for_sale(session)
     for caliber in asked:
-        try:
-            if _factory(session, ctx, caliber, sources.pages, sources.milsurp, now):
-                priced += 1
-            if sources.options and _projectiles(ctx, caliber, sources.options, now):
-                projectiles += 1
-        except Disallowed as exc:
-            # A robots.txt that changed its mind is an answer, not an error.
-            sources.notes.append(f"stopped: {exc}")
-            session.commit()
-            break
-        except ScrapeError as exc:
-            log(f"  {caliber.name}: {exc}")
+        if "prices" in parts:
+            try:
+                priced += int(
+                    bool(_factory(session, ctx, caliber, sources.pages, sources.milsurp, now))
+                )
+            except Disallowed as exc:
+                # A robots.txt that changed its mind is an answer, not an error.
+                sources.notes.append(f"stopped: {exc}")
+                session.commit()
+                break
+        if "reloading" in parts and sources.bullets:
+            projectiles += int(_projectiles(caliber, sources.bullets, now))
         session.commit()
         log(
             f"  {caliber.name}: factory {caliber.factory_cpr or '-'} "
             f"({caliber.factory_source or 'none'}), projectile {caliber.projectile_cost or '-'}"
         )
-    head = (
-        f"{len(asked)} calibers for sale: {priced} with factory prices, "
-        f"{projectiles} with projectile prices"
-    )
+    counts = []
+    if "prices" in parts:
+        counts.append(f"{priced} with factory prices")
+    if "reloading" in parts:
+        counts.append(f"{projectiles} with projectile prices")
+    head = f"{len(asked)} calibers for sale: {', '.join(counts)}"
     return "; ".join([head, *sources.notes])
 
 
@@ -634,36 +933,56 @@ def refresh(
     *,
     fetch: wikipedia.Fetch | None = None,
     log: Callable[[str], None] = print,
+    parts: Iterable[str] = PARTS,
+    reread: bool = False,
 ) -> str:
-    """One full refresh. Returns its summary, also kept on the settings row.
+    """One refresh of *parts* (all of them by default). Returns its summary,
+    also kept on the settings row.
 
     Wikipedia first (proposals for calibers without an article, and the facts
-    of any not yet read), so the weights the prices are measured against are
-    current; then Lee's catalog; then, per caliber for sale, the factory
-    ammunition and the projectiles.
+    of any not yet read -- or of every one, with *reread*), so the weights the
+    prices are measured against are current; then Lee's catalog; then, per
+    caliber for sale, the factory ammunition and the projectiles.
     """
     started = time.monotonic()
+    parts = tuple(p for p in PARTS if p in set(parts))
     row = settings(session)
     row.requested_at = None
+    row.requested_parts = None
     session.commit()
     now = utcnow()
     try:
-        if fetch is not None:
+        notes = []
+        if "wikipedia" in parts and fetch is not None:
             wikipedia.run(session, fetch, kinds=("caliber",), log=log)
-            refresh_articles(session, fetch, log=log)
-        ctx.keep_at_least(AMMOSEEK, 5.0)
-        lee = _refresh_lee(session, ctx, now)
-        sources = _sources(session, ctx)
-        sources.notes.insert(0, lee)
-        summary = _price_calibers(session, ctx, sources, now, log)
+            if reread:
+                for caliber in session.execute(
+                    select(Caliber).where(Caliber.wikipedia_url.is_not(None))
+                ).scalars():
+                    caliber.wikipedia_read_at = None
+                session.commit()
+            notes.append(f"Wikipedia: {refresh_articles(session, fetch, log=log)} articles read")
+        if "reloading" in parts:
+            notes.append(_refresh_lee(session, ctx, now))
+        if "prices" in parts or "reloading" in parts:
+            ctx.keep_at_least(AMMO_COM, 5.0)
+            ctx.keep_at_least(GRAFS, 5.0)
+            sources = _sources(session, ctx, parts)
+            sources.notes[:0] = notes
+            summary = _price_calibers(session, ctx, sources, now, log, parts)
+        else:
+            summary = "; ".join(notes) or "Nothing to do"
         status, error = "ok", None
-    except Exception as exc:  # recorded where the Settings page shows it
+    except Exception as exc:  # recorded where the Caliber data page shows it
         session.rollback()
         summary, status, error = f"Failed: {exc}", "failed", str(exc)[:500]
         log(summary)
     row = settings(session)
     row.last_status, row.last_error = status, error
     row.last_run_at = now
+    row.last_parts = ",".join(parts)
+    if parts == PARTS:
+        row.last_full_at = now
     row.last_summary = summary[:500]
     row.last_seconds = round(time.monotonic() - started, 1)
     session.commit()

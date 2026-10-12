@@ -4,8 +4,8 @@
  * Which variant a listing matches is the server's business
  * (app/services/variants.py).
  */
-import { test, expect, openPage } from "./fixtures.js";
-import { searchFor } from "./armory-helpers.js";
+import { test, expect } from "./fixtures.js";
+import { searchFor, openArmoryModels } from "./armory-helpers.js";
 
 async function openListingWith(page, changes) {
   await page.route(/\/api\/items\/\d+$/, async (route) => {
@@ -96,7 +96,7 @@ test("versions it could be show their new prices as a range", async ({ signedIn 
 test("variants are added, changed and removed in the model's dialog", async ({
   signedIn,
 }) => {
-  await openPage(signedIn, "Armory");
+  await openArmoryModels(signedIn);
   await signedIn.getByRole("button", { name: "Add model" }).click();
   const name = `Variant Test ${Date.now()}`;
   let dialog = signedIn.getByRole("dialog");

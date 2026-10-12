@@ -65,8 +65,24 @@ def _compile(spellings: list[str]) -> re.Pattern[str]:
     alternatives = sorted((s.strip() for s in spellings if s.strip()), key=len, reverse=True)
     if not alternatives:
         return re.compile(r"(?!)")  # matches nothing
-    body = "|".join(r"\s+".join(re.escape(part) for part in text.split()) for text in alternatives)
+    body = "|".join(_spelled(text) for text in alternatives)
     return re.compile(rf"(?<!\w)(?:{body})(?!\w)", re.IGNORECASE)
+
+
+def _spelled(text: str) -> str:
+    """One spelling as a pattern, case-blind -- unless it is an abbreviation.
+
+    "US" written in capitals is the country; "us" is the pronoun, and every
+    description saying "ship it back to us" was filed under United States
+    until 2026-10-12 -- a Taurus PT111 and a Zastava M70A among them. So a
+    spelling with no lower-case letters and no more than four letters ("US",
+    "U.S.A.", "UK") must be matched in capitals, and everything else as before.
+    """
+    body = r"\s+".join(re.escape(part) for part in text.split())
+    letters = [c for c in text if c.isalpha()]
+    if letters and len(letters) <= 4 and text == text.upper():
+        return f"(?-i:{body})"
+    return body
 
 
 def _load() -> list[tuple[str, re.Pattern[str]]] | None:

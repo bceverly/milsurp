@@ -86,7 +86,6 @@ class TestWhatIsCarry:
             ("S&W Model 10 .38 Special 4 inch Police Trade In", "revolver", ".38 Special"),
             # Small, but not in a cartridge that was asked for.
             ("Makarov PM 9x18", "pistol", "9x18mm Makarov"),
-            ("Walther PPK/S .22 LR", "pistol", ".22 LR"),
             ("British Bulldog Revolver .442", "revolver", ".442 Webley"),
             # No cartridge at all.
             ("Colt 1860 Army Percussion", "percussion_revolver", ".44"),
@@ -199,3 +198,54 @@ class TestTheType:
         assert hotdeals.bucket_of(rows["traded_duty"]) == "police_surplus"
         assert hotdeals.bucket_of(rows["duty"]) == "pistol"
         assert hotdeals.BUCKET_LABELS["concealed_carry"] == "Concealed carry"
+
+
+class TestTenMillimeter:
+    """10mm Auto counts at any size, asked for on 2026-10-11: of 33 10mm
+    handguns for sale that day, the size rule had admitted none."""
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "USED Glock 20 Gen 4 10mm Semi Auto Pistol",
+            "COLT DELTA ELITE PRE OWNED (1139745)",
+            'Used SIG SAUER P320XTEN 10MM 5" MATTE E GTO392881',
+        ],
+    )
+    def test_a_full_size_ten_is_carry(self, title):
+        assert carried(title, caliber="10mm Auto")
+
+    @pytest.mark.parametrize(
+        "title",
+        ["Lefaucheux Pinfire", "LEFACHEUX PINFIRE REVOLVER", "Hi-Point 1095TS 10mm Carbine"],
+    )
+    def test_but_not_a_pinfire_or_a_carbine(self, title):
+        assert not carried(title, kind=None, caliber="10mm Auto")
+
+    def test_and_not_a_rifle(self):
+        assert not carried("Something 10mm", caliber="10mm Auto", is_pistol=False, is_rifle=True)
+
+
+class TestFiveSevenAndTwentyTwo:
+    """5.7x28mm at any size, like 10mm; .22 LR under the size rule. Both asked
+    for on 2026-10-11."""
+
+    def test_a_full_size_five_seven_is_carry(self):
+        assert carried("FN Five-seveN MK2 5.7x28mm Pistol", caliber="5.7x28mm")
+        assert carried("Ruger-57 Pistol", caliber="5.7x28mm")
+
+    def test_but_not_a_ps90(self):
+        assert not carried("FN PS90 5.7x28mm", kind=None, caliber="5.7x28mm")
+
+    def test_a_small_twenty_two_is_carry_and_a_target_pistol_is_not(self):
+        assert (
+            carried('Heritage Rough Rider .22 LR 3.75" Revolver', kind="revolver", caliber=".22 LR")
+            is False
+        )
+        assert carried(
+            'Smith & Wesson Model 317 Airweight .22 LR 1 7/8"', kind="revolver", caliber=".22 LR"
+        )
+        # A pocket .22 is what was asked for: the .22 PPK/S and the Bobcat.
+        assert carried("Walther PPK/S .22 LR", caliber=".22 LR")
+        assert carried("Beretta 21A Bobcat .22 LR", caliber=".22 LR", model="Beretta 21A Bobcat")
+        assert not carried('Browning Buck Mark Target 22 LR 5.5"', caliber=".22 LR")

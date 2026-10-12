@@ -4,7 +4,14 @@ Asked for on 2026-10-08: a Concealed carry category for compact and
 subcompact pistols in 9mm, 10mm, .40 S&W, .45 ACP, .380 ACP, .32 ACP and .25 ACP
 (the last two added the same day), and the small
 revolvers people carry -- .32 H&R Magnum, .327 Federal, .38 Special, .357
-Magnum. It is one of the browse page's Types and one of the hot-deals tabs,
+Magnum. **10mm Auto counts whatever the gun's size** (asked for on
+2026-10-11): it is carried as a defensive cartridge, in the woods as much as
+in town, in pistols that are nearly all full-size -- of 33 10mm handguns for
+sale that day, the size rule had admitted none. **5.7x28mm likewise**, asked
+for the same day ("let's be all modern"): the Five-seveN, the Ruger-57 and
+the PSA Rock are full-size guns too. **And .22 LR**, also the same day, but
+under the size rule like every other carry cartridge: a snub .22 revolver or
+a pocket .22 is carried, a Buck Mark target pistol is not. It is one of the browse page's Types and one of the hot-deals tabs,
 and it outranks Police surplus there: a traded-in Glock 19 is shopped for as a
 carry gun, so that is where it is found (see search.KINDS).
 
@@ -49,7 +56,8 @@ _CARRY_CALIBER = re.compile(
     r"|\.?38\s*(?:special|spl|spc)|\.?357\s*mag|\.?327|\.?32\s*h\s*&\s*r|\.?44\s*special"
     # The pocket-pistol cartridges, added 2026-10-08 at the owner's request.
     r"|\.?32\s*(?:acp|auto)|7\.65\s*(?:mm)?\s*(?:browning|br)\b|\.?25\s*(?:acp|auto)|6\.35\s*(?:mm)?"
-    r")",
+    # 5.7x28mm and .22 LR, added 2026-10-11.
+    r"|5\.7\s*x\s*28|\.?22\s*(?:lr|long\s*rifle)\b" r")",
     re.I,
 )
 
@@ -57,6 +65,16 @@ _CARRY_CALIBER = re.compile(
 #: by their first characters. "9mm Makarov" is the obvious one -- a Makarov is
 #: carried, but it was not asked for.
 _NOT_CARRY_CALIBER = re.compile(r"makarov|9\s*x\s*18|largo|steyr|nambu|\.357\s*sig", re.I)
+
+#: 10mm Auto and 5.7x28mm, which count at any size; and what is not such a
+#: handgun even so: a Lefaucheux pinfire (a different 10mm entirely), a
+#: carbine, an AR.
+_ANY_SIZE = re.compile(r"^\s*(?:10\s*mm(?:\s*auto)?|5\.7\s*x\s*28(?:\s*mm)?)\s*$", re.I)
+_NOT_A_HANDGUN = re.compile(
+    r"pin[\s-]*fire|lefaucheux|lefacheux|carbine|\bpcc\b|\bar[\s-]*10\b|\bbrace[d]?\b"
+    r"|\bp\s*s?\s*90\b",
+    re.I,
+)
 
 #: The finer kinds a carry gun can be. No percussion, no flintlock.
 CARRY_KINDS = frozenset({"pistol", "revolver"})
@@ -218,6 +236,8 @@ def is_concealed_carry(  # noqa: PLR0911 - one return per kind of evidence, stro
         return False
     if caliber and not is_carry_caliber(caliber):
         return False
+    if caliber and _ANY_SIZE.search(caliber):
+        return not _NOT_A_HANDGUN.search(title or "")
     text = " ".join(part for part in (title, model) if part)
     revolver = kind == "revolver" or bool(re.search(r"\brevolver\b", title or "", re.I))
 

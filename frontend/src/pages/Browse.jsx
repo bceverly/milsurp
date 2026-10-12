@@ -274,10 +274,22 @@ function Collapsible({ title, defaultOpen = false, children }) {
 //: is furniture. Above it, "Show all 40" is a wall of names.
 const FACET_SEARCH_FROM = 8;
 
-function FacetGroup({ title, options, selected, onToggle }) {
+/** The parameter that removes a facet's values rather than choosing them:
+ *  `not_caliber` is everything but the calibers ticked. See EXCLUDABLE in
+ *  app/services/search.py. */
+const removing = (param) => `not_${param}`;
+
+function FacetGroup({ title, options, selected, removed = [], onToggle, onModeChange }) {
   const [expanded, setExpanded] = useState(false);
   const [needle, setNeedle] = useState("");
+  // Removing is the facet's mode while anything is removed, and can be
+  // switched on before anything is ticked -- which is how it starts.
+  const [removeMode, setRemoveMode] = useState(removed.length > 0);
+  useEffect(() => {
+    if (removed.length > 0) setRemoveMode(true);
+  }, [removed.length]);
   if (!options?.length) return null;
+  const ticked = removeMode ? removed : selected;
 
   // Filtering happens here rather than on the server: the facet list is
   // already in hand, and a round trip per keystroke to narrow a list of forty
@@ -297,12 +309,33 @@ function FacetGroup({ title, options, selected, onToggle }) {
   const searchable = options.length >= FACET_SEARCH_FROM;
 
   return (
-    <details className="facet" open={selected.length > 0}>
+    <details
+      className={`facet${removeMode ? " facet--removing" : ""}`}
+      open={selected.length > 0 || removed.length > 0}
+    >
       <summary className="facet__summary">
         {title}
-        {selected.length > 0 && <span className="facet__count">{selected.length}</span>}
+        {ticked.length > 0 && (
+          <span className={`facet__count${removeMode ? " facet__count--removing" : ""}`}>
+            {removeMode ? `−${ticked.length}` : ticked.length}
+          </span>
+        )}
       </summary>
       <div className="facet__options">
+        {/* Everything BUT what is ticked, asked for on 2026-10-11 to take a
+            pile of one cheap gun off the page. Switching moves whatever is
+            ticked across, so a choice becomes a removal and back. */}
+        <label className="facet__remove">
+          <input
+            type="checkbox"
+            checked={removeMode}
+            onChange={(event) => {
+              setRemoveMode(event.target.checked);
+              onModeChange(event.target.checked);
+            }}
+          />
+          <span className="facet__option-label">Remove from Filter</span>
+        </label>
         {searchable && (
           <input
             type="search"
@@ -327,8 +360,9 @@ function FacetGroup({ title, options, selected, onToggle }) {
             <label className="facet__option">
               <input
                 type="checkbox"
-                checked={selected.includes(option.value)}
-                onChange={() => onToggle(option.value)}
+                className={removeMode ? "facet__check--remove" : undefined}
+                checked={ticked.includes(option.value)}
+                onChange={() => onToggle(option.value, removeMode)}
               />
               <span className="facet__option-label" title={option.label || option.value}>
                 {option.label || option.value}
@@ -564,6 +598,8 @@ export default function Browse() {
     for (const { param } of FACETS) {
       const values = params.getAll(param);
       if (values.length) built[param] = values;
+      const removed = params.getAll(removing(param));
+      if (removed.length) built[removing(param)] = removed;
     }
     return built;
   }, [params, page, sort, availability, kind, priceState, perPage, minPrice, maxPrice]);
@@ -644,6 +680,16 @@ export default function Browse() {
           key: `${param}:${value}`,
           label: `${title}: ${match?.label || value}`,
           clear: () => toggleMulti(param, value),
+        });
+      }
+      // A removal reads as one, in red: "Not model: Rough Rider".
+      for (const value of params.getAll(removing(param))) {
+        const match = data?.facets?.[facet]?.find((o) => o.value === value);
+        chips.push({
+          key: `not_${param}:${value}`,
+          label: `Not ${title.toLowerCase()}: ${match?.label || value}`,
+          removal: true,
+          clear: () => toggleMulti(removing(param), value),
         });
       }
     }
@@ -826,7 +872,10 @@ export default function Browse() {
       {activeChips.length > 0 && (
         <div className="active-filters">
           {activeChips.map((chip) => (
-            <span className="active-filters__chip" key={chip.key}>
+            <span
+              className={`active-filters__chip${chip.removal ? " active-filters__chip--removal" : ""}`}
+              key={chip.key}
+            >
               {chip.label}
               <button onClick={chip.clear} aria-label={`Remove ${chip.label}`}>
                 <X size={13} />
@@ -930,7 +979,20 @@ export default function Browse() {
               title={title}
               options={data?.facets?.[facet]}
               selected={params.getAll(param)}
-              onToggle={(value) => toggleMulti(param, value)}
+              removed={params.getAll(removing(param))}
+              onToggle={(value, remove) =>
+                toggleMulti(remove ? removing(param) : param, value)
+              }
+              onModeChange={(remove) =>
+                update((next) => {
+                  const [from, to] = remove
+                    ? [param, removing(param)]
+                    : [removing(param), param];
+                  const moving = next.getAll(from);
+                  next.delete(from);
+                  moving.forEach((value) => next.append(to, value));
+                })
+              }
             />
           ))}
         </aside>

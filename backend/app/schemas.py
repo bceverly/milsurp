@@ -2291,7 +2291,7 @@ class AmmunitionOut(UTCModel):
     bullet_weights: list[BulletWeightOut] = Field(default_factory=list)
     #: Dollars per round: the average of each weight's cheapest box.
     factory_cpr: float | None = None
-    #: "ammoseek" or "milsurp-munitions".
+    #: "ammo-com" or "milsurp-munitions".
     factory_source: str | None = None
     factory_url: str | None = None
     factory_checked_at: datetime | None = None
@@ -2312,7 +2312,11 @@ class AmmoSettingsOut(UTCModel):
     #: The frequencies offered, days to label: daily, weekly, every 2 weeks.
     choices: dict[int, str] = Field(default_factory=dict)
     requested_at: datetime | None = None
+    #: "wikipedia,reloading,prices", or some of them.
+    requested_parts: str | None = None
     last_run_at: datetime | None = None
+    last_parts: str | None = None
+    last_full_at: datetime | None = None
     last_status: str | None = None
     last_error: str | None = None
     last_summary: str | None = None
@@ -2321,3 +2325,9 @@ class AmmoSettingsOut(UTCModel):
 
 class AmmoSettingsUpdate(BaseModel):
     refresh_days: int
+
+
+class AmmoRefreshIn(BaseModel):
+    """Which parts of the caliber data to refresh; none named is all of them."""
+
+    parts: list[str] = Field(default_factory=list, max_length=3)

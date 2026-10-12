@@ -2,7 +2,7 @@
  * What the two armory spec files share: loading the shipped rows, and waiting
  * for the right table to be the one on screen.
  */
-import { expect } from "./fixtures.js";
+import { expect, openPage } from "./fixtures.js";
 
 /**
  * Load the shipped armory, through the API, and show the page it produces.
@@ -113,4 +113,19 @@ export async function allRowNames(page) {
     );
   }
   return names.map((name) => name.trim());
+}
+
+/**
+ * Open the armory on its Models tab.
+ *
+ * Manufacturers became the default tab on 2026-10-12; the specs written
+ * about models start where they always did, by asking for it.
+ */
+export async function openArmoryModels(page) {
+  await openPage(page, "Armory");
+  await page.getByRole("tab", { name: "Models" }).click();
+  await expect(page.getByRole("tab", { name: "Models" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
 }

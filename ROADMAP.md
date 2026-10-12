@@ -4913,6 +4913,9 @@ have no such field at all.
 
 ### Ammunition: what it costs to shoot it — **Shipped** 2026-10-11 (all five slices)
 
+*AmmoSeek, the source described here, was replaced by Ammo.com and Graf & Sons
+on 2026-10-12; see "AmmoSeek blocked the scanner, and is replaced" below.*
+
 **What shipped**: migration 0067 (`calibers` gains the article, the diameter,
 factory and projectile costs with their sources and dates, Lee dies and
 AmmoSeek's query; `caliber_bullet_weights`, one caliber to many weights;
@@ -4920,7 +4923,7 @@ AmmoSeek's query; `caliber_bullet_weights`, one caliber to many weights;
 the Wikipedia suggestions (`services/wikipedia.py`, a cartridge category
 required, "7.62×54mmR" naming "7.62x54R"), the **Ammunition information**
 panel on every caliber row of the Armory and beside a listing's caliber, a
-**Caliber data** panel on the Settings page for administrators, and `cli.py
+**Caliber data** panel on the Armory's Calibers tab for administrators, and `cli.py
 armory ammunition [--articles-only]`. Recorded pages in
 `backend/tests/fixtures/ammo/`. As built, against what is planned below:
 
@@ -4938,6 +4941,13 @@ armory ammunition [--articles-only]`. Recorded pages in
 * The Wikipedia facts are read hourly for any caliber linked or edited since
   they were last read, and proposals for calibers without an article are
   made at each full refresh.
+* **On a worker of its own** (fixed 2026-10-11, after the first install):
+  the refresh and the new-gun prices first ran on the photo worker, which has
+  one thread, and production's first caliber refresh -- an hour of requests
+  five seconds apart -- held 1,551 photos in the queue behind it. They now
+  share a single "reference" worker of their own. The Caliber data panel moved
+  the same day from the foot of the Email digest page, where it was not
+  found, to the Armory's Calibers tab.
 
 Asked for on 2026-10-11: "understanding what it costs to shoot a gun is
 probably more important to the economics than the purchase price in most
@@ -5016,7 +5026,7 @@ Armory and on every listing's page.
 * Stored on the caliber with its source, link and date, only for calibers with
   a listing for sale.
 * **Refreshed automatically, on a schedule an administrator sets** (asked for
-  2026-10-11): a "Caliber data" section on the Settings page with a refresh
+  2026-10-11): a "Caliber data" section with a refresh
   frequency of **daily, weekly or every 2 weeks, weekly by default** -- ammunition
   prices do not move fast -- and a **Refresh now** button that starts a full
   refresh of every caliber at once. The schedule covers AmmoSeek, Milsurp
@@ -5090,6 +5100,169 @@ older than Chrome 150 -- and that the sample and the default agree, since the
 installer copies the sample. Checked from the production VM: Checkpoint
 Charlie's catalog and Store API both 200 with it. The Old Steel override in
 production now names the same string and is redundant; it is harmless to keep.
+
+### Modern guns that matched no model: the audit of 2026-10-12 — **Done**
+
+Asked for after a run of examples -- a P320 the armory "knew nothing" about, an
+S&W M&P 9mm with no "What the armory knows", an "S & W M1917". Measured in
+production: of 1,016 concealed-carry and police-surplus listings for sale, 123
+matched no model; afterwards, 32, nearly all trainers, parts and one-offs.
+Done in production that day and exported back here as the shipped armory, so
+this file is production's.
+
+* **Calibers on the models that had none.** 38 modern-production models --
+  the P320, P226, P229, 92FS, SP101, Shield, Bodyguard, XDs, Kahrs, SCCYs,
+  Shadow Systems -- carried no caliber, so a title that did not state one got
+  nothing from the model and the panel said "Unknown". Each now has its own:
+  one where the model is made in one, every one where it is made in several.
+  Thirty also had no country, filled from the maker's.
+* **About 140 models added** -- Ruger's Blackhawks, Vaqueros, LCP family,
+  Security-9, SR1911 and American; S&W's numbered revolvers (60, 586, 640,
+  69, 625 ...), SW1911, Governor, M&P M2.0, Shield EZ; Springfield's Prodigy,
+  Hellcat, Echelon, Emissary; H&K's USP, VP9, P30, 45 and Mark 23; Taurus'
+  Tracker, G2C, G3, Raging Hunter; Beretta's 84, 92X and Model 70; Colt's
+  Commander, Defender, Mustang and Cobra; the FN Reflex, P365XL, Bersa
+  Thunder, Kel-Tec P-3AT -- and the Kimber and Walther models from slice 3.
+  Each was checked against every active listing first: one that would *move*
+  a listing off its model was read, and the four kinds that were wrong were
+  fixed before anything was written (a family-wide "Springfield Armory XD"
+  taking the XD-45s, a bare "Kriegsmodell", and two-digit S&W numbers -- "40
+  S&W 14 rd" is not a Model 14 -- now spelled only "Model 14").
+* **Spellings dealers use.** "S & W" and "M & P" with spaces now match a
+  spelling written "S&W" (`manufacturers.pattern_for`, for every spelling);
+  "GLOCK 34MOS", "SIG SAUER 320", "P320XTEN", "SHIELD 9", "BODYGUARD380",
+  "M&P9C" and the like were added where a model already existed.
+* **The pending queue, decided.** 42 rows scans had proposed -- real guns
+  (H&K CC9, Taurus TX9, Panzer Arms' shotguns) approved with their facts,
+  magazine and brace names and serial numbers switched off.
+
+### The Armory opens on Manufacturers — **Changed** 2026-10-12
+
+Asked for. The default tab was Models; `#model` still links straight there.
+
+### Shotguns in the ammunition facts — **Shipped** 2026-10-12
+
+A gauge's diameter is its bore, what a slug is sized to (12 ga .729", 20 ga
+.615", .410 .410"), from a table rather than an article: Wikipedia's gauge
+pages are about gauges in general. Lee's reloading answer for a gauge is its
+Load-All II shotshell reloader, read from the gauges that page offers (12, 16,
+20, 28, .410).
+
+### Site settings, and the caliber data a part at a time — **Shipped** 2026-10-12
+
+Asked for: "different buttons (including a 'do all' button) for 1) updating
+wikipedia calibers; 2) updating reloading bullets; 3) updating ammo prices and
+put them on a new settings page not on the armory page. i'd like to keep that
+clean." Then: "see if there is anything that isn't email related that could be
+moved to the settings page as well."
+
+* **Site settings** (`/site-settings`, last under Administration) gathers what
+  the site does on its own schedule. Two sections: **Caliber data**, which
+  left the Armory's Calibers tab, and **Hot deals** -- "How deals are found",
+  its schedule, thresholds and "Look again now", which left the foot of the
+  Hot deals page; that page now says where they went. Nothing else qualified:
+  the Email digest page is all email now (its time zone is only the times
+  printed in the mail), Backups is a page of its own with its snapshot list,
+  and everything else on the reader's pages is the reader's own choice.
+* **Three parts, each its own button, and "Update all"**: the calibers'
+  Wikipedia facts (every article read again; new and edited ones are still
+  read hourly), reloading -- Graf & Sons' bullets and Lee's dies -- and ammo
+  prices from Ammo.com and Milsurp Munitions. A part reads only the sites it
+  needs. Migration 0070 adds `ammo_settings.requested_parts`, `last_parts`
+  and `last_full_at`; **the schedule counts from the last full update**, so
+  updating one part by hand does not put the others off for another week.
+  `POST /api/ammunition/refresh` takes `{"parts": [...]}`, none meaning all.
+
+### AmmoSeek blocked the scanner, and is replaced — **Changed** 2026-10-12
+
+About an hour into the first refresh in production, every AmmoSeek request was
+redirected to `/blocked/` with a 418: their bot control saying no, so it was
+not worked around. The refresh was stopped by hand. The same run found three
+bugs, fixed: infobox units (".22 LR 0.0088 in", a 2,315 gr .303 bullet),
+shop pages matched loosely (9mm Luger to "9mm Browning Long"), and a
+manufacture year read out of a serial number or a price ("$1750").
+
+Asked for the same day: "let's take ammoseek out of things and instead look at
+ammo.com for ammo and grafs.com for reloading bullets." Measured first:
+
+* **Ammo.com** (factory ammunition). Its terms of use say nothing about
+  reading the site; its robots.txt closes the cart, account, search and AJAX
+  paths, none of them read here. Category pages (`/rifle`, `/handgun`,
+  `/rimfire`, `/shotgun`) link a page per caliber (`/rifle/7.62x54r-ammo`),
+  which lists the in-stock boxes 40 to a page, cheapest per round first, with
+  the weight in the title, the rounds beside it and a sale price where there
+  is one. A refresh reads the four category pages, then each caliber's pages
+  until every weight has a price or three pages are done. A gauge's boxes
+  name no grain weight ("1 oz", "00 Buck"), so its cheapest round of any load
+  stands in.
+* **Graf & Sons** (projectiles). A Shopify store; its terms of service say
+  nothing about reading the site either, and its robots.txt closes sorting,
+  search and checkout, not `/collections/bullets/products.json`, which holds
+  the whole bullet catalog -- about 2,900 products, 12 requests of 250. Each
+  title states diameter, weight and count, written a dozen ways (".311
+  Diameter Bullets 174 grain ... Bag of 50", "6.5(.264) 153g ... 500/bx",
+  "105gTCFP ... 500b"); 6 of the 2,860 were not read, all capsules and
+  training rounds. **A title's count under ten is a case of boxes** --
+  Winchester's .308 147 gr "Box of 4" at $165.99 is four boxes of 500 -- so
+  the product handle's count (`...-500bx-4cs`) is taken there. The bullets
+  within .0015" of the caliber's diameter are priced as the factory figure
+  is, and linked to the cheapest of them.
+
+Milsurp Munitions stays the fallback for factory ammunition, and a caliber
+page Ammo.com fails to serve keeps the figure it gave before. Migration 0069
+clears what AmmoSeek gave, drops `calibers.ammoseek_query`, and asks for a
+refresh where one has run before, so production fills in from the new
+sources on the scheduler's first pass after the upgrade.
+
+### Remove from Filter: everything but what is ticked — **Shipped** 2026-10-11
+
+Asked for to take "the pile of $75 Rough Riders" off a page. Every facet in
+the rail has a "Remove from Filter" switch at its top: on, its checkboxes turn
+red and the ticked values are removed from the results instead of chosen;
+switching it off turns them back into choices. The pill reads "Not model:
+Rough Rider" in red. On the server it is a `not_<facet>` parameter for each
+of site, category, caliber, country, manufacturer, model, form, C&R, collector
+details and condition (`search.EXCLUDABLE`), taken by the list, the export and
+saved searches alike. A listing with no value for the facet is kept -- removing
+.22 LR does not also remove every listing whose caliber nobody could read --
+unless "Unknown" is itself removed. A removed value stays in its facet's list,
+counted, so it can be put back.
+
+### Carry cartridges: 10mm, 5.7x28mm and .22 LR — **Changed** 2026-10-11
+
+10mm Auto and 5.7x28mm count as concealed carry at any size: of 33 10mm
+handguns for sale that day the size rule had admitted none, and the Five-seveN
+and Ruger-57 are full-size too. Pinfires, carbines, PS90s and AR-style
+"pistols" are still out. .22 LR joined the carry cartridges under the size
+rule like the rest: a snub .22 revolver, a Bobcat or a .22 PPK/S counts, a
+Buck Mark target pistol does not.
+
+### Listings with no caliber, read through — **Done** 2026-10-11
+
+777 rifles and handguns for sale had no caliber. Many are antiques, parts and
+accessories with none to find; the rest were two kinds of miss, both fixed in
+production that day and carried here for the next release:
+
+* **Spellings no rule knew.** The built-in table was written for dotted
+  spellings, so "22LR", "38SPL", "22 S, L, & LR", "308 Win", "6.5 Creedmor",
+  "45/70", "7,65mm" and "45ACP" went unread. 23 rules in
+  `caliber_designations` (migration 0068, positions 600 on, after every rule
+  already there), and 8 calibers the armory lacked: .460 and .500 S&W Magnum,
+  .338 Winchester Magnum, .220 Swift, .458 SOCOM, .375 H&H Magnum, .327
+  Federal Magnum and .44 Special.
+* **Common guns with no model.** 38 models added to the shipped armory --
+  the Buck Mark, the Ruger Mark series and 22/45, LCR, Single-Six, Wrangler,
+  the S&W J-frames (642, 442, 637, 37, 49), 22A, Models 460 and 500, the
+  Diamondback and King Cobra, Charter Arms' Bulldog and Undercover, the
+  Beretta Bobcat and Tomcat, Taurus 85 and Judge -- each with its caliber, so
+  "RUGER MK III PRE OWNED" is a .22 LR. The Ballester-Molina and the Enfield
+  No. 2 learned the spellings dealers use; the C96, Mini-14 and SW22 were
+  given the caliber nearly all of them are.
+
+Reclassified in production afterwards: 182 of the 777 gained a caliber (333
+listings changed across the catalog, sold ones included). A model that covers
+two cartridges -- the S&W .32 and .38 Single Action share one -- is given both
+rather than a guess.
 
 ### Cheapest first, everywhere — **Shipped** 2026-10-09
 

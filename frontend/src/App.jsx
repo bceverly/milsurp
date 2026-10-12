@@ -20,6 +20,7 @@ const SiteDetail = lazy(() => import("./pages/SiteDetail.jsx"));
 const ScanDetail = lazy(() => import("./pages/ScanDetail.jsx"));
 const UsersPage = lazy(() => import("./pages/Users.jsx"));
 const ArmoryPage = lazy(() => import("./pages/Armory.jsx"));
+const SiteSettingsPage = lazy(() => import("./pages/SiteSettings.jsx"));
 const ClassificationPage = lazy(() => import("./pages/Classification.jsx"));
 const ChangesPage = lazy(() => import("./pages/Changes.jsx"));
 const HotDealsPage = lazy(() => import("./pages/HotDeals.jsx"));
@@ -132,6 +133,14 @@ export default function App() {
           element={
             <AdminOnly>
               <ArmoryPage />
+            </AdminOnly>
+          }
+        />
+        <Route
+          path="site-settings"
+          element={
+            <AdminOnly>
+              <SiteSettingsPage />
             </AdminOnly>
           }
         />

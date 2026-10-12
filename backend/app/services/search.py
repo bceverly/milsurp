@@ -19,7 +19,7 @@ from datetime import timedelta
 from typing import Any
 from urllib.parse import parse_qsl, urlencode
 
-from sqlalchemy import Select, any_, column, func, or_, select, table, true
+from sqlalchemy import Select, and_, any_, column, false, func, not_, or_, select, table, true
 from sqlalchemy.orm import Session
 
 from ..models import FirearmModel, Item, utcnow
@@ -275,7 +275,7 @@ def _kind_clause(kind: str) -> Any:
     return KINDS[kind]
 
 
-def apply_filters[S: Select](  # noqa: PLR0912 - one branch per filter; splitting it
+def apply_filters[S: Select](  # noqa: PLR0912, PLR0915 - one branch per filter; splitting it
     #                                      would only scatter the same logic
     stmt: S,
     *,
@@ -297,6 +297,7 @@ def apply_filters[S: Select](  # noqa: PLR0912 - one branch per filter; splittin
     trait_values: list[str] | None = None,
     grades: list[str] | None = None,
     guns_only: bool = False,
+    excluded: dict[str, list[str]] | None = None,
 ) -> S:
     if site_ids:
         stmt = stmt.where(Item.site_id.in_(site_ids))
@@ -339,6 +340,10 @@ def apply_filters[S: Select](  # noqa: PLR0912 - one branch per filter; splittin
             stmt = stmt.where(traits.traits_clause(known))
     if grades:
         stmt = stmt.where(_matching(Item.condition_grade, grades))
+
+    for name, unwanted in (excluded or {}).items():
+        if unwanted:
+            stmt = stmt.where(_excluding(name, unwanted))
 
     if guns_only:
         # Priced guns, not parts kits: the listings a price comparison is
@@ -408,6 +413,65 @@ def _matching(column, wanted: list[str]):
     return or_(*clauses) if clauses else true()
 
 
+#: The facets a filter can *remove* as well as choose: ``?not_caliber=.22 LR``
+#: is everything but .22 LR. Asked for on 2026-10-11, to take "the pile of $75
+#: Rough Riders" off a page without listing everything else that is wanted.
+EXCLUDABLE = (
+    "site_id",
+    "category",
+    "caliber",
+    "country",
+    "manufacturer",
+    "model",
+    "form",
+    "curio",
+    "trait",
+    "grade",
+)
+
+
+def _without(column, unwanted: list[Any], *, text: bool = True):
+    """None of these values -- and a listing with no value at all is kept,
+    unless "Unknown" is one of them: removing .22 LR must not also remove
+    every listing whose caliber nobody could read."""
+    chosen = [value for value in unwanted if value != UNKNOWN]
+    empty = or_(column.is_(None), column == "") if text else column.is_(None)
+    clauses = []
+    if chosen:
+        clauses.append(or_(empty, column.not_in(chosen)))
+    if UNKNOWN in unwanted:
+        clauses.append(not_(empty))
+    return and_(*clauses) if clauses else true()
+
+
+def _excluding(name: str, unwanted: list[str]):
+    """The clause that removes one facet's values from the results."""
+    columns = {
+        "category": Item.category,
+        "caliber": Item.caliber,
+        "country": Item.country,
+        "manufacturer": Item.manufacturer,
+        "grade": Item.condition_grade,
+    }
+    if name in columns:
+        return _without(columns[name], unwanted)
+    if name == "site_id":
+        return Item.site_id.not_in([int(value) for value in unwanted])
+    if name == "model":
+        return _without(Item.firearm_model_id, [int(value) for value in unwanted], text=False)
+    if name == "form":
+        return _without(Item.kind, unwanted, text=False)
+    if name == "curio":
+        clauses = [curio.clause(state) for state in unwanted if state in curio.STATES]
+    elif name == "trait":
+        known = [value for value in unwanted if value in traits.TRAITS]
+        clauses = [traits.traits_clause([value]) for value in known]
+    else:
+        return true()
+    # Not "any of these", with an unknown answer counted as no.
+    return not_(func.coalesce(or_(*clauses), false())) if clauses else true()
+
+
 #: Every filter the browse page can set, and how a saved query names it.
 #:
 #: ``True`` means the parameter repeats -- ``?caliber=8mm&caliber=7.62x54R`` --
@@ -442,6 +506,8 @@ QUERY_PARAMS: dict[str, bool] = {
     "price_drops_only": False,
     "guns_only": False,
     "sort": False,
+    # Each removable facet's "everything but": not_caliber, not_model ...
+    **{f"not_{name}": True for name in EXCLUDABLE},
 }
 
 #: Parameters a saved search stores but which say nothing about *which*
@@ -482,6 +548,8 @@ class SearchQuery:
         pairs: list[tuple[str, str]] = []
         for name in sorted(QUERY_PARAMS):
             value = self.filters.get(_FILTER_NAMES.get(name, name))
+            if name.startswith("not_"):
+                value = (self.filters.get("excluded") or {}).get(name.removeprefix("not_"))
             if name == "sort":
                 value = self.sort
             if value in (None, "", [], False):
@@ -551,9 +619,13 @@ def parse_query(query_string: str) -> SearchQuery:  # noqa: PLR0912 - one branch
         "new_since_hours": None,
         "price_drops_only": False,
         "guns_only": False,
+        "excluded": {},
     }
 
     for name, values in raw.items():
+        if name.startswith("not_"):
+            filters["excluded"][name.removeprefix("not_")] = values
+            continue
         target = _FILTER_NAMES.get(name, name)
         if QUERY_PARAMS[name]:
             filters[target] = values
@@ -562,6 +634,9 @@ def parse_query(query_string: str) -> SearchQuery:  # noqa: PLR0912 - one branch
 
     if filters["site_ids"]:
         filters["site_ids"] = [_int(name="site_id", value=v) for v in filters["site_ids"]]
+    for name in ("site_id", "model"):
+        for value in filters["excluded"].get(name, []):
+            _int(name=f"not_{name}", value=value)
     if filters["models"]:
         # Kept as strings: apply_filters casts them, and it is the one place
         # that knows they are armory ids rather than names.

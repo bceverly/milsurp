@@ -905,6 +905,10 @@ def cmd_reclassify(  # noqa: PLR0912, PLR0915 - one pass over every derived fiel
                     setattr(item, name, value)
                 for name, value in filled.items():
                     setattr(item, name, value)
+            # A modern gun's country is its model's, not the shop's terms --
+            # the same call a scan makes. See scan_service.modern_country.
+            if scan_service.modern_country(session, item):
+                moved = True
             # Last, from the fields just settled -- the same call a scan makes,
             # so the two paths cannot disagree. See app/services/carry.py.
             is_carry = carry.decide(session, item)

@@ -534,7 +534,6 @@ class TestTheExporterCarriesEveryColumn:
         "projectile_cost",
         "projectile_url",
         "projectile_checked_at",
-        "ammoseek_query",
     }
 
     #: What the file calls a column, where the two differ.

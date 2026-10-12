@@ -65,13 +65,18 @@ class Scheduler:
         self._photo_pool: ThreadPoolExecutor | None = None
         self._photo_future: Future | None = None
         self._seconds_since_photo_check = 0.0
-        #: New-gun prices from gun.deals: asked on the photo worker, at most
+        #: And one more, for the slow reference work: new-gun prices and the
+        #: caliber data. Kept off the photo worker since 2026-10-11, when the
+        #: first caliber refresh -- an hour of polite requests -- was found
+        #: holding 1,551 photos in the queue behind it.
+        self._background_pool: ThreadPoolExecutor | None = None
+        #: New-gun prices from gun.deals: asked on the reference worker, at most
         #: hourly, and only for variants a day stale. See services/newprices.
         self._newprice_future: Future | None = None
         #: An hour after start, not at it: a restart is not a reason to ask.
         self._last_new_prices: float = time.monotonic()
         #: Caliber data (services/ammunition): looked at once a minute, so
-        #: "Refresh now" starts within one; run on the photo worker.
+        #: "Refresh now" starts within one; run on the reference worker.
         self._ammo_future: Future | None = None
         self._last_ammo_look: float = 0.0
         self._last_ammo_articles: float = 0.0
@@ -96,6 +101,9 @@ class Scheduler:
             thread_name_prefix="milsurp-scan",
         )
         self._photo_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="milsurp-photos")
+        self._background_pool = ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="milsurp-reference"
+        )
         self._thread = threading.Thread(target=self._loop, name="milsurp-scheduler", daemon=True)
         self._thread.start()
         log.info(
@@ -120,6 +128,11 @@ class Scheduler:
             self._photo_pool.shutdown(wait=False, cancel_futures=True)
             self._photo_pool = None
             self._photo_future = None
+        if self._background_pool is not None:
+            # A refresh interrupted here is asked again: what it finished is
+            # saved, and the next start finds it due.
+            self._background_pool.shutdown(wait=False, cancel_futures=True)
+            self._background_pool = None
         log.info("Scheduler stopped.")
 
     # -- the loop -----------------------------------------------------------
@@ -198,8 +211,9 @@ class Scheduler:
     def _dispatch_new_prices(self) -> None:
         """Ask gun.deals what the due variants cost new. See services/newprices.
 
-        On the photo worker, which is single and low priority, so it can never
-        hold a slot a scan needs; and never a second run while one is going.
+        On the reference worker, which is single and low priority, so it can
+        never hold a slot a scan needs or a photo's turn; and never a second
+        run while one is going.
         """
         now = time.monotonic()
         if now - self._last_new_prices < self.NEW_PRICE_EVERY:
@@ -207,10 +221,10 @@ class Scheduler:
         with self._lock:
             if self._newprice_future is not None and not self._newprice_future.done():
                 return
-            if self._photo_pool is None:
+            if self._background_pool is None:
                 return
             self._last_new_prices = now
-            self._newprice_future = self._photo_pool.submit(self._ask_new_prices)
+            self._newprice_future = self._background_pool.submit(self._ask_new_prices)
 
     def _ask_new_prices(self) -> None:
         from .scrapers.base import ScrapeContext
@@ -240,7 +254,8 @@ class Scheduler:
         Due is measured from the settings row's ``last_run_at`` and its
         frequency (daily, weekly or every 2 weeks), for the reason hot deals
         are: a timer would reset on every restart. Never a second run while
-        one is going, and on the photo worker so it cannot hold a scan's slot.
+        one is going, and on the reference worker so it holds neither a scan's
+        slot nor a photo's turn.
         """
         now = time.monotonic()
         if now - self._last_ammo_look < self.AMMO_LOOK_EVERY:
@@ -249,38 +264,46 @@ class Scheduler:
         with self._lock:
             if self._ammo_future is not None and not self._ammo_future.done():
                 return
-            if self._photo_pool is None:
+            if self._background_pool is None:
                 return
         from .services import ammunition
 
         try:
             with session_scope() as session:
-                due = ammunition.is_due(session)
+                parts = ammunition.due_parts(session)
+                asked = ammunition.settings(session).requested_at is not None
         except Exception:
             log.exception("Caliber data: could not read the settings")
             return
         articles = now - self._last_ammo_articles >= self.AMMO_ARTICLES_EVERY
-        if not due and not articles:
+        if not parts and not articles:
             return
         self._last_ammo_articles = now
         with self._lock:
-            self._ammo_future = self._photo_pool.submit(self._refresh_ammunition, due)
+            if self._background_pool is None:
+                return
+            self._ammo_future = self._background_pool.submit(self._refresh_ammunition, parts, asked)
 
-    def _refresh_ammunition(self, full: bool) -> None:
+    def _refresh_ammunition(self, parts: tuple[str, ...], asked: bool = False) -> None:
+        """Refresh *parts* of the caliber data, or with none, read the
+        Wikipedia facts of new and edited calibers. A refresh someone *asked*
+        for reads every article again rather than only the unread ones."""
         from .scrapers.base import ScrapeContext
         from .services import ammunition, wikipedia
 
         fetch = wikipedia.http_fetch()
         quiet = lambda _message: None  # noqa: E731
         try:
-            if not full:
+            if not parts:
                 with session_scope() as session:
                     ammunition.refresh_articles(session, fetch, limit=60, log=quiet)
                 return
             ctx = ScrapeContext(self.config)
             try:
                 with session_scope() as session:
-                    summary = ammunition.refresh(session, ctx, fetch=fetch, log=quiet)
+                    summary = ammunition.refresh(
+                        session, ctx, fetch=fetch, log=quiet, parts=parts, reread=asked
+                    )
                 log.info("Caliber data: %s", summary)
             finally:
                 ctx.close()

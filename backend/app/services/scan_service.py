@@ -615,6 +615,49 @@ def _upsert_item(
     return item, created, price_dropped
 
 
+def modern_country(session: Session, item: Item) -> bool:
+    """The armory's country over one the rules read that is the shop talking.
+
+    For a surplus rifle the listing's own word on where *this* gun is from
+    rightly outranks the pattern's (see :func:`_apply_catalog`). Two cases
+    where the word read is not about the gun at all, found 2026-10-12:
+
+    * **A gun still being made.** Its listing's country is nearly always the
+      shop's terms -- a Taurus PT111 was "United States" from "must ship to a
+      licensed dealer". For a modern-production model the model's country wins.
+    * **"United States" read only from the description**, of a gun whose model
+      or maker is from somewhere else: "links to US Govt. Sites", "has
+      recently arrived to the US". A shop in the United States mentions the
+      United States; that says where the shop is. The title is where a vendor
+      says where a gun is from, and a title saying so still wins.
+
+    Never over a country the vendor stated or a person set. Returns whether it
+    changed anything.
+    """
+    from ..models import FirearmModel
+
+    if (
+        item.country
+        and provenance.source_of(item, "country") not in provenance.RECOMPUTABLE_SOURCES
+    ):
+        return False
+    model = session.get(FirearmModel, item.firearm_model_id) if item.firearm_model_id else None
+    better = None
+    if model is not None and model.modern_production and model.country:
+        better = model.country
+    elif (
+        item.country == "United States" and classify.extract_country(item.title) != "United States"
+    ):
+        better = (model.country if model is not None else None) or manufacturers.country_for(
+            session, item.manufacturer
+        )
+    if not better or item.country == better:
+        return False
+    item.country = better
+    setattr(item, provenance.SOURCE_COLUMNS["country"], provenance.CATALOG)
+    return True
+
+
 def _settle_last(session: Session, item: Item) -> None:
     """The two steps that must come after everything else, in this order.
 
@@ -626,6 +669,7 @@ def _settle_last(session: Session, item: Item) -> None:
     including a corrected caliber -- by the same call ``reclassify`` makes. See
     app/services/carry.py.
     """
+    modern_country(session, item)
     overrides.apply_to(session, item)
     item.is_concealed_carry = carry.decide(session, item)
     item.is_black_powder = blackpowder.decide(session, item)

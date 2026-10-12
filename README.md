@@ -137,7 +137,15 @@ changed — filtered to the sites you care about and capped so it stays readable
   engines (`pg_trgm` on PostgreSQL, FTS5's trigram tokenizer on SQLite), which
   makes it 4.5-6x faster overall without moving a single answer.
 - Faceted filters: site, category, caliber, country, manufacturer, type,
-  availability, "reduced only".
+  availability, "reduced only". Each facet can also **remove** what is ticked
+  instead of choosing it: "Remove from Filter" at the top of the facet turns
+  its checkboxes red, the results become everything *but* those values, and
+  the pill above the results reads "Not model: Rough Rider" in red. A listing
+  with no value for that facet is kept unless "Unknown" is among the removed.
+- **Concealed carry**: compact and subcompact handguns in 9mm, .40 S&W,
+  .45 ACP, .380 ACP, .32 ACP, .25 ACP and .22 LR, and the small revolvers;
+  **10mm Auto and 5.7x28mm count at any size**, since nearly every gun in
+  either is full-size.
 - **Collector details: import marks, matching numbers, the finish, and the
   stated condition.** For surplus these set the price more than the model does,
   and the vendors say which is which in prose. Each is read out of the
@@ -254,10 +262,13 @@ changed — filtered to the sites you care about and capped so it stays readable
   the Armory and beside a listing's caliber: the bullet's diameter and
   weights (from the cartridge's Wikipedia article), what a round of factory
   ammunition costs — the cheapest box at each weight, box price over rounds,
-  from AmmoSeek or, for the cartridges nobody else loads, Milsurp Munitions —
+  from Ammo.com or, for the cartridges nobody else loads, Milsurp Munitions —
   whether Lee Precision makes dies for it, and what a projectile costs to
-  reload with. Refreshed daily, weekly or every two weeks (an administrator's
-  choice on the Settings page, weekly by default, with a "Refresh now").
+  reload with (Graf & Sons' bullets at the caliber's diameter). Refreshed
+  daily, weekly or every two weeks (an administrator's choice on Site
+  settings, weekly by default), where there is also a button for each part —
+  the Wikipedia facts, the reloading bullets and the ammo prices — and one to
+  update all of them.
 - **FFL dealers.** The dealers who will receive a gun for you, at `/dealers`:
   name, address, website and transfer fee, each entered by hand. Every
   delivered price — on a listing and on the wishlist — uses the lowest fee on
@@ -283,8 +294,8 @@ changed — filtered to the sites you care about and capped so it stays readable
 - **Hot deals.** The Market's answer applied to the shelves, at `/hot-deals`:
   the listings priced well below what the same gun usually sells for, split
   into Rifles, Handguns and Police surplus. A pass over the whole catalog runs
-  every 8 hours (an administrator sets the cadence and the thresholds) and
-  every row carries its own evidence — what the gun usually costs, how many are
+  every 8 hours (an administrator sets the cadence and the thresholds on Site
+  settings) and every row carries its own evidence — what the gun usually costs, how many are
   listed, across how many shops — because a discount with nothing behind it is
   a marketing claim. The rule has a **ceiling** on the discount as well as a
   floor, and that is the part that matters: past about two thirds below the

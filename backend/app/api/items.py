@@ -67,6 +67,7 @@ from ..services import (
 from ..services.image_store import ImageStore, ImageStoreError
 from ..services.search import (
     DEFAULT_SORT,
+    EXCLUDABLE,
     KINDS,
     SORTS,
     UNKNOWN,
@@ -540,6 +541,26 @@ def _site_counts(session: DbSession, base: Select) -> list[FacetValue]:
     return [FacetValue(value=str(sid), label=name, count=int(count)) for sid, name, count in rows]
 
 
+def _excluded(request: Request) -> dict[str, list[str]]:
+    """The facets a request removes rather than chooses: ``?not_caliber=``.
+
+    Read off the query string rather than declared one by one, because there
+    is one for every removable facet and both the list and the export take
+    them. See search.EXCLUDABLE.
+    """
+    found: dict[str, list[str]] = {}
+    for name in EXCLUDABLE:
+        values = [v for v in request.query_params.getlist(f"not_{name}") if v]
+        if not values:
+            continue
+        if name in ("site_id", "model") and not all(v.isdigit() for v in values):
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT, f"not_{name} takes whole numbers."
+            )
+        found[name] = values
+    return found
+
+
 def _all_facets(
     session: DbSession,
     base: Select,
@@ -555,30 +576,48 @@ def _all_facets(
     already ticked stay in the list beside the ones that could be.
     """
     facets = ItemFacets(
-        sites=_site_counts(session, filtered(site_ids=None)),
-        models=_model_counts(session, filtered(models=None), chosen.get("models")),
+        sites=_site_counts(session, filtered(site_ids=None, drop="site_id")),
+        models=_model_counts(session, filtered(models=None, drop="model"), chosen.get("models")),
         categories=_tally(
-            session, filtered(categories=None), Item.category, keep=chosen.get("categories")
+            session,
+            filtered(categories=None, drop="category"),
+            Item.category,
+            keep=chosen.get("categories"),
         ),
         calibers=_tally(
-            session, filtered(calibers=None), Item.caliber, keep=chosen.get("calibers")
+            session,
+            filtered(calibers=None, drop="caliber"),
+            Item.caliber,
+            keep=chosen.get("calibers"),
         ),
         countries=_tally(
-            session, filtered(countries=None), Item.country, keep=chosen.get("countries")
+            session,
+            filtered(countries=None, drop="country"),
+            Item.country,
+            keep=chosen.get("countries"),
         ),
         manufacturers=_tally(
             session,
-            filtered(manufacturers=None),
+            filtered(manufacturers=None, drop="manufacturer"),
             Item.manufacturer,
             keep=chosen.get("manufacturers"),
         ),
-        forms=_labelled(_tally(session, filtered(forms=None), Item.kind, keep=chosen.get("forms"))),
+        forms=_labelled(
+            _tally(
+                session,
+                filtered(forms=None, drop="form"),
+                Item.kind,
+                keep=chosen.get("forms"),
+            )
+        ),
         total=int(session.execute(base.with_only_columns(func.count(Item.id))).scalar_one()),
     )
     facets.kinds = _kind_counts(session, filtered(kinds=None))
-    facets.curio = _curio_counts(session, filtered(curio_states=None))
-    facets.traits = _trait_counts(session, filtered(trait_values=None), chosen.get("traits"))
-    facets.grades = _grade_counts(session, filtered(grades=None))
+    facets.curio = _curio_counts(session, filtered(curio_states=None, drop="curio"))
+    facets.traits = _trait_counts(
+        session, filtered(trait_values=None, drop="trait"), chosen.get("traits")
+    )
+    facets.grades = _grade_counts(session, filtered(grades=None, drop="grade"))
     # The price histogram too, and more sharply, because the price control is
     # a *slider*: shaped by its own setting, narrowing to $500-$1,000 would
     # redraw the histogram as only that slice, with nothing on screen to widen
@@ -591,6 +630,7 @@ def _all_facets(
 def list_items(
     _user: CurrentUser,
     session: DbSession,
+    request: Request,
     site_id: list[int] | None = Query(default=None),
     category: list[str] | None = Query(default=None),
     caliber: list[str] | None = Query(default=None),
@@ -638,6 +678,7 @@ def list_items(
     curio_states = _checked_curio(curio)
     trait_values = _checked_traits(trait)
     grades = _checked_grades(grade)
+    excluded = _excluded(request)
 
     # Every filter, less whichever one a facet is about. A function with typed
     # keywords rather than a shared dict: mypy cannot check a heterogeneous
@@ -658,7 +699,11 @@ def list_items(
         grades: list[str] | None = grades,
         min_price: float | None = min_price,
         max_price: float | None = max_price,
+        drop: str | None = None,
     ) -> Select:
+        """``drop`` is the facet being counted, whose removals go with its
+        choices: a value taken out of the results stays in its own list, so
+        it can be put back."""
         return apply_filters(
             select(Item),
             kinds=kinds,
@@ -679,6 +724,7 @@ def list_items(
             new_since_hours=new_since_hours,
             price_drops_only=price_drops_only,
             guns_only=guns_only,
+            excluded={name: v for name, v in excluded.items() if name != drop},
         )
 
     base = filtered()
@@ -714,14 +760,15 @@ def list_items(
                 session,
                 base,
                 filtered,
+                # A removed value is kept in its list as a chosen one is.
                 {
-                    "models": model,
-                    "categories": category,
-                    "calibers": caliber,
-                    "countries": country,
-                    "manufacturers": manufacturer,
-                    "forms": form,
-                    "traits": trait_values,
+                    "models": [*(model or []), *excluded.get("model", [])],
+                    "categories": [*(category or []), *excluded.get("category", [])],
+                    "calibers": [*(caliber or []), *excluded.get("caliber", [])],
+                    "countries": [*(country or []), *excluded.get("country", [])],
+                    "manufacturers": [*(manufacturer or []), *excluded.get("manufacturer", [])],
+                    "forms": [*(form or []), *excluded.get("form", [])],
+                    "traits": [*(trait_values or []), *excluded.get("trait", [])],
                 },
             )
             if include_facets
@@ -794,6 +841,7 @@ def _export_row(item: Item, site_names: dict[int, str]) -> dict[str, object]:
 def export_items(
     _user: CurrentUser,
     session: DbSession,
+    request: Request,
     fmt: str = Query(default="csv", pattern="^(csv|json)$", alias="format"),
     site_id: list[int] | None = Query(default=None),
     category: list[str] | None = Query(default=None),
@@ -847,6 +895,7 @@ def export_items(
         new_since_hours=new_since_hours,
         price_drops_only=price_drops_only,
         guns_only=guns_only,
+        excluded=_excluded(request),
     )
 
     total = session.execute(select(func.count()).select_from(query.subquery())).scalar_one()

@@ -93,6 +93,7 @@ const PAGES = [
   ["/sites", "Sites", "sites"],
   ["/armory", "Armory", "armory"],
   ["/settings", "Email digest", "email-digest"],
+  ["/site-settings", "Site settings", "site-settings"],
   ["/saved-searches", "Saved searches", "saved-searches"],
   ["/watchlist", "Watchlist", "watchlist"],
 ];

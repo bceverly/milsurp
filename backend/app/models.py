@@ -561,7 +561,7 @@ class Caliber(Base, TimestampMixin):
     #: caliber's bullet weights, of each weight's cheapest in-stock box divided
     #: by the rounds in it. No shipping, hazmat or tax.
     factory_cpr: Mapped[float | None] = mapped_column(Float)
-    #: "ammoseek" or "milsurp-munitions", and the page the price came from.
+    #: "ammo-com" or "milsurp-munitions", and the page the price came from.
     factory_source: Mapped[str | None] = mapped_column(String(32))
     factory_url: Mapped[str | None] = mapped_column(String(500))
     factory_checked_at: Mapped[datetime | None] = mapped_column(DateTime)
@@ -570,13 +570,11 @@ class Caliber(Base, TimestampMixin):
     lee_url: Mapped[str | None] = mapped_column(String(500))
     lee_checked_at: Mapped[datetime | None] = mapped_column(DateTime)
     #: What a reloader pays per projectile, averaged across the weights as
-    #: factory_cpr is, from AmmoSeek's reloading bullets by diameter.
+    #: factory_cpr is, from Graf & Sons' bullets by diameter; the link is to
+    #: the cheapest of them.
     projectile_cost: Mapped[float | None] = mapped_column(Float)
     projectile_url: Mapped[str | None] = mapped_column(String(500))
     projectile_checked_at: Mapped[datetime | None] = mapped_column(DateTime)
-    #: AmmoSeek's own query for this caliber ("gun=rifle&cal=277&seo_name=..."),
-    #: found once from its caliber page and kept.
-    ammoseek_query: Mapped[str | None] = mapped_column(String(300))
 
     bullet_weights: Mapped[list["CaliberBulletWeight"]] = relationship(
         back_populates="caliber",
@@ -620,8 +618,8 @@ class AmmoSetting(Base):
 
     One row, like the hot-deal and backup settings. Ammunition prices move
     slowly, so the choice is daily, weekly (the default) or every two weeks;
-    "Refresh now" sets ``requested_at`` and the scheduler starts a full
-    refresh on its next tick.
+    "Refresh now" sets ``requested_at`` (and ``requested_parts``, for one part of
+    it) and the scheduler starts the refresh on its next tick.
     """
 
     __tablename__ = "ammo_settings"
@@ -629,7 +627,14 @@ class AmmoSetting(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     refresh_days: Mapped[int] = mapped_column(Integer, default=7, nullable=False)
     requested_at: Mapped[datetime | None] = mapped_column(DateTime)
+    #: Which parts were asked for ("wikipedia,reloading,prices"; migration
+    #: 0070); None or empty with ``requested_at`` set is all of them.
+    requested_parts: Mapped[str | None] = mapped_column(String(64))
     last_run_at: Mapped[datetime | None] = mapped_column(DateTime)
+    #: The parts the last refresh covered, and when the last one covering all
+    #: of them ran -- which is what the schedule counts from.
+    last_parts: Mapped[str | None] = mapped_column(String(64))
+    last_full_at: Mapped[datetime | None] = mapped_column(DateTime)
     last_status: Mapped[str | None] = mapped_column(String(16))
     last_error: Mapped[str | None] = mapped_column(String(500))
     #: What the last refresh did, in a sentence.

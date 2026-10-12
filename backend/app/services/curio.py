@@ -75,7 +75,10 @@ BY_VENDOR = "vendor"
 BY_DATE = "dated"
 BY_YEAR = "year"
 
-_YEAR = r"(1[7-9]\d{2}|20[0-2]\d)"
+#: Four digits standing alone, and not a price: not the "1869" inside "Serial
+#: Number 118692", which dated a 1917 revolver 1869, nor the "$1750" a pre-64
+#: Model 70 was dated by (both 2026-10-12).
+_YEAR = r"(?<![\d$])(1[7-9]\d{2}|20[0-2]\d)(?!\d)"
 
 #: The vendor saying it outright. "C&R", "C & R", "curio".
 _SAYS = re.compile(r"\bC\s*&\s*R\b|\bcurio\b", re.IGNORECASE)

@@ -23,7 +23,7 @@ test.describe("hot deals", () => {
   test("lists what is cheap for what it is", async ({ signedIn }) => {
     const rows = signedIn.locator(".deal");
     await expect(rows.first()).toBeVisible();
-    // The saving first and in colour: nobody opens this page to browse.
+    // The saving first and in color: nobody opens this page to browse.
     await expect(rows.first().locator(".deal__headline")).toContainText(
       /% below the usual price/,
     );
@@ -139,34 +139,39 @@ test.describe("hot deals", () => {
   }) => {
     // Every write answers with the whole page, so the page it answers with has
     // to be the one on screen — otherwise pressing anything at all silently
-    // put the list back in the default order. Driven from the administrator's
-    // "Look again now" rather than from a subscription checkbox: this suite
-    // shares one database and runs in order, so a test that leaves a
-    // preference switched off is a test that breaks the next one.
+    // put the list back in the default order. Driven from a category switch,
+    // which is put back afterwards: this suite shares one database and runs
+    // in order, so a test that leaves a preference switched off is a test
+    // that breaks the next one. (It was driven from the administrator's "Look
+    // again now" until that moved to Site settings on 2026-10-12.)
     //
     // **Asserted on the request, not on the rows.** The first version waited
     // for the list to visibly re-order, which needs the seeded catalog to hold
     // two deals that rank differently by discount and by price — and the specs
     // that run before this one edit models and calibers, which is what a
     // deal's peer group is built from. So it passed alone and failed in a full
-    // run, which is a test reporting on its neighbours rather than on the
+    // run, which is a test reporting on its neighbors rather than on the
     // feature. What the feature promises is that the write carries the view,
     // and that is a fact about one request.
     const box = signedIn.getByLabel("Sort by");
     await box.selectOption("price_desc");
     await expect(box).toHaveValue("price_desc");
 
-    const refresh = signedIn.waitForRequest(
+    const police = signedIn.locator("label.switch").filter({ hasText: "Police surplus" });
+    const written = signedIn.waitForRequest(
       (request) =>
-        request.url().includes("/api/hot-deals/refresh") && request.method() === "POST",
+        request.url().includes("/api/hot-deals/preference") &&
+        request.method() === "PATCH",
     );
-    await signedIn.getByRole("button", { name: /Look again now/ }).click();
-    expect((await refresh).url()).toContain("sort=price_desc");
+    await police.click();
+    expect((await written).url()).toContain("sort=price_desc");
+    await expect(police.getByRole("checkbox")).not.toBeChecked();
 
     // ...and the box still says so once the answer lands, so the list and the
     // control above it cannot end up describing different things.
     await expect(box).toHaveValue("price_desc");
-    await expect(signedIn.getByText(/comparable listings/)).toBeVisible();
+    await police.click();
+    await expect(police.getByRole("checkbox")).toBeChecked();
   });
 
   // The checkbox inside a `.switch` is visually hidden so the track can be
@@ -234,6 +239,26 @@ test.describe("hot deals", () => {
     await expect(rifles).toBeEnabled();
   });
 
+  test("an administrator is pointed to where deals are tuned", async ({ signedIn }) => {
+    await expect(
+      signedIn.getByRole("link", { name: "Site settings" }).last(),
+    ).toHaveAttribute("href", "/site-settings");
+    await expect(
+      signedIn.getByRole("heading", { name: "How deals are found" }),
+    ).toHaveCount(0);
+  });
+});
+
+// How deals are found is the administrator's, on Site settings since
+// 2026-10-12; it sat at the foot of the Hot deals page before.
+test.describe("how deals are found", () => {
+  test.beforeEach(async ({ signedIn }) => {
+    await openPage(signedIn, "Site settings");
+  });
+
+  const switchFor = (page, name) =>
+    page.locator("label.switch").filter({ hasText: name });
+
   test("the scheduled look can be switched off without losing its settings", async ({
     signedIn,
   }) => {
@@ -285,14 +310,7 @@ test.describe("hot deals", () => {
     // The panel reports what the pass did, so a run that found nothing is
     // distinguishable from a button that did nothing.
     await expect(signedIn.getByText(/comparable listings/)).toBeVisible();
-    // Not a fixed number. A pass re-reads the whole catalog, and this suite
-    // shares one database with specs that edit models and calibers -- which
-    // is what a deal's peer group is built from, so a pass run after them
-    // legitimately finds a different set than the seed did. Pinning the
-    // seeded count only held while nothing had re-run a pass, and it broke
-    // the moment anything did. What the button has to do is come back with
-    // deals rather than an empty list.
-    await expect(signedIn.locator(".deal").first()).toBeVisible();
+    await expect(signedIn.getByText("Last looked")).toBeVisible();
   });
 
   test("a threshold the server refuses is put back rather than left on screen", async ({

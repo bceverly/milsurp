@@ -7,7 +7,7 @@
  * themselves -- makers, sorting, search, editing -- are in armory-tables.spec.js;
  * the two were one file of 45 tests and seven minutes until 2026-10-07.
  */
-import { test, expect, openPage } from "./fixtures.js";
+import { test, expect } from "./fixtures.js";
 import {
   caliberRowIsShowing,
   clearSearch,
@@ -15,12 +15,13 @@ import {
   makersAreShowing,
   pressLoadShipped,
   searchFor,
+  openArmoryModels,
 } from "./armory-helpers.js";
 
 test.describe("armory", () => {
   test.beforeEach(async ({ signedIn }) => {
     // See openPage: its exact heading, and the click retried until it lands.
-    await openPage(signedIn, "Armory");
+    await openArmoryModels(signedIn);
   });
 
   test("loads the shipped armory, all of it awaiting approval", async ({ signedIn }) => {
@@ -296,9 +297,10 @@ test.describe("armory", () => {
       "aria-selected",
       "true",
     );
-    // And anything else falls back rather than showing an empty page.
+    // And anything else falls back rather than showing an empty page: to
+    // Manufacturers, the default since 2026-10-12.
     await signedIn.goto("/armory#nonsense");
-    await expect(signedIn.getByRole("tab", { name: "Models" })).toHaveAttribute(
+    await expect(signedIn.getByRole("tab", { name: "Manufacturers" })).toHaveAttribute(
       "aria-selected",
       "true",
     );
@@ -320,7 +322,7 @@ test.describe("armory", () => {
       await signedIn.goto(`/armory${hash}`);
       // Falls back exactly like "#nonsense" above rather than rendering an
       // object as the tab.
-      await expect(signedIn.getByRole("tab", { name: "Models" })).toHaveAttribute(
+      await expect(signedIn.getByRole("tab", { name: "Manufacturers" })).toHaveAttribute(
         "aria-selected",
         "true",
       );

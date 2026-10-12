@@ -8,7 +8,7 @@
  * it is sent, and that the armory edits the fields it is decided from.
  */
 import { test, expect, openPage } from "./fixtures.js";
-import { searchFor } from "./armory-helpers.js";
+import { searchFor, openArmoryModels } from "./armory-helpers.js";
 
 async function openListingWith(page, makerLink) {
   await page.route(/\/api\/items\/\d+$/, async (route) => {
@@ -62,7 +62,7 @@ test.describe("the maker's page on a listing", () => {
 test("the armory flags a model as still made and records its page", async ({
   signedIn,
 }) => {
-  await openPage(signedIn, "Armory");
+  await openArmoryModels(signedIn);
   await signedIn.getByRole("button", { name: "Add model" }).click();
   const name = `Modern Test ${Date.now()}`;
   let dialog = signedIn.getByRole("dialog");

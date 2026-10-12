@@ -16,14 +16,15 @@ const FACTS = {
     { grains: 174, source: "wikipedia", factory_cpr: null, projectile_cost: 0.2732 },
   ],
   factory_cpr: 0.6715,
-  factory_source: "ammoseek",
-  factory_url: "https://ammoseek.com/ammo/7.62x54r",
+  factory_source: "ammo-com",
+  factory_url: "https://ammo.com/rifle/7.62x54r-ammo",
   factory_checked_at: new Date().toISOString(),
   lee_dies: true,
   lee_url: "https://leeprecision.com/762x54r-dies",
   lee_checked_at: new Date().toISOString(),
   projectile_cost: 0.2466,
-  projectile_url: "https://ammoseek.com/",
+  projectile_url:
+    "https://grafs.com/products/speer-303-311-150gr-sp-bullet-spitzer-100bx",
   projectile_checked_at: new Date().toISOString(),
 };
 
@@ -43,13 +44,20 @@ test("a listing's caliber opens what it costs to shoot", async ({ signedIn }) =>
   await expect(panel).toContainText('.312" (7.92 mm)');
   await expect(panel.getByTestId("ammo-factory")).toContainText("67¢ a round");
   await expect(panel.getByTestId("ammo-factory").getByRole("link")).toHaveText(
-    "AmmoSeek",
+    "Ammo.com",
+  );
+  await expect(panel.getByTestId("ammo-projectiles").getByRole("link")).toHaveText(
+    "Graf & Sons",
   );
   await expect(panel.getByTestId("ammo-dies")).toContainText("Lee Precision makes them");
   await expect(panel.getByTestId("ammo-projectiles")).toContainText("25¢ each");
   // Per weight; a weight nobody offers says so rather than showing zero.
   await expect(panel.locator("tbody tr")).toHaveCount(2);
   await expect(panel.locator("tbody tr").nth(1)).toContainText("—");
+  // Sized to its content, and never a sideways scrollbar (asked 2026-10-12).
+  const body = signedIn.locator(".modal--fit .modal__body");
+  expect(await body.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  expect(await body.evaluate((el) => el.clientWidth)).toBeGreaterThan(440);
 });
 
 test("an unknown figure says so rather than leaving a blank", async ({ signedIn }) => {
@@ -97,26 +105,42 @@ test("each caliber in the Armory has the same button", async ({ signedIn }) => {
   );
 });
 
-test("an administrator sets how often the caliber data refreshes", async ({
+test("an administrator updates the caliber data a part at a time, or all of it", async ({
   signedIn,
 }) => {
-  await signedIn.goto("/settings");
-  const panel = signedIn.getByTestId("caliber-data");
-  const select = panel.getByLabel("Refresh");
-  await expect(select).toHaveValue("7");
-  await select.selectOption("14");
-  await expect(select).toHaveValue("14");
+  // On Site settings, not on the Armory, which was asked to stay clean
+  // (2026-10-12): a button for each part and one for all of them.
+  await openPage(signedIn, "Site settings");
+  const section = signedIn.getByTestId("caliber-data-section");
+  const often = section.getByLabel("How often");
+  await expect(often).toHaveValue("7");
+  await often.selectOption("14");
+  await expect(often).toHaveValue("14");
   await signedIn.reload();
-  await expect(signedIn.getByTestId("caliber-data").getByLabel("Refresh")).toHaveValue(
-    "14",
-  );
-  await signedIn.getByTestId("caliber-data").getByLabel("Refresh").selectOption("7");
+  await expect(section.getByLabel("How often")).toHaveValue("14");
+  await section.getByLabel("How often").selectOption("7");
+  await expect(section.getByLabel("How often")).toHaveValue("7");
 
-  await signedIn.getByRole("button", { name: "Refresh now" }).click();
+  const asked = signedIn.waitForRequest(
+    (request) =>
+      request.url().endsWith("/api/ammunition/refresh") && request.method() === "POST",
+  );
+  await section.getByRole("button", { name: "Update reloading bullets" }).click();
+  expect((await asked).postDataJSON()).toEqual({ parts: ["reloading"] });
   await expect(
-    signedIn.getByText("A full refresh starts within a minute."),
+    signedIn.getByText("An update of reloading bullets starts within a minute."),
   ).toBeVisible();
-  await expect(
-    signedIn.getByRole("button", { name: "Refresh asked for" }),
-  ).toBeDisabled();
+  // One at a time: everything waits until the scheduler has taken it.
+  for (const name of [
+    "Update all",
+    "Update Wikipedia facts",
+    "Update reloading bullets",
+    "Update ammo prices",
+  ]) {
+    await expect(section.getByRole("button", { name })).toBeDisabled();
+  }
+  // And none of it on the Armory any more.
+  await openPage(signedIn, "Armory");
+  await signedIn.getByRole("tab", { name: "Calibers" }).click();
+  await expect(signedIn.getByTestId("caliber-data-section")).toHaveCount(0);
 });

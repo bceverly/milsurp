@@ -32,6 +32,11 @@ let openDialogs = 0;
 let restoreOverflowTo = "";
 
 /**
+ * `fit` sizes the dialog to its content, up to the window's width, rather
+ * than a fixed width: the ammunition panel, whose facts and per-weight table
+ * read badly squeezed into 480px (asked for on 2026-10-12, "i hate horizontal
+ * scrollbars").
+ *
  * `wide` is for a dialog whose content is a table -- the collection's
  * comparables -- which the default form width would squeeze into scrolling.
  */
@@ -42,6 +47,7 @@ export default function Modal({
   footer,
   labelledBy,
   wide = false,
+  fit = false,
 }) {
   const panelRef = useRef(null);
 
@@ -81,7 +87,7 @@ export default function Modal({
       }}
     >
       <div
-        className={wide ? "modal modal--wide" : "modal"}
+        className={`modal${wide ? " modal--wide" : ""}${fit ? " modal--fit" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledBy || "modal-title"}

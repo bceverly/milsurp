@@ -325,6 +325,41 @@ test.describe("inventory", () => {
     ).toHaveCount(2);
   });
 
+  test("a facet can remove what is ticked instead of choosing it", async ({
+    signedIn,
+  }) => {
+    /**
+     * "Remove from Filter", asked for on 2026-10-11 to take a pile of one
+     * cheap gun off the page: everything BUT the ticked values, in red, and
+     * the pill says so.
+     */
+    await signedIn.goto("/");
+    const caliber = signedIn.locator(".facet", { hasText: "Caliber" });
+    await caliber.locator("summary").click();
+    const total = async () =>
+      Number(
+        (await signedIn.getByText(/listings? match/).innerText()).replace(/[^0-9]/g, ""),
+      );
+    const all = await total();
+
+    await caliber.getByLabel("Remove from Filter").check();
+    const first = caliber.locator(".facet__option").first();
+    const name = (await first.locator(".facet__option-label").innerText()).trim();
+    await first.locator("input[type=checkbox]").check();
+    await expect(signedIn).toHaveURL(/[?&]not_caliber=/);
+    await expect.poll(total).toBeLessThan(all);
+    const pill = signedIn.locator(".active-filters__chip--removal");
+    await expect(pill).toHaveText(`Not caliber: ${name}`);
+    // The removed value is still offered, ticked, so it can be put back.
+    await expect(first.locator("input")).toBeChecked();
+
+    // Switching the mode off makes the removal a choice.
+    await caliber.getByLabel("Remove from Filter").uncheck();
+    await expect(signedIn).toHaveURL(/[?&]caliber=/);
+    await expect(signedIn).not.toHaveURL(/not_caliber=/);
+    await expect(pill).toHaveCount(0);
+  });
+
   test("clear all removes every filter at once", async ({ signedIn }) => {
     await signedIn.goto("/?kind=rifle&search=mauser");
     await signedIn.getByRole("button", { name: "Clear all" }).click();

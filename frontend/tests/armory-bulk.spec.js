@@ -6,7 +6,8 @@
  * Each test adds rows of its own, named for the run, because the database is
  * shared with the other armory specs.
  */
-import { test, expect, openPage } from "./fixtures.js";
+import { test, expect } from "./fixtures.js";
+import { openArmoryModels } from "./armory-helpers.js";
 
 async function addModel(page, name) {
   await page.getByRole("button", { name: "Add model" }).click();
@@ -26,7 +27,7 @@ test.describe("armory bulk actions", () => {
   test("a selection can be switched off, and it leaves the queue", async ({
     signedIn,
   }) => {
-    await openPage(signedIn, "Armory");
+    await openArmoryModels(signedIn);
     const stem = `Bulk Off ${Date.now()}`;
     await addModel(signedIn, `${stem} A`);
     await addModel(signedIn, `${stem} B`);
@@ -45,7 +46,7 @@ test.describe("armory bulk actions", () => {
   });
 
   test("a delete asks first, and can be called off", async ({ signedIn }) => {
-    await openPage(signedIn, "Armory");
+    await openArmoryModels(signedIn);
     const stem = `Bulk Del ${Date.now()}`;
     await addModel(signedIn, `${stem} A`);
     await addModel(signedIn, `${stem} B`);

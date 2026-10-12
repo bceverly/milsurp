@@ -3027,8 +3027,9 @@ COUNTRY_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"\bRussian?\b|\bSoviet\b|\bUSSR\b|\bTula\b|\bIzhevsk\b", "Russia"),
     (r"\bSwedish\b|\bSweden\b", "Sweden"),
     (r"\bSwiss\b|\bSwitzerland\b", "Switzerland"),
-    (r"\bBritish\b|\bEnglish\b|\bBritain\b|\bU\.?K\.?\b", "United Kingdom"),
-    (r"\bAmerican\b|\bU\.?\s?S\.?\s?A?\.?\b|\bUnited States\b", "United States"),
+    (r"\bBritish\b|\bEnglish\b|\bBritain\b|(?-i:\bU\.?K\.?\b)", "United Kingdom"),
+    # The abbreviations in capitals only: "us" is a pronoun (2026-10-12).
+    (r"\bAmerican\b|(?-i:\bU\.?\s?S\.?\s?A?\.?\b)|\bUnited States\b", "United States"),
     (r"\bJapanese\b|\bJapan\b", "Japan"),
     (r"\bItalian\b|\bItaly\b", "Italy"),
     (r"\bFrench\b|\bFrance\b", "France"),

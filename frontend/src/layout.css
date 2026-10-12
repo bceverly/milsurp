@@ -1747,6 +1747,26 @@
   }
 }
 
+/* Site settings: one section per thing the site does on its own schedule. */
+.settings-section {
+  margin-bottom: 28px;
+}
+.settings-section__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.settings-section__head h2 {
+  font-size: 17px;
+}
+.settings-section__head p {
+  margin: 4px 0 0;
+  font-size: 13.5px;
+}
+
 .form-row {
   display: grid;
   gap: 14px;
@@ -1805,6 +1825,18 @@
 }
 .modal--wide {
   max-width: 860px;
+}
+/* As wide as its content needs, never wider than the window: see Modal's
+   `fit`. On a phone it is the full-width sheet like every other dialog. */
+@media (min-width: 620px) {
+  .modal--fit {
+    width: auto;
+    min-width: 420px;
+    max-width: min(760px, calc(100vw - 40px));
+  }
+}
+.modal--fit .modal__body {
+  overflow-x: hidden;
 }
 
 @media (min-width: 620px) {
@@ -3840,9 +3872,12 @@
 }
 .ammo__facts dd {
   margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .ammo__weights {
   font-size: 13.5px;
+  width: 100%;
 }
 @media (max-width: 600px) {
   .ammo__facts {
@@ -3857,4 +3892,43 @@
   display: block;
   margin-top: 2px;
   font-size: 12.5px;
+}
+
+/* Remove from Filter: a facet whose ticks take values away (2026-10-11).
+   Red where it acts, so a removal is never read as a choice. */
+.facet__remove {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 2px;
+  font-size: 13.5px;
+  cursor: pointer;
+  min-height: 34px;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed var(--navy-100);
+  font-weight: 600;
+}
+.facet--removing .facet__remove {
+  color: var(--red-600);
+}
+.facet__remove input,
+.facet__option input.facet__check--remove {
+  accent-color: var(--red-600);
+}
+.facet--removing .facet__option:has(.facet__check--remove:checked) .facet__option-label {
+  color: var(--red-600);
+  text-decoration: line-through;
+}
+.facet__count--removing {
+  color: var(--red-600);
+  font-weight: 700;
+}
+.active-filters__chip--removal {
+  background: var(--red-100);
+  color: var(--red-600);
+  border-color: var(--red-600);
+}
+.active-filters__chip--removal button:hover {
+  background: rgb(179 38 30 / 0.15);
 }

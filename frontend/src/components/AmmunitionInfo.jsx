@@ -13,7 +13,7 @@ import { api } from "../api.js";
 import { formatRelative } from "../format.js";
 import Modal from "./Modal.jsx";
 
-const SOURCES = { ammoseek: "AmmoSeek", "milsurp-munitions": "Milsurp Munitions" };
+const SOURCES = { "ammo-com": "Ammo.com", "milsurp-munitions": "Milsurp Munitions" };
 
 /** "67¢" under a dollar, "$2.99" over it: a round is priced in cents. */
 export function perRound(value) {
@@ -111,7 +111,7 @@ export function AmmunitionPanel({ caliber }) {
               {perRound(facts.projectile_cost)} each
               <span className="muted"> (reloading bullets at this diameter)</span>
               {" · "}
-              <Source url={facts.projectile_url}>AmmoSeek</Source>
+              <Source url={facts.projectile_url}>Graf &amp; Sons</Source>
             </>
           ) : (
             unknown
@@ -164,6 +164,7 @@ export default function AmmunitionButton({
         <Modal
           title={`Ammunition information: ${caliber}`}
           onClose={() => setOpen(false)}
+          fit
         >
           <AmmunitionPanel caliber={caliber} />
         </Modal>

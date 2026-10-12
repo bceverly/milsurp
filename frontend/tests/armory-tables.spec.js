@@ -3,12 +3,17 @@
  * search, adding and editing rows, and the links to the listings each row
  * accounts for. The approval queue is in armory.spec.js.
  */
-import { test, expect, openPage } from "./fixtures.js";
-import { allRowNames, loadShipped, searchFor } from "./armory-helpers.js";
+import { test, expect } from "./fixtures.js";
+import {
+  allRowNames,
+  loadShipped,
+  searchFor,
+  openArmoryModels,
+} from "./armory-helpers.js";
 
 test.describe("armory tables", () => {
   test.beforeEach(async ({ signedIn }) => {
-    await openPage(signedIn, "Armory");
+    await openArmoryModels(signedIn);
   });
 
   test("manufacturers are a tab here, not a page of their own", async ({ signedIn }) => {
@@ -318,10 +323,12 @@ test.describe("armory tables", () => {
     await expect(signedIn.getByRole("searchbox")).toHaveValue("mauser");
     await expect(signedIn).toHaveURL(/q=mauser/);
 
-    // Six keystrokes, zero history entries: one Back leaves the armory
-    // altogether rather than spelling "mause", "maus", "mau"...
+    // Six keystrokes, zero history entries: one Back takes the whole search
+    // away -- back to the armory as it was before -- rather than spelling
+    // "mause", "maus", "mau"...
     await signedIn.goBack();
-    await expect(signedIn.getByRole("heading", { name: "Inventory" })).toBeVisible();
+    await expect(signedIn).not.toHaveURL(/q=/);
+    await expect(signedIn).toHaveURL(/\/armory(#[a-z]+)?$/);
   });
 
   test("typing a search asks the server once, not once per letter", async ({

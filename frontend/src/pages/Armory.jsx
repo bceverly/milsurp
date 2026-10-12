@@ -53,7 +53,8 @@ const TABS = [
   { key: "calibers", label: "Calibers" },
 ];
 
-const DEFAULT_TAB = "models";
+// Manufacturers first: what the armory is browsed by (asked for on 2026-10-12).
+const DEFAULT_TAB = "manufacturers";
 
 /**
  * The tab lives in the URL fragment, and the fragment is the only copy of it.

@@ -1,8 +1,9 @@
 """What it costs to shoot a caliber, and how often that is refreshed.
 
 The Ammunition information panel reads ``GET /api/ammunition?caliber=``, for
-any signed-in reader; the refresh frequency and "Refresh now" are an
-administrator's, on the Settings page. See ``app.services.ammunition``.
+any signed-in reader; the refresh frequency and the refresh buttons -- one
+per part, and one for all three -- are an administrator's, on the Caliber
+data page. See ``app.services.ammunition``.
 """
 
 from __future__ import annotations
@@ -10,8 +11,13 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query, status
 
 from ..deps import AdminUser, CurrentUser, DbSession
-from ..models import utcnow
-from ..schemas import AmmoSettingsOut, AmmoSettingsUpdate, AmmunitionOut, BulletWeightOut
+from ..schemas import (
+    AmmoRefreshIn,
+    AmmoSettingsOut,
+    AmmoSettingsUpdate,
+    AmmunitionOut,
+    BulletWeightOut,
+)
 from ..services import ammunition
 
 router = APIRouter(prefix="/ammunition", tags=["ammunition"])
@@ -69,8 +75,17 @@ def update_settings(
 
 
 @router.post("/refresh", response_model=AmmoSettingsOut)
-def refresh_now(_admin: AdminUser, session: DbSession) -> AmmoSettingsOut:
-    """Ask for a full refresh; the scheduler starts it on its next tick."""
-    ammunition.settings(session).requested_at = utcnow()
-    session.commit()
+def refresh_now(
+    _admin: AdminUser, session: DbSession, payload: AmmoRefreshIn | None = None
+) -> AmmoSettingsOut:
+    """Ask for a refresh of some parts, or all of them with no body; the
+    scheduler starts it on its next tick."""
+    parts = payload.parts if payload and payload.parts else list(ammunition.PARTS)
+    unknown = sorted(set(parts) - set(ammunition.PARTS))
+    if unknown:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            f"No such part of the caliber data: {', '.join(unknown)}.",
+        )
+    ammunition.ask_for(session, parts)
     return _settings_out(session)

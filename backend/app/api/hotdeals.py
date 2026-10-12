@@ -6,8 +6,9 @@ had to make four requests to render once would spend most of its life in three
 different half-loaded states, and the parts are cheap: the deals are a read of
 a table a scheduled pass already computed.
 
-**Signed-in, not admin-only.** It is a reader's page. The settings panel inside
-it is the administrator's, and the response simply leaves ``settings`` null for
+**Signed-in, not admin-only.** It is a reader's page. The settings are the
+administrator's -- shown on the Site settings page since 2026-10-12, which reads
+them from here too -- and the response simply leaves ``settings`` null for
 everybody else rather than making the page work out the role for itself.
 """
 

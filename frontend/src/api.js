@@ -425,7 +425,9 @@ export const api = {
   ammoSettings: () => request("/api/ammunition/settings"),
   updateAmmoSettings: (payload) =>
     request("/api/ammunition/settings", { method: "PATCH", body: payload }),
-  refreshAmmo: () => request("/api/ammunition/refresh", { method: "POST" }),
+  // Some of "wikipedia", "reloading" and "prices"; all of them with none.
+  refreshAmmo: (parts) =>
+    request("/api/ammunition/refresh", { method: "POST", body: { parts: parts || [] } }),
 
   // --- Wikipedia articles proposed for armory rows, decided on the Armory page ---
   referenceProposals: () => request("/api/armory/references"),

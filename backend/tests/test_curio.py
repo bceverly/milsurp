@@ -413,3 +413,26 @@ class TestFilteringTheCatalog:
         labels = {row["value"]: row["label"] for row in body["facets"]["curio"]}
         assert labels[curio.NOT_ELIGIBLE] == "Not eligible by age"
         assert labels[curio.UNKNOWN] == "Not known"
+
+
+class TestAYearStandsAlone:
+    def test_not_four_digits_out_of_a_serial_number(self):
+        """A 1917 revolver was dated 1869 from "Serial Number 118692"
+        (2026-10-12)."""
+        reading = curio.read(
+            "703 - U.S WWI MODEL 1917 SMITH & WESSON REVOLVER - .45 ACP CALIBER.",
+            "Serial Number 118692, all matching.",
+            "Smith & Wesson Model 1917",
+        )
+        assert reading.year is None
+        assert curio.read("Colt revolver, serial 41869, shipped 1902").year == 1902
+
+    def test_not_a_price(self):
+        """A pre-64 Model 70 was dated 1750 from "$1750" (2026-10-12)."""
+        reading = curio.read(
+            "33026- 1949 PRE-64 WINCHESTER MODEL 70 CUSTOM HEAVY BARREL .308 WIN.",
+            "Has all the finish on stock looking little used. $1750.",
+            "Winchester Model 70",
+        )
+        assert reading.year == 1949
+        assert curio.read("Mauser, $1,850, made 1938").year == 1938

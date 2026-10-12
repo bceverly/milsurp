@@ -152,6 +152,11 @@ class TestTheModernRowsSayEnoughToBeWorthHaving:
         """The rule the whole armory runs on. A Glock's number encodes its
         cartridge, so those state one; an AR-15 is 5.56, .223 Wylde or .300
         Blackout depending on the upper, so it states none rather than picking.
+
+        A row with a choice may instead name every choice -- asked for on
+        2026-10-12, "shouldn't that show both or say multiple" -- because a
+        listing only takes a caliber from a row naming exactly one
+        (``FirearmModel.only_caliber``). What it may never do is name one.
         """
         by_name = {r["name"]: r for r in models}
         # A Glock's number encodes its cartridge, so the row states it.
@@ -159,8 +164,8 @@ class TestTheModernRowsSayEnoughToBeWorthHaving:
         assert by_name["Glock 21"]["calibers"] == [".45 ACP"]
         # A P229 was sold in 9mm, .40 S&W and .357 Sig, and the designation
         # does not say which this one is. Same for the M&P Shield.
-        assert not by_name["Sig Sauer P229"].get("calibers")
-        assert not by_name["Smith & Wesson M&P Shield"].get("calibers")
+        assert len(by_name["Sig Sauer P229"].get("calibers") or []) != 1
+        assert len(by_name["Smith & Wesson M&P Shield"].get("calibers") or []) != 1
         # And a Remington 700 is chambered in more cartridges than this
         # catalog has rows for.
         assert not by_name["Remington 700"].get("calibers")
