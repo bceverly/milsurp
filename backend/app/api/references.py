@@ -22,10 +22,18 @@ router = APIRouter(prefix="/armory/references", tags=["armory"])
 FIELD = Query(default=None, pattern="^(wikipedia|maker_page)$")
 
 
+#: Which decisions: those waiting (the default), or the ones made.
+STATUS = Query(default="pending", pattern="^(pending|rejected|accepted|all)$")
+
+
 @router.get("", response_model=list[ReferenceProposalOut])
 def list_proposals(
-    _admin: AdminUser, session: DbSession, field: str | None = FIELD
+    _admin: AdminUser,
+    session: DbSession,
+    field: str | None = FIELD,
+    status: str = STATUS,
 ) -> list[ReferenceProposalOut]:
+    statuses = ("pending", "rejected", "accepted") if status == "all" else (status,)
     return [
         ReferenceProposalOut(
             id=proposal.id,
@@ -37,8 +45,9 @@ def list_proposals(
             confident=proposal.confident,
             reason=proposal.reason,
             field=proposal.field,
+            status=proposal.status,
         )
-        for proposal, name in wikipedia.pending(session, field)
+        for proposal, name in wikipedia.pending(session, field, statuses)
     ]
 
 

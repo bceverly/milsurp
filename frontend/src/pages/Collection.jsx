@@ -441,7 +441,7 @@ function Editor({ row, onClose, onSaved }) {
         <div className="collection-form__row">
           <ArmoryInput
             id="collection-maker"
-            label="Maker"
+            label="Manufacturer"
             value={form.manufacturer}
             maxLength={128}
             lookup={api.collectionMakers}

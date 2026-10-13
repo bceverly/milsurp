@@ -65,7 +65,7 @@ function describe(query) {
   named("kind", "Type");
   named("caliber", "Caliber");
   named("country", "Country");
-  named("manufacturer", "Maker");
+  named("manufacturer", "Manufacturer");
   named("category", "Category");
   const labeled = (key, label, words) => {
     const values = params.getAll(key);

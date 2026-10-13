@@ -23,7 +23,7 @@ name and little else; a longer one ("glock-19-gen-5-mos-fs") is proposed but
 not confident.
 
 **Proposed, never written.** Each find is a ``ReferenceProposal`` with
-``field="maker_page"``, accepted or rejected on the Armory's Maker pages tab
+``field="maker_page"``, accepted or rejected on the Armory's Manufacturer pages tab
 the way a Wikipedia article is; accepting writes ``FirearmModel.maker_url``.
 A rejection is final for the model, as it is for an article.
 """
@@ -36,6 +36,7 @@ from dataclasses import dataclass
 from urllib.parse import urljoin, urlsplit
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..models import ArmoryStatus, FirearmModel, ReferenceProposal
@@ -267,7 +268,7 @@ def best_page(pages: Iterable[str], names: Iterable[str], makers: Iterable[str])
         if row[2] == agency and row[0] == extra and tuple(_slug(row[3])) != best
     }
     confident = extra <= 1 and small and not ties
-    reason = f"in the maker's sitemap: {urlsplit(url).path}"
+    reason = f"in the manufacturer's sitemap: {urlsplit(url).path}"
     if ties:
         reason += f" (and {len(ties)} more as close)"
     return Page(url=url, confident=confident, reason=reason)
@@ -376,11 +377,19 @@ def _from_reader(
     return Page(
         url=found[0],
         confident=len(found) == 1,
-        reason=f"the product line the maker's own navigation names{more}",
+        reason=f"the product line the manufacturer's own navigation names{more}",
     )
 
 
 # -- The pass ---------------------------------------------------------------
+def _title(url: str) -> str:
+    """What the review tab calls a page: its name, not "models.html"."""
+    parts = [p for p in urlsplit(url).path.split("/") if p]
+    while len(parts) > 1 and re.fullmatch(r"(?:models|index|overview)\.html?", parts[-1], re.I):
+        parts.pop()
+    return parts[-1] if parts else url
+
+
 def _decided(session: Session) -> set[int]:
     """Models with a maker-page proposal pending or ever rejected."""
     return set(
@@ -441,19 +450,28 @@ def run(
             if found is None:
                 counts["nothing"] += 1
                 continue
+            # Another run, or a person, may have decided this model since the
+            # list was drawn up: two runs at once, on 2026-10-13, had the
+            # second fail on the first one's rows and lose its whole batch.
+            if model.id in _decided(session):
+                continue
             session.add(
                 ReferenceProposal(
                     field=FIELD,
                     target_type="model",
                     target_id=model.id,
                     url=found.url,
-                    title=urlsplit(found.url).path.rstrip("/").rsplit("/", 1)[-1] or found.url,
+                    title=_title(found.url),
                     confident=found.confident,
                     reason=found.reason,
                 )
             )
+            try:
+                session.commit()
+            except IntegrityError:
+                session.rollback()
+                continue
             counts["proposed"] += 1
             counts["confident"] += int(found.confident)
             log(f"    {model.name}: {found.url}{' (confident)' if found.confident else ''}")
-        session.commit()
     return counts

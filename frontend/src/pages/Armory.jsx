@@ -56,7 +56,7 @@ const TABS = [
   { key: "wikipedia", label: "Wikipedia" },
   // Each modern model's own page on its maker's site, found in the maker's
   // sitemap (app/services/makerpages.py) and decided here (2026-10-12).
-  { key: "maker_pages", label: "Maker pages" },
+  { key: "maker_pages", label: "Manufacturer pages" },
 ];
 
 /** The two tabs of suggestions, and which kind each shows. */
@@ -82,7 +82,7 @@ const TAB_HASH = {
   models: "model",
   calibers: "caliber",
   wikipedia: "wikipedia",
-  maker_pages: "maker-pages",
+  maker_pages: "manufacturer-pages",
 };
 const TAB_FROM_HASH = {
   manufacturer: "manufacturers",
@@ -92,6 +92,7 @@ const TAB_FROM_HASH = {
   caliber: "calibers",
   calibers: "calibers",
   wikipedia: "wikipedia",
+  "manufacturer-pages": "maker_pages",
   "maker-pages": "maker_pages",
   maker_pages: "maker_pages",
 };
@@ -225,6 +226,17 @@ const STATUSES = [
   { value: "approved", label: "Production" },
   { value: "disabled", label: "Disabled" },
   { value: "merged", label: "Merged away" },
+  { value: "", label: "Everything" },
+];
+
+//: What Showing means on the Manufacturer pages and Wikipedia tabs
+//: (2026-10-13): the links waiting on a decision, the ones in the armory, and
+//: the ones turned down. "Disabled" stands for rejected, so the value carries
+//: over between tabs.
+const LINK_VIEWS = [
+  { value: "pending", label: "Awaiting approval" },
+  { value: "approved", label: "Production" },
+  { value: "disabled", label: "Rejected" },
   { value: "", label: "Everything" },
 ];
 
@@ -566,7 +578,7 @@ function ModelForm({
       <div className="form-row form-row--2">
         <Field
           label="Modern production"
-          hint="Still made, so a new one can be bought. A listing links to the maker's page for it."
+          hint="Still made, so a new one can be bought. A listing links to the manufacturer's page for it."
         >
           {(id, describedBy) => (
             <label className="checkbox">
@@ -582,8 +594,8 @@ function ModelForm({
           )}
         </Field>
         <Field
-          label="Maker's page"
-          hint="This model on its maker's site. Left blank, a listing searches the maker's site instead."
+          label="Manufacturer's page"
+          hint="This model on its manufacturer's site. Shown in What the armory knows on every listing of it."
         >
           {(id, describedBy) => (
             <input
@@ -1577,7 +1589,7 @@ function VariantsEditor({ model, calibers }) {
               />
             )}
           </Field>
-          <Field label="Maker's part number">
+          <Field label="Manufacturer's part number">
             {(id) => (
               <input
                 id={id}
@@ -1638,7 +1650,7 @@ function VariantsEditor({ model, calibers }) {
 }
 
 /** What a suggestion is for, as its row says it. */
-const TARGET_LABEL = { manufacturer: "Maker", model: "Model", caliber: "Caliber" };
+const TARGET_LABEL = { manufacturer: "Manufacturer", model: "Model", caliber: "Caliber" };
 
 /**
  * Wikipedia articles proposed for makers, models and calibers, waiting on a
@@ -1690,7 +1702,7 @@ function WikipediaSuggestions({ rows, failure, search, onDecided, field = "wikip
       data-testid={makers ? "maker-page-suggestions" : "wikipedia-suggestions"}
     >
       <div className="panel__head">
-        <h2>{makers ? "Maker page suggestions" : "Wikipedia suggestions"}</h2>
+        <h2>{makers ? "Manufacturer page suggestions" : "Wikipedia suggestions"}</h2>
         {confident.length > 0 && (
           <button
             type="button"
@@ -1714,7 +1726,7 @@ function WikipediaSuggestions({ rows, failure, search, onDecided, field = "wikip
           <p className="muted" style={{ margin: 0 }}>
             {rows.length === 0
               ? makers
-                ? "No suggestions waiting. New ones come from cli.py armory maker-pages, which reads the sitemaps of the makers of every model marked as still made."
+                ? "No suggestions waiting. New ones come from cli.py armory maker-pages, which reads the sitemaps of the manufacturers of every model marked as still made."
                 : "No suggestions waiting. New ones come from the Wikipedia part of the caliber data on Site settings, and from cli.py armory wikipedia."
               : "No suggestion matches the search."}
           </p>
@@ -1777,6 +1789,358 @@ function WikipediaSuggestions({ rows, failure, search, onDecided, field = "wikip
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * The Manufacturer pages and Wikipedia tabs: a link the armory keeps on its
+ * rows, suggested by a pass and decided here.
+ *
+ * Showing works on both (asked for on 2026-10-13, Wikipedia the same day):
+ * Awaiting approval is the suggestions, Production every row that has a link
+ * -- however it got one -- each editable or removable, with a form to add one
+ * by hand, Rejected the suggestions turned down, and Everything all three.
+ * A link lives on its row (a model's ``maker_url``, any row's
+ * ``wikipedia_url``), so it is exported with the rest of the armory, and the
+ * rejections go with it (``rejected_maker_pages``, ``rejected_wikipedia``).
+ *
+ * ``rows`` is every row that could carry one: ``{ key, table, type, id,
+ * name, makers, url }``.
+ */
+function ReferenceLinks({ field, view, search, pending, rows, failure, onChanged }) {
+  const pages = field === "maker_page";
+  const noun = pages ? "manufacturer page" : "Wikipedia article";
+  const prefix = pages ? "maker-pages" : "wikipedia";
+  const [rejected, setRejected] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [editing, setEditing] = useState(null);
+  const [draft, setDraft] = useState("");
+  const [adding, setAdding] = useState({ row: "", url: "" });
+  const showPending = view === "pending" || view === "";
+  const showProduction = view === "approved" || view === "";
+  const showRejected = view === "disabled" || view === "";
+
+  const loadRejected = useCallback(() => {
+    api
+      .referenceProposals({ field, status: "rejected" })
+      .then(setRejected)
+      .catch((err) => setError(err.message));
+  }, [field]);
+  useEffect(() => {
+    if (showRejected) loadRejected();
+  }, [showRejected, loadRejected]);
+
+  const act = async (call) => {
+    setBusy(true);
+    setError("");
+    try {
+      await call();
+      setEditing(null);
+      loadRejected();
+      onChanged?.();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const column = pages ? "maker_url" : "wikipedia_url";
+  const write = (row, url) =>
+    row.table === "manufacturers"
+      ? api.updateManufacturer(row.id, { [column]: url })
+      : api.updateArmoryRow(row.table, row.id, { [column]: url });
+  // A row named twice -- "Mauser" the maker and "Mauser" the cartridge's
+  // family, say -- is told apart by its type on the add form.
+  const label = (row) => (pages ? row.name : `${row.name} (${row.type})`);
+
+  /**
+   * A row typed on the add form that the lists loaded with the page do not
+   * have yet, asked of the server by name. Those lists are every row in the
+   * armory and reload in the background after each change -- on an armory of
+   * 2,500 rows, slowly enough that a model created and promoted a moment ago
+   * was refused as "nothing in production called" it (2026-10-13).
+   */
+  const lookUp = async (typed) => {
+    const found = /^(.*) \((Manufacturer|Model|Caliber)\)$/.exec(typed);
+    const name = (pages ? typed : found?.[1] || typed).trim();
+    const type = pages ? "Model" : found?.[2] || "Model";
+    const table = { Manufacturer: "manufacturers", Model: "models", Caliber: "calibers" }[
+      type
+    ];
+    const params = { search: name, status: "approved" };
+    const answer = await (table === "manufacturers"
+      ? api.manufacturers(params)
+      : table === "calibers"
+        ? api.armoryCalibers(params)
+        : api.armoryModels(params));
+    const hit = (answer || []).find(
+      (row) => row.name.toLowerCase() === name.toLowerCase() && !row[column],
+    );
+    return hit
+      ? { key: `${table}-${hit.id}`, table, type, id: hit.id, name: hit.name }
+      : null;
+  };
+
+  const wanted = search.trim().toLowerCase();
+  const matches = (...texts) =>
+    !wanted ||
+    texts.some((text) =>
+      String(text || "")
+        .toLowerCase()
+        .includes(wanted),
+    );
+  const linked = rows
+    .filter((row) => row.url)
+    .filter((row) => matches(row.name, row.url, ...(row.makers || [])))
+    .sort((a, b) => COLLATOR.compare(a.name, b.name));
+  const unlinked = rows
+    .filter((row) => !row.url)
+    .sort((a, b) => COLLATOR.compare(a.name, b.name));
+  const shownRejected = rejected.filter((row) =>
+    matches(row.target_name, row.url, row.reason),
+  );
+
+  return (
+    <>
+      {error && <p className="alert alert--error">{error}</p>}
+      {showPending && (
+        <WikipediaSuggestions
+          field={field}
+          rows={pending}
+          failure={failure}
+          search={search}
+          onDecided={onChanged}
+        />
+      )}
+      {showProduction && (
+        <div className="panel" data-testid={`${prefix}-production`}>
+          <div className="panel__head">
+            <h2>
+              {pages ? "Manufacturer pages" : "Wikipedia articles"} in the armory (
+              {linked.length})
+            </h2>
+          </div>
+          <form
+            className="panel__body form-row form-row--3"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const row =
+                unlinked.find((r) => label(r) === adding.row) ||
+                (await lookUp(adding.row).catch(() => null));
+              if (!row) {
+                setError(
+                  `Nothing in production called "${adding.row}" without a ${noun}.`,
+                );
+                return;
+              }
+              act(async () => {
+                await write(row, adding.url);
+                setAdding({ row: "", url: "" });
+              });
+            }}
+          >
+            <Field label={pages ? "Model" : "For"}>
+              {(id) => (
+                <>
+                  <input
+                    id={id}
+                    className="input"
+                    list={`${prefix}-candidates`}
+                    value={adding.row}
+                    placeholder={
+                      pages ? "A model with no page yet" : "A row with no article yet"
+                    }
+                    onChange={(event) =>
+                      setAdding((now) => ({ ...now, row: event.target.value }))
+                    }
+                  />
+                  <datalist id={`${prefix}-candidates`}>
+                    {unlinked.map((row) => (
+                      <option key={row.key} value={label(row)} />
+                    ))}
+                  </datalist>
+                </>
+              )}
+            </Field>
+            <Field label={pages ? "Manufacturer's page" : "Wikipedia article"}>
+              {(id) => (
+                <input
+                  id={id}
+                  className="input"
+                  type="url"
+                  value={adding.url}
+                  placeholder="https://"
+                  onChange={(event) =>
+                    setAdding((now) => ({ ...now, url: event.target.value }))
+                  }
+                />
+              )}
+            </Field>
+            <div style={{ alignSelf: "end" }}>
+              <button
+                type="submit"
+                className="btn btn--primary"
+                disabled={busy || !adding.row || !adding.url}
+              >
+                <Plus /> Add {noun}
+              </button>
+            </div>
+          </form>
+          {linked.length === 0 ? (
+            <div className="panel__body">
+              <p className="muted" style={{ margin: 0 }}>
+                {wanted ? `No ${noun} matches the search.` : `Nothing has a ${noun} yet.`}
+              </p>
+            </div>
+          ) : (
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>{pages ? "Model" : "For"}</th>
+                    <th>{pages ? "Manufacturer" : "Type"}</th>
+                    <th>{pages ? "Page" : "Article"}</th>
+                    <th aria-label="Change" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {linked.map((row) => (
+                    <tr key={row.key}>
+                      <td>{row.name}</td>
+                      <td className="muted">
+                        {pages ? (row.makers || []).join(", ") || "—" : row.type}
+                      </td>
+                      <td>
+                        {editing === row.key ? (
+                          <input
+                            className="input"
+                            type="url"
+                            aria-label={`${pages ? "Manufacturer's page" : "Wikipedia article"} for ${row.name}`}
+                            value={draft}
+                            onChange={(event) => setDraft(event.target.value)}
+                          />
+                        ) : (
+                          <a href={row.url} target="_blank" rel="noopener noreferrer">
+                            {row.url.replace(/^https?:\/\/(www\.)?/, "")}
+                          </a>
+                        )}
+                      </td>
+                      <td className="table__actions">
+                        {editing === row.key ? (
+                          <>
+                            <button
+                              type="button"
+                              className="btn btn--primary btn--sm"
+                              disabled={busy || !draft}
+                              onClick={() => act(() => write(row, draft))}
+                            >
+                              Save
+                            </button>{" "}
+                            <button
+                              type="button"
+                              className="btn btn--ghost btn--sm"
+                              onClick={() => setEditing(null)}
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              className="btn btn--secondary btn--sm"
+                              aria-label={`Edit the ${pages ? "page" : "article"} for ${row.name}`}
+                              onClick={() => {
+                                setEditing(row.key);
+                                setDraft(row.url);
+                              }}
+                            >
+                              Edit
+                            </button>{" "}
+                            <button
+                              type="button"
+                              className="btn btn--ghost btn--sm"
+                              aria-label={`Remove the ${pages ? "page" : "article"} for ${row.name}`}
+                              disabled={busy}
+                              onClick={() => act(() => write(row, ""))}
+                            >
+                              Remove
+                            </button>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+      {showRejected && (
+        <div className="panel" data-testid={`${prefix}-rejected`}>
+          <div className="panel__head">
+            <h2>
+              Rejected {pages ? "manufacturer pages" : "Wikipedia articles"} (
+              {shownRejected.length})
+            </h2>
+          </div>
+          {shownRejected.length === 0 ? (
+            <div className="panel__body">
+              <p className="muted" style={{ margin: 0 }}>
+                Nothing rejected{wanted ? " matches the search" : ""}.
+              </p>
+            </div>
+          ) : (
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>For</th>
+                    <th>What it suggested</th>
+                    <th aria-label="Decide" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {shownRejected.map((row) => (
+                    <tr key={row.id}>
+                      <td>
+                        {row.target_name}
+                        {!pages && (
+                          <div className="muted">
+                            {TARGET_LABEL[row.target_type] || row.target_type}
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        <a href={row.url} target="_blank" rel="noopener noreferrer">
+                          {pages
+                            ? row.url.replace(/^https?:\/\/(www\.)?/, "")
+                            : row.title}
+                        </a>
+                      </td>
+                      <td className="table__actions">
+                        <button
+                          type="button"
+                          className="btn btn--secondary btn--sm"
+                          disabled={busy}
+                          aria-label={`Accept ${row.url} for ${row.target_name} anyway`}
+                          onClick={() => act(() => api.acceptReferences([row.id]))}
+                        >
+                          Accept anyway
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -2119,6 +2483,42 @@ export default function Armory() {
       .catch((err) => setProposalError(err.message));
   }, []);
   useEffect(loadProposals, [loadProposals]);
+  // Showing on the link tabs: "merged" has no meaning there and reads as
+  // rejected, like "disabled".
+  const makerPageView = statusFilter === "merged" ? "disabled" : statusFilter;
+  // Every production row that could carry a link of one kind, for ReferenceLinks.
+  const linkRows = (field) => {
+    const approved = (list) => list.filter((row) => row.status === "approved");
+    const guns = approved(allModels).map((m) => ({
+      key: `model-${m.id}`,
+      table: "models",
+      type: "Model",
+      id: m.id,
+      name: m.name,
+      makers: m.manufacturers,
+      url: field === "maker_page" ? m.maker_url : m.wikipedia_url,
+    }));
+    if (field === "maker_page") return guns;
+    return [
+      ...approved(allMakers).map((m) => ({
+        key: `manufacturer-${m.id}`,
+        table: "manufacturers",
+        type: "Manufacturer",
+        id: m.id,
+        name: m.name,
+        url: m.wikipedia_url,
+      })),
+      ...guns,
+      ...approved(allCalibers).map((c) => ({
+        key: `caliber-${c.id}`,
+        table: "calibers",
+        type: "Caliber",
+        id: c.id,
+        name: c.name,
+        url: c.wikipedia_url,
+      })),
+    ];
+  };
   // How many of each kind are waiting, for the tabs' labels.
   const waiting = useMemo(() => {
     const counts = {};
@@ -2428,16 +2828,10 @@ export default function Armory() {
               id={id}
               aria-describedby={describedBy}
               className="input"
-              value={statusFilter}
-              disabled={Boolean(SUGGESTION_FIELD[tab])}
-              title={
-                SUGGESTION_FIELD[tab]
-                  ? "A suggestion has no status: Showing does not apply to it"
-                  : undefined
-              }
+              value={SUGGESTION_FIELD[tab] ? makerPageView : statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
             >
-              {STATUSES.map((entry) => (
+              {(SUGGESTION_FIELD[tab] ? LINK_VIEWS : STATUSES).map((entry) => (
                 <option key={entry.value || "all"} value={entry.value}>
                   {entry.label}
                 </option>
@@ -2569,15 +2963,17 @@ export default function Armory() {
       )}
 
       {SUGGESTION_FIELD[tab] ? (
-        <WikipediaSuggestions
+        <ReferenceLinks
           key={tab}
           field={SUGGESTION_FIELD[tab]}
-          rows={proposals.filter(
+          view={makerPageView}
+          search={search}
+          pending={proposals.filter(
             (row) => (row.field || "wikipedia") === SUGGESTION_FIELD[tab],
           )}
+          rows={linkRows(SUGGESTION_FIELD[tab])}
           failure={proposalError}
-          search={search}
-          onDecided={() => {
+          onChanged={() => {
             loadProposals();
             load();
           }}
@@ -2713,7 +3109,7 @@ export default function Armory() {
                             className="btn btn--ghost btn--sm"
                             to={listingsHref("manufacturers", maker)}
                             aria-label={`View listings for ${maker.name}`}
-                            title="Show every listing this maker accounts for"
+                            title="Show every listing this manufacturer accounts for"
                           >
                             <Eye />
                           </Link>
@@ -2776,7 +3172,8 @@ export default function Armory() {
                                       className="chip chip--neutral"
                                       title={model.manufacturers.join(", ")}
                                     >
-                                      also {model.manufacturers.length - 1} other maker
+                                      also {model.manufacturers.length - 1} other
+                                      manufacturer
                                       {model.manufacturers.length > 2 ? "s" : ""}
                                     </span>
                                   )}

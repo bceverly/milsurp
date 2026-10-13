@@ -5148,6 +5148,38 @@ pages are about gauges in general. Lee's reloading answer for a gauge is its
 Load-All II shotshell reloader, read from the gauges that page offers (12, 16,
 20, 28, .410).
 
+### Manufacturer, not Maker; and the Manufacturer pages tab does its job — **Changed** 2026-10-13
+
+Asked for: "make sure we use 'Manufacturer' instead of 'Maker' consistently",
+and for the (now) Manufacturer pages tab, "have the pending/production whatever
+dropdown actually work and allow me to manually enter ones", exported "just
+like the rest of the armory".
+
+* Every word on screen that said "Maker" says "Manufacturer": the Market and
+  Saved searches filters, the collection form, What changed, a listing's
+  variant note, the Armory's forms, its tab, its headings and the reasons a
+  suggestion gives. Code identifiers are untouched.
+* **Showing works on the Manufacturer pages tab**: Awaiting approval (the
+  suggestions), Production (every model with a page, however it got one --
+  each editable or removable, and a form to add one by hand), Rejected (with
+  "Accept anyway") and Everything. `GET /api/armory/references` takes
+  `status`; accepting takes a rejected suggestion too. The Wikipedia tab keeps
+  its Showing switched off.
+* **Exported already**: a page is the model's `maker_url`, which the armory
+  export, the shipped file and "Apply shipped armory" have carried since
+  slice 1. The seed file holds the 144 production had on 2026-10-13.
+* **The Wikipedia tab works the same way** (asked for the same day): Showing,
+  and under Production every manufacturer, model and caliber with an article,
+  each editable or removable, with the form to add one by hand. One component,
+  `ReferenceLinks`, draws both tabs.
+* **And the "no"s travel too** ("yes in all cases"): the export writes each
+  row's rejected suggestions -- `rejected_wikipedia` on manufacturers, models
+  and calibers, `rejected_maker_pages` on models -- and both "Load shipped
+  armory" and "Apply shipped armory" restore them where the database has no
+  decision on that address yet, never overruling one it has
+  (`armory.restore_rejections`). The seed file carries production's 284
+  rejected articles and 7 rejected pages.
+
 ### Each model's own page on its maker's site — **Shipped** 2026-10-12
 
 Asked for: "i wasn't just looking for a button to run a google search, i had

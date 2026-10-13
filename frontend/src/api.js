@@ -432,7 +432,9 @@ export const api = {
   // --- Wikipedia articles and makers' pages proposed for armory rows, decided
   // on the Armory's Wikipedia and Maker pages tabs. Every kind comes back;
   // each carries its "field".
-  referenceProposals: () => request("/api/armory/references"),
+  // { field, status } narrow it: status "pending" (the default), "rejected",
+  // "accepted" or "all".
+  referenceProposals: (params = {}) => request(`/api/armory/references${qs(params)}`),
   acceptReferences: (ids) =>
     request("/api/armory/references/accept", { method: "POST", body: { ids } }),
   // One kind only: "wikipedia" or "maker_page", so one tab's button never

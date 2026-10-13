@@ -304,7 +304,7 @@ export default function Changes() {
                 <Learned title="Calibers" values={week.new_calibers} filter="caliber" />
                 <Learned title="Countries" values={week.new_countries} filter="country" />
                 <Learned
-                  title="Makers"
+                  title="Manufacturers"
                   values={week.new_manufacturers}
                   filter="manufacturer"
                 />

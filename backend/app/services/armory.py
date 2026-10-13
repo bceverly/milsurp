@@ -49,6 +49,7 @@ from ..models import (
     Item,
     Manufacturer,
     ModelVariant,
+    ReferenceProposal,
     firearm_model_manufacturers,
 )
 from . import arsenals, classify, manufacturers
@@ -1034,9 +1035,72 @@ def seed(
     calibers = _seed_calibers(session, data.get("calibers") or [], report, events)
     makers = _seed_makers(session, data.get("manufacturers") or [], report, events)
     _seed_models(session, data.get("models") or [], calibers, makers, report, events)
+    restore_rejections(session, data)
     if report.total:
         invalidate()
     return report
+
+
+#: The file's lists of turned-down suggestions, by table: (section, table,
+#: [(key, field)]). See :func:`_rejections` and :func:`restore_rejections`.
+_REJECTION_KEYS = (
+    ("manufacturers", Manufacturer, "manufacturer", (("rejected_wikipedia", "wikipedia"),)),
+    ("calibers", Caliber, "caliber", (("rejected_wikipedia", "wikipedia"),)),
+    (
+        "models",
+        FirearmModel,
+        "model",
+        (("rejected_wikipedia", "wikipedia"), ("rejected_maker_pages", "maker_page")),
+    ),
+)
+
+
+def restore_rejections(session: Session, data: dict[str, Any]) -> int:
+    """Record the file's rejected suggestions where this database has no
+    decision on them yet. Returns how many were added.
+
+    Additive only, like :func:`seed`: an address already suggested here --
+    pending, accepted or rejected -- is left as it is, so a "yes" given on this
+    instance is never overruled by a "no" in the file. Called by both the seed
+    and the sync, so either way of loading the shipped armory brings them.
+    """
+    added = 0
+    for section, table, target_type, keys in _REJECTION_KEYS:
+        columns: Any = table
+        rows = {
+            str(name).strip().lower(): row_id
+            for row_id, name in session.execute(select(columns.id, columns.name)).all()
+        }
+        for entry in data.get(section) or []:
+            row_id = rows.get(str(entry.get("name") or "").strip().lower())
+            if row_id is None:
+                continue
+            for key, field_name in keys:
+                for url in entry.get(key) or []:
+                    known = session.execute(
+                        select(ReferenceProposal.id).where(
+                            ReferenceProposal.target_type == target_type,
+                            ReferenceProposal.target_id == row_id,
+                            ReferenceProposal.url == str(url),
+                        )
+                    ).first()
+                    if known:
+                        continue
+                    session.add(
+                        ReferenceProposal(
+                            field=field_name,
+                            target_type=target_type,
+                            target_id=row_id,
+                            url=str(url),
+                            title=[part for part in str(url).split("/") if part][-1][:300],
+                            status="rejected",
+                            reason="rejected in the shipped armory",
+                        )
+                    )
+                    added += 1
+    if added:
+        session.flush()
+    return added
 
 
 def _seed_calibers(
@@ -1219,8 +1283,27 @@ _EXPORT_HEADER = """\
 """
 
 
+def _rejections(session: Session) -> dict[tuple[str, int, str], list[str]]:
+    """Every suggestion turned down, as ``(table, row id, field) -> [address]``.
+
+    Exported with the rows they were made for (2026-10-13: "yes in all cases"),
+    so the corpus the repository ships carries its "no"s as well as its links,
+    and a fresh install is not offered again what was decided here.
+    """
+    found: dict[tuple[str, int, str], list[str]] = {}
+    for proposal in session.execute(
+        select(ReferenceProposal)
+        .where(ReferenceProposal.status == "rejected")
+        .order_by(ReferenceProposal.url)
+    ).scalars():
+        key = (proposal.target_type, proposal.target_id, proposal.field)
+        found.setdefault(key, []).append(proposal.url)
+    return found
+
+
 def export_armory(session: Session) -> dict[str, Any]:
     """The armory as plain data, ordered so that diffs mean something."""
+    rejected = _rejections(session)
     makers = (
         session.execute(select(Manufacturer).order_by(func.lower(Manufacturer.name)))
         .scalars()
@@ -1261,6 +1344,7 @@ def export_armory(session: Session) -> dict[str, Any]:
                     "country": row.country,
                     "website": row.website,
                     "wikipedia": row.wikipedia_url,
+                    "rejected_wikipedia": rejected.get(("manufacturer", row.id, "wikipedia")),
                     "status": row.status.value,
                     "position": row.position if row.position != 1000 else None,
                     "enabled": None if row.enabled else False,
@@ -1278,6 +1362,7 @@ def export_armory(session: Session) -> dict[str, Any]:
                     "enabled": None if row.enabled else False,
                     "notes": row.notes,
                     "wikipedia": row.wikipedia_url,
+                    "rejected_wikipedia": rejected.get(("caliber", row.id, "wikipedia")),
                     "bullet_diameter_in": row.bullet_diameter_in,
                 }
             )
@@ -1293,8 +1378,10 @@ def export_armory(session: Session) -> dict[str, Any]:
                     "calibers": sorted(row.caliber_names),
                     "manufacturers": sorted(row.manufacturer_names),
                     "wikipedia": row.wikipedia_url,
+                    "rejected_wikipedia": rejected.get(("model", row.id, "wikipedia")),
                     "modern_production": True if row.modern_production else None,
                     "maker_url": row.maker_url,
+                    "rejected_maker_pages": rejected.get(("model", row.id, "maker_page")),
                     "variants": _variant_entries(row),
                     "status": row.status.value,
                     "position": row.position if row.position != 1000 else None,
@@ -1875,6 +1962,7 @@ def apply_sync(
     _sync_makers(session, data.get("manufacturers") or [], done, prune, sink)
     calibers = _sync_calibers(session, data.get("calibers") or [], done, prune, sink)
     _sync_models(session, data.get("models") or [], calibers, done, prune, sink)
+    restore_rejections(session, data)
     if any(done.values()):
         session.flush()
         # A listing linked to a variant the file no longer has. The link is

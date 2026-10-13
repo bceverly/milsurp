@@ -379,14 +379,14 @@ test.describe("editing", () => {
     );
     await expect(dialog.getByRole("listbox")).toHaveCount(0);
 
-    await dialog.getByLabel("Maker", { exact: true }).fill("terni");
+    await dialog.getByLabel("Manufacturer", { exact: true }).fill("terni");
     await expect(dialog.getByRole("button", { name: /Terni Arsenal/ })).toBeVisible();
     // Escape closes the list, not the dialog.
-    await dialog.getByLabel("Maker", { exact: true }).press("Escape");
+    await dialog.getByLabel("Manufacturer", { exact: true }).press("Escape");
     await expect(dialog.getByRole("listbox")).toHaveCount(0);
     await expect(dialog).toBeVisible();
     // And free text still stands.
-    await expect(dialog.getByLabel("Maker", { exact: true })).toHaveValue("terni");
+    await expect(dialog.getByLabel("Manufacturer", { exact: true })).toHaveValue("terni");
   });
 
   test("an empty collection says how to start one", async ({ signedIn }) => {

@@ -32,7 +32,7 @@ test("a listing names the variant it is, with its MSRP", async ({ signedIn }) =>
   const note = signedIn.getByTestId("variant-note");
   await expect(note).toContainText('Variant: Tracker .44 Magnum 4" Stainless');
   await expect(note).toContainText("MSRP $599.99");
-  await expect(note.getByRole("link", { name: "maker’s page" })).toHaveAttribute(
+  await expect(note.getByRole("link", { name: "manufacturer’s page" })).toHaveAttribute(
     "href",
     "https://www.taurususa.com/tracker",
   );

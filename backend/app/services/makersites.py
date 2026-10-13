@@ -657,7 +657,7 @@ def run(
                 totals["unread"] += 1
                 continue
             if not found:
-                log(f"  {model.name}: no page found on {name}'s site; set its maker's page.")
+                log(f"  {model.name}: no page found on {name}'s site; set its manufacturer's page.")
                 totals["unread"] += 1
                 continue
             counts = record(session, model, found)

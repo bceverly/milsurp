@@ -193,7 +193,7 @@ test.describe("a saved search, read back", () => {
     await expect(filters).toContainText("Type: rifle");
     await expect(filters).toContainText("Caliber: 7.5x55mm");
     await expect(filters).toContainText("Country: Switzerland");
-    await expect(filters).toContainText("Maker: W+F Bern");
+    await expect(filters).toContainText("Manufacturer: W+F Bern");
     await expect(filters).toContainText("Category: Rifles");
     await expect(filters).toContainText("Price: 300–1000");
     await expect(filters).toContainText("Price reduced");

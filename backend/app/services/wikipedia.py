@@ -37,7 +37,7 @@ from typing import Any
 from urllib.parse import quote
 
 import requests
-from sqlalchemy import select
+from sqlalchemy import ColumnElement, select
 from sqlalchemy.orm import Session
 
 from ..models import (
@@ -400,8 +400,11 @@ def accept(session: Session, ids: Iterable[int], actor: User | None) -> int:
     one meanwhile. Returns how many rows took one."""
     taken = 0
     for proposal in session.execute(
+        # A rejected one too: "accept anyway" on the Manufacturer pages tab's
+        # Rejected view, for a decision somebody wants back.
         select(ReferenceProposal).where(
-            ReferenceProposal.id.in_(list(ids)), ReferenceProposal.status == "pending"
+            ReferenceProposal.id.in_(list(ids)),
+            ReferenceProposal.status.in_(("pending", "rejected")),
         )
     ).scalars():
         row = _target(session, proposal)
@@ -420,7 +423,7 @@ def accept(session: Session, ids: Iterable[int], actor: User | None) -> int:
             target_id=row.id,
             target_label=row.name,
             detail=(
-                f"Maker's page: {proposal.url}"
+                f"Manufacturer's page: {proposal.url}"
                 if column == "maker_url"
                 else f"Wikipedia: {proposal.title}"
             ),
@@ -444,16 +447,19 @@ def reject(session: Session, ids: Iterable[int]) -> int:
     return count
 
 
-def pending(session: Session, field: str | None = None) -> list[tuple[ReferenceProposal, str]]:
-    """Every pending proposal with the name of the row it is for -- of one
-    kind, "wikipedia" or "maker_page", or of both."""
+def pending(
+    session: Session, field: str | None = None, statuses: Iterable[str] = ("pending",)
+) -> list[tuple[ReferenceProposal, str]]:
+    """Every proposal in *statuses* -- pending, unless asked for the rejected
+    or the accepted ones -- with the name of the row it is for, of one kind,
+    "wikipedia" or "maker_page", or of both."""
     found = []
-    clause = ReferenceProposal.status == "pending"
+    clauses: list[ColumnElement[bool]] = [ReferenceProposal.status.in_(list(statuses))]
     if field:
-        clause = clause & (ReferenceProposal.field == field)
+        clauses.append(ReferenceProposal.field == field)
     for proposal in session.execute(
         select(ReferenceProposal)
-        .where(clause)
+        .where(*clauses)
         .order_by(ReferenceProposal.confident.desc(), ReferenceProposal.id)
     ).scalars():
         row = _target(session, proposal)

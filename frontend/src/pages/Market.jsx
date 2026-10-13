@@ -26,7 +26,7 @@ import { COLLATOR, compareCalibers } from "../sorting.js";
 //: cartridge, then who made it, then where.
 const DIMENSIONS = [
   { key: "caliber", label: "Caliber" },
-  { key: "manufacturer", label: "Maker" },
+  { key: "manufacturer", label: "Manufacturer" },
   { key: "country", label: "Country" },
 ];
 

@@ -750,6 +750,9 @@ manufacturers:
   - Massachusetts Arms Company
   country: United States
   status: approved
+- name: Matrix Arms
+  country: United States
+  status: approved
 - name: Mauser
   marks:
   - byf
@@ -1385,8 +1388,14 @@ calibers:
   status: approved
 - name: 10.3MM
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/9.3%C3%9762mm
+  - https://en.wikipedia.org/wiki/Table_of_handgun_and_rifle_cartridges
 - name: 10.4mm
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/10.4mm_Swiss_Centerfire
+  - https://en.wikipedia.org/wiki/List_of_rimfire_cartridges
 - name: 10.4x38mmRF
   status: merged
 - name: 10.4x38mm Swiss
@@ -1418,6 +1427,9 @@ calibers:
   - 10 GA
   - 10 Bore
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Gauge_(firearms)
+  - https://en.wikipedia.org/wiki/Shotgun_cartridge
   bullet_diameter_in: 0.775
 - name: 10mm
   status: merged
@@ -1440,18 +1452,31 @@ calibers:
   status: approved
 - name: 11.25mm
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/7.62%C3%9725mm_Tokarev
+  - https://en.wikipedia.org/wiki/9%C3%9725mm_Dillon
 - name: 11.3x50mmR
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/M1871_Beaumont
 - name: 11.73MM
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.375_Weatherby_Magnum
 - name: 11.75x51mmR
   status: approved
 - name: 11 Gauge
   aliases:
   - 11 Bore
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Gauge_(firearms)
+  - https://en.wikipedia.org/wiki/Shotgun_cartridge
 - name: 11mm
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/11%C3%9759mmR_Gras
+  - https://en.wikipedia.org/wiki/11mm_French_Ordnance
 - name: 11mm French Ordnance
   aliases:
   - 11mm Mle 1873
@@ -1471,10 +1496,14 @@ calibers:
   aliases:
   - 11mm Lefaucheux
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/12_mm_Lefaucheux
 - name: 11x17.8R
   status: approved
 - name: 11x52mm
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/M1871_Beaumont
 - name: 11x59mmR Gras
   aliases:
   - 11mm Gras
@@ -1487,6 +1516,8 @@ calibers:
   - 12.7x44R
   - 12.7x44
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.219_Donaldson_Wasp
 - name: 12 Bore
   status: merged
 - name: 12 gauge
@@ -1500,8 +1531,14 @@ calibers:
   bullet_diameter_in: 0.729
 - name: 12mm
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.50_Beowulf
+  - https://en.wikipedia.org/wiki/List_of_AR_platform_cartridges
 - name: 12mm Pinfire
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/12_mm_Lefaucheux
+  - https://en.wikipedia.org/wiki/Pinfire_cartridge
 - name: 12x50mm
   status: pending
   enabled: false
@@ -1509,16 +1546,30 @@ calibers:
   aliases:
   - 13 Bore
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Gauge_(firearms)
+  - https://en.wikipedia.org/wiki/Shotgun_cartridge
 - name: 13mm
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/7.65mm_Roth%E2%80%93Sauer
+  - https://en.wikipedia.org/wiki/List_of_handgun_cartridges
 - name: 14mm
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Table_of_handgun_and_rifle_cartridges
 - name: 15.5mm
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/6.5mm_Creedmoor
+  - https://en.wikipedia.org/wiki/6.5mm_Grendel
 - name: 15 Gauge
   aliases:
   - 15 Bore
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Gauge_(firearms)
+  - https://en.wikipedia.org/wiki/Shotgun_cartridge
 - name: 15mm
   status: merged
 - name: 15x46
@@ -1532,17 +1583,29 @@ calibers:
   - 16-gauge
   - 16 Bore
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Gauge_(firearms)
+  - https://en.wikipedia.org/wiki/Shotgun_cartridge
   bullet_diameter_in: 0.662
 - name: 16x42
   status: approved
 - name: '.177'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.22_caliber
+  - https://en.wikipedia.org/wiki/Shotgun_cartridge
 - name: .177 Pellets
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.177_caliber
+  - https://en.wikipedia.org/wiki/Shotgun_cartridge
 - name: 17 Gauge
   aliases:
   - 17 Bore
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/List_of_handgun_cartridges
+  - https://en.wikipedia.org/wiki/Shotgun_cartridge
 - name: .17 HMR
   aliases:
   - 17 HMR
@@ -1563,6 +1626,9 @@ calibers:
   aliases:
   - 18 Bore
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Gauge_(firearms)
+  - https://en.wikipedia.org/wiki/Shotgun_cartridge
 - name: 1x28
   status: pending
   enabled: false
@@ -1575,6 +1641,9 @@ calibers:
   - 20-gauge
   - 20 Bore
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Gauge_(firearms)
+  - https://en.wikipedia.org/wiki/Shotgun_cartridge
   bullet_diameter_in: 0.615
 - name: '.22'
   status: merged
@@ -1623,6 +1692,9 @@ calibers:
   wikipedia: https://en.wikipedia.org/wiki/.22_caliber
 - name: 22.4 MM
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/7.62%C3%9739mm
+  - https://en.wikipedia.org/wiki/HK_4.6%C3%9730mm
 - name: 22 CAL
   status: merged
 - name: .22 Caliber
@@ -1639,6 +1711,9 @@ calibers:
   aliases:
   - 22 Bore
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.22_Winchester_Magnum_Rimfire
+  - https://en.wikipedia.org/wiki/Shotgun_cartridge
 - name: .22 Hornet
   aliases:
   - 5.6x35mmR
@@ -1651,6 +1726,8 @@ calibers:
   - .22 Long RF
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.22_long
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.22_long_rifle
   bullet_diameter_in: 0.222
 - name: 22 Long
   status: merged
@@ -1720,6 +1797,9 @@ calibers:
   aliases:
   - 24 Bore
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Gauge_(firearms)
+  - https://en.wikipedia.org/wiki/Shotgun_cartridge
   bullet_diameter_in: 0.579
 - name: '.25'
   status: merged
@@ -1751,8 +1831,13 @@ calibers:
   status: merged
 - name: 26.5mm
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/6.5mm_Creedmoor
+  - https://en.wikipedia.org/wiki/6.5mm_Grendel
 - name: 26.5mm Flare
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Carcano
 - name: '.270'
   status: merged
 - name: .270 Winchester
@@ -1773,6 +1858,9 @@ calibers:
   - 28 Caliber
   - '.28'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.44_caliber
+  - https://en.wikipedia.org/wiki/Caliber
 - name: 28 Gauge
   aliases:
   - 28ga
@@ -1780,6 +1868,9 @@ calibers:
   - 28-gauge
   - 28 Bore
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Gauge_(firearms)
+  - https://en.wikipedia.org/wiki/Shotgun_cartridge
   bullet_diameter_in: 0.55
 - name: 28-gauge
   status: merged
@@ -1816,6 +1907,8 @@ calibers:
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.300_AAC_Blackout
   bullet_diameter_in: 0.308
+- name: .300 Weatherby Magnum
+  status: approved
 - name: .300 Winchester Magnum
   aliases:
   - 300 Winchester Magnum
@@ -1867,6 +1960,9 @@ calibers:
   status: approved
   notes: 'Emptied 11 Sep 2026: every listing was a .30 Luger, a C96, an M1 Carbine or a 7x57 Mauser. A
     bore size, not a cartridge.'
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/20_mm_caliber
+  - https://en.wikipedia.org/wiki/7.62_mm_caliber
 - name: 30 Caliber
   status: merged
 - name: 30 CAL M1
@@ -1883,6 +1979,9 @@ calibers:
   aliases:
   - 30 Bore
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/List_of_handgun_cartridges
+  - https://en.wikipedia.org/wiki/Shotgun_cartridge
 - name: .30 Luger
   aliases:
   - 7.65 Parabellum
@@ -1905,6 +2004,9 @@ calibers:
   - 30 RF
   - 30 Rimfire
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/12.17%C3%9742mm_RF
+  - https://en.wikipedia.org/wiki/List_of_handgun_cartridges
 - name: 30 Rimfire
   status: merged
 - name: .30 WCF
@@ -1913,8 +2015,14 @@ calibers:
   aliases:
   - 31 Caliber
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/8_mm_caliber
+  - https://en.wikipedia.org/wiki/FN_5.7%C3%9728mm
 - name: '.310'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.310_Cadet
+  - https://en.wikipedia.org/wiki/.32-20_Winchester
 - name: 31 Caliber
   status: merged
 - name: '.32'
@@ -1923,6 +2031,9 @@ calibers:
   aliases:
   - 320 Caliber
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.38_caliber
+  - https://en.wikipedia.org/wiki/8_mm_caliber
 - name: .320 Caliber Pinfire
   aliases:
   - 320 Caliber Pinfire
@@ -1980,12 +2091,18 @@ calibers:
   status: approved
   notes: Retired 11 Sep 2026. It distinguishes centerfire from rimfire rather than naming a cartridge;
     all four listings were Colt New Line .32s and went to .32 Colt.
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.32_ACP
+  - https://en.wikipedia.org/wiki/Centerfire_ammunition
 - name: 32 Centerfire
   status: merged
 - name: .32 Colt
   aliases:
   - 32 Colt
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.32_ACP
+  - https://en.wikipedia.org/wiki/.32_S%26W_Long
 - name: .32 French Long
   aliases:
   - 32 French Long
@@ -1997,6 +2114,9 @@ calibers:
   aliases:
   - 32 Bore
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Gauge_(firearms)
+  - https://en.wikipedia.org/wiki/Shotgun_cartridge
   bullet_diameter_in: 0.526
 - name: .32 H&R Magnum
   status: approved
@@ -2008,6 +2128,9 @@ calibers:
   - 32 Rimfire
   - 32 RF
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/List_of_handgun_cartridges
+  - https://en.wikipedia.org/wiki/List_of_rimfire_cartridges
 - name: 32 RF
   status: merged
 - name: 32 Rimfire
@@ -2025,6 +2148,8 @@ calibers:
   - 32 Short CF
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.32_S%26W
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.32_S%26W_Long
   bullet_diameter_in: 0.312
 - name: .32 S&W Long
   aliases:
@@ -2038,6 +2163,9 @@ calibers:
   aliases:
   - 32 Teat-fire
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Rimfire_ammunition
+  - https://en.wikipedia.org/wiki/Teat-fire_cartridge
 - name: .32 Wadcutter
   aliases:
   - 32 Wadcutter
@@ -2086,8 +2214,14 @@ calibers:
   - 34 Caliber
   - '.34'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.44_caliber
+  - https://en.wikipedia.org/wiki/Cartridge_(firearms)
 - name: '.35'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.25-35_Winchester
+  - https://en.wikipedia.org/wiki/7.35%C3%9751mm_Carcano
 - name: '.357'
   status: merged
 - name: .357 Magnum
@@ -2113,6 +2247,9 @@ calibers:
   bullet_diameter_in: 0.358
 - name: 35 Caliber
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/20_mm_caliber
+  - https://en.wikipedia.org/wiki/.35_Whelen
 - name: .35 Remington
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.35_Remington
@@ -2123,6 +2260,9 @@ calibers:
   - 36 Caliber
   - '.360'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Cartridge_(firearms)
+  - https://en.wikipedia.org/wiki/Shotgun_cartridge
 - name: '36'
   status: merged
 - name: '.360'
@@ -2131,6 +2271,9 @@ calibers:
   status: merged
 - name: '.37'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Cartridge_(firearms)
+  - https://en.wikipedia.org/wiki/List_of_rimmed_cartridges
 - name: .375 H&H Magnum
   aliases:
   - .375 H&H
@@ -2144,6 +2287,9 @@ calibers:
   aliases:
   - 38 Caliber
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.38_caliber
+  - https://en.wikipedia.org/wiki/.38_Special
 - name: '.380'
   status: merged
 - name: .380 ACP
@@ -2202,6 +2348,9 @@ calibers:
   notes: 'Retired 11 Sep 2026: it distinguishes centerfire from rimfire rather than naming a cartridge.
     Three listings were .38 S&W (two Merwin & Hulberts and a Colt New Police) and one a Colt Pocket Navy
     conversion in .38 Long Colt.'
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.38_Special
+  - https://en.wikipedia.org/wiki/Centerfire_ammunition
 - name: 38 Centerfire
   status: merged
 - name: .38 Colt & Special
@@ -2221,6 +2370,8 @@ calibers:
   - 38 Rimfire
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.38_rimfire
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/12.17%C3%9742mm_RF
   bullet_diameter_in: 0.374
 - name: 38 Rimfire
   status: merged
@@ -2252,15 +2403,23 @@ calibers:
   - 38-200 Caliber
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.38_S%26W
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.38_Special
   bullet_diameter_in: 0.361
 - name: 38 S&W
   status: merged
 - name: '.39'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/5.45%C3%9739mm
+  - https://en.wikipedia.org/wiki/7.62%C3%9739mm
 - name: '.40'
   aliases:
   - 40 Caliber
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.30-40_Krag
+  - https://en.wikipedia.org/wiki/.44-40_Winchester
 - name: .405 Winchester
   aliases:
   - '.405'
@@ -2283,6 +2442,9 @@ calibers:
   aliases:
   - 41 Caliber
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.41_Action_Express
+  - https://en.wikipedia.org/wiki/.41_Remington_Magnum
 - name: '.410'
   status: merged
   bullet_diameter_in: 0.41
@@ -2306,6 +2468,9 @@ calibers:
   aliases:
   - 41 Colt
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.41_Long_Colt
+  - https://en.wikipedia.org/wiki/.45_Colt
 - name: .41 Remington Magnum
   aliases:
   - .41 Magnum
@@ -2321,16 +2486,28 @@ calibers:
   aliases:
   - 41 Rimfire
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/12.17%C3%9742mm_RF
+  - https://en.wikipedia.org/wiki/List_of_handgun_cartridges
 - name: '.42'
   aliases:
   - 42 Caliber
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/7.92%C3%9757mm_Mauser
+  - https://en.wikipedia.org/wiki/Cartridge_(firearms)
 - name: 4.25mm
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/6.5%C3%9725mm_CBJ
+  - https://en.wikipedia.org/wiki/7.62%C3%9725mm_Tokarev
 - name: 42 Caliber
   status: merged
 - name: '.43'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.43_Spanish
+  - https://en.wikipedia.org/wiki/StG_44
 - name: .43 Egyptian
   aliases:
   - 43 Egyptian
@@ -2346,6 +2523,9 @@ calibers:
   - .44 cal
   - 44 Caliber
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.44-40_Winchester
+  - https://en.wikipedia.org/wiki/.44_Magnum
 - name: .442 Webley
   aliases:
   - .442 Centerfire
@@ -2381,11 +2561,16 @@ calibers:
   aliases:
   - 44 Centerfire
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.44_Remington_Centerfire
+  - https://en.wikipedia.org/wiki/Centerfire_ammunition
 - name: .44 Colt
   aliases:
   - 44 Colt
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.44_Colt
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.45_Colt
   bullet_diameter_in: 0.451
 - name: .44 Evans
   aliases:
@@ -2407,11 +2592,17 @@ calibers:
   bullet_diameter_in: 0.429
 - name: 4.4mm
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/4_mm_Flobert_Long
+  - https://en.wikipedia.org/wiki/List_of_rimfire_cartridges
 - name: .44 RF
   aliases:
   - 44 RF
   - 44 Rimfire
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/12.17%C3%9742mm_RF
+  - https://en.wikipedia.org/wiki/.44_Henry
 - name: 44 Rimfire
   status: merged
 - name: .44 Russian
@@ -2433,25 +2624,40 @@ calibers:
   aliases:
   - 45 Caliber
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.45_Colt
+  - https://en.wikipedia.org/wiki/5.45%C3%9739mm
 - name: '.450'
   aliases:
   - 450 CAL
   - 450 Caliber
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.450_Bushmaster
+  - https://en.wikipedia.org/wiki/.577%2F450_Martini%E2%80%93Henry
 - name: .450/455
   aliases:
   - 450/455
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.450_Adams
+  - https://en.wikipedia.org/wiki/.455_Webley
 - name: .450/476
   aliases:
   - 450/476
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/11_mm_caliber
+  - https://en.wikipedia.org/wiki/.476_Enfield
 - name: 450 CAL
   status: merged
 - name: 450 Caliber
   status: merged
 - name: '.451'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.451_Detonics_Magnum
+  - https://en.wikipedia.org/wiki/List_of_handgun_cartridges
 - name: .454 Casull
   aliases:
   - 454 Casull
@@ -2481,6 +2687,8 @@ calibers:
   aliases:
   - 455 Webley Auto
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.455_Webley
 - name: .45-60 Winchester
   aliases:
   - 45-60 Winchester
@@ -2501,6 +2709,9 @@ calibers:
   status: merged
 - name: '.458'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.458_Lott
+  - https://en.wikipedia.org/wiki/.458_Winchester_Magnum
 - name: .458 SOCOM
   aliases:
   - 458 SOCOM
@@ -2537,10 +2748,16 @@ calibers:
   status: merged
 - name: 4.5mm
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/6.5mm_Creedmoor
+  - https://en.wikipedia.org/wiki/6.5mm_Grendel
 - name: '.46'
   aliases:
   - 46 Caliber
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.357_Magnum
+  - https://en.wikipedia.org/wiki/List_of_handgun_cartridges
 - name: .460 S&W Magnum
   aliases:
   - .460 S&W
@@ -2554,23 +2771,37 @@ calibers:
   status: merged
 - name: '.47'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/6.5%C3%9747mm_Lapua
+  - https://en.wikipedia.org/wiki/Cartridge_(firearms)
 - name: .476 CF
   aliases:
   - 476 CF
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Lee%E2%80%93Enfield
 - name: .476 Enfield
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.476_Enfield
   bullet_diameter_in: 0.455
 - name: '.48'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/6.45%C3%9748mm_XPL_Swiss
+  - https://en.wikipedia.org/wiki/6mm_ARC
 - name: 4 Gauge
   aliases:
   - 4 Bore
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Gauge_(firearms)
+  - https://en.wikipedia.org/wiki/Shotgun_cartridge
   bullet_diameter_in: 1.052
 - name: 4mm RF
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/List_of_handgun_cartridges
+  - https://en.wikipedia.org/wiki/List_of_rimfire_cartridges
 - name: 4mm Übungsmunition M20
   aliases:
   - 4mm
@@ -2583,6 +2814,9 @@ calibers:
   aliases:
   - 50 Caliber
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.50_Beowulf
+  - https://en.wikipedia.org/wiki/.50_BMG
 - name: .500 S&W Magnum
   aliases:
   - .500 S&W
@@ -2608,25 +2842,42 @@ calibers:
   aliases:
   - 50 Spencer
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.56-56_Spencer
+  - https://en.wikipedia.org/wiki/Spencer_repeating_rifle
 - name: '.52'
   status: merged
 - name: 5.22mm
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/8%C3%9722mm_Nambu
+  - https://en.wikipedia.org/wiki/Rim_(firearms)
 - name: .52 Caliber
   aliases:
   - 52 Caliber
   - '.52'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/7.62_mm_caliber
+  - https://en.wikipedia.org/wiki/Caliber
 - name: .52 RF
   aliases:
   - 52 Rimfire
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/List_of_rifle_cartridges
 - name: '.53'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/7.62%C3%9753mmR
+  - https://en.wikipedia.org/wiki/Rim_(firearms)
 - name: '.54'
   aliases:
   - 54 Caliber
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/7.5%C3%9754mm_French
+  - https://en.wikipedia.org/wiki/7.62%C3%9754mmR
 - name: 5.45x39
   status: merged
 - name: 5.45x39mm
@@ -2644,6 +2895,9 @@ calibers:
   status: approved
 - name: '.55'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.38-55_Winchester
+  - https://en.wikipedia.org/wiki/6.5%C3%9755mm_Swedish
 - name: 5.56mm
   status: merged
 - name: 5.56x45
@@ -2673,25 +2927,40 @@ calibers:
   status: merged
 - name: 5.5mm
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/6.5mm_Creedmoor
+  - https://en.wikipedia.org/wiki/6.5mm_Grendel
 - name: '.56'
   status: merged
 - name: .56-50 Spencer RF
   aliases:
   - 56-50 Spencer RF
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.56-56_Spencer
+  - https://en.wikipedia.org/wiki/List_of_rifle_cartridges
 - name: .56 Caliber
   aliases:
   - 56 Caliber
   - '.56'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.22_caliber
+  - https://en.wikipedia.org/wiki/5.56%C3%9745mm_NATO
 - name: 5.6mm
   status: merged
 - name: '.57'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/7.92%C3%9757mm_Mauser
+  - https://en.wikipedia.org/wiki/7%C3%9757mm_Mauser
 - name: '.577'
   aliases:
   - 577 Caliber
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.577%2F450_Martini%E2%80%93Henry
+  - https://en.wikipedia.org/wiki/.577_Snider
 - name: .577/45
   aliases:
   - 577/45
@@ -2712,6 +2981,8 @@ calibers:
   - 577-450 Martini
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.577%2F450_Martini%E2%80%93Henry
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.577_Snider
   bullet_diameter_in: 0.455
 - name: 577 Caliber
   status: merged
@@ -2726,16 +2997,28 @@ calibers:
   - 15mm
   - 58 Caliber
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/List_of_rimfire_cartridges
+  - https://en.wikipedia.org/wiki/Rimfire_ammunition
 - name: 58 Caliber
   status: merged
 - name: '.59'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/15_mm_caliber
+  - https://en.wikipedia.org/wiki/Shotgun_cartridge
 - name: 5mm
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/6.5mm_Creedmoor
+  - https://en.wikipedia.org/wiki/6.5mm_Grendel
 - name: 5mm Pinfire
   aliases:
   - 5mm Lefaucheux
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Cartridge_(firearms)
+  - https://en.wikipedia.org/wiki/Pinfire_cartridge
 - name: '.60'
   status: merged
 - name: .60 Caliber
@@ -2747,16 +3030,31 @@ calibers:
   bullet_diameter_in: 0.6
 - name: '.61'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/6.8mm_Remington_SPC
+  - https://en.wikipedia.org/wiki/Shotgun_cartridge
 - name: '.62'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/7.62%C3%9739mm
+  - https://en.wikipedia.org/wiki/7.62%C3%9751mm_NATO
 - name: '.629'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Blank_(cartridge)
+  - https://en.wikipedia.org/wiki/Smith_%26_Wesson_Model_29
 - name: .62 Caliber
   aliases:
   - 62 caliber
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/7.62%C3%9751mm_NATO
+  - https://en.wikipedia.org/wiki/7.62_mm_caliber
 - name: '.63'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/7.62%C3%9725mm_Tokarev
+  - https://en.wikipedia.org/wiki/7.63%C3%9725mm_Mauser
 - name: '6.35'
   status: merged
 - name: 6.35mm
@@ -2770,10 +3068,16 @@ calibers:
   - 65 Caliber
   - '.65'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/20_mm_caliber
+  - https://en.wikipedia.org/wiki/7.65%C3%9721mm_Parabellum
 - name: 6.5 Creedmore
   status: merged
 - name: 6.5mm
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/6.5mm_Creedmoor
+  - https://en.wikipedia.org/wiki/6.5mm_Grendel
 - name: 6.5mm Creedmoor
   aliases:
   - 6.5 Creedmoor
@@ -2832,6 +3136,9 @@ calibers:
   aliases:
   - 6.5x55R
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/6.5%C3%9755mm_Swedish
+  - https://en.wikipedia.org/wiki/7.5%C3%9755mm_Swiss
 - name: 6.5x55mm Swedish
   aliases:
   - 6.5x55 Swede
@@ -2847,12 +3154,23 @@ calibers:
   status: merged
 - name: 6.5x63mm
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/9.3%C3%9764mm_Brenneke
 - name: '.66'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Cartridge_(firearms)
+  - https://en.wikipedia.org/wiki/Shotgun_cartridge
 - name: '.67'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.357_Magnum
+  - https://en.wikipedia.org/wiki/Shotgun_cartridge
 - name: '.68'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/8%C3%9768mm_S
+  - https://en.wikipedia.org/wiki/Shotgun_cartridge
 - name: 6.8mm SPC
   aliases:
   - 6.8 SPC
@@ -2863,18 +3181,29 @@ calibers:
   aliases:
   - 69 Caliber
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.277_Fury
+  - https://en.wikipedia.org/wiki/.357_Magnum
 - name: 69 Caliber
   status: merged
 - name: 6 Gauge
   aliases:
   - 6 Bore
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Shotgun_cartridge
 - name: 6mm
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/6mm_ARC
+  - https://en.wikipedia.org/wiki/6mm_BR
 - name: 6mm Flobert
   aliases:
   - 6 FLOBERT
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Cartridge_(firearms)
+  - https://en.wikipedia.org/wiki/Rimfire_ammunition
 - name: 6mm Lee Navy
   aliases:
   - 6mm Lee
@@ -2889,6 +3218,8 @@ calibers:
   status: merged
 - name: '.704'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.460_Weatherby_Magnum
 - name: .70 CAL BP
   aliases:
   - 70 CAL BP
@@ -2898,10 +3229,16 @@ calibers:
   - 70 Caliber
   - '.70'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.45-70
+  - https://en.wikipedia.org/wiki/.50-70_Government
 - name: '.71'
   aliases:
   - 71 Caliber
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Cartridge_(firearms)
+  - https://en.wikipedia.org/wiki/Fully_powered_cartridge
 - name: 71 Caliber
   status: merged
 - name: .71 to .78
@@ -2914,8 +3251,14 @@ calibers:
   - 72 Caliber
   - '.72'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.38-72_Winchester
+  - https://en.wikipedia.org/wiki/Caliber
 - name: '.73'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.44-40_Winchester
+  - https://en.wikipedia.org/wiki/Cartridge_(firearms)
 - name: '.731'
   status: pending
   enabled: false
@@ -2929,14 +3272,25 @@ calibers:
   bullet_diameter_in: 0.298
 - name: '.74'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/9.3%C3%9774mmR
+  - https://en.wikipedia.org/wiki/AK-74
 - name: '.75'
   aliases:
   - 75 Caliber
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/20_mm_caliber
+  - https://en.wikipedia.org/wiki/.45-75_Winchester
 - name: '.753'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/8_mm_caliber
 - name: 7.55mm
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/12.7%C3%9755mm_STs-130
+  - https://en.wikipedia.org/wiki/7.5%C3%9755mm_Swiss
 - name: 75 Caliber
   status: merged
 - name: 7.5mm
@@ -2945,6 +3299,9 @@ calibers:
   aliases:
   - 7.5X53mm
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/6.5%C3%9753mmR
+  - https://en.wikipedia.org/wiki/Geweer_M._95
 - name: 7.5X53mm
   status: merged
 - name: 7.5x54
@@ -2978,6 +3335,9 @@ calibers:
   status: merged
 - name: '.76'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.500_Nitro_Express
+  - https://en.wikipedia.org/wiki/List_of_handgun_cartridges
 - name: 7.62mm
   status: merged
 - name: 7.62mm NATO
@@ -3079,6 +3439,9 @@ calibers:
   status: merged
 - name: 7.65 MM
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/7.65%C3%9721mm_Parabellum
+  - https://en.wikipedia.org/wiki/7.65%C3%9753mm_Argentine
 - name: 7.65 Parabellum
   status: merged
 - name: 7.65 PARA MM
@@ -3103,6 +3466,9 @@ calibers:
   status: approved
 - name: '.77'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.43_Spanish
+  - https://en.wikipedia.org/wiki/Cartridge_(firearms)
 - name: 7.7mm Japanese
   status: merged
 - name: 7.7x58
@@ -3119,8 +3485,14 @@ calibers:
   bullet_diameter_in: 0.3118
 - name: '.78'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Cartridge_(firearms)
+  - https://en.wikipedia.org/wiki/Shotgun_cartridge
 - name: '.79'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Cartridge_(firearms)
+  - https://en.wikipedia.org/wiki/Shotgun_cartridge
 - name: 7.92mm
   status: merged
 - name: 7.92mm KURZ
@@ -3139,17 +3511,29 @@ calibers:
   aliases:
   - 7 Bore
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/7.62%C3%9751mm_NATO
+  - https://en.wikipedia.org/wiki/Shotgun_cartridge
 - name: 7mm
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/7mm-08_Remington
+  - https://en.wikipedia.org/wiki/7mm_Backcountry
 - name: 7mm Nambu
   aliases:
   - 7x20mm Nambu
   - 7mm Baby Nambu
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/7_mm_caliber
+  - https://en.wikipedia.org/wiki/List_of_rifle_cartridges
 - name: 7mm Pinfire
   aliases:
   - 7mm Lefaucheux
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Cartridge_(firearms)
+  - https://en.wikipedia.org/wiki/Pinfire_cartridge
 - name: 7x57mm Mauser
   aliases:
   - 7mm Mauser
@@ -3169,6 +3553,8 @@ calibers:
   - 7x64 Brenneke
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/7%C3%9764mm
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Fully_powered_cartridge
   bullet_diameter_in: 0.2854
 - name: 7x65R
   aliases:
@@ -3176,6 +3562,9 @@ calibers:
   status: approved
 - name: '.80'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/14.5_%C3%97_114_mm
+  - https://en.wikipedia.org/wiki/6.45%C3%9748mm_XPL_Swiss
 - name: 8/10
   status: merged
 - name: 8.15x46mm
@@ -3188,17 +3577,29 @@ calibers:
   status: approved
 - name: '.85'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/4.85%C3%9749mm
+  - https://en.wikipedia.org/wiki/Cartridge_(firearms)
 - name: 8.5mm
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/6.5mm_Creedmoor
+  - https://en.wikipedia.org/wiki/6.5mm_Grendel
 - name: 8 Bore
   status: merged
 - name: 8 Gauge
   aliases:
   - 8 Bore
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Gauge_(firearms)
+  - https://en.wikipedia.org/wiki/Shotgun_cartridge
   bullet_diameter_in: 0.835
 - name: 8mm
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/6.8mm_Remington_SPC
+  - https://en.wikipedia.org/wiki/8mm_Remington_Magnum
 - name: 8mm French Ordnance
   aliases:
   - 8mm Lebel Revolver
@@ -3235,8 +3636,14 @@ calibers:
   aliases:
   - 8mm Lefaucheux
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Cartridge_(firearms)
+  - https://en.wikipedia.org/wiki/List_of_military_headstamps
 - name: 8x22mm
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/8%C3%9722mm_Nambu
+  - https://en.wikipedia.org/wiki/9mm_Japanese_revolver
 - name: 8x24
   status: pending
   enabled: false
@@ -3253,6 +3660,9 @@ calibers:
   - 8mm Lebel
   - 8x50R Lebel
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/8%C3%9750mmR_Mannlicher
+  - https://en.wikipedia.org/wiki/Berthier_rifle
 - name: 8x50mmR Mannlicher
   aliases:
   - 8x50R Mannlicher
@@ -3269,6 +3679,9 @@ calibers:
   - 8x52mmR
   - 8x52R
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/M1917_Browning_machine_gun
+  - https://en.wikipedia.org/wiki/Type_38_rifle
 - name: 8x52R
   status: merged
 - name: 8x56mm
@@ -3279,6 +3692,9 @@ calibers:
   - 8x56 M-S
   - 8x56mm Mannlicher-Schoenauer
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/35M_rifle
+  - https://en.wikipedia.org/wiki/Mannlicher_M1895
 - name: 8x56mmR
   status: merged
 - name: 8x56mmR Hungarian
@@ -3325,6 +3741,9 @@ calibers:
   - 8x60mm
   - 8X60S MM
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Guedes_Rifle
+  - https://en.wikipedia.org/wiki/Table_of_handgun_and_rifle_cartridges
 - name: 8x60R
   status: approved
 - name: 8X60S MM
@@ -3334,10 +3753,19 @@ calibers:
   enabled: false
 - name: 9.15mm
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.22_long_rifle
+  - https://en.wikipedia.org/wiki/Table_of_handgun_and_rifle_cartridges
 - name: '.93'
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/.338_Norma_Magnum
+  - https://en.wikipedia.org/wiki/Cartridge_(firearms)
 - name: 9.3mm
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/9.3%C3%9762mm
+  - https://en.wikipedia.org/wiki/9.3%C3%9764mm_Brenneke
 - name: 9.3x57
   status: approved
 - name: 9.3x57mm
@@ -3357,10 +3785,18 @@ calibers:
   status: approved
 - name: 9.4mm
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/4_mm_Flobert_Long
+  - https://en.wikipedia.org/wiki/4_mm_Flobert_Short
 - name: 9.5mm
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/6.5mm_Creedmoor
+  - https://en.wikipedia.org/wiki/6.5mm_Grendel
 - name: 9.5x47mmR
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Fully_powered_cartridge
 - name: 9.5x47R
   status: approved
 - name: 9.5x56mm
@@ -3369,6 +3805,9 @@ calibers:
   aliases:
   - 9 Bore
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Gauge_(firearms)
+  - https://en.wikipedia.org/wiki/Shotgun_cartridge
 - name: 9 LUGER MM
   status: merged
 - name: 9 MM
@@ -3425,6 +3864,9 @@ calibers:
   - 9x23
   - 9X23mm Largo
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/9%C3%9723mm_Steyr
+  - https://en.wikipedia.org/wiki/9%C3%9723mm_Winchester
 - name: 9X23mm Largo
   status: merged
 - name: 9x23mm Steyr
@@ -3956,6 +4398,15 @@ models:
   - Toyo Kogyo
   wikipedia: https://en.wikipedia.org/wiki/Type_99_rifle
   status: approved
+- name: Arsenal SLR-106U
+  aliases:
+  - SLR-106U
+  - SLR106U
+  - SLR-106
+  country: Bulgaria
+  calibers:
+  - 5.56x45mm NATO
+  status: approved
 - name: AS530
   kind: carbine
   country: United States
@@ -4165,6 +4616,7 @@ models:
   manufacturers:
   - Benelli
   modern_production: true
+  maker_url: https://www.benelliusa.com/shotguns/supernova-pump-action-shotguns
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Beretta 1301
@@ -4175,6 +4627,7 @@ models:
   manufacturers:
   - Beretta
   modern_production: true
+  maker_url: https://www.beretta.com/en-us/firearms/by-gun-family/1301-family
   status: approved
 - name: Beretta 21A Bobcat
   aliases:
@@ -4189,6 +4642,7 @@ models:
   manufacturers:
   - Beretta
   modern_production: true
+  maker_url: https://www.beretta.com/en-us/firearms/by-gun-family/bobcat-family
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: Beretta 3032 Tomcat
@@ -4203,6 +4657,7 @@ models:
   manufacturers:
   - Beretta
   modern_production: true
+  maker_url: https://www.beretta.com/en-us/firearms/by-gun-family/tomcat-family
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: Beretta 84 Cheetah
@@ -4222,6 +4677,7 @@ models:
   manufacturers:
   - Beretta
   modern_production: true
+  maker_url: https://www.beretta.com/en-us/80x-cheetah-32-acp
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Beretta 92FS
@@ -4245,6 +4701,7 @@ models:
   manufacturers:
   - Beretta
   modern_production: true
+  maker_url: https://www.beretta.com/en-us/product/92fs-FA0043
   status: approved
 - name: Beretta 950
   aliases:
@@ -4284,6 +4741,7 @@ models:
   manufacturers:
   - Beretta
   modern_production: true
+  maker_url: https://www.beretta.com/en-us/firearms/by-gun-family/apx-family
   status: approved
 - name: Beretta M1934
   aliases:
@@ -4403,6 +4861,7 @@ models:
   manufacturers:
   - Beretta
   modern_production: true
+  maker_url: https://www.beretta.com/en-us/firearms/by-gun-family/px4-storm-family
   status: approved
 - name: Bern 1911
   status: merged
@@ -4445,6 +4904,7 @@ models:
   manufacturers:
   - Bersa
   modern_production: true
+  maker_url: https://bersausa.com/thunder/
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Berthier M1907/15
@@ -5108,6 +5568,7 @@ models:
   manufacturers:
   - Charter Arms
   modern_production: true
+  maker_url: https://www.charterarmsmanufacturing.com/product-page/14420-bulldog
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: Charter Arms Undercover
@@ -5121,6 +5582,7 @@ models:
   manufacturers:
   - Charter Arms
   modern_production: true
+  maker_url: https://www.charterarmsmanufacturing.com/product-page/63820-undercover
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: CHFR895
@@ -5185,6 +5647,8 @@ models:
   manufacturers:
   - Kahr
   modern_production: true
+  rejected_maker_pages:
+  - https://www.kahr.com/kahr-cm9/
   status: approved
 - name: CMD 9M
   status: pending
@@ -5287,6 +5751,8 @@ models:
   manufacturers:
   - Colt
   modern_production: true
+  rejected_maker_pages:
+  - https://www.colt.com/detail-page/blued-king-cobra/
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Colt Commander
@@ -5306,6 +5772,7 @@ models:
   manufacturers:
   - Colt
   modern_production: true
+  maker_url: https://www.colt.com/detail-page/optics-ready-combat-commander/
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Colt Defender
@@ -5319,6 +5786,7 @@ models:
   manufacturers:
   - Colt
   modern_production: true
+  maker_url: https://www.colt.com/detail-page/defender-fde-2/
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Colt Detective Special
@@ -5372,6 +5840,7 @@ models:
   manufacturers:
   - Colt
   modern_production: true
+  maker_url: https://www.colt.com/detail-page/gold-cup-trophy/
   status: approved
   position: 950
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
@@ -5397,6 +5866,7 @@ models:
   manufacturers:
   - Colt
   modern_production: true
+  maker_url: https://www.colt.com/detail-page/blued-king-cobra/
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: Colt M1849
@@ -5588,6 +6058,7 @@ models:
   manufacturers:
   - Colt
   modern_production: true
+  maker_url: https://www.colt.com/detail-page/roundbutt-python-2-5/
   status: approved
 - name: Colt SF-VI
   aliases:
@@ -5696,6 +6167,7 @@ models:
   manufacturers:
   - Shadow Systems
   modern_production: true
+  maker_url: https://shadowsystemscorp.com/cr920/
   status: approved
 - name: CR920P
   status: merged
@@ -5708,6 +6180,8 @@ models:
   manufacturers:
   - Kahr
   modern_production: true
+  rejected_maker_pages:
+  - https://www.kahr.com/kahr-cw380-kahr-ct380-ultra-subcompact-ccw/
   status: approved
 - name: CTAR-21
   status: approved
@@ -5729,6 +6203,8 @@ models:
   manufacturers:
   - Kahr
   modern_production: true
+  rejected_maker_pages:
+  - https://www.kahr.com/kahr-cw380-kahr-ct380-ultra-subcompact-ccw/
   status: approved
 - name: CW9
   kind: pistol
@@ -5738,6 +6214,8 @@ models:
   manufacturers:
   - Kahr
   modern_production: true
+  rejected_maker_pages:
+  - https://www.kahr.com/new-kahr-cw9/
   status: approved
 - name: CZ 2075 RAMI
   aliases:
@@ -5922,6 +6400,8 @@ models:
   manufacturers:
   - CZ
   status: approved
+- name: CZ 85
+  status: approved
 - name: CZ85
   kind: pistol
   country: Czech Republic
@@ -6007,6 +6487,7 @@ models:
   manufacturers:
   - Diamondback Firearms
   modern_production: true
+  maker_url: https://diamondbackfirearms.com/shop/db9-recso/
   status: approved
 - name: DC8
   status: approved
@@ -6308,6 +6789,7 @@ models:
   manufacturers:
   - Springfield
   modern_production: true
+  maker_url: https://www.springfield-armory.com/1911-series-handguns/1911-emp-handguns/
   status: approved
 - name: EMP4
   status: merged
@@ -6399,6 +6881,8 @@ models:
   country: Turkey
   calibers:
   - 9mm Luger
+  status: approved
+- name: ET-22
   status: approved
 - name: ET-97
   kind: rifle
@@ -6653,6 +7137,7 @@ models:
   manufacturers:
   - FN
   modern_production: true
+  maker_url: https://fnamerica.com/pistols/reflex-series/
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: FNS-40
@@ -6877,6 +7362,7 @@ models:
   manufacturers:
   - Glock
   modern_production: true
+  maker_url: https://us.glock.com/en/products/commercial-firearms/pistols/g43x-us
   status: approved
 - name: G98M
   kind: rifle
@@ -7236,6 +7722,7 @@ models:
   manufacturers:
   - Glock
   modern_production: true
+  maker_url: https://us.glock.com/en/products/commercial-firearms/pistols/g17-v
   status: approved
 - name: Glock 17T
   aliases:
@@ -7261,6 +7748,7 @@ models:
   manufacturers:
   - Glock
   modern_production: true
+  maker_url: https://us.glock.com/en/products/commercial-firearms/pistols/g19-v
   status: approved
 - name: Glock 20
   aliases:
@@ -7272,6 +7760,7 @@ models:
   manufacturers:
   - Glock
   modern_production: true
+  maker_url: https://us.glock.com/en/products/commercial-pistols/pistols/g20-v-mos
   status: approved
 - name: Glock 21
   aliases:
@@ -7285,6 +7774,7 @@ models:
   manufacturers:
   - Glock
   modern_production: true
+  maker_url: https://us.glock.com/en/products/commercial-firearms/pistols/g21-v-mos
   status: approved
 - name: Glock 22
   aliases:
@@ -7296,6 +7786,7 @@ models:
   manufacturers:
   - Glock
   modern_production: true
+  maker_url: https://us.glock.com/en/products/law-enforcement/pistols/g22
   status: approved
 - name: Glock 23
   aliases:
@@ -7307,6 +7798,7 @@ models:
   manufacturers:
   - Glock
   modern_production: true
+  maker_url: https://us.glock.com/en/products/commercial-firearms/pistols/g23-v
   status: approved
 - name: Glock 26
   aliases:
@@ -7319,6 +7811,7 @@ models:
   manufacturers:
   - Glock
   modern_production: true
+  maker_url: https://us.glock.com/en/products/commercial-firearms/pistols/g26-v
   status: approved
 - name: Glock 27
   aliases:
@@ -7330,6 +7823,7 @@ models:
   manufacturers:
   - Glock
   modern_production: true
+  maker_url: https://us.glock.com/en/products/law-enforcement/pistols/g27
   status: approved
 - name: Glock 29
   aliases:
@@ -7351,6 +7845,7 @@ models:
   manufacturers:
   - Glock
   modern_production: true
+  maker_url: https://us.glock.com/en/products/law-enforcement/pistols/g30s
   status: approved
 - name: Glock 31
   aliases:
@@ -7362,6 +7857,7 @@ models:
   manufacturers:
   - Glock
   modern_production: true
+  maker_url: https://us.glock.com/en/products/law-enforcement/pistols/g31
   status: approved
 - name: Glock 32
   aliases:
@@ -7395,6 +7891,7 @@ models:
   manufacturers:
   - Glock
   modern_production: true
+  maker_url: https://us.glock.com/en/products/law-enforcement/pistols/g34
   status: approved
 - name: Glock 35
   aliases:
@@ -7406,6 +7903,7 @@ models:
   manufacturers:
   - Glock
   modern_production: true
+  maker_url: https://us.glock.com/en/products/law-enforcement/pistols/g35
   status: approved
 - name: Glock 36
   aliases:
@@ -7417,6 +7915,7 @@ models:
   manufacturers:
   - Glock
   modern_production: true
+  maker_url: https://us.glock.com/en/products/law-enforcement/pistols/g36
   status: approved
 - name: Glock 42
   aliases:
@@ -7428,6 +7927,7 @@ models:
   manufacturers:
   - Glock
   modern_production: true
+  maker_url: https://us.glock.com/en/products/commercial-firearms/pistols/g42
   status: approved
 - name: Glock 43
   aliases:
@@ -7439,6 +7939,7 @@ models:
   manufacturers:
   - Glock
   modern_production: true
+  maker_url: https://us.glock.com/en/products/commercial-firearms/pistols/g43
   status: approved
 - name: Glock 43X
   aliases:
@@ -7450,6 +7951,7 @@ models:
   manufacturers:
   - Glock
   modern_production: true
+  maker_url: https://us.glock.com/en/products/commercial-firearms/pistols/g43x-us
   status: approved
 - name: Glock 44
   aliases:
@@ -7471,6 +7973,7 @@ models:
   manufacturers:
   - Glock
   modern_production: true
+  maker_url: https://us.glock.com/en/products/commercial-firearms/pistols/g45-v
   status: approved
 - name: Glock 47
   aliases:
@@ -7482,6 +7985,7 @@ models:
   manufacturers:
   - Glock
   modern_production: true
+  maker_url: https://us.glock.com/en/products/law-enforcement/pistols/g47-mos
   status: approved
 - name: Glock 48
   aliases:
@@ -7493,6 +7997,7 @@ models:
   manufacturers:
   - Glock
   modern_production: true
+  maker_url: https://us.glock.com/en/products/commercial-firearms/pistols/g48
   status: approved
 - name: Glock 49
   aliases:
@@ -7556,6 +8061,7 @@ models:
   manufacturers:
   - Taurus
   modern_production: true
+  maker_url: https://www.taurususa.com/firearms/pistols/taurus-gx4/
   status: approved
 - name: H011
   kind: rifle
@@ -8144,6 +8650,8 @@ models:
   manufacturers:
   - Kahr
   modern_production: true
+  rejected_maker_pages:
+  - https://www.kahr.com/kahr-arms-p380/
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: KAR 98
@@ -8185,6 +8693,7 @@ models:
   manufacturers:
   - Kimber
   modern_production: true
+  maker_url: https://www.kimberamerica.com/pistols/kds9c
   status: approved
 - name: Kel-Tec P17
   aliases:
@@ -8196,6 +8705,7 @@ models:
   manufacturers:
   - Kel-Tec
   modern_production: true
+  maker_url: https://www.keltecweapons.com/firearm/pistols/p17/
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: Kel-Tec P-3AT
@@ -8212,6 +8722,7 @@ models:
   manufacturers:
   - Kel-Tec
   modern_production: true
+  maker_url: https://www.keltecweapons.com/firearm/pistols/pr-3at/
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: KG-99
@@ -8244,6 +8755,7 @@ models:
   manufacturers:
   - Kimber
   modern_production: true
+  maker_url: https://www.kimberamerica.com/aegis-elite-pro-2
   status: approved
 - name: Kimber CDP II
   aliases:
@@ -8260,6 +8772,7 @@ models:
   manufacturers:
   - Kimber
   modern_production: true
+  maker_url: https://www.kimberamerica.com/pistols/1911/cdp-ii
   status: approved
 - name: Kimber Custom II
   aliases:
@@ -8273,6 +8786,7 @@ models:
   manufacturers:
   - Kimber
   modern_production: true
+  maker_url: https://www.kimberamerica.com/pistols/california-compliant/custom-ii
   status: approved
 - name: Kimber Desert Warrior
   aliases:
@@ -8285,6 +8799,7 @@ models:
   manufacturers:
   - Kimber
   modern_production: true
+  maker_url: https://www.kimberamerica.com/desert-warrior
   status: approved
 - name: Kimber EVO SP
   aliases:
@@ -8296,6 +8811,7 @@ models:
   manufacturers:
   - Kimber
   modern_production: true
+  maker_url: https://www.kimberamerica.com/pistols/evo-sp
   status: approved
 - name: Kimber Hero Custom
   aliases:
@@ -8308,6 +8824,7 @@ models:
   manufacturers:
   - Kimber
   modern_production: true
+  maker_url: https://www.kimberamerica.com/hero-custom-1
   status: approved
 - name: Kimber K6s
   aliases:
@@ -8321,6 +8838,7 @@ models:
   manufacturers:
   - Kimber
   modern_production: true
+  maker_url: https://www.kimberamerica.com/k6s
   status: approved
 - name: Kimber KHX
   aliases:
@@ -8333,6 +8851,7 @@ models:
   manufacturers:
   - Kimber
   modern_production: true
+  maker_url: https://www.kimberamerica.com/pistols/1911/khx
   status: approved
 - name: Kimber Micro
   aliases:
@@ -8346,6 +8865,7 @@ models:
   manufacturers:
   - Kimber
   modern_production: true
+  maker_url: https://www.kimberamerica.com/pistols/micro
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Kimber Micro 9
@@ -8359,6 +8879,7 @@ models:
   manufacturers:
   - Kimber
   modern_production: true
+  maker_url: https://www.kimberamerica.com/micro-9
   status: approved
   position: 890
 - name: Kimber Pro Carry II
@@ -8372,6 +8893,7 @@ models:
   manufacturers:
   - Kimber
   modern_production: true
+  maker_url: https://www.kimberamerica.com/pistols/california-compliant/pro-carry-ii
   status: approved
 - name: Kimber R7 Mako
   aliases:
@@ -8384,6 +8906,7 @@ models:
   manufacturers:
   - Kimber
   modern_production: true
+  maker_url: https://www.kimberamerica.com/r7-mako
   status: approved
 - name: Kimber Raptor II
   aliases:
@@ -8397,6 +8920,7 @@ models:
   manufacturers:
   - Kimber
   modern_production: true
+  maker_url: https://www.kimberamerica.com/pistols/1911/raptor-ii
   status: approved
 - name: Kimber Stainless II
   aliases:
@@ -8410,6 +8934,7 @@ models:
   manufacturers:
   - Kimber
   modern_production: true
+  maker_url: https://www.kimberamerica.com/stainless-ii
   status: approved
 - name: Kimber Stainless Target II
   aliases:
@@ -8424,6 +8949,7 @@ models:
   manufacturers:
   - Kimber
   modern_production: true
+  maker_url: https://www.kimberamerica.com/stainless-target-ii
   status: approved
 - name: Kimber Ultra Carry II
   aliases:
@@ -8437,6 +8963,7 @@ models:
   manufacturers:
   - Kimber
   modern_production: true
+  maker_url: https://www.kimberamerica.com/pistols/california-compliant/ultra-carry-ii
   status: approved
 - name: KIT-5
   status: pending
@@ -8540,6 +9067,9 @@ models:
   status: pending
   enabled: false
 - name: L70
+  status: pending
+  enabled: false
+- name: L806
   status: pending
   enabled: false
 - name: Lahti L-35
@@ -9466,6 +9996,17 @@ models:
   status: approved
 - name: MAS Modèle 1874
   status: approved
+- name: Matrix Arms MX19
+  aliases:
+  - MX19
+  - MX-19
+  kind: pistol
+  country: United States
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Matrix Arms
+  status: approved
 - name: Mauser 06/34
   aliases:
   - 06/34
@@ -9810,6 +10351,7 @@ models:
   manufacturers:
   - Ruger
   modern_production: true
+  maker_url: https://ruger.com/products/max-9/models.html
   status: approved
 - name: MAY 15
   status: pending
@@ -9854,6 +10396,7 @@ models:
   manufacturers:
   - Canik
   modern_production: true
+  maker_url: https://www.canikusa.com/mete-mc9
   status: approved
 - name: MCP35
   status: approved
@@ -10012,6 +10555,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  maker_url: https://www.smith-wesson.com/product/model-10-classic-no-internal-lock
   status: approved
 - name: Model 100e
   calibers:
@@ -10462,6 +11006,8 @@ models:
 - name: MODEL 620A
   status: pending
   enabled: false
+- name: Model 620K
+  status: approved
 - name: MODEL 621
   status: pending
   enabled: false
@@ -10601,6 +11147,8 @@ models:
   - 9mm Luger
   manufacturers:
   - MAC
+  status: approved
+- name: Modelo 1846
   status: approved
 - name: MODELO 1891
   kind: rifle
@@ -10909,6 +11457,7 @@ models:
   manufacturers:
   - Shadow Systems
   modern_production: true
+  maker_url: https://shadowsystemscorp.com/mr920/
   status: approved
 - name: MR920P
   status: merged
@@ -11298,6 +11847,7 @@ models:
   manufacturers:
   - Walther
   modern_production: true
+  maker_url: https://waltherarms.com/defense/p22
   status: approved
 - name: P220R
   status: merged
@@ -11449,6 +11999,7 @@ models:
   manufacturers:
   - Kel-Tec
   modern_production: true
+  maker_url: https://www.keltecweapons.com/firearm/pistols/kp50/
   status: approved
 - name: P53
   kind: rifle
@@ -11759,6 +12310,7 @@ models:
   manufacturers:
   - Kahr
   modern_production: true
+  maker_url: https://www.kahr.com/kahr-pm9/
   status: approved
 - name: PM9
   status: merged
@@ -12392,6 +12944,7 @@ models:
   manufacturers:
   - Rossi
   modern_production: true
+  maker_url: https://rossiusa.com/firearms/handguns/rs22-pistol/
   status: approved
   notes: Approved 2026-10-12 from the pending queue.
 - name: RPB31
@@ -12440,6 +12993,7 @@ models:
   manufacturers:
   - Ruger
   modern_production: true
+  maker_url: https://ruger.com/products/ruger57/models.html
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Ruger American Pistol
@@ -12481,6 +13035,7 @@ models:
   manufacturers:
   - Ruger
   modern_production: true
+  maker_url: https://ruger.com/products/newBearcat/models.html
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Ruger Blackhawk
@@ -12501,6 +13056,7 @@ models:
   manufacturers:
   - Ruger
   modern_production: true
+  maker_url: https://ruger.com/products/newModelBlackhawkBlued/models.html
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Ruger Charger
@@ -12514,6 +13070,7 @@ models:
   manufacturers:
   - Ruger
   modern_production: true
+  maker_url: https://ruger.com/products/22Charger/models.html
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: Ruger LCP-380
@@ -12530,6 +13087,7 @@ models:
   manufacturers:
   - Ruger
   modern_production: true
+  maker_url: https://ruger.com/products/lcp/models.html
   status: approved
 - name: Ruger LCR
   aliases:
@@ -12575,6 +13133,7 @@ models:
   manufacturers:
   - Ruger
   modern_production: true
+  maker_url: https://ruger.com/products/markIVStandard/models.html
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: Ruger Mini-14
@@ -12588,6 +13147,7 @@ models:
   manufacturers:
   - Ruger
   modern_production: true
+  maker_url: https://ruger.com/products/mini14RanchRifle/models.html
   status: approved
 - name: Ruger No. 1
   aliases:
@@ -12599,6 +13159,7 @@ models:
   manufacturers:
   - Ruger
   modern_production: true
+  maker_url: https://ruger.com/products/no1/models.html
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Ruger Police Service-Six
@@ -12624,6 +13185,7 @@ models:
   manufacturers:
   - Ruger
   modern_production: true
+  maker_url: https://ruger.com/products/precisionRifle/models.html
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Ruger P-Series
@@ -12660,6 +13222,7 @@ models:
   manufacturers:
   - Ruger
   modern_production: true
+  maker_url: https://ruger.com/products/redhawk/models.html
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Ruger RXM
@@ -12672,6 +13235,7 @@ models:
   manufacturers:
   - Ruger
   modern_production: true
+  maker_url: https://ruger.com/products/rxm/models.html
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Ruger Security-9
@@ -12685,6 +13249,7 @@ models:
   manufacturers:
   - Ruger
   modern_production: true
+  maker_url: https://ruger.com/products/security9/models.html
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Ruger Security-Six
@@ -12730,6 +13295,7 @@ models:
   manufacturers:
   - Ruger
   modern_production: true
+  maker_url: https://ruger.com/products/sr1911Standard/models.html
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Ruger Super Blackhawk
@@ -12746,6 +13312,7 @@ models:
   manufacturers:
   - Ruger
   modern_production: true
+  maker_url: https://ruger.com/products/newModelSuperBlackhawkStandard/models.html
   status: approved
   position: 880
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
@@ -12759,6 +13326,7 @@ models:
   manufacturers:
   - Ruger
   modern_production: true
+  maker_url: https://ruger.com/products/superRedhawkStandard/models.html
   status: approved
   position: 880
   notes: Added 2026-10-11 for listings with no caliber.
@@ -12777,6 +13345,7 @@ models:
   manufacturers:
   - Ruger
   modern_production: true
+  maker_url: https://ruger.com/products/vaqueroBlued/models.html
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Ruger Wrangler
@@ -12789,6 +13358,7 @@ models:
   manufacturers:
   - Ruger
   modern_production: true
+  maker_url: https://ruger.com/products/wrangler/models.html
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: Russian M91/59
@@ -13029,6 +13599,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  maker_url: https://www.smith-wesson.com/product/s-w-sd9-ve-std-capacity
   status: approved
 - name: SEPT 20
   status: pending
@@ -13198,9 +13769,6 @@ models:
   manufacturers:
   - Sig Sauer
   status: approved
-- name: SIG SAUER 1911
-  status: pending
-  enabled: false
 - name: Sig Sauer 1911
   aliases:
   - Sig 1911
@@ -13217,6 +13785,9 @@ models:
   modern_production: true
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: SIG SAUER 1911
+  status: pending
+  enabled: false
 - name: Sig Sauer 47/8
   aliases:
   - 47/8
@@ -13534,6 +14105,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  maker_url: https://www.smith-wesson.com/products/bodyguard-2
   status: approved
 - name: Smith & Wesson CSX
   aliases:
@@ -13545,6 +14117,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  maker_url: https://www.smith-wesson.com/products/csx
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Double Action
@@ -13587,6 +14160,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  maker_url: https://www.smith-wesson.com/products/governor
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Hand Ejector
@@ -13712,6 +14286,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  maker_url: https://www.smith-wesson.com/product/model-19-classic-no-internal-lock
   status: approved
 - name: Smith & Wesson Model 1917
   aliases:
@@ -13874,6 +14449,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  maker_url: https://www.smith-wesson.com/product/performance-center-model-m-p-r8
   status: approved
   notes: Added 2026-10-12 for M&P listings that matched no model.
 - name: Smith & Wesson Model 329
@@ -13951,6 +14527,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  maker_url: https://www.smith-wesson.com/product/model-340-pd
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Model 351
@@ -13981,6 +14558,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  maker_url: https://www.smith-wesson.com/product/model-36-classic-no-internal-lock
   status: approved
 - name: Smith & Wesson Model 360
   aliases:
@@ -13998,6 +14576,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  maker_url: https://www.smith-wesson.com/product/model-360pd-chiefs-special
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Model 37
@@ -14079,6 +14658,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  maker_url: https://www.smith-wesson.com/product/model-442
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: Smith & Wesson Model 460
@@ -14094,6 +14674,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  maker_url: https://www.smith-wesson.com/product/performance-center-model-460xvr
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: Smith & Wesson Model 49
@@ -14122,6 +14703,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  maker_url: https://www.smith-wesson.com/product/model-s-w500
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: Smith & Wesson Model 57
@@ -14180,6 +14762,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  maker_url: https://www.smith-wesson.com/product/model-60-chiefs-special
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Model 619
@@ -14237,6 +14820,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  maker_url: https://www.smith-wesson.com/product/model-637-chiefs-special
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: Smith & Wesson Model 64
@@ -14266,6 +14850,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  maker_url: https://www.smith-wesson.com/product/model-640
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Model 642
@@ -14281,6 +14866,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  maker_url: https://www.smith-wesson.com/product/performance-center-model-642
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: Smith & Wesson Model 648
@@ -14364,6 +14950,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  maker_url: https://www.smith-wesson.com/product/model-69
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Model 6906
@@ -14501,6 +15088,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  maker_url: https://www.smith-wesson.com/products/mp-15
   status: approved
 - name: Smith & Wesson M&P 22 Compact
   aliases:
@@ -14513,6 +15101,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  maker_url: https://www.smith-wesson.com/products/mp-22-compact
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: Smith & Wesson M&P 22 Magnum
@@ -14525,6 +15114,8 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  rejected_maker_pages:
+  - https://www.smith-wesson.com/products/compatible-with-mp-22-magnum
   status: approved
   notes: Added 2026-10-12 for M&P listings that matched no model.
 - name: Smith & Wesson M&P 340
@@ -14538,6 +15129,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  maker_url: https://www.smith-wesson.com/product/m-p-340-no-internal-lock
   status: approved
   notes: Added 2026-10-12 for M&P listings that matched no model.
 - name: Smith & Wesson M&P40
@@ -14553,6 +15145,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  maker_url: https://www.smith-wesson.com/product/mp40-metal
   status: approved
 - name: Smith & Wesson M&P45
   aliases:
@@ -14566,6 +15159,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  maker_url: https://www.smith-wesson.com/product/m-p-45-m2.0
   status: approved
 - name: Smith & Wesson M&P9
   aliases:
@@ -14581,6 +15175,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  maker_url: https://www.smith-wesson.com/product/m-p-9-m2.0
   status: approved
 - name: Smith & Wesson M&P FPC
   aliases:
@@ -14592,6 +15187,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  maker_url: https://www.smith-wesson.com/product/mp-fpc-fde
   status: approved
   notes: Added 2026-10-12 for M&P listings that matched no model.
 - name: Smith & Wesson M&P M2.0
@@ -14618,6 +15214,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  maker_url: https://www.smith-wesson.com/product/m-p-9-m2.0
   status: approved
   notes: Added 2026-10-12 for M&P listings that matched no model.
 - name: Smith & Wesson M&P Shield
@@ -14640,6 +15237,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  maker_url: https://www.smith-wesson.com/products/shield-m2-0
   status: approved
   position: 900
 - name: Smith & Wesson M&P Shield EZ
@@ -14657,6 +15255,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  maker_url: https://www.smith-wesson.com/products/shield-ez
   status: approved
   position: 895
   notes: Added 2026-10-12 for M&P listings that matched no model.
@@ -14671,6 +15270,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  maker_url: https://www.smith-wesson.com/products/shield-plus
   status: approved
   position: 890
   notes: Added 2026-10-11 for listings with no caliber.
@@ -14714,6 +15314,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  maker_url: https://www.smith-wesson.com/products/sw1911
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Victory
@@ -14816,6 +15417,7 @@ models:
   manufacturers:
   - Ruger
   modern_production: true
+  maker_url: https://ruger.com/products/sp101/models.html
   status: approved
 - name: SP-2
   status: approved
@@ -14982,6 +15584,7 @@ models:
   manufacturers:
   - Springfield
   modern_production: true
+  maker_url: https://www.springfield-armory.com/911-series-handguns/
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Springfield Armory 1903
@@ -14998,6 +15601,7 @@ models:
   manufacturers:
   - Springfield
   modern_production: true
+  maker_url: https://www.springfield-armory.com/1911-series-handguns/
   status: approved
 - name: Springfield Echelon
   aliases:
@@ -15010,6 +15614,7 @@ models:
   manufacturers:
   - Springfield
   modern_production: true
+  maker_url: https://www.springfield-armory.com/echelon-series-handguns/
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Springfield Emissary
@@ -15023,6 +15628,7 @@ models:
   manufacturers:
   - Springfield
   modern_production: true
+  maker_url: https://www.springfield-armory.com/1911-series-handguns/1911-emissary-handguns/
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Springfield Garrison
@@ -15036,6 +15642,7 @@ models:
   manufacturers:
   - Springfield
   modern_production: true
+  maker_url: https://www.springfield-armory.com/1911-series-handguns/1911-garrison-handguns/
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Springfield Hellcat
@@ -15050,6 +15657,7 @@ models:
   manufacturers:
   - Springfield
   modern_production: true
+  maker_url: https://www.springfield-armory.com/hellcat-series-handguns/
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Springfield M1847
@@ -15154,6 +15762,7 @@ models:
   manufacturers:
   - Springfield
   modern_production: true
+  maker_url: https://www.springfield-armory.com/model-2020-series-rifles/
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Springfield Operator
@@ -15168,6 +15777,7 @@ models:
   manufacturers:
   - Springfield
   modern_production: true
+  maker_url: https://www.springfield-armory.com/1911-series-handguns/1911-operator-handguns/
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Springfield Prodigy
@@ -15181,6 +15791,7 @@ models:
   manufacturers:
   - Springfield
   modern_production: true
+  maker_url: https://www.springfield-armory.com/1911-ds-series-handguns/1911-ds-prodigy-handguns/
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Springfield Ronin
@@ -15192,6 +15803,7 @@ models:
   manufacturers:
   - Springfield
   modern_production: true
+  maker_url: https://www.springfield-armory.com/1911-series-handguns/1911-ronin-handguns/
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Springfield Saint
@@ -15207,6 +15819,7 @@ models:
   manufacturers:
   - Springfield
   modern_production: true
+  maker_url: https://www.springfield-armory.com/saint-series-pistols/
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: SR22
@@ -15898,6 +16511,7 @@ models:
   manufacturers:
   - Taurus
   modern_production: true
+  maker_url: https://www.taurususa.com/firearms/pistols/taurus-g3/
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Taurus Judge
@@ -15911,6 +16525,7 @@ models:
   manufacturers:
   - Taurus
   modern_production: true
+  maker_url: https://www.taurususa.com/firearms/revolvers/taurus-judge/
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: Taurus Model 44
@@ -15934,6 +16549,7 @@ models:
   manufacturers:
   - Taurus
   modern_production: true
+  maker_url: https://www.taurususa.com/firearms/revolvers/small-frame-revolvers/taurus-605/
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Taurus Model 650
@@ -15969,6 +16585,7 @@ models:
   manufacturers:
   - Taurus
   modern_production: true
+  maker_url: https://www.taurususa.com/firearms/revolvers/medium-frame-revolvers/taurus-692/
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Taurus Model 82
@@ -16021,6 +16638,7 @@ models:
   manufacturers:
   - Taurus
   modern_production: true
+  maker_url: https://www.taurususa.com/firearms/pistols/taurus-1911/
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Taurus PT709 Slim
@@ -16050,6 +16668,7 @@ models:
   manufacturers:
   - Taurus
   modern_production: true
+  maker_url: https://www.taurususa.com/firearms/pistols/taurus-92/
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Taurus PT945
@@ -16089,6 +16708,7 @@ models:
   manufacturers:
   - Taurus
   modern_production: true
+  maker_url: https://www.taurususa.com/firearms/revolvers/raging-hunter/
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Taurus Spectrum
@@ -16115,6 +16735,7 @@ models:
   manufacturers:
   - Taurus
   modern_production: true
+  maker_url: https://www.taurususa.com/firearms/revolvers/taurus-tracker/
   status: approved
   position: 880
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
@@ -16128,6 +16749,7 @@ models:
   manufacturers:
   - Taurus
   modern_production: true
+  maker_url: https://www.taurususa.com/firearms/pistols/tx9/
   status: approved
   notes: Approved 2026-10-12 from the pending queue.
 - name: Taylor's Company 1860
@@ -16154,6 +16776,7 @@ models:
   manufacturers:
   - Taurus
   modern_production: true
+  maker_url: https://www.taurususa.com/product/pistols/taurus-th/taurus-th10-matte-black-10mm-auto-15-rds/
   status: approved
 - name: TH9
   kind: pistol
@@ -16245,6 +16868,7 @@ models:
   manufacturers:
   - Canik
   modern_production: true
+  maker_url: https://www.canikusa.com/canik-firearms/tp9
   status: approved
 - name: TPR9C
   kind: pistol
@@ -17040,16 +17664,6 @@ models:
   calibers:
   - .30-30 Winchester
   status: approved
-- name: U.S. Model 9422
-  aliases:
-  - Model 9422
-  kind: rifle
-  country: United States
-  calibers:
-  - .22 LR
-  manufacturers:
-  - Winchester
-  status: approved
 - name: U.S. Model 95
   aliases:
   - Model 95
@@ -17352,6 +17966,7 @@ models:
   manufacturers:
   - Walther
   modern_production: true
+  maker_url: https://waltherarms.com/defense/ccp
   status: approved
 - name: Walther Creed
   aliases:
@@ -17494,6 +18109,7 @@ models:
   manufacturers:
   - Walther
   modern_production: true
+  maker_url: https://waltherarms.com/defense/pdp
   status: approved
 - name: Walther PP
   aliases:
@@ -17528,6 +18144,7 @@ models:
   - Walther
   wikipedia: https://en.wikipedia.org/wiki/Walther_PP
   modern_production: true
+  maker_url: https://waltherarms.com/legacy/ppk
   status: approved
 - name: Walther PPQ
   aliases:
@@ -17553,6 +18170,7 @@ models:
   manufacturers:
   - Walther
   modern_production: true
+  maker_url: https://waltherarms.com/defense/pps
   status: approved
 - name: Walther Q4
   aliases:
@@ -17771,6 +18389,7 @@ models:
   manufacturers:
   - Wilson Combat
   modern_production: true
+  maker_url: https://wilsoncombat.com/handguns/1911-handguns/cqb.html
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Wilson Combat EDC X9
@@ -17784,6 +18403,7 @@ models:
   manufacturers:
   - Wilson Combat
   modern_production: true
+  maker_url: https://wilsoncombat.com/handguns/double-stack/edc-x9.html
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: WIN-13
@@ -17799,6 +18419,30 @@ models:
   country: United States
   calibers:
   - .30-06 Springfield
+  manufacturers:
+  - Winchester
+  status: approved
+- name: Winchester 9422
+  aliases:
+  - Model 9422
+  - U.S. Model 9422
+  - '9422'
+  kind: rifle
+  country: United States
+  calibers:
+  - .22 LR
+  manufacturers:
+  - Winchester
+  status: approved
+- name: Winchester 9422M
+  aliases:
+  - Model 9422M
+  - 9422M
+  - 9422 M
+  kind: rifle
+  country: United States
+  calibers:
+  - .22 WMR
   manufacturers:
   - Winchester
   status: approved
@@ -18074,6 +18718,7 @@ models:
   manufacturers:
   - Springfield
   modern_production: true
+  maker_url: https://www.springfield-armory.com/xd-series-handguns/xd-m-handguns/xd-m-45-45-acp-handgun/
   status: approved
 - name: XDM-9
   aliases:

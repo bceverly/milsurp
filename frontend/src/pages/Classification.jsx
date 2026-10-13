@@ -548,8 +548,8 @@ export default function Classification() {
             kind. Edits take effect on the next scan. To reach the listings already
             stored, run <code>make reclassify recompute=1 fields=caliber,country</code> —
             scoped to the fields the change affects, because an unscoped recompute also
-            clears makers the vendors supplied. Nothing here rewrites stored listings on
-            its own.
+            clears manufacturers the vendors supplied. Nothing here rewrites stored
+            listings on its own.
           </p>
         </div>
         <div className="page-head__actions">

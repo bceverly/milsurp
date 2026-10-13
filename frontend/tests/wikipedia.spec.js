@@ -5,6 +5,7 @@
  * these check the page shows and sends what it should.
  */
 import { test, expect, openPage } from "./fixtures.js";
+import { openArmoryModels, searchFor } from "./armory-helpers.js";
 
 const PROPOSALS = [
   {
@@ -58,8 +59,8 @@ test("proposed articles are accepted and rejected on the Armory's Wikipedia tab"
   await expect(signedIn).toHaveURL(/#wikipedia$/);
   const panel = signedIn.getByTestId("wikipedia-suggestions");
   await expect(panel).toContainText("Mauser");
-  // A suggestion has no status, so Showing does not apply; Search does.
-  await expect(signedIn.getByLabel("Showing")).toBeDisabled();
+  // Showing picks which decisions to look at (2026-10-13); Search narrows them.
+  await expect(signedIn.getByLabel("Showing")).toHaveValue("pending");
   await signedIn.getByLabel("Search").fill("gewehr");
   await expect(panel).not.toContainText("Mauser");
   await expect(panel).toContainText("Karabiner 98k");
@@ -132,12 +133,71 @@ test("a model's page on its maker's site is decided on its own tab", async ({
     await route.fulfill({ json: { changed: 1, message: "ok" } });
   });
   await openPage(signedIn, "Armory");
-  await signedIn.getByRole("tab", { name: "Maker pages (1)" }).click();
-  await expect(signedIn).toHaveURL(/#maker-pages$/);
+  await signedIn.getByRole("tab", { name: "Manufacturer pages (1)" }).click();
+  await expect(signedIn).toHaveURL(/#manufacturer-pages$/);
   const panel = signedIn.getByTestId("maker-page-suggestions");
   await expect(panel).toContainText("Glock 19");
   // Each tab its own kind: the Wikipedia article is not here.
   await expect(panel).not.toContainText("Mauser");
   await panel.getByRole("button", { name: "Accept all confident (1)" }).click();
   await expect.poll(() => sent[0]).toContain("accept-confident?field=maker_page");
+});
+
+test("a Wikipedia article is added, edited and removed by hand under Production", async ({
+  signedIn,
+}) => {
+  await openArmoryModels(signedIn);
+  const name = `Wiki Test ${Date.now()}`;
+  await signedIn.getByRole("button", { name: "Add model" }).click();
+  await signedIn.getByRole("dialog").getByLabel("Name").fill(name);
+  await signedIn
+    .getByRole("dialog")
+    .getByRole("button", { name: "Add, awaiting approval" })
+    .click();
+  await searchFor(signedIn, name);
+  await signedIn.locator("tbody tr", { hasText: name }).getByRole("checkbox").check();
+  await signedIn.getByRole("button", { name: "Promote to production" }).click();
+  await expect(signedIn.locator(".alert--success")).toContainText(
+    "moved into production",
+  );
+  await signedIn.getByLabel("Search").fill("");
+
+  await signedIn.getByRole("tab", { name: /^Wikipedia/ }).click();
+  await signedIn.getByLabel("Showing").selectOption("approved");
+  const production = signedIn.getByTestId("wikipedia-production");
+  await production.getByLabel("For").fill(`${name} (Model)`);
+  await production
+    .getByLabel("Wikipedia article")
+    .fill("https://en.wikipedia.org/wiki/First");
+  await production.getByRole("button", { name: "Add Wikipedia article" }).click();
+  await signedIn.getByLabel("Search").fill(name);
+  const listed = production.locator("tbody tr", { hasText: name });
+  await expect(listed.getByRole("link")).toHaveAttribute(
+    "href",
+    "https://en.wikipedia.org/wiki/First",
+  );
+  await expect(listed).toContainText("Model");
+
+  await listed.getByRole("button", { name: `Edit the article for ${name}` }).click();
+  await listed
+    .getByLabel(`Wikipedia article for ${name}`)
+    .fill("https://en.wikipedia.org/wiki/Second");
+  await listed.getByRole("button", { name: "Save" }).click();
+  await expect(listed.getByRole("link")).toHaveAttribute(
+    "href",
+    "https://en.wikipedia.org/wiki/Second",
+  );
+  await listed.getByRole("button", { name: `Remove the article for ${name}` }).click();
+  await expect(production.locator("tbody tr", { hasText: name })).toHaveCount(0);
+
+  // Leave the armory as found.
+  await signedIn.getByRole("tab", { name: "Models" }).click();
+  await signedIn.getByLabel("Showing").selectOption("");
+  await searchFor(signedIn, name);
+  await signedIn.getByRole("button", { name: `Delete ${name}` }).click();
+  await signedIn
+    .getByRole("dialog")
+    .getByRole("button", { name: /^Delete/ })
+    .click();
+  await expect(signedIn.locator("tbody tr", { hasText: name })).toHaveCount(0);
 });

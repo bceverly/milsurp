@@ -1069,7 +1069,7 @@ def _armory_maker_pages(args: argparse.Namespace) -> int:
         f"{totals['confident']} of them confident; {totals['nothing']} with no page found; "
         f"{totals['unread']} maker site(s) with no sitemap that could be read."
     )
-    print("Accept or reject them on the Armory page's Maker pages tab.")
+    print("Accept or reject them on the Armory page's Manufacturer pages tab.")
     return 0
 
 
@@ -1979,8 +1979,8 @@ def _add_armory_commands(sub) -> None:
     )
     armory_pages = armory_sub.add_parser(
         "maker-pages",
-        help="Find each modern-production model's own page on its maker's site, from the "
-        "maker's sitemap; they wait for acceptance on the Armory's Maker pages tab.",
+        help="Find each modern-production model's own page on its manufacturer's site, from the "
+        "manufacturer's sitemap; they wait for acceptance on the Armory's Manufacturer pages tab.",
     )
     armory_pages.add_argument("--maker", help="Only this maker, by its armory name.")
     armory_prices = armory_sub.add_parser(

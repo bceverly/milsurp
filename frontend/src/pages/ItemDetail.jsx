@@ -365,7 +365,7 @@ function ArmoryPanel({ item, onClose }) {
       )}
       <div className="armory-panel__actions">
         {/* The model's own page on its maker's site, found by
-            app/services/makerpages.py and accepted on the Armory's Maker pages
+            app/services/makerpages.py and accepted on the Armory's Manufacturer pages
             tab (2026-10-12). Here rather than under the buy button: it is
             something the armory knows about the model. */}
         {item.maker_link?.url && (
@@ -469,7 +469,7 @@ function VariantNote({ item }) {
             {" "}
             ·{" "}
             <a href={v.maker_url} target="_blank" rel="noopener noreferrer">
-              maker&rsquo;s page
+              manufacturer&rsquo;s page
             </a>
           </>
         )}

@@ -67,7 +67,7 @@ test("the armory flags a model as still made and records its page", async ({
   let dialog = signedIn.getByRole("dialog");
   await dialog.getByLabel("Name").fill(name);
   await dialog.getByLabel("Modern production").check();
-  await dialog.getByLabel("Maker's page").fill("https://maker.example/carry");
+  await dialog.getByLabel("Manufacturer's page").fill("https://maker.example/carry");
   await dialog.getByRole("button", { name: "Add, awaiting approval" }).click();
   await expect(signedIn.getByRole("dialog")).toHaveCount(0);
 
@@ -78,11 +78,11 @@ test("the armory flags a model as still made and records its page", async ({
   await row.getByRole("button", { name, exact: true }).click();
   dialog = signedIn.getByRole("dialog");
   await expect(dialog.getByLabel("Modern production")).toBeChecked();
-  await expect(dialog.getByLabel("Maker's page")).toHaveValue(
+  await expect(dialog.getByLabel("Manufacturer's page")).toHaveValue(
     "https://maker.example/carry",
   );
   await dialog.getByLabel("Modern production").uncheck();
-  await dialog.getByLabel("Maker's page").fill("");
+  await dialog.getByLabel("Manufacturer's page").fill("");
   await dialog.getByRole("button", { name: /^Save/ }).click();
   await expect(signedIn.getByRole("dialog")).toHaveCount(0);
   await expect(row.getByText("Still made")).toHaveCount(0);
@@ -124,4 +124,109 @@ test("a maker's website is edited with the maker", async ({ signedIn }) => {
     .getByRole("button", { name: /^Delete/ })
     .click();
   await expect(signedIn.getByRole("button", { name, exact: true })).toHaveCount(0);
+});
+
+test.describe("the Manufacturer pages tab", () => {
+  // Showing works here and a page can be typed in by hand (2026-10-13).
+  test("a page is added, edited and removed by hand under Production", async ({
+    signedIn,
+  }) => {
+    await openArmoryModels(signedIn);
+    const name = `Page Test ${Date.now()}`;
+    await signedIn.getByRole("button", { name: "Add model" }).click();
+    await signedIn.getByRole("dialog").getByLabel("Name").fill(name);
+    await signedIn
+      .getByRole("dialog")
+      .getByRole("button", { name: "Add, awaiting approval" })
+      .click();
+    await searchFor(signedIn, name);
+    const row = signedIn.locator("tbody tr", { hasText: name });
+    await row.getByRole("checkbox").check();
+    await signedIn.getByRole("button", { name: "Promote to production" }).click();
+    await expect(signedIn.locator(".alert--success")).toContainText(
+      "moved into production",
+    );
+
+    await signedIn.getByRole("tab", { name: /^Manufacturer pages/ }).click();
+    await expect(signedIn.getByLabel("Showing")).toBeEnabled();
+    await signedIn.getByLabel("Showing").selectOption("approved");
+    const production = signedIn.getByTestId("maker-pages-production");
+    await production.getByLabel("Model").fill(name);
+    await production
+      .getByLabel("Manufacturer's page")
+      .fill("https://maker.example/first");
+    await production.getByRole("button", { name: "Add manufacturer page" }).click();
+    const listed = production.locator("tbody tr", { hasText: name });
+    await expect(listed.getByRole("link")).toHaveAttribute(
+      "href",
+      "https://maker.example/first",
+    );
+
+    await listed.getByRole("button", { name: `Edit the page for ${name}` }).click();
+    await listed
+      .getByLabel(`Manufacturer's page for ${name}`)
+      .fill("https://maker.example/second");
+    await listed.getByRole("button", { name: "Save" }).click();
+    await expect(listed.getByRole("link")).toHaveAttribute(
+      "href",
+      "https://maker.example/second",
+    );
+
+    await listed.getByRole("button", { name: `Remove the page for ${name}` }).click();
+    await expect(production.locator("tbody tr", { hasText: name })).toHaveCount(0);
+    // Awaiting approval and Rejected are not on the Production view.
+    await expect(signedIn.getByTestId("maker-page-suggestions")).toHaveCount(0);
+    await expect(signedIn.getByTestId("maker-pages-rejected")).toHaveCount(0);
+
+    // Leave the armory as found.
+    await signedIn.getByRole("tab", { name: "Models" }).click();
+    await signedIn.getByLabel("Showing").selectOption("");
+    await searchFor(signedIn, name);
+    await signedIn.getByRole("button", { name: `Delete ${name}` }).click();
+    await signedIn
+      .getByRole("dialog")
+      .getByRole("button", { name: /^Delete/ })
+      .click();
+    await expect(signedIn.locator("tbody tr", { hasText: name })).toHaveCount(0);
+  });
+
+  test("a rejected page can be accepted anyway", async ({ signedIn }) => {
+    const asked = [];
+    await signedIn.route("**/api/armory/references**", async (route) => {
+      const request = route.request();
+      if (request.method() !== "GET") {
+        asked.push([request.url(), request.postDataJSON?.()]);
+        await route.fulfill({ json: { changed: 1, message: "ok" } });
+        return;
+      }
+      const rejected = new URL(request.url()).searchParams.get("status") === "rejected";
+      await route.fulfill({
+        json: rejected
+          ? [
+              {
+                id: 9,
+                field: "maker_page",
+                status: "rejected",
+                target_type: "model",
+                target_id: 4,
+                target_name: "Colt Cobra",
+                url: "https://www.colt.com/detail-page/blued-king-cobra/",
+                title: "blued-king-cobra",
+                confident: false,
+                reason: "in the manufacturer's sitemap",
+              },
+            ]
+          : [],
+      });
+    });
+    await openPage(signedIn, "Armory");
+    await signedIn.getByRole("tab", { name: /^Manufacturer pages/ }).click();
+    await signedIn.getByLabel("Showing").selectOption({ label: "Rejected" });
+    const rejected = signedIn.getByTestId("maker-pages-rejected");
+    await expect(rejected).toContainText("Colt Cobra");
+    await rejected.getByRole("button", { name: /anyway$/ }).click();
+    await expect.poll(() => asked.length).toBe(1);
+    expect(asked[0][0]).toContain("/references/accept");
+    expect(asked[0][1]).toEqual({ ids: [9] });
+  });
 });

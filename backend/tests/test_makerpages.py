@@ -63,6 +63,13 @@ class TestBestPage:
         assert makerpages.best_page(pages, ["Taurus Judge"], ["Taurus"]).confident
 
 
+class TestTheTitle:
+    def test_a_page_is_called_by_its_name_not_its_file(self):
+        """Every Ruger suggestion was titled "models.html" on the review tab."""
+        assert makerpages._title("https://ruger.com/products/sp101/models.html") == "sp101"
+        assert makerpages._title("https://shadowsystemscorp.com/cr920/") == "cr920"
+
+
 class FakeSite:
     """robots.txt naming an index, the index naming two sitemaps, one per country."""
 
@@ -123,6 +130,26 @@ class TestProposingAndAccepting:
         assert model.maker_url == "https://www.maker.test/en-us/product/apx"
         assert model.wikipedia_url is None
 
+    def test_running_it_twice_proposes_nothing_twice(self, clean_db):
+        """Two runs at once on 2026-10-13: the second failed on the first one's
+        rows and lost its whole batch."""
+        model = self._model(clean_db)
+        makerpages.run(clean_db, FakeSite(), log=lambda _m: None)
+        # As if a second run had drawn up its list before the first saved.
+        clean_db.add(
+            ReferenceProposal(
+                field="maker_page",
+                target_type="model",
+                target_id=model.id,
+                url="https://www.maker.test/en-us/other",
+                title="other",
+            )
+        )
+        clean_db.commit()
+        again = makerpages.run(clean_db, FakeSite(), log=lambda _m: None)
+        assert again["proposed"] == 0
+        assert clean_db.query(ReferenceProposal).count() == 2
+
     def test_a_rejected_model_is_not_asked_about_again(self, clean_db):
         self._model(clean_db)
         makerpages.run(clean_db, FakeSite(), log=lambda _m: None)
@@ -142,3 +169,34 @@ class TestProposingAndAccepting:
         ).json()
         assert [row["field"] for row in makers] == ["maker_page"]
         assert articles == []
+
+
+class TestTheTabsViews:
+    """Showing on the Manufacturer pages tab (2026-10-13)."""
+
+    def test_the_rejected_ones_are_listed_and_can_be_accepted_anyway(
+        self, client, admin_headers, clean_db
+    ):
+        model = TestProposingAndAccepting()._model(clean_db)
+        makerpages.run(clean_db, FakeSite(), log=lambda _m: None)
+        [proposal] = clean_db.query(ReferenceProposal).all()
+        wikipedia.reject(clean_db, [proposal.id])
+
+        def listed(status):
+            return client.get(
+                "/api/armory/references",
+                params={"field": "maker_page", "status": status},
+                headers=admin_headers,
+            ).json()
+
+        assert listed("pending") == []
+        assert [(row["id"], row["status"]) for row in listed("rejected")] == [
+            (proposal.id, "rejected")
+        ]
+        taken = client.post(
+            "/api/armory/references/accept", json={"ids": [proposal.id]}, headers=admin_headers
+        ).json()
+        assert taken["changed"] == 1
+        clean_db.refresh(model)
+        assert model.maker_url == "https://www.maker.test/en-us/product/apx"
+        assert [row["status"] for row in listed("all")] == ["accepted"]
