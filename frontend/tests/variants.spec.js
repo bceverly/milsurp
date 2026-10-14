@@ -17,9 +17,10 @@ async function openListingWith(page, changes) {
   await expect(page.locator(".detail__facts")).toBeVisible();
 }
 
-test("a listing names the variant it is, with its MSRP", async ({ signedIn }) => {
+test("a listing names the version it is, with its MSRP", async ({ signedIn }) => {
   await openListingWith(signedIn, {
     barrel_inches: 4,
+    barrel_quotes: { length: 'Used TAURUS TRACKER 44MAG 4" STAINLESS' },
     finish: "Stainless",
     variant: {
       id: 1,
@@ -30,18 +31,25 @@ test("a listing names the variant it is, with its MSRP", async ({ signedIn }) =>
     },
   });
   const note = signedIn.getByTestId("variant-note");
-  await expect(note).toContainText('Variant: Tracker .44 Magnum 4" Stainless');
-  await expect(note).toContainText("MSRP $599.99");
-  await expect(note.getByRole("link", { name: "manufacturer’s page" })).toHaveAttribute(
+  await expect(note).toContainText("This version · MSRP $599.99");
+  const row = note.locator("tbody tr");
+  await expect(row).toHaveCount(1);
+  await expect(row).toContainText('Tracker .44 Magnum 4" Stainless');
+  await expect(row.locator("td").nth(1)).toHaveText("$599.99");
+  await expect(row.getByRole("link", { name: "manufacturer’s page" })).toHaveAttribute(
     "href",
     "https://www.taurususa.com/tracker",
   );
-  await expect(signedIn.locator(".detail__facts")).toContainText('4"');
-  await expect(signedIn.locator(".detail__facts")).toContainText("Stainless");
+  const facts = signedIn.locator(".detail__facts");
+  await expect(facts).toContainText('4"');
+  await expect(facts).toContainText("Stainless");
 });
 
-test("a vague listing shows the versions it could be", async ({ signedIn }) => {
+test("a vague listing shows a table of the versions it could be", async ({
+  signedIn,
+}) => {
   await openListingWith(signedIn, {
+    barrel_inches: null,
     variant: null,
     variant_candidates: [
       { id: 1, label: 'Tracker .44 4" Black', msrp: 549.99 },
@@ -50,12 +58,77 @@ test("a vague listing shows the versions it could be", async ({ signedIn }) => {
     ],
   });
   const note = signedIn.getByTestId("variant-note");
-  await expect(note).toContainText("Could be any of 3 versions");
-  await expect(note).toContainText("MSRP $549.99–$599.99");
-  await expect(note.locator("li")).toHaveCount(3);
+  await expect(note).toContainText("Could be any of 3 versions · MSRP $549.99–$599.99");
+  await expect(note.getByRole("columnheader")).toHaveText([
+    "Version",
+    "MSRP",
+    "Street price",
+  ]);
+  await expect(note.locator("tbody tr")).toHaveCount(3);
+  await expect(note.locator("tbody tr").nth(2).locator("td").nth(1)).toHaveText("—");
 });
 
-test("a variant shows what it costs new, and how far under this listing is", async ({
+test("each version's street price, and the heading labels both ranges", async ({
+  signedIn,
+}) => {
+  await openListingWith(signedIn, {
+    current_price: 450,
+    barrel_inches: 4,
+    variant: null,
+    variant_candidates: [
+      {
+        id: 1,
+        label: 'Tracker .44 4" Black',
+        msrp: 549.99,
+        new_price: 462.23,
+        new_stores: 12,
+        new_price_url: "https://gun.deals/search/apachesolr_search/1",
+      },
+      {
+        id: 2,
+        label: 'Tracker .44 4" Stainless',
+        msrp: 599.99,
+        new_price: null,
+        new_stores: 0,
+        new_price_url: "https://gun.deals/search/apachesolr_search/2",
+      },
+    ],
+  });
+  const note = signedIn.getByTestId("variant-note");
+  await expect(note).toContainText(
+    'Could be any of 2 versions (with its 4" barrel) · MSRP $549.99–$599.99 · Street price $462.23',
+  );
+  const first = note.locator("tbody tr").first();
+  await expect(first.getByRole("link", { name: "$462.23 at 12 stores" })).toHaveAttribute(
+    "href",
+    "https://gun.deals/search/apachesolr_search/1",
+  );
+  await expect(note.locator("tbody tr").nth(1)).toContainText("None in stock");
+  // Under the highest street price: nothing in red.
+  await expect(signedIn.getByTestId("over-street-price")).toHaveCount(0);
+});
+
+test("a price above every street price new is red, and says by how much", async ({
+  signedIn,
+}) => {
+  await openListingWith(signedIn, {
+    current_price: 650,
+    price_drop: 0,
+    variant: null,
+    variant_candidates: [
+      { id: 1, label: "PDP Compact 4", msrp: 699, new_price: 501.25, new_stores: 95 },
+      { id: 2, label: "PDP Pro SD 4.6", msrp: 999, new_price: 549.99, new_stores: 90 },
+    ],
+  });
+  await expect(signedIn.getByTestId("over-street-price")).toHaveText(
+    "(exceeds maximum street price for new by $100.01)",
+  );
+  await expect(signedIn.locator(".detail__price-now")).toHaveClass(
+    /detail__price-now--over/,
+  );
+});
+
+test("one version shows how far under its street price this listing is", async ({
   signedIn,
 }) => {
   await openListingWith(signedIn, {
@@ -71,25 +144,8 @@ test("a variant shows what it costs new, and how far under this listing is", asy
       new_price_url: "https://gun.deals/search/apachesolr_search/725327351238",
     },
   });
-  const line = signedIn.getByTestId("new-price");
-  await expect(line).toContainText("New: from $500 at 12 stores");
-  await expect(line).toContainText("20% under new");
-  await expect(line.getByRole("link", { name: "gun.deals" })).toHaveAttribute(
-    "href",
-    "https://gun.deals/search/apachesolr_search/725327351238",
-  );
-});
-
-test("versions it could be show their new prices as a range", async ({ signedIn }) => {
-  await openListingWith(signedIn, {
-    variant: null,
-    variant_candidates: [
-      { id: 1, label: 'Tracker .44 4" Black', msrp: 549.99, new_price: 462.23 },
-      { id: 2, label: 'Tracker .44 4" Stainless', msrp: 599.99, new_price: 519.99 },
-    ],
-  });
   await expect(signedIn.getByTestId("variant-note")).toContainText(
-    "new from $462.23–$519.99",
+    "Street price $500 · 20% under street price",
   );
 });
 

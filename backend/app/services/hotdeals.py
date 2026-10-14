@@ -75,7 +75,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from typing import Any
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from ..models import (
@@ -90,7 +90,7 @@ from ..models import (
     as_utc,
     utcnow,
 )
-from . import pricing, renotify
+from . import carry, pricing, renotify
 
 log = logging.getLogger("milsurp.hotdeals")
 
@@ -564,6 +564,38 @@ def record_failure(session: Session, exc: Exception, *, now: datetime | None = N
 
 
 # -- reading ----------------------------------------------------------------
+def _any_size(item: Item | None) -> bool:
+    """A handgun in a caliber that counts as a carry gun at any size."""
+    return bool(item and (item.caliber or "").strip().lower() in carry.ANY_SIZE_CALIBERS)
+
+
+def buckets_of(deal: HotDeal) -> tuple[str, ...]:
+    """Every filter a deal is under: its own, and Handguns as well for a 10mm
+    or 5.7x28 carry gun.
+
+    One bucket is stored per listing (see :func:`bucket_of`), and a full-size
+    10mm is stored as concealed carry. The inventory lists those handguns
+    under both (search.KINDS, 2026-10-12); this page and its emails do the same
+    (2026-10-13), so a Glock 20 deal is found under Handguns and mailed to a
+    reader who asked for handguns only.
+    """
+    if deal.bucket == "concealed_carry" and _any_size(deal.item):
+        return ("concealed_carry", "pistol")
+    return (deal.bucket,)
+
+
+def _bucket_clause(bucket: str) -> Any:
+    if bucket != "pistol":
+        return HotDeal.bucket == bucket
+    return or_(
+        HotDeal.bucket == "pistol",
+        and_(
+            HotDeal.bucket == "concealed_carry",
+            HotDeal.item.has(func.lower(Item.caliber).in_(carry.ANY_SIZE_CALIBERS)),
+        ),
+    )
+
+
 def deals(
     session: Session,
     bucket: str | None = None,
@@ -597,7 +629,7 @@ def deals(
         .order_by(*SORTS.get(sort, SORTS[DEFAULT_SORT]))
     )
     if bucket:
-        statement = statement.where(HotDeal.bucket == bucket)
+        statement = statement.where(_bucket_clause(bucket))
     if limit:
         statement = statement.limit(limit)
     return list(session.execute(statement).scalars().all())
@@ -606,9 +638,16 @@ def deals(
 def counts(session: Session) -> dict[str, int]:
     """How many deals each filter holds, so the page can label its tabs."""
     found = dict.fromkeys(BUCKETS, 0)
-    for deal in session.execute(select(HotDeal.bucket)).scalars():
-        if deal in found:
-            found[deal] += 1
+    for bucket, caliber in session.execute(
+        select(HotDeal.bucket, Item.caliber).join(Item, Item.id == HotDeal.item_id)
+    ).all():
+        if bucket in found:
+            found[bucket] += 1
+        # Counted under Handguns as well -- see buckets_of.
+        if bucket == "concealed_carry" and (caliber or "").strip().lower() in (
+            carry.ANY_SIZE_CALIBERS
+        ):
+            found["pistol"] += 1
     return found
 
 
@@ -695,7 +734,7 @@ def unsent_for(session: Session, user: User, *, limit: int = MAX_PER_EMAIL) -> l
     )
     fresh: list[HotDeal] = []
     for deal in current:
-        if not wants(row, deal.bucket):
+        if not any(wants(row, bucket) for bucket in buckets_of(deal)):
             continue
         if matched is not None and deal.item_id not in matched:
             continue

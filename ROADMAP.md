@@ -5180,6 +5180,170 @@ like the rest of the armory".
   (`armory.restore_rejections`). The seed file carries production's 284
   rejected articles and 7 rejected pages.
 
+### Manufacturer data from Site settings — **Shipped** 2026-10-13
+
+Asked for: "if we don't have a way to trigger the MSRP run in the UX, we need
+that added to the settings pages". There was none; it was `cli.py armory
+makers` on the server.
+
+* Site settings has a **Manufacturer data** section with two buttons: "Update
+  MSRPs and variants" (`makersites.run` -- Ruger, Smith & Wesson, Kimber and
+  Walther) and "Find manufacturer pages" (`makerpages.run`). Each shows when it
+  last ran, how it went and what it found.
+* A press records the request (`manufacturer_jobs`, migration 0073); the
+  scheduler looks once a minute and runs one at a time on the background
+  worker, so a press never holds a web request open for the length of a read
+  of four manufacturers' sites. Neither runs on a schedule.
+* `GET /api/manufacturer-data`, `POST /api/manufacturer-data/{name}/run`. The
+  command line stays for a run by hand.
+
+### The first production run of the manufacturers' sites — **Fixed** 2026-10-13
+
+88 models read, 605 variants proposed, 15 with nothing found. Of those 15:
+
+* **Ruger LCR and Single-Six** had no page recorded at the time; they have one
+  now and read 7 and 1.
+* **Four Ruger pages were dead**, answering 200 with "Page Not Found": the
+  American Rifle moved to four "Gen II" lines, named in Ruger's menu only by
+  their variety ("Standard", "Ranch"). The reader now falls back to the menu
+  when a recorded page has no cards, and also takes a line whose address
+  starts with the model's name (`americanRifleGenII`): 66 variants. EC9S,
+  SR22 and the Ruger American Pistol are on neither Ruger's menu nor any live
+  page; their dead pages were cleared in production.
+* **The M&P FPC is a carbine**, and only pistols and revolvers were read.
+  `/products/rifles` is read too: the FPC finds 17, the M&P15 35 rather
+  than 5.
+* **And the dialog could not list them**: a model's Variants section answered
+  500 for every model the run had filled. The API built its answer straight
+  from the row, whose `caliber` is the Caliber rather than its name, and no
+  variant had a caliber before these. `api/variants._out` names it.
+* **Not on the makers' sites today**: Smith & Wesson Model 64 and 625 and the
+  first-generation M&P40 (its M2.0 is a variant of the M&P M2.0), Kimber
+  2K11 (not in Kimber's sitemap), and Walther's Creed, PPQ, Q4 and Q5 Match
+  (not in Walther's menu). Whether each is still "in modern production" is a
+  decision for the Armory, not a reader fault.
+
+### Every gun's barrel: its length, and whether it is threaded — **Shipped** 2026-10-13
+
+Asked for: "barrel length in inches" and "is the barrel threaded?", "derived
+dynamically from the description and any other metadata", searchable "in a
+range or with a specific number that can be a decimal", and then used "to
+tighten up the MSRP display of variants".
+
+* **Read for every firearm** (`services/barrels.py`), from the title and the
+  description, with the vendor's words kept beside each answer
+  (`Item.barrel_quotes`) as the collector traits keep theirs. Until then the
+  length came only from the titles of models in production: 315 of
+  production's 16,535 firearms. Tested against all 16,535 that day: **5,085
+  lengths (30.8%)**, and 309 of the 315 old readings agree -- the other six
+  were the old rule's errors (a Brigade's '8" U-Rail' read as its barrel, a
+  Vaquero's "4 & 5/8 INCH" not read at all). 152 threaded, 13 stated not.
+* **A length is read only where it is tied to the barrel** -- beside the word
+  ('24" round barrel', '33" round rifled .577 caliber barrel'), or under a
+  label ("Barrel Length: 600 mm (24 in)", "Barrel Lenght: 19"", "Barrel: 37")
+  -- or bare in a handgun's or modern gun's title, the shops' convention.
+  Each exclusion is a listing it misread on the way: an overall length stated
+  first, "shortened by 3/4"", "4 ¾" from the muzzle", a trigger pull, a ramrod,
+  a barrel band, '1" LIGHT SCRATCH ON THE BARREL', a quoted stamp '“2” ON TOP
+  OF BARREL', a spec table's "Magazine Count : 2.00". A barrel "shortened to"
+  a length is that length.
+* **Threaded means the muzzle**: "threaded barrel", "the muzzle is threaded
+  5/8x24", '4.5" THREADED', a pitch (1/2x28, 14x1 LH, ½ x 28), a thread
+  protector. Not an M1's "barrel threads" (where it screws into the
+  receiver), choke tubes, a ramrod's threaded end, or a spare barrel; "W/O
+  Threaded Barrel", "non-threaded" and "Threaded Barrel: No" are a no.
+* **Searched from the Inventory rail**: a Barrel section taking "4.5", "4-5",
+  "16+" or "-5", and Any / Threaded / Not threaded. One length matches within
+  0.05", so 4.5 finds a Glock 17's 4.49 and not a P226's 4.4. `barrel_min`,
+  `barrel_max` and `threaded` on the list, the export (two new columns) and
+  saved searches.
+* **The listing page** shows Barrel and Threaded with their quotes.
+* **Migration 0074** adds the columns and reads everything stored;
+  `cli.py barrels-backfill` re-reads after a rule changes, and so does Site
+  settings' **Listing data → "Re-read barrel lengths and threading"** (asked
+  for on 2026-10-14), a third job beside the two manufacturer reads that also
+  matches modern models' listings to their versions again. A scan and
+  `reclassify` read each gun's barrel in `variants.settle`.
+
+### The versions' MSRP and street price, in a table — **Changed** 2026-10-13
+
+Asked for: "a table for the price data to show MSRP and 'Street Price' for the
+versions", the figures in the "Could be any of…" heading labeled, and a price
+above the highest street price "in RED" with "(exceeds maximum street price for
+new by $xxx)".
+
+* The heading reads "Could be any of 12 versions · MSRP $699–$1,899 · Street
+  price $499.99–$749.99" (or "This version"), and says when the listing's
+  barrel narrowed the list: "(with its 4" barrel)". Each version is a row:
+  its MSRP, and its street price -- the lowest in-stock price new on gun.deals,
+  with the number of stores and a link, "None in stock", or a dash where it
+  has not been asked.
+* The barrel now read from descriptions narrows more listings to fewer
+  versions: `variants.candidates` already filtered on `barrel_inches`.
+* A listing priced above every version's street price shows its price in red
+  and "(exceeds maximum street price for new by $…)" beside it.
+
+### A part number's search that lands on the product — **Fixed** 2026-10-13
+
+None of the Walther PDP's 12 variants found a gun.deals price: Walther gives
+no UPCs, so each was asked by part number, and gun.deals answers a part it
+knows exactly with that product's own page rather than a list of results.
+`newprices._product_upc` reads that page's title ("2842475 - Walther PDP Full
+Size 9mm 723364216954 | gun.deals") -- the one thing every such page has; the
+`mpn` markup is missing from some, and a store's row may carry a mistyped UPC
+-- and prices from the same page. Run by hand in production: 8 of the 12
+priced ($499.99 to $749.99), 4 with none in stock.
+
+### What the armory knows ran into the C&R column — **Fixed** 2026-10-13
+
+A button never wraps, and on a listing whose facts column is narrower than
+the words (a Walther PDP at 1440 pixels wide) it ran on into the column
+beside it. `.detail__armory-open` wraps inside its own column.
+
+### Models whose one caliber contradicted their listings — **Done** 2026-10-13
+
+About 260 listings carried a derived caliber their model did not name. In
+production: calibers added to 27 models, set on four that had the wrong one
+(PM 9, French 1935S, P16, Swiss 1889), bare aliases ("Bulldog", "Model 1891")
+replaced with their full names, 7.62x53mmR merged into 7.62x54mmR and 8x22mm
+into 8mm Nambu, and 23 listings' derived calibers corrected (two .38 S&W
+British revolvers put back after a wrong "fix" to .38 Special). Reclassify
+then moved 44 listings; 137 remain, nearly all under generic designations
+("U.S. Model 1886", "Model 1897") that cover more than one gun and need a
+decision per model rather than a blind fix.
+
+### A model correction picks the model, and reclassify keeps it — **Fixed** 2026-10-13
+
+An original Springfield Armory 1911 (listing 3206) was matched to the modern
+Springfield Inc. pistol. Correcting its model wrote the name but left
+`firearm_model_id` alone, and `cli.py reclassify` never applied corrections,
+so a reclassify undid them. `overrides.apply_to` now links the model named
+(exact name, else `armory.match`), and reclassify applies each listing's
+corrections after deriving.
+
+### Every model still made has its manufacturer's page — **Done** 2026-10-13
+
+39 more pages found by hand where the sitemap matcher could not (SIG Sauer,
+HK, CZ, Ruger, Browning, Mossberg, BUL, Bushmaster, SCCY, Springfield, Stag,
+Brigade, Smith & Wesson, Kahr), and CZ's website moved to czfirearms.com.
+183 modern models now have one; the Remington 870 and 700 are left until
+their pages can be confirmed. The seed file is production's export of the
+same day.
+
+### 10mm and 5.7 under Handguns on Hot deals — **Fixed** 2026-10-13
+
+They are filed under Concealed carry, being carried at any size, and so never
+showed on the Handguns tab. A deal keeps its one stored bucket, but
+`hotdeals.buckets_of` also counts it under Handguns when its caliber is one of
+`carry.ANY_SIZE_CALIBERS`: the tab, its count and the alerts all agree, and
+the Market's handgun kind includes them too.
+
+### Ammo.com's unmatched pages — **No change** 2026-10-13
+
+Every unmatched page is a cartridge with no armory row and no listing; 9x18
+Ultra and 9x23 Winchester are rightly not matched to 9x18 Makarov or 9x23
+Largo.
+
 ### Each model's own page on its maker's site — **Shipped** 2026-10-12
 
 Asked for: "i wasn't just looking for a button to run a google search, i had

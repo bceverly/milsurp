@@ -388,6 +388,36 @@ class TestWhenAPassIsDue:
         assert hotdeals.settings(clean_db).interval_hours == 8
 
 
+class TestA10mmIsAHandgunToo:
+    """2026-10-13: a 10mm or 5.7x28 handgun is filed as concealed carry at any
+    size, and the inventory lists it under Handguns as well. So does this page
+    -- and its email, to a reader who asked for handguns only."""
+
+    def _tens(self, clean_db, shop, reader=None):
+        made = bargain_among(
+            clean_db, shop, [400.0], rifle=False, pistol=True, caliber="10mm Auto", title="Glock 20"
+        )
+        for item in clean_db.query(Item).all():
+            item.is_concealed_carry = True
+        clean_db.commit()
+        hotdeals.refresh(clean_db)
+        return made[0]
+
+    def test_it_is_under_both_tabs_and_counted_in_both(self, clean_db, shop):
+        cheap = self._tens(clean_db, shop)
+        assert [d.item_id for d in hotdeals.deals(clean_db, "concealed_carry")] == [cheap.id]
+        assert [d.item_id for d in hotdeals.deals(clean_db, "pistol")] == [cheap.id]
+        counts = hotdeals.counts(clean_db)
+        assert (counts["concealed_carry"], counts["pistol"]) == (1, 1)
+
+    def test_a_reader_of_handguns_only_is_told(self, clean_db, shop, reader):
+        cheap = self._tens(clean_db, shop)
+        row = hotdeals.preference(clean_db, reader)
+        row.include_concealed_carry = False
+        clean_db.commit()
+        assert [d.item_id for d in hotdeals.unsent_for(clean_db, reader)] == [cheap.id]
+
+
 @pytest.fixture
 def reader(clean_db):
     user = User(

@@ -429,6 +429,11 @@ export const api = {
   refreshAmmo: (parts) =>
     request("/api/ammunition/refresh", { method: "POST", body: { parts: parts || [] } }),
 
+  // --- the reads of the manufacturers' own sites, from Site settings ---
+  manufacturerJobs: () => request("/api/manufacturer-data"),
+  runManufacturerJob: (name) =>
+    request(`/api/manufacturer-data/${encodeURIComponent(name)}/run`, { method: "POST" }),
+
   // --- Wikipedia articles and makers' pages proposed for armory rows, decided
   // on the Armory's Wikipedia and Maker pages tabs. Every kind comes back;
   // each carries its "field".

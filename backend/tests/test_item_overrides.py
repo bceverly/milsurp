@@ -166,3 +166,41 @@ class TestWhoMayDoIt:
     def test_but_can_read_one(self, client, listing, normal_user):
         response = client.get(f"/api/items/{listing.id}/override", headers=normal_user["headers"])
         assert response.status_code == 200
+
+
+class TestAModelCorrection:
+    """A corrected model is a row of the armory, not only a name (2026-10-13):
+    an original 1915 M1911 corrected away from the modern "Springfield Armory
+    1911" kept that pistol's manufacturer page, and a reclassify -- which did
+    not apply corrections at all -- could undo it outright."""
+
+    def _models(self, clean_db, listing):
+        from app.models import ArmoryStatus, FirearmModel
+
+        modern = FirearmModel(name="Springfield Armory 1911", status=ArmoryStatus.APPROVED)
+        service = FirearmModel(name="M1911A1", status=ArmoryStatus.APPROVED)
+        clean_db.add_all([modern, service])
+        clean_db.flush()
+        listing.firearm_model_id = modern.id
+        clean_db.commit()
+        return modern, service
+
+    def test_it_links_the_model_it_names(self, clean_db, listing):
+        _modern, service = self._models(clean_db, listing)
+        overrides.save(clean_db, listing, {"model": "M1911A1"})
+        clean_db.commit()
+        clean_db.refresh(listing)
+        assert (listing.model, listing.firearm_model_id) == ("M1911A1", service.id)
+
+    def test_a_reclassify_keeps_it(self, clean_db, listing):
+        import argparse
+
+        from cli import RECOMPUTABLE, cmd_reclassify
+
+        _modern, service = self._models(clean_db, listing)
+        overrides.save(clean_db, listing, {"model": "M1911A1"})
+        clean_db.commit()
+        cmd_reclassify(argparse.Namespace(recompute=False, fields=",".join(RECOMPUTABLE)))
+        clean_db.expire_all()
+        item = clean_db.get(Item, listing.id)
+        assert (item.model, item.firearm_model_id) == ("M1911A1", service.id)

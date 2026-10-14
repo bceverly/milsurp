@@ -166,6 +166,28 @@ function ConditionFact({ item }) {
   );
 }
 
+/**
+ * The barrel's length and whether its muzzle is threaded, each with the words
+ * it was read from (app/services/barrels.py). Nothing for what nobody said.
+ */
+function BarrelFacts({ item }) {
+  const quotes = item.barrel_quotes || {};
+  return (
+    <>
+      <Quoted
+        label="Barrel"
+        value={item.barrel_inches != null ? inchesText(item.barrel_inches) : null}
+        quote={quotes.length}
+      />
+      <Quoted
+        label="Threaded"
+        value={said(item.barrel_threaded, "Yes", "No")}
+        quote={quotes.threaded}
+      />
+    </>
+  );
+}
+
 function CollectorFacts({ item }) {
   const quotes = item.trait_quotes || {};
   const finish = said(item.refinished, "Refinished", "Original");
@@ -404,45 +426,31 @@ function ArmoryPanel({ item, onClose }) {
   );
 }
 
+/** A barrel length as the shops write it: 4.5", 4.625", 16". */
+function inchesText(value) {
+  return `${Number(Number(value).toFixed(3))}"`;
+}
+
+/** The versions this listing is or could be: the one, or the candidates. */
+function versionsOf(item) {
+  if (item.variant) return [item.variant];
+  return item.variant_candidates || [];
+}
+
 /**
- * Which version of the model this is, and what it costs new from the maker.
- *
- * Exactly one when the title's barrel and finish narrow the model to it; the
- * ones it could be when they do not -- "TAURUS TRACKER M44 PRE OWNED" could be
- * any of the .44s. Only for a model still in production. See
- * app/services/variants.py.
+ * How far this listing's price is above the most any of its versions costs new
+ * today (the highest street price), or null when it is not above it or there
+ * is no street price to compare with. Asked for on 2026-10-13: a used gun
+ * priced over a new one is worth saying so in red.
  */
-/**
- * What the variant costs new today: the lowest in-stock price gun.deals lists
- * and how many stores have it (app/services/newprices.py), linked to the page
- * it came from, and how far under or over that this listing is. Nothing when
- * it has not been asked or no store has one in stock.
- */
-function NewPrice({ variant, price, money }) {
-  if (variant.new_price == null) return null;
-  const stores = variant.new_stores || 0;
-  const under =
-    price != null && price > 0 ? Math.round((1 - price / variant.new_price) * 100) : null;
-  return (
-    <div className="variant-note__new" data-testid="new-price">
-      New: from {money(variant.new_price)} at {stores} store{stores === 1 ? "" : "s"}
-      {under != null && under !== 0 && (
-        <span className={under > 0 ? "variant-note__under" : "muted"}>
-          {" "}
-          · {Math.abs(under)}% {under > 0 ? "under" : "over"} new
-        </span>
-      )}
-      {variant.new_price_url && (
-        <>
-          {" "}
-          ·{" "}
-          <a href={variant.new_price_url} target="_blank" rel="noopener noreferrer">
-            gun.deals
-          </a>
-        </>
-      )}
-    </div>
-  );
+function overStreetPrice(item) {
+  const streets = versionsOf(item)
+    .map((v) => v.new_price)
+    .filter((p) => p != null);
+  if (!streets.length || item.current_price == null) return null;
+  const highest = Math.max(...streets);
+  const over = Math.round((item.current_price - highest) * 100) / 100;
+  return over > 0 ? over : null;
 }
 
 function range(values, money) {
@@ -456,49 +464,106 @@ function range(values, money) {
   );
 }
 
-function VariantNote({ item }) {
-  const money = (value) => formatMoney(value, item.currency);
-  if (item.variant) {
-    const v = item.variant;
-    return (
-      <div className="variant-note" data-testid="variant-note">
-        <span className="variant-note__label">Variant:</span> {v.label}
-        {v.msrp != null && <> · MSRP {money(v.msrp)}</>}
-        {v.maker_url && (
-          <>
-            {" "}
-            ·{" "}
-            <a href={v.maker_url} target="_blank" rel="noopener noreferrer">
-              manufacturer&rsquo;s page
-            </a>
-          </>
-        )}
-        <NewPrice variant={v} price={item.current_price} money={money} />
-      </div>
+/**
+ * One version's street price: the lowest in-stock price new gun.deals lists
+ * and how many stores have it (app/services/newprices.py), linked to the page
+ * it came from. "None in stock" when it was asked and no store had one; a dash
+ * when it has not been asked.
+ */
+function StreetPrice({ variant, money }) {
+  if (variant.new_price != null) {
+    const stores = variant.new_stores || 0;
+    const text = `${money(variant.new_price)} at ${stores} store${stores === 1 ? "" : "s"}`;
+    return variant.new_price_url ? (
+      <a href={variant.new_price_url} target="_blank" rel="noopener noreferrer">
+        {text}
+      </a>
+    ) : (
+      text
     );
   }
-  const options = item.variant_candidates || [];
+  if (variant.new_price_url) return <span className="muted">None in stock</span>;
+  return <span className="muted">—</span>;
+}
+
+/**
+ * Which version of the model this is, and what each costs: the maker's MSRP
+ * and the street price new today. A table since 2026-10-13 (asked for: "MSRP
+ * and Street Price for the versions"), under a heading that labels each range.
+ *
+ * Exactly one when the listing's barrel and the title's finish narrow the
+ * model to it; the ones it could be when they do not -- "TAURUS TRACKER M44
+ * PRE OWNED" could be any of the .44s. The barrel is read from the description
+ * too (app/services/barrels.py), and when it narrowed the list the heading
+ * says so. Only for a model still in production. See app/services/variants.py.
+ */
+function VariantNote({ item }) {
+  const money = (value) => formatMoney(value, item.currency);
+  const options = versionsOf(item);
   if (!options.length) return null;
   const msrps = options.map((v) => v.msrp).filter((p) => p != null);
-  const news = options.map((v) => v.new_price).filter((p) => p != null);
+  const streets = options.map((v) => v.new_price).filter((p) => p != null);
+  const one = Boolean(item.variant);
+  const under =
+    one &&
+    item.variant.new_price != null &&
+    item.current_price != null &&
+    item.current_price > 0
+      ? Math.round((1 - item.current_price / item.variant.new_price) * 100)
+      : null;
   return (
     <div className="variant-note" data-testid="variant-note">
-      <span className="variant-note__label">
-        Could be any of {options.length} versions
-      </span>
-      {msrps.length > 0 && <> · MSRP {range(msrps, money)}</>}
-      {news.length > 0 && <> · new from {range(news, money)}</>}
-      <ul className="variant-note__list">
-        {options.map((v) => (
-          <li key={v.id}>
-            {v.label}
-            {v.msrp != null && <span className="muted"> · {money(v.msrp)}</span>}
-            {v.new_price != null && (
-              <span className="muted"> · new {money(v.new_price)}</span>
-            )}
-          </li>
-        ))}
-      </ul>
+      <div className="variant-note__head">
+        <span className="variant-note__label">
+          {one ? "This version" : `Could be any of ${options.length} versions`}
+        </span>
+        {!one && item.barrel_inches != null && (
+          <span className="muted">
+            {" "}
+            (with its {inchesText(item.barrel_inches)} barrel)
+          </span>
+        )}
+        {msrps.length > 0 && <> · MSRP {range(msrps, money)}</>}
+        {streets.length > 0 && <> · Street price {range(streets, money)}</>}
+        {under != null && under > 0 && (
+          <span className="variant-note__under"> · {under}% under street price</span>
+        )}
+      </div>
+      <table className="variant-table">
+        <thead>
+          <tr>
+            <th scope="col">Version</th>
+            <th scope="col">MSRP</th>
+            <th scope="col">Street price</th>
+          </tr>
+        </thead>
+        <tbody>
+          {options.map((v) => (
+            <tr key={v.id}>
+              <td>
+                {v.label}
+                {v.maker_url && (
+                  <>
+                    {" "}
+                    <a
+                      href={v.maker_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="variant-table__maker"
+                    >
+                      manufacturer&rsquo;s page
+                    </a>
+                  </>
+                )}
+              </td>
+              <td>{v.msrp != null ? money(v.msrp) : <span className="muted">—</span>}</td>
+              <td>
+                <StreetPrice variant={v} money={money} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -1266,6 +1331,7 @@ export default function ItemDetail() {
   const sources = item.sources || {};
   const current = photos[activePhoto];
   const dropped = item.price_drop > 0;
+  const overStreet = overStreetPrice(item);
   const history = [...(item.price_history || [])].sort(
     (a, b) => new Date(a.observed_at) - new Date(b.observed_at),
   );
@@ -1349,13 +1415,21 @@ export default function ItemDetail() {
 
           <div className="detail__price">
             <span
-              className={`detail__price-now ${dropped ? "detail__price-now--drop" : ""}`}
+              className={`detail__price-now ${dropped ? "detail__price-now--drop" : ""} ${
+                overStreet != null ? "detail__price-now--over" : ""
+              }`}
             >
               {formatMoney(item.current_price, item.currency)}
             </span>
             {dropped && (
               <span className="detail__price-was">
                 {formatMoney(item.previous_price, item.currency)}
+              </span>
+            )}
+            {overStreet != null && (
+              <span className="detail__price-over" data-testid="over-street-price">
+                (exceeds maximum street price for new by{" "}
+                {formatMoney(overStreet, item.currency)})
               </span>
             )}
           </div>
@@ -1419,9 +1493,7 @@ export default function ItemDetail() {
                 />
               )}
             </Fact>
-            <Fact label="Barrel">
-              {item.barrel_inches != null ? `${item.barrel_inches}"` : null}
-            </Fact>
+            <BarrelFacts item={item} />
             <Fact label="Finish">{item.finish}</Fact>
             <Fact label="Country" always source={sources.country}>
               {item.country}

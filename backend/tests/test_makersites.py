@@ -83,6 +83,49 @@ class TestTheRugerReader:
         assert again == {"proposed": 0, "refreshed": len(found)}
 
 
+class MovedRugerSite(RugerSite):
+    """Ruger on 2026-10-13: the recorded page answers "Page Not Found", and the
+    rifle's new generation is named in the menu by its variety alone."""
+
+    GONE = "https://ruger.com/products/americanRifle/models.html"
+    NEW = "https://ruger.com/products/americanRifleGenII/models.html"
+
+    def get_text(self, url, **_kwargs):
+        self.asked.append(url)
+        if url == self.GONE:
+            return "<html><title>Page Not Found</title><body>Sorry</body></html>"
+        if url == makersites.RugerReader.home:
+            return (
+                '<ul><li><a href="/products/americanRifleGenII/models.html">Standard</a></li>'
+                '<li><a href="/products/americanRimfireTarget/models.html">Target</a></li></ul>'
+            )
+        if url == self.NEW:
+            return page("ruger-lcp-models.html.gz")
+        return super().get_text(url)
+
+
+class TestAMovedRugerPage:
+    def _rifle(self, session):
+        rifle = FirearmModel(
+            name="Ruger American Rifle",
+            status=ArmoryStatus.APPROVED,
+            modern_production=True,
+            maker_url=MovedRugerSite.GONE,
+        )
+        rifle.manufacturers = [Manufacturer(name="Ruger", status=ArmoryStatus.APPROVED)]
+        session.add(rifle)
+        session.commit()
+        return rifle
+
+    def test_a_dead_page_falls_back_to_the_menu_and_the_new_lines_address(self, clean_db):
+        rifle = self._rifle(clean_db)
+        site = MovedRugerSite()
+        found = makersites.RugerReader().read(site, rifle, [rifle])
+        assert found
+        assert MovedRugerSite.NEW in site.asked
+        assert not any("americanRimfire" in url for url in site.asked)
+
+
 SW_PAGE = """<html><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{
 "products":[
  {"id":1,"name":"M&P®9 SHIELD® PLUS 3.1 INCH FDE","price":549,"upc":"022188901153","sku":"14280",
@@ -97,7 +140,11 @@ SW_PAGE = """<html><script id="__NEXT_DATA__" type="application/json">{"props":{
 
 
 class SmithWessonSite:
+    def __init__(self):
+        self.asked = []
+
     def get_text(self, url, **_kwargs):
+        self.asked.append(url)
         return SW_PAGE if "/products/" in url else ""
 
 
@@ -130,6 +177,14 @@ class TestTheSmithWessonReader:
         assert m2.url == "https://www.smith-wesson.com/product/m-p-9-m2-0"
         # The 610's "10" is the cartridge's, not the model's.
         assert [f.maker_part for f in reader.read(site, model10, siblings)] == ["12038"]
+
+    def test_the_rifles_are_read_too(self, clean_db):
+        """The M&P FPC carbine found nothing while only pistols and revolvers
+        were read (2026-10-13)."""
+        mp9, shield, model10 = self.models(clean_db)
+        site = SmithWessonSite()
+        makersites.SmithWessonReader().read(site, mp9, [mp9, shield, model10])
+        assert "https://www.smith-wesson.com/products/rifles" in site.asked
 
     def test_a_number_must_follow_its_word(self):
         assert makersites._carries(["model", "10", "classic"], ["model", "10"])

@@ -230,3 +230,60 @@ test.describe("the Manufacturer pages tab", () => {
     expect(asked[0][1]).toEqual({ ids: [9] });
   });
 });
+
+test("Site settings starts a read of the manufacturers' sites", async ({ signedIn }) => {
+  // Stubbed: a real request would start a real run against their sites.
+  const jobs = [
+    { name: "variants", requested_at: null, last_run_at: null },
+    {
+      name: "pages",
+      requested_at: null,
+      last_run_at: new Date().toISOString(),
+      last_status: "ok",
+      last_summary: "Asked about 184 model(s): 151 page(s) suggested",
+    },
+  ];
+  const asked = [];
+  await signedIn.route("**/api/manufacturer-data**", async (route) => {
+    const request = route.request();
+    if (request.method() === "POST") {
+      asked.push(new URL(request.url()).pathname);
+      jobs[0] = { ...jobs[0], requested_at: new Date().toISOString() };
+    }
+    await route.fulfill({ json: jobs });
+  });
+  await openPage(signedIn, "Site settings");
+  const section = signedIn.getByTestId("manufacturer-data-section");
+  await expect(section.getByTestId("manufacturer-job-pages")).toContainText(
+    "151 page(s) suggested",
+  );
+  await section.getByRole("button", { name: "Update MSRPs and variants" }).click();
+  await expect.poll(() => asked).toEqual(["/api/manufacturer-data/variants/run"]);
+  await expect(section.getByRole("button", { name: "Asked for" })).toBeDisabled();
+  await expect(
+    section.getByRole("button", { name: "Find manufacturer pages" }),
+  ).toBeEnabled();
+});
+
+test("what the armory knows stays inside its own column", async ({ signedIn }) => {
+  // On 2026-10-13 it ran on into the C&R column beside it: a button never
+  // wraps, and "Walther PDP Pistol" left the column narrower than its words.
+  await signedIn.setViewportSize({ width: 1440, height: 900 });
+  await signedIn.route(/\/api\/items\/\d+$/, async (route) => {
+    const response = await route.fetch();
+    const item = await response.json();
+    item.model = "Walther PDP";
+    item.model_kind = "pistol";
+    item.firearm_model_id = item.firearm_model_id || 1;
+    await route.fulfill({ response, json: item });
+  });
+  await signedIn.goto("/?availability=all");
+  await signedIn.locator(".item-card").first().click();
+  const button = signedIn.getByRole("button", { name: "What the armory knows" });
+  await expect(button).toBeVisible();
+  const own = await button.evaluate((el) => {
+    const column = el.closest(".fact__value").parentElement.getBoundingClientRect();
+    return { right: el.getBoundingClientRect().right, edge: column.right };
+  });
+  expect(own.right).toBeLessThanOrEqual(own.edge + 0.5);
+});

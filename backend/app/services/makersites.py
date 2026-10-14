@@ -102,6 +102,9 @@ class RugerReader:
         the lines in Ruger's navigation whose name is the model's."""
         if model.maker_url and _on_site(model.maker_url, "ruger.com"):
             return [model.maker_url]
+        return self.navigation_pages(ctx, model)
+
+    def navigation_pages(self, ctx: ScrapeContext, model: FirearmModel) -> list[str]:
         soup = BeautifulSoup(ctx.get_text(self.home), "html.parser")
         wanted = {
             _compact(re.sub(r"\bruger\b", "", spelling, flags=re.I)) for spelling in model.spellings
@@ -121,13 +124,33 @@ class RugerReader:
                 href = urljoin(self.home, str(link.get("href")))
                 if href not in pages:
                     pages.append(href)
+        # A line renamed for a new generation is named in the menu by its
+        # variety alone ("Standard", "Ranch"), but its address keeps the
+        # model's name: americanRifleGenII, americanRifleRanchGenII (the
+        # Ruger American Rifle, 2026-10-13).
+        for link in soup.select('a[href$="/models.html"]'):
+            href = urljoin(self.home, str(link.get("href")))
+            line_name = _compact(href.rsplit("/", 2)[-2])
+            if href not in pages and any(
+                len(name) >= 5 and line_name.startswith(name) for name in wanted
+            ):
+                pages.append(href)
         return pages
 
     def read(
         self, ctx: ScrapeContext, model: FirearmModel, _siblings: list[FirearmModel]
     ) -> list[Found]:
+        found = self._cards(ctx, model, self.models_pages(ctx, model))
+        if not found and model.maker_url and _on_site(model.maker_url, "ruger.com"):
+            # A recorded page Ruger has since dropped answers 200 with "Page
+            # Not Found" and no cards (EC9S, SR22, 2026-10-13): look in the
+            # navigation as if no page were recorded.
+            found = self._cards(ctx, model, self.navigation_pages(ctx, model))
+        return found
+
+    def _cards(self, ctx: ScrapeContext, model: FirearmModel, pages: list[str]) -> list[Found]:
         found: list[Found] = []
-        for page in self.models_pages(ctx, model):
+        for page in pages:
             soup = BeautifulSoup(ctx.get_text(page), "html.parser")
             for card in soup.select(".product-thumb"):
                 facts = _pairs(card)
@@ -242,9 +265,9 @@ def _carries(name: list[str], wanted: list[str]) -> bool:
 class SmithWessonReader:
     """smith-wesson.com: a storefront whose category pages carry every product.
 
-    ``/products/pistols`` and ``/products/revolvers`` each embed their whole
-    catalog in the page's ``__NEXT_DATA__`` -- 275 pistols and 129 revolvers
-    when measured, two requests -- with the name, the price (S&W's MSRP), the
+    ``/products/pistols``, ``/products/revolvers`` and ``/products/rifles`` each
+    embed their whole catalog in the page's ``__NEXT_DATA__`` -- 275 pistols
+    and 129 revolvers when first measured, rifles added on 2026-10-13 -- with the name, the price (S&W's MSRP), the
     UPC and the item number. Barrel and finish are in the name ("M&P9 M2.0
     METAL 4.25 INCH TUNGSTEN GRAY"). Each product goes to the flagged S&W model
     whose name it carries most specifically -- an "M&P9 Shield Plus" is a
@@ -253,7 +276,8 @@ class SmithWessonReader:
 
     maker = "Smith & Wesson"
     home = "https://www.smith-wesson.com/"
-    CATEGORIES = ("pistols", "revolvers")
+    # Rifles since 2026-10-13: the M&P FPC carbine is one.
+    CATEGORIES = ("pistols", "revolvers", "rifles")
     _MAKER_WORDS = frozenset({"smith", "wesson", "s", "w"})
 
     def __init__(self) -> None:

@@ -3,7 +3,8 @@
 The pages are recorded from gun.deals on 2026-10-10: the price table for a
 black 4" Tracker .44 (UPC 725327351238, part 2-440041TKR), the table for the
 "Tracker M44C" whose two offers were both out of stock, and the product
-search for "taurus tracker 44 magnum".
+search for "taurus tracker 44 magnum". The search for Walther's part 2842475,
+which lands on the PDP Full Size's own page, was recorded on 2026-10-13.
 """
 
 from __future__ import annotations
@@ -47,6 +48,49 @@ class TestFindingAUpcByPartNumber:
         # The blemished second's part is a different part.
         assert newprices._upc_for_part(html, "2-440041TKR-BLEM") == "000010482716"
         assert newprices._upc_for_part(html, "NOT-A-PART") is None
+
+
+class TestAPartSearchThatLandsOnTheProduct:
+    """Walther's parts, 2026-10-13: the search for "2842475" is the PDP Full
+    Size's own page, with no tiles, and all 12 PDP variants went unpriced."""
+
+    def test_its_upc_and_table_are_read(self):
+        html = page("walther-pdp-2842475.html.gz")
+        assert newprices._upc_for_part(html, "2842475") is None
+        assert newprices._product_upc(html, "2842475") == "723364216954"
+
+    def test_a_different_part_is_not_this_product(self):
+        assert newprices._product_upc(page("walther-pdp-2842475.html.gz"), "2851229") is None
+
+    def test_the_title_is_what_says_so(self):
+        """2844176's page has no mpn markup, and one store's row carries a
+        mistyped UPC (13 digits) -- left out of the price, not of the answer."""
+        html = (
+            "<html><head><title>2844176 - Walther PDP Compact 9mm 723364216176 | gun.deals"
+            "</title></head><body><table class='price-compare-table'>"
+            "<tr data-price='520.00' data-upc='723364216176'></tr>"
+            "<tr data-price='480.00' data-upc='7233642161761'></tr>"
+            "<tr data-price='530.00' data-upc=''></tr></table></body></html>"
+        )
+        assert newprices._product_upc(html, "2844176") == "723364216176"
+        assert newprices._product_upc(html, "2844001") is None
+        found = newprices.offers(html, "https://gun.deals/p", "723364216176")
+        assert (found.low, found.stores) == (520.0, 2)
+
+    def test_a_variant_with_only_a_part_is_priced_from_it(self):
+        class Site:
+            asked = []
+
+            def get_text(self, url, **_kwargs):
+                self.asked.append(url)
+                return page("walther-pdp-2842475.html.gz")
+
+        site = Site()
+        variant = ModelVariant(label="PDP", maker_part="2842475")
+        found = newprices.lookup(site, variant)
+        assert found.low == 501.25
+        assert found.stores > 50
+        assert len(site.asked) == 1
 
 
 class FakeGunDeals:

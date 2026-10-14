@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import select
 
 from ..models import ArmoryStatus, Item, ModelVariant
+from . import barrels
 from .carry import _FRACTIONS
 
 if TYPE_CHECKING:
@@ -137,14 +138,16 @@ def candidates(session: Session, item: Item) -> list[ModelVariant]:
 def settle(session: Session, item: Item) -> None:
     """Read the listing's barrel and finish and link it to its variant, if one.
 
-    Only for a firearm whose model is in modern production: nothing else has
-    variants, and reading a barrel off every antique would be wasted work.
+    The barrel for every gun (app.services.barrels: asked for on 2026-10-13,
+    to search on, and read from the description too); the finish and the
+    variant only for a firearm whose model is in modern production, the only
+    ones with variants.
     """
+    barrels.apply(item)
     model = item.firearm_model
     if model is None or not model.modern_production or not (item.is_rifle or item.is_pistol):
         item.variant_id = None
         return
-    item.barrel_inches = read_barrel(item.title, long_gun=bool(item.is_rifle))
     item.finish = read_finish(item.title)
     found = candidates(session, item)
     item.variant_id = found[0].id if len(found) == 1 else None

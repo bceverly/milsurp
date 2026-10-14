@@ -104,12 +104,14 @@ class TestNarrowing:
         item = listing(session, model, site, 'Used TAURUS TRACKER 44MAG 2.5" BLUED')
         assert variants.candidates(session, item) == []
 
-    def test_a_model_no_longer_made_is_not_read(self, tracker):
+    def test_a_model_no_longer_made_has_no_variant_but_has_its_barrel(self, tracker):
+        """Its barrel read since 2026-10-13, as every gun's is (services/barrels);
+        a variant still only for a model in production."""
         session, model, site = tracker
         model.modern_production = False
         session.commit()
         item = listing(session, model, site, 'Used TAURUS TRACKER 44MAG 4" STAINLESS')
-        assert (item.variant_id, item.barrel_inches) == (None, None)
+        assert (item.variant_id, item.barrel_inches, item.finish) == (None, 4.0, None)
 
 
 class TestTheArmoryEditsThem:
@@ -140,6 +142,14 @@ class TestTheArmoryEditsThem:
         client.delete(f"/api/armory/variants/{made.json()['id']}", headers=admin_headers)
         session.expire_all()
         assert session.get(Item, item.id).variant_id is None
+
+    def test_the_list_names_each_variants_caliber(self, tracker, client, admin_headers):
+        """A 500 in production on 2026-10-13: the first variants with a caliber
+        were the manufacturers' sites', and the dialog could not list them."""
+        _session, model, _site = tracker
+        listed = client.get(f"/api/armory/models/{model.id}/variants", headers=admin_headers)
+        assert listed.status_code == 200, listed.text
+        assert {row["caliber"] for row in listed.json()} == {".44 Magnum"}
 
     def test_an_unknown_finish_is_refused(self, tracker, client, admin_headers):
         _session, model, _site = tracker

@@ -12,7 +12,8 @@ the store redirects, none of which is asked.
 
 **Only by an identifier that cannot be the wrong gun.** A variant's UPC; or,
 lacking one, its maker's part number where a product on gun.deals carries
-exactly that part number. A name search is never used -- one search for
+exactly that part number -- in a list of results, or on the product's own
+page when the search goes straight there. A name search is never used -- one search for
 "Taurus Tracker 44 Magnum" returned five products, two of them blemished
 seconds and one a police trade-in.
 
@@ -91,11 +92,36 @@ def _upc_for_part(html: str, part: str) -> str | None:
     return found.pop() if len(found) == 1 else None
 
 
+_PRODUCT_TITLE = re.compile(r"^\s*(\S+)\s+-\s+.*\s(\d{8,14})\s*\|\s*gun\.deals\s*$", re.S)
+
+
+def _product_upc(html: str, part: str) -> str | None:
+    """The UPC of a product page that a part number's search landed on.
+
+    A search for a part number gun.deals knows exactly ("2842475", a Walther
+    PDP) answers with that product's own page, not a list of tiles, titled
+    "2842475 - Walther PDP Full Size 9mm 723364216954 | gun.deals": the part,
+    the name, the UPC. Only the title says so on every such page -- the
+    ``mpn`` markup is missing from some, and a price row may carry a store's
+    mistyped UPC. A title naming any other part is no answer.
+    """
+    title = BeautifulSoup(html, "html.parser").title
+    found = _PRODUCT_TITLE.match(text_of(title) if title else "")
+    if found is None or _part(found.group(1)) != _part(part):
+        return None
+    return found.group(2)
+
+
 def lookup(ctx: ScrapeContext, variant: ModelVariant) -> NewPrice | None:
     """What gun.deals lists this variant at today, or None if it cannot tell."""
     upc = variant.upc
     if not upc and variant.maker_part:
-        upc = _upc_for_part(ctx.get_text(search_url(variant.maker_part)), variant.maker_part)
+        url = search_url(variant.maker_part)
+        html = ctx.get_text(url)
+        upc = _upc_for_part(html, variant.maker_part)
+        if upc is None and (upc := _product_upc(html, variant.maker_part)):
+            # Already the product's page: its table is the answer.
+            return offers(html, url, upc)
     if not upc:
         return None
     url = search_url(upc)

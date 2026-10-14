@@ -1208,6 +1208,13 @@ class ItemOut(UTCModel):
     #: The whole gun's stated condition on one scale, and its label.
     condition_grade: str | None = None
     condition_grade_label: str | None = None
+    #: The barrel: its length in inches and whether its muzzle is threaded
+    #: (True, False, or None where nothing was said), with the vendor's words
+    #: for each keyed "length" and "threaded". Firearms only. See
+    #: app.services.barrels.
+    barrel_inches: float | None = None
+    barrel_threaded: bool | None = None
+    barrel_quotes: dict[str, str] | None = None
 
     #: What it costs at the reader's dealer: the price, the shop's firearm
     #: shipping and the reader's transfer fee. Firearms only; each part None
@@ -1321,8 +1328,8 @@ class ItemDetail(ItemOut):
     #: The Wikipedia article of the maker the listing names, where the armory
     #: has one. The model's is ``model_reference_url``.
     maker_wikipedia_url: str | None = None
-    #: What the title states, read by services/variants.
-    barrel_inches: float | None = None
+    #: The finish the title states, read by services/variants. The barrel is
+    #: on ItemOut.
     finish: str | None = None
     #: The variant of the model those narrow the listing to, when exactly one;
     #: otherwise the ones it could be, for a model in modern production.
@@ -2323,6 +2330,19 @@ class AmmoSettingsOut(UTCModel):
     last_full_at: datetime | None = None
     last_status: str | None = None
     last_error: str | None = None
+    last_summary: str | None = None
+    last_seconds: float | None = None
+
+
+class ManufacturerJobOut(UTCModel):
+    """One read of the manufacturers' own sites: "variants" or "pages"."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    name: str
+    requested_at: datetime | None = None
+    last_run_at: datetime | None = None
+    last_status: str | None = None
     last_summary: str | None = None
     last_seconds: float | None = None
 

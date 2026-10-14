@@ -19,10 +19,10 @@ An override is the answer to that, and it is narrow on purpose:
 
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from ..models import Item, ItemOverride, User
+from ..models import ArmoryStatus, FirearmModel, Item, ItemOverride, User
 from . import provenance
 
 #: The fields a person may correct.
@@ -67,7 +67,33 @@ def apply_to(session: Session, item: Item) -> bool:
         if column and getattr(item, column, None) != provenance.OVERRIDE:
             setattr(item, column, provenance.OVERRIDE)
             changed = True
+    # A corrected model is a row of the armory, not only a name: what the
+    # armory knows, the manufacturer's page and the model filter all follow
+    # ``firearm_model_id``, and correcting an original 1915 M1911 away from
+    # the modern "Springfield Armory 1911" changed the name it showed and left
+    # it linked to the modern pistol's page (2026-10-13).
+    if override.model:
+        model_id = _model_id(session, override.model)
+        if model_id is not None and item.firearm_model_id != model_id:
+            item.firearm_model_id = model_id
+            changed = True
     return changed
+
+
+def _model_id(session: Session, name: str) -> int | None:
+    """The armory model a corrected name means: the row of that name, or the
+    one the matcher reads it as."""
+    from . import armory
+
+    row = session.execute(
+        select(FirearmModel.id).where(
+            func.lower(FirearmModel.name) == name.strip().lower(),
+            FirearmModel.status != ArmoryStatus.MERGED,
+        )
+    ).first()
+    if row is not None:
+        return int(row[0])
+    return armory.match(session, name).model_id
 
 
 def save(

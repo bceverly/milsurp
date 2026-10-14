@@ -61,6 +61,7 @@ from app.services import (
     discovery,
     mailer,
     manufacturers,
+    overrides,
     provenance,
     scan_service,
     twofactor,
@@ -908,6 +909,11 @@ def cmd_reclassify(  # noqa: PLR0912, PLR0915 - one pass over every derived fiel
             # A modern gun's country is its model's, not the shop's terms --
             # the same call a scan makes. See scan_service.modern_country.
             if scan_service.modern_country(session, item):
+                moved = True
+            # And a person's correction, last of all as in a scan: without it
+            # a reclassify quietly undid every model a person had corrected,
+            # until the next scan of that shop put it back (2026-10-13).
+            if overrides.apply_to(session, item):
                 moved = True
             # Last, from the fields just settled -- the same call a scan makes,
             # so the two paths cannot disagree. See app/services/carry.py.
@@ -1794,6 +1800,35 @@ def cmd_traits_backfill(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_barrels_backfill(_args: argparse.Namespace) -> int:
+    """Re-read every stored gun's barrel length and threading.
+
+    Migration 0074 fills the columns when it runs; this is for afterwards, when
+    the rules in ``app.services.barrels`` have been tightened. A listing whose
+    length changed is narrowed to its variants again at its next scan, or by
+    ``reclassify``.
+    """
+    from app.services import barrels
+
+    with session_scope() as session:
+        counts = barrels.backfill(session)
+        session.commit()
+
+    print(f"Examined {counts.get('examined', 0)} gun(s).")
+    print(f"  barrel lengths read    {counts.get('length', 0)}")
+    print(f"  threaded               {counts.get('threaded', 0)}")
+    print(f"  stated not threaded    {counts.get('not_threaded', 0)}")
+    return 0
+
+
+def _add_barrels_backfill_command(sub) -> None:
+    command = sub.add_parser(
+        "barrels-backfill",
+        help="Re-read every stored gun's barrel length and whether it is threaded.",
+    )
+    command.set_defaults(func=cmd_barrels_backfill)
+
+
 def _add_traits_backfill_command(sub) -> None:
     command = sub.add_parser(
         "traits-backfill",
@@ -2161,6 +2196,7 @@ def build_parser() -> argparse.ArgumentParser:  # noqa: PLR0915 - a statement pe
     _add_refetch_details_command(sub)
     _add_curio_backfill_command(sub)
     _add_traits_backfill_command(sub)
+    _add_barrels_backfill_command(sub)
 
     _add_armory_commands(sub)
 

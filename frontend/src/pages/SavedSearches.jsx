@@ -14,6 +14,7 @@
  * reduced into range, back in stock -- is mailed and pushed once, straight
  * away rather than in the digest. See services/wantlist.py.
  */
+import { barrelText } from "../components/BarrelFilter.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api.js";
@@ -79,6 +80,15 @@ function describe(query) {
       `Price: ${params.get("min_price") || "any"}–${params.get("max_price") || "any"}`,
     );
   }
+  if (params.get("barrel_min") || params.get("barrel_max")) {
+    const text = barrelText(
+      params.get("barrel_min") ? Number(params.get("barrel_min")) : null,
+      params.get("barrel_max") ? Number(params.get("barrel_max")) : null,
+    );
+    parts.push(`Barrel: ${text}"`);
+  }
+  if (params.get("threaded") === "yes") parts.push("Threaded barrel");
+  if (params.get("threaded") === "no") parts.push("Barrel not threaded");
   if (params.get("price_drops_only") === "true") parts.push("Price reduced");
   if (params.get("guns_only") === "true") parts.push("Priced guns only");
   const availability = params.get("availability");

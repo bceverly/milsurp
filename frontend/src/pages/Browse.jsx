@@ -9,6 +9,7 @@ import { Link } from "react-router-dom";
 import { api } from "../api.js";
 import { useDebounced, useOptimisticSearchParams, useTitle } from "../hooks.js";
 import PriceRange from "../components/PriceRange.jsx";
+import BarrelFilter, { barrelText } from "../components/BarrelFilter.jsx";
 import { formatMoney, formatRelative, timeTitle } from "../format.js";
 import AuthImage from "../components/AuthImage.jsx";
 import WishButton from "../components/WishButton.jsx";
@@ -564,6 +565,9 @@ export default function Browse() {
   const priceState = params.get("price_drops_only") === "true" ? "true" : "";
   const minPrice = params.get("min_price") ? Number(params.get("min_price")) : null;
   const maxPrice = params.get("max_price") ? Number(params.get("max_price")) : null;
+  const barrelMin = params.get("barrel_min") ? Number(params.get("barrel_min")) : null;
+  const barrelMax = params.get("barrel_max") ? Number(params.get("barrel_max")) : null;
+  const threaded = params.get("threaded") || null;
   const perPage = PER_PAGE_CHOICES.includes(Number(params.get("per_page")))
     ? Number(params.get("per_page"))
     : DEFAULT_PER_PAGE;
@@ -595,6 +599,9 @@ export default function Browse() {
     // min_price of 0 is a real bound somebody may have typed.
     if (minPrice !== null) built.min_price = minPrice;
     if (maxPrice !== null) built.max_price = maxPrice;
+    if (barrelMin !== null) built.barrel_min = barrelMin;
+    if (barrelMax !== null) built.barrel_max = barrelMax;
+    if (threaded) built.threaded = threaded;
     for (const { param } of FACETS) {
       const values = params.getAll(param);
       if (values.length) built[param] = values;
@@ -602,7 +609,20 @@ export default function Browse() {
       if (removed.length) built[removing(param)] = removed;
     }
     return built;
-  }, [params, page, sort, availability, kind, priceState, perPage, minPrice, maxPrice]);
+  }, [
+    params,
+    page,
+    sort,
+    availability,
+    kind,
+    priceState,
+    perPage,
+    minPrice,
+    maxPrice,
+    barrelMin,
+    barrelMax,
+    threaded,
+  ]);
 
   useEffect(() => {
     let canceled = false;
@@ -731,10 +751,39 @@ export default function Browse() {
           }),
       });
     }
+    if (barrelMin !== null || barrelMax !== null) {
+      chips.push({
+        key: "barrel",
+        label: `Barrel: ${barrelText(barrelMin, barrelMax)}"`,
+        clear: () =>
+          update((next) => {
+            next.delete("barrel_min");
+            next.delete("barrel_max");
+          }),
+      });
+    }
+    if (threaded) {
+      chips.push({
+        key: "threaded",
+        label: threaded === "yes" ? "Threaded barrel" : "Barrel not threaded",
+        clear: () => update((next) => next.delete("threaded")),
+      });
+    }
     return chips;
     // `kind` is read off `params`, so it cannot change without params changing;
     // it is listed because the rule is right that the memo reads it.
-  }, [params, kind, data, toggleMulti, update, minPrice, maxPrice]);
+  }, [
+    params,
+    kind,
+    data,
+    toggleMulti,
+    update,
+    minPrice,
+    maxPrice,
+    barrelMin,
+    barrelMax,
+    threaded,
+  ]);
 
   const clearAll = () => {
     setSearchText("");
@@ -948,6 +997,27 @@ export default function Browse() {
               />
             </Collapsible>
           )}
+
+          <Collapsible
+            title="Barrel"
+            defaultOpen={barrelMin !== null || barrelMax !== null || Boolean(threaded)}
+          >
+            <BarrelFilter
+              min={barrelMin}
+              max={barrelMax}
+              threaded={threaded}
+              onChange={(next) =>
+                update((search) => {
+                  if (next.min == null) search.delete("barrel_min");
+                  else search.set("barrel_min", String(next.min));
+                  if (next.max == null) search.delete("barrel_max");
+                  else search.set("barrel_max", String(next.max));
+                  if (next.threaded) search.set("threaded", next.threaded);
+                  else search.delete("threaded");
+                })
+              }
+            />
+          </Collapsible>
 
           <Collapsible title="Type" defaultOpen={Boolean(kind)}>
             {KINDS.map((option) => (

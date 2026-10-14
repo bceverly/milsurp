@@ -79,6 +79,10 @@ class Scheduler:
         #: "Refresh now" starts within one; run on the reference worker.
         self._ammo_future: Future | None = None
         self._last_ammo_look: float = 0.0
+        #: The manufacturers' own sites (services/makerjobs), asked for from
+        #: Site settings: looked for once a minute, run on the reference worker.
+        self._maker_future: Future | None = None
+        self._last_maker_look: float = 0.0
         self._last_ammo_articles: float = 0.0
         #: When a market report was last attempted per reader, so a failed
         #: delivery is retried hourly rather than on every tick.
@@ -201,6 +205,7 @@ class Scheduler:
         self._dispatch_offer_endings()
         self._dispatch_new_prices()
         self._dispatch_ammunition()
+        self._dispatch_maker_jobs()
 
     # -- new-gun prices -----------------------------------------------------
     #: Seconds between looks for variants whose new price is a day old.
@@ -283,6 +288,47 @@ class Scheduler:
             if self._background_pool is None:
                 return
             self._ammo_future = self._background_pool.submit(self._refresh_ammunition, parts, asked)
+
+    def _dispatch_maker_jobs(self) -> None:
+        """Run a read of the manufacturers' sites somebody asked for on Site
+        settings: one at a time, on the reference worker, within a minute."""
+        now = time.monotonic()
+        if now - self._last_maker_look < self.AMMO_LOOK_EVERY:
+            return
+        self._last_maker_look = now
+        with self._lock:
+            if self._maker_future is not None and not self._maker_future.done():
+                return
+            if self._background_pool is None:
+                return
+        from .services import makerjobs
+
+        try:
+            with session_scope() as session:
+                asked = makerjobs.requested(session)
+        except Exception:
+            log.exception("Manufacturer data: could not read the requests")
+            return
+        if not asked:
+            return
+        with self._lock:
+            if self._background_pool is None:
+                return
+            self._maker_future = self._background_pool.submit(self._run_maker_job, asked[0])
+
+    def _run_maker_job(self, name: str) -> None:
+        from .scrapers.base import ScrapeContext
+        from .services import makerjobs
+
+        ctx = ScrapeContext(self.config)
+        try:
+            with session_scope() as session:
+                summary = makerjobs.run(session, ctx, name, log=lambda _message: None)
+            log.info("Manufacturer data (%s): %s", name, summary)
+        except Exception:
+            log.exception("Manufacturer data (%s) raised", name)
+        finally:
+            ctx.close()
 
     def _refresh_ammunition(self, parts: tuple[str, ...], asked: bool = False) -> None:
         """Refresh *parts* of the caliber data, or with none, read the

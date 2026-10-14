@@ -24,9 +24,11 @@ router = APIRouter(prefix="/armory", tags=["armory"])
 
 
 def _out(row: ModelVariant) -> VariantOut:
-    found = VariantOut.model_validate(row)
-    found.caliber = row.caliber.name if row.caliber else None
-    return found
+    # Not model_validate(row): the row's ``caliber`` is the Caliber, and the
+    # schema's is its name -- every variant the manufacturers' sites gave a
+    # caliber failed with a 500 until 2026-10-13.
+    fields = {name: getattr(row, name) for name in VariantOut.model_fields if name != "caliber"}
+    return VariantOut(**fields, caliber=row.caliber.name if row.caliber else None)
 
 
 def _finish(text: str | None) -> str | None:

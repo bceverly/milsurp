@@ -236,6 +236,8 @@ def clean_db(_database):
             # One policy row, like hot_deal_settings; and the weights go before
             # their calibers.
             "ammo_settings",
+            # One row per read of the manufacturers' sites, like ammo_settings.
+            "manufacturer_jobs",
             "caliber_bullet_weights",
             "vendor_emails",
             "inbox_settings",

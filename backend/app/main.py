@@ -31,6 +31,7 @@ from .api import (
     backups,
     dealers,
     items,
+    makerjobs,
     manufacturers,
     preferences,
     references,
@@ -478,6 +479,7 @@ def create_app() -> FastAPI:
     api.include_router(push_api.router)
     api.include_router(references.router)
     api.include_router(ammunition.router)
+    api.include_router(makerjobs.router)
     api.include_router(variants.router)
     api.include_router(armory.router)
     api.include_router(scans.router)

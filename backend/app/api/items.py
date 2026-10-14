@@ -674,6 +674,9 @@ def list_items(
     guns_only: bool = Query(
         default=False, description="Priced guns only, no parts kits (a valuation's comparables)."
     ),
+    barrel_min: float | None = Query(default=None, ge=0, le=100),
+    barrel_max: float | None = Query(default=None, ge=0, le=100),
+    threaded: str | None = Query(default=None, pattern="^(yes|no)$"),
     sort: str = Query(default=DEFAULT_SORT),
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=48, ge=1, le=200),
@@ -734,6 +737,9 @@ def list_items(
             new_since_hours=new_since_hours,
             price_drops_only=price_drops_only,
             guns_only=guns_only,
+            barrel_min=barrel_min,
+            barrel_max=barrel_max,
+            threaded=threaded,
             excluded={name: v for name, v in excluded.items() if name != drop},
         )
 
@@ -807,6 +813,8 @@ EXPORT_COLUMNS: tuple[str, ...] = (
     "numbers_match",
     "refinished",
     "finish_percent",
+    "barrel_inches",
+    "barrel_threaded",
     "site",
     "url",
     "is_sold",
@@ -839,6 +847,8 @@ def _export_row(item: Item, site_names: dict[int, str]) -> dict[str, object]:
         "numbers_match": item.numbers_match,
         "refinished": item.refinished,
         "finish_percent": item.finish_percent,
+        "barrel_inches": item.barrel_inches,
+        "barrel_threaded": item.barrel_threaded,
         "site": site_names.get(item.site_id, ""),
         "url": item.url,
         "is_sold": item.is_sold,
@@ -873,6 +883,9 @@ def export_items(
     guns_only: bool = Query(
         default=False, description="Priced guns only, no parts kits (a valuation's comparables)."
     ),
+    barrel_min: float | None = Query(default=None, ge=0, le=100),
+    barrel_max: float | None = Query(default=None, ge=0, le=100),
+    threaded: str | None = Query(default=None, pattern="^(yes|no)$"),
 ) -> Response:
     """The listings a browse page is showing, as a file.
 
@@ -905,6 +918,9 @@ def export_items(
         new_since_hours=new_since_hours,
         price_drops_only=price_drops_only,
         guns_only=guns_only,
+        barrel_min=barrel_min,
+        barrel_max=barrel_max,
+        threaded=threaded,
         excluded=_excluded(request),
     )
 

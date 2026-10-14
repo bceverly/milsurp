@@ -642,6 +642,29 @@ class AmmoSetting(Base):
     last_seconds: Mapped[float | None] = mapped_column(Float)
 
 
+class ManufacturerJob(Base):
+    """One of the reads of the manufacturers' own sites, asked for on Site
+    settings, and how its last run went (migration 0073).
+
+    "variants" is app.services.makersites -- each model's versions, with MSRP
+    and UPC, from the readers built for that -- and "pages" is
+    app.services.makerpages, each model's own page. Neither runs on a clock:
+    an MSRP changes about once a year, and both arrive as suggestions somebody
+    has to decide. "barrels" (2026-10-14) asks no site: it re-reads every
+    stored gun's barrel (app.services.barrels). The Site settings button sets
+    ``requested_at``; the scheduler starts the run on its next minute.
+    """
+
+    __tablename__ = "manufacturer_jobs"
+
+    name: Mapped[str] = mapped_column(String(16), primary_key=True)
+    requested_at: Mapped[datetime | None] = mapped_column(DateTime)
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime)
+    last_status: Mapped[str | None] = mapped_column(String(16))
+    last_summary: Mapped[str | None] = mapped_column(String(500))
+    last_seconds: Mapped[float | None] = mapped_column(Float)
+
+
 class FirearmModel(Base, TimestampMixin):
     """A model of gun: what it is called, who made it, and what it chambers.
 
@@ -958,15 +981,23 @@ class Item(Base, TimestampMixin):
     is_black_powder: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False, index=True
     )
-    #: The barrel length and finish the title states -- '3" MATTE', "4in
-    #: Stainless" -- read by app.services.variants, and the variant of the
-    #: listing's model they narrow it to, when they narrow it to exactly one.
+    #: The barrel length (app.services.barrels) and the finish the title
+    #: states -- '3" MATTE', "4in Stainless" (app.services.variants) -- and
+    #: the variant of the listing's model they narrow it to, when they narrow
+    #: it to exactly one.
     #: ``variant_id`` is kept by the application rather than a foreign key:
     #: adding one to ``items`` means a SQLite rebuild its generated column does
     #: not survive (migration 0064). Deleting a variant clears it.
-    barrel_inches: Mapped[float | None] = mapped_column(Float)
+    barrel_inches: Mapped[float | None] = mapped_column(Float, index=True)
     finish: Mapped[str | None] = mapped_column(String(32))
     variant_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    #: Whether the muzzle is threaded: True, False where the listing says it
+    #: is not, None where it says nothing. With ``barrel_inches``, read for
+    #: every firearm since 2026-10-13 from the title and description, and the
+    #: words each came from kept in ``barrel_quotes`` ("length", "threaded").
+    #: See app.services.barrels.
+    barrel_threaded: Mapped[bool | None] = mapped_column(Boolean, index=True)
+    barrel_quotes: Mapped[dict[str, str] | None] = mapped_column(JSON)
 
     is_sold: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     #: When a scan (or the watchlist poller) first saw this listing marked

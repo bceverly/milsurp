@@ -8,6 +8,9 @@
  *   weeks; weekly by default), and a button for each of its three parts and
  *   one for all of them. See app/services/ammunition.py. It started at the
  *   foot of the Email digest page, then sat on the Armory's Calibers tab.
+ * - **Manufacturer data** (2026-10-13): the reads of the manufacturers' own
+ *   sites -- each model's MSRP and variants, and its manufacturer page --
+ *   which were commands on the server and nothing else.
  * - **Hot deals**: how deals are found, which sat at the foot of the Hot
  *   deals page.
  */
@@ -73,6 +76,18 @@ export default function SiteSettingsPage() {
         </div>
       </div>
       <CaliberData />
+      <JobSection
+        title="Manufacturer data"
+        intro="What the manufacturers’ own sites say about the models still made. Run when you like: nothing here is on a schedule."
+        jobs={MANUFACTURER_JOBS}
+        testId="manufacturer-data-section"
+      />
+      <JobSection
+        title="Listing data"
+        intro="What is read from each listing’s own words, read again over everything stored. A scan reads each listing as it goes; this is for after the rules change."
+        jobs={LISTING_JOBS}
+        testId="listing-data-section"
+      />
       <HotDeals />
     </>
   );
@@ -212,6 +227,126 @@ function CaliberData() {
               </p>
             </div>
           </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+//: The reads of the manufacturers' sites, as the page offers them.
+const MANUFACTURER_JOBS = [
+  {
+    name: "variants",
+    title: "MSRPs and variants",
+    button: "Update MSRPs and variants",
+    text:
+      "Each model's versions -- caliber, barrel, finish, UPC and MSRP -- from Ruger, " +
+      "Smith & Wesson, Kimber and Walther. New ones wait for approval in each model's " +
+      "dialog on the Armory.",
+  },
+  {
+    name: "pages",
+    title: "Manufacturer pages",
+    button: "Find manufacturer pages",
+    text:
+      "Each model still made, matched to its page in its manufacturer's sitemap. What " +
+      "it finds waits on the Armory's Manufacturer pages tab.",
+  },
+];
+
+//: The re-reads of what is stored, as the page offers them (2026-10-14).
+const LISTING_JOBS = [
+  {
+    name: "barrels",
+    title: "Barrels",
+    button: "Re-read barrel lengths and threading",
+    text:
+      "Every gun's barrel length and whether it is threaded, read again from its title " +
+      "and description, and each listing of a model still made matched to its versions " +
+      "again. Asks no website anything.",
+  },
+];
+
+/** Long jobs, a button each: asked for here, run by the scheduler. */
+function JobSection({ title, intro, jobs: offered, testId }) {
+  const [jobs, setJobs] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState(null);
+
+  useEffect(() => {
+    api
+      .manufacturerJobs()
+      .then(setJobs)
+      .catch((err) => setMessage({ ok: false, text: err.message }));
+  }, []);
+
+  async function run(job) {
+    setBusy(true);
+    setMessage(null);
+    try {
+      setJobs(await api.runManufacturerJob(job.name));
+      setMessage({ ok: true, text: `${job.title}: starts within a minute.` });
+    } catch (err) {
+      setMessage({ ok: false, text: err.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const byName = Object.fromEntries((jobs || []).map((row) => [row.name, row]));
+  return (
+    <section className="settings-section" data-testid={testId}>
+      <div className="settings-section__head">
+        <div>
+          <h2>{title}</h2>
+          <p className="muted">{intro}</p>
+        </div>
+      </div>
+      {message && (
+        <p className={`alert ${message.ok ? "alert--success" : "alert--error"}`}>
+          {message.text}
+        </p>
+      )}
+      {jobs && (
+        <div className="settings-grid">
+          {offered.map((job) => {
+            const row = byName[job.name] || {};
+            return (
+              <div
+                className="panel"
+                key={job.name}
+                data-testid={`manufacturer-job-${job.name}`}
+              >
+                <div className="panel__head">
+                  <h2>{job.title}</h2>
+                </div>
+                <div className="panel__body">
+                  <p className="muted" style={{ marginTop: 0 }}>
+                    {job.text}
+                  </p>
+                  <button
+                    type="button"
+                    className="btn btn--ghost"
+                    onClick={() => run(job)}
+                    disabled={busy || Boolean(row.requested_at)}
+                  >
+                    {row.requested_at ? "Asked for" : job.button}
+                  </button>
+                  <p className="muted">
+                    {row.last_run_at ? (
+                      <>
+                        Last run {formatRelative(row.last_run_at)}
+                        {row.last_status === "failed" ? " and failed: " : ": "}
+                        {row.last_summary}
+                      </>
+                    ) : (
+                      "Not run yet."
+                    )}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </section>

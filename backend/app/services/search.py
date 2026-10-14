@@ -283,6 +283,13 @@ def _kind_clause(kind: str) -> Any:
     return KINDS[kind]
 
 
+#: The barrel filter's "threaded" answers, and what each asks of the column.
+THREADED: dict[str, bool] = {"yes": True, "no": False}
+#: How far either side of one stated length still counts as that length: a
+#: search for 4.5" finds 4.49" (a Glock 17) and not 4.4" (a P226).
+BARREL_EXACT = 0.05
+
+
 def apply_filters[S: Select](  # noqa: PLR0912, PLR0915 - one branch per filter; splitting it
     #                                      would only scatter the same logic
     stmt: S,
@@ -305,6 +312,9 @@ def apply_filters[S: Select](  # noqa: PLR0912, PLR0915 - one branch per filter;
     trait_values: list[str] | None = None,
     grades: list[str] | None = None,
     guns_only: bool = False,
+    barrel_min: float | None = None,
+    barrel_max: float | None = None,
+    threaded: str | None = None,
     excluded: dict[str, list[str]] | None = None,
 ) -> S:
     if site_ids:
@@ -391,6 +401,21 @@ def apply_filters[S: Select](  # noqa: PLR0912, PLR0915 - one branch per filter;
         stmt = stmt.where(Item.current_price.is_not(None), Item.current_price >= min_price)
     if max_price is not None:
         stmt = stmt.where(Item.current_price.is_not(None), Item.current_price <= max_price)
+
+    # The barrel (app.services.barrels): a range, or one length when both ends
+    # are the same -- widened by BARREL_EXACT, so "4.5" finds a Glock 17's
+    # 4.49". A listing whose length nobody stated is not in any range.
+    if barrel_min is not None or barrel_max is not None:
+        low, high = barrel_min, barrel_max
+        if low is not None and high is not None and abs(high - low) < BARREL_EXACT:
+            low, high = low - BARREL_EXACT, high + BARREL_EXACT
+        stmt = stmt.where(Item.barrel_inches.is_not(None))
+        if low is not None:
+            stmt = stmt.where(Item.barrel_inches >= low)
+        if high is not None:
+            stmt = stmt.where(Item.barrel_inches <= high)
+    if threaded in THREADED:
+        stmt = stmt.where(Item.barrel_threaded.is_(THREADED[threaded]))
 
     if new_since_hours:
         stmt = stmt.where(Item.first_seen_at >= utcnow() - timedelta(hours=new_since_hours))
@@ -513,6 +538,10 @@ QUERY_PARAMS: dict[str, bool] = {
     "new_since_hours": False,
     "price_drops_only": False,
     "guns_only": False,
+    # The barrel, in inches, and whether it is threaded: yes / no.
+    "barrel_min": False,
+    "barrel_max": False,
+    "threaded": False,
     "sort": False,
     # Each removable facet's "everything but": not_caliber, not_model ...
     **{f"not_{name}": True for name in EXCLUDABLE},
@@ -627,6 +656,9 @@ def parse_query(query_string: str) -> SearchQuery:  # noqa: PLR0912 - one branch
         "new_since_hours": None,
         "price_drops_only": False,
         "guns_only": False,
+        "barrel_min": None,
+        "barrel_max": None,
+        "threaded": None,
         "excluded": {},
     }
 
@@ -650,9 +682,13 @@ def parse_query(query_string: str) -> SearchQuery:  # noqa: PLR0912 - one branch
         # that knows they are armory ids rather than names.
         for value in filters["models"]:
             _int(name="model", value=value)
-    for name in ("min_price", "max_price"):
+    for name in ("min_price", "max_price", "barrel_min", "barrel_max"):
         if filters[name] is not None:
             filters[name] = _float(name=name, value=filters[name])
+    if filters["threaded"] is not None and filters["threaded"] not in THREADED:
+        raise BadQuery(
+            f"threaded must be one of {', '.join(THREADED)}, not {filters['threaded']!r}."
+        )
     if filters["new_since_hours"] is not None:
         filters["new_since_hours"] = _int(name="new_since_hours", value=filters["new_since_hours"])
     filters["price_drops_only"] = str(filters["price_drops_only"]).lower() in ("1", "true", "yes")
