@@ -1,5 +1,5 @@
 # Web framework and server
-fastapi>=0.142.2,<1.0
+fastapi>=0.143.0,<1.0
 uvicorn[standard]>=0.54.0,<1.0
 python-multipart>=0.0.32
 email-validator>=2.3.0
@@ -8,7 +8,7 @@ email-validator>=2.3.0
 # 2.1 at least: the code relies on its typed Row unpacking (Result.tuples() is
 # deprecated there, and the warnings-as-errors suite fails on it), and the
 # annotations are written for its stubs -- mypy on 2.0 reads them differently.
-SQLAlchemy>=2.1.2,<3.0
+SQLAlchemy>=2.1.4,<3.0
 alembic>=1.20.0,<2.0
 # Mako is alembic's template engine (it renders new migration files), not
 # imported here, and declared for the same reason as urllib3 below: alembic
@@ -51,7 +51,7 @@ requests>=2.34.2
 urllib3>=2.8.0
 beautifulsoup4>=4.15.0
 lxml>=6.1.3
-selenium>=4.50.0
+selenium>=4.51.0
 
 # OCR, for vendors that publish a scanned flyer instead of a catalog
 # (Hunter's Lodge). This is only the Python binding: it needs the `tesseract`
@@ -73,7 +73,7 @@ pytesseract>=0.3.13
 # `zoneinfo` searches TZPATH first and falls back to this package for a name
 # the system database does not carry, so this fixes the aliases without
 # overriding a host's own, more current, database.
-tzdata>=2026.4
+tzdata>=2026.5
 
 # **The floor is 50.0.1 and must not be walked back to the 46 series.**
 # 46.0.7 carries four high-severity advisories -- CVE-2026-34180 (fixed 48.0.1),

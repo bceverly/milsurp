@@ -84,15 +84,19 @@ test.describe("inventory", () => {
   });
 
   test("clearing the search restores the full list", async ({ signedIn }) => {
-    await expect(signedIn.locator(".item-card").first()).toBeVisible();
-    const before = await signedIn.locator(".item-card").count();
+    // What a full first page holds, from the page's own count rather than a
+    // count of cards taken while they may still be drawing.
+    const matching = await signedIn.getByText(/listings? match your filters/).innerText();
+    const before = Math.min(Number(matching.replace(/[^0-9]/g, "")), 48);
+    await expect(signedIn.locator(".item-card")).toHaveCount(before);
     await signedIn.getByPlaceholder(/search titles/i).fill("mauser");
     await expect(signedIn).toHaveURL(/search=mauser/);
 
     await signedIn.getByRole("button", { name: "Clear search" }).click();
     await expect(signedIn).not.toHaveURL(/search=/);
-    await signedIn.waitForTimeout(600);
-    expect(await signedIn.locator(".item-card").count()).toBe(before);
+    // Waited for, not counted after a fixed pause: on a loaded machine the
+    // full list was still drawing 600ms later (30 of 48, 2026-10-14).
+    await expect(signedIn.locator(".item-card")).toHaveCount(before);
   });
 
   test("search state is shareable via the URL", async ({ signedIn }) => {

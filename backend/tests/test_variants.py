@@ -194,3 +194,48 @@ class TestTheShippedFileCarriesThem:
         assert {v.label for v in model.variants} == set(kept) - {'Tracker .44 Magnum 6.5" Black'}
         # Matched by label and kept, not replaced.
         assert all(kept[v.label] == v.id for v in model.variants)
+
+
+class TestTheVariantsTab:
+    """Every model's variants on one tab, approved or switched off in bulk
+    (asked for on 2026-10-14: "shouldn't that be on its own tab?")."""
+
+    def test_the_views_search_and_bulk_actions(self, tracker, client, admin_headers):
+        session, model, _site = tracker
+        for row in model.variants:
+            row.status = ArmoryStatus.PENDING
+        session.commit()
+
+        def listed(status="pending", **params):
+            response = client.get(
+                "/api/armory/variants", params={"status": status, **params}, headers=admin_headers
+            )
+            assert response.status_code == 200, response.text
+            return response.json()
+
+        waiting = listed()
+        assert len(waiting) == 3
+        assert {row["model_name"] for row in waiting} == {"Tracker"}
+        assert [row["label"] for row in listed(search="6.5")] == ['Tracker .44 Magnum 6.5" Black']
+
+        ids = [row["id"] for row in waiting]
+        done = client.post(
+            "/api/armory/variants/approve", json={"ids": ids[:2]}, headers=admin_headers
+        ).json()
+        assert done["changed"] == 2
+        assert len(listed()) == 1
+        assert len(listed("approved")) == 2
+
+        off = client.post(
+            "/api/armory/variants/disable", json={"ids": ids[2:]}, headers=admin_headers
+        ).json()
+        assert off["changed"] == 1
+        assert listed() == []
+        assert [row["id"] for row in listed("disabled")] == ids[2:]
+        assert len(listed("")) == 3
+
+    def test_an_unknown_view_is_refused(self, tracker, client, admin_headers):
+        response = client.get(
+            "/api/armory/variants", params={"status": "maybe"}, headers=admin_headers
+        )
+        assert response.status_code == 422

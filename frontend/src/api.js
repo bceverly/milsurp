@@ -413,6 +413,12 @@ export const api = {
 
   // --- a model's variants: caliber, barrel, finish, UPC, MSRP ---
   modelVariants: (modelId) => request(`/api/armory/models/${modelId}/variants`),
+  // Every model's variants together, for the Armory's Variants tab.
+  armoryVariants: (params = {}) => request(`/api/armory/variants${qs(params)}`),
+  approveVariants: (ids) =>
+    request("/api/armory/variants/approve", { method: "POST", body: { ids } }),
+  disableVariants: (ids) =>
+    request("/api/armory/variants/disable", { method: "POST", body: { ids } }),
   addVariant: (modelId, payload) =>
     request(`/api/armory/models/${modelId}/variants`, { method: "POST", body: payload }),
   updateVariant: (id, payload) =>

@@ -5261,6 +5261,78 @@ matching variant".
   Micro; P365 Micro, P226 Full size, P229 Compact; the S&W revolvers by frame
   letter -- is applied after it.
 
+### The listing page's main photo at screen size — **Fixed** 2026-10-14
+
+Asked: "is it possible your code in the frontend is doing something that really
+spikes memory in a chrome tab?" Measured page by page in the harness, nothing
+the pages hold is large -- 6 to 10 MB of script heap, the Armory with every
+model listed the most -- and nothing polls or subscribes without stopping. The
+photographs are: production has 6,369 over 8 megapixels, the largest 8540 x
+6048, 51 megapixels, and the listing page showed the original in its main
+column, which a browser decodes to about 200 MB of pixels to draw 700 pixels
+wide, more again for each photo of a large gallery walked through.
+
+* `GET /api/items/{id}/photos/{photo}?size=display`: at most 1600 pixels on
+  the long edge, made on first request and kept beside the original
+  (`ImageStore.display_copy`, `<original>_d.jpg`); the original where it is
+  already that small, or unreadable. `prune-images` sweeps the copies with
+  the other unreferenced files; the next view makes them again.
+* The main photo uses it (`PhotoOut.display_url`); the full-size viewer still
+  opens the original, where somebody has asked to see every pixel.
+
+### A Variants tab in the Armory — **Shipped** 2026-10-14
+
+Asked for: "how can i see and approve variants? shouldn't that be on its own
+tab?" They could only be reached one model's dialog at a time, which is how the
+first read of the manufacturers' sites left 605 waiting unseen. The Armory's
+Variants tab lists every model's together -- with the model, caliber, barrel,
+frame size, finish and MSRP -- under the same Showing filter (awaiting
+approval, approved, switched off, everything) and search as the other tabs, a
+waiting count on the tab, and Approve and Switch off for a row, a selection or
+everything listed. `GET /api/armory/variants`, `POST
+/api/armory/variants/approve` and `/disable`; each re-matches the listings of
+the models it touched. A variant is still edited in its model's dialog.
+
+### Dependencies, Dependabot's two pull requests — **Changed** 2026-10-14
+
+semgrep 1.180, FastAPI 0.143, SQLAlchemy 2.1.4, Selenium 4.51, tzdata 2026.5,
+black 26.10, types-requests; Playwright 1.64, @vitejs/plugin-react 6.1.2,
+Vite 8.3.4. The visual tests follow the installed Playwright to its image.
+
+### Model 1889 and Model 1891 — **Done** 2026-10-14
+
+Two pending rows a scan proposed from a year: "Model 1889" gathered Schmidt-
+Rubins, a Bodeo, a Remington shotgun and Colt double-action revolvers, "MODEL
+1891" Mosins, Carcanos and Mausers. Both switched off. Their listings belonged
+to models that existed but lacked a spelling -- "Swiss Schmidt Rubin Model
+1889", "Italian Model 1889 Bodeo", "Carcano Model 1891", "Model 1891 Dragoon"
+-- or to guns with no model at all, now added: the Colt Model 1889, the
+Remington Model 1889 and the Marlin Model 1891. All fourteen matched.
+
+### A product no model names gets a model, not a neighbor — **Changed** 2026-10-14
+
+The M&P 5.7 and the M&P22X have no model, and the reader filed them under the
+M&P M2.0, through its catch-all spelling "S&W M&P |" -- approved there, every
+M2.0 listing would have offered a 5.7's price as one of its versions. Asked for:
+add the two models and move the variants (done in production, both pending),
+and stop it happening again.
+
+* **A catch-all spelling owns nothing** (`makersites._specific`): a spelling
+  needs a number or a word of its own -- "M&P9", "M&P Shield", "M&P M2.0" --
+  to claim a product; "M&P" alone, m and p, does not.
+* **What nothing names is proposed as a model** (`_propose_models`), pending
+  and flagged as still made, with its versions waiting under it, to be
+  approved together. Products are grouped by their line ("M&P 5.7 10RD
+  COMPLIANT" is the M&P 5.7), and a line that begins with a shorter one is a
+  version of it: the Model 1854's Stealth, Walnut and Traditional are one
+  proposal. A line that begins with a model the armory already has is not
+  proposed -- that model was decided -- but the log names it.
+* **Measured on Smith & Wesson's catalog that day**: 19 models would be
+  proposed (the Model 1854 with 22 versions, the Equalizer, SD40, Volunteer X
+  and XV, Models 610, 617, 627, 632, 940, M&P10, M&P12 ...), and 15 models the
+  armory has are on the site but not flagged as made -- the Model 686 with 14
+  products, the 629 with 11, the SW22, the Model 29.
+
 ### semgrep in half the time — **Changed** 2026-10-14
 
 Asked for: "any way to speed up the semgrep run?" It took 647 seconds for 411

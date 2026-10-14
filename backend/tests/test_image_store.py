@@ -500,3 +500,35 @@ class TestTwoWritersAtOnce:
 
         assert all(result is not None for result in results)
         assert len({result.filename for result in results}) == 1
+
+
+class TestTheScreenSizedCopy:
+    """The listing page's main photo (2026-10-14): a vendor's original can be
+    51 megapixels, about 200 MB for a browser to decode for a column 700
+    pixels wide."""
+
+    def _stored(self, store, width, height, name="site/ab/big.jpg"):
+        path = store.absolute_path(name)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (width, height), (120, 30, 30)).save(path, format="JPEG")
+        return name
+
+    def test_a_big_original_is_shown_at_screen_size_and_kept(self, store):
+        name = self._stored(store, 4000, 3000)
+        made = store.display_copy(name)
+        assert made == "site/ab/big_d.jpg"
+        with Image.open(store.absolute_path(made)) as image:
+            assert max(image.size) == image_store.DISPLAY_MAX_EDGE
+        # Kept: the second request reads the copy rather than making another.
+        before = store.absolute_path(made).stat().st_mtime_ns
+        assert store.display_copy(name) == made
+        assert store.absolute_path(made).stat().st_mtime_ns == before
+
+    def test_a_small_one_is_its_own_display(self, store):
+        assert store.display_copy(self._stored(store, 800, 600, "site/ab/small.jpg")) is None
+
+    def test_an_unreadable_one_falls_back_to_the_original(self, store):
+        path = store.absolute_path("site/ab/broken.jpg")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"not an image")
+        assert store.display_copy("site/ab/broken.jpg") is None

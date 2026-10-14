@@ -64,7 +64,7 @@ from ..services import (
     watchlist,
     wishlist,
 )
-from ..services.image_store import ImageStore, ImageStoreError
+from ..services.image_store import DISPLAY_MAX_EDGE, ImageStore, ImageStoreError
 from ..services.search import (
     DEFAULT_SORT,
     EXCLUDABLE,
@@ -1091,6 +1091,7 @@ def get_item(item_id: int, user: CurrentUser, session: DbSession) -> ItemDetail:
             position=photo.position,
             url=_photo_urls(item.id, photo)[0],
             thumbnail_url=_photo_urls(item.id, photo)[1],
+            display_url=_photo_urls(item.id, photo)[0].replace("?v=", "?size=display&v=", 1),
             width=photo.width,
             height=photo.height,
         )
@@ -1208,7 +1209,7 @@ def get_photo(
     _user: CurrentUser,
     session: DbSession,
     config: AppConfig,
-    size: str = Query(default="full", pattern="^(full|thumb)$"),
+    size: str = Query(default="full", pattern="^(full|thumb|display)$"),
     v: str | None = Query(default=None, max_length=64),
 ) -> Response:
     """Stream a stored photo at the requested resolution.
@@ -1230,6 +1231,12 @@ def get_photo(
     if size == "thumb" and photo.thumb_filename:
         relative = photo.thumb_filename
         media_type = "image/jpeg" if relative.endswith(".jpg") else media_type
+    # Screen-sized for the listing page's main photo, made on first request;
+    # the original where it is already that small. See ImageStore.display_copy.
+    # Measured photos are checked here; one never measured is tried, and
+    # display_copy hands the original back if it is small after all.
+    longest = max(photo.width or 0, photo.height or 0)
+    wants_display = size == "display" and (longest == 0 or longest > DISPLAY_MAX_EDGE)
 
     # **The connection goes back to the pool before a single byte is sent.**
     #
@@ -1255,6 +1262,8 @@ def get_photo(
     session.close()
 
     store = ImageStore(config)
+    if wants_display and (display := store.display_copy(relative)):
+        relative, media_type = display, "image/jpeg"
     try:
         path = store.absolute_path(relative)
     except ImageStoreError as exc:

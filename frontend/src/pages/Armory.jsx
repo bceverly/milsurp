@@ -57,6 +57,9 @@ const TABS = [
   // Each modern model's own page on its maker's site, found in the maker's
   // sitemap (app/services/makerpages.py) and decided here (2026-10-12).
   { key: "maker_pages", label: "Manufacturer pages" },
+  // Every model's versions on one list, approved or switched off in bulk
+  // (2026-10-14): they could only be reached one model's dialog at a time.
+  { key: "variants", label: "Variants" },
 ];
 
 /** The two tabs of suggestions, and which kind each shows. */
@@ -83,6 +86,7 @@ const TAB_HASH = {
   calibers: "caliber",
   wikipedia: "wikipedia",
   maker_pages: "manufacturer-pages",
+  variants: "variants",
 };
 const TAB_FROM_HASH = {
   manufacturer: "manufacturers",
@@ -95,6 +99,8 @@ const TAB_FROM_HASH = {
   "manufacturer-pages": "maker_pages",
   "maker-pages": "maker_pages",
   maker_pages: "maker_pages",
+  variant: "variants",
+  variants: "variants",
 };
 
 /** Which tab a URL fragment asks for, falling back to the default. */
@@ -254,6 +260,15 @@ const LINK_VIEWS = [
   { value: "", label: "Everything" },
 ];
 
+//: What Showing means on the Variants tab: a version is waiting, in use, or
+//: switched off -- never merged.
+const VARIANT_VIEWS = [
+  { value: "pending", label: "Awaiting approval" },
+  { value: "approved", label: "Approved" },
+  { value: "disabled", label: "Switched off" },
+  { value: "", label: "Everything" },
+];
+
 const EMPTY_MODEL = {
   name: "",
   aliases: "",
@@ -302,6 +317,180 @@ function SelectAllCell({ all, some, onToggle, disabled }) {
         title={all ? "Clear selection" : "Select everything listed"}
       />
     </th>
+  );
+}
+
+/**
+ * Every model's variants on one list (asked for on 2026-10-14, "shouldn't that
+ * be on its own tab?"): the 605 a first read of the manufacturers' sites
+ * proposed could be seen and approved only one model's dialog at a time. The
+ * same Showing filter and search as the other tabs; approve or switch off any
+ * selection, a row or everything listed. A variant is still edited in its
+ * model's dialog.
+ */
+function VariantsTab({ view, search, onChanged }) {
+  const [rows, setRows] = useState(null);
+  const [selected, setSelected] = useState(() => new Set());
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState(null);
+  const [error, setError] = useState(null);
+
+  const load = useCallback(async () => {
+    const params = { status: view };
+    if (search.trim()) params.search = search.trim();
+    setRows(await api.armoryVariants(params));
+    setSelected(new Set());
+  }, [view, search]);
+
+  useEffect(() => {
+    setRows(null);
+    load().catch((err) => setError(err.message));
+  }, [load]);
+
+  async function act(call, ids) {
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      let changed = 0;
+      for (let at = 0; at < ids.length; at += BATCH) {
+        changed += (await call(ids.slice(at, at + BATCH))).changed;
+      }
+      setMessage(`${countLabel(changed, "variant", "variants")} done.`);
+      await load();
+      onChanged();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const ids = [...selected];
+  const all = rows && rows.length > 0 && selected.size === rows.length;
+  const toggle = (id) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const noun = VARIANT_VIEWS.find((entry) => entry.value === view)?.label.toLowerCase();
+  return (
+    <div data-testid="variants-tab">
+      <h2 className="armory-count">
+        Variants {view ? noun : "in the armory"}
+        {search.trim() && <> matching “{search.trim()}”</>} (
+        {rows ? rows.length.toLocaleString() : "…"})
+      </h2>
+      {message && <p className="alert alert--success">{message}</p>}
+      {error && <p className="alert alert--error">{error}</p>}
+      {ids.length > 0 && (
+        <div className="alert alert--info armory-bulk">
+          <span>{countLabel(ids.length, "variant", "variants")} selected</span>
+          <button
+            type="button"
+            className="btn btn--primary btn--sm"
+            disabled={busy}
+            onClick={() => act(api.approveVariants, ids)}
+          >
+            Approve
+          </button>
+          <button
+            type="button"
+            className="btn btn--secondary btn--sm"
+            disabled={busy}
+            onClick={() => act(api.disableVariants, ids)}
+          >
+            Switch off
+          </button>
+        </div>
+      )}
+      <div className="table-wrap">
+        <table className="table">
+          <thead>
+            <tr>
+              <SelectAllCell
+                all={Boolean(all)}
+                some={selected.size > 0}
+                disabled={!rows || rows.length === 0}
+                onToggle={() =>
+                  setSelected(
+                    all ? new Set() : new Set((rows || []).map((row) => row.id)),
+                  )
+                }
+              />
+              <th>Variant</th>
+              <th>Model</th>
+              <th>Caliber</th>
+              <th>Barrel</th>
+              <th>Frame</th>
+              <th>Finish</th>
+              <th>MSRP</th>
+              <th aria-label="Actions" />
+            </tr>
+          </thead>
+          <tbody>
+            {rows === null && (
+              <tr>
+                <td colSpan={9} className="loading-row">
+                  <span className="spinner" aria-label="Loading" />
+                </td>
+              </tr>
+            )}
+            {rows &&
+              rows.map((row) => (
+                <tr key={row.id}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${row.label}`}
+                      checked={selected.has(row.id)}
+                      onChange={() => toggle(row.id)}
+                    />
+                  </td>
+                  <td>
+                    {row.maker_url ? (
+                      <a href={row.maker_url} target="_blank" rel="noopener noreferrer">
+                        {row.label}
+                      </a>
+                    ) : (
+                      row.label
+                    )}
+                    {!row.enabled && <div className="muted">switched off</div>}
+                  </td>
+                  <td>{row.model_name}</td>
+                  <td>{row.caliber || "—"}</td>
+                  <td>{row.barrel_inches != null ? `${row.barrel_inches}"` : "—"}</td>
+                  <td>{row.frame_size || "—"}</td>
+                  <td>{row.finish || "—"}</td>
+                  <td>{row.msrp != null ? `$${row.msrp.toFixed(2)}` : "—"}</td>
+                  <td className="table__actions">
+                    {(row.status !== "approved" || !row.enabled) && (
+                      <button
+                        type="button"
+                        className="btn btn--secondary btn--sm"
+                        aria-label={`Approve ${row.label}`}
+                        disabled={busy}
+                        onClick={() => act(api.approveVariants, [row.id])}
+                      >
+                        Approve
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            {rows && rows.length === 0 && (
+              <tr>
+                <td colSpan={9} className="loading-row">
+                  Nothing here.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
@@ -2603,6 +2792,18 @@ export default function Armory() {
       })),
     ];
   };
+  // How many variants are waiting, for the Variants tab's label: fetched on
+  // arrival and again after the tab approves or switches any off.
+  const [variantsWaiting, setVariantsWaiting] = useState(0);
+  const countVariants = useCallback(() => {
+    api
+      .armoryVariants({ status: "pending" })
+      .then((pending) => setVariantsWaiting(pending.length))
+      .catch(() => {});
+  }, []);
+  useEffect(() => {
+    countVariants();
+  }, [countVariants]);
   // How many of each kind are waiting, for the tabs' labels.
   const waiting = useMemo(() => {
     const counts = {};
@@ -2912,10 +3113,17 @@ export default function Armory() {
               id={id}
               aria-describedby={describedBy}
               className="input"
-              value={SUGGESTION_FIELD[tab] ? makerPageView : statusFilter}
+              value={
+                SUGGESTION_FIELD[tab] || tab === "variants" ? makerPageView : statusFilter
+              }
               onChange={(event) => setStatusFilter(event.target.value)}
             >
-              {(SUGGESTION_FIELD[tab] ? LINK_VIEWS : STATUSES).map((entry) => (
+              {(tab === "variants"
+                ? VARIANT_VIEWS
+                : SUGGESTION_FIELD[tab]
+                  ? LINK_VIEWS
+                  : STATUSES
+              ).map((entry) => (
                 <option key={entry.value || "all"} value={entry.value}>
                   {entry.label}
                 </option>
@@ -2951,6 +3159,7 @@ export default function Armory() {
             {SUGGESTION_FIELD[entry.key] &&
               waiting[SUGGESTION_FIELD[entry.key]] > 0 &&
               ` (${waiting[SUGGESTION_FIELD[entry.key]]})`}
+            {entry.key === "variants" && variantsWaiting > 0 && ` (${variantsWaiting})`}
           </button>
         ))}
       </div>
@@ -3049,14 +3258,16 @@ export default function Armory() {
       {/* How many rows the table holds, as the link tabs say theirs (asked
           for on 2026-10-14): every row the Showing filter and the search
           admit, not just the page on screen. */}
-      {!SUGGESTION_FIELD[tab] && (
+      {!SUGGESTION_FIELD[tab] && tab !== "variants" && (
         <h2 className="armory-count" data-testid="armory-count">
           {TAB_NOUNS[tab]} {SHOWING_PHRASES[statusFilter] ?? "in the armory"}
           {search.trim() && <> matching “{search.trim()}”</>} (
           {loading && rows.length === 0 ? "…" : rows.length.toLocaleString()})
         </h2>
       )}
-      {SUGGESTION_FIELD[tab] ? (
+      {tab === "variants" ? (
+        <VariantsTab view={makerPageView} search={search} onChanged={countVariants} />
+      ) : SUGGESTION_FIELD[tab] ? (
         <ReferenceLinks
           key={tab}
           field={SUGGESTION_FIELD[tab]}

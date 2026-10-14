@@ -1008,6 +1008,9 @@ class VariantOut(BaseModel):
 
     id: int
     model_id: int
+    #: The model's name, for the Armory's Variants tab, which lists every
+    #: model's together (2026-10-14).
+    model_name: str | None = None
     label: str
     caliber_id: int | None = None
     caliber: str | None = None
@@ -1182,6 +1185,9 @@ class PhotoOut(BaseModel):
     # Paths to the authenticated image endpoint; never filesystem paths.
     url: str
     thumbnail_url: str | None = None
+    #: At most 1600 pixels on the long edge, for the listing page's main
+    #: photo; ``url`` is the original, for the full-size viewer.
+    display_url: str | None = None
     width: int | None = None
     height: int | None = None
 

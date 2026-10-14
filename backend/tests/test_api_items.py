@@ -369,6 +369,42 @@ class TestPhotos:
         )
         assert response.status_code == 404
 
+    def test_the_main_photo_is_served_at_screen_size(
+        self, client, admin_headers, seeded, inventory, app_config
+    ):
+        """2026-10-14: a vendor's 51-megapixel original took a browser tab
+        about 200 MB to show in the listing page's main column."""
+        import io
+
+        from PIL import Image
+
+        from app.services.image_store import DISPLAY_MAX_EDGE, ImageStore
+
+        store = ImageStore(app_config)
+        path = store.absolute_path("display-test/ab/big.jpg")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (3000, 2000), (20, 60, 90)).save(path, format="JPEG")
+        photo = ItemPhoto(
+            item_id=inventory[0].id,
+            source_url="https://example.test/big.jpg",
+            filename="display-test/ab/big.jpg",
+            width=3000,
+            height=2000,
+        )
+        seeded.add(photo)
+        seeded.commit()
+        detail = client.get(f"/api/items/{inventory[0].id}", headers=admin_headers).json()
+        [listed] = [p for p in detail["photos"] if p["id"] == photo.id]
+        assert "size=display" in listed["display_url"]
+
+        shown = client.get(listed["display_url"], headers=admin_headers)
+        assert shown.status_code == 200
+        with Image.open(io.BytesIO(shown.content)) as image:
+            assert max(image.size) == DISPLAY_MAX_EDGE
+        original = client.get(listed["url"], headers=admin_headers)
+        with Image.open(io.BytesIO(original.content)) as image:
+            assert image.size == (3000, 2000)
+
     def test_photo_id_must_belong_to_the_item(self, client, admin_headers, seeded, inventory):
         """A photo cannot be fetched through another item's URL."""
         photo = ItemPhoto(

@@ -272,6 +272,13 @@ class SmithWessonReader:
     METAL 4.25 INCH TUNGSTEN GRAY"). Each product goes to the flagged S&W model
     whose name it carries most specifically -- an "M&P9 Shield Plus" is a
     Shield, not an M&P9.
+
+    **Never to a catch-all** (2026-10-14). A spelling with no number and no
+    word of its own -- the M&P M2.0's "S&W M&P |", which is m and p -- names a
+    family, not a gun, and it claimed the M&P 5.7 and the M&P22X, which have
+    no model, so an M2.0 listing would have shown their prices as its own
+    versions. A product nothing names specifically is left to :meth:`unowned`,
+    which proposes a model for it.
     """
 
     maker = "Smith & Wesson"
@@ -302,7 +309,7 @@ class SmithWessonReader:
         for model in models:
             for spelling in model.spellings:
                 need = _tokens(spelling, self._MAKER_WORDS)
-                if need and _carries(have, need):
+                if need and _specific(need) and _carries(have, need):
                     score = (len(need), len(_compact(spelling)), model)
                     if best is None or score[:2] > best[:2]:
                         best = score
@@ -311,30 +318,86 @@ class SmithWessonReader:
     def read(
         self, ctx: ScrapeContext, model: FirearmModel, siblings: list[FirearmModel]
     ) -> list[Found]:
-        found = []
+        return [
+            self._found(record)
+            for record in self.catalog(ctx)
+            if self._owner(record, siblings) is model
+        ]
+
+    def unowned(self, ctx: ScrapeContext, siblings: list[FirearmModel]) -> dict[str, list[Found]]:
+        """The products no model names, by the product line each belongs to."""
+        lines: dict[str, list[Found]] = {}
         for record in self.catalog(ctx):
-            if self._owner(record, siblings) is not model:
+            if self._owner(record, siblings) is not None:
                 continue
-            name = re.sub(r"[®™]", "", str(record.get("name") or "")).strip()
-            path = (
-                (record.get("custom_url") or {}).get("url")
-                if isinstance(record.get("custom_url"), dict)
-                else None
-            )
-            price = record.get("price")
-            found.append(
-                Found(
-                    maker_part=str(record.get("sku") or record.get("id")),
-                    label=name[:200],
-                    caliber=classify.extract_caliber(name),
-                    barrel_inches=variants.read_barrel(name.replace(" INCH", '"')),
-                    finish=variants.read_finish(name),
-                    upc=_digits(str(record.get("upc") or "")),
-                    msrp=float(price) if isinstance(price, int | float) and price > 0 else None,
-                    url=urljoin(self.home, f"product{path}") if path else None,
-                )
-            )
-        return found
+            line = _line_name(str(record.get("name") or ""))
+            if line:
+                lines.setdefault(line, []).append(self._found(record))
+        return lines
+
+    def _found(self, record: dict[str, Any]) -> Found:
+        name = re.sub(r"[®™]", "", str(record.get("name") or "")).strip()
+        path = (
+            (record.get("custom_url") or {}).get("url")
+            if isinstance(record.get("custom_url"), dict)
+            else None
+        )
+        price = record.get("price")
+        return Found(
+            maker_part=str(record.get("sku") or record.get("id")),
+            label=name[:200],
+            caliber=classify.extract_caliber(name),
+            barrel_inches=variants.read_barrel(name.replace(" INCH", '"')),
+            finish=variants.read_finish(name),
+            upc=_digits(str(record.get("upc") or "")),
+            msrp=float(price) if isinstance(price, int | float) and price > 0 else None,
+            url=urljoin(self.home, f"product{path}") if path else None,
+        )
+
+
+def _specific(need: list[str]) -> bool:
+    """Whether a model's spelling names a gun rather than a family: a number
+    ("M&P9", "M2.0") or a word of three letters or more ("Shield")."""
+    return any(token.isdigit() or len(token) >= 3 for token in need)
+
+
+#: Where a product's name stops naming its line and starts describing the
+#: version: a length, a capacity, a color, an option, a bundle.
+_LINE_ENDS = re.compile(
+    r"^(?:\d+(?:\.\d+)?(?:\"|IN|INCH)?|\d+RD|\d+\"|\d+MM|\.\d+|WITH|W/|NO|THUMB|SAFETY|TS|NTS|CA|"
+    r"COMPLIANT|OPTICS?|OR|READY|THREADED|BARREL|PISTOL|REVOLVER|RIFLE|CARBINE|CARRY|"
+    r"COMP|BUNDLE|KIT|BLACK|FDE|OD|GREEN|GRAY|GREY|SILVER|STAINLESS|BLUE|BRONZE|"
+    r"MIDNIGHT|BURNT|TUNGSTEN|PINK|PURPLE|TEAL|ROSE|GOLD|MULTICAM|TWO-TONE|2-TONE|"
+    r"ENGRAVED|LASER|LASERGRIPS?|INTEGRATED|ROUNDS?|SERIES|EDITION|[/-])$",
+    re.I,
+)
+
+
+def _line_name(product: str) -> str | None:
+    """A product's line: "M&P 5.7 10RD COMPLIANT" is the M&P 5.7, "M&P22X" the
+    M&P22X, "PERFORMANCE CENTER MODEL 940-3" the Model 940-3. Up to three
+    words, from the start of the name to the first that describes a version."""
+    # A mark becomes a space: "M&P®5.7" is the M&P 5.7, not an M&P5.
+    plain = " ".join(re.sub(r"\[[^\]]*\]|[®™]", " ", product).split())
+    plain = re.sub(
+        r"^(?:PERFORMANCE CENTER\s+|S&W\s+|SMITH\s*&\s*WESSON\s+)+", "", plain, flags=re.I
+    )
+    words: list[str] = []
+    for word in plain.split():
+        # A bare number belongs to the line while its name is one word without
+        # a number of its own: "M&P 5.7", "MODEL 940" -- but "SD40 2.0" is the
+        # SD40's version 2.0, and "M&P22X 10RD" a capacity.
+        if re.fullmatch(r"[\d.-]+", word) and len(words) == 1 and not re.search(r"\d", words[0]):
+            words.append(word)
+        elif _LINE_ENDS.match(word):
+            break
+        else:
+            words.append(word)
+        if len(words) == 3:
+            break
+    if not words:
+        return None
+    return " ".join(w.capitalize() if w.isalpha() and len(w) > 3 else w for w in words)
 
 
 def _records(data: Any) -> list[dict[str, Any]]:
@@ -682,7 +745,7 @@ def run(
     log: Callable[[str], None] = print,
 ) -> dict[str, int]:
     """Read every modern-production model of a maker with a reader."""
-    totals = {"models": 0, "proposed": 0, "refreshed": 0, "unread": 0}
+    totals = {"models": 0, "proposed": 0, "refreshed": 0, "unread": 0, "models_proposed": 0}
     for name, make in READERS.items():
         if maker and name.lower() != maker.lower():
             continue
@@ -722,4 +785,72 @@ def run(
             )
             totals["proposed"] += counts["proposed"]
             totals["refreshed"] += counts["refreshed"]
+        unowned = getattr(reader, "unowned", None)
+        if callable(unowned):
+            try:
+                lines = unowned(ctx, siblings)
+            except ScrapeError:
+                lines = {}
+            totals["models_proposed"] = totals.get("models_proposed", 0) + _propose_models(
+                session, firm, lines, log
+            )
     return totals
+
+
+def _propose_models(
+    session: Session,
+    firm: Manufacturer,
+    lines: dict[str, list[Found]],
+    log: Callable[[str], None],
+) -> int:
+    """A pending model for each product line no model names, its variants under it.
+
+    Asked for on 2026-10-14, in place of filing them under the nearest family:
+    an administrator approves the model and its versions together.
+
+    **One model a family.** A line whose name begins with a shorter line's is
+    a version of it: "Model 1854 Stealth" and "Model 1854 Walnut" go under the
+    Model 1854, "SW22 Victory Target" under the SW22 Victory. And a line that
+    begins with a model the armory already has -- switched off, merged away,
+    or simply not flagged as still made, like the "Model 629 Deluxe" -- is not
+    proposed at all: that model was decided, and the log names it, in case it
+    should be flagged. Returns how many models were proposed.
+    """
+    maker_words = frozenset(_tokens(firm.name)) | {"s", "w"}
+    known: list[tuple[list[str], str]] = [
+        (need, model.name)
+        for model in session.execute(select(FirearmModel)).scalars()
+        if firm in model.manufacturers
+        for need in (_tokens(spelling, maker_words) for spelling in model.spellings)
+        if need and _specific(need)
+    ]
+    families: list[tuple[list[str], str, list[Found]]] = []
+    decided: dict[str, int] = {}
+    for line, found in sorted(lines.items(), key=lambda kv: len(_tokens(kv[0], maker_words))):
+        words = _tokens(line, maker_words)
+        owner = next((name for need, name in known if words[: len(need)] == need), None)
+        if owner is not None:
+            decided[owner] = decided.get(owner, 0) + len(found)
+            continue
+        family = next((f for f in families if words[: len(f[0])] == f[0]), None)
+        if family is not None:
+            family[2].extend(found)
+        else:
+            families.append((words, line, list(found)))
+    for name, count in sorted(decided.items()):
+        log(f"  {name}: {count} product(s) on the site, but the model is not flagged as made.")
+    for _words, line, found in families:
+        model = FirearmModel(
+            name=f"{firm.name} {line}",
+            aliases=line,
+            status=ArmoryStatus.PENDING,
+            modern_production=True,
+            first_seen_in=f"{firm.name}'s site: {found[0].label}"[:500],
+        )
+        model.manufacturers = [firm]
+        session.add(model)
+        session.flush()
+        counts = record(session, model, found)
+        session.commit()
+        log(f"  {model.name}: proposed, with {counts['proposed']} variant(s) waiting under it.")
+    return len(families)

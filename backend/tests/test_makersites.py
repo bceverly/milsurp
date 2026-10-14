@@ -11,6 +11,8 @@ from __future__ import annotations
 import gzip
 from pathlib import Path
 
+import pytest
+
 from app.models import ArmoryStatus, Caliber, FirearmModel, Manufacturer, ModelVariant
 from app.scrapers.base import ScrapeError
 from app.services import makersites
@@ -375,3 +377,79 @@ class TestAMovedVariantStaysMoved:
         assert m2.variants == []
         clean_db.refresh(moved)
         assert (moved.model_id, moved.msrp) == (shield.id, 429.0)
+
+
+class TestProductsNoModelNames:
+    """2026-10-14: the M&P 5.7 and M&P22X have no model, and the M&P M2.0's
+    catch-all spelling "S&W M&P |" claimed them; an M2.0 listing would have
+    shown their prices as its own versions."""
+
+    def test_a_catch_all_spelling_owns_nothing(self):
+        assert makersites._specific(["m", "p", "9"])
+        assert makersites._specific(["m", "p", "shield"])
+        assert not makersites._specific(["m", "p"])
+
+    @pytest.mark.parametrize(
+        ("product", "line"),
+        [
+            ("M&P 5.7 10RD COMPLIANT", "M&P 5.7"),
+            ("M&P22X 10RD COMPLIANT", "M&P22X"),
+            ("PERFORMANCE CENTER MODEL 940-3", "Model 940-3"),
+            ("S&W SD40 2.0 2-Tone 10RD COMPLIANT", "SD40"),
+            ("S&W RESPONSE 9MM 10RD COMPLIANT", "Response"),
+            ("[DISCONTINUED]M&P9 M2.0 METAL IN GOLD", "M&P9 M2.0 Metal"),
+        ],
+    )
+    def test_a_products_line(self, product, line):
+        assert makersites._line_name(product) == line
+
+    def _sw(self, session):
+        sw = Manufacturer(name="Smith & Wesson", status=ArmoryStatus.APPROVED)
+        m2 = FirearmModel(
+            name="Smith & Wesson M&P M2.0",
+            aliases="M&P M2.0\nS&W M&P |",
+            status=ArmoryStatus.APPROVED,
+            modern_production=True,
+        )
+        old686 = FirearmModel(
+            name="Smith & Wesson Model 686", status=ArmoryStatus.APPROVED, modern_production=False
+        )
+        m2.manufacturers = [sw]
+        old686.manufacturers = [sw]
+        session.add_all([sw, m2, old686])
+        session.commit()
+        return sw, m2
+
+    def test_a_family_is_proposed_once_and_a_decided_model_not_at_all(self, clean_db):
+        sw, m2 = self._sw(clean_db)
+        reader = makersites.SmithWessonReader()
+        reader._catalog = [
+            {"name": "M&P®5.7 10RD COMPLIANT", "sku": "1", "price": 699},
+            {"name": "M&P®5.7 FDE", "sku": "2", "price": 729},
+            {"name": "MODEL 1854 LEVER-ACTION RIFLE 44 MAGNUM", "sku": "3", "price": 1279},
+            {"name": "MODEL 1854 STEALTH HUNTER 45 COLT", "sku": "4", "price": 1399},
+            {"name": "MODEL 1854 - AMERICA 250", "sku": "5", "price": 1599},
+            {"name": 'MODEL 686 PLUS 6" BARREL', "sku": "6", "price": 1029},
+            {"name": "M&P9 M2.0 METAL", "sku": "7", "price": 949},
+        ]
+        assert reader._owner(reader._catalog[0], [m2]) is None
+        assert reader._owner(reader._catalog[6], [m2]) is m2
+        said = []
+        lines = reader.unowned(object(), [m2])
+        assert makersites._propose_models(clean_db, sw, lines, said.append) == 2
+        proposed = {
+            m.name: m
+            for m in clean_db.query(FirearmModel).filter(
+                FirearmModel.status == ArmoryStatus.PENDING
+            )
+        }
+        assert set(proposed) == {"Smith & Wesson M&P 5.7", "Smith & Wesson Model 1854"}
+        assert len(proposed["Smith & Wesson Model 1854"].variants) == 3
+        assert all(
+            v.status == ArmoryStatus.PENDING for v in proposed["Smith & Wesson M&P 5.7"].variants
+        )
+        assert any("Model 686: 1 product(s)" in line for line in said)
+
+        # A second run proposes nothing new: the models now exist.
+        again = reader.unowned(object(), [m2, *proposed.values()])
+        assert makersites._propose_models(clean_db, sw, again, said.append) == 0

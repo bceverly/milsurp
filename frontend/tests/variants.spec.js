@@ -196,3 +196,67 @@ test("variants are added, changed and removed in the model's dialog", async ({
     .click();
   await expect(row).toHaveCount(0);
 });
+
+test("the Variants tab lists every model's, and approves them in bulk", async ({
+  signedIn,
+}) => {
+  // Stubbed: the list, and what each action asks for (2026-10-14).
+  let pending = [
+    {
+      id: 11,
+      model_id: 1,
+      model_name: "Walther PDP",
+      label: 'PDP Full Size 4.5"',
+      status: "pending",
+      enabled: true,
+      msrp: 699,
+      frame_size: "Full size",
+    },
+    {
+      id: 12,
+      model_id: 2,
+      model_name: "Smith & Wesson M&P 5.7",
+      label: "M&P 5.7 FDE",
+      status: "pending",
+      enabled: true,
+      msrp: 729,
+    },
+  ];
+  const asked = [];
+  await signedIn.route("**/api/armory/variants**", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    if (request.method() === "POST") {
+      const { ids } = request.postDataJSON();
+      asked.push([url.pathname, ids]);
+      pending = pending.filter((row) => !ids.includes(row.id));
+      await route.fulfill({
+        json: { changed: ids.length, items_restamped: 0, message: "" },
+      });
+      return;
+    }
+    await route.fulfill({
+      json: url.searchParams.get("status") === "pending" ? pending : [],
+    });
+  });
+  await openArmoryModels(signedIn);
+  const tab = signedIn.getByRole("tab", { name: /^Variants/ });
+  await expect(tab).toHaveText("Variants (2)");
+  await tab.click();
+
+  const list = signedIn.getByTestId("variants-tab");
+  await expect(list.getByRole("heading")).toHaveText("Variants awaiting approval (2)");
+  await expect(list.locator("tbody tr")).toHaveCount(2);
+  await expect(list.locator("tbody tr").first()).toContainText("Walther PDP");
+
+  await list.getByRole("button", { name: 'Approve PDP Full Size 4.5"' }).click();
+  await expect.poll(() => asked).toEqual([["/api/armory/variants/approve", [11]]]);
+  await expect(list.locator("tbody tr")).toHaveCount(1);
+  await expect(tab).toHaveText("Variants (1)");
+
+  await list.getByRole("checkbox", { name: "Select M&P 5.7 FDE" }).check();
+  await list.getByRole("button", { name: "Switch off" }).click();
+  await expect.poll(() => asked.length).toBe(2);
+  expect(asked[1]).toEqual(["/api/armory/variants/disable", [12]]);
+  await expect(list).toContainText("Nothing here.");
+});

@@ -1380,7 +1380,10 @@ export default function ItemDetail() {
                 onClick={() => setLightbox(true)}
                 aria-label={`View ${item.title} full size`}
               >
-                <AuthImage src={current.url} alt={item.title} />
+                {/* Screen-sized: the original of a vendor's photo can be 51
+                    megapixels, 200 MB to decode for a column this wide. The
+                    full-size viewer below still shows the original. */}
+                <AuthImage src={current.display_url || current.url} alt={item.title} />
               </button>
             ) : (
               <figure className="gallery__none">

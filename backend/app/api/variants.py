@@ -10,13 +10,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request, status
-from sqlalchemy import select, update
+from fastapi import APIRouter, HTTPException, Query, Request, status
+from sqlalchemy import func, select, update
 
 from ..deps import AdminUser, DbSession
 from ..logsafe import client_address
-from ..models import Caliber, FirearmModel, Item, ModelVariant
-from ..schemas import VariantIn, VariantOut, VariantUpdate
+from ..models import ArmoryStatus, Caliber, FirearmModel, Item, ModelVariant
+from ..schemas import ArmoryAction, ArmoryIds, VariantIn, VariantOut, VariantUpdate
 from ..services import audit, frames
 from ..services import variants as service
 
@@ -27,8 +27,16 @@ def _out(row: ModelVariant) -> VariantOut:
     # Not model_validate(row): the row's ``caliber`` is the Caliber, and the
     # schema's is its name -- every variant the manufacturers' sites gave a
     # caliber failed with a 500 until 2026-10-13.
-    fields = {name: getattr(row, name) for name in VariantOut.model_fields if name != "caliber"}
-    return VariantOut(**fields, caliber=row.caliber.name if row.caliber else None)
+    fields = {
+        name: getattr(row, name)
+        for name in VariantOut.model_fields
+        if name not in ("caliber", "model_name")
+    }
+    return VariantOut(
+        **fields,
+        caliber=row.caliber.name if row.caliber else None,
+        model_name=row.model.name if row.model else None,
+    )
 
 
 def _finish(text: str | None) -> str | None:
@@ -65,6 +73,114 @@ def _rematch(session: DbSession, model_id: int) -> int:
 def _check_caliber(session: DbSession, caliber_id: int | None) -> None:
     if caliber_id is not None and session.get(Caliber, caliber_id) is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such caliber.")
+
+
+#: The Variants tab's Showing filter, as the other tabs': waiting, in use,
+#: switched off, or all of them.
+VARIANT_VIEWS = ("pending", "approved", "disabled", "")
+
+
+@router.get("/variants", response_model=list[VariantOut])
+def every_variant(
+    _admin: AdminUser,
+    session: DbSession,
+    status_filter: str = Query(default="pending", alias="status"),
+    search: str | None = Query(default=None, max_length=200),
+) -> list[VariantOut]:
+    """Every model's variants together, for the Armory's Variants tab.
+
+    Asked for on 2026-10-14 ("shouldn't that be on its own tab?"): the 605 a
+    first read of the manufacturers' sites proposed could only be seen and
+    approved one model's dialog at a time.
+    """
+    if status_filter not in VARIANT_VIEWS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Unknown status {status_filter!r}. Valid: pending, approved, disabled, or blank.",
+        )
+    query = select(ModelVariant).join(FirearmModel, FirearmModel.id == ModelVariant.model_id)
+    if status_filter == "pending":
+        query = query.where(
+            ModelVariant.status == ArmoryStatus.PENDING, ModelVariant.enabled.is_(True)
+        )
+    elif status_filter == "approved":
+        query = query.where(
+            ModelVariant.status == ArmoryStatus.APPROVED, ModelVariant.enabled.is_(True)
+        )
+    elif status_filter == "disabled":
+        query = query.where(ModelVariant.enabled.is_(False))
+    if search and search.strip():
+        like = f"%{search.strip().lower()}%"
+        query = query.where(
+            func.lower(ModelVariant.label).like(like) | func.lower(FirearmModel.name).like(like)
+        )
+    rows = session.execute(
+        query.order_by(func.lower(FirearmModel.name), func.lower(ModelVariant.label))
+    ).scalars()
+    return [_out(row) for row in rows]
+
+
+def _bulk(
+    session: DbSession,
+    admin: Any,
+    request: Request,
+    ids: list[int],
+    change: Any,
+    detail: str,
+) -> ArmoryAction:
+    rows = list(session.execute(select(ModelVariant).where(ModelVariant.id.in_(ids))).scalars())
+    changed = [row for row in rows if change(row)]
+    session.flush()
+    moved = sum(_rematch(session, model_id) for model_id in {row.model_id for row in changed})
+    for row in changed:
+        audit.record(
+            session,
+            actor=admin,
+            action=audit.ARMORY_EDITED,
+            target_type="variant",
+            target_id=row.id,
+            target_label=row.label,
+            detail=detail,
+            ip_address=client_address(request),
+        )
+    session.commit()
+    return ArmoryAction(
+        changed=len(changed),
+        items_restamped=moved,
+        message=f"{len(changed)} variant(s) {detail}."
+        + (f" {moved} listing(s) re-matched." if moved else ""),
+    )
+
+
+@router.post("/variants/approve", response_model=ArmoryAction)
+def approve_variants(
+    payload: ArmoryIds, admin: AdminUser, request: Request, session: DbSession
+) -> ArmoryAction:
+    """Approve variants, from any number of models at once."""
+
+    def approve(row: ModelVariant) -> bool:
+        if row.status == ArmoryStatus.APPROVED and row.enabled:
+            return False
+        row.status, row.enabled = ArmoryStatus.APPROVED, True
+        return True
+
+    return _bulk(session, admin, request, payload.ids, approve, "approved")
+
+
+@router.post("/variants/disable", response_model=ArmoryAction)
+def disable_variants(
+    payload: ArmoryIds, admin: AdminUser, request: Request, session: DbSession
+) -> ArmoryAction:
+    """Switch variants off: no listing is matched to one, and the manufacturer's
+    site refreshes it rather than proposing it again."""
+
+    def disable(row: ModelVariant) -> bool:
+        if not row.enabled:
+            return False
+        row.enabled = False
+        return True
+
+    return _bulk(session, admin, request, payload.ids, disable, "switched off")
 
 
 @router.get("/models/{model_id}/variants", response_model=list[VariantOut])

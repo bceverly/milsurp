@@ -1052,7 +1052,8 @@ def _armory_makers(args: argparse.Namespace) -> int:
         ctx.close()
     print(
         f"Read {totals['models']} model(s): {totals['proposed']} variant(s) proposed, "
-        f"{totals['refreshed']} refreshed, {totals['unread']} with no page found."
+        f"{totals['refreshed']} refreshed, {totals['unread']} with no page found; "
+        f"{totals['models_proposed']} new model(s) proposed for products no model names."
     )
     print("Approve them in each model's dialog on the Armory page.")
     return 0

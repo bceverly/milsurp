@@ -84,7 +84,9 @@ def _summary(name: str, counts: dict[str, Any]) -> str:
         return (
             f"Read {counts.get('models', 0)} model(s): {counts.get('proposed', 0)} variant(s) "
             f"proposed, {counts.get('refreshed', 0)} brought up to date, "
-            f"{counts.get('unread', 0)} with no page found."
+            f"{counts.get('unread', 0)} with no page found; "
+            f"{counts.get('models_proposed', 0)} new model(s) proposed for products no "
+            "model names."
         )
     return (
         f"Asked about {counts.get('asked', 0)} model(s): {counts.get('proposed', 0)} page(s) "

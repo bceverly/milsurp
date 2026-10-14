@@ -1451,7 +1451,7 @@ calibers:
   - 11.15x58mmR
   status: approved
 - name: 11.25mm
-  status: approved
+  status: merged
   rejected_wikipedia:
   - https://en.wikipedia.org/wiki/7.62%C3%9725mm_Tokarev
   - https://en.wikipedia.org/wiki/9%C3%9725mm_Dillon
@@ -1909,6 +1909,7 @@ calibers:
   bullet_diameter_in: 0.308
 - name: .300 Weatherby Magnum
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.300_Weatherby_Magnum
 - name: .300 Winchester Magnum
   aliases:
   - 300 Winchester Magnum
@@ -2725,6 +2726,7 @@ calibers:
   - .45 Auto
   - 45ACP
   - 45 ACP
+  - 11.25mm
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.45_ACP
   bullet_diameter_in: 0.452
@@ -4999,6 +5001,9 @@ models:
 - name: Bodeo M1889
   aliases:
   - M1889
+  - Model 1889 Bodeo
+  - Bodeo Model 1889
+  - Italian Model 1889 Bodeo
   kind: revolver
   country: Italy
   manufacturers:
@@ -5065,6 +5070,7 @@ models:
   calibers:
   - '.577'
   status: approved
+  enabled: false
 - name: British Pattern 1843
   aliases:
   - Pattern 1843
@@ -5408,6 +5414,10 @@ models:
   - Model 1891 Carcano
   - M1891 Carcano
   - Fucile Modello 91
+  - Carcano Model 1891
+  - Italian Carcano Model 1891
+  - Model 1891 TS Carcano
+  - Model 1891 Carcano TS
   kind: rifle
   country: Italy
   calibers:
@@ -5761,6 +5771,7 @@ models:
   kind: revolver
   country: United States
   calibers:
+  - .32-20 Winchester
   - .38 Special
   manufacturers:
   - Colt
@@ -5995,6 +6006,21 @@ models:
   manufacturers:
   - Colt
   status: approved
+- name: Colt Model 1889
+  aliases:
+  - Colt M1889
+  - Colt 1889 Navy
+  - Colt Model 1889 Navy
+  - Colt New Navy
+  - Colt Model 1889 Double Action
+  kind: revolver
+  country: United States
+  calibers:
+  - .38 Long Colt
+  - .41 Colt
+  manufacturers:
+  - Colt
+  status: approved
 - name: Colt Model 1908 Pocket Hammerless
   aliases:
   - Model 1908 Pocket Hammerless
@@ -6113,6 +6139,12 @@ models:
   kind: revolver
   country: United States
   calibers:
+  - .32-20 Winchester
+  - .357 Magnum
+  - .38 Special
+  - .38-40 Winchester
+  - .44 Russian
+  - .44 Special
   - .44-40 Winchester
   - .45 Colt
   manufacturers:
@@ -6788,7 +6820,6 @@ models:
   - 9mm Luger
   manufacturers:
   - Ruger
-  modern_production: true
   status: approved
 - name: Ed Brown KC9
   aliases:
@@ -8113,6 +8144,7 @@ models:
   kind: pistol
   country: Argentina
   calibers:
+  - .22 LR
   - .45 ACP
   manufacturers:
   - HAFDASA
@@ -8628,6 +8660,17 @@ models:
   manufacturers:
   - Koishikawa
   status: approved
+- name: Johnson Model 1941
+  aliases:
+  - Johnson M1941
+  - Johnson 1941
+  - Johnson Model of 1941
+  - Johnson Rifle
+  kind: rifle
+  country: United States
+  calibers:
+  - .30-06 Springfield
+  status: approved
 - name: Joslyn M1864
   kind: carbine
   country: United States
@@ -8743,7 +8786,7 @@ models:
     msrp: 1345.0
     maker_url: https://www.kimberamerica.com/kds9c-silver-9mm-10rd
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber KDS9c® (Black) 9 mm (3100010)
     caliber: 9mm Luger
     finish: Black
@@ -8752,7 +8795,7 @@ models:
     msrp: 1345.0
     maker_url: https://www.kimberamerica.com/kds9c-black-9mm
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber KDS9c® (Silver) 9 mm (3100012)
     caliber: 9mm Luger
     upc: '669278310121'
@@ -8760,7 +8803,7 @@ models:
     msrp: 1345.0
     maker_url: https://www.kimberamerica.com/kds9c-silver-9mm
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber KDS9c® Rail (Black) (3100014)
     caliber: 9mm Luger
     finish: Black
@@ -8769,7 +8812,7 @@ models:
     msrp: 1615.0
     maker_url: https://www.kimberamerica.com/kds9c-rail-black
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber KDS9c® Rail (Dark Gray/ Black) (3100015)
     caliber: 9mm Luger
     finish: Black
@@ -8778,7 +8821,7 @@ models:
     msrp: 1615.0
     maker_url: https://www.kimberamerica.com/kds9c-rl-dark-gray-black
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: Kel-Tec P17
   aliases:
@@ -8826,7 +8869,6 @@ models:
   - 9mm Luger
   manufacturers:
   - Kimber
-  modern_production: true
   status: approved
 - name: Kimber Aegis Elite
   aliases:
@@ -8851,7 +8893,7 @@ models:
     msrp: 1233.0
     maker_url: https://www.kimberamerica.com/aegis-elite-custom-1
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Aegis Elite Ultra .45 ACP (3000356)
     caliber: .45 ACP
     barrel: 3.0
@@ -8861,7 +8903,7 @@ models:
     msrp: 1232.0
     maker_url: https://www.kimberamerica.com/aegis-elite-ultra-2
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: Kimber CDP II
   aliases:
@@ -8889,7 +8931,7 @@ models:
     msrp: 1399.0
     maker_url: https://www.kimberamerica.com/custom-cdp-ii
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Custom CDP II California Compliant .45 ACP (3200018CA)
     caliber: .45 ACP
     barrel: 5.0
@@ -8898,7 +8940,7 @@ models:
     msrp: 1622.0
     maker_url: https://www.kimberamerica.com/custom-cdp-ca
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Pro CDP .45 ACP (3000243)
     caliber: .45 ACP
     barrel: 4.0
@@ -8908,7 +8950,7 @@ models:
     msrp: 1399.0
     maker_url: https://www.kimberamerica.com/pro-cdp
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Pro CDP II California Compliant .45 ACP (3200055CA)
     caliber: .45 ACP
     barrel: 4.0
@@ -8917,7 +8959,7 @@ models:
     msrp: 1622.0
     maker_url: https://www.kimberamerica.com/pro-cdp-ca
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Ultra CDP II California Compliant .45 ACP (3200057CA)
     caliber: .45 ACP
     barrel: 3.0
@@ -8926,7 +8968,7 @@ models:
     msrp: 1622.0
     maker_url: https://www.kimberamerica.com/ultra-cdp-ii-ca
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: Kimber Custom II
   aliases:
@@ -8951,7 +8993,7 @@ models:
     msrp: 1085.0
     maker_url: https://www.kimberamerica.com/custom-ii-ca
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Eclipse Custom II (LG) .45 ACP (3000238)
     caliber: .45 ACP
     finish: Gray
@@ -8960,7 +9002,7 @@ models:
     msrp: 1477.0
     maker_url: https://www.kimberamerica.com/eclipse-custom-ii-lg
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Tactical Custom II .45 ACP (3200137)
     caliber: .45 ACP
     barrel: 5.0
@@ -8969,7 +9011,7 @@ models:
     msrp: 1317.0
     maker_url: https://www.kimberamerica.com/tactical-custom-ii
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Tactical Custom II California Compliant .45 ACP (3200137CA)
     caliber: .45 ACP
     barrel: 5.0
@@ -8978,7 +9020,7 @@ models:
     msrp: 1621.0
     maker_url: https://www.kimberamerica.com/tactical-custom-ii-ca
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: Kimber Desert Warrior
   aliases:
@@ -9001,7 +9043,7 @@ models:
     msrp: 1764.0
     maker_url: https://www.kimberamerica.com/desert-warrior-tfs-45acp
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Desert Warrior .45 ACP (3000236)
     caliber: .45 ACP
     barrel: 5.0
@@ -9010,7 +9052,7 @@ models:
     msrp: 1692.0
     maker_url: https://www.kimberamerica.com/desert-warrior
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: Kimber EVO SP
   aliases:
@@ -9033,7 +9075,7 @@ models:
     msrp: 638.0
     maker_url: https://www.kimberamerica.com/evo-sp-select-stainless
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: Kimber Hero Custom
   aliases:
@@ -9057,7 +9099,7 @@ models:
     msrp: 1124.0
     maker_url: https://www.kimberamerica.com/hero-custom-1
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: Kimber K6s
   aliases:
@@ -9082,7 +9124,7 @@ models:
     msrp: 1195.0
     maker_url: https://www.kimberamerica.com/k6s-da-sa-2-1
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber K6s (DASA) (2") .357 Mag (3400021CA)
     caliber: .357 Magnum
     barrel: 2.0
@@ -9091,7 +9133,7 @@ models:
     msrp: 1117.0
     maker_url: https://www.kimberamerica.com/k6s-dasa-2
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber K6s (DASA) (3") .357 Mag (3400016)
     caliber: .357 Magnum
     barrel: 3.0
@@ -9101,7 +9143,7 @@ models:
     msrp: 1195.0
     maker_url: https://www.kimberamerica.com/k6s-da-sa-3-1
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber K6S (DASA) (3") .357 Mag (3400016CA)
     caliber: .357 Magnum
     barrel: 3.0
@@ -9111,7 +9153,7 @@ models:
     msrp: 1195.0
     maker_url: https://www.kimberamerica.com/k6s-dasa-3
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber K6S DASA 4" COMBAT .357 Mag (3400031)
     caliber: .357 Magnum
     barrel: 4.0
@@ -9121,7 +9163,7 @@ models:
     msrp: 1210.0
     maker_url: https://www.kimberamerica.com/k6s-dasa-4-combat
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber K6S DASA 4" TARGET .357 Mag (3700621)
     caliber: .357 Magnum
     barrel: 4.0
@@ -9131,7 +9173,7 @@ models:
     msrp: 1233.0
     maker_url: https://www.kimberamerica.com/k6s-dasa-4-target
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber K6S DASA 4" TARGET GFO .357 Mag (3400032)
     caliber: .357 Magnum
     barrel: 4.0
@@ -9141,7 +9183,7 @@ models:
     msrp: 1233.0
     maker_url: https://www.kimberamerica.com/k6s-dasa-4-target-gfo
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber K6S DASA 4" TARGET GFO .357 Mag (3400032CA)
     caliber: .357 Magnum
     barrel: 4.0
@@ -9151,7 +9193,7 @@ models:
     msrp: 1232.0
     maker_url: https://www.kimberamerica.com/k6s-dasa-4-target-gfo-2
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber K6s DC .357 Mag (3400012CA)
     caliber: .357 Magnum
     barrel: 2.0
@@ -9161,7 +9203,7 @@ models:
     msrp: 1424.0
     maker_url: https://www.kimberamerica.com/k6s-dc
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber K6s DCR .357 Mag (3400009)
     caliber: .357 Magnum
     barrel: 2.0
@@ -9171,7 +9213,7 @@ models:
     msrp: 1362.0
     maker_url: https://www.kimberamerica.com/k6s-dcr
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber K6s DCR .357 Mag (3400009CA)
     caliber: .357 Magnum
     barrel: 2.0
@@ -9181,7 +9223,7 @@ models:
     msrp: 1362.0
     maker_url: https://www.kimberamerica.com/k6s-dcr-1
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber K6s Stainless (Control Core Grip) 2" .357 Mag (3400025)
     caliber: .357 Magnum
     barrel: 2.0
@@ -9191,7 +9233,7 @@ models:
     msrp: 899.0
     maker_url: https://www.kimberamerica.com/k6s-stainless-control-core-grip-2-1
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber K6s Stainless (Control Core Grip) 3" .357 Mag (3400024)
     caliber: .357 Magnum
     barrel: 3.0
@@ -9201,7 +9243,7 @@ models:
     msrp: 899.0
     maker_url: https://www.kimberamerica.com/k6s-stainless-control-core-grip-3-1
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber K6s Stainless (LG) .357 Mag (3400003CA)
     caliber: .357 Magnum
     barrel: 2.0
@@ -9211,7 +9253,7 @@ models:
     msrp: 1448.0
     maker_url: https://www.kimberamerica.com/k6s-stainless-lg-2
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber K6s Stainless (NS) .357 Mag (3400004CA)
     caliber: .357 Magnum
     barrel: 2.0
@@ -9221,7 +9263,7 @@ models:
     msrp: 1125.0
     maker_url: https://www.kimberamerica.com/k6s-stainless-ns-1
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber K6s Stainless 3" .357 Mag (3400011CA)
     caliber: .357 Magnum
     barrel: 3.0
@@ -9230,7 +9272,7 @@ models:
     msrp: 1091.0
     maker_url: https://www.kimberamerica.com/k6s-stainless-4
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber K6s Stainless 3” .357 Mag (3400011)
     caliber: .357 Magnum
     barrel: 3.0
@@ -9240,15 +9282,16 @@ models:
     msrp: 1091.0
     maker_url: https://www.kimberamerica.com/k6s-stainless-3
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber K6Xs (3400034CA)
+    caliber: .357 Magnum
     barrel: 2.0
     upc: '669278940342'
     part: 3400034CA
     msrp: 679.0
     maker_url: https://www.kimberamerica.com/k6xs-ca
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber K6xs - .38 Special Revolver .38 SPL (3400034)
     caliber: .38 Special
     barrel: 2.0
@@ -9257,7 +9300,7 @@ models:
     msrp: 679.0
     maker_url: https://www.kimberamerica.com/k6xs-38-spl
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: Kimber KHX
   aliases:
@@ -9281,7 +9324,7 @@ models:
     msrp: 1318.0
     maker_url: https://www.kimberamerica.com/khx-custom-or-2
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber KHX Custom .45 ACP (3000358)
     caliber: .45 ACP
     barrel: 5.0
@@ -9291,7 +9334,7 @@ models:
     msrp: 1528.0
     maker_url: https://www.kimberamerica.com/khx-custom-2
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber KHX Pro (OR) 9 mm (3000364)
     caliber: 9mm Luger
     barrel: 4.0
@@ -9301,7 +9344,7 @@ models:
     msrp: 1340.0
     maker_url: https://www.kimberamerica.com/khx-pro-or-2
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber KHX Pro .45 ACP (3000361)
     caliber: .45 ACP
     barrel: 4.0
@@ -9311,7 +9354,7 @@ models:
     msrp: 1528.0
     maker_url: https://www.kimberamerica.com/khx-pro-2
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber KHX Ultra .45 ACP (3000371)
     caliber: .45 ACP
     barrel: 3.0
@@ -9321,7 +9364,7 @@ models:
     msrp: 1527.0
     maker_url: https://www.kimberamerica.com/khx-ultra-2
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: Kimber Micro
   aliases:
@@ -9345,7 +9388,7 @@ models:
     msrp: 1210.0
     maker_url: https://www.kimberamerica.com/micro-amethyst
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Micro Bel Air .380 ACP (3300210)
     caliber: .380 ACP
     barrel: 2.75
@@ -9354,7 +9397,7 @@ models:
     msrp: 1055.0
     maker_url: https://www.kimberamerica.com/micro-belair
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Micro Crimson Carry .380 ACP (3300211)
     caliber: .380 ACP
     barrel: 2.75
@@ -9364,7 +9407,7 @@ models:
     msrp: 747.0
     maker_url: https://www.kimberamerica.com/micro-crimson-carry
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Micro Desert Night (NS) .380 ACP (3300208)
     caliber: .380 ACP
     barrel: 2.75
@@ -9374,7 +9417,7 @@ models:
     msrp: 742.0
     maker_url: https://www.kimberamerica.com/micro-desert-night
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Micro Eclipse .380 ACP (3300188)
     caliber: .380 ACP
     barrel: 2.75
@@ -9384,7 +9427,7 @@ models:
     msrp: 860.0
     maker_url: https://www.kimberamerica.com/micro-eclipse-1
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Micro Raptor .380 ACP (3300087)
     caliber: .380 ACP
     barrel: 2.75
@@ -9394,7 +9437,7 @@ models:
     msrp: 994.0
     maker_url: https://www.kimberamerica.com/micro-raptor
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Micro Raptor Stainless .380 ACP (3300084)
     caliber: .380 ACP
     barrel: 2.75
@@ -9404,7 +9447,7 @@ models:
     msrp: 995.0
     maker_url: https://www.kimberamerica.com/micro-raptor-stainless
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Micro Rose Gold .380 ACP (3300173)
     caliber: .380 ACP
     barrel: 2.75
@@ -9413,7 +9456,7 @@ models:
     msrp: 1210.0
     maker_url: https://www.kimberamerica.com/micro-rose-gold-1
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Micro Sapphire .380 ACP (3300090)
     caliber: .380 ACP
     barrel: 2.75
@@ -9423,7 +9466,7 @@ models:
     msrp: 1210.0
     maker_url: https://www.kimberamerica.com/micro-sapphire
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Micro Stainless Rosewood .380 ACP (3300207)
     caliber: .380 ACP
     barrel: 2.75
@@ -9433,7 +9476,7 @@ models:
     msrp: 735.0
     maker_url: https://www.kimberamerica.com/micro-stainless-rosewood
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Micro Two-Tone - .380 ACP (3300206)
     caliber: .380 ACP
     barrel: 2.75
@@ -9443,7 +9486,7 @@ models:
     msrp: 735.0
     maker_url: https://www.kimberamerica.com/micro-two-tone-380
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Kimber Micro 9
@@ -9468,7 +9511,7 @@ models:
     msrp: 897.0
     maker_url: https://www.kimberamerica.com/micro9-hero-custom
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Micro 9 (LG) 9 mm (3300176)
     caliber: 9mm Luger
     barrel: 3.15
@@ -9478,7 +9521,7 @@ models:
     msrp: 790.0
     maker_url: https://www.kimberamerica.com/micro-9-lg-1
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Micro 9 Amethyst 9 mm (3300214)
     caliber: 9mm Luger
     barrel: 3.15
@@ -9487,7 +9530,7 @@ models:
     msrp: 1250.0
     maker_url: https://www.kimberamerica.com/micro-9-amethyst-1
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Micro 9 Bel Air 9 mm (3700647)
     caliber: 9mm Luger
     barrel: 3.15
@@ -9496,7 +9539,7 @@ models:
     msrp: 1055.0
     maker_url: https://www.kimberamerica.com/micro-9-bel-air
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Micro 9 CDP (LG) 9 mm (3300098)
     caliber: 9mm Luger
     barrel: 3.15
@@ -9506,7 +9549,7 @@ models:
     msrp: 1087.0
     maker_url: https://www.kimberamerica.com/micro-9-cdp-lg
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Micro 9 Crimson Carry 9 mm (3300101)
     caliber: 9mm Luger
     barrel: 3.15
@@ -9516,7 +9559,7 @@ models:
     msrp: 802.0
     maker_url: https://www.kimberamerica.com/micro-9-cc
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Micro 9 Desert Night (DN) 9 mm (3300197)
     caliber: 9mm Luger
     barrel: 3.15
@@ -9526,7 +9569,7 @@ models:
     msrp: 883.0
     maker_url: https://www.kimberamerica.com/micro-9-desert-night-dn-1
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Micro 9 Nightfall (DN) 9 mm (3300194)
     caliber: 9mm Luger
     barrel: 3.15
@@ -9536,7 +9579,7 @@ models:
     msrp: 883.0
     maker_url: https://www.kimberamerica.com/micro-9-nightfall-dn-1
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber MICRO 9 RAPIDE (Black Ice) 9 mm (3300223)
     caliber: 9mm Luger
     barrel: 3.15
@@ -9546,7 +9589,7 @@ models:
     msrp: 1085.0
     maker_url: https://www.kimberamerica.com/micro-9-rapide-black-ice
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber MICRO 9 RAPIDE 9 mm (3300222)
     caliber: 9mm Luger
     barrel: 3.15
@@ -9556,7 +9599,7 @@ models:
     msrp: 1060.0
     maker_url: https://www.kimberamerica.com/micro-9-rapide-9mm
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber MICRO 9 RAPIDE DAWN 9 mm (3300230)
     caliber: 9mm Luger
     barrel: 3.15
@@ -9566,7 +9609,7 @@ models:
     msrp: 1085.0
     maker_url: https://www.kimberamerica.com/micro-9-rapide-dawn
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber MICRO 9 RAPIDE DUSK 9 mm (3300235)
     caliber: 9mm Luger
     barrel: 3.15
@@ -9576,7 +9619,7 @@ models:
     msrp: 1060.0
     maker_url: https://www.kimberamerica.com/micro-9-rapide-dusk
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber MICRO 9 RAPIDE FROST 9 mm (3300237)
     caliber: 9mm Luger
     barrel: 3.15
@@ -9586,7 +9629,7 @@ models:
     msrp: 1060.0
     maker_url: https://www.kimberamerica.com/micro-9-rapide-frost
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber MICRO 9 RAPIDE SCORPIUS 9 mm (3300231)
     caliber: 9mm Luger
     barrel: 3.15
@@ -9596,7 +9639,7 @@ models:
     msrp: 1060.0
     maker_url: https://www.kimberamerica.com/micro-9-rapide-scorpius
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Micro 9 Rose Gold 9 mm (3300174)
     caliber: 9mm Luger
     barrel: 3.15
@@ -9605,7 +9648,7 @@ models:
     msrp: 1250.0
     maker_url: https://www.kimberamerica.com/micro-9-rose-gold-1
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Micro 9 Sapphire 9 mm (3300111)
     caliber: 9mm Luger
     barrel: 3.15
@@ -9615,7 +9658,7 @@ models:
     msrp: 1285.0
     maker_url: https://www.kimberamerica.com/micro-9-sapphire
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Micro 9 Stainless (DN) 9 mm (3300193)
     caliber: 9mm Luger
     barrel: 3.15
@@ -9625,7 +9668,7 @@ models:
     msrp: 883.0
     maker_url: https://www.kimberamerica.com/micro-9-dn-1
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Micro 9 Stainless (Rosewood LG) 9 mm (3700482)
     caliber: 9mm Luger
     barrel: 3.15
@@ -9635,7 +9678,7 @@ models:
     msrp: 939.0
     maker_url: https://www.kimberamerica.com/micro9-stainless-rosewood-lg
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Micro 9 Stainless 9 mm (3300158)
     caliber: 9mm Luger
     barrel: 3.15
@@ -9645,7 +9688,7 @@ models:
     msrp: 761.0
     maker_url: https://www.kimberamerica.com/micro-9
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Micro 9 Stainless Raptor 9 mm (3300109)
     caliber: 9mm Luger
     barrel: 3.15
@@ -9655,7 +9698,7 @@ models:
     msrp: 1045.0
     maker_url: https://www.kimberamerica.com/micro-9-stainless-raptor
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Micro 9 Two-Tone 9 mm (3300099)
     caliber: 9mm Luger
     barrel: 3.15
@@ -9665,7 +9708,7 @@ models:
     msrp: 761.0
     maker_url: https://www.kimberamerica.com/micro-9-tt
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   position: 890
 - name: Kimber Pro Carry II
@@ -9690,7 +9733,7 @@ models:
     msrp: 1022.0
     maker_url: https://www.kimberamerica.com/stainless-pro-carry-ii
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Stainless Pro Carry II California Compliant .45 ACP (3200052CA)
     caliber: .45 ACP
     barrel: 4.0
@@ -9700,7 +9743,7 @@ models:
     msrp: 1222.0
     maker_url: https://www.kimberamerica.com/stainless-pro-carry-ii-ca
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: Kimber R7 Mako
   aliases:
@@ -9723,7 +9766,7 @@ models:
     msrp: 799.0
     maker_url: https://www.kimberamerica.com/r7-mako-oi
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber R7 MAKO (OI) Bundle 10-Round 9 mm (3800027)
     caliber: 9mm Luger
     barrel: 3.37
@@ -9732,7 +9775,7 @@ models:
     msrp: 815.0
     maker_url: https://www.kimberamerica.com/r7-mako-oi-bundle-10-round
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber R7 MAKO (Oi) Bundle 15-Round - FDE 9 mm (3800039)
     caliber: 9mm Luger
     finish: FDE
@@ -9741,7 +9784,7 @@ models:
     msrp: 815.0
     maker_url: https://www.kimberamerica.com/r7-mako-oi-bundle-15-round-fde
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber R7 MAKO (OI) BUNDLE 15-ROUND - GRAY 9 mm (3800038)
     caliber: 9mm Luger
     finish: Gray
@@ -9750,7 +9793,7 @@ models:
     msrp: 815.0
     maker_url: https://www.kimberamerica.com/r7-mako-oi-bundle-15-round-gray
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber R7 MAKO (OI) Bundle 15-Round 9 mm (3800035)
     caliber: 9mm Luger
     barrel: 3.37
@@ -9759,7 +9802,7 @@ models:
     msrp: 815.0
     maker_url: https://www.kimberamerica.com/r7-mako-oi-bundle-15-round
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber R7 MAKO (OR) Bundle 10-Round - FDE 9 mm (3800021)
     caliber: 9mm Luger
     barrel: 3.37
@@ -9769,7 +9812,7 @@ models:
     msrp: 679.0
     maker_url: https://www.kimberamerica.com/r7-mako-or-bundle-9mm-10-round-fde
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber R7 MAKO (OR) Bundle 10-Round - GRAY 9 mm (3800023)
     caliber: 9mm Luger
     barrel: 3.37
@@ -9779,7 +9822,7 @@ models:
     msrp: 679.0
     maker_url: https://www.kimberamerica.com/r7-mako-or-bundle-9mm-10-round-gray
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber R7 MAKO (OR) Bundle 15-Round - FDE 9 mm (3800037)
     caliber: 9mm Luger
     barrel: 3.37
@@ -9789,7 +9832,7 @@ models:
     msrp: 679.0
     maker_url: https://www.kimberamerica.com/r7-mako-or-bundle-15-round-fde
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber R7 MAKO (OR) Bundle 15-Round - GRAY 9 mm (3800036)
     caliber: 9mm Luger
     barrel: 3.37
@@ -9799,7 +9842,7 @@ models:
     msrp: 679.0
     maker_url: https://www.kimberamerica.com/r7-mako-or-bundle-15-round-gray
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber R7 Mako (OR) Bundle 15-Round 9 mm (3800034)
     caliber: 9mm Luger
     barrel: 3.37
@@ -9808,7 +9851,7 @@ models:
     msrp: 679.0
     maker_url: https://www.kimberamerica.com/r7-mako-or-bundle-15-round
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber R7 MAKO (OR) Bundle 9 mm (3800025)
     caliber: 9mm Luger
     barrel: 3.37
@@ -9817,7 +9860,7 @@ models:
     msrp: 679.0
     maker_url: https://www.kimberamerica.com/r7-mako-or-bundle-10-round
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: Kimber Raptor II
   aliases:
@@ -9842,7 +9885,7 @@ models:
     msrp: 1434.0
     maker_url: https://www.kimberamerica.com/pro-raptor-ii-45acp
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Kimber Stainless Ultra Raptor II .45 ACP (3200375)
     caliber: .45 ACP
     barrel: 3.0
@@ -9852,7 +9895,7 @@ models:
     msrp: 1548.0
     maker_url: https://www.kimberamerica.com/stainless-ultra-raptor-ii-45acp
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Raptor II .45 ACP (3200117)
     caliber: .45 ACP
     barrel: 5.0
@@ -9862,7 +9905,7 @@ models:
     msrp: 1548.0
     maker_url: https://www.kimberamerica.com/raptor-ii-45acp
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Stainless Pro Raptor II .45 ACP (3200195)
     caliber: .45 ACP
     barrel: 4.0
@@ -9872,7 +9915,7 @@ models:
     msrp: 1548.0
     maker_url: https://www.kimberamerica.com/stainless-pro-raptor-ii-45acp
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Stainless Raptor II .45 ACP (3200181)
     caliber: .45 ACP
     barrel: 5.0
@@ -9882,7 +9925,7 @@ models:
     msrp: 1671.0
     maker_url: https://www.kimberamerica.com/stainless-raptor-ii-45acp
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Stainless Raptor II California Compliant .45 ACP (3200181CA)
     caliber: .45 ACP
     barrel: 5.0
@@ -9891,7 +9934,7 @@ models:
     msrp: 1855.0
     maker_url: https://www.kimberamerica.com/stainless-raptor-ca
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Ultra Raptor II .45 ACP (3200378)
     caliber: .45 ACP
     barrel: 3.0
@@ -9901,7 +9944,7 @@ models:
     msrp: 1434.0
     maker_url: https://www.kimberamerica.com/ultra-raptor-ii-45acp
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: Kimber Stainless II
   aliases:
@@ -9926,7 +9969,7 @@ models:
     msrp: 1222.0
     maker_url: https://www.kimberamerica.com/stainless-ii-ca
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: Kimber Stainless Target II
   aliases:
@@ -9952,7 +9995,7 @@ models:
     msrp: 1359.0
     maker_url: https://www.kimberamerica.com/stainless-target-ii-ca
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: Kimber Ultra Carry II
   aliases:
@@ -9977,7 +10020,7 @@ models:
     msrp: 1055.0
     maker_url: https://www.kimberamerica.com/stainless-ultra-carry-ii
     source: maker-site
-    status: pending
+    status: approved
   - label: Kimber Stainless Ultra Carry II California Compliant .45 ACP (3200062CA)
     caliber: .45 ACP
     barrel: 3.0
@@ -9986,7 +10029,7 @@ models:
     msrp: 1259.0
     maker_url: https://www.kimberamerica.com/stainless-ultra-carry-ii-ca
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: KIT-5
   status: pending
@@ -10544,6 +10587,7 @@ models:
   calibers:
   - .38 Super
   - .45 ACP
+  - .455 Webley
   - 9mm Luger
   manufacturers:
   - Colt
@@ -10739,6 +10783,8 @@ models:
   country: Russia
   status: merged
   enabled: false
+- name: M45A1
+  status: approved
 - name: M47
   status: pending
   enabled: false
@@ -10946,6 +10992,18 @@ models:
 - name: MARK 2
   status: pending
   enabled: false
+- name: Marlin Model 1891
+  aliases:
+  - Marlin 1891
+  - Marlin Model 1891 Lever Action
+  kind: rifle
+  country: United States
+  calibers:
+  - .22 LR
+  - .32 RF
+  manufacturers:
+  - Marlin
+  status: approved
 - name: Marlin Papoose
   aliases:
   - Papoose
@@ -11391,7 +11449,7 @@ models:
     msrp: 299.0
     maker_url: https://ruger.com/products/max-9/specSheets/3514.html
     source: maker-site
-    status: pending
+    status: approved
   - label: MAX-9 9mm Luger 3.2" Black (Model 3518)
     caliber: 9mm Luger
     barrel: 3.2
@@ -11401,7 +11459,7 @@ models:
     msrp: 449.0
     maker_url: https://ruger.com/products/max-9/specSheets/3518.html
     source: maker-site
-    status: pending
+    status: approved
   - label: MAX-9 9mm Luger 3.2" Black (Model 3519)
     caliber: 9mm Luger
     barrel: 3.2
@@ -11411,7 +11469,7 @@ models:
     msrp: 299.0
     maker_url: https://ruger.com/products/max-9/specSheets/3519.html
     source: maker-site
-    status: pending
+    status: approved
   - label: MAX-9 9mm Luger 3.2" Black (Model 3523)
     caliber: 9mm Luger
     barrel: 3.2
@@ -11421,7 +11479,7 @@ models:
     msrp: 349.0
     maker_url: https://ruger.com/products/max-9/specSheets/3523.html
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: MAY 15
   status: pending
@@ -11629,19 +11687,21 @@ models:
   maker_url: https://www.smith-wesson.com/product/model-10-classic-no-internal-lock
   variants:
   - label: MODEL 10 CLASSIC NL USA 250TH ANNIVERSARY
+    caliber: .38 Special
     upc: 022188903584
     part: '14662'
     msrp: 1029.0
     maker_url: https://www.smith-wesson.com/product/model-10-classic-nl-usa-250th-anniversary
     source: maker-site
-    status: pending
+    status: approved
   - label: MODEL 10 CLASSIC NO INTERNAL LOCK
+    caliber: .38 Special
     upc: 022188899818
     part: '14074'
     msrp: 1019.0
     maker_url: https://www.smith-wesson.com/product/model-10-classic-no-internal-lock
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: Model 100e
   calibers:
@@ -11808,10 +11868,15 @@ models:
   enabled: false
 - name: Model 1889
   status: pending
+  enabled: false
 - name: Model 1890
   status: approved
 - name: MODEL 1891
   status: pending
+  enabled: false
+- name: MODEL 1891/30
+  status: merged
+  enabled: false
 - name: Model 1894M
   status: pending
   enabled: false
@@ -11823,6 +11888,7 @@ models:
   calibers:
   - 7.5x55mm Swiss
   status: approved
+  enabled: false
 - name: Model 1899
   status: approved
 - name: MODEL 190
@@ -12342,6 +12408,10 @@ models:
   - Mosin 1891
   - Mosin-Nagant Model 1891
   - Mosin Nagant Model 1891
+  - Model 1891 Dragoon
+  - Mosin Nagant Dragoon
+  - Mosin-Nagant Dragoon
+  - Dragoon Mosin
   kind: rifle
   country: Russia
   calibers:
@@ -12454,6 +12524,10 @@ models:
   - 48.M
   - Hungarian 48.M
   - Hungarian M48
+  - MODEL 1891/30
+  - Model 1891/30 Mosin
+  - Model 1891/30 Mosin Nagant
+  - 1891/30 Mosin
   kind: rifle
   country: Russia
   calibers:
@@ -12520,6 +12594,8 @@ models:
   - .22 LR
   status: approved
 - name: MP2
+  status: approved
+- name: MP-25
   status: approved
 - name: MP5
   kind: pistol
@@ -12782,6 +12858,8 @@ models:
 - name: No4 Mk I
   status: merged
   enabled: false
+- name: No.5 Mk.1
+  status: approved
 - name: NO 832
   status: pending
   enabled: false
@@ -12951,7 +13029,7 @@ models:
     msrp: 349.0
     maker_url: https://waltherarms.com/defense/p22/p22-3-42-10rd-22lr-california
     source: maker-site
-    status: pending
+    status: approved
   - label: Walther P22 3.42" Angel Blue 10RD 22LR (5120760)
     caliber: .22 LR
     barrel: 3.42
@@ -12960,7 +13038,7 @@ models:
     msrp: 329.0
     maker_url: https://waltherarms.com/defense/p22/p22-3-42-in-angel-blue-10rd-22lr
     source: maker-site
-    status: pending
+    status: approved
   - label: Walther P22 3.42" Angel Blue 10RD 22LR California (5120362)
     caliber: .22 LR
     barrel: 3.42
@@ -12969,7 +13047,7 @@ models:
     msrp: 349.0
     maker_url: https://waltherarms.com/defense/p22/p22-3-42-angel-blue-10rd-22lr-california
     source: maker-site
-    status: pending
+    status: approved
   - label: Walther P22 3.42" FDE 10RD 22LR California (5120363)
     caliber: .22 LR
     barrel: 3.42
@@ -12978,7 +13056,7 @@ models:
     msrp: 349.0
     maker_url: https://waltherarms.com/defense/p22/p22-3-42-fde-10rd-22lr-california
     source: maker-site
-    status: pending
+    status: approved
   - label: Walther P22 3.42" Military 10RD 22LR (5120715)
     caliber: .22 LR
     barrel: 3.42
@@ -12986,7 +13064,7 @@ models:
     msrp: 329.0
     maker_url: https://waltherarms.com/defense/p22/p22-3-42-military-10rd-22lr
     source: maker-site
-    status: pending
+    status: approved
   - label: Walther P22 3.42" Military 10RD 22LR California (5120338)
     caliber: .22 LR
     barrel: 3.42
@@ -12994,7 +13072,7 @@ models:
     msrp: 349.0
     maker_url: https://waltherarms.com/defense/p22/p22-3-42-military-10rd-22lr-california
     source: maker-site
-    status: pending
+    status: approved
   - label: Walther P22 3.42" Nickel 10RD 22LR (5120725)
     caliber: .22 LR
     barrel: 3.42
@@ -13003,7 +13081,7 @@ models:
     msrp: 329.0
     maker_url: https://waltherarms.com/defense/p22/p22-3-42-nickel-10rd-22lr
     source: maker-site
-    status: pending
+    status: approved
   - label: Walther P22 3.42" Nickel 10RD 22LR California (5120336)
     caliber: .22 LR
     barrel: 3.42
@@ -13012,7 +13090,7 @@ models:
     msrp: 349.0
     maker_url: https://waltherarms.com/defense/p22/p22-3-42-nickel-10rd-22lr-california
     source: maker-site
-    status: pending
+    status: approved
   - label: Walther P22 3.42" Tactical FDE 10RD 22LR (5120753)
     caliber: .22 LR
     barrel: 3.42
@@ -13021,7 +13099,7 @@ models:
     msrp: 379.0
     maker_url: https://waltherarms.com/defense/p22/p22-3-42-tactical-fde-10rd-22lr
     source: maker-site
-    status: pending
+    status: approved
   - label: Walther P22Q 3.42" Black 10RD 22LR (5120700)
     caliber: .22 LR
     barrel: 3.42
@@ -13030,7 +13108,7 @@ models:
     msrp: 329.0
     maker_url: https://waltherarms.com/defense/p22/p22q-3-42-black-10rd-22lr
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: P220R
   status: merged
@@ -13358,8 +13436,12 @@ models:
 - name: Pattern 1809
   status: approved
 - name: Pattern 1842
+  aliases:
+  - British Pattern 1842
+  - Pattern 1842 Musket
+  - P1842
   calibers:
-  - 7.5x55mm Swiss
+  - '.75'
   status: approved
 - name: Pattern 1856
   status: approved
@@ -13980,6 +14062,19 @@ models:
   manufacturers:
   - Remington
   status: approved
+- name: Remington Model 1889
+  aliases:
+  - Remington 1889
+  - Remington Model 1889 Shotgun
+  kind: shotgun
+  country: United States
+  calibers:
+  - 10 Gauge
+  - 12 gauge
+  - 16 gauge
+  manufacturers:
+  - Remington
+  status: approved
 - name: Remington Model 51
   aliases:
   - Model 51
@@ -14158,6 +14253,8 @@ models:
 - name: RPS31
   status: pending
   enabled: false
+- name: RPX9
+  status: approved
 - name: RR51
   status: pending
   enabled: false
@@ -14192,7 +14289,7 @@ models:
     msrp: 549.0
     maker_url: https://ruger.com/products/ruger57/specSheets/16401.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger-57 5.7x28mm 4.94" Black (Model 16402)
     caliber: 5.7x28mm
     barrel: 4.94
@@ -14202,7 +14299,7 @@ models:
     msrp: 549.0
     maker_url: https://ruger.com/products/ruger57/specSheets/16402.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger-57 5.7x28mm 4.94" Black (Model 16403)
     caliber: 5.7x28mm
     barrel: 4.94
@@ -14212,7 +14309,7 @@ models:
     msrp: 549.0
     maker_url: https://ruger.com/products/ruger57/specSheets/16403.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger-57 5.7x28mm 4.94" Cerakote (Model 16416)
     caliber: 5.7x28mm
     barrel: 4.94
@@ -14220,7 +14317,7 @@ models:
     part: '16416'
     maker_url: https://ruger.com/products/ruger57/specSheets/16416.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger-57 5.7x28mm 4.94" FDE (Model 16412)
     caliber: 5.7x28mm
     barrel: 4.94
@@ -14228,7 +14325,7 @@ models:
     part: '16412'
     maker_url: https://ruger.com/products/ruger57/specSheets/16412.html
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Ruger American Pistol
@@ -14243,7 +14340,6 @@ models:
   - 9mm Luger
   manufacturers:
   - Ruger
-  modern_production: true
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Ruger American Rifle
@@ -14281,7 +14377,7 @@ models:
     part: 0915
     maker_url: https://ruger.com/products/newBearcat/specSheets/0915.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Bearcat 22 LR 3.5" Blued (Model 0918)
     caliber: .22 LR
     barrel: 3.5
@@ -14290,7 +14386,7 @@ models:
     part: 0918
     maker_url: https://ruger.com/products/newBearcat/specSheets/0918.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Bearcat 22 LR 4.2" Blued (Model 0912)
     caliber: .22 LR
     barrel: 4.2
@@ -14300,7 +14396,7 @@ models:
     msrp: 859.0
     maker_url: https://ruger.com/products/newBearcat/specSheets/0912.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Bearcat 22 LR 4.2" Blued (Model 0916)
     caliber: .22 LR
     barrel: 4.2
@@ -14309,7 +14405,7 @@ models:
     part: 0916
     maker_url: https://ruger.com/products/newBearcat/specSheets/0916.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Bearcat 22 LR 4.2" Stainless (Model 0913)
     caliber: .22 LR
     barrel: 4.2
@@ -14319,7 +14415,7 @@ models:
     msrp: 919.0
     maker_url: https://ruger.com/products/newBearcat/specSheets/0913.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Bearcat 22 LR 4.2" Stainless (Model 0917)
     caliber: .22 LR
     barrel: 4.2
@@ -14328,7 +14424,7 @@ models:
     part: 0917
     maker_url: https://ruger.com/products/newBearcat/specSheets/0917.html
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Ruger Blackhawk
@@ -14352,6 +14448,7 @@ models:
   maker_url: https://ruger.com/products/newModelBlackhawkBlued/models.html
   variants:
   - label: Ruger Blackhawk 30 Carb 7.5" Blued (Model 0505)
+    caliber: .30 Carbine
     barrel: 7.5
     finish: Blued
     upc: '736676005055'
@@ -14359,7 +14456,7 @@ models:
     msrp: 889.0
     maker_url: https://ruger.com/products/newModelBlackhawkBlued/specSheets/0505.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Blackhawk 357 Mag 4.62" Blued (Model 0306)
     caliber: .357 Magnum
     barrel: 4.62
@@ -14369,7 +14466,7 @@ models:
     msrp: 889.0
     maker_url: https://ruger.com/products/newModelBlackhawkBlued/specSheets/0306.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Blackhawk 357 Mag 6.5" Blued (Model 0316)
     caliber: .357 Magnum
     barrel: 6.5
@@ -14379,7 +14476,7 @@ models:
     msrp: 889.0
     maker_url: https://ruger.com/products/newModelBlackhawkBlued/specSheets/0316.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Blackhawk 41 Rem Mag 4.62" Blued (Model 0405)
     caliber: .41 Remington Magnum
     barrel: 4.62
@@ -14389,7 +14486,7 @@ models:
     msrp: 889.0
     maker_url: https://ruger.com/products/newModelBlackhawkBlued/specSheets/0405.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Blackhawk 41 Rem Mag 6.5" Blued (Model 0406)
     caliber: .41 Remington Magnum
     barrel: 6.5
@@ -14399,7 +14496,7 @@ models:
     msrp: 889.0
     maker_url: https://ruger.com/products/newModelBlackhawkBlued/specSheets/0406.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Blackhawk 45 Colt 4.62" Blued (Model 0445)
     caliber: .45 Colt
     barrel: 4.62
@@ -14409,7 +14506,7 @@ models:
     msrp: 889.0
     maker_url: https://ruger.com/products/newModelBlackhawkBlued/specSheets/0445.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Blackhawk 45 Colt 5.5" Blued (Model 0465)
     caliber: .45 Colt
     barrel: 5.5
@@ -14419,7 +14516,7 @@ models:
     msrp: 889.0
     maker_url: https://ruger.com/products/newModelBlackhawkBlued/specSheets/0465.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Blackhawk 45 Colt 7.5" Blued (Model 0455)
     caliber: .45 Colt
     barrel: 7.5
@@ -14429,7 +14526,7 @@ models:
     msrp: 889.0
     maker_url: https://ruger.com/products/newModelBlackhawkBlued/specSheets/0455.html
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Ruger Charger
@@ -14455,7 +14552,7 @@ models:
     msrp: 499.0
     maker_url: https://ruger.com/products/22Charger/specSheets/33100.html
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: Ruger LCP-380
@@ -14483,7 +14580,7 @@ models:
     msrp: 259.0
     maker_url: https://ruger.com/products/lcp/specSheets/3701.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger LCP-380 380 Auto 2.75" Black (Model 3725)
     caliber: .380 ACP
     barrel: 2.75
@@ -14492,7 +14589,7 @@ models:
     part: '3725'
     maker_url: https://ruger.com/products/lcp/specSheets/3725.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger LCP-380 380 Auto 2.75" Black (Model 3746)
     caliber: .380 ACP
     barrel: 2.75
@@ -14501,7 +14598,7 @@ models:
     part: '3746'
     maker_url: https://ruger.com/products/lcp/specSheets/3746.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger LCP-380 380 Auto 2.75" Black (Model 3752)
     caliber: .380 ACP
     barrel: 2.75
@@ -14511,7 +14608,7 @@ models:
     msrp: 339.0
     maker_url: https://ruger.com/products/lcp/specSheets/3752.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger LCP-380 380 Auto 2.75" Cerakote (Model 3742)
     caliber: .380 ACP
     barrel: 2.75
@@ -14520,7 +14617,7 @@ models:
     part: '3742'
     maker_url: https://ruger.com/products/lcp/specSheets/3742.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger LCP-380 380 Auto 2.75" Nickel (Model 3745)
     caliber: .380 ACP
     barrel: 2.75
@@ -14529,7 +14626,7 @@ models:
     part: '3745'
     maker_url: https://ruger.com/products/lcp/specSheets/3745.html
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: Ruger LCR
   aliases:
@@ -14587,7 +14684,7 @@ models:
     msrp: 579.0
     maker_url: https://ruger.com/products/markIVStandard/specSheets/40104.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Mark Series 22 LR 6" Blued (Model 40105)
     caliber: .22 LR
     barrel: 6.0
@@ -14597,7 +14694,7 @@ models:
     msrp: 579.0
     maker_url: https://ruger.com/products/markIVStandard/specSheets/40105.html
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: Ruger Mini-14
@@ -14622,7 +14719,7 @@ models:
     msrp: 1299.0
     maker_url: https://ruger.com/products/mini14RanchRifle/specSheets/5801.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Mini-14 5.56 NATO 18.5" Blued (Model 5816)
     caliber: 5.56x45mm NATO
     barrel: 18.5
@@ -14632,7 +14729,7 @@ models:
     msrp: 1379.0
     maker_url: https://ruger.com/products/mini14RanchRifle/specSheets/5816.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Mini-14 5.56 NATO 18.5" Blued (Model 5855)
     caliber: 5.56x45mm NATO
     barrel: 18.5
@@ -14642,7 +14739,7 @@ models:
     msrp: 1299.0
     maker_url: https://ruger.com/products/mini14RanchRifle/specSheets/5855.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Mini-14 5.56 NATO 18.5" Blued (Model 5886)
     caliber: 5.56x45mm NATO
     barrel: 18.5
@@ -14651,7 +14748,7 @@ models:
     part: '5886'
     maker_url: https://ruger.com/products/mini14RanchRifle/specSheets/5886.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Mini-14 5.56 NATO 18.5" Stainless (Model 5802)
     caliber: 5.56x45mm NATO
     barrel: 18.5
@@ -14661,7 +14758,7 @@ models:
     msrp: 1389.0
     maker_url: https://ruger.com/products/mini14RanchRifle/specSheets/5802.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Mini-14 5.56 NATO 18.5" Stainless (Model 5805)
     caliber: 5.56x45mm NATO
     barrel: 18.5
@@ -14671,7 +14768,7 @@ models:
     msrp: 1389.0
     maker_url: https://ruger.com/products/mini14RanchRifle/specSheets/5805.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Mini-14 5.56 NATO 18.5" Stainless (Model 5817)
     caliber: 5.56x45mm NATO
     barrel: 18.5
@@ -14681,7 +14778,7 @@ models:
     msrp: 1489.0
     maker_url: https://ruger.com/products/mini14RanchRifle/specSheets/5817.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Mini-14 5.56 NATO 18.5" Stainless (Model 5887)
     caliber: 5.56x45mm NATO
     barrel: 18.5
@@ -14690,7 +14787,7 @@ models:
     part: '5887'
     maker_url: https://ruger.com/products/mini14RanchRifle/specSheets/5887.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Mini-14 5.56 NATO 18.5" Stainless (Model 5890)
     caliber: 5.56x45mm NATO
     barrel: 18.5
@@ -14699,7 +14796,7 @@ models:
     part: '5890'
     maker_url: https://ruger.com/products/mini14RanchRifle/specSheets/5890.html
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: Ruger No. 1
   aliases:
@@ -14720,7 +14817,7 @@ models:
     part: '11386'
     maker_url: https://ruger.com/products/no1/specSheets/11386.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger No. 1 275 Rigby (7x57) 24" Blued (Model 11399)
     caliber: 7x57mm Mauser
     barrel: 24.0
@@ -14729,7 +14826,7 @@ models:
     part: '11399'
     maker_url: https://ruger.com/products/no1/specSheets/11399.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger No. 1 308 Win 22" Stainless (Model 21348)
     caliber: 7.62x51 NATO
     barrel: 22.0
@@ -14738,15 +14835,16 @@ models:
     part: '21348'
     maker_url: https://ruger.com/products/no1/specSheets/21348.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger No. 1 348 Win 23" Blued (Model 21362)
+    caliber: .348 Winchester
     barrel: 23.0
     finish: Blued
     upc: '736676213627'
     part: '21362'
     maker_url: https://ruger.com/products/no1/specSheets/21362.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger No. 1 375 Ruger 22" Blued (Model 21364)
     barrel: 22.0
     finish: Blued
@@ -14755,7 +14853,7 @@ models:
     msrp: 4299.0
     maker_url: https://ruger.com/products/no1/specSheets/21364.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger No. 1 6.5 Creedmoor 24" Blued (Model 21319)
     caliber: 6.5mm Creedmoor
     barrel: 24.0
@@ -14764,7 +14862,7 @@ models:
     part: '21319'
     maker_url: https://ruger.com/products/no1/specSheets/21319.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger No. 1 9.3 x 62 20" Blued (Model 21349)
     caliber: 9.3x62mm
     barrel: 20.0
@@ -14773,7 +14871,7 @@ models:
     part: '21349'
     maker_url: https://ruger.com/products/no1/specSheets/21349.html
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Ruger Police Service-Six
@@ -14809,8 +14907,9 @@ models:
     msrp: 2829.0
     maker_url: https://ruger.com/products/precisionRifle/specSheets/18107.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Precision Rifle 300 Win Mag 26" Cerakote (Model 18106)
+    caliber: .300 Winchester Magnum
     barrel: 26.0
     finish: Cerakote
     upc: '736676181063'
@@ -14818,7 +14917,7 @@ models:
     msrp: 2829.0
     maker_url: https://ruger.com/products/precisionRifle/specSheets/18106.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Precision Rifle 308 Win 20" Cerakote (Model 18104)
     caliber: 7.62x51 NATO
     barrel: 20.0
@@ -14828,7 +14927,7 @@ models:
     msrp: 2209.0
     maker_url: https://ruger.com/products/precisionRifle/specSheets/18104.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Precision Rifle 338 Lapua Mag 26" Cerakote (Model 18096)
     caliber: .338 Lapua
     barrel: 26.0
@@ -14838,7 +14937,7 @@ models:
     msrp: 2829.0
     maker_url: https://ruger.com/products/precisionRifle/specSheets/18096.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Precision Rifle 6.5 Creedmoor 24" Cerakote (Model 18095)
     caliber: 6.5mm Creedmoor
     barrel: 24.0
@@ -14848,7 +14947,7 @@ models:
     msrp: 2209.0
     maker_url: https://ruger.com/products/precisionRifle/specSheets/18095.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Precision Rifle 6.5 Creedmoor 26" Cerakote (Model 18103)
     caliber: 6.5mm Creedmoor
     barrel: 26.0
@@ -14858,7 +14957,7 @@ models:
     msrp: 2869.0
     maker_url: https://ruger.com/products/precisionRifle/specSheets/18103.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Precision Rifle 6.5 PRC 26" Cerakote (Model 18105)
     barrel: 26.0
     finish: Cerakote
@@ -14867,7 +14966,7 @@ models:
     msrp: 2209.0
     maker_url: https://ruger.com/products/precisionRifle/specSheets/18105.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Precision Rifle 6mm Creedmoor 26" Cerakote (Model 18102)
     caliber: 6mm
     barrel: 26.0
@@ -14877,7 +14976,7 @@ models:
     msrp: 2869.0
     maker_url: https://ruger.com/products/precisionRifle/specSheets/18102.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Precision Rifle 6mm GT 26" Cerakote (Model 18097)
     caliber: 6mm
     barrel: 26.0
@@ -14887,7 +14986,7 @@ models:
     msrp: 2869.0
     maker_url: https://ruger.com/products/precisionRifle/specSheets/18097.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Precision Rifle 6mm GT 26" Cerakote (Model 18109)
     caliber: 6mm
     barrel: 26.0
@@ -14897,7 +14996,7 @@ models:
     msrp: 3449.0
     maker_url: https://ruger.com/products/precisionRifle/specSheets/18109.html
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Ruger P-Series
@@ -14930,6 +15029,7 @@ models:
   calibers:
   - .357 Magnum
   - .44 Magnum
+  - .45 ACP
   - .45 Colt
   manufacturers:
   - Ruger
@@ -14945,7 +15045,7 @@ models:
     msrp: 1449.0
     maker_url: https://ruger.com/products/redhawk/specSheets/5051.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Redhawk 357 Mag 4.2" Stainless (Model 5059)
     caliber: .357 Magnum
     barrel: 4.2
@@ -14955,7 +15055,7 @@ models:
     msrp: 1449.0
     maker_url: https://ruger.com/products/redhawk/specSheets/5059.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Redhawk 357 Mag 5.5" Stainless (Model 5060)
     caliber: .357 Magnum
     barrel: 5.5
@@ -14965,8 +15065,9 @@ models:
     msrp: 1449.0
     maker_url: https://ruger.com/products/redhawk/specSheets/5060.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Redhawk 44 Rem Mag 4.2" Stainless (Model 5044)
+    caliber: .44 Magnum
     barrel: 4.2
     finish: Stainless
     upc: '736676050444'
@@ -14974,8 +15075,9 @@ models:
     msrp: 1449.0
     maker_url: https://ruger.com/products/redhawk/specSheets/5044.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Redhawk 44 Rem Mag 5.5" Stainless (Model 5043)
+    caliber: .44 Magnum
     barrel: 5.5
     finish: Stainless
     upc: '736676050437'
@@ -14983,8 +15085,9 @@ models:
     msrp: 1449.0
     maker_url: https://ruger.com/products/redhawk/specSheets/5043.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Redhawk 44 Rem Mag 7.5" Stainless (Model 5041)
+    caliber: .44 Magnum
     barrel: 7.5
     finish: Stainless
     upc: '736676050413'
@@ -14992,7 +15095,7 @@ models:
     msrp: 1449.0
     maker_url: https://ruger.com/products/redhawk/specSheets/5041.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Redhawk 45 Auto 4.2" Stainless (Model 5050)
     caliber: .45 ACP
     barrel: 4.2
@@ -15002,7 +15105,7 @@ models:
     msrp: 1449.0
     maker_url: https://ruger.com/products/redhawk/specSheets/5050.html
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Ruger RXM
@@ -15025,7 +15128,7 @@ models:
     msrp: 579.0
     maker_url: https://ruger.com/products/rxm/specSheets/19496.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger RXM 9mm Luger 4" (Model 19498)
     caliber: 9mm Luger
     barrel: 4.0
@@ -15034,7 +15137,7 @@ models:
     msrp: 579.0
     maker_url: https://ruger.com/products/rxm/specSheets/19498.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger RXM 9mm Luger 4" Black (Model 19400)
     caliber: 9mm Luger
     barrel: 4.0
@@ -15044,7 +15147,7 @@ models:
     msrp: 539.0
     maker_url: https://ruger.com/products/rxm/specSheets/19400.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger RXM 9mm Luger 4" Black (Model 19415)
     caliber: 9mm Luger
     barrel: 4.0
@@ -15054,7 +15157,7 @@ models:
     msrp: 539.0
     maker_url: https://ruger.com/products/rxm/specSheets/19415.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger RXM 9mm Luger 4" Black (Model 19426)
     caliber: 9mm Luger
     barrel: 4.0
@@ -15064,7 +15167,7 @@ models:
     msrp: 539.0
     maker_url: https://ruger.com/products/rxm/specSheets/19426.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger RXM 9mm Luger 4" Black (Model 19427)
     caliber: 9mm Luger
     barrel: 4.0
@@ -15074,7 +15177,7 @@ models:
     msrp: 539.0
     maker_url: https://ruger.com/products/rxm/specSheets/19427.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger RXM 9mm Luger 4" Black (Model 19441)
     caliber: 9mm Luger
     barrel: 4.0
@@ -15084,7 +15187,7 @@ models:
     msrp: 539.0
     maker_url: https://ruger.com/products/rxm/specSheets/19441.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger RXM 9mm Luger 4" Black (Model 19442)
     caliber: 9mm Luger
     barrel: 4.0
@@ -15094,7 +15197,7 @@ models:
     msrp: 539.0
     maker_url: https://ruger.com/products/rxm/specSheets/19442.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger RXM 9mm Luger 4" Black (Model 19461)
     caliber: 9mm Luger
     barrel: 4.0
@@ -15103,7 +15206,7 @@ models:
     part: '19461'
     maker_url: https://ruger.com/products/rxm/specSheets/19461.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger RXM 9mm Luger 4" Black (Model 19462)
     caliber: 9mm Luger
     barrel: 4.0
@@ -15112,7 +15215,7 @@ models:
     part: '19462'
     maker_url: https://ruger.com/products/rxm/specSheets/19462.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger RXM 9mm Luger 4" Black (Model 19463)
     caliber: 9mm Luger
     barrel: 4.0
@@ -15121,7 +15224,7 @@ models:
     part: '19463'
     maker_url: https://ruger.com/products/rxm/specSheets/19463.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger RXM 9mm Luger 4" Black (Model 19464)
     caliber: 9mm Luger
     barrel: 4.0
@@ -15130,7 +15233,7 @@ models:
     part: '19464'
     maker_url: https://ruger.com/products/rxm/specSheets/19464.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger RXM 9mm Luger 4" Black (Model 19465)
     caliber: 9mm Luger
     barrel: 4.0
@@ -15139,7 +15242,7 @@ models:
     part: '19465'
     maker_url: https://ruger.com/products/rxm/specSheets/19465.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger RXM 9mm Luger 4" Black (Model 19466)
     caliber: 9mm Luger
     barrel: 4.0
@@ -15148,7 +15251,7 @@ models:
     part: '19466'
     maker_url: https://ruger.com/products/rxm/specSheets/19466.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger RXM 9mm Luger 4" Blued (Model 19497)
     caliber: 9mm Luger
     barrel: 4.0
@@ -15158,7 +15261,7 @@ models:
     msrp: 579.0
     maker_url: https://ruger.com/products/rxm/specSheets/19497.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger RXM 9mm Luger 4" Blued (Model 19552)
     caliber: 9mm Luger
     barrel: 4.0
@@ -15168,7 +15271,7 @@ models:
     msrp: 579.0
     maker_url: https://ruger.com/products/rxm/specSheets/19552.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger RXM 9mm Luger 4.5" (Model 19550)
     caliber: 9mm Luger
     barrel: 4.5
@@ -15177,7 +15280,7 @@ models:
     msrp: 579.0
     maker_url: https://ruger.com/products/rxm/specSheets/19550.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger RXM 9mm Luger 4.5" Black (Model 19412)
     caliber: 9mm Luger
     barrel: 4.5
@@ -15187,7 +15290,7 @@ models:
     msrp: 599.0
     maker_url: https://ruger.com/products/rxm/specSheets/19412.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger RXM 9mm Luger 4.5" Black (Model 19435)
     caliber: 9mm Luger
     barrel: 4.5
@@ -15197,7 +15300,7 @@ models:
     msrp: 599.0
     maker_url: https://ruger.com/products/rxm/specSheets/19435.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger RXM 9mm Luger 4.5" Black (Model 19436)
     caliber: 9mm Luger
     barrel: 4.5
@@ -15207,7 +15310,7 @@ models:
     msrp: 599.0
     maker_url: https://ruger.com/products/rxm/specSheets/19436.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger RXM 9mm Luger 4.5" Black (Model 19443)
     caliber: 9mm Luger
     barrel: 4.5
@@ -15217,7 +15320,7 @@ models:
     msrp: 539.0
     maker_url: https://ruger.com/products/rxm/specSheets/19443.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger RXM 9mm Luger 4.5" Black (Model 19444)
     caliber: 9mm Luger
     barrel: 4.5
@@ -15227,7 +15330,7 @@ models:
     msrp: 539.0
     maker_url: https://ruger.com/products/rxm/specSheets/19444.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger RXM 9mm Luger 4.5" Black (Model 19445)
     caliber: 9mm Luger
     barrel: 4.5
@@ -15237,7 +15340,7 @@ models:
     msrp: 599.0
     maker_url: https://ruger.com/products/rxm/specSheets/19445.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger RXM 9mm Luger 4.5" Black (Model 19446)
     caliber: 9mm Luger
     barrel: 4.5
@@ -15247,7 +15350,7 @@ models:
     msrp: 599.0
     maker_url: https://ruger.com/products/rxm/specSheets/19446.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger RXM 9mm Luger 4.5" Black (Model 19447)
     caliber: 9mm Luger
     barrel: 4.5
@@ -15257,7 +15360,7 @@ models:
     msrp: 599.0
     maker_url: https://ruger.com/products/rxm/specSheets/19447.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger RXM 9mm Luger 4.5" Blued (Model 19551)
     caliber: 9mm Luger
     barrel: 4.5
@@ -15267,7 +15370,7 @@ models:
     msrp: 579.0
     maker_url: https://ruger.com/products/rxm/specSheets/19551.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger RXM 9mm Luger 4.5" FDE (Model 19468)
     caliber: 9mm Luger
     barrel: 4.5
@@ -15276,7 +15379,7 @@ models:
     part: '19468'
     maker_url: https://ruger.com/products/rxm/specSheets/19468.html
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Ruger Security-9
@@ -15301,7 +15404,7 @@ models:
     msrp: 389.0
     maker_url: https://ruger.com/products/security9/specSheets/3818.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Security-9 9mm Luger 3.42" Black (Model 3829)
     caliber: 9mm Luger
     barrel: 3.42
@@ -15311,7 +15414,7 @@ models:
     msrp: 399.0
     maker_url: https://ruger.com/products/security9/specSheets/3829.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Security-9 9mm Luger 3.42" Black (Model 3830)
     caliber: 9mm Luger
     barrel: 3.42
@@ -15321,7 +15424,7 @@ models:
     msrp: 439.0
     maker_url: https://ruger.com/products/security9/specSheets/3830.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Security-9 9mm Luger 4" Black (Model 3810)
     caliber: 9mm Luger
     barrel: 4.0
@@ -15331,7 +15434,7 @@ models:
     msrp: 389.0
     maker_url: https://ruger.com/products/security9/specSheets/3810.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Security-9 9mm Luger 4" Black (Model 3811)
     caliber: 9mm Luger
     barrel: 4.0
@@ -15341,7 +15444,7 @@ models:
     msrp: 389.0
     maker_url: https://ruger.com/products/security9/specSheets/3811.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Security-9 9mm Luger 4" Black (Model 3816)
     caliber: 9mm Luger
     barrel: 4.0
@@ -15351,7 +15454,7 @@ models:
     msrp: 439.0
     maker_url: https://ruger.com/products/security9/specSheets/3816.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Security-9 9mm Luger 4" Black (Model 3819)
     caliber: 9mm Luger
     barrel: 4.0
@@ -15361,7 +15464,7 @@ models:
     msrp: 399.0
     maker_url: https://ruger.com/products/security9/specSheets/3819.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Security-9 9mm Luger 4" Black (Model 3824)
     caliber: 9mm Luger
     barrel: 4.0
@@ -15370,7 +15473,7 @@ models:
     part: '3824'
     maker_url: https://ruger.com/products/security9/specSheets/3824.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Security-9 9mm Luger 4" Black (Model 3846)
     caliber: 9mm Luger
     barrel: 4.0
@@ -15379,7 +15482,7 @@ models:
     part: '3846'
     maker_url: https://ruger.com/products/security9/specSheets/3846.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Security-9 9mm Luger 4" Cerakote (Model 3840)
     caliber: 9mm Luger
     barrel: 4.0
@@ -15388,7 +15491,7 @@ models:
     part: '3840'
     maker_url: https://ruger.com/products/security9/specSheets/3840.html
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Ruger Security-Six
@@ -15444,7 +15547,7 @@ models:
     part: '6756'
     maker_url: https://ruger.com/products/sr1911Standard/specSheets/6756.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger SR1911 45 Auto 5" Stainless (Model 16706)
     caliber: .45 ACP
     barrel: 5.0
@@ -15454,7 +15557,7 @@ models:
     msrp: 1899.0
     maker_url: https://ruger.com/products/sr1911Standard/specSheets/16706.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger SR1911 45 Auto 5" Stainless (Model 16707)
     caliber: .45 ACP
     barrel: 5.0
@@ -15464,7 +15567,7 @@ models:
     msrp: 1699.0
     maker_url: https://ruger.com/products/sr1911Standard/specSheets/16707.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger SR1911 45 Auto 5" Stainless (Model 6700)
     caliber: .45 ACP
     barrel: 5.0
@@ -15474,7 +15577,7 @@ models:
     msrp: 1259.0
     maker_url: https://ruger.com/products/sr1911Standard/specSheets/6700.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger SR1911 45 Auto 5" Stainless (Model 6792)
     caliber: .45 ACP
     barrel: 5.0
@@ -15484,7 +15587,7 @@ models:
     msrp: 819.0
     maker_url: https://ruger.com/products/sr1911Standard/specSheets/6792.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger SR1911 9mm Luger 5" Stainless (Model 6794)
     caliber: 9mm Luger
     barrel: 5.0
@@ -15494,7 +15597,7 @@ models:
     msrp: 819.0
     maker_url: https://ruger.com/products/sr1911Standard/specSheets/6794.html
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Ruger Super Blackhawk
@@ -15522,7 +15625,7 @@ models:
     msrp: 1099.0
     maker_url: https://ruger.com/products/newModelSuperBlackhawkStandard/specSheets/0807.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Super Blackhawk 44 Rem Mag 10.5" Stainless (Model 0806)
     caliber: .44 Magnum
     barrel: 10.5
@@ -15532,7 +15635,7 @@ models:
     msrp: 1139.0
     maker_url: https://ruger.com/products/newModelSuperBlackhawkStandard/specSheets/0806.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Super Blackhawk 44 Rem Mag 3.75" Stainless (Model 0817)
     caliber: .44 Magnum
     barrel: 3.75
@@ -15541,7 +15644,7 @@ models:
     part: 0817
     maker_url: https://ruger.com/products/newModelSuperBlackhawkStandard/specSheets/0817.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Super Blackhawk 44 Rem Mag 4.62" Black (Model 0875)
     caliber: .44 Magnum
     barrel: 4.62
@@ -15550,7 +15653,7 @@ models:
     part: 0875
     maker_url: https://ruger.com/products/newModelSuperBlackhawkStandard/specSheets/0875.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Super Blackhawk 44 Rem Mag 4.62" Blued (Model 0813)
     caliber: .44 Magnum
     barrel: 4.62
@@ -15560,7 +15663,7 @@ models:
     msrp: 1099.0
     maker_url: https://ruger.com/products/newModelSuperBlackhawkStandard/specSheets/0813.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Super Blackhawk 44 Rem Mag 4.62" Stainless (Model 0814)
     caliber: .44 Magnum
     barrel: 4.62
@@ -15570,7 +15673,7 @@ models:
     msrp: 1099.0
     maker_url: https://ruger.com/products/newModelSuperBlackhawkStandard/specSheets/0814.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Super Blackhawk 44 Rem Mag 5.5" Blued (Model 0810)
     caliber: .44 Magnum
     barrel: 5.5
@@ -15580,7 +15683,7 @@ models:
     msrp: 1099.0
     maker_url: https://ruger.com/products/newModelSuperBlackhawkStandard/specSheets/0810.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Super Blackhawk 44 Rem Mag 5.5" Stainless (Model 0811)
     caliber: .44 Magnum
     barrel: 5.5
@@ -15590,7 +15693,7 @@ models:
     msrp: 1099.0
     maker_url: https://ruger.com/products/newModelSuperBlackhawkStandard/specSheets/0811.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Super Blackhawk 44 Rem Mag 7.5" Blued (Model 0802)
     caliber: .44 Magnum
     barrel: 7.5
@@ -15600,7 +15703,7 @@ models:
     msrp: 1099.0
     maker_url: https://ruger.com/products/newModelSuperBlackhawkStandard/specSheets/0802.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Super Blackhawk 44 Rem Mag 7.5" Stainless (Model 0804)
     caliber: .44 Magnum
     barrel: 7.5
@@ -15610,7 +15713,7 @@ models:
     msrp: 1099.0
     maker_url: https://ruger.com/products/newModelSuperBlackhawkStandard/specSheets/0804.html
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   position: 880
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
@@ -15620,7 +15723,11 @@ models:
   kind: revolver
   country: United States
   calibers:
+  - .22 Hornet
+  - .357 Magnum
   - .44 Magnum
+  - .454 Casull
+  - 10mm Auto
   manufacturers:
   - Ruger
   modern_production: true
@@ -15634,7 +15741,7 @@ models:
     part: '5522'
     maker_url: https://ruger.com/products/superRedhawkStandard/specSheets/5522.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Super Redhawk 22 Hornet Stainless (Model 5526)
     caliber: .22 Hornet
     finish: Stainless
@@ -15643,7 +15750,7 @@ models:
     msrp: 1549.0
     maker_url: https://ruger.com/products/superRedhawkStandard/specSheets/5526.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Super Redhawk 357 Mag 2.75" Stainless (Model 5529)
     caliber: .357 Magnum
     barrel: 2.75
@@ -15653,7 +15760,7 @@ models:
     msrp: 1449.0
     maker_url: https://ruger.com/products/superRedhawkStandard/specSheets/5529.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Super Redhawk 44 Rem Mag 2.75" Stainless (Model 5528)
     caliber: .44 Magnum
     barrel: 2.75
@@ -15662,7 +15769,7 @@ models:
     part: '5528'
     maker_url: https://ruger.com/products/superRedhawkStandard/specSheets/5528.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Super Redhawk 44 Rem Mag 5" Stainless (Model 5518)
     caliber: .44 Magnum
     barrel: 5.0
@@ -15671,7 +15778,7 @@ models:
     part: '5518'
     maker_url: https://ruger.com/products/superRedhawkStandard/specSheets/5518.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Super Redhawk 44 Rem Mag 7.5" Stainless (Model 5501)
     caliber: .44 Magnum
     barrel: 7.5
@@ -15681,7 +15788,7 @@ models:
     msrp: 1549.0
     maker_url: https://ruger.com/products/superRedhawkStandard/specSheets/5501.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Super Redhawk 44 Rem Mag Stainless (Model 5502)
     caliber: .44 Magnum
     finish: Stainless
@@ -15690,7 +15797,7 @@ models:
     msrp: 1549.0
     maker_url: https://ruger.com/products/superRedhawkStandard/specSheets/5502.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Super Redhawk 454 Casull 5" Stainless (Model 5517)
     caliber: .454 Casull
     barrel: 5.0
@@ -15699,7 +15806,7 @@ models:
     part: '5517'
     maker_url: https://ruger.com/products/superRedhawkStandard/specSheets/5517.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Super Redhawk 454 Casull 7.5" Stainless (Model 5505)
     caliber: .454 Casull
     barrel: 7.5
@@ -15709,7 +15816,7 @@ models:
     msrp: 1549.0
     maker_url: https://ruger.com/products/superRedhawkStandard/specSheets/5505.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Super Redhawk 480 Ruger 7.5" Stainless (Model 5507)
     caliber: .44 Magnum
     barrel: 7.5
@@ -15719,7 +15826,7 @@ models:
     msrp: 1549.0
     maker_url: https://ruger.com/products/superRedhawkStandard/specSheets/5507.html
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   position: 880
   notes: Added 2026-10-11 for listings with no caliber.
@@ -15734,7 +15841,9 @@ models:
   - .357 Magnum
   - .38 Special
   - .44-40 Winchester
+  - .45 ACP
   - .45 Colt
+  - 9mm Luger
   manufacturers:
   - Ruger
   modern_production: true
@@ -15748,7 +15857,7 @@ models:
     part: '5161'
     maker_url: https://ruger.com/products/vaqueroBlued/specSheets/5161.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Vaquero 357 Mag 4.62" Blued (Model 5107)
     caliber: .357 Magnum
     barrel: 4.62
@@ -15758,7 +15867,7 @@ models:
     msrp: 1099.0
     maker_url: https://ruger.com/products/vaqueroBlued/specSheets/5107.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Vaquero 357 Mag 5.5" Blued (Model 5106)
     caliber: .357 Magnum
     barrel: 5.5
@@ -15768,7 +15877,7 @@ models:
     msrp: 1099.0
     maker_url: https://ruger.com/products/vaqueroBlued/specSheets/5106.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Vaquero 45 Auto 3.75" Blued (Model 5154)
     caliber: .45 ACP
     barrel: 3.75
@@ -15777,7 +15886,7 @@ models:
     part: '5154'
     maker_url: https://ruger.com/products/vaqueroBlued/specSheets/5154.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Vaquero 45 Colt 3.75" Blued (Model 5153)
     caliber: .45 Colt
     barrel: 3.75
@@ -15786,7 +15895,7 @@ models:
     part: '5153'
     maker_url: https://ruger.com/products/vaqueroBlued/specSheets/5153.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Vaquero 45 Colt 4.62" Blued (Model 5102)
     caliber: .45 Colt
     barrel: 4.62
@@ -15796,7 +15905,7 @@ models:
     msrp: 1099.0
     maker_url: https://ruger.com/products/vaqueroBlued/specSheets/5102.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Vaquero 45 Colt 5.5" Blued (Model 5101)
     caliber: .45 Colt
     barrel: 5.5
@@ -15806,7 +15915,7 @@ models:
     msrp: 1099.0
     maker_url: https://ruger.com/products/vaqueroBlued/specSheets/5101.html
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Ruger Wrangler
@@ -15830,7 +15939,7 @@ models:
     part: '2030'
     maker_url: https://ruger.com/products/wrangler/specSheets/2030.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Wrangler 22 LR 4.62" Cerakote (Model 2002)
     caliber: .22 LR
     barrel: 4.62
@@ -15840,7 +15949,7 @@ models:
     msrp: 269.0
     maker_url: https://ruger.com/products/wrangler/specSheets/2002.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Wrangler 22 LR 4.62" Cerakote (Model 2003)
     caliber: .22 LR
     barrel: 4.62
@@ -15850,7 +15959,7 @@ models:
     msrp: 269.0
     maker_url: https://ruger.com/products/wrangler/specSheets/2003.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Wrangler 22 LR 4.62" Cerakote (Model 2004)
     caliber: .22 LR
     barrel: 4.62
@@ -15860,7 +15969,7 @@ models:
     msrp: 269.0
     maker_url: https://ruger.com/products/wrangler/specSheets/2004.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Wrangler 22 LR 4.62" Cerakote (Model 2014)
     caliber: .22 LR
     barrel: 4.62
@@ -15869,7 +15978,7 @@ models:
     part: '2014'
     maker_url: https://ruger.com/products/wrangler/specSheets/2014.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Wrangler 22 LR 4.62" Cerakote (Model 2023)
     caliber: .22 LR
     barrel: 4.62
@@ -15878,7 +15987,7 @@ models:
     part: '2023'
     maker_url: https://ruger.com/products/wrangler/specSheets/2023.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Wrangler 22 LR 4.62" Cerakote (Model 2024)
     caliber: .22 LR
     barrel: 4.62
@@ -15887,7 +15996,7 @@ models:
     part: '2024'
     maker_url: https://ruger.com/products/wrangler/specSheets/2024.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Wrangler 22 LR 6.5" Blued (Model 2050)
     caliber: .22 LR
     barrel: 6.5
@@ -15896,7 +16005,7 @@ models:
     part: '2050'
     maker_url: https://ruger.com/products/wrangler/specSheets/2050.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Wrangler 22 LR 6.5" Cerakote (Model 2057)
     caliber: .22 LR
     barrel: 6.5
@@ -15905,7 +16014,7 @@ models:
     part: '2057'
     maker_url: https://ruger.com/products/wrangler/specSheets/2057.html
     source: maker-site
-    status: pending
+    status: approved
   - label: Ruger Wrangler 22 LR 7.5" Cerakote (Model 2058)
     caliber: .22 LR
     barrel: 7.5
@@ -15914,7 +16023,7 @@ models:
     part: '2058'
     maker_url: https://ruger.com/products/wrangler/specSheets/2058.html
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: Russian M91/59
@@ -16109,6 +16218,7 @@ models:
   kind: carbine
   country: Switzerland
   calibers:
+  - .22 LR
   - 7.5x55mm Swiss
   manufacturers:
   - W+F Bern
@@ -16165,7 +16275,7 @@ models:
     msrp: 349.0
     maker_url: https://www.smith-wesson.com/product/sw-sd9-2-2-tone-10rd
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W SD9 2.0 2-Tone 16RD
     caliber: 9mm Luger
     finish: Two-tone
@@ -16174,7 +16284,7 @@ models:
     msrp: 349.0
     maker_url: https://www.smith-wesson.com/product/sw-sd9-2-2-tone-16rd
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W SD9 2.0 2-TONE 16RD WITH CT CMR-209 LIGHT
     caliber: 9mm Luger
     finish: Two-tone
@@ -16183,7 +16293,7 @@ models:
     msrp: 349.0
     maker_url: https://www.smith-wesson.com/product/sw-sd9-2-2-tone-16rd-with-ct-cmr-209-light
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W SD9 2.0 2-TONE OD GREEN
     caliber: 9mm Luger
     finish: Two-tone
@@ -16192,7 +16302,7 @@ models:
     msrp: 359.0
     maker_url: https://www.smith-wesson.com/product/s-w-sd9-2-0-2-tone-od-green
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W SD9 2.0 CARRY ON BUNDLE
     caliber: 9mm Luger
     upc: 022188909616
@@ -16200,7 +16310,7 @@ models:
     msrp: 349.0
     maker_url: https://www.smith-wesson.com/product/s-w-sd9-2-0-carry-on-bundle
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W SD9 2.0 FDE WITH EP3 PLUGS
     caliber: 9mm Luger
     finish: FDE
@@ -16209,7 +16319,7 @@ models:
     msrp: 349.0
     maker_url: https://www.smith-wesson.com/product/sw-sd9-2-fde-with-ep3-plugs
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W SD9 VE CA COMPLIANT
     caliber: 9mm Luger
     upc: 022188889871
@@ -16217,7 +16327,7 @@ models:
     msrp: 449.0
     maker_url: https://www.smith-wesson.com/product/s-w-sd9-ve-ca-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W SD9 VE COMPLIANT
     caliber: 9mm Luger
     upc: 022188239034
@@ -16225,7 +16335,7 @@ models:
     msrp: 406.0
     maker_url: https://www.smith-wesson.com/product/s-w-sd9-ve-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W SD9 VE HI VIZ SIGHTS
     caliber: 9mm Luger
     upc: 022188871975
@@ -16233,7 +16343,7 @@ models:
     msrp: 399.0
     maker_url: https://www.smith-wesson.com/product/s-w-sd9-ve-hi-viz-sights
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: SEPT 20
   status: pending
@@ -16348,6 +16458,8 @@ models:
   - Sharps Deringer
   - C. Sharps & Co. Model 1C
   - C. Sharps & Co. Model 4A
+  - Sharps Model 2C
+  - Sharps 2C
   kind: pistol
   country: United States
   manufacturers:
@@ -16403,6 +16515,9 @@ models:
   manufacturers:
   - Sig Sauer
   status: approved
+- name: SIG SAUER 1911
+  status: pending
+  enabled: false
 - name: Sig Sauer 1911
   aliases:
   - Sig 1911
@@ -16420,9 +16535,6 @@ models:
   maker_url: https://www.sigsauer.com/firearms/pistols/1911.html
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
-- name: SIG SAUER 1911
-  status: pending
-  enabled: false
 - name: Sig Sauer 47/8
   aliases:
   - 47/8
@@ -16752,454 +16864,515 @@ models:
   maker_url: https://www.smith-wesson.com/products/bodyguard-2
   variants:
   - label: BODYGUARD 2.0 COMBO WITH VIRIDIAN RFX1 CA COMPLIANT
+    caliber: .380 ACP
     upc: 022188907179
     part: '14788'
     msrp: 649.0
     maker_url: https://www.smith-wesson.com/product/bodyguard-2-0-combo-with-viridian-rfx1-ca-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: BODYGUARD 2.0 COMPLIANT w/ VIRIDIAN RFX1
+    caliber: .380 ACP
     upc: 022188907162
     part: '14787'
     msrp: 599.0
     maker_url: https://www.smith-wesson.com/product/bodyguard-2-0-compliant-w-viridian-rfx1
     source: maker-site
-    status: pending
+    status: approved
   - label: BODYGUARD 2.0 TS - PINK CHAMPAGNE
+    caliber: .380 ACP
     upc: 022188905526
     part: '14771'
     msrp: 459.0
     maker_url: https://www.smith-wesson.com/product/bodyguard-2-0-ts-pink-champagne
     source: maker-site
-    status: pending
+    status: approved
   - label: BODYGUARD 2.0 TS w/ VIRIDIAN RFX1
+    caliber: .380 ACP
     upc: 022188905397
     part: '14785'
     msrp: 599.0
     maker_url: https://www.smith-wesson.com/product/bodyguard-2-0-ts-w-viridian-rfx1
     source: maker-site
-    status: pending
+    status: approved
   - label: BODYGUARD2.0 NTS W/ VIRIDIAN RFX1
+    caliber: .380 ACP
     upc: 022188905809
     part: '14786'
     msrp: 599.0
     maker_url: https://www.smith-wesson.com/product/bodyguard-2-0-nts-w-viridian-rfx1
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER BODYGUARD 2.0 CARRY COMP CA COMPLIANT BLUE TITANIUM
+    caliber: .380 ACP
     finish: Blued
     upc: 022188908657
     part: '14883'
     msrp: 609.0
     maker_url: https://www.smith-wesson.com/product/performance-center-bodyguard-2-0-carry-comp-ca-compliant-blue-titanium
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER BODYGUARD 2.0 CARRY COMP CA COMPLIANT BURNT BRONZE
+    caliber: .380 ACP
     upc: 022188907483
     part: '14870'
     msrp: 609.0
     maker_url: https://www.smith-wesson.com/product/performance-center-bodyguard-2-0-carry-comp-ca-compliant-burnt-bronze
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER BODYGUARD 2.0 CARRY COMP CA COMPLIANT MIDNIGHT BRONZE
+    caliber: .380 ACP
     upc: 022188908671
     part: '14887'
     msrp: 609.0
     maker_url: https://www.smith-wesson.com/product/performance-center-bodyguard-2-0-carry-comp-ca-compliant-midnight-bronze
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER BODYGUARD 2.0 CARRY COMP WITH MANUAL THUMB SAFETY
+    caliber: .380 ACP
     upc: 022188908640
     part: '14942'
     msrp: 569.0
     maker_url: https://www.smith-wesson.com/product/performance-center-bodyguard-2-0-carry-comp-with-manual-thumb-safety
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER S&W BODYGUARD 2.0 CARRY COMP CA COMPLIANT
+    caliber: .380 ACP
     upc: 022188904871
     part: '14419'
     msrp: 599.0
     maker_url: https://www.smith-wesson.com/product/performance-center-s-w-bodyguard-2-0-carry-comp-ca-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER S&W BODYGUARD 2.0 CARRY COMP NO THUMB SAFETY
+    caliber: .380 ACP
     upc: 022188901979
     part: '14416'
     msrp: 549.0
     maker_url: https://www.smith-wesson.com/product/performance-center-s-w-bodyguard-2-0-carry-comp-no-thumb-safety
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER S&W BODYGUARD 2.0 CARRY COMP NO THUMB SAFETY BLACK/SILVER
+    caliber: .380 ACP
     finish: Black
     upc: 022188907063
     part: '14842'
     msrp: 559.0
     maker_url: https://www.smith-wesson.com/product/performance-center-s-w-bodyguard-2-0-carry-comp-no-thumb-safety-black-silver
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER S&W BODYGUARD 2.0 CARRY COMP NO THUMB SAFETY BLUE TITANIUM
+    caliber: .380 ACP
     finish: Blued
     upc: 022188906745
     part: '14847'
     msrp: 559.0
     maker_url: https://www.smith-wesson.com/product/performance-center-s-w-bodyguard-2-0-carry-comp-no-thumb-safety-blue-titanium
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER S&W BODYGUARD 2.0 CARRY COMP THUMB SAFETY
+    caliber: .380 ACP
     upc: 022188901986
     part: '14417'
     msrp: 549.0
     maker_url: https://www.smith-wesson.com/product/performance-center-s-w-bodyguard-2-0-carry-comp-thumb-safety
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER S&W BODYGUARD 2.0 CARRY COMP THUMB SAFETY 10RD COMPLIANT
+    caliber: .380 ACP
     upc: 022188901993
     part: '14418'
     msrp: 549.0
     maker_url: https://www.smith-wesson.com/product/performance-center-s-w-bodyguard-2-0-carry-comp-thumb-safety-10rd-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER S&W BODYGUARD 2.0 CARRY COMP THUMB SAFETY BLACK/SILVER
+    caliber: .380 ACP
     finish: Black
     upc: 022188907056
     part: '14840'
     msrp: 559.0
     maker_url: https://www.smith-wesson.com/product/performance-center-s-w-bodyguard-2-0-carry-comp-thumb-safety-black-silver
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER S&W BODYGUARD 2.0 CARRY COMP THUMB SAFETY MIDNIGHT BRONZE
+    caliber: .380 ACP
     upc: 022188906738
     part: '14846'
     msrp: 559.0
     maker_url: https://www.smith-wesson.com/product/performance-center-s-w-bodyguard-2-0-carry-comp-thumb-safety-midnight-bronze
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER S&W BODYGUARD 2.0 CARRY COMP THUMB SAFETY PURPLE
+    caliber: .380 ACP
     upc: 022188906806
     part: '14836'
     msrp: 559.0
     maker_url: https://www.smith-wesson.com/product/performance-center-s-w-bodyguard-2-0-carry-comp-thumb-safety-purple
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 10RD COMPLIANT TS
+    caliber: .380 ACP
     upc: 022188898910
     part: '14192'
     msrp: 449.0
     maker_url: https://www.smith-wesson.com/product/sw-bodyguard-2-10rd-compliant-ts
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 CA COMPLIANT
+    caliber: .380 ACP
     upc: 022188904864
     part: '14420'
     msrp: 499.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-ca-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 NO THUMB SAFETY BLUE TITANIUM
+    caliber: .380 ACP
     finish: Blued
     upc: 022188901764
     part: '14540'
     msrp: 459.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-no-thumb-safety-blue-titanium
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 NO THUMB SAFETY MIDNIGHT BRONZE
+    caliber: .380 ACP
     upc: 022188903843
     part: '14666'
     msrp: 459.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-no-thumb-safety-midnight-bronze
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 NO THUMB SAFETY OD GREEN/BLACK
+    caliber: .380 ACP
     finish: OD Green
     upc: 022188906974
     part: '14818'
     msrp: 459.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-no-thumb-safety-od-green-black
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 NTS
+    caliber: .380 ACP
     upc: 022188897029
     part: '13927'
     msrp: 449.0
     maker_url: https://www.smith-wesson.com/product/sw-bodyguard-2-nts
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 THUMB SAFETY 10RD COMPLIANT BLACK/FDE
+    caliber: .380 ACP
     finish: FDE
     upc: 022188903737
     part: '14665'
     msrp: 469.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-thumb-safety-10rd-compliant-black-fde
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 THUMB SAFETY 10RD COMPLIANT BLUSH/SILVER
+    caliber: .380 ACP
     upc: 022188905359
     part: '14779'
     msrp: 469.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-thumb-safety-10rd-compliant-blush-silver
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 THUMB SAFETY 10RD COMPLIANT GRAY
+    caliber: .380 ACP
     finish: Gray
     upc: 022188905366
     part: '14780'
     msrp: 459.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-thumb-safety-10rd-compliant-gray
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 THUMB SAFETY BLACK CHERRY
+    caliber: .380 ACP
     finish: Black
     upc: 022188904062
     part: '14661'
     msrp: 459.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-thumb-safety-black-cherry
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 THUMB SAFETY BLACK/FDE
+    caliber: .380 ACP
     finish: FDE
     upc: 022188903720
     part: '14664'
     msrp: 469.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-thumb-safety-black-fde
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 THUMB SAFETY BLACK/SILVER
+    caliber: .380 ACP
     finish: Black
     upc: 022188901399
     part: '14430'
     msrp: 459.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-thumb-safety-black-silver
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 THUMB SAFETY BLUE TITANIUM
+    caliber: .380 ACP
     finish: Blued
     upc: 022188901757
     part: '14539'
     msrp: 459.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-thumb-safety-blue-titanium
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 THUMB SAFETY BLUSH/SILVER
+    caliber: .380 ACP
     upc: 022188903928
     part: '14615'
     msrp: 469.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-thumb-safety-blush-silver
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 THUMB SAFETY BROWN COW PRINT
+    caliber: .380 ACP
     upc: 022188906813
     part: '14812'
     msrp: 529.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-thumb-safety-brown-cow-print
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 THUMB SAFETY COW PRINT
+    caliber: .380 ACP
     upc: 022188903676
     part: '14639'
     msrp: 529.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-thumb-safety-cow-print
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 THUMB SAFETY CRANBERRY
+    caliber: .380 ACP
     upc: 022188903973
     part: '14651'
     msrp: 459.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-thumb-safety-cranberry
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 THUMB SAFETY CRANBERRY/BLUSH
+    caliber: .380 ACP
     upc: 022188903980
     part: '14653'
     msrp: 469.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-thumb-safety-cranberry-blush
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 THUMB SAFETY FDE
+    caliber: .380 ACP
     finish: FDE
     upc: 022188906370
     part: '14817'
     msrp: 469.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-thumb-safety-fde
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 THUMB SAFETY GRAY
+    caliber: .380 ACP
     finish: Gray
     upc: 022188903324
     part: '14614'
     msrp: 469.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-thumb-safety-gray
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 THUMB SAFETY MIDNIGHT BRONZE
+    caliber: .380 ACP
     upc: 022188904055
     part: '14667'
     msrp: 459.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-thumb-safety-midnight-bronze
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 THUMB SAFETY OD GREEN/BLACK
+    caliber: .380 ACP
     finish: OD Green
     upc: 022188901375
     part: '14432'
     msrp: 459.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-thumb-safety-od-green-black
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 THUMB SAFETY OD GREEN/FDE
+    caliber: .380 ACP
     finish: FDE
     upc: 022188901382
     part: '14439'
     msrp: 469.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-thumb-safety-od-green-fde
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 THUMB SAFETY OD GREEN/GRAY
+    caliber: .380 ACP
     finish: OD Green
     upc: 022188901511
     part: '14429'
     msrp: 469.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-thumb-safety-od-green-gray
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 THUMB SAFETY PINK
+    caliber: .380 ACP
     upc: 022188903850
     part: '14668'
     msrp: 459.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-thumb-safety-pink
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 THUMB SAFETY PINK/SILVER
+    caliber: .380 ACP
     upc: 022188901900
     part: '14434'
     msrp: 469.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-thumb-safety-pink-silver
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 THUMB SAFETY PURPLE
+    caliber: .380 ACP
     upc: 022188901504
     part: '14437'
     msrp: 459.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-thumb-safety-purple
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 THUMB SAFETY PURPLE/SILVER
+    caliber: .380 ACP
     upc: 022188901528
     part: '14435'
     msrp: 469.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-thumb-safety-purple-silver
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 THUMB SAFETY ROBIN'S EGG BLUE
+    caliber: .380 ACP
     finish: Blued
     upc: 022188901634
     part: '14431'
     msrp: 459.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-thumb-safety-robins-egg-blue
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 THUMB SAFETY ROBIN'S EGG BLUE/SILVER
+    caliber: .380 ACP
     finish: Blued
     upc: 022188901917
     part: '14436'
     msrp: 469.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-thumb-safety-robin-s-egg-blue-silver
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 THUMB SAFETY ROSE GOLD
+    caliber: .380 ACP
     upc: 022188901924
     part: '14452'
     msrp: 469.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-thumb-safety-rose-gold
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 THUMB SAFETY ROSE GOLD PVD
+    caliber: .380 ACP
     upc: 022188903690
     part: '14660'
     msrp: 469.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-thumb-safety-rose-gold-pvd
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 THUMB SAFETY TEAL
+    caliber: .380 ACP
     upc: 022188903867
     part: '14650'
     msrp: 459.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-thumb-safety-teal
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 THUMB SAFETY TURQUOISE PVD
+    caliber: .380 ACP
     upc: 022188903034
     part: '14444'
     msrp: 469.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-thumb-safety-turquoise-pvd
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 TS
+    caliber: .380 ACP
     upc: 022188897012
     part: '13926'
     msrp: 449.0
     maker_url: https://www.smith-wesson.com/product/sw-bodyguard-2-ts
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 TS CA COMPLIANT BLUE TITANIUM
+    caliber: .380 ACP
     finish: Blued
     upc: 022188908664
     part: '14884'
     msrp: 509.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-ts-ca-compliant-blue-titanium
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 TS CA COMPLIANT BURNT BRONZE
+    caliber: .380 ACP
     upc: 022188907490
     part: '14866'
     msrp: 509.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-ts-ca-compliant-burnt-bronze
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 TS CA COMPLIANT MIDNIGHT BRONZE
+    caliber: .380 ACP
     upc: 022188908688
     part: '14888'
     msrp: 509.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-ts-ca-compliant-midnight-bronze
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 TS CA COMPLIANT PRISON PINK
+    caliber: .380 ACP
     upc: 022188907506
     part: '14862'
     msrp: 519.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-ts-ca-compliant-prison-pink
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 TS CA COMPLIANT ROBIN'S EGG BLUE
+    caliber: .380 ACP
     finish: Blued
     upc: 022188907520
     part: '14864'
     msrp: 519.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-ts-ca-compliant-robin-s-egg-blue
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD 2.0 TS TWO TONE SANGRIA PINK CHAMPAGNE
+    caliber: .380 ACP
     finish: Two-tone
     upc: 022188909685
     part: '14889'
     msrp: 469.0
     maker_url: https://www.smith-wesson.com/product/s-w-bodyguard-2-0-ts-two-tone-sangria-pink-champagne
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD38 2.0
+    caliber: .38 Special
     upc: 022188905229
     part: '14507'
     msrp: 449.0
     maker_url: https://www.smith-wesson.com/product/sw-bodyguard-38-2
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W BODYGUARD38 2.0 INTEGRATED CRIMSON TRACE LASER
+    caliber: .38 Special
     upc: 022188905236
     part: '14508'
     msrp: 549.0
     maker_url: https://www.smith-wesson.com/product/sw-bodyguard-38-2-integrated-crimson-trace-laser
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: Smith & Wesson CSX
   aliases:
@@ -17221,7 +17394,7 @@ models:
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/s-w-csx-e-series-3-1-inch
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W CSX E-SERIES 3.1 INCH 10RD COMPLIANT
     caliber: 9mm Luger
     barrel: 3.1
@@ -17230,7 +17403,7 @@ models:
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/s-w-csx-e-series-3-1-inch-10rd-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W CSX E-SERIES 3.6 INCH
     caliber: 9mm Luger
     barrel: 3.6
@@ -17239,7 +17412,7 @@ models:
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/s-w-csx-e-series-3-6-inch
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W CSX E-SERIES 3.6 INCH 10RD COMPLIANT
     caliber: 9mm Luger
     barrel: 3.6
@@ -17248,7 +17421,7 @@ models:
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/s-w-csx-e-series-3-6-inch-10rd-compliant
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Double Action
@@ -17300,14 +17473,14 @@ models:
     msrp: 999.0
     maker_url: https://www.smith-wesson.com/product/model-governor-black
     source: maker-site
-    status: pending
+    status: approved
   - label: MODEL GOVERNOR SILVER
     upc: 022188604108
     part: '160410'
     msrp: 949.0
     maker_url: https://www.smith-wesson.com/product/governor-160410/
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Hand Ejector
@@ -17442,7 +17615,7 @@ models:
     msrp: 1149.0
     maker_url: https://www.smith-wesson.com/product/model-19-classic-nl-usa-250th-anniversary
     source: maker-site
-    status: pending
+    status: approved
   - label: MODEL 19 CLASSIC NO INTERNAL LOCK
     caliber: .357 Magnum
     upc: 022188895940
@@ -17450,7 +17623,7 @@ models:
     msrp: 1119.0
     maker_url: https://www.smith-wesson.com/product/model-19-classic-no-internal-lock
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER MODEL 19 CARRY COMP
     caliber: .357 Magnum
     upc: 022188874952
@@ -17458,7 +17631,7 @@ models:
     msrp: 1349.0
     maker_url: https://www.smith-wesson.com/product/k-frame-12039/
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER MODEL 19 CARRY COMP 2.5" BARREL
     caliber: .357 Magnum
     barrel: 2.5
@@ -17467,7 +17640,7 @@ models:
     msrp: 1319.0
     maker_url: https://www.smith-wesson.com/product/k-frame-13323/
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER MODEL 19 CARRY COMP MOSS
     caliber: .357 Magnum
     upc: 022188901498
@@ -17475,7 +17648,7 @@ models:
     msrp: 1329.0
     maker_url: https://www.smith-wesson.com/product/performance-center-model-19-carry-comp-moss
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: Smith & Wesson Model 1917
   aliases:
@@ -17499,6 +17672,17 @@ models:
   wikipedia: https://en.wikipedia.org/wiki/M1917_revolver
   status: approved
   position: 900
+- name: Smith & Wesson Model 1955
+  aliases:
+  - S&W Model 1955
+  - Smith & Wesson 1955 Target
+  - S&W 1955 Target
+  - Model 1955 Target
+  kind: revolver
+  country: United States
+  calibers:
+  - .45 ACP
+  status: approved
 - name: Smith & Wesson Model 20
   aliases:
   - S&W Model 20
@@ -17647,7 +17831,7 @@ models:
     msrp: 1569.0
     maker_url: https://www.smith-wesson.com/product/performance-center-model-m-p-r8
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: Added 2026-10-12 for M&P listings that matched no model.
 - name: Smith & Wesson Model 329
@@ -17734,7 +17918,7 @@ models:
     msrp: 1199.0
     maker_url: https://www.smith-wesson.com/product/model-340-pd
     source: maker-site
-    status: pending
+    status: approved
   - label: MODEL 340 PD - NO INTERNAL LOCK
     caliber: .357 Magnum
     upc: 022188030617
@@ -17742,7 +17926,7 @@ models:
     msrp: 1199.0
     maker_url: https://www.smith-wesson.com/product/j-frame-103061/
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Model 351
@@ -17766,7 +17950,7 @@ models:
     msrp: 799.0
     maker_url: https://www.smith-wesson.com/product/j-frame-103351/
     source: maker-site
-    status: pending
+    status: approved
   - label: MODEL 351 PD
     caliber: .22 WMR
     upc: 022188602289
@@ -17774,7 +17958,7 @@ models:
     msrp: 889.0
     maker_url: https://www.smith-wesson.com/product/j-frame-160228/
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: Smith & Wesson Model 36
@@ -17799,7 +17983,7 @@ models:
     msrp: 849.0
     maker_url: https://www.smith-wesson.com/product/model-36-classic-no-internal-lock
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER MODEL 36 FIELD ETHOS DAO
     caliber: .38 Special
     upc: 022188903935
@@ -17807,7 +17991,7 @@ models:
     msrp: 1099.0
     maker_url: https://www.smith-wesson.com/product/performance-center-model-36-field-ethos-dao
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: Smith & Wesson Model 360
   aliases:
@@ -17834,7 +18018,7 @@ models:
     msrp: 1199.0
     maker_url: https://www.smith-wesson.com/product/model-360pd-chiefs-special
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Model 37
@@ -17925,7 +18109,7 @@ models:
     msrp: 569.0
     maker_url: https://www.smith-wesson.com/product/j-frame-150544/
     source: maker-site
-    status: pending
+    status: approved
   - label: MODEL 442 REVOLVER ENGRAVED
     caliber: .38 Special
     upc: 022188142235
@@ -17933,7 +18117,7 @@ models:
     msrp: 869.0
     maker_url: https://www.smith-wesson.com/product/model-442-revolver-engraved
     source: maker-site
-    status: pending
+    status: approved
   - label: MODEL 442 THE ULTIMATE CARRY REVOLVER IN 38SPL BLACK WITH NO LOCK
     caliber: .38 Special
     finish: Black
@@ -17942,7 +18126,7 @@ models:
     msrp: 769.0
     maker_url: https://www.smith-wesson.com/product/model-442-ultimate-carry-revolver-38spl-black-with-no-lock
     source: maker-site
-    status: pending
+    status: approved
   - label: MODEL 442 THE ULTIMATE CARRY REVOLVER S&W BOOT GRIPS
     caliber: .38 Special
     upc: 022188902877
@@ -17950,7 +18134,7 @@ models:
     msrp: 679.0
     maker_url: https://www.smith-wesson.com/product/model-442-the-ultimate-carry-revolver-s-w-boot-grips
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER MODEL 442 CRIMSON TRACE LG-105 LASERGRIPS
     caliber: .38 Special
     upc: 022188878585
@@ -17958,7 +18142,7 @@ models:
     msrp: 849.0
     maker_url: https://www.smith-wesson.com/product/performance-center-model-442-crimson-trace-lg-105-lasergrips-
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: Smith & Wesson Model 460
@@ -17983,7 +18167,7 @@ models:
     msrp: 1699.0
     maker_url: https://www.smith-wesson.com/product/x-frame-163465/
     source: maker-site
-    status: pending
+    status: approved
   - label: MODEL 460XVR
     caliber: .460 S&W Magnum
     upc: 022188634600
@@ -17991,7 +18175,7 @@ models:
     msrp: 1699.0
     maker_url: https://www.smith-wesson.com/product/x-frame-163460/
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER MODEL 460XVR
     caliber: .460 S&W Magnum
     upc: 022188702620
@@ -17999,7 +18183,7 @@ models:
     msrp: 2049.0
     maker_url: https://www.smith-wesson.com/product/performance-center-model-460xvr
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER MODEL 460XVR - 14" BARREL WITH BI-POD
     caliber: .460 S&W Magnum
     upc: 022188703399
@@ -18007,7 +18191,7 @@ models:
     msrp: 1969.0
     maker_url: https://www.smith-wesson.com/product/performance-center-model-460xvr---14-barrel-with-bi-pod
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER MODEL 460XVR 3.5" BARREL
     caliber: .460 S&W Magnum
     barrel: 3.5
@@ -18016,7 +18200,7 @@ models:
     msrp: 2109.0
     maker_url: https://www.smith-wesson.com/product/x-frame-170350/
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER MODEL 460XVR HI VIZ FIBER OPTIC FRONT SIGHT
     caliber: .460 S&W Magnum
     upc: 022188870220
@@ -18024,7 +18208,7 @@ models:
     msrp: 2179.0
     maker_url: https://www.smith-wesson.com/product/performance-center-model-460xvr-hi-viz-fiber-optic-front-sight
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: Smith & Wesson Model 49
@@ -18062,7 +18246,7 @@ models:
     msrp: 1629.0
     maker_url: https://www.smith-wesson.com/product/model-s-w500
     source: maker-site
-    status: pending
+    status: approved
   - label: MODEL S&W500 4"
     caliber: .500 S&W Magnum
     barrel: 4.0
@@ -18071,7 +18255,7 @@ models:
     msrp: 1699.0
     maker_url: https://www.smith-wesson.com/product/x-frame-163504/
     source: maker-site
-    status: pending
+    status: approved
   - label: MODEL S&W500 INTERCHANGEABLE COMPENSATOR
     caliber: .500 S&W Magnum
     upc: 022188635010
@@ -18079,7 +18263,7 @@ models:
     msrp: 1699.0
     maker_url: https://www.smith-wesson.com/product/x-frame-163501/
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER MODEL S&W500
     caliber: .500 S&W Magnum
     upc: 022188702316
@@ -18087,7 +18271,7 @@ models:
     msrp: 2019.0
     maker_url: https://www.smith-wesson.com/product/performance-center-model-s-w500
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER MODEL S&W500 7.5" BARREL
     caliber: .500 S&W Magnum
     barrel: 7.5
@@ -18096,7 +18280,7 @@ models:
     msrp: 1989.0
     maker_url: https://www.smith-wesson.com/product/performance-center-model-s-w500-7.5-barrel
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER MODEL S&W500 HI VIZ FIBER OPTIC
     caliber: .500 S&W Magnum
     upc: 022188870008
@@ -18104,7 +18288,7 @@ models:
     msrp: 2109.0
     maker_url: https://www.smith-wesson.com/product/x-frame-11623/
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: Smith & Wesson Model 57
@@ -18157,7 +18341,7 @@ models:
     msrp: 1029.0
     maker_url: https://www.smith-wesson.com/product/l-frame-150909
     source: maker-site
-    status: pending
+    status: approved
   - label: MODEL 586 6" BARREL
     caliber: .357 Magnum
     barrel: 6.0
@@ -18166,7 +18350,7 @@ models:
     msrp: 1029.0
     maker_url: https://www.smith-wesson.com/product/l-frame-150908
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER 586 L-COMP
     caliber: .357 Magnum
     upc: 022188701708
@@ -18174,7 +18358,7 @@ models:
     msrp: 1499.0
     maker_url: https://www.smith-wesson.com/product/l-frame-170170/
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Model 60
@@ -18194,27 +18378,30 @@ models:
   maker_url: https://www.smith-wesson.com/product/model-60-chiefs-special
   variants:
   - label: MODEL 60 3" CHIEFS SPECIAL
+    caliber: .357 Magnum
     barrel: 3.0
     upc: 022188624304
     part: '162430'
     msrp: 889.0
     maker_url: https://www.smith-wesson.com/product/model-60-3-chiefs-special
     source: maker-site
-    status: pending
+    status: approved
   - label: MODEL 60 CHIEFS SPECIAL
+    caliber: .357 Magnum
     upc: 022188624205
     part: '162420'
     msrp: 849.0
     maker_url: https://www.smith-wesson.com/product/model-60-chiefs-special
     source: maker-site
-    status: pending
+    status: approved
   - label: MODEL 60 CHIEFS SPECIAL LADYSMITH
+    caliber: .357 Magnum
     upc: 022188624144
     part: '162414'
     msrp: 889.0
     maker_url: https://www.smith-wesson.com/product/model-60-chiefs-special-ladysmith
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Model 619
@@ -18243,7 +18430,6 @@ models:
   - .45 ACP
   manufacturers:
   - Smith & Wesson
-  modern_production: true
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Model 629
@@ -18281,7 +18467,7 @@ models:
     msrp: 569.0
     maker_url: https://www.smith-wesson.com/product/model-637-chiefs-special
     source: maker-site
-    status: pending
+    status: approved
   - label: MODEL 637 CHIEFS SPECIAL CRIMSON TRACE LASERGRIP
     caliber: .38 Special
     upc: 022188630527
@@ -18289,7 +18475,7 @@ models:
     msrp: 829.0
     maker_url: https://www.smith-wesson.com/product/model-637-chiefs-special-crimson-trace-lasergrip
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER MODEL 637 ENHANCED ACTION
     caliber: .38 Special
     upc: 022188703498
@@ -18297,7 +18483,7 @@ models:
     msrp: 659.0
     maker_url: https://www.smith-wesson.com/product/performance-center-model-637-enhanced-action
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: Smith & Wesson Model 64
@@ -18312,7 +18498,6 @@ models:
   - .38 Special
   manufacturers:
   - Smith & Wesson
-  modern_production: true
   status: approved
 - name: Smith & Wesson Model 640
   aliases:
@@ -18336,7 +18521,7 @@ models:
     msrp: 849.0
     maker_url: https://www.smith-wesson.com/product/model-640
     source: maker-site
-    status: pending
+    status: approved
   - label: MODEL 640 REVOLVER ENGRAVED
     caliber: .357 Magnum
     upc: 022188142228
@@ -18344,7 +18529,7 @@ models:
     msrp: 1099.0
     maker_url: https://www.smith-wesson.com/product/j-frame-150784/
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER MODEL 640 BLACK
     caliber: .357 Magnum
     finish: Black
@@ -18353,7 +18538,7 @@ models:
     msrp: 1009.0
     maker_url: https://www.smith-wesson.com/product/performance-center-model-640-black
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Model 642
@@ -18378,7 +18563,7 @@ models:
     msrp: 829.0
     maker_url: https://www.smith-wesson.com/product/model-642-crimson-trace-lasergrips-no-internal-lock
     source: maker-site
-    status: pending
+    status: approved
   - label: MODEL 642 CT CRIMSON TRACE LASERGRIPS
     caliber: .38 Special
     upc: 022188638110
@@ -18386,7 +18571,7 @@ models:
     msrp: 799.0
     maker_url: https://www.smith-wesson.com/product/model-642-ct-crimson-trace-lasergrips-
     source: maker-site
-    status: pending
+    status: approved
   - label: MODEL 642 LS LADYSMITH
     caliber: .38 Special
     upc: 022188638080
@@ -18394,7 +18579,7 @@ models:
     msrp: 579.0
     maker_url: https://www.smith-wesson.com/product/j-frame-163808/
     source: maker-site
-    status: pending
+    status: approved
   - label: MODEL 642 NO INTERNAL LOCK
     caliber: .38 Special
     upc: 022188038101
@@ -18402,7 +18587,7 @@ models:
     msrp: 569.0
     maker_url: https://www.smith-wesson.com/product/j-frame-103810/
     source: maker-site
-    status: pending
+    status: approved
   - label: MODEL 642 PINK GRIP
     caliber: .38 Special
     upc: 022188137392
@@ -18410,7 +18595,7 @@ models:
     msrp: 559.0
     maker_url: https://www.smith-wesson.com/product/j-frame-150466/
     source: maker-site
-    status: pending
+    status: approved
   - label: MODEL 642 THE ULTIMATE CARRY REVOLVER IN 38SPL SILVER WITH NO LOCK
     caliber: .38 Special
     upc: 022188895858
@@ -18418,7 +18603,7 @@ models:
     msrp: 769.0
     maker_url: https://www.smith-wesson.com/product/model-642-ultimate-carry-revolver-38spl-silver-with-no-lock
     source: maker-site
-    status: pending
+    status: approved
   - label: MODEL 642 THE ULTIMATE CARRY REVOLVER S&W BOOT GRIPS
     caliber: .38 Special
     upc: 022188901740
@@ -18426,7 +18611,7 @@ models:
     msrp: 679.0
     maker_url: https://www.smith-wesson.com/product/model-642-the-ultimate-carry-revolver-s-w-boot-grips
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER MODEL 642
     caliber: .38 Special
     upc: 022188866360
@@ -18434,7 +18619,7 @@ models:
     msrp: 669.0
     maker_url: https://www.smith-wesson.com/product/performance-center-model-642
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER MODEL 642 ENHANCED ACTION
     caliber: .38 Special
     upc: 022188703481
@@ -18442,7 +18627,7 @@ models:
     msrp: 629.0
     maker_url: https://www.smith-wesson.com/product/j-frame-170348/
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W MODEL 642 AMERICA 250 EDITION
     caliber: .38 Special
     upc: 022188910209
@@ -18450,7 +18635,7 @@ models:
     msrp: 579.0
     maker_url: https://www.smith-wesson.com/product/s-w-model-642-america-250-edition
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: Smith & Wesson Model 648
@@ -18543,7 +18728,7 @@ models:
     msrp: 1039.0
     maker_url: https://www.smith-wesson.com/product/model-69
     source: maker-site
-    status: pending
+    status: approved
   - label: MODEL 69 COMBAT MAGNUM
     caliber: .44 Magnum
     upc: 022188868012
@@ -18551,7 +18736,7 @@ models:
     msrp: 1039.0
     maker_url: https://www.smith-wesson.com/product/l-frame-10064/
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Model 6906
@@ -18600,7 +18785,7 @@ models:
     msrp: 1329.0
     maker_url: https://www.smith-wesson.com/product/l-frame-10227/
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Model No. 1
@@ -18703,42 +18888,47 @@ models:
   maker_url: https://www.smith-wesson.com/products/mp-15
   variants:
   - label: M&P15 AXE PISTOL 11.5 INCH
+    caliber: 5.56x45mm NATO
     upc: 022188903560
     part: '14603'
     msrp: 1479.0
     maker_url: https://www.smith-wesson.com/product/m-p-15-axe-pistol-11-5-inch
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P15 AXE PISTOL 8 INCH
+    caliber: 5.56x45mm NATO
     barrel: 8.0
     upc: 022188903577
     part: '14604'
     msrp: 1479.0
     maker_url: https://www.smith-wesson.com/product/m-p-15-axe-pistol-8-inch
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P15 PISTOL
+    caliber: 5.56x45mm NATO
     upc: 022188884999
     part: '13320'
     msrp: 929.0
     maker_url: https://www.smith-wesson.com/product/mp-15-pistol
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P15 PISTOL FIXED ARM BRACE
+    caliber: 5.56x45mm NATO
     upc: 022188891607
     part: '13658'
     msrp: 929.0
     maker_url: https://www.smith-wesson.com/product/m-p-15-pistol-fixed-arm-brace
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P15-22 PISTOL 8 INCH BARREL
+    caliber: .22 LR
     barrel: 8.0
     upc: 022188885033
     part: '13321'
     msrp: 529.0
     maker_url: https://www.smith-wesson.com/product/mp-15-22-pistol
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: Smith & Wesson M&P 22 Compact
   aliases:
@@ -18760,7 +18950,7 @@ models:
     msrp: 439.0
     maker_url: https://www.smith-wesson.com/product/m-p-22-compact
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P22 COMPACT CERAKOTE FLAT DARK EARTH THREADED BARREL
     caliber: .22 LR
     finish: FDE
@@ -18769,7 +18959,7 @@ models:
     msrp: 469.0
     maker_url: https://www.smith-wesson.com/product/m-p-22-compact-cerakote-flat-dark-earth-threaded-barrel
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P22 COMPACT THREADED BARREL
     caliber: .22 LR
     upc: 022188866506
@@ -18777,7 +18967,7 @@ models:
     msrp: 449.0
     maker_url: https://www.smith-wesson.com/product/m-p-22-compact-threaded-barrel
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: Smith & Wesson M&P 22 Magnum
@@ -18800,7 +18990,7 @@ models:
     msrp: 649.0
     maker_url: https://www.smith-wesson.com/product/mp-22-mag
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P 22 MAGNUM WITH THUMB SAFETY 10RD COMPLIANT
     caliber: .22 WMR
     upc: 022188898002
@@ -18808,9 +18998,39 @@ models:
     msrp: 649.0
     maker_url: https://www.smith-wesson.com/product/mp-22-magnum-with-thumb-safety-10rd-compliant
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: Added 2026-10-12 for M&P listings that matched no model.
+- name: Smith & Wesson M&P22X
+  aliases:
+  - M&P22X
+  - M&P 22X
+  - S&W M&P22X
+  kind: pistol
+  country: United States
+  calibers:
+  - .22 LR
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  variants:
+  - label: M&P22X
+    caliber: .22 LR
+    upc: 022188901733
+    part: '14312'
+    msrp: 499.0
+    maker_url: https://www.smith-wesson.com/product/m-p-22x
+    source: maker-site
+    status: approved
+  - label: M&P22X 10RD COMPLIANT
+    caliber: .22 LR
+    upc: 022188904253
+    part: '14313'
+    msrp: 499.0
+    maker_url: https://www.smith-wesson.com/product/m-p-22x-10rd-compliant
+    source: maker-site
+    status: approved
+  status: approved
 - name: Smith & Wesson M&P 340
   aliases:
   - M&P 340
@@ -18831,7 +19051,7 @@ models:
     msrp: 1019.0
     maker_url: https://www.smith-wesson.com/product/m-p-340-no-internal-lock
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: Added 2026-10-12 for M&P listings that matched no model.
 - name: Smith & Wesson M&P40
@@ -18846,7 +19066,6 @@ models:
   - .40 S&W
   manufacturers:
   - Smith & Wesson
-  modern_production: true
   maker_url: https://www.smith-wesson.com/product/mp40-metal
   status: approved
 - name: Smith & Wesson M&P45
@@ -18870,7 +19089,7 @@ models:
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/m-p-45-m2.0-threaded-barrel-optics-ready-full-size
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P45 M2.0 THUMB SAFETY
     caliber: .45 ACP
     upc: 022188869750
@@ -18878,23 +19097,89 @@ models:
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/m-p-45-m2.0-thumb-safety
     source: maker-site
-    status: pending
-  - label: M&P45 SHIELD M2.0 NO THUMB SAFETY
-    caliber: .45 ACP
-    upc: 022188903751
-    part: '14659'
-    msrp: 399.0
-    maker_url: https://www.smith-wesson.com/product/m-p-45-shield-m2-0-no-thumb-safety
+    status: approved
+  status: approved
+- name: Smith & Wesson M&P 5.7
+  aliases:
+  - M&P 5.7
+  - M&P5.7
+  - M&P 5.7x28
+  - S&W M&P 5.7
+  kind: pistol
+  country: United States
+  calibers:
+  - 5.7x28mm
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  variants:
+  - label: M&P 5.7 10RD COMPLIANT
+    caliber: 5.7x28mm
+    upc: 022188898842
+    part: '14093'
+    msrp: 699.0
+    maker_url: https://www.smith-wesson.com/product/m-p-5-7-10rd-compliant
     source: maker-site
-    status: pending
-  - label: M&P45 SHIELD M2.0 THUMB SAFETY
-    caliber: .45 ACP
-    upc: 022188903744
-    part: '14658'
-    msrp: 399.0
-    maker_url: https://www.smith-wesson.com/product/m-p-45-shield-m2-0-thumb-safety
+    status: approved
+  - label: M&P 5.7 BLACK MULTICAM
+    caliber: 5.7x28mm
+    finish: Black
+    upc: 022188898545
+    part: '14184'
+    msrp: 729.0
+    maker_url: https://www.smith-wesson.com/product/m-p-5-7-black-multicam
     source: maker-site
-    status: pending
+    status: approved
+  - label: M&P 5.7 FDE
+    caliber: 5.7x28mm
+    finish: FDE
+    upc: 022188895490
+    part: '14004'
+    msrp: 729.0
+    maker_url: https://www.smith-wesson.com/product/mp-57-fde
+    source: maker-site
+    status: approved
+  - label: M&P 5.7 MULTICAM
+    caliber: 5.7x28mm
+    upc: 022188898521
+    part: '14183'
+    msrp: 729.0
+    maker_url: https://www.smith-wesson.com/product/m-p-5-7-multicam
+    source: maker-site
+    status: approved
+  - label: M&P 5.7 NO THUMB SAFETY
+    caliber: 5.7x28mm
+    upc: 022188893564
+    part: '13348'
+    msrp: 699.0
+    maker_url: https://www.smith-wesson.com/product/mp-57-no-safety
+    source: maker-site
+    status: approved
+  - label: M&P 5.7 Two-tone Black and FDE w/No Thumb Safety
+    caliber: 5.7x28mm
+    finish: Two-tone
+    upc: 022188895988
+    part: '14078'
+    msrp: 719.0
+    maker_url: https://www.smith-wesson.com/product/mp-57-two-tone-fde-black
+    source: maker-site
+    status: approved
+  - label: M&P 5.7 WITH PROTAC BAG EXTRA MAGS
+    caliber: 5.7x28mm
+    upc: 022188899597
+    part: '14378'
+    msrp: 699.0
+    maker_url: https://www.smith-wesson.com/product/mp57-with-protac-bag-extra-mags
+    source: maker-site
+    status: approved
+  - label: M&P 5.7 WITH THUMB SAFETY
+    caliber: 5.7x28mm
+    upc: 022188891218
+    part: '13347'
+    msrp: 699.0
+    maker_url: https://www.smith-wesson.com/product/mp57
+    source: maker-site
+    status: approved
   status: approved
 - name: Smith & Wesson M&P9
   aliases:
@@ -18919,7 +19204,7 @@ models:
     msrp: 949.0
     maker_url: https://www.smith-wesson.com/product/mp9-metal-in-gold-10rd-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P 9 M2.0 COMPACT 10RD COMPLIANT
     caliber: 9mm Luger
     upc: 022188896244
@@ -18927,7 +19212,7 @@ models:
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/mp9-m20-compact-10rd-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P 9 M2.0 COMPACT FDE 10RD COMPLIANT
     caliber: 9mm Luger
     finish: FDE
@@ -18936,7 +19221,7 @@ models:
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/mp9-m20-compact-fde-10rd-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 3.6 INCH COMPACT NO THUMB SAFETY CARRY ON BUNDLE
     caliber: 9mm Luger
     barrel: 3.6
@@ -18945,7 +19230,7 @@ models:
     msrp: 799.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2-0-3-6-inch-compact-no-thumb-safety-carry-on-bundle
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 3.6 INCH METAL COMPACT NO THUMB SAFETY
     caliber: 9mm Luger
     barrel: 3.6
@@ -18954,7 +19239,7 @@ models:
     msrp: 949.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2-0-3-6-inch-metal-compact-no-thumb-safety
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 3.6 INCH METAL COMPACT THUMB SAFETY
     caliber: 9mm Luger
     barrel: 3.6
@@ -18963,7 +19248,7 @@ models:
     msrp: 949.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2-0-3-6-inch-metal-compact-thumb-safety
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 3.6 INCH METAL COMPACT THUMB SAFETY 10RD COMPLIANT
     caliber: 9mm Luger
     barrel: 3.6
@@ -18972,7 +19257,7 @@ models:
     msrp: 949.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2-0-3-6-inch-metal-compact-thumb-safety-10rd-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 3.6 INCH NO THUMB SAFETY OPTICS READY COMPACT SERIES
     caliber: 9mm Luger
     barrel: 3.6
@@ -18981,7 +19266,7 @@ models:
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2.0-3.6-inch-no-thumb-safety-optics-ready-compact-series
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 3.6 INCH THUMB SAFETY OPTICS READY COMPACT SERIES
     caliber: 9mm Luger
     barrel: 3.6
@@ -18990,7 +19275,7 @@ models:
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2.0-3.6-inch-thumb-safety-optics-ready-compact-series
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 4 INCH METAL COMPACT NO THUMB SAFETY
     caliber: 9mm Luger
     barrel: 4.0
@@ -18999,7 +19284,7 @@ models:
     msrp: 949.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2-0-4-inch-metal-compact-no-thumb-safety
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 4 INCH METAL COMPACT THUMB SAFETY
     caliber: 9mm Luger
     barrel: 4.0
@@ -19008,7 +19293,7 @@ models:
     msrp: 949.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2-0-4-inch-metal-compact-thumb-safety
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 4 INCH METAL COMPACT THUMB SAFETY 10RD COMPLIANT
     caliber: 9mm Luger
     barrel: 4.0
@@ -19017,7 +19302,7 @@ models:
     msrp: 949.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2-0-4-inch-metal-compact-thumb-safety-10rd-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 4 INCH OPTICS READY NO THUMB SAFETY COMPACT SERIES
     caliber: 9mm Luger
     barrel: 4.0
@@ -19026,7 +19311,7 @@ models:
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2.0-4-inch-optics-ready-no-thumb-safety-compact-series
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 4 INCH OPTICS READY NO THUMB SAFETY FLAT DARK EARTH COMPACT SERIES
     caliber: 9mm Luger
     barrel: 4.0
@@ -19036,7 +19321,7 @@ models:
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2.0-4-inch-optics-ready-no-thumb-safety-flat-dark-earth-compact-series
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 4 INCH OPTICS READY THUMB SAFETY COMPACT SERIES
     caliber: 9mm Luger
     barrel: 4.0
@@ -19045,7 +19330,7 @@ models:
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2.0-4-inch-optics-ready-thumb-safety-compact-series
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 4 INCH OPTICS READY THUMB SAFETY FLAT DARK EARTH COMPACT SERIES
     caliber: 9mm Luger
     barrel: 4.0
@@ -19055,7 +19340,7 @@ models:
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2.0-4-inch-optics-ready-thumb-safety-flat-dark-earth-compact-series
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 COMPACT OPTICS READY CA COMPLIANT
     caliber: 9mm Luger
     upc: 022188900613
@@ -19063,7 +19348,7 @@ models:
     msrp: 679.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2-0-compact-optics-ready-ca-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 FULL SIZE 5IN FDE
     caliber: 9mm Luger
     barrel: 5.0
@@ -19073,7 +19358,7 @@ models:
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2.0-optics-ready-full-size-fde
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 METAL
     caliber: 9mm Luger
     upc: 022188884951
@@ -19081,7 +19366,7 @@ models:
     msrp: 949.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2.0-metal
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 METAL 10RD COMPLIANT
     caliber: 9mm Luger
     upc: 022188898217
@@ -19089,7 +19374,7 @@ models:
     msrp: 949.0
     maker_url: https://www.smith-wesson.com/product/mp-9-metal-10rd-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 METAL 4.25 INCH TUNGSTEN GRAY
     caliber: 9mm Luger
     barrel: 4.25
@@ -19099,7 +19384,7 @@ models:
     msrp: 949.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2-0-metal-4-25-inch-tungsten-gray
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 METAL CA COMPLIANT
     caliber: 9mm Luger
     upc: 022188900521
@@ -19107,7 +19392,7 @@ models:
     msrp: 949.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2-0-metal-ca-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 METAL CARRY ON BUNDLE
     caliber: 9mm Luger
     upc: 022188905427
@@ -19115,7 +19400,7 @@ models:
     msrp: 949.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2-0-metal-carry-on-bundle
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 METAL COMPACT CA COMPLIANT
     caliber: 9mm Luger
     upc: 022188900538
@@ -19123,7 +19408,7 @@ models:
     msrp: 949.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2-0-metal-compact-ca-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 METAL COMPACT THUMB SAFETY 10RD COMPLIANT OD GREEN
     caliber: 9mm Luger
     finish: OD Green
@@ -19132,7 +19417,7 @@ models:
     msrp: 949.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2-0-metal-compact-thumb-safety-10rd-compliant-od-green
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 METAL COMPACT THUMB SAFETY OD GREEN
     caliber: 9mm Luger
     finish: OD Green
@@ -19141,7 +19426,7 @@ models:
     msrp: 949.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2-0-metal-compact-thumb-safety-od-green
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 METAL HD NO THUMB SAFETY
     caliber: 9mm Luger
     upc: 022188904888
@@ -19149,7 +19434,7 @@ models:
     msrp: 1149.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2-0-metal-hd-no-thumb-safety
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 METAL HD NO THUMB SAFETY 15RD
     caliber: 9mm Luger
     upc: 022188906707
@@ -19157,7 +19442,7 @@ models:
     msrp: 1149.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2-0-metal-hd-no-thumb-safety-15rd
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 METAL HD THUMB SAFETY
     caliber: 9mm Luger
     upc: 022188904895
@@ -19165,7 +19450,7 @@ models:
     msrp: 1149.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2-0-metal-hd-thumb-safety
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 METAL HD THUMB SAFETY 10RD COMPLIANT
     caliber: 9mm Luger
     upc: 022188905205
@@ -19173,7 +19458,7 @@ models:
     msrp: 1149.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2-0-metal-hd-thumb-safety-10rd-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 METAL IN FDE WITH THREADED BARREL
     caliber: 9mm Luger
     finish: FDE
@@ -19182,7 +19467,7 @@ models:
     msrp: 949.0
     maker_url: https://www.smith-wesson.com/product/mp-9-metal-in-fde-with-threaded-barrel
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 METAL IN GOLD
     caliber: 9mm Luger
     upc: 022188899078
@@ -19190,7 +19475,7 @@ models:
     msrp: 949.0
     maker_url: https://www.smith-wesson.com/product/mp9-metal-in-gold
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 METAL NIGHT SIGHTS
     caliber: 9mm Luger
     upc: 022188893410
@@ -19198,7 +19483,7 @@ models:
     msrp: 969.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2-0-metal-night-sights
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 METAL WITH AIMPOINT ACRO CUT
     caliber: 9mm Luger
     upc: 022188905519
@@ -19206,7 +19491,7 @@ models:
     msrp: 949.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2-0-metal-with-aimpoint-acro-cut
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 METAL WITH HOLOSUN HS407C BUNDLE
     caliber: 9mm Luger
     upc: 022188895056
@@ -19214,7 +19499,7 @@ models:
     msrp: 1149.0
     maker_url: https://www.smith-wesson.com/product/mp-9-m2-0-metal-with-holosun-hs407c-bundle
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 METAL WITH THREADED BARREL
     caliber: 9mm Luger
     upc: 022188897593
@@ -19222,7 +19507,7 @@ models:
     msrp: 949.0
     maker_url: https://www.smith-wesson.com/product/mp-9-metal-with-threaded-barrel
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 OPTIC READY NO THUMB SAFETY 15RD
     caliber: 9mm Luger
     upc: 022188907193
@@ -19230,7 +19515,7 @@ models:
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2-0-optic-ready-no-thumb-safety-15rd
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 OPTIC READY THUMB SAFETY 15RD
     caliber: 9mm Luger
     upc: 022188908602
@@ -19238,7 +19523,7 @@ models:
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2-0-optic-ready-thumb-safety-15rd
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 OPTICS READY CA COMPLIANT
     caliber: 9mm Luger
     upc: 022188900606
@@ -19246,7 +19531,7 @@ models:
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2-0-optics-ready-ca-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 OPTICS READY FULL SIZE SERIES
     caliber: 9mm Luger
     upc: 022188889703
@@ -19254,7 +19539,7 @@ models:
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2.0-optics-ready-full-size-series
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 THREADED BARREL FDE
     caliber: 9mm Luger
     finish: FDE
@@ -19263,7 +19548,7 @@ models:
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2-0-threaded-barrel-fde
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 THREADED BARREL OPTICS READY FULL SIZE
     caliber: 9mm Luger
     upc: 022188889598
@@ -19271,7 +19556,7 @@ models:
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2.0-threaded-barrel-optics-ready-full-size
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 THREADED BARREL TURQUOISE PVD
     caliber: 9mm Luger
     upc: 022188903911
@@ -19279,7 +19564,7 @@ models:
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2-0-threaded-barrel-turquoise-pvd
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 M2.0 THUMB SAFETY OPTICS READY FULL SIZE SERIES
     caliber: 9mm Luger
     upc: 022188889581
@@ -19287,7 +19572,7 @@ models:
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-m2.0-thumb-safety-optics-ready-full-size-series
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P9 M2.0 COMPETITOR 10 ROUNDS
     caliber: 9mm Luger
     upc: 022188884760
@@ -19295,7 +19580,7 @@ models:
     msrp: 1049.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-9-m2.0-competitor-10-rounds
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P9 M2.0 COMPETITOR 17 ROUNDS
     caliber: 9mm Luger
     upc: 022188884777
@@ -19303,7 +19588,7 @@ models:
     msrp: 1049.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-9-m2.0-competitor-17-rounds
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P9 M2.0 COMPETITOR 2 TONE 10 ROUNDS
     caliber: 9mm Luger
     finish: Two-tone
@@ -19312,7 +19597,7 @@ models:
     msrp: 1049.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-9-m2.0-competitor-2-tone-10-rounds
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P9 M2.0 COMPETITOR 2 TONE 17 ROUNDS
     caliber: 9mm Luger
     finish: Two-tone
@@ -19321,7 +19606,7 @@ models:
     msrp: 1049.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-9-m2.0-competitor-2-tone-17-rounds
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P9 M2.0 COMPETITOR HD NO THUMB SAFETY
     caliber: 9mm Luger
     upc: 022188900880
@@ -19329,7 +19614,7 @@ models:
     msrp: 1299.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-9-m2-0-competitor-hd-no-thumb-safety
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P9 M2.0 COMPETITOR HD NO THUMB SAFETY 10RD COMPLIANT
     caliber: 9mm Luger
     upc: 022188901054
@@ -19337,7 +19622,7 @@ models:
     msrp: 1299.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-9-m2-0-competitor-hd-no-thumb-safety-10rd-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P9 M2.0 COMPETITOR HD THUMB SAFETY
     caliber: 9mm Luger
     upc: 022188901146
@@ -19345,7 +19630,7 @@ models:
     msrp: 1299.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-9-m2-0-competitor-hd-thumb-safety
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P9 M2.0 COMPETITOR HD THUMB SAFETY 10RD COMPLIANT
     caliber: 9mm Luger
     upc: 022188901047
@@ -19353,7 +19638,7 @@ models:
     msrp: 1299.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-9-m2-0-competitor-hd-thumb-safety-10rd-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P9 M2.0 COPPER PVD WITH COMPENSATOR
     caliber: 9mm Luger
     upc: 0221888905403
@@ -19361,7 +19646,7 @@ models:
     msrp: 899.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-9-m2-0-copper-pvd-with-compensator
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P9 M2.0 METAL GOLD PVD WITH COMPENSATOR
     caliber: 9mm Luger
     upc: 0221888905199
@@ -19369,7 +19654,7 @@ models:
     msrp: 1149.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-9-m2-0-metal-gold-pvd-with-compensator
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P9 M2.0 METAL OD GREEN
     caliber: 9mm Luger
     finish: OD Green
@@ -19378,7 +19663,7 @@ models:
     msrp: 979.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-9-m2-0-metal-od-green
     source: maker-site
-    status: pending
+    status: approved
   - label: SPEC SERIES VI M&P 9 M2.0 METAL COMPACT
     caliber: 9mm Luger
     upc: 022188905021
@@ -19386,7 +19671,7 @@ models:
     msrp: 1899.0
     maker_url: https://www.smith-wesson.com/product/spec-series-vi-m-p-9-m2-0-metal-compact
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: Smith & Wesson M&P FPC
   aliases:
@@ -19435,7 +19720,7 @@ models:
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/m-p-10mm-m2-0-4-inch-thumb-safety-10rd-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P 10MM M2.0 4 INCH THUMB SAFETY OD GREEN/TUNGSTEN GRAY
     caliber: 10mm Auto
     barrel: 4.0
@@ -19445,7 +19730,7 @@ models:
     msrp: 709.0
     maker_url: https://www.smith-wesson.com/product/m-p-10mm-m2-0-4-inch-thumb-safety-od-green-tungsten-gray
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P 10MM M2.0 4.6 INCH CA COMPLIANT
     caliber: 10mm Auto
     barrel: 4.6
@@ -19454,7 +19739,7 @@ models:
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/m-p-10mm-m2-0-4-6-inch-ca-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P 10MM M2.0 4.6 INCH CA COMPLIANT BURNT BRONZE
     caliber: 10mm Auto
     barrel: 4.6
@@ -19463,7 +19748,7 @@ models:
     msrp: 709.0
     maker_url: https://www.smith-wesson.com/product/m-p-10mm-m2-0-4-6-inch-ca-compliant-burnt-bronze
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P 10MM M2.0 4.6 INCH THUMB SAFETY 10RD COMPLIANT
     caliber: 10mm Auto
     barrel: 4.6
@@ -19472,7 +19757,7 @@ models:
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/m-p-10mm-m2-0-4-6-inch-thumb-safety-10rd-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P 10MM M2.0 4.6 INCH THUMB SAFETY OD GREEN/TUNGSTEN GRAY
     caliber: 10mm Auto
     barrel: 4.6
@@ -19482,7 +19767,7 @@ models:
     msrp: 719.0
     maker_url: https://www.smith-wesson.com/product/m-p-10mm-m2-0-4-6-inch-thumb-safety-od-green-tungsten-gray
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P 10MM M2.0 5.6 INCH CA COMPLIANT BURNT BRONZE
     caliber: 10mm Auto
     barrel: 5.6
@@ -19491,7 +19776,7 @@ models:
     msrp: 789.0
     maker_url: https://www.smith-wesson.com/product/m-p-10mm-m2-0-5-6-inch-ca-compliant-burnt-bronze
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P 10MM M2.0 FDE WITH THUMB SAFETY
     caliber: 10mm Auto
     finish: FDE
@@ -19500,7 +19785,7 @@ models:
     msrp: 729.0
     maker_url: https://www.smith-wesson.com/product/mp-10mm-fde-with-thumb-safety
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P 10MM M2.0 OPTICS READY SLIDE
     caliber: 10mm Auto
     upc: 022188885637
@@ -19508,7 +19793,7 @@ models:
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/m-p-10mm-m2.0-optics-ready-slide
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P 10MM M2.0 OPTICS READY SLIDE 4" BARREL
     caliber: 10mm Auto
     barrel: 4.0
@@ -19517,7 +19802,7 @@ models:
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/m-p-10mm-m2.0-optics-ready-slide-4-barrel
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P 10MM M2.0 THUMB SAFETY 4" BARREL WITH VORTEX VENOM BUNDLE
     caliber: 10mm Auto
     barrel: 4.0
@@ -19526,7 +19811,7 @@ models:
     msrp: 849.0
     maker_url: https://www.smith-wesson.com/product/mp-10mm-thumb-safety-4-barrel-with-vortex-venom-bundle
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P 10MM M2.0 THUMB SAFETY OPTICS READY SLIDE
     caliber: 10mm Auto
     upc: 022188885620
@@ -19534,7 +19819,7 @@ models:
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/m-p-10mm-m2.0-thumb-safety-optics-ready-slide
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P 10MM M2.0 THUMB SAFETY OPTICS READY SLIDE 4" BARREL
     caliber: 10mm Auto
     barrel: 4.0
@@ -19543,108 +19828,23 @@ models:
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/m-p-10mm-m2.0-thumb-safety-optics-ready-slide-4-barrel
     source: maker-site
-    status: pending
-  - label: M&P 5.7 10RD COMPLIANT
-    upc: 022188898842
-    part: '14093'
-    msrp: 699.0
-    maker_url: https://www.smith-wesson.com/product/m-p-5-7-10rd-compliant
-    source: maker-site
-    status: pending
-  - label: M&P 5.7 BLACK MULTICAM
-    finish: Black
-    upc: 022188898545
-    part: '14184'
-    msrp: 729.0
-    maker_url: https://www.smith-wesson.com/product/m-p-5-7-black-multicam
-    source: maker-site
-    status: pending
-  - label: M&P 5.7 FDE
-    finish: FDE
-    upc: 022188895490
-    part: '14004'
-    msrp: 729.0
-    maker_url: https://www.smith-wesson.com/product/mp-57-fde
-    source: maker-site
-    status: pending
-  - label: M&P 5.7 MULTICAM
-    upc: 022188898521
-    part: '14183'
-    msrp: 729.0
-    maker_url: https://www.smith-wesson.com/product/m-p-5-7-multicam
-    source: maker-site
-    status: pending
-  - label: M&P 5.7 NO THUMB SAFETY
-    upc: 022188893564
-    part: '13348'
-    msrp: 699.0
-    maker_url: https://www.smith-wesson.com/product/mp-57-no-safety
-    source: maker-site
-    status: pending
-  - label: M&P 5.7 Two-tone Black and FDE w/No Thumb Safety
-    finish: Two-tone
-    upc: 022188895988
-    part: '14078'
-    msrp: 719.0
-    maker_url: https://www.smith-wesson.com/product/mp-57-two-tone-fde-black
-    source: maker-site
-    status: pending
-  - label: M&P 5.7 WITH PROTAC BAG EXTRA MAGS
-    upc: 022188899597
-    part: '14378'
-    msrp: 699.0
-    maker_url: https://www.smith-wesson.com/product/mp57-with-protac-bag-extra-mags
-    source: maker-site
-    status: pending
-  - label: M&P 5.7 WITH THUMB SAFETY
-    upc: 022188891218
-    part: '13347'
-    msrp: 699.0
-    maker_url: https://www.smith-wesson.com/product/mp57
-    source: maker-site
-    status: pending
-  - label: M&P22X
-    upc: 022188901733
-    part: '14312'
-    msrp: 499.0
-    maker_url: https://www.smith-wesson.com/product/m-p-22x
-    source: maker-site
-    status: pending
-  - label: M&P22X 10RD COMPLIANT
-    upc: 022188904253
-    part: '14313'
-    msrp: 499.0
-    maker_url: https://www.smith-wesson.com/product/m-p-22x-10rd-compliant
-    source: maker-site
-    status: pending
+    status: approved
   - label: M&P40 M2.0 METAL
+    caliber: .40 S&W
     upc: 022188897814
     part: '14164'
     msrp: 949.0
     maker_url: https://www.smith-wesson.com/product/mp40-metal
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P40 M2.0 METAL 10RD COMPLIANT
+    caliber: .40 S&W
     upc: 022188897821
     part: '14165'
     msrp: 949.0
     maker_url: https://www.smith-wesson.com/product/mp40-metal-10rd-compliant
     source: maker-site
-    status: pending
-  - label: M&P40 SHIELD M2.0 NO THUMB SAFETY
-    upc: 022188903669
-    part: '14657'
-    msrp: 399.0
-    maker_url: https://www.smith-wesson.com/product/m-p-40-shield-m2-0-no-thumb-safety
-    source: maker-site
-    status: pending
-  - label: M&P40 SHIELD M2.0 THUMB SAFETY
-    upc: 022188903652
-    part: '14656'
-    msrp: 399.0
-    maker_url: https://www.smith-wesson.com/product/m-p-40-shield-m2-0-thumb-safety
-    source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P 10MM M2.0 10RD COMPLIANT
     caliber: 10mm Auto
     upc: 022188900163
@@ -19652,7 +19852,7 @@ models:
     msrp: 779.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-10mm-m2-0-10rd-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P 10MM M2.0 CA COMPLIANT
     caliber: 10mm Auto
     upc: 022188903003
@@ -19660,7 +19860,7 @@ models:
     msrp: 779.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-10mm-m2-0-ca-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P 10MM M2.0 CARRY COMP
     caliber: 10mm Auto
     upc: 022188901795
@@ -19668,7 +19868,7 @@ models:
     msrp: 799.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-10mm-m2-0-carry-comp
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P 10MM M2.0 CARRY COMP 10RD COMPLIANT
     caliber: 10mm Auto
     upc: 022188903300
@@ -19676,110 +19876,98 @@ models:
     msrp: 799.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-10mm-m2-0-carry-comp-10rd-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P 10MM M2.0 PISTOL
     caliber: 10mm Auto
     upc: 022188894806
     part: '13915'
     maker_url: https://www.smith-wesson.com/product/performance-center-mp-10mm-pistol
     source: maker-site
-    status: pending
-  - label: PERFORMANCE CENTER M&P380 SHIELD EZ M2.0 BLACK PORTED BARREL
-    finish: Black
-    upc: 022188879308
-    part: '12717'
-    msrp: 589.0
-    maker_url: https://www.smith-wesson.com/product/performance-center-m-p-380-shield-ez-m2.0-black-ported-barrel
-    source: maker-site
-    status: pending
-  - label: PERFORMANCE CENTER M&P380 SHIELD EZ M2.0 GOLD PORTED BARREL
-    upc: 022188879179
-    part: '12719'
-    msrp: 589.0
-    maker_url: https://www.smith-wesson.com/product/performance-center-m-p-380-shield-ez-m2.0-gold-ported-barrel
-    source: maker-site
-    status: pending
-  - label: PERFORMANCE CENTER M&P380 SHIELD EZ M2.0 SILVER PORTED BARREL
-    upc: 022188879315
-    part: '12718'
-    msrp: 589.0
-    maker_url: https://www.smith-wesson.com/product/performance-center-m-p-380-shield-ez-m2.0-silver-ported-barrel
-    source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P9 M2.0 CARRY COMP 4.22 INCH 15 ROUND
+    caliber: 9mm Luger
     barrel: 4.22
     upc: 022188908701
     part: '14915'
     msrp: 1049.0
     maker_url: https://www.smith-wesson.com/product/performance-center-mp9-m2-0-carry-comp-4-22-inch-15-round
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P9 M2.0 COMPACT CARRY COMP
+    caliber: 9mm Luger
     upc: 022188895841
     part: '13989'
     msrp: 849.0
     maker_url: https://www.smith-wesson.com/product/performance-center-mp9-compact-carry-comp
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P9 M2.0 COMPACT CARRY COMP THUMB SAFETY 10RD COMPLIANT
+    caliber: 9mm Luger
     upc: 022188900811
     part: '14387'
     msrp: 849.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-9-m2-0-compact-carry-comp-thumb-safety-10rd-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P9 M2.0 FULL-SIZE CARRY COMP
+    caliber: 9mm Luger
     upc: 022188900835
     part: '14415'
     msrp: 829.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-9-m2-0-full-size-carry-comp
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P9 M2.0 METAL CARRY COMP
+    caliber: 9mm Luger
     upc: 022188895742
     part: '13987'
     msrp: 1049.0
     maker_url: https://www.smith-wesson.com/product/performance-center-mp9-metal-carry-comp
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P9 M2.0 METAL CARRY COMP 10RD COMPLIANT
+    caliber: 9mm Luger
     upc: 022188900774
     part: '14338'
     msrp: 1049.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-9-m2-0-metal-carry-comp-10rd-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P9 M2.0 METAL CARRY COMP MIDNIGHT BRONZE
+    caliber: 9mm Luger
     upc: 022188907308
     part: '14843'
     msrp: 1059.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-9-m2-0-metal-carry-comp-midnight-bronze
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P9 M2.0 METAL CARRY COMP OD GREEN/FDE
+    caliber: 9mm Luger
     finish: FDE
     upc: 022188901481
     part: '14438'
     msrp: 1049.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-9-m2-0-metal-carry-comp-od-green-fde
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P9 M2.0 METAL CARRY COMP OD GREEN/GRAY
+    caliber: 9mm Luger
     finish: OD Green
     upc: 022188904154
     part: '14715'
     msrp: 1019.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-9-m2-0-metal-carry-comp-od-green-gray
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P9 M2.0 METAL COMPACT CARRY COMP BLACK MULTICAM
+    caliber: 9mm Luger
     finish: Black
     upc: 022188904345
     part: '14647'
     msrp: 1099.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-9-m2-0-metal-compact-carry-comp-black-multicam
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: Added 2026-10-12 for M&P listings that matched no model.
 - name: Smith & Wesson M&P Shield
@@ -19805,152 +19993,204 @@ models:
   maker_url: https://www.smith-wesson.com/products/shield-m2-0
   variants:
   - label: M&P SHIELD X CA COMPLIANT
+    caliber: 9mm Luger
     upc: 022188903997
     part: '14459'
     msrp: 599.0
     maker_url: https://www.smith-wesson.com/product/m-p-shield-x-ca-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P SHIELD X CARRY ON BUNDLE WITH OPTIC
+    caliber: 9mm Luger
     upc: 022188909623
     part: '14955'
     msrp: 599.0
     maker_url: https://www.smith-wesson.com/product/m-p-shield-x-carry-on-bundle-with-optic
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P SHIELD X NO THUMB SAFETY
+    caliber: 9mm Luger
     upc: 022188900842
     part: '14263'
     msrp: 599.0
     maker_url: https://www.smith-wesson.com/product/m-p-shield-x-no-thumb-safety
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P SHIELD X THUMB SAFETY
+    caliber: 9mm Luger
     upc: 022188900859
     part: '14264'
     msrp: 599.0
     maker_url: https://www.smith-wesson.com/product/m-p-shield-x-thumb-safety
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P SHIELD X THUMB SAFETY 10RD COMPLIANT
+    caliber: 9mm Luger
     upc: 022188901122
     part: '14265'
     msrp: 599.0
     maker_url: https://www.smith-wesson.com/product/m-p-shield-x-thumb-safety-10rd-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P SHIELD X THUMB SAFETY BLUE TITANIUM
+    caliber: 9mm Luger
     finish: Blued
     upc: 022188907094
     part: '14853'
     msrp: 609.0
     maker_url: https://www.smith-wesson.com/product/m-p-shield-x-thumb-safety-blue-titanium
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P SHIELD X THUMB SAFETY CA COMPLIANT BURNT BRONZE
+    caliber: 9mm Luger
     upc: 022188907469
     part: '14871'
     msrp: 609.0
     maker_url: https://www.smith-wesson.com/product/m-p-shield-x-thumb-safety-ca-compliant-burnt-bronze
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P SHIELD X THUMB SAFETY MIDNIGHT BRONZE
+    caliber: 9mm Luger
     upc: 022188907100
     part: '14854'
     msrp: 609.0
     maker_url: https://www.smith-wesson.com/product/m-p-shield-x-thumb-safety-midnight-bronze
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P SHIELD X THUMB SAFETY OD GREEN
+    caliber: 9mm Luger
     finish: OD Green
     upc: 022188906240
     part: '14803'
     msrp: 609.0
     maker_url: https://www.smith-wesson.com/product/m-p-shield-x-thumb-safety-od-green
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P SHIELD X THUMB SAFETY OD GREEN/FDE
+    caliber: 9mm Luger
     finish: FDE
     upc: 022199905090
     part: '14793'
     msrp: 619.0
     maker_url: https://www.smith-wesson.com/product/m-p-shield-x-thumb-safety-od-green-fde
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P SHIELD X THUMB SAFETY THREADED BARREL MIDNIGHT BRONZE
+    caliber: 9mm Luger
     upc: 022188907087
     part: '14852'
     msrp: 619.0
     maker_url: https://www.smith-wesson.com/product/m-p-shield-x-thumb-safety-threaded-barrel-midnight-bronze
     source: maker-site
-    status: pending
+    status: approved
+  - label: M&P40 SHIELD M2.0 NO THUMB SAFETY
+    caliber: .40 S&W
+    upc: 022188903669
+    part: '14657'
+    msrp: 399.0
+    maker_url: https://www.smith-wesson.com/product/m-p-40-shield-m2-0-no-thumb-safety
+    source: maker-site
+    status: approved
+  - label: M&P40 SHIELD M2.0 THUMB SAFETY
+    caliber: .40 S&W
+    upc: 022188903652
+    part: '14656'
+    msrp: 399.0
+    maker_url: https://www.smith-wesson.com/product/m-p-40-shield-m2-0-thumb-safety
+    source: maker-site
+    status: approved
+  - label: M&P45 SHIELD M2.0 NO THUMB SAFETY
+    caliber: .45 ACP
+    upc: 022188903751
+    part: '14659'
+    msrp: 399.0
+    maker_url: https://www.smith-wesson.com/product/m-p-45-shield-m2-0-no-thumb-safety
+    source: maker-site
+    status: approved
+  - label: M&P45 SHIELD M2.0 THUMB SAFETY
+    caliber: .45 ACP
+    upc: 022188903744
+    part: '14658'
+    msrp: 399.0
+    maker_url: https://www.smith-wesson.com/product/m-p-45-shield-m2-0-thumb-safety
+    source: maker-site
+    status: approved
   - label: PERFORMANCE CENTER M&P SHIELD X BLUE PVD WITH COMPENSATOR
+    caliber: 9mm Luger
     finish: Blued
     upc: 022188906233
     part: '14802'
     msrp: 749.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-shield-x-blue-pvd-with-compensator
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P SHIELD X CARRY COMP CA COMPLIANT
+    caliber: 9mm Luger
     upc: 022188905533
     part: '14775'
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-shield-x-carry-comp-ca-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P SHIELD X CARRY COMP CA COMPLIANT BLUE TITANIUM
+    caliber: 9mm Luger
     finish: Blued
     upc: 022188907872
     part: '14886'
     msrp: 709.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-shield-x-carry-comp-ca-compliant-blue-titanium
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P SHIELD X CARRY COMP NO THUMB SAFETY
+    caliber: 9mm Luger
     upc: 022188901214
     part: '14269'
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-shield-x-carry-comp-no-thumb-safety
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P SHIELD X CARRY COMP THUMB SAFETY
+    caliber: 9mm Luger
     upc: 022188901221
     part: '14270'
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-shield-x-carry-comp-thumb-safety
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P SHIELD X CARRY COMP THUMB SAFETY 10RD COMPLIANT
+    caliber: 9mm Luger
     upc: 022188900873
     part: '14271'
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-shield-x-carry-comp-thumb-safety-10rd-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P SHIELD X CARRY COMP THUMB SAFETY BLUE TITANIUM
+    caliber: 9mm Luger
     finish: Blued
     upc: 022188907155
     part: '14855'
     msrp: 709.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-shield-x-carry-comp-thumb-safety-blue-titanium
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P SHIELD X CARRY COMP THUMB SAFETY MIDNIGHT BRONZE
+    caliber: 9mm Luger
     upc: 022188907070
     part: '14845'
     msrp: 709.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-shield-x-carry-comp-thumb-safety-midnight-bronze
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P SHIELD X THREADED BARREL BLUE PVD
+    caliber: 9mm Luger
     finish: Blued
     upc: 022188906226
     part: '14801'
     msrp: 699.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-shield-x-threaded-barrel-blue-pvd
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   position: 900
 - name: Smith & Wesson M&P Shield EZ
@@ -19971,122 +20211,161 @@ models:
   maker_url: https://www.smith-wesson.com/products/shield-ez
   variants:
   - label: M&P 380 SHIELD EZ
+    caliber: .380 ACP
     upc: 022188872934
     part: '180023'
     msrp: 469.0
     maker_url: https://www.smith-wesson.com/product/shield-ez-180023/
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P 380 SHIELD EZ MANUAL THUMB SAFETY
+    caliber: .380 ACP
     upc: 022188869743
     part: '11663'
     msrp: 469.0
     maker_url: https://www.smith-wesson.com/product/m-p-380-shield-ez-manual-thumb-safety
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P 380 SHIELD EZ MANUAL THUMB SAFETY PURPLE/BLACK
+    caliber: .380 ACP
     finish: Black
     upc: 022188884456
     part: '13327'
     msrp: 479.0
     maker_url: https://www.smith-wesson.com/product/mp-380-shield-ez-manual-thumb-safety-purple-black
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P 380 SHIELD EZ MANUAL THUMB SAFETY PURPLE/GRAY
+    caliber: .380 ACP
     finish: Gray
     upc: 022188884081
     part: '13328'
     msrp: 499.0
     maker_url: https://www.smith-wesson.com/product/mp-380-shield-ez-manual-thumb-safety-purple-gray
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P 380 SHIELD EZ THUMB SAFETY WITH TAC SIX BAG AND EXTRA MAGS
+    caliber: .380 ACP
     upc: 022188904017
     part: '14678'
     msrp: 469.0
     maker_url: https://www.smith-wesson.com/product/m-p-380-shield-ez-thumb-safety-with-tac-six-bag-and-extra-mags
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P 9 SHIELD EZ MANUAL THUMB SAFETY PURPLE/BLACK
+    caliber: 9mm Luger
     finish: Black
     upc: 022188884098
     part: '13329'
     msrp: 549.0
     maker_url: https://www.smith-wesson.com/product/mp-9-shield-ez-manual-thumb-safety-purple-black
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P 9 SHIELD EZ MANUAL THUMB SAFETY PURPLE/GRAY
+    caliber: 9mm Luger
     finish: Gray
     upc: 022188884500
     part: '13330'
     msrp: 559.0
     maker_url: https://www.smith-wesson.com/product/mp-9-shield-ez-manual-thumb-safety-purple-gray
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 SHIELD EZ MANUAL THUMB SAFETY
+    caliber: 9mm Luger
     upc: 022188879209
     part: '12436'
     msrp: 539.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-shield-ez-manual-thumb-safety
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 SHIELD EZ MANUAL THUMB SAFETY CRIMSON TRACE RED LASERGUARD
+    caliber: 9mm Luger
     upc: 022188882827
     part: '12438'
     msrp: 649.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-shield-ez-manual-thumb-safety-crimson-trace-red-laserguard-
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 SHIELD EZ NO THUMB SAFETY
+    caliber: 9mm Luger
     upc: 022188879216
     part: '12437'
     msrp: 539.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-shield-ez-no-thumb-safety
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 SHIELD EZ NO THUMB SAFETY CRIMSON TRACE RED LASERGUARD
+    caliber: 9mm Luger
     upc: 022188882810
     part: '12439'
     msrp: 649.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-shield-ez-no-thumb-safety-crimson-trace-red-laserguard-
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 SHIELD EZ THUMB SAFETY WITH TAC SIX BAG AND EXTRA MAGS
+    caliber: 9mm Luger
     upc: 022188904000
     part: '14677'
     msrp: 539.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-shield-ez-thumb-safety-with-tac-six-bag-and-extra-mags
     source: maker-site
-    status: pending
+    status: approved
+  - label: PERFORMANCE CENTER M&P380 SHIELD EZ M2.0 BLACK PORTED BARREL
+    caliber: .380 ACP
+    finish: Black
+    upc: 022188879308
+    part: '12717'
+    msrp: 589.0
+    maker_url: https://www.smith-wesson.com/product/performance-center-m-p-380-shield-ez-m2.0-black-ported-barrel
+    source: maker-site
+    status: approved
+  - label: PERFORMANCE CENTER M&P380 SHIELD EZ M2.0 GOLD PORTED BARREL
+    caliber: .380 ACP
+    upc: 022188879179
+    part: '12719'
+    msrp: 589.0
+    maker_url: https://www.smith-wesson.com/product/performance-center-m-p-380-shield-ez-m2.0-gold-ported-barrel
+    source: maker-site
+    status: approved
+  - label: PERFORMANCE CENTER M&P380 SHIELD EZ M2.0 SILVER PORTED BARREL
+    caliber: .380 ACP
+    upc: 022188879315
+    part: '12718'
+    msrp: 589.0
+    maker_url: https://www.smith-wesson.com/product/performance-center-m-p-380-shield-ez-m2.0-silver-ported-barrel
+    source: maker-site
+    status: approved
   - label: PERFORMANCE CENTER M&P9 SHIELD EZ BLACK PORTED BARREL MANUAL THUMB SAFETY
+    caliber: 9mm Luger
     finish: Black
     upc: 022188883879
     part: '13223'
     msrp: 669.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-9-shield-ez-black-ported-barrel-manual-thumb-safety
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P9 SHIELD EZ SILVER PORTED BARREL MANUAL THUMB SAFETY
+    caliber: 9mm Luger
     upc: 022188884029
     part: '13225'
     msrp: 669.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-9-shield-ez-silver-ported-barrel-manual-thumb-safety
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W SHIELD EZ 30 SUPER CARRY
     upc: 022188887402
     part: '13459'
     msrp: 519.0
     maker_url: https://www.smith-wesson.com/product/shield-ez-13459/
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W SHIELD EZ THUMB SAFETY 30 SUPER CARRY
     upc: 022188887419
     part: '13458'
     msrp: 519.0
     maker_url: https://www.smith-wesson.com/product/shield-ez-13458/
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   position: 895
   notes: Added 2026-10-12 for M&P listings that matched no model.
@@ -20110,7 +20389,7 @@ models:
     msrp: 499.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-shield-plus
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P 9 SHIELD PLUS THUMB SAFETY
     caliber: 9mm Luger
     upc: 022188884920
@@ -20118,14 +20397,14 @@ models:
     msrp: 499.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-shield-plus-thumb-safety
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P 9 SHIELD PLUS WITH THREADED BARREL
     caliber: 9mm Luger
     upc: 022188897807
     part: '14095'
     maker_url: https://www.smith-wesson.com/product/mp9-shield-plus-with-threaded-barrel
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 SHIELD PLUS BUG OUT BAG BUNDLE
     caliber: 9mm Luger
     upc: 022188899016
@@ -20133,7 +20412,7 @@ models:
     msrp: 549.0
     maker_url: https://www.smith-wesson.com/product/mp-9-shield-plus-bug-out-bag-bundle
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 SHIELD PLUS CA COMPLIANT
     caliber: 9mm Luger
     upc: 022188901153
@@ -20141,7 +20420,7 @@ models:
     msrp: 549.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-shield-plus-ca-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 SHIELD PLUS MIDNIGHT BRONZE WITH SAFETY
     caliber: 9mm Luger
     upc: 022188891508
@@ -20149,7 +20428,7 @@ models:
     msrp: 559.0
     maker_url: https://www.smith-wesson.com/product/mp9-shield-plus-midnight-bronze-with-safety
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 SHIELD PLUS OPTICS READY
     caliber: 9mm Luger
     upc: 022188888652
@@ -20157,7 +20436,7 @@ models:
     msrp: 549.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-shield-plus-optics-ready
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 SHIELD PLUS OPTICS READY 10RD
     caliber: 9mm Luger
     upc: 022188889062
@@ -20165,7 +20444,7 @@ models:
     msrp: 549.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-shield-plus-optics-ready-10-1-round
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 SHIELD PLUS OPTICS READY THUMB SAFETY
     caliber: 9mm Luger
     upc: 022188888669
@@ -20173,7 +20452,7 @@ models:
     msrp: 549.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-shield-plus-optics-ready-thumb-safety
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 SHIELD PLUS OPTICS READY THUMB SAFETY 10RD
     caliber: 9mm Luger
     upc: 022188889055
@@ -20181,7 +20460,7 @@ models:
     msrp: 549.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-shield-plus-optics-ready-thumb-safety-10-1-round
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 SHIELD PLUS OPTICS READY THUMB SAFETY WITH TAC SIX BAG AND EXTRA MAGS
     caliber: 9mm Luger
     upc: '22188901603'
@@ -20189,7 +20468,7 @@ models:
     msrp: 549.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-shield-plus-optics-ready-thumb-safety-with-tac-six-bag-and-extra-mags
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 SHIELD PLUS THREADED BARREL TURQUOISE PVD
     caliber: 9mm Luger
     upc: 022188903904
@@ -20197,7 +20476,7 @@ models:
     msrp: 589.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-shield-plus-threaded-barrel-turquoise-pvd
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 SHIELD PLUS TS CA COMPLIANT BURNT BRONZE
     caliber: 9mm Luger
     upc: 022188907476
@@ -20205,7 +20484,7 @@ models:
     msrp: 559.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-shield-plus-ts-ca-compliant-burnt-bronze
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P9 SHIELD PLUS WITH THUMB SAFETY CARRY ON BUNDLE
     caliber: 9mm Luger
     upc: 022188905250
@@ -20213,7 +20492,7 @@ models:
     msrp: 549.0
     maker_url: https://www.smith-wesson.com/product/m-p-9-shield-plus-with-thumb-safety-carry-on-bundle
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P 9 SHIELD PLUS THUMB SAFETY
     caliber: 9mm Luger
     upc: 022188886528
@@ -20221,7 +20500,7 @@ models:
     msrp: 629.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-9-shield-plus-thumb-safety
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P 9 SHIELD PLUS WITH CARRY KIT
     caliber: 9mm Luger
     upc: 022188886535
@@ -20229,7 +20508,7 @@ models:
     msrp: 649.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-9-shield-plus-with-carry-kit
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P9 SHIELD PLUS CARRY COMP
     caliber: 9mm Luger
     upc: 022188895872
@@ -20237,7 +20516,7 @@ models:
     msrp: 649.0
     maker_url: https://www.smith-wesson.com/product/performance-center-mp9-shield-plus-carry-comp
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P9 SHIELD PLUS CARRY COMP THUMB SAFETY 10RD COMPLIANT
     caliber: 9mm Luger
     upc: 022188900675
@@ -20245,7 +20524,7 @@ models:
     msrp: 649.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-9-shield-plus-carry-comp-thumb-safety-10rd-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: S&W SHIELD PLUS OR 30 SUPER CARRY
     caliber: 9mm Luger
     upc: 022188890129
@@ -20253,7 +20532,7 @@ models:
     msrp: 549.0
     maker_url: https://www.smith-wesson.com/product/s-w-shield-plus-or-30-super-carry
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   position: 890
   notes: Added 2026-10-11 for listings with no caliber.
@@ -20306,7 +20585,7 @@ models:
     msrp: 1909.0
     maker_url: https://www.smith-wesson.com/product/sw1911-170344/
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER MODEL SW1911 5" BARREL BLUE GRIP
     barrel: 5.0
     finish: Blued
@@ -20315,21 +20594,21 @@ models:
     msrp: 1909.0
     maker_url: https://www.smith-wesson.com/product/performance-center-model-sw1911-5-barrel-blue-grip
     source: maker-site
-    status: pending
+    status: approved
   - label: SW1911 E-SERIES
     upc: 022188084825
     part: '108482'
     msrp: 1179.0
     maker_url: https://www.smith-wesson.com/product/sw1911-e-series
     source: maker-site
-    status: pending
+    status: approved
   - label: SW1911SC E-SERIES ROUND BUTT SCANDIUM FRAME
     upc: 022188084832
     part: '108483'
     msrp: 1739.0
     maker_url: https://www.smith-wesson.com/product/sw1911sc-e-series-round-butt-scandium-frame
     source: maker-site
-    status: pending
+    status: approved
   - label: SW1911SC E-SERIES ROUND BUTT SCANDIUM FRAME SILVER/BLACK
     finish: Black
     upc: 022188084856
@@ -20337,14 +20616,14 @@ models:
     msrp: 1739.0
     maker_url: https://www.smith-wesson.com/product/sw1911sc-e-series-round-butt-scandium-frame-silver-black
     source: maker-site
-    status: pending
+    status: approved
   - label: SW1911TA E-SERIES TACTICAL ACCESSORY RAIL
     upc: 022188084115
     part: '108411'
     msrp: 1679.0
     maker_url: https://www.smith-wesson.com/product/sw1911ta-e-series-tactical-accessory-rail
     source: maker-site
-    status: pending
+    status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Victory
@@ -20373,7 +20652,9 @@ models:
   kind: rifle
   country: United Kingdom
   calibers:
+  - .22 LR
   - .303 British
+  - .410 Gauge
   manufacturers:
   - BSA
   - Enfield
@@ -20458,7 +20739,7 @@ models:
     msrp: 999.0
     maker_url: https://ruger.com/products/sp101/specSheets/5765.html
     source: maker-site
-    status: pending
+    status: approved
   - label: SP101 327 Fed Mag 3" Stainless (Model 5784)
     caliber: .327 Federal Magnum
     barrel: 3.0
@@ -20468,7 +20749,7 @@ models:
     msrp: 939.0
     maker_url: https://ruger.com/products/sp101/specSheets/5784.html
     source: maker-site
-    status: pending
+    status: approved
   - label: SP101 327 Fed Mag 4.2" Stainless (Model 5773)
     caliber: .327 Federal Magnum
     barrel: 4.2
@@ -20478,7 +20759,7 @@ models:
     msrp: 999.0
     maker_url: https://ruger.com/products/sp101/specSheets/5773.html
     source: maker-site
-    status: pending
+    status: approved
   - label: SP101 357 Mag 2.25" Blued (Model 15702)
     caliber: .357 Magnum
     barrel: 2.25
@@ -20488,7 +20769,7 @@ models:
     msrp: 939.0
     maker_url: https://ruger.com/products/sp101/specSheets/15702.html
     source: maker-site
-    status: pending
+    status: approved
   - label: SP101 357 Mag 2.25" Blued (Model 15704)
     caliber: .357 Magnum
     barrel: 2.25
@@ -20497,7 +20778,7 @@ models:
     part: '15704'
     maker_url: https://ruger.com/products/sp101/specSheets/15704.html
     source: maker-site
-    status: pending
+    status: approved
   - label: SP101 357 Mag 2.25" Stainless (Model 5718)
     caliber: .357 Magnum
     barrel: 2.25
@@ -20507,7 +20788,7 @@ models:
     msrp: 939.0
     maker_url: https://ruger.com/products/sp101/specSheets/5718.html
     source: maker-site
-    status: pending
+    status: approved
   - label: SP101 357 Mag 2.25" Stainless (Model 5720)
     caliber: .357 Magnum
     barrel: 2.25
@@ -20517,7 +20798,7 @@ models:
     msrp: 939.0
     maker_url: https://ruger.com/products/sp101/specSheets/5720.html
     source: maker-site
-    status: pending
+    status: approved
   - label: SP101 357 Mag 2.25" Stainless (Model 5764)
     caliber: .357 Magnum
     barrel: 2.25
@@ -20526,7 +20807,7 @@ models:
     part: '5764'
     maker_url: https://ruger.com/products/sp101/specSheets/5764.html
     source: maker-site
-    status: pending
+    status: approved
   - label: SP101 357 Mag 2.25" Stainless (Model 5774)
     caliber: .357 Magnum
     barrel: 2.25
@@ -20535,7 +20816,7 @@ models:
     part: '5774'
     maker_url: https://ruger.com/products/sp101/specSheets/5774.html
     source: maker-site
-    status: pending
+    status: approved
   - label: SP101 357 Mag 3" Blued (Model 15707)
     caliber: .357 Magnum
     barrel: 3.0
@@ -20544,7 +20825,7 @@ models:
     part: '15707'
     maker_url: https://ruger.com/products/sp101/specSheets/15707.html
     source: maker-site
-    status: pending
+    status: approved
   - label: SP101 357 Mag 3" Stainless (Model 15710)
     caliber: .357 Magnum
     barrel: 3.0
@@ -20553,7 +20834,7 @@ models:
     part: '15710'
     maker_url: https://ruger.com/products/sp101/specSheets/15710.html
     source: maker-site
-    status: pending
+    status: approved
   - label: SP101 357 Mag 3" Stainless (Model 5719)
     caliber: .357 Magnum
     barrel: 3.0
@@ -20563,7 +20844,7 @@ models:
     msrp: 939.0
     maker_url: https://ruger.com/products/sp101/specSheets/5719.html
     source: maker-site
-    status: pending
+    status: approved
   - label: SP101 357 Mag 4.2" Stainless (Model 5771)
     caliber: .357 Magnum
     barrel: 4.2
@@ -20573,7 +20854,7 @@ models:
     msrp: 999.0
     maker_url: https://ruger.com/products/sp101/specSheets/5771.html
     source: maker-site
-    status: pending
+    status: approved
   - label: SP101 38 Spl +P 2.25" Stainless (Model 5737)
     caliber: .38 Special
     barrel: 2.25
@@ -20583,7 +20864,7 @@ models:
     msrp: 939.0
     maker_url: https://ruger.com/products/sp101/specSheets/5737.html
     source: maker-site
-    status: pending
+    status: approved
   - label: SP101 9mm Luger 2.25" Stainless (Model 5783)
     caliber: 9mm Luger
     barrel: 2.25
@@ -20593,7 +20874,7 @@ models:
     msrp: 939.0
     maker_url: https://ruger.com/products/sp101/specSheets/5783.html
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: SP-2
   status: approved
@@ -20655,7 +20936,11 @@ models:
   status: approved
 - name: Spanish Model 1893
   aliases:
-  - Model 1893
+  - Spanish Mauser 1893
+  - Spanish Model 1893 Mauser
+  - Mauser Model 1893
+  - Model 1893 Mauser
+  - Spanish M1893
   kind: rifle
   country: Spain
   calibers:
@@ -20878,7 +21163,10 @@ models:
   status: approved
 - name: Springfield Model 1842
   aliases:
-  - Model 1842
+  - Springfield 1842
+  - U.S. Model 1842
+  - US Model 1842
+  - Springfield Model 1842 Musket
   kind: percussion_rifle
   country: United States
   calibers:
@@ -21009,7 +21297,6 @@ models:
   - .22 LR
   manufacturers:
   - Ruger
-  modern_production: true
   status: approved
 - name: SR22P
   status: merged
@@ -21583,6 +21870,9 @@ models:
   - Schmidt-Rubin 1889
   - Schmidt Rubin 1889
   - Swiss Schmidt-Rubin Model 1889
+  - Schmidt Rubin Model 1889
+  - Swiss Schmidt Rubin Model 1889
+  - Model 1889 Schmidt Rubin
   kind: rifle
   country: Switzerland
   calibers:
@@ -22638,6 +22928,7 @@ models:
   manufacturers:
   - Joslyn
   status: approved
+  enabled: false
 - name: U.S. Model 1874
   aliases:
   - Model 1874
@@ -22656,6 +22947,7 @@ models:
   manufacturers:
   - Spencer
   status: approved
+  enabled: false
 - name: U.S. Model 1886
   aliases:
   - Model 1886
@@ -22667,16 +22959,7 @@ models:
   - Steyr
   - Winchester
   status: approved
-- name: U.S. Model 1887
-  aliases:
-  - Model 1887
-  kind: shotgun
-  country: United States
-  calibers:
-  - 12 gauge
-  manufacturers:
-  - Winchester
-  status: approved
+  enabled: false
 - name: U.S. Model 1896
   aliases:
   - Model 1896
@@ -22685,6 +22968,7 @@ models:
   calibers:
   - .30-40 Krag
   status: approved
+  enabled: false
 - name: U.S. Model 1900
   aliases:
   - Model 1900
@@ -22730,23 +23014,6 @@ models:
   manufacturers:
   - Springfield
   status: approved
-- name: U.S. Model 1941
-  aliases:
-  - Model 1941
-  - MODEL OF 1941
-  kind: rifle
-  country: United States
-  calibers:
-  - .30-06 Springfield
-  status: approved
-- name: U.S. Model 1955
-  aliases:
-  - Model 1955
-  kind: revolver
-  country: United States
-  calibers:
-  - .45 ACP
-  status: approved
 - name: U.S. Model 280
   aliases:
   - Model 280
@@ -22765,6 +23032,7 @@ models:
   manufacturers:
   - SHARPS
   status: approved
+  enabled: false
 - name: U.S. Model 32
   aliases:
   - Model 32
@@ -22775,6 +23043,7 @@ models:
   manufacturers:
   - Harrington & Richardson
   status: approved
+  enabled: false
 - name: U.S. Model 327
   aliases:
   - Model 327
@@ -22839,6 +23108,7 @@ models:
   calibers:
   - .22 LR
   status: approved
+  enabled: false
 - name: U.S. Model 94
   aliases:
   - Model 94
@@ -23159,7 +23429,7 @@ models:
     msrp: 499.0
     maker_url: https://waltherarms.com/defense/ccp/ccp-3-54-angel-blue-8rd-380-acp
     source: maker-site
-    status: pending
+    status: approved
   - label: Walther CCP 3.54" Angel Blue 8RD 9MM (5083512)
     caliber: 9mm Luger
     barrel: 3.54
@@ -23168,7 +23438,7 @@ models:
     msrp: 499.0
     maker_url: https://waltherarms.com/defense/ccp/ccp-3-54-angel-blue-8rd-9mm
     source: maker-site
-    status: pending
+    status: approved
   - label: Walther CCP 3.54" Black 8RD 380 ACP (5082500)
     caliber: .380 ACP
     barrel: 3.54
@@ -23177,7 +23447,7 @@ models:
     msrp: 499.0
     maker_url: https://waltherarms.com/defense/ccp/ccp-3-54-black-8rd-380-acp
     source: maker-site
-    status: pending
+    status: approved
   - label: Walther CCP 3.54" Black 8RD 9MM (5083500)
     caliber: 9mm Luger
     barrel: 3.54
@@ -23186,7 +23456,7 @@ models:
     msrp: 499.0
     maker_url: https://waltherarms.com/defense/ccp/ccp-3-54-black-8rd-9mm
     source: maker-site
-    status: pending
+    status: approved
   - label: Walther CCP 3.54" Stainless 8RD 9MM (5083501)
     caliber: 9mm Luger
     barrel: 3.54
@@ -23195,7 +23465,7 @@ models:
     msrp: 499.0
     maker_url: https://waltherarms.com/defense/ccp/ccp-3-54-stainless-8rd-9mm
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: Walther Creed
   aliases:
@@ -23206,7 +23476,6 @@ models:
   - 9mm Luger
   manufacturers:
   - Walther
-  modern_production: true
   status: approved
 - name: Walther GSP
   kind: pistol
@@ -23348,7 +23617,7 @@ models:
     msrp: 999.0
     maker_url: https://waltherarms.com/defense/pdp/pdp-pro-sd-compact-4-6-in
     source: maker-site
-    status: pending
+    status: approved
   - label: Walther PDP Pro SD Compact 4.6" Gray 9MM (2876574)
     caliber: 9mm Luger
     barrel: 4.6
@@ -23357,7 +23626,7 @@ models:
     msrp: 999.0
     maker_url: https://waltherarms.com/defense/pdp/pdp-pro-sd-compact-4-6-in-gray
     source: maker-site
-    status: pending
+    status: approved
   - label: Walther PDP Pro SD Full Size 5.1" 9MM (2842521)
     caliber: 9mm Luger
     barrel: 5.1
@@ -23365,7 +23634,7 @@ models:
     msrp: 999.0
     maker_url: https://waltherarms.com/defense/pdp/pdp-pro-sd-full-size-5-1-in
     source: maker-site
-    status: pending
+    status: approved
   - label: Walther PDP Pro SD Full Size 5.1" FDE 9MM (2876582)
     caliber: 9mm Luger
     barrel: 5.1
@@ -23374,7 +23643,7 @@ models:
     msrp: 999.0
     maker_url: https://waltherarms.com/defense/pdp/pdp-pro-sd-full-size-5-1-in-fde
     source: maker-site
-    status: pending
+    status: approved
   - label: Walther PDP Pro SD Full Size 5.1" Gray 9MM (2877503)
     caliber: 9mm Luger
     barrel: 5.1
@@ -23383,7 +23652,7 @@ models:
     msrp: 999.0
     maker_url: https://waltherarms.com/defense/pdp/pdp-pro-sd-full-size-5-1-in-gray
     source: maker-site
-    status: pending
+    status: approved
   - label: Walther PDP Standard Compact 4" 9MM (2851229)
     caliber: 9mm Luger
     barrel: 4.0
@@ -23391,7 +23660,7 @@ models:
     msrp: 699.0
     maker_url: https://waltherarms.com/defense/pdp/pdp-standard-compact-4-in
     source: maker-site
-    status: pending
+    status: approved
   - label: Walther PDP Standard Compact 5" 9MM (2844222)
     caliber: 9mm Luger
     barrel: 5.0
@@ -23399,7 +23668,7 @@ models:
     msrp: 699.0
     maker_url: https://waltherarms.com/defense/pdp/pdp-standard-compact-5-in
     source: maker-site
-    status: pending
+    status: approved
   - label: Walther PDP Standard Full Size 4" 9MM (2851237)
     caliber: 9mm Luger
     barrel: 4.0
@@ -23407,7 +23676,7 @@ models:
     msrp: 699.0
     maker_url: https://waltherarms.com/defense/pdp/pdp-standard-full-size-4-in
     source: maker-site
-    status: pending
+    status: approved
   - label: Walther PDP Standard Full Size 4.5" 9MM (2842475)
     caliber: 9mm Luger
     barrel: 4.5
@@ -23415,7 +23684,7 @@ models:
     msrp: 699.0
     maker_url: https://waltherarms.com/defense/pdp/pdp-standard-full-size-4-5-in
     source: maker-site
-    status: pending
+    status: approved
   - label: Walther PDP Standard Full Size 5" 9MM (2844001)
     caliber: 9mm Luger
     barrel: 5.0
@@ -23423,7 +23692,7 @@ models:
     msrp: 699.0
     maker_url: https://waltherarms.com/defense/pdp/pdp-standard-full-size-5-in
     source: maker-site
-    status: pending
+    status: approved
   - label: Walther PDP Steel Frame Compact 4" 9MM (2872111)
     caliber: 9mm Luger
     barrel: 4.0
@@ -23431,7 +23700,7 @@ models:
     msrp: 1899.0
     maker_url: https://waltherarms.com/defense/pdp/pdp-steel-frame-compact-4-in
     source: maker-site
-    status: pending
+    status: approved
   - label: Walther PDP Steel Frame Full Size 4.5" 9MM (2872285)
     caliber: 9mm Luger
     barrel: 4.5
@@ -23439,7 +23708,7 @@ models:
     msrp: 1899.0
     maker_url: https://waltherarms.com/defense/pdp/pdp-steel-frame-full-size-4-5-in
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: Walther PP
   aliases:
@@ -23451,6 +23720,7 @@ models:
   kind: pistol
   country: Germany
   calibers:
+  - .22 LR
   - .32 ACP
   - .380 ACP
   manufacturers:
@@ -23467,6 +23737,7 @@ models:
   kind: pistol
   country: Germany
   calibers:
+  - .22 LR
   - .32 ACP
   - .380 ACP
   manufacturers:
@@ -23484,7 +23755,7 @@ models:
     msrp: 969.0
     maker_url: https://waltherarms.com/legacy/ppk/ppk-3-3-in-black-6rd-380-acp
     source: maker-site
-    status: pending
+    status: approved
   - label: Walther PPK 3.3" Black 7RD 32 ACP (4796021)
     caliber: .32 ACP
     barrel: 3.3
@@ -23493,7 +23764,7 @@ models:
     msrp: 969.0
     maker_url: https://waltherarms.com/legacy/ppk/ppk-3-3-in-black-7rd-32-acp
     source: maker-site
-    status: pending
+    status: approved
   - label: Walther PPK 3.3" Stainless 6RD .380 ACP (4796001)
     caliber: .380 ACP
     barrel: 3.3
@@ -23502,7 +23773,7 @@ models:
     msrp: 969.0
     maker_url: https://waltherarms.com/legacy/ppk/ppk-3-3-in-stainless-6rd-380-acp
     source: maker-site
-    status: pending
+    status: approved
   - label: Walther PPK 3.3" Stainless 7RD 32 ACP (4796020)
     caliber: .32 ACP
     barrel: 3.3
@@ -23511,7 +23782,7 @@ models:
     msrp: 969.0
     maker_url: https://waltherarms.com/legacy/ppk/ppk-3-3-in-stainless-7rd-32-acp
     source: maker-site
-    status: pending
+    status: approved
   - label: Walther PPK SD 3.3" Black 7RD 32 ACP (4796061)
     caliber: .32 ACP
     barrel: 3.3
@@ -23520,7 +23791,7 @@ models:
     msrp: 1199.0
     maker_url: https://waltherarms.com/legacy/ppk/ppk-sd-3-3-in-black-7rd-32-acp
     source: maker-site
-    status: pending
+    status: approved
   - label: Walther PPK SD 3.3" Stainless 7RD 32 ACP (4796060)
     caliber: .32 ACP
     barrel: 3.3
@@ -23529,7 +23800,7 @@ models:
     msrp: 1199.0
     maker_url: https://waltherarms.com/legacy/ppk/ppk-sd-3-3-in-stainless-7rd-32-acp
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: Walther PPQ
   aliases:
@@ -23544,7 +23815,6 @@ models:
   - 9mm Luger
   manufacturers:
   - Walther
-  modern_production: true
   status: approved
 - name: Walther PPS
   kind: pistol
@@ -23564,7 +23834,7 @@ models:
     msrp: 449.0
     maker_url: https://waltherarms.com/defense/pps/pps-3-2-in-7rd-9mm
     source: maker-site
-    status: pending
+    status: approved
   - label: Walther PPS 3.2" 8RD 9MM (2807696)
     caliber: 9mm Luger
     barrel: 3.2
@@ -23572,7 +23842,7 @@ models:
     msrp: 499.0
     maker_url: https://waltherarms.com/defense/pps/pps-3-2-in-8rd-9mm
     source: maker-site
-    status: pending
+    status: approved
   status: approved
 - name: Walther Q4
   aliases:
@@ -23584,7 +23854,6 @@ models:
   - 9mm Luger
   manufacturers:
   - Walther
-  modern_production: true
   status: approved
 - name: Walther Q5 Match
   aliases:
@@ -23596,7 +23865,6 @@ models:
   - 9mm Luger
   manufacturers:
   - Walther
-  modern_production: true
   status: approved
 - name: WASR 10
   kind: rifle
@@ -23900,8 +24168,6 @@ models:
   - Model 1885
   kind: rifle
   country: United States
-  calibers:
-  - .32-20 Winchester
   manufacturers:
   - Winchester
   status: approved
@@ -23915,6 +24181,18 @@ models:
   manufacturers:
   - Winchester
   wikipedia: https://en.wikipedia.org/wiki/Winchester_Model_1886
+  status: approved
+- name: Winchester Model 1887
+  aliases:
+  - Winchester 1887
+  - Winchester Model 87
+  kind: shotgun
+  country: United States
+  calibers:
+  - 10 Gauge
+  - 12 gauge
+  manufacturers:
+  - Winchester
   status: approved
 - name: Winchester Model 1892
   aliases:
@@ -24359,6 +24637,8 @@ models:
   country: Czech Republic
   manufacturers:
   - CZ
+  status: approved
+- name: ZC70
   status: approved
 - name: ZERO 1S
   status: approved

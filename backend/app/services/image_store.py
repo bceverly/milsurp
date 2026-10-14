@@ -29,6 +29,7 @@ import os
 import shutil
 import socket
 import time
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -179,6 +180,12 @@ class Thumbnail(NamedTuple):
 
 THUMBNAIL_MAX_EDGE = 640
 THUMBNAIL_QUALITY = 82
+#: The listing page's main photo: big enough for any screen it is shown on,
+#: small enough that a browser does not decode a vendor's 51-megapixel
+#: original -- about 200 MB of pixels -- to show it in a column 700 pixels
+#: wide. Made on first request and kept beside the original (2026-10-14).
+DISPLAY_MAX_EDGE = 1600
+DISPLAY_QUALITY = 85
 
 FILE_MODE = 0o600
 DIR_MODE = 0o700
@@ -660,6 +667,43 @@ class ImageStore:
         stored.width, stored.height = made.width, made.height
         stored.thumb_filename = made.relative
         stored.thumb_bytes = stored.bytes if made.relative == stored.filename else made.size
+
+    def display_copy(self, source_relative: str) -> str | None:
+        """A screen-sized copy of a stored image, made the first time it is
+        asked for: its relative path, or None to serve the original -- one
+        already small enough, or one that cannot be read.
+
+        Kept as ``<original>_d.jpg``. Nothing records it, so ``prune-images``
+        removes it with the other unreferenced files, and the next view makes
+        it again.
+        """
+        stem, _dot, _extension = source_relative.rpartition(".")
+        display_relative = f"{stem or source_relative}_d.jpg"
+        try:
+            target = self.absolute_path(display_relative)
+            if target.is_file():
+                return display_relative
+            source = self.absolute_path(source_relative)
+        except ImageStoreError:
+            return None
+        # A temporary name of its own: two browsers asking for the same photo
+        # at once must not write over each other's half-finished copy.
+        temp = target.with_name(f"{target.name}.{uuid.uuid4().hex}.part")
+        try:
+            with Image.open(source) as opened:
+                if max(opened.size) <= DISPLAY_MAX_EDGE:
+                    return None
+                image: PILImage = ImageOps.exif_transpose(opened) or opened
+                image.thumbnail((DISPLAY_MAX_EDGE, DISPLAY_MAX_EDGE), Image.Resampling.LANCZOS)
+                if image.mode not in ("RGB", "L"):
+                    image = image.convert("RGB")
+                image.save(temp, format="JPEG", quality=DISPLAY_QUALITY, progressive=True)
+            temp.chmod(FILE_MODE)
+            temp.replace(target)
+        except (UnidentifiedImageError, OSError, ValueError):
+            temp.unlink(missing_ok=True)
+            return None
+        return display_relative
 
     def write_thumbnail(self, source_relative: str, thumb_relative: str) -> Thumbnail | None:
         """Write a down-sized copy of a stored image, and describe the result.
