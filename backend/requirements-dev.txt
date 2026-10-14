@@ -3,6 +3,7 @@
 # Testing
 pytest>=9.1.1
 pytest-cov>=7.1.0
+pytest-xdist>=3.8.0      # one worker per core in scripts/test-backend.sh
 # Starlette's TestClient transport. Starlette >= 1.0 imports httpx2 and
 # emits a deprecation warning if it has to fall back to httpx — and this
 # project runs pytest with `filterwarnings = error`, so the fallback is a

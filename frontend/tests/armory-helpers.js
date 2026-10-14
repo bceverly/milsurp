@@ -102,6 +102,10 @@ export async function allRowNames(page) {
   const names = [];
   const next = page.locator(".armory-pager").getByRole("button", { name: "Next" });
   for (;;) {
+    // Each page read only once it has loaded. Read under its spinner it gave
+    // no names, Next was still enabled, and the walk went on to page 2 having
+    // skipped page 1 -- seen when four workers shared the machine (2026-10-14).
+    await expect(page.locator("tbody .loading-row .spinner")).toHaveCount(0);
     names.push(
       ...(await page.locator("tbody tr td:nth-child(2) button").allInnerTexts()),
     );

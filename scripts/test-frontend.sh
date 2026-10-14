@@ -21,7 +21,7 @@ VENV_PY=".venv/bin/python"
 WORK_DIR="${MILSURP_E2E_WORK_DIR:-$(mktemp -d -t milsurp-e2e-XXXXXX)}"
 mkdir -p "$WORK_DIR"
 TEST_PASSWORD="playwright-test-passphrase"
-APP_PID=""
+APP_PIDS=()
 STATUS=1
 
 info() { printf '  \033[96m→\033[0m %s\n' "$*"; }
@@ -32,10 +32,10 @@ die()  { printf '  \033[91m✗\033[0m %s\n' "$*" >&2; exit 1; }
 [ -d frontend/node_modules ] || die "Frontend deps missing — run 'make install-dev'."
 
 cleanup() {
-  if [ -n "$APP_PID" ]; then
-    kill -- "-$APP_PID" 2>/dev/null || true
-    wait "$APP_PID" 2>/dev/null || true
-  fi
+  for pid in "${APP_PIDS[@]}"; do
+    kill -- "-$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+  done
   [ -n "${MILSURP_E2E_WORK_DIR:-}" ] || rm -rf "$WORK_DIR"
 }
 trap cleanup EXIT
@@ -121,34 +121,72 @@ mkdir -p "$MILSURP_E2E_OUTPUT_DIR" "$MILSURP_E2E_NYC_DIR"
 rm -rf frontend/coverage
 ok "Bundle instrumented."
 
-# --- Start the app ----------------------------------------------------------
-info "Starting the app…"
-setsid env MILSURP_ENV=dev MILSURP_CONFIG="$MILSURP_CONFIG" \
-  MILSURP_ENABLE_DEMO_SITE=1 \
-  "$VENV_PY" backend/run.py --port 0 > "$WORK_DIR/server.log" 2>&1 &
-APP_PID=$!
-
-# --port 0 lets the OS choose; read the port back from the startup banner.
-PORT=""
-for _ in $(seq 1 60); do
-  PORT="$(grep -oE 'listening on http://[^:]+:([0-9]+)' "$WORK_DIR/server.log" \
-          | grep -oE '[0-9]+$' | head -1)"
-  [ -n "$PORT" ] && break
-  sleep 0.5
+# --- Start the apps ---------------------------------------------------------
+# One per Playwright worker, each on its own copy of the database prepared
+# above (2026-10-14): the suite writes as it goes -- signs in, approves rows,
+# saves settings -- so workers sharing a database would race. Half the cores by
+# default, since each worker is a browser and an app server; a run of named
+# spec files needs no more than one per file. MILSURP_E2E_WORKERS sets it.
+CORES="$(nproc 2>/dev/null || echo 2)"
+WORKERS="${MILSURP_E2E_WORKERS:-$(( CORES / 2 ))}"
+SPECS=0
+for arg in "$@"; do
+  case "$arg" in *.spec.js | *.spec.js:*) SPECS=$((SPECS + 1)) ;; esac
 done
-[ -n "$PORT" ] || { cat "$WORK_DIR/server.log"; die "The app did not start."; }
+if [ "$SPECS" -gt 0 ] && [ "$SPECS" -lt "$WORKERS" ]; then WORKERS="$SPECS"; fi
+[ "$WORKERS" -ge 1 ] 2>/dev/null || WORKERS=1
 
-for _ in $(seq 1 40); do
-  curl -sf "http://127.0.0.1:$PORT/api/health" >/dev/null 2>&1 && break
-  sleep 0.5
+start_app() {
+  local dir="$WORK_DIR/app-$1"
+  mkdir -p "$dir/backups"
+  # The writes are finished (every step above has exited), but a WAL file
+  # left beside the database would hold the last of them.
+  for part in e2e.db e2e.db-wal e2e.db-shm; do
+    [ -f "$WORK_DIR/$part" ] && cp "$WORK_DIR/$part" "$dir/$part"
+  done
+  [ -d "$WORK_DIR/images" ] && cp -r "$WORK_DIR/images" "$dir/images"
+  sed -e "s#$WORK_DIR/e2e.db#$dir/e2e.db#" \
+      -e "s#$WORK_DIR/images#$dir/images#" \
+      -e "s#$WORK_DIR/backups#$dir/backups#" \
+      "$WORK_DIR/config.yaml" > "$dir/config.yaml"
+  setsid env MILSURP_ENV=dev MILSURP_CONFIG="$dir/config.yaml" \
+    MILSURP_ENABLE_DEMO_SITE=1 MILSURP_FRONTEND_DIST="$MILSURP_FRONTEND_DIST" \
+    "$VENV_PY" backend/run.py --port 0 > "$dir/server.log" 2>&1 &
+  APP_PIDS+=("$!")
+}
+
+app_url() {
+  local log="$WORK_DIR/app-$1/server.log" port=""
+  # --port 0 lets the OS choose; read the port back from the startup banner.
+  for _ in $(seq 1 60); do
+    port="$(grep -oE 'listening on http://[^:]+:([0-9]+)' "$log" \
+            | grep -oE '[0-9]+$' | head -1)"
+    [ -n "$port" ] && break
+    sleep 0.5
+  done
+  [ -n "$port" ] || { cat "$log" >&2; return 1; }
+  for _ in $(seq 1 40); do
+    curl -sf "http://127.0.0.1:$port/api/health" >/dev/null 2>&1 && break
+    sleep 0.5
+  done
+  curl -sf "http://127.0.0.1:$port/api/health" >/dev/null 2>&1 \
+    || { tail -30 "$log" >&2; return 1; }
+  echo "http://127.0.0.1:$port"
+}
+
+info "Starting $WORKERS app(s)…"
+for n in $(seq 1 "$WORKERS"); do start_app "$n"; done
+URLS=()
+for n in $(seq 1 "$WORKERS"); do
+  url="$(app_url "$n")" || die "App $n did not start."
+  URLS+=("$url")
 done
-curl -sf "http://127.0.0.1:$PORT/api/health" >/dev/null 2>&1 \
-  || { tail -30 "$WORK_DIR/server.log"; die "The app is not responding."; }
-ok "App on http://127.0.0.1:$PORT"
+ok "Apps on ${URLS[*]}"
 
 # --- Run Playwright ---------------------------------------------------------
 printf '\n'
-export MILSURP_URL="http://127.0.0.1:$PORT"
+export MILSURP_URLS="${URLS[*]}"
+export MILSURP_URL="${URLS[0]}"
 export MILSURP_USER="admin"
 export MILSURP_PASSWORD="$TEST_PASSWORD"
 

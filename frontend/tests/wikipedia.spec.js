@@ -165,7 +165,10 @@ test("a Wikipedia article is added, edited and removed by hand under Production"
   await signedIn.getByRole("tab", { name: /^Wikipedia/ }).click();
   await signedIn.getByLabel("Showing").selectOption("approved");
   const production = signedIn.getByTestId("wikipedia-production");
-  await production.getByLabel("For").fill(`${name} (Model)`);
+  // Exactly: "For" is also inside every row's "Edit the article for …",
+  // and the shipped armory has carried production's articles since
+  // 2026-10-13 -- 173 of them matched.
+  await production.getByLabel("For", { exact: true }).fill(`${name} (Model)`);
   await production
     .getByLabel("Wikipedia article")
     .fill("https://en.wikipedia.org/wiki/First");

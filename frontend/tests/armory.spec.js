@@ -470,7 +470,11 @@ test.describe("armory", () => {
     await expect(signedIn.locator(".armory-bulk")).toContainText("everything listed");
 
     await signedIn.getByRole("button", { name: "Promote to production" }).click();
-    await expect(signedIn.locator(".alert--success")).toBeVisible();
+    // A long wait for one long request: every pending row the shipped file
+    // carries -- 315 models and their spellings since it took production's
+    // queue on 2026-10-13 -- is promoted and the sample listings re-matched
+    // against all of them. Over 15 seconds on a loaded machine.
+    await expect(signedIn.locator(".alert--success")).toBeVisible({ timeout: 60_000 });
 
     // The pending queue is the default view, and it is now empty.
     await expect(signedIn.locator("tbody")).toContainText("Nothing here");

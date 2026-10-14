@@ -9,14 +9,24 @@
  */
 import { defineConfig, devices } from "@playwright/test";
 
-const BASE_URL = process.env.MILSURP_URL || "http://127.0.0.1:8730";
+// One app per worker, each on its own copy of the disposable database, when
+// the harness starts several (scripts/test-frontend.sh, 2026-10-14): the suite
+// writes as it goes, so two workers on one database would race. The config is
+// evaluated again in every worker process, where TEST_PARALLEL_INDEX says
+// which worker this is -- so every spec, fixture or not, talks to its own app.
+const APPS = (process.env.MILSURP_URLS || "").split(/\s+/).filter(Boolean);
+const BASE_URL = APPS.length
+  ? APPS[Number(process.env.TEST_PARALLEL_INDEX || 0) % APPS.length]
+  : process.env.MILSURP_URL || "http://127.0.0.1:8730";
+const WORKERS = Math.max(1, APPS.length);
 
 export default defineConfig({
   testDir: "./tests",
   testMatch: "**/*.spec.js",
-  // The suite writes to a shared database, so tests must not race each other.
+  // Files in parallel, one worker per app; the tests within a file in order,
+  // because several build on what the one before them left.
   fullyParallel: false,
-  workers: 1,
+  workers: WORKERS,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   // Headroom for a loaded machine, not for slow tests. A passing test takes

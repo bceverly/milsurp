@@ -5223,6 +5223,31 @@ makers` on the server.
   (not in Walther's menu). Whether each is still "in modern production" is a
   decision for the Armory, not a reader fault.
 
+### `make test` on every core — **Changed** 2026-10-14
+
+Asked for: "can we parallelize it based dynamically on the number of CPU cores
+on the host system like we do on the other projects?"
+
+* **Backend**: pytest-xdist, `-n auto --dist=loadfile`, as the sysmanage
+  projects run theirs, from `scripts/test-backend.sh` so `make test`, `make
+  test-backend` and CI all get it. Each worker builds its own database from
+  conftest's session fixtures; the six PostgreSQL tests share one real
+  database and sit in one file, which loadfile keeps on one worker. 5,672
+  tests in 4m40s on eight cores, coverage combined as before (89.8%). Named
+  files stay in one process, where eight workers starting cost more than
+  they save.
+* **Frontend**: a Playwright worker per two cores, each with its own app
+  server and its own copy of the prepared database -- the suite writes as it
+  goes, which is why it was one worker. `playwright.config.js` picks the
+  worker's app from `TEST_PARALLEL_INDEX`, so every spec follows without
+  change. 13.6 minutes on eight cores against 37 for one worker. Files run in
+  parallel, a file's tests still in order.
+* **What it shook out**: `allRowNames` read a page under its loading spinner
+  and skipped it -- a race that only a loaded machine reached. And the
+  shipped armory's growth (production's export, 2026-10-13) is now the
+  longest pole: `armory.spec.js` loads it over and over and takes about ten
+  of those minutes on its own.
+
 ### Every gun's barrel: its length, and whether it is threaded — **Shipped** 2026-10-13
 
 Asked for: "barrel length in inches" and "is the barrel threaded?", "derived

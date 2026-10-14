@@ -3152,6 +3152,16 @@ make test-visual     # each main page against its baseline image (needs Docker)
 | Frontend | Playwright | 265 | 89.6% lines | 86% lines |
 | Visual | Playwright | 13 pages | — | 0.2% of pixels |
 
+**Both suites spread over the machine's cores.** The backend runs one pytest
+worker per core (pytest-xdist, `--dist=loadfile`), each on its own temporary
+database: 5,672 tests in about 4 minutes 40 seconds on eight cores. The
+frontend runs a Playwright worker per two cores, each against its own app
+server and its own copy of the sample database, because the suite writes as it
+goes: about 14 minutes on eight cores where one worker took 37. Running named
+files keeps to what they need -- one process for named backend files, a worker
+per named spec. `MILSURP_TEST_WORKERS` and `MILSURP_E2E_WORKERS` set the counts
+(`MILSURP_TEST_WORKERS=0` runs pytest in one process).
+
 **Visual regression.** `make test-visual` photographs ten pages on desktop and
 three on a phone, and compares each with the image committed under
 `frontend/tests/visual/baselines/`. It catches what the other suites cannot: a

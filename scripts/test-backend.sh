@@ -38,8 +38,34 @@ fi
 # written to.
 unset MILSURP_CONFIG || true
 
+# One worker per core (pytest-xdist), as the sysmanage projects run theirs:
+# about 4m40s on eight cores where one ran the same 5,672 tests on about 16
+# minutes of CPU (2026-10-14). Each worker builds its own temporary database
+# (conftest's session fixtures are per worker), and --dist=loadfile keeps a
+# file's tests on one worker -- the six PostgreSQL schema tests share a real
+# database and live in one file. MILSURP_TEST_WORKERS sets the count (0 runs
+# in this process, as before); an -n of your own wins. A run of named files
+# stays in one process: eight workers starting cost more than they save on a
+# file or two (8.5s against 3.9s for one).
+WORKERS="${MILSURP_TEST_WORKERS:-auto}"
+for arg in "$@"; do
+  case "$arg" in
+    *.py | *.py::* | tests/* | */tests/*) WORKERS="${MILSURP_TEST_WORKERS:-0}" ;;
+  esac
+done
+PARALLEL=()
+case " $* " in
+  *" -n "* | *" -n="* | *" --numprocesses"* | *" -p no:xdist "*) ;;
+  *)
+    if [ "$WORKERS" != "0" ] && [ "$WORKERS" != "1" ]; then
+      PARALLEL=(-n "$WORKERS" --dist=loadfile)
+      printf '  Workers: %s\n\n' "$([ "$WORKERS" = auto ] && nproc || echo "$WORKERS")"
+    fi
+    ;;
+esac
+
 cd backend
-"$REPO_ROOT/$VENV_PY" -m pytest "$@"
+"$REPO_ROOT/$VENV_PY" -m pytest "${PARALLEL[@]}" "$@"
 STATUS=$?
 cd "$REPO_ROOT"
 
