@@ -260,3 +260,19 @@ test("the Variants tab lists every model's, and approves them in bulk", async ({
   expect(asked[1]).toEqual(["/api/armory/variants/disable", [12]]);
   await expect(list).toContainText("Nothing here.");
 });
+
+test("a version with no street price leaves the listing unflagged", async ({
+  signedIn,
+}) => {
+  await openListingWith(signedIn, {
+    current_price: 1675,
+    price_drop: 0,
+    variant: null,
+    variant_candidates: [
+      { id: 1, label: "PDP Pro SD 4.6", msrp: 999, new_price: 749.99, new_stores: 89 },
+      { id: 2, label: "PDP Steel Frame 4.5", msrp: 1899, new_price: null, new_stores: 0 },
+    ],
+  });
+  await expect(signedIn.getByTestId("variant-note")).toBeVisible();
+  await expect(signedIn.getByTestId("over-street-price")).toHaveCount(0);
+});

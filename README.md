@@ -263,11 +263,13 @@ changed — filtered to the sites you care about and capped so it stays readable
   weights (from the cartridge's Wikipedia article), what a round of factory
   ammunition costs — the cheapest box at each weight, box price over rounds,
   from Ammo.com or, for the cartridges nobody else loads, Milsurp Munitions —
-  whether Lee Precision makes dies for it, and what a projectile costs to
-  reload with (Graf & Sons' bullets at the caliber's diameter). Refreshed
+  whether Lee Precision makes dies for it, and what it costs to reload one
+  round: a bullet at the caliber's diameter, a new case, a primer of the size
+  its article names and a charge of the powder entered for it on the
+  caliber's dialog, each from Graf & Sons. Refreshed
   daily, weekly or every two weeks (an administrator's choice on Site
   settings, weekly by default), where there is also a button for each part —
-  the Wikipedia facts, the reloading bullets and the ammo prices — and one to
+  the Wikipedia facts, the reloading prices and the ammo prices — and one to
   update all of them.
 - **FFL dealers.** The dealers who will receive a gun for you, at `/dealers`:
   name, address, website and transfer fee, each entered by hand. Every

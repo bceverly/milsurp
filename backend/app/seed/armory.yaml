@@ -1910,6 +1910,7 @@ calibers:
 - name: .300 Weatherby Magnum
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.300_Weatherby_Magnum
+  bullet_diameter_in: 0.308
 - name: .300 Winchester Magnum
   aliases:
   - 300 Winchester Magnum
@@ -2187,6 +2188,7 @@ calibers:
 - name: .338 Lapua
   aliases:
   - 338 Lapua
+  - .338 Lapua Magnum
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.338_Lapua_Magnum
   bullet_diameter_in: 0.339
@@ -2468,6 +2470,7 @@ calibers:
 - name: .41 Colt
   aliases:
   - 41 Colt
+  - .41 Long Colt
   status: approved
   rejected_wikipedia:
   - https://en.wikipedia.org/wiki/.41_Long_Colt
@@ -2588,6 +2591,7 @@ calibers:
   - 44 Magnum
   - 44 Mag
   - .44 Mag
+  - .44 Remington Magnum
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.44_Magnum
   bullet_diameter_in: 0.429
@@ -2609,6 +2613,7 @@ calibers:
 - name: .44 Russian
   aliases:
   - 44 Russian
+  - .44 S&W Russian
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.44_Russian
   bullet_diameter_in: 0.429
@@ -2843,6 +2848,7 @@ calibers:
 - name: .50 Spencer
   aliases:
   - 50 Spencer
+  - .56-50 Spencer
   status: approved
   rejected_wikipedia:
   - https://en.wikipedia.org/wiki/.56-56_Spencer
@@ -3300,6 +3306,8 @@ calibers:
 - name: 7.5x53.5mm
   aliases:
   - 7.5X53mm
+  - GP90
+  - GP 90
   status: approved
   rejected_wikipedia:
   - https://en.wikipedia.org/wiki/6.5%C3%9753mmR
@@ -3626,6 +3634,7 @@ calibers:
   - 8X57JS CAL
   - 8x57
   - 7.92mm
+  - 8x57mm Mauser
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/7.92%C3%9757mm_Mauser
   bullet_diameter_in: 0.3236
@@ -3734,6 +3743,7 @@ calibers:
   - 8x58RD
   - 8x58R
   - 8x58mmR
+  - 8x58mmR Danish Krag
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/8%C3%9758mmR_Danish_Krag
   bullet_diameter_in: 0.3228
@@ -4426,19 +4436,15 @@ models:
 - name: ASTON M1842
   aliases:
   - M1842
-  manufacturers:
-  - ASTON
-  status: approved
+  status: merged
+  enabled: false
 - name: ASTON Mod. 1842
   aliases:
   - Mod. 1842
   kind: pistol
   country: United States
-  calibers:
-  - '.54'
-  manufacturers:
-  - ASTON
-  status: approved
+  status: merged
+  enabled: false
 - name: Astra Model 1921
   aliases:
   - Model 1921
@@ -4712,6 +4718,7 @@ models:
   - Beretta
   modern_production: true
   maker_url: https://www.beretta.com/en-us/product/92fs-FA0043
+  frame_size: Full size
   status: approved
 - name: Beretta 950
   aliases:
@@ -5080,6 +5087,9 @@ models:
 - name: British Pattern 1853
   aliases:
   - Pattern 1853
+  - Tower Model 1853
+  - Model 1853 Rifle Musket
+  - Enfield Model 1853
   kind: rifle
   country: United Kingdom
   calibers:
@@ -5168,6 +5178,19 @@ models:
   country: Belgium
   calibers:
   - .32 ACP
+  manufacturers:
+  - Browning
+  status: approved
+- name: Browning Model 1955
+  aliases:
+  - Browning 1955
+  - FN Model 1955
+  - FN 1910/55
+  kind: pistol
+  country: Belgium
+  calibers:
+  - .32 ACP
+  - .380 ACP
   manufacturers:
   - Browning
   status: approved
@@ -5477,6 +5500,20 @@ models:
   - Brescia
   - Terni
   - Torino
+  status: approved
+- name: Carcano Model 1941
+  aliases:
+  - Carcano M41
+  - Model 1941 Carcano
+  - M41 Carcano
+  - Terni Model 1941
+  - Carcano M1941
+  kind: rifle
+  country: Italy
+  calibers:
+  - 6.5x52mm Carcano
+  manufacturers:
+  - Terni
   status: approved
 - name: Carcano Model 91/24
   aliases:
@@ -5891,6 +5928,7 @@ models:
   - 9mm Luger
   manufacturers:
   - Colt
+  frame_size: Full size
   status: approved
 - name: Colt King Cobra
   aliases:
@@ -7789,6 +7827,7 @@ models:
   - Glock
   modern_production: true
   maker_url: https://us.glock.com/en/products/commercial-firearms/pistols/g17-v
+  frame_size: Full size
   status: approved
 - name: Glock 17T
   aliases:
@@ -7815,6 +7854,7 @@ models:
   - Glock
   modern_production: true
   maker_url: https://us.glock.com/en/products/commercial-firearms/pistols/g19-v
+  frame_size: Compact
   status: approved
 - name: Glock 20
   aliases:
@@ -7827,6 +7867,7 @@ models:
   - Glock
   modern_production: true
   maker_url: https://us.glock.com/en/products/commercial-pistols/pistols/g20-v-mos
+  frame_size: Full size
   status: approved
 - name: Glock 21
   aliases:
@@ -7841,6 +7882,7 @@ models:
   - Glock
   modern_production: true
   maker_url: https://us.glock.com/en/products/commercial-firearms/pistols/g21-v-mos
+  frame_size: Full size
   status: approved
 - name: Glock 22
   aliases:
@@ -7853,6 +7895,7 @@ models:
   - Glock
   modern_production: true
   maker_url: https://us.glock.com/en/products/law-enforcement/pistols/g22
+  frame_size: Full size
   status: approved
 - name: Glock 23
   aliases:
@@ -7865,6 +7908,7 @@ models:
   - Glock
   modern_production: true
   maker_url: https://us.glock.com/en/products/commercial-firearms/pistols/g23-v
+  frame_size: Compact
   status: approved
 - name: Glock 26
   aliases:
@@ -7878,6 +7922,7 @@ models:
   - Glock
   modern_production: true
   maker_url: https://us.glock.com/en/products/commercial-firearms/pistols/g26-v
+  frame_size: Subcompact
   status: approved
 - name: Glock 27
   aliases:
@@ -7890,6 +7935,7 @@ models:
   - Glock
   modern_production: true
   maker_url: https://us.glock.com/en/products/law-enforcement/pistols/g27
+  frame_size: Subcompact
   status: approved
 - name: Glock 29
   aliases:
@@ -7900,6 +7946,7 @@ models:
   - 10mm Auto
   manufacturers:
   - Glock
+  frame_size: Subcompact
   status: approved
 - name: Glock 30
   aliases:
@@ -7912,6 +7959,7 @@ models:
   - Glock
   modern_production: true
   maker_url: https://us.glock.com/en/products/law-enforcement/pistols/g30s
+  frame_size: Subcompact
   status: approved
 - name: Glock 31
   aliases:
@@ -7924,6 +7972,7 @@ models:
   - Glock
   modern_production: true
   maker_url: https://us.glock.com/en/products/law-enforcement/pistols/g31
+  frame_size: Full size
   status: approved
 - name: Glock 32
   aliases:
@@ -7934,6 +7983,7 @@ models:
   - .357 Sig
   manufacturers:
   - Glock
+  frame_size: Compact
   status: approved
 - name: Glock 33
   aliases:
@@ -7944,6 +7994,7 @@ models:
   - .357 Sig
   manufacturers:
   - Glock
+  frame_size: Subcompact
   status: approved
 - name: Glock 34
   aliases:
@@ -7958,6 +8009,7 @@ models:
   - Glock
   modern_production: true
   maker_url: https://us.glock.com/en/products/law-enforcement/pistols/g34
+  frame_size: Long slide
   status: approved
 - name: Glock 35
   aliases:
@@ -7970,6 +8022,7 @@ models:
   - Glock
   modern_production: true
   maker_url: https://us.glock.com/en/products/law-enforcement/pistols/g35
+  frame_size: Long slide
   status: approved
 - name: Glock 36
   aliases:
@@ -7994,6 +8047,7 @@ models:
   - Glock
   modern_production: true
   maker_url: https://us.glock.com/en/products/commercial-firearms/pistols/g42
+  frame_size: Subcompact
   status: approved
 - name: Glock 43
   aliases:
@@ -8006,6 +8060,7 @@ models:
   - Glock
   modern_production: true
   maker_url: https://us.glock.com/en/products/commercial-firearms/pistols/g43
+  frame_size: Subcompact
   status: approved
 - name: Glock 43X
   aliases:
@@ -8018,6 +8073,7 @@ models:
   - Glock
   modern_production: true
   maker_url: https://us.glock.com/en/products/commercial-firearms/pistols/g43x-us
+  frame_size: Subcompact
   status: approved
 - name: Glock 44
   aliases:
@@ -8040,6 +8096,7 @@ models:
   - Glock
   modern_production: true
   maker_url: https://us.glock.com/en/products/commercial-firearms/pistols/g45-v
+  frame_size: Compact
   status: approved
 - name: Glock 47
   aliases:
@@ -8064,6 +8121,7 @@ models:
   - Glock
   modern_production: true
   maker_url: https://us.glock.com/en/products/commercial-firearms/pistols/g48
+  frame_size: Compact
   status: approved
 - name: Glock 49
   aliases:
@@ -8096,7 +8154,11 @@ models:
   - 10mm Auto
   manufacturers:
   - Ruger
+  frame_size: Medium frame
   status: approved
+- name: GP90
+  status: pending
+  enabled: false
 - name: GSG 5
   kind: rifle
   country: Germany
@@ -8460,6 +8522,17 @@ models:
   manufacturers:
   - Husqvarna
   status: approved
+- name: Husqvarna Model 1887
+  aliases:
+  - Husqvarna M/1887
+  - Swedish Model 1887
+  - Husqvarna Model 1887 Revolver
+  - Swedish Nagant M1887
+  kind: revolver
+  country: Sweden
+  manufacturers:
+  - Husqvarna
+  status: approved
 - name: IAR 5
   kind: rifle
   country: United States
@@ -8672,6 +8745,10 @@ models:
   - .30-06 Springfield
   status: approved
 - name: Joslyn M1864
+  aliases:
+  - Joslyn Model 1864
+  - Joslyn Carbine
+  - Joslyn Model 1864 Carbine
   kind: carbine
   country: United States
   manufacturers:
@@ -9379,10 +9456,12 @@ models:
   - Kimber
   modern_production: true
   maker_url: https://www.kimberamerica.com/pistols/micro
+  frame_size: Micro
   variants:
   - label: Kimber Micro Amethyst .380 ACP (3300160)
     caliber: .380 ACP
     barrel: 2.75
+    frame: Micro
     upc: '669278331607'
     part: '3300160'
     msrp: 1210.0
@@ -9392,6 +9471,7 @@ models:
   - label: Kimber Micro Bel Air .380 ACP (3300210)
     caliber: .380 ACP
     barrel: 2.75
+    frame: Micro
     upc: '669278332109'
     part: '3300210'
     msrp: 1055.0
@@ -9402,6 +9482,7 @@ models:
     caliber: .380 ACP
     barrel: 2.75
     finish: Black
+    frame: Micro
     upc: '669278332116'
     part: '3300211'
     msrp: 747.0
@@ -9412,6 +9493,7 @@ models:
     caliber: .380 ACP
     barrel: 2.75
     finish: Black
+    frame: Micro
     upc: '669278332086'
     part: '3300208'
     msrp: 742.0
@@ -9422,6 +9504,7 @@ models:
     caliber: .380 ACP
     barrel: 2.75
     finish: Black
+    frame: Micro
     upc: '669278331881'
     part: '3300188'
     msrp: 860.0
@@ -9432,6 +9515,7 @@ models:
     caliber: .380 ACP
     barrel: 2.75
     finish: Black
+    frame: Micro
     upc: '669278330877'
     part: '3300087'
     msrp: 994.0
@@ -9442,6 +9526,7 @@ models:
     caliber: .380 ACP
     barrel: 2.75
     finish: Stainless
+    frame: Micro
     upc: '669278330846'
     part: '3300084'
     msrp: 995.0
@@ -9451,6 +9536,7 @@ models:
   - label: Kimber Micro Rose Gold .380 ACP (3300173)
     caliber: .380 ACP
     barrel: 2.75
+    frame: Micro
     upc: '669278331737'
     part: '3300173'
     msrp: 1210.0
@@ -9461,6 +9547,7 @@ models:
     caliber: .380 ACP
     barrel: 2.75
     finish: Blued
+    frame: Micro
     upc: '669278330907'
     part: '3300090'
     msrp: 1210.0
@@ -9471,6 +9558,7 @@ models:
     caliber: .380 ACP
     barrel: 2.75
     finish: Stainless
+    frame: Micro
     upc: '669278332079'
     part: '3300207'
     msrp: 735.0
@@ -9481,6 +9569,7 @@ models:
     caliber: .380 ACP
     barrel: 2.75
     finish: Black
+    frame: Micro
     upc: '669278332062'
     part: '3300206'
     msrp: 735.0
@@ -9501,11 +9590,13 @@ models:
   - Kimber
   modern_production: true
   maker_url: https://www.kimberamerica.com/micro-9
+  frame_size: Micro
   variants:
   - label: Kimber Micro 9 (Hero Custom) 9 mm (3300243)
     caliber: 9mm Luger
     barrel: 3.15
     finish: Black
+    frame: Micro
     upc: '669278332437'
     part: '3300243'
     msrp: 897.0
@@ -9516,6 +9607,7 @@ models:
     caliber: 9mm Luger
     barrel: 3.15
     finish: Black
+    frame: Micro
     upc: '669278331768'
     part: '3300176'
     msrp: 790.0
@@ -9525,6 +9617,7 @@ models:
   - label: Kimber Micro 9 Amethyst 9 mm (3300214)
     caliber: 9mm Luger
     barrel: 3.15
+    frame: Micro
     upc: '669278332147'
     part: '3300214'
     msrp: 1250.0
@@ -9534,6 +9627,7 @@ models:
   - label: Kimber Micro 9 Bel Air 9 mm (3700647)
     caliber: 9mm Luger
     barrel: 3.15
+    frame: Micro
     upc: '669278331102'
     part: '3700647'
     msrp: 1055.0
@@ -9544,6 +9638,7 @@ models:
     caliber: 9mm Luger
     barrel: 3.15
     finish: Stainless
+    frame: Micro
     upc: '669278330983'
     part: '3300098'
     msrp: 1087.0
@@ -9554,6 +9649,7 @@ models:
     caliber: 9mm Luger
     barrel: 3.15
     finish: Black
+    frame: Micro
     upc: '669278331010'
     part: '3300101'
     msrp: 802.0
@@ -9564,6 +9660,7 @@ models:
     caliber: 9mm Luger
     barrel: 3.15
     finish: Black
+    frame: Micro
     upc: '669278331973'
     part: '3300197'
     msrp: 883.0
@@ -9574,6 +9671,7 @@ models:
     caliber: 9mm Luger
     barrel: 3.15
     finish: Black
+    frame: Micro
     upc: '669278331942'
     part: '3300194'
     msrp: 883.0
@@ -9584,6 +9682,7 @@ models:
     caliber: 9mm Luger
     barrel: 3.15
     finish: Gray
+    frame: Micro
     upc: '669278332239'
     part: '3300223'
     msrp: 1085.0
@@ -9594,6 +9693,7 @@ models:
     caliber: 9mm Luger
     barrel: 3.15
     finish: Black
+    frame: Micro
     upc: '669278332222'
     part: '3300222'
     msrp: 1060.0
@@ -9604,6 +9704,7 @@ models:
     caliber: 9mm Luger
     barrel: 3.15
     finish: Stainless
+    frame: Micro
     upc: '669278332307'
     part: '3300230'
     msrp: 1085.0
@@ -9614,6 +9715,7 @@ models:
     caliber: 9mm Luger
     barrel: 3.15
     finish: Stainless
+    frame: Micro
     upc: '669278332352'
     part: '3300235'
     msrp: 1060.0
@@ -9624,6 +9726,7 @@ models:
     caliber: 9mm Luger
     barrel: 3.15
     finish: Stainless
+    frame: Micro
     upc: '669278332376'
     part: '3300237'
     msrp: 1060.0
@@ -9634,6 +9737,7 @@ models:
     caliber: 9mm Luger
     barrel: 3.15
     finish: Stainless
+    frame: Micro
     upc: '669278332314'
     part: '3300231'
     msrp: 1060.0
@@ -9643,6 +9747,7 @@ models:
   - label: Kimber Micro 9 Rose Gold 9 mm (3300174)
     caliber: 9mm Luger
     barrel: 3.15
+    frame: Micro
     upc: '669278331744'
     part: '3300174'
     msrp: 1250.0
@@ -9653,6 +9758,7 @@ models:
     caliber: 9mm Luger
     barrel: 3.15
     finish: Blued
+    frame: Micro
     upc: '669278331119'
     part: '3300111'
     msrp: 1285.0
@@ -9663,6 +9769,7 @@ models:
     caliber: 9mm Luger
     barrel: 3.15
     finish: Stainless
+    frame: Micro
     upc: '669278331935'
     part: '3300193'
     msrp: 883.0
@@ -9673,6 +9780,7 @@ models:
     caliber: 9mm Luger
     barrel: 3.15
     finish: Stainless
+    frame: Micro
     upc: '669278374826'
     part: '3700482'
     msrp: 939.0
@@ -9683,6 +9791,7 @@ models:
     caliber: 9mm Luger
     barrel: 3.15
     finish: Stainless
+    frame: Micro
     upc: '669278331584'
     part: '3300158'
     msrp: 761.0
@@ -9693,6 +9802,7 @@ models:
     caliber: 9mm Luger
     barrel: 3.15
     finish: Stainless
+    frame: Micro
     upc: '669278331096'
     part: '3300109'
     msrp: 1045.0
@@ -9703,6 +9813,7 @@ models:
     caliber: 9mm Luger
     barrel: 3.15
     finish: Black
+    frame: Micro
     upc: '669278330990'
     part: '3300099'
     msrp: 761.0
@@ -10598,6 +10709,7 @@ models:
   - Springfield
   - Union Switch & Signal
   wikipedia: https://en.wikipedia.org/wiki/M1911_pistol
+  frame_size: Full size
   status: approved
 - name: M1912
   status: pending
@@ -11001,6 +11113,18 @@ models:
   calibers:
   - .22 LR
   - .32 RF
+  manufacturers:
+  - Marlin
+  status: approved
+- name: Marlin Model 1893
+  aliases:
+  - Marlin 1893
+  - Marlin Model 1893 Carbine
+  kind: rifle
+  country: United States
+  calibers:
+  - .30-30 Winchester
+  - .38-55 Winchester
   manufacturers:
   - Marlin
   status: approved
@@ -11439,6 +11563,7 @@ models:
   - Ruger
   modern_production: true
   maker_url: https://ruger.com/products/max-9/models.html
+  frame_size: Micro
   variants:
   - label: MAX-9 9mm Luger 3.2" Black (Model 3514)
     caliber: 9mm Luger
@@ -11685,6 +11810,7 @@ models:
   - Smith & Wesson
   modern_production: true
   maker_url: https://www.smith-wesson.com/product/model-10-classic-no-internal-lock
+  frame_size: K-frame
   variants:
   - label: MODEL 10 CLASSIC NL USA 250TH ANNIVERSARY
     caliber: .38 Special
@@ -11800,6 +11926,9 @@ models:
 - name: Model 1841
   status: merged
   enabled: false
+- name: Model 1842
+  status: pending
+  enabled: false
 - name: Model 1844
   status: approved
 - name: Model 1844/60
@@ -11810,6 +11939,9 @@ models:
   status: approved
 - name: Model 1849
   status: merged
+  enabled: false
+- name: Model 1853
+  status: pending
   enabled: false
 - name: MODEL 1854
   status: pending
@@ -11823,6 +11955,9 @@ models:
   status: approved
 - name: Model 1857/59
   status: approved
+- name: MODEL 1864
+  status: pending
+  enabled: false
 - name: Model 1870/87/15
   status: merged
   enabled: false
@@ -11866,6 +12001,12 @@ models:
 - name: MODEL 1881
   status: pending
   enabled: false
+- name: Model 1886
+  status: pending
+  enabled: false
+- name: Model 1887
+  status: pending
+  enabled: false
 - name: Model 1889
   status: pending
   enabled: false
@@ -11877,6 +12018,9 @@ models:
 - name: MODEL 1891/30
   status: merged
   enabled: false
+- name: Model 1893
+  status: pending
+  enabled: false
 - name: Model 1894M
   status: pending
   enabled: false
@@ -11884,6 +12028,9 @@ models:
   status: approved
   enabled: false
   notes: 'Disabled: identifies nothing on its own -- a Winchester, a Chilean Mauser and a Steyr M95.'
+- name: Model 1896
+  status: pending
+  enabled: false
 - name: Model 1897
   calibers:
   - 7.5x55mm Swiss
@@ -11955,8 +12102,14 @@ models:
   enabled: false
 - name: Model 1935/06
   status: approved
+- name: Model 1941
+  status: pending
+  enabled: false
 - name: Model 1950
   status: merged
+  enabled: false
+- name: MODEL 1955
+  status: pending
   enabled: false
 - name: MODEL1966
   status: pending
@@ -12037,6 +12190,9 @@ models:
 - name: Model 311A
   status: approved
 - name: MODEL 317
+  status: pending
+  enabled: false
+- name: Model 32
   status: pending
   enabled: false
 - name: Model 320
@@ -12261,6 +12417,9 @@ models:
 - name: Model 870
   status: merged
   enabled: false
+- name: MODEL 88
+  status: pending
+  enabled: false
 - name: Model 9
   status: approved
   enabled: false
@@ -12373,6 +12532,7 @@ models:
   - Colt
   - Remington
   - Springfield
+  frame_size: Full size
   status: approved
 - name: Model of 1917
   kind: rifle
@@ -12568,6 +12728,20 @@ models:
   country: United States
   calibers:
   - 12 gauge
+  manufacturers:
+  - Mossberg
+  modern_production: true
+  status: approved
+- name: Mossberg Maverick 88
+  aliases:
+  - Maverick 88
+  - Maverick Model 88
+  - Mossberg Maverick Model 88
+  kind: shotgun
+  country: United States
+  calibers:
+  - 12 gauge
+  - 20 gauge
   manufacturers:
   - Mossberg
   modern_production: true
@@ -14354,6 +14528,208 @@ models:
   - Ruger
   modern_production: true
   maker_url: https://ruger.com/products/americanRifleGenII/models.html
+  variants:
+  - label: Ruger American Rifle 204 Ruger 20" Cerakote (Model 46908)
+    barrel: 20.0
+    finish: Cerakote
+    upc: '736676469086'
+    part: '46908'
+    msrp: 769.0
+    maker_url: https://ruger.com/products/americanRifleGenII/specSheets/46908.html
+    source: maker-site
+    status: pending
+  - label: Ruger American Rifle 22 ARC 20" Cerakote (Model 46918)
+    barrel: 20.0
+    finish: Cerakote
+    upc: '736676469185'
+    part: '46918'
+    msrp: 769.0
+    maker_url: https://ruger.com/products/americanRifleGenII/specSheets/46918.html
+    source: maker-site
+    status: pending
+  - label: Ruger American Rifle 223 Rem 20" Cerakote (Model 46909)
+    caliber: 5.56x45mm NATO
+    barrel: 20.0
+    finish: Cerakote
+    upc: '736676469093'
+    part: '46909'
+    msrp: 769.0
+    maker_url: https://ruger.com/products/americanRifleGenII/specSheets/46909.html
+    source: maker-site
+    status: pending
+  - label: Ruger American Rifle 223 Rem 20" Cerakote (Model 56910)
+    caliber: 5.56x45mm NATO
+    barrel: 20.0
+    finish: Cerakote
+    upc: '736676569106'
+    part: '56910'
+    msrp: 769.0
+    maker_url: https://ruger.com/products/americanRifleGenII/specSheets/56910.html
+    source: maker-site
+    status: pending
+  - label: Ruger American Rifle 243 Win 20" Cerakote (Model 46904)
+    caliber: .243 Winchester
+    barrel: 20.0
+    finish: Cerakote
+    upc: '736676469048'
+    part: '46904'
+    msrp: 769.0
+    maker_url: https://ruger.com/products/americanRifleGenII/specSheets/46904.html
+    source: maker-site
+    status: pending
+  - label: Ruger American Rifle 270 Win 20" Cerakote (Model 46914)
+    barrel: 20.0
+    finish: Cerakote
+    upc: '736676469147'
+    part: '46914'
+    msrp: 769.0
+    maker_url: https://ruger.com/products/americanRifleGenII/specSheets/46914.html
+    source: maker-site
+    status: pending
+  - label: Ruger American Rifle 30-06 Sprg 20" Cerakote (Model 46913)
+    caliber: .30-06 Springfield
+    barrel: 20.0
+    finish: Cerakote
+    upc: '736676469130'
+    part: '46913'
+    msrp: 769.0
+    maker_url: https://ruger.com/products/americanRifleGenII/specSheets/46913.html
+    source: maker-site
+    status: pending
+  - label: Ruger American Rifle 300 Win Mag 20" Cerakote (Model 46915)
+    barrel: 20.0
+    finish: Cerakote
+    upc: '736676469154'
+    part: '46915'
+    msrp: 769.0
+    maker_url: https://ruger.com/products/americanRifleGenII/specSheets/46915.html
+    source: maker-site
+    status: pending
+  - label: Ruger American Rifle 308 Win 20" Cerakote (Model 46902)
+    caliber: 7.62x51 NATO
+    barrel: 20.0
+    finish: Cerakote
+    upc: '736676469024'
+    part: '46902'
+    msrp: 769.0
+    maker_url: https://ruger.com/products/americanRifleGenII/specSheets/46902.html
+    source: maker-site
+    status: pending
+  - label: Ruger American Rifle 308 Win 20" Cerakote (Model 56931)
+    caliber: 7.62x51 NATO
+    barrel: 20.0
+    finish: Cerakote
+    upc: '736676569311'
+    part: '56931'
+    msrp: 769.0
+    maker_url: https://ruger.com/products/americanRifleGenII/specSheets/56931.html
+    source: maker-site
+    status: pending
+  - label: Ruger American Rifle 350 Legend 20" Cerakote (Model 46906)
+    barrel: 20.0
+    finish: Cerakote
+    upc: '736676469062'
+    part: '46906'
+    msrp: 769.0
+    maker_url: https://ruger.com/products/americanRifleGenII/specSheets/46906.html
+    source: maker-site
+    status: pending
+  - label: Ruger American Rifle 350 Legend 20" Cerakote (Model 46991)
+    barrel: 20.0
+    finish: Cerakote
+    upc: '736676469918'
+    part: '46991'
+    msrp: 769.0
+    maker_url: https://ruger.com/products/americanRifleGenII/specSheets/46991.html
+    source: maker-site
+    status: pending
+  - label: Ruger American Rifle 400 Legend 20" Cerakote (Model 46907)
+    barrel: 20.0
+    finish: Cerakote
+    upc: '736676469079'
+    part: '46907'
+    msrp: 769.0
+    maker_url: https://ruger.com/products/americanRifleGenII/specSheets/46907.html
+    source: maker-site
+    status: pending
+  - label: Ruger American Rifle 450 Bushmaster 20" Cerakote (Model 46905)
+    barrel: 20.0
+    finish: Cerakote
+    upc: '736676469055'
+    part: '46905'
+    msrp: 769.0
+    maker_url: https://ruger.com/products/americanRifleGenII/specSheets/46905.html
+    source: maker-site
+    status: pending
+  - label: Ruger American Rifle 6.5 Creedmoor 20" Cerakote (Model 46901)
+    caliber: 6.5mm Creedmoor
+    barrel: 20.0
+    finish: Cerakote
+    upc: '736676469017'
+    part: '46901'
+    msrp: 769.0
+    maker_url: https://ruger.com/products/americanRifleGenII/specSheets/46901.html
+    source: maker-site
+    status: pending
+  - label: Ruger American Rifle 6.5 Grendel 20" Cerakote (Model 46911)
+    caliber: 6.5mm Grendel
+    barrel: 20.0
+    finish: Cerakote
+    upc: '736676469116'
+    part: '46911'
+    msrp: 769.0
+    maker_url: https://ruger.com/products/americanRifleGenII/specSheets/46911.html
+    source: maker-site
+    status: pending
+  - label: Ruger American Rifle 6.5 PRC 20" Cerakote (Model 46916)
+    barrel: 20.0
+    finish: Cerakote
+    upc: '736676469161'
+    part: '46916'
+    msrp: 769.0
+    maker_url: https://ruger.com/products/americanRifleGenII/specSheets/46916.html
+    source: maker-site
+    status: pending
+  - label: Ruger American Rifle 6mm ARC 20" Cerakote (Model 46910)
+    caliber: 6mm
+    barrel: 20.0
+    finish: Cerakote
+    upc: '736676469109'
+    part: '46910'
+    msrp: 769.0
+    maker_url: https://ruger.com/products/americanRifleGenII/specSheets/46910.html
+    source: maker-site
+    status: pending
+  - label: Ruger American Rifle 6mm Creedmoor 20" Cerakote (Model 46912)
+    caliber: 6mm
+    barrel: 20.0
+    finish: Cerakote
+    upc: '736676469123'
+    part: '46912'
+    msrp: 769.0
+    maker_url: https://ruger.com/products/americanRifleGenII/specSheets/46912.html
+    source: maker-site
+    status: pending
+  - label: Ruger American Rifle 7mm PRC 20" Cerakote (Model 46917)
+    caliber: 7mm
+    barrel: 20.0
+    finish: Cerakote
+    upc: '736676469178'
+    part: '46917'
+    msrp: 769.0
+    maker_url: https://ruger.com/products/americanRifleGenII/specSheets/46917.html
+    source: maker-site
+    status: pending
+  - label: Ruger American Rifle 7mm-08 Rem 20" Cerakote (Model 46903)
+    caliber: 7mm
+    barrel: 20.0
+    finish: Cerakote
+    upc: '736676469031'
+    part: '46903'
+    msrp: 769.0
+    maker_url: https://ruger.com/products/americanRifleGenII/specSheets/46903.html
+    source: maker-site
+    status: pending
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Ruger Bearcat
@@ -14570,6 +14946,7 @@ models:
   - Ruger
   modern_production: true
   maker_url: https://ruger.com/products/lcp/models.html
+  frame_size: Micro
   variants:
   - label: Ruger LCP-380 380 Auto 2.75" Black (Model 3701)
     caliber: .380 ACP
@@ -14644,6 +15021,75 @@ models:
   - Ruger
   modern_production: true
   maker_url: https://ruger.com/products/lcr/models.html
+  frame_size: Small frame
+  variants:
+  - label: Ruger LCR 22 LR 1.87" Black (Model 5410)
+    caliber: .22 LR
+    barrel: 1.87
+    finish: Black
+    upc: '736676054107'
+    part: '5410'
+    msrp: 759.0
+    maker_url: https://ruger.com/products/lcr/specSheets/5410.html
+    source: maker-site
+    status: pending
+  - label: Ruger LCR 32 H&R Mag 1.87" Black (Model 5470)
+    barrel: 1.87
+    finish: Black
+    part: '5470'
+    maker_url: https://ruger.com/products/lcr/specSheets/5470.html
+    source: maker-site
+    status: pending
+  - label: Ruger LCR 327 Fed Mag 1.87" Black (Model 5452)
+    caliber: .327 Federal Magnum
+    barrel: 1.87
+    finish: Black
+    upc: '736676054527'
+    part: '5452'
+    msrp: 879.0
+    maker_url: https://ruger.com/products/lcr/specSheets/5452.html
+    source: maker-site
+    status: pending
+  - label: Ruger LCR 357 Mag 1.87" Black (Model 5450)
+    caliber: .357 Magnum
+    barrel: 1.87
+    finish: Black
+    upc: '736676054503'
+    part: '5450'
+    msrp: 879.0
+    maker_url: https://ruger.com/products/lcr/specSheets/5450.html
+    source: maker-site
+    status: pending
+  - label: Ruger LCR 38 Spl +P 1.87" Black (Model 5401)
+    caliber: .38 Special
+    barrel: 1.87
+    finish: Black
+    upc: '736676054015'
+    part: '5401'
+    msrp: 759.0
+    maker_url: https://ruger.com/products/lcr/specSheets/5401.html
+    source: maker-site
+    status: pending
+  - label: Ruger LCR 38 Spl +P 1.87" Black (Model 5418)
+    caliber: .38 Special
+    barrel: 1.87
+    finish: Black
+    upc: '736676054183'
+    part: '5418'
+    msrp: 549.0
+    maker_url: https://ruger.com/products/lcr/specSheets/5418.html
+    source: maker-site
+    status: pending
+  - label: Ruger LCR 9mm Luger 1.87" Black (Model 5456)
+    caliber: 9mm Luger
+    barrel: 1.87
+    finish: Black
+    upc: '736676054565'
+    part: '5456'
+    msrp: 879.0
+    maker_url: https://ruger.com/products/lcr/specSheets/5456.html
+    source: maker-site
+    status: pending
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: Ruger Mark Series
@@ -15035,6 +15481,7 @@ models:
   - Ruger
   modern_production: true
   maker_url: https://ruger.com/products/redhawk/models.html
+  frame_size: Large frame
   variants:
   - label: Ruger Redhawk 357 Mag 2.75" Stainless (Model 5051)
     caliber: .357 Magnum
@@ -15521,6 +15968,17 @@ models:
   - Ruger
   modern_production: true
   maker_url: https://ruger.com/products/newModelSingleSix/models.html
+  variants:
+  - label: Ruger Single-Six 17 HMR 6.5" Blued (Model 0661)
+    caliber: .17 HMR
+    barrel: 6.5
+    finish: Blued
+    upc: '736676006618'
+    part: '0661'
+    msrp: 839.0
+    maker_url: https://ruger.com/products/newModelSingleSix/specSheets/0661.html
+    source: maker-site
+    status: pending
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: Ruger SR1911
@@ -15732,6 +16190,7 @@ models:
   - Ruger
   modern_production: true
   maker_url: https://ruger.com/products/superRedhawkStandard/models.html
+  frame_size: Large frame
   variants:
   - label: Ruger Super Redhawk 10mm Auto 7.5" Stainless (Model 5522)
     caliber: 10mm Auto
@@ -16472,6 +16931,8 @@ models:
   - Slant Breech Sharps
   - Sharps Slant Breech Model 1853
   - Sharps Slant Breech Model 53
+  - Model 1853 Sharps
+  - Sharps Sporting Rifle Model 1853
   kind: carbine
   country: United States
   manufacturers:
@@ -16593,6 +17054,7 @@ models:
   - Sig Sauer
   modern_production: true
   maker_url: https://www.sigsauer.com/firearms/pistols/p220.html
+  frame_size: Full size
   status: approved
 - name: Sig Sauer P226
   aliases:
@@ -16611,6 +17073,7 @@ models:
   - Sig Sauer
   modern_production: true
   maker_url: https://www.sigsauer.com/firearms/pistols/p226.html
+  frame_size: Full size
   status: approved
 - name: Sig Sauer P229
   aliases:
@@ -16629,6 +17092,7 @@ models:
   - Sig Sauer
   modern_production: true
   maker_url: https://www.sigsauer.com/firearms/pistols/p229.html
+  frame_size: Compact
   status: approved
 - name: Sig Sauer P239
   aliases:
@@ -16684,6 +17148,7 @@ models:
   - Sig Sauer
   modern_production: true
   maker_url: https://www.sigsauer.com/firearms/pistols/p365.html
+  frame_size: Micro
   status: approved
 - name: Sig Sauer SP2022
   aliases:
@@ -17385,6 +17850,7 @@ models:
   - Smith & Wesson
   modern_production: true
   maker_url: https://www.smith-wesson.com/products/csx
+  frame_size: Micro
   variants:
   - label: S&W CSX E-SERIES 3.1 INCH
     caliber: 9mm Luger
@@ -17452,6 +17918,79 @@ models:
   manufacturers:
   - Smith & Wesson
   status: approved
+- name: Smith & Wesson Equalizer
+  aliases:
+  - Equalizer
+  kind: pistol
+  country: United States
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  variants:
+  - label: PERFORMANCE CENTER S&W EQUALIZER CARRY COMP THUMB SAFETY
+    upc: 022188901320
+    part: '14411'
+    msrp: 649.0
+    maker_url: https://www.smith-wesson.com/product/performance-center-s-w-equalizer-carry-comp-thumb-safety
+    source: maker-site
+    status: pending
+  - label: PERFORMANCE CENTER S&W EQUALIZER CARRY COMP THUMB SAFETY 10RD COMPLIANT
+    upc: 022188901412
+    part: '14412'
+    msrp: 649.0
+    maker_url: https://www.smith-wesson.com/product/performance-center-s-w-equalizer-carry-comp-thumb-safety-10rd-compliant
+    source: maker-site
+    status: pending
+  - label: S&W EQUALIZER CARRY ON BUNDLE
+    upc: 022188905151
+    part: '14718'
+    msrp: 649.0
+    maker_url: https://www.smith-wesson.com/product/s-w-equalizer-carry-on-bundle
+    source: maker-site
+    status: pending
+  - label: S&W EQUALIZER Compliant 10 RD
+    upc: 022188892734
+    part: '13732'
+    msrp: 599.0
+    maker_url: https://www.smith-wesson.com/product/sw-equalizer-compliant-10-rd
+    source: maker-site
+    status: pending
+  - label: S&W EQUALIZER NTS
+    upc: 022188891423
+    part: '13592'
+    msrp: 599.0
+    maker_url: https://www.smith-wesson.com/product/s-w-equalizer-nts
+    source: maker-site
+    status: pending
+  - label: S&W EQUALIZER NTS Compliant 10 RD
+    upc: 022188892727
+    part: '13733'
+    msrp: 599.0
+    maker_url: https://www.smith-wesson.com/product/sw-equalizer-nts-compliant-10-rd
+    source: maker-site
+    status: pending
+  - label: S&W EQUALIZER TS
+    upc: 022188891416
+    part: '13591'
+    msrp: 599.0
+    maker_url: https://www.smith-wesson.com/product/s-w-equalizer-ts
+    source: maker-site
+    status: pending
+  - label: S&W EQUALIZER TS PURPLE FRAME
+    upc: 022188899115
+    part: '14300'
+    msrp: 619.0
+    maker_url: https://www.smith-wesson.com/product/sw-equalizer-ts-purple-frame
+    source: maker-site
+    status: pending
+  - label: S&W EQUALIZER WITH TAC SIX BAG AND EXTRA MAGS
+    upc: 022188904260
+    part: '14719'
+    msrp: 599.0
+    maker_url: https://www.smith-wesson.com/product/s-w-equalizer-with-tac-six-bag-and-extra-mags
+    source: maker-site
+    status: pending
+  status: pending
 - name: Smith & Wesson Governor
   aliases:
   - S&W Governor
@@ -17550,6 +18089,7 @@ models:
   - .38 Special
   manufacturers:
   - Smith & Wesson
+  frame_size: K-frame
   status: approved
 - name: Smith & Wesson Model 12
   aliases:
@@ -17578,6 +18118,7 @@ models:
   - .357 Magnum
   manufacturers:
   - Smith & Wesson
+  frame_size: K-frame
   status: approved
 - name: Smith & Wesson Model 14
   aliases:
@@ -17593,6 +18134,190 @@ models:
   - Smith & Wesson
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Smith & Wesson Model 1854
+  aliases:
+  - Model 1854
+  kind: rifle
+  country: United States
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  variants:
+  - label: MODEL 1854 - AMERICA 250
+    upc: 022188909760
+    part: '14969'
+    msrp: 1399.0
+    maker_url: https://www.smith-wesson.com/product/s-w-model-1854-america-250-44-magnum
+    source: maker-site
+    status: pending
+  - label: MODEL 1854 - AMERICA 250
+    upc: 022188909777
+    part: '14970'
+    msrp: 1499.0
+    maker_url: https://www.smith-wesson.com/product/s-w-model-1854-america-250-45-70-govt
+    source: maker-site
+    status: pending
+  - label: S&W MODEL 1854 LEVER-ACTION RIFLE 30-30 WIN
+    caliber: .30-30 Winchester
+    upc: 022188901702
+    part: '14205'
+    msrp: 1399.0
+    maker_url: https://www.smith-wesson.com/product/s-w-model-1854-lever-action-rifle-30-30-win
+    source: maker-site
+    status: pending
+  - label: S&W MODEL 1854 LEVER-ACTION RIFLE 357 MAGNUM
+    caliber: .357 Magnum
+    upc: 022188898934
+    part: '13813'
+    msrp: 1279.0
+    maker_url: https://www.smith-wesson.com/product/s-w-model-1854-lever-action-rifle-357-magnum
+    source: maker-site
+    status: pending
+  - label: S&W MODEL 1854 LEVER-ACTION RIFLE 44 MAGNUM
+    caliber: .44 Magnum
+    upc: 022188896862
+    part: '13812'
+    msrp: 1279.0
+    maker_url: https://www.smith-wesson.com/product/sw-model-1854-lever-action-rifle-44-magnum
+    source: maker-site
+    status: pending
+  - label: S&W MODEL 1854 LEVER-ACTION RIFLE 45 COLT
+    caliber: .45 Colt
+    upc: 022188898187
+    part: '13814'
+    msrp: 1279.0
+    maker_url: https://www.smith-wesson.com/product/sw-model-1854-lever-action-rifle-45-colt
+    source: maker-site
+    status: pending
+  - label: S&W MODEL 1854 LEVER-ACTION RIFLE 45-70 GOVT
+    caliber: .45-70 Government
+    upc: 022188900668
+    part: '14204'
+    msrp: 1399.0
+    maker_url: https://www.smith-wesson.com/product/s-w-model-1854-lever-action-rifle-45-70-govt
+    source: maker-site
+    status: pending
+  - label: S&W MODEL 1854 LEVER-ACTION RIFLE SCOPED COMBO .30-30 WIN
+    caliber: .30-30 Winchester
+    upc: 022188907001
+    part: '14824'
+    msrp: 1479.0
+    maker_url: https://www.smith-wesson.com/product/s-w-model-1854-lever-action-rifle-scoped-combo-30-30-win
+    source: maker-site
+    status: pending
+  - label: S&W MODEL 1854 LEVER-ACTION RIFLE SCOPED COMBO .45-70 GOVT
+    caliber: .45-70 Government
+    upc: 022188906950
+    part: '14827'
+    msrp: 1479.0
+    maker_url: https://www.smith-wesson.com/product/s-w-model-1854-lever-action-rifle-scoped-combo-45-70-govt
+    source: maker-site
+    status: pending
+  - label: S&W MODEL 1854 LIMITED EDITION LEVER-ACTION RIFLE 44 MAGNUM
+    caliber: .44 Magnum
+    upc: 022188896770
+    part: '14079'
+    msrp: 3849.0
+    maker_url: https://www.smith-wesson.com/product/sw-model-1854-limited-edition-lever-action-rifle-44-magnum
+    source: maker-site
+    status: pending
+  - label: S&W MODEL 1854 STEALTH HUNTER 30-30 WIN
+    caliber: .30-30 Winchester
+    upc: 022188901573
+    part: '14454'
+    msrp: 1499.0
+    maker_url: https://www.smith-wesson.com/product/s-w-model-1854-stealth-hunter-30-30-win
+    source: maker-site
+    status: pending
+  - label: S&W MODEL 1854 STEALTH HUNTER 357 MAGNUM
+    caliber: .357 Magnum
+    upc: 022188899870
+    part: '14194'
+    msrp: 1399.0
+    maker_url: https://www.smith-wesson.com/product/sw-model-1854-stealth-hunter-357-magnum
+    source: maker-site
+    status: pending
+  - label: S&W MODEL 1854 STEALTH HUNTER 44 MAGNUM
+    caliber: .44 Magnum
+    upc: 022188899238
+    part: '14193'
+    msrp: 1399.0
+    maker_url: https://www.smith-wesson.com/product/sw-model-1854-stealth-hunter-44-magnum
+    source: maker-site
+    status: pending
+  - label: S&W MODEL 1854 STEALTH HUNTER 45 COLT
+    caliber: .45 Colt
+    upc: 022188899306
+    part: '14195'
+    msrp: 1399.0
+    maker_url: https://www.smith-wesson.com/product/sw-model-1854-stealth-hunter-45-colt
+    source: maker-site
+    status: pending
+  - label: S&W MODEL 1854 STEALTH HUNTER 45-70 GOVT
+    caliber: .45-70 Government
+    upc: 022188901566
+    part: '14453'
+    msrp: 1499.0
+    maker_url: https://www.smith-wesson.com/product/s-w-model-1854-stealth-hunter-45-70-govt
+    source: maker-site
+    status: pending
+  - label: S&W MODEL 1854 TRADITIONAL WALNUT LEVER-ACTION RIFLE 30-30 WIN
+    caliber: .30-30 Winchester
+    upc: 022188901627
+    part: '14385'
+    msrp: 1499.0
+    maker_url: https://www.smith-wesson.com/product/s-w-model-1854-traditional-walnut-lever-action-rifle-30-30-win
+    source: maker-site
+    status: pending
+  - label: S&W MODEL 1854 TRADITIONAL WALNUT LEVER-ACTION RIFLE 357 MAGNUM
+    caliber: .357 Magnum
+    upc: 022188899061
+    part: '13810'
+    msrp: 1399.0
+    maker_url: https://www.smith-wesson.com/product/s-w-model-1854-traditional-walnut-lever-action-rifle-357-magnum
+    source: maker-site
+    status: pending
+  - label: S&W MODEL 1854 TRADITIONAL WALNUT LEVER-ACTION RIFLE 44 MAGNUM
+    caliber: .44 Magnum
+    upc: 022188895421
+    part: '13809'
+    msrp: 1399.0
+    maker_url: https://www.smith-wesson.com/product/sw-model-1854-traditional-walnut-lever-action-rifle-44-magnum
+    source: maker-site
+    status: pending
+  - label: S&W MODEL 1854 TRADITIONAL WALNUT LEVER-ACTION RIFLE 45 COLT
+    caliber: .45 Colt
+    upc: 022188898576
+    part: '13811'
+    msrp: 1399.0
+    maker_url: https://www.smith-wesson.com/product/sw-model-1854-traditional-walnut-lever-action-rifle-45-colt
+    source: maker-site
+    status: pending
+  - label: S&W MODEL 1854 TRADITIONAL WALNUT LEVER-ACTION RIFLE 45-70 GOVT
+    caliber: .45-70 Government
+    upc: 022188900804
+    part: '14384'
+    msrp: 1499.0
+    maker_url: https://www.smith-wesson.com/product/s-w-model-1854-traditional-walnut-lever-action-rifle-45-70-govt
+    source: maker-site
+    status: pending
+  - label: S&W MODEL 1854 WALNUT LEVER-ACTION RIFLE SCOPED COMBO .30-30 WIN
+    caliber: .30-30 Winchester
+    upc: 022188907018
+    part: '14825'
+    msrp: 1579.0
+    maker_url: https://www.smith-wesson.com/product/s-w-model-1854-walnut-lever-action-rifle-scoped-combo-30-30-win
+    source: maker-site
+    status: pending
+  - label: S&W MODEL 1854 WALNUT LEVER-ACTION RIFLE SCOPED COMBO .45-70 GOVT
+    caliber: .45-70 Government
+    upc: 022188906912
+    part: '14829'
+    msrp: 1579.0
+    maker_url: https://www.smith-wesson.com/product/s-w-model-1854-walnut-lever-action-rifle-scoped-combo-45-70-govt
+    source: maker-site
+    status: pending
+  status: pending
 - name: Smith & Wesson Model 19
   aliases:
   - S&W Model 19
@@ -17607,6 +18332,7 @@ models:
   - Smith & Wesson
   modern_production: true
   maker_url: https://www.smith-wesson.com/product/model-19-classic-no-internal-lock
+  frame_size: K-frame
   variants:
   - label: MODEL 19 CLASSIC NL USA 250TH ANNIVERSARY
     caliber: .357 Magnum
@@ -17695,6 +18421,15 @@ models:
   - .38 Special
   manufacturers:
   - Smith & Wesson
+  modern_production: true
+  variants:
+  - label: MODEL 20
+    upc: 022188898927
+    part: '14302'
+    msrp: 1549.0
+    maker_url: https://www.smith-wesson.com/product/model-20
+    source: maker-site
+    status: pending
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Model 25
@@ -17709,6 +18444,18 @@ models:
   - .45 Colt
   manufacturers:
   - Smith & Wesson
+  modern_production: true
+  frame_size: N-frame
+  variants:
+  - label: MODEL 25 - S&W CLASSICS 6 1/2" BLUE
+    barrel: 6.5
+    finish: Blued
+    upc: 022188133578
+    part: '150256'
+    msrp: 1239.0
+    maker_url: https://www.smith-wesson.com/product/model-25-s-w-classics-6-1-2-blue
+    source: maker-site
+    status: pending
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Model 27
@@ -17723,6 +18470,27 @@ models:
   - .357 Magnum
   manufacturers:
   - Smith & Wesson
+  modern_production: true
+  frame_size: N-frame
+  variants:
+  - label: MODEL 27
+    caliber: .357 Magnum
+    upc: 022188134360
+    part: '150339'
+    msrp: 1249.0
+    maker_url: https://www.smith-wesson.com/product/n-frame-150339/
+    source: maker-site
+    status: pending
+  - label: MODEL 27 - S&W CLASSICS 6 1/2" BLUE
+    caliber: .357 Magnum
+    barrel: 6.5
+    finish: Blued
+    upc: 022188134391
+    part: '150341'
+    msrp: 1299.0
+    maker_url: https://www.smith-wesson.com/product/model-27-s-w-classics-6-1-2-blue
+    source: maker-site
+    status: pending
   status: approved
 - name: Smith & Wesson Model 28
   aliases:
@@ -17737,6 +18505,7 @@ models:
   - .357 Magnum
   manufacturers:
   - Smith & Wesson
+  frame_size: N-frame
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Model 29
@@ -17745,12 +18514,43 @@ models:
   - Smith & Wesson 29
   - S&W 29
   - Smith and Wesson Model 29
-  kind: pistol
+  kind: revolver
   country: United States
   calibers:
   - .44 Magnum
   manufacturers:
   - Smith & Wesson
+  modern_production: true
+  frame_size: N-frame
+  variants:
+  - label: MODEL 29 - S&W CLASSICS 4" BLUE
+    caliber: .44 Magnum
+    barrel: 4.0
+    finish: Blued
+    upc: 022188133059
+    part: '150254'
+    msrp: 1229.0
+    maker_url: https://www.smith-wesson.com/product/n-frame-150254/
+    source: maker-site
+    status: pending
+  - label: MODEL 29 - S&W CLASSICS 6 1/2" BLUE
+    caliber: .44 Magnum
+    barrel: 6.5
+    finish: Blued
+    upc: 022188129915
+    part: '150145'
+    msrp: 1429.0
+    maker_url: https://www.smith-wesson.com/product/model-29-s-w-classics-6-1-2-blue
+    source: maker-site
+    status: pending
+  - label: MODEL 29 REVOLVER - MACHINE ENGRAVED
+    caliber: .44 Magnum
+    upc: 022188142242
+    part: '150783'
+    msrp: 1399.0
+    maker_url: https://www.smith-wesson.com/product/model-29-revolver---machine-engraved
+    source: maker-site
+    status: pending
   status: approved
 - name: Smith & Wesson Model 3
   aliases:
@@ -17795,6 +18595,17 @@ models:
   - .22 LR
   manufacturers:
   - Smith & Wesson
+  modern_production: true
+  frame_size: J-frame
+  variants:
+  - label: MODEL 317 KIT GUN
+    caliber: .22 LR
+    upc: 022188602210
+    part: '160221'
+    msrp: 889.0
+    maker_url: https://www.smith-wesson.com/product/model-317-kit-gun
+    source: maker-site
+    status: pending
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: Smith & Wesson Model 32
@@ -17811,6 +18622,54 @@ models:
   - Smith & Wesson
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Smith & Wesson Model 327
+  aliases:
+  - Model 327
+  - S&W Model 327
+  - Model 327 TRR8
+  - Model 327 Performance Center
+  kind: revolver
+  country: United States
+  calibers:
+  - .357 Magnum
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  frame_size: N-frame
+  variants:
+  - label: PERFORMANCE CENTER MODEL 327
+    caliber: .357 Magnum
+    upc: 022188702453
+    part: '170245'
+    msrp: 1609.0
+    maker_url: https://www.smith-wesson.com/product/n-frame-170245/
+    source: maker-site
+    status: pending
+  - label: PERFORMANCE CENTER MODEL 327 TRR8
+    caliber: .357 Magnum
+    upc: 022188702699
+    part: '170269'
+    msrp: 1629.0
+    maker_url: https://www.smith-wesson.com/product/performance-center-model-327-trr8
+    source: maker-site
+    status: pending
+  - label: PERFORMANCE CENTER MODEL 327 TRR8 MOSS
+    caliber: .357 Magnum
+    upc: 022188901368
+    part: '14449'
+    msrp: 1639.0
+    maker_url: https://www.smith-wesson.com/product/performance-center-model-327-trr8-moss
+    source: maker-site
+    status: pending
+  - label: PERFORMANCE CENTER MODEL 327 WR JERRY MICULEK WORLD RECORD REVOLVER
+    caliber: .357 Magnum
+    upc: 022188897333
+    part: '14045'
+    msrp: 3499.0
+    maker_url: https://www.smith-wesson.com/product/performance-center-model-327-wr-jerry-miculek-world-record-revolver
+    source: maker-site
+    status: pending
+  status: approved
 - name: Smith & Wesson Model 327 M&P R8
   aliases:
   - M&P R8
@@ -17823,6 +18682,7 @@ models:
   - Smith & Wesson
   modern_production: true
   maker_url: https://www.smith-wesson.com/product/performance-center-model-m-p-r8
+  frame_size: N-frame
   variants:
   - label: PERFORMANCE CENTER MODEL M&P R8
     caliber: .357 Magnum
@@ -17849,6 +18709,16 @@ models:
   - .44 Magnum
   manufacturers:
   - Smith & Wesson
+  modern_production: true
+  variants:
+  - label: MODEL 329PD
+    caliber: .44 Magnum
+    upc: 022188634143
+    part: '163414'
+    msrp: 1399.0
+    maker_url: https://www.smith-wesson.com/product/n-frame-163414/
+    source: maker-site
+    status: pending
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Model 33
@@ -17910,6 +18780,7 @@ models:
   - Smith & Wesson
   modern_production: true
   maker_url: https://www.smith-wesson.com/product/model-340-pd
+  frame_size: J-frame
   variants:
   - label: MODEL 340 PD
     caliber: .357 Magnum
@@ -17929,6 +18800,23 @@ models:
     status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Smith & Wesson Model 350
+  aliases:
+  - Model 350
+  kind: revolver
+  country: United States
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  variants:
+  - label: MODEL 350
+    upc: 022188884807
+    part: '13331'
+    msrp: 1739.0
+    maker_url: https://www.smith-wesson.com/product/model-350
+    source: maker-site
+    status: pending
+  status: pending
 - name: Smith & Wesson Model 351
   aliases:
   - Smith & Wesson 351
@@ -17942,6 +18830,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  frame_size: J-frame
   variants:
   - label: MODEL 351 C
     caliber: .22 WMR
@@ -17975,6 +18864,7 @@ models:
   - Smith & Wesson
   modern_production: true
   maker_url: https://www.smith-wesson.com/product/model-36-classic-no-internal-lock
+  frame_size: J-frame
   variants:
   - label: MODEL 36 CLASSIC NO INTERNAL LOCK
     caliber: .38 Special
@@ -18010,6 +18900,7 @@ models:
   - Smith & Wesson
   modern_production: true
   maker_url: https://www.smith-wesson.com/product/model-360pd-chiefs-special
+  frame_size: J-frame
   variants:
   - label: MODEL 360PD CHIEFS SPECIAL
     caliber: .357 Magnum
@@ -18019,6 +18910,14 @@ models:
     maker_url: https://www.smith-wesson.com/product/model-360pd-chiefs-special
     source: maker-site
     status: approved
+  - label: S&W MODEL 1854 LEVER-ACTION RIFLE 360 BUCKHAMMER
+    caliber: .357 Magnum
+    upc: 022188901719
+    part: '14206'
+    msrp: 1399.0
+    maker_url: https://www.smith-wesson.com/product/s-w-model-1854-lever-action-rifle-360-buckhammer
+    source: maker-site
+    status: pending
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Model 37
@@ -18032,6 +18931,7 @@ models:
   - .38 Special
   manufacturers:
   - Smith & Wesson
+  frame_size: J-frame
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: Smith & Wesson Model 386
@@ -18046,8 +18946,35 @@ models:
   - .357 Magnum
   manufacturers:
   - Smith & Wesson
+  modern_production: true
+  variants:
+  - label: MODEL 386 NIGHT GUARD
+    caliber: .357 Magnum
+    upc: 022188904598
+    part: '14037'
+    msrp: 1269.0
+    maker_url: https://www.smith-wesson.com/product/model-386-night-guard
+    source: maker-site
+    status: pending
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Smith & Wesson Model 396 Night
+  aliases:
+  - Model 396 Night
+  kind: revolver
+  country: United States
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  variants:
+  - label: MODEL 396 NIGHT GUARD
+    upc: 022188904130
+    part: '14352'
+    msrp: 1269.0
+    maker_url: https://www.smith-wesson.com/product/model-396-night-guard
+    source: maker-site
+    status: pending
+  status: pending
 - name: Smith & Wesson Model 4006
   aliases:
   - Smith & Wesson 4006
@@ -18072,6 +18999,17 @@ models:
   - .22 LR
   manufacturers:
   - Smith & Wesson
+  modern_production: true
+  variants:
+  - label: MODEL 41 7" BARREL
+    caliber: .22 LR
+    barrel: 7.0
+    upc: 022188305128
+    part: '130512'
+    msrp: 2199.0
+    maker_url: https://www.smith-wesson.com/product/model-41-7-barrel
+    source: maker-site
+    status: pending
   status: approved
 - name: Smith & Wesson Model 410
   aliases:
@@ -18087,6 +19025,62 @@ models:
   - Smith & Wesson
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Smith & Wesson Model 432
+  aliases:
+  - Model 432
+  kind: revolver
+  country: United States
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  variants:
+  - label: MODEL 432
+    upc: 022188899528
+    part: '14326'
+    msrp: 689.0
+    maker_url: https://www.smith-wesson.com/product/model-432
+    source: maker-site
+    status: pending
+  - label: MODEL 432 THE ULTIMATE CARRY REVOLVER IN 32HR MAG BLACK WITH NO LOCK
+    finish: Black
+    upc: 022188896848
+    part: '14035'
+    msrp: 769.0
+    maker_url: https://www.smith-wesson.com/product/model-432-ultimate-carry-revolver-32hr-mag-black-with-no-lock
+    source: maker-site
+    status: pending
+  - label: MODEL 432 THE ULTIMATE CARRY REVOLVER S&W BOOT GRIPS
+    upc: 022188902884
+    part: '14288'
+    msrp: 679.0
+    maker_url: https://www.smith-wesson.com/product/model-432-the-ultimate-carry-revolver-s-w-boot-grips
+    source: maker-site
+    status: pending
+  - label: MODEL 432 THE ULTIMATE CARRY REVOLVER TITANIUM CYLINDER NO LOCK
+    upc: 022188900767
+    part: '14351'
+    msrp: 825.0
+    maker_url: https://www.smith-wesson.com/product/model-432-the-ultimate-carry-revolver-titanium-cylinder-no-lock
+    source: maker-site
+    status: pending
+  status: pending
+- name: Smith & Wesson Model 43 C
+  aliases:
+  - Model 43 C
+  kind: revolver
+  country: United States
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  variants:
+  - label: MODEL 43 C
+    upc: 022188030433
+    part: '103043'
+    msrp: 799.0
+    maker_url: https://www.smith-wesson.com/product/j-frame-103043/
+    source: maker-site
+    status: pending
+  status: pending
 - name: Smith & Wesson Model 442
   aliases:
   - Smith & Wesson 442
@@ -18101,6 +19095,7 @@ models:
   - Smith & Wesson
   modern_production: true
   maker_url: https://www.smith-wesson.com/product/model-442
+  frame_size: J-frame
   variants:
   - label: MODEL 442 REVOLVER - NO INTERNAL LOCK
     caliber: .38 Special
@@ -18159,6 +19154,7 @@ models:
   - Smith & Wesson
   modern_production: true
   maker_url: https://www.smith-wesson.com/product/performance-center-model-460xvr
+  frame_size: X-frame
   variants:
   - label: MODEL 460V REVOLVER
     caliber: .460 S&W Magnum
@@ -18222,6 +19218,7 @@ models:
   - .38 Special
   manufacturers:
   - Smith & Wesson
+  frame_size: J-frame
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
 - name: Smith & Wesson Model 500
@@ -18238,6 +19235,7 @@ models:
   - Smith & Wesson
   modern_production: true
   maker_url: https://www.smith-wesson.com/product/model-s-w500
+  frame_size: X-frame
   variants:
   - label: MODEL S&W500
     caliber: .500 S&W Magnum
@@ -18302,6 +19300,18 @@ models:
   - .41 Remington Magnum
   manufacturers:
   - Smith & Wesson
+  modern_production: true
+  frame_size: N-frame
+  variants:
+  - label: MODEL 57 - S&W CLASSICS 6" .41 MAGNUM
+    caliber: .41 Remington Magnum
+    barrel: 6.0
+    upc: 022188138177
+    part: '150481'
+    msrp: 1239.0
+    maker_url: https://www.smith-wesson.com/product/n-frame-150481/
+    source: maker-site
+    status: pending
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Model 581
@@ -18332,6 +19342,7 @@ models:
   - Smith & Wesson
   modern_production: true
   maker_url: https://www.smith-wesson.com/product/l-frame-150908
+  frame_size: L-frame
   variants:
   - label: MODEL 586 4" BARREL
     caliber: .357 Magnum
@@ -18376,6 +19387,7 @@ models:
   - Smith & Wesson
   modern_production: true
   maker_url: https://www.smith-wesson.com/product/model-60-chiefs-special
+  frame_size: J-frame
   variants:
   - label: MODEL 60 3" CHIEFS SPECIAL
     caliber: .357 Magnum
@@ -18404,6 +19416,74 @@ models:
     status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Smith & Wesson Model 610
+  aliases:
+  - Model 610
+  kind: revolver
+  country: United States
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  variants:
+  - label: MODEL 610 10MM REVOLVER 3-7/8" BARREL
+    caliber: 10mm Auto
+    barrel: 3.875
+    upc: 022188877748
+    part: '12463'
+    msrp: 1199.0
+    maker_url: https://www.smith-wesson.com/product/model-610-10mm-revolver-4-barrel
+    source: maker-site
+    status: pending
+  - label: MODEL 610 10MM REVOLVER 6.5" BARREL
+    caliber: 10mm Auto
+    barrel: 6.5
+    upc: 022188877731
+    part: '12462'
+    msrp: 1199.0
+    maker_url: https://www.smith-wesson.com/product/model-610-10mm-revolver-6.5-barrel
+    source: maker-site
+    status: pending
+  - label: MODEL 610 MOUNTAIN GUN
+    upc: 022188901344
+    part: '14042'
+    msrp: 1239.0
+    maker_url: https://www.smith-wesson.com/product/model-610-mountain-gun
+    source: maker-site
+    status: pending
+  status: pending
+- name: Smith & Wesson Model 617
+  aliases:
+  - Model 617
+  kind: revolver
+  country: United States
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  variants:
+  - label: MODEL 617 4" BARREL
+    barrel: 4.0
+    upc: 022188605846
+    part: '160584'
+    msrp: 1019.0
+    maker_url: https://www.smith-wesson.com/product/k-frame-160584/
+    source: maker-site
+    status: pending
+  - label: MODEL 617 6" BARREL
+    barrel: 6.0
+    upc: 022188605785
+    part: '160578'
+    msrp: 1019.0
+    maker_url: https://www.smith-wesson.com/product/k-frame-160578/
+    source: maker-site
+    status: pending
+  - label: MODEL 617 MOUNTAIN GUN
+    upc: 022188901726
+    part: '14107'
+    msrp: 1239.0
+    maker_url: https://www.smith-wesson.com/product/model-617-mountain-gun
+    source: maker-site
+    status: pending
+  status: pending
 - name: Smith & Wesson Model 619
   aliases:
   - Smith & Wesson 619
@@ -18430,8 +19510,41 @@ models:
   - .45 ACP
   manufacturers:
   - Smith & Wesson
+  frame_size: N-frame
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Smith & Wesson Model 627
+  aliases:
+  - Model 627
+  kind: revolver
+  country: United States
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  variants:
+  - label: PERFORMANCE CENTER MODEL 627
+    upc: 022188701333
+    part: '170133'
+    msrp: 1329.0
+    maker_url: https://www.smith-wesson.com/product/n-frame-170133/
+    source: maker-site
+    status: pending
+  - label: PERFORMANCE CENTER MODEL 627 5" BARREL
+    barrel: 5.0
+    upc: 022188702101
+    part: '170210'
+    msrp: 1579.0
+    maker_url: https://www.smith-wesson.com/product/n-frame-170210/
+    source: maker-site
+    status: pending
+  - label: PERFORMANCE CENTER MODEL 627 V-COMP
+    upc: 022188702965
+    part: '170296'
+    msrp: 1909.0
+    maker_url: https://www.smith-wesson.com/product/n-frame-170296/
+    source: maker-site
+    status: pending
+  status: pending
 - name: Smith & Wesson Model 629
   aliases:
   - Smith & Wesson 629
@@ -18444,7 +19557,157 @@ models:
   - .44 Magnum
   manufacturers:
   - Smith & Wesson
+  modern_production: true
+  frame_size: N-frame
+  variants:
+  - label: MODEL 629
+    caliber: .44 Magnum
+    upc: 022188636062
+    part: '163606'
+    msrp: 1139.0
+    maker_url: https://www.smith-wesson.com/product/n-frame-163606/
+    source: maker-site
+    status: pending
+  - label: MODEL 629 4" BARREL
+    caliber: .44 Magnum
+    barrel: 4.0
+    upc: 022188636031
+    part: '163603'
+    msrp: 1139.0
+    maker_url: https://www.smith-wesson.com/product/n-frame-163603/
+    source: maker-site
+    status: pending
+  - label: MODEL 629 5" BARREL
+    caliber: .44 Magnum
+    barrel: 5.0
+    upc: 022188636369
+    part: '163636'
+    msrp: 1199.0
+    maker_url: https://www.smith-wesson.com/product/n-frame-163636/
+    source: maker-site
+    status: pending
+  - label: MODEL 629 CLASSIC
+    caliber: .44 Magnum
+    upc: 022188636383
+    part: '163638'
+    msrp: 1199.0
+    maker_url: https://www.smith-wesson.com/product/n-frame-163638/
+    source: maker-site
+    status: pending
+  - label: MODEL 629 DELUXE 3" BARREL
+    caliber: .44 Magnum
+    barrel: 3.0
+    upc: 022188141597
+    part: '150715'
+    msrp: 1169.0
+    maker_url: https://www.smith-wesson.com/product/n-frame-150715/
+    source: maker-site
+    status: pending
+  - label: MODEL 629 DELUXE 6.5" BARREL
+    caliber: .44 Magnum
+    barrel: 6.5
+    upc: 022188141566
+    part: '150714'
+    msrp: 1199.0
+    maker_url: https://www.smith-wesson.com/product/model-629-deluxe-6.5-barrel
+    source: maker-site
+    status: pending
+  - label: MODEL 629 MOUNTAIN GUN
+    caliber: .44 Magnum
+    upc: 022188899894
+    part: '14041'
+    msrp: 1239.0
+    maker_url: https://www.smith-wesson.com/product/model-629-mountain-gun
+    source: maker-site
+    status: pending
+  - label: MODEL 629 PLUS ENGRAVED TYLER GUNWORKS EDITION
+    caliber: .44 Magnum
+    upc: 022188905328
+    part: '14784'
+    msrp: 2299.0
+    maker_url: https://www.smith-wesson.com/product/model-629-plus-engraved-tyler-gunworks-edition
+    source: maker-site
+    status: pending
+  - label: PERFORMANCE CENTER MODEL 629
+    caliber: .44 Magnum
+    upc: 022188701357
+    part: '170135'
+    msrp: 1329.0
+    maker_url: https://www.smith-wesson.com/product/n-frame-170135/
+    source: maker-site
+    status: pending
+  - label: PERFORMANCE CENTER MODEL 629 .44 MAGNUM HUNTER
+    caliber: .44 Magnum
+    upc: 022188703184
+    part: '170318'
+    msrp: 1669.0
+    maker_url: https://www.smith-wesson.com/product/performance-center-model-629-.44-magnum-hunter
+    source: maker-site
+    status: pending
+  - label: PERFORMANCE CENTER MODEL 629 STEALTH HUNTER
+    caliber: .44 Magnum
+    upc: 022188703238
+    part: '170323'
+    msrp: 1979.0
+    maker_url: https://www.smith-wesson.com/product/performance-center-model-629-stealth-hunter
+    source: maker-site
+    status: pending
   status: approved
+- name: Smith & Wesson Model 63
+  aliases:
+  - Model 63
+  kind: revolver
+  country: United States
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  variants:
+  - label: MODEL 63
+    upc: 022188626346
+    part: '162634'
+    msrp: 909.0
+    maker_url: https://www.smith-wesson.com/product/model-63
+    source: maker-site
+    status: pending
+  status: pending
+- name: Smith & Wesson Model 632
+  aliases:
+  - Model 632
+  kind: revolver
+  country: United States
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  variants:
+  - label: MODEL 632
+    upc: 022188899399
+    part: '14327'
+    msrp: 689.0
+    maker_url: https://www.smith-wesson.com/product/model-632
+    source: maker-site
+    status: pending
+  - label: MODEL 632 THE ULTIMATE CARRY REVOLVER IN 32HR MAG SILVER WITH NO LOCK
+    upc: 022188896831
+    part: '14034'
+    msrp: 769.0
+    maker_url: https://www.smith-wesson.com/product/model-632-ultimate-carry-revolver-32hr-mag-silver-with-no-lock
+    source: maker-site
+    status: pending
+  - label: MODEL 632 THE ULTIMATE CARRY REVOLVER S&W BOOT GRIPS
+    upc: 022188902891
+    part: '14287'
+    msrp: 679.0
+    maker_url: https://www.smith-wesson.com/product/model-632-the-ultimate-carry-revolver-s-w-boot-grips
+    source: maker-site
+    status: pending
+  - label: MODEL 632 THE ULTIMATE CARRY REVOLVER TITANIUM CYLINDER NO LOCK
+    upc: 022188900750
+    part: '14350'
+    msrp: 825.0
+    maker_url: https://www.smith-wesson.com/product/model-632-the-ultimate-carry-revolver-titanium-cylinder-no-lock
+    source: maker-site
+    status: pending
+  status: pending
 - name: Smith & Wesson Model 637
   aliases:
   - Smith & Wesson 637
@@ -18459,6 +19722,7 @@ models:
   - Smith & Wesson
   modern_production: true
   maker_url: https://www.smith-wesson.com/product/model-637-chiefs-special
+  frame_size: J-frame
   variants:
   - label: MODEL 637 CHIEFS SPECIAL
     caliber: .38 Special
@@ -18486,6 +19750,23 @@ models:
     status: approved
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
+- name: Smith & Wesson Model 638
+  aliases:
+  - Model 638
+  kind: revolver
+  country: United States
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  variants:
+  - label: MODEL 638
+    upc: 022188630701
+    part: '163070'
+    msrp: 569.0
+    maker_url: https://www.smith-wesson.com/product/j-frame-163070/
+    source: maker-site
+    status: pending
+  status: pending
 - name: Smith & Wesson Model 64
   aliases:
   - S&W Model 64
@@ -18498,6 +19779,7 @@ models:
   - .38 Special
   manufacturers:
   - Smith & Wesson
+  frame_size: K-frame
   status: approved
 - name: Smith & Wesson Model 640
   aliases:
@@ -18513,6 +19795,7 @@ models:
   - Smith & Wesson
   modern_production: true
   maker_url: https://www.smith-wesson.com/product/model-640
+  frame_size: J-frame
   variants:
   - label: MODEL 640
     caliber: .357 Magnum
@@ -18555,6 +19838,7 @@ models:
   - Smith & Wesson
   modern_production: true
   maker_url: https://www.smith-wesson.com/product/performance-center-model-642
+  frame_size: J-frame
   variants:
   - label: MODEL 642 CRIMSON TRACE LASERGRIPS NO INTERNAL LOCK
     caliber: .38 Special
@@ -18650,6 +19934,17 @@ models:
   - .22 WMR
   manufacturers:
   - Smith & Wesson
+  modern_production: true
+  frame_size: K-frame
+  variants:
+  - label: MODEL 648
+    caliber: .22 WMR
+    upc: 022188877724
+    part: '12460'
+    msrp: 919.0
+    maker_url: https://www.smith-wesson.com/product/k-frame-12460/
+    source: maker-site
+    status: pending
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Model 65
@@ -18664,6 +19959,7 @@ models:
   - .357 Magnum
   manufacturers:
   - Smith & Wesson
+  frame_size: K-frame
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Model 66
@@ -18678,6 +19974,25 @@ models:
   - .357 Magnum
   manufacturers:
   - Smith & Wesson
+  modern_production: true
+  frame_size: K-frame
+  variants:
+  - label: MODEL 66
+    caliber: .357 Magnum
+    upc: 022188626629
+    part: '162662'
+    msrp: 1039.0
+    maker_url: https://www.smith-wesson.com/product/model-66
+    source: maker-site
+    status: pending
+  - label: S&W MODEL 66 AMERICA 250 EDITION
+    caliber: .357 Magnum
+    upc: 022188910216
+    part: '14958'
+    msrp: 1049.0
+    maker_url: https://www.smith-wesson.com/product/s-w-model-66-america-250-edition
+    source: maker-site
+    status: pending
   status: approved
 - name: Smith & Wesson Model 67
   aliases:
@@ -18691,6 +20006,7 @@ models:
   - .38 Special
   manufacturers:
   - Smith & Wesson
+  frame_size: K-frame
   status: approved
 - name: Smith & Wesson Model 686
   aliases:
@@ -18704,6 +20020,129 @@ models:
   - .357 Magnum
   manufacturers:
   - Smith & Wesson
+  modern_production: true
+  frame_size: L-frame
+  variants:
+  - label: MODEL 686 6" BARREL
+    caliber: .357 Magnum
+    barrel: 6.0
+    upc: 022188642247
+    part: '164224'
+    msrp: 979.0
+    maker_url: https://www.smith-wesson.com/product/l-frame-164224/
+    source: maker-site
+    status: pending
+  - label: MODEL 686 DELUXE
+    caliber: .357 Magnum
+    upc: 022188141580
+    part: '150712'
+    msrp: 1059.0
+    maker_url: https://www.smith-wesson.com/product/l-frame-150712/
+    source: maker-site
+    status: pending
+  - label: MODEL 686 PLUS
+    caliber: .357 Magnum
+    upc: 022188643008
+    part: '164300'
+    msrp: 1039.0
+    maker_url: https://www.smith-wesson.com/product/l-frame-164300/
+    source: maker-site
+    status: pending
+  - label: MODEL 686 PLUS 2.5" BARREL
+    caliber: .357 Magnum
+    barrel: 2.5
+    upc: 022188641929
+    part: '164192'
+    msrp: 1039.0
+    maker_url: https://www.smith-wesson.com/product/l-frame-164192/
+    source: maker-site
+    status: pending
+  - label: MODEL 686 PLUS 3-5-7 MAGNUM SERIES
+    caliber: .357 Magnum
+    upc: 022188145151
+    part: '150855'
+    msrp: 1059.0
+    maker_url: https://www.smith-wesson.com/product/l-frame-150855/
+    source: maker-site
+    status: pending
+  - label: MODEL 686 PLUS 3-5-7 MAGNUM SERIES 3" BARREL
+    caliber: .357 Magnum
+    barrel: 3.0
+    upc: 022188145175
+    part: '150853'
+    msrp: 1059.0
+    maker_url: https://www.smith-wesson.com/product/l-frame-150853/
+    source: maker-site
+    status: pending
+  - label: MODEL 686 PLUS 3-5-7 MAGNUM SERIES 5" BARREL
+    caliber: .357 Magnum
+    barrel: 5.0
+    upc: 022188145144
+    part: '150854'
+    msrp: 1059.0
+    maker_url: https://www.smith-wesson.com/product/l-frame-150854/
+    source: maker-site
+    status: pending
+  - label: MODEL 686 PLUS 4" BARREL
+    caliber: .357 Magnum
+    barrel: 4.0
+    upc: 022188641943
+    part: '164194'
+    msrp: 1039.0
+    maker_url: https://www.smith-wesson.com/product/l-frame-164194/
+    source: maker-site
+    status: pending
+  - label: MODEL 686 PLUS 6" BARREL
+    caliber: .357 Magnum
+    barrel: 6.0
+    upc: 022188641981
+    part: '164198'
+    msrp: 1039.0
+    maker_url: https://www.smith-wesson.com/product/l-frame-164198/
+    source: maker-site
+    status: pending
+  - label: MODEL 686 PLUS DELUXE
+    caliber: .357 Magnum
+    upc: 022188141573
+    part: '150713'
+    msrp: 1059.0
+    maker_url: https://www.smith-wesson.com/product/l-frame-150713/
+    source: maker-site
+    status: pending
+  - label: MODEL 686 PLUS ENGRAVED TYLER GUNWORKS EDITION
+    caliber: .357 Magnum
+    upc: 022188905311
+    part: '14783'
+    msrp: 2199.0
+    maker_url: https://www.smith-wesson.com/product/model-686-plus-engraved-tyler-gunworks-edition
+    source: maker-site
+    status: pending
+  - label: MODEL 686 PLUS MOUNTAIN GUN
+    caliber: .357 Magnum
+    upc: 022188900743
+    part: '14040'
+    msrp: 1239.0
+    maker_url: https://www.smith-wesson.com/product/model-686-plus-mountain-gun
+    source: maker-site
+    status: pending
+  - label: PERFORMANCE CENTER MODEL 686 2.5" BARREL
+    caliber: .357 Magnum
+    barrel: 2.5
+    upc: 022188703467
+    part: '170346'
+    msrp: 1379.0
+    maker_url: https://www.smith-wesson.com/product/l-frame-170346/
+    source: maker-site
+    status: pending
+  - label: PERFORMANCE CENTER MODEL 686 COMPETITOR 6" WEIGHTED BARREL
+    caliber: .357 Magnum
+    barrel: 6.0
+    upc: 022188703191
+    part: '170319'
+    msrp: 1689.0
+    maker_url: https://www.smith-wesson.com/product/l-frame-170319/
+    source: maker-site
+    status: pending
   status: approved
 - name: Smith & Wesson Model 69
   aliases:
@@ -18720,6 +20159,7 @@ models:
   - Smith & Wesson
   modern_production: true
   maker_url: https://www.smith-wesson.com/product/model-69
+  frame_size: L-frame
   variants:
   - label: MODEL 69
     caliber: .44 Magnum
@@ -18763,6 +20203,30 @@ models:
   - Smith & Wesson
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Smith & Wesson Model 940
+  aliases:
+  - Model 940
+  kind: revolver
+  country: United States
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  variants:
+  - label: MODEL 940
+    upc: 022188901313
+    part: '14328'
+    msrp: 1029.0
+    maker_url: https://www.smith-wesson.com/product/model-940
+    source: maker-site
+    status: pending
+  - label: MODEL 940-3
+    upc: 022188901337
+    part: '14295'
+    msrp: 899.0
+    maker_url: https://www.smith-wesson.com/product/model-940-3
+    source: maker-site
+    status: pending
+  status: pending
 - name: Smith & Wesson Model 986
   aliases:
   - Smith & Wesson 986
@@ -18776,6 +20240,7 @@ models:
   manufacturers:
   - Smith & Wesson
   modern_production: true
+  frame_size: L-frame
   variants:
   - label: PERFORMANCE CENTER MODEL 986 2.5" BARREL
     caliber: 9mm Luger
@@ -18868,6 +20333,48 @@ models:
   - Smith & Wesson
   wikipedia: https://en.wikipedia.org/wiki/Smith_%26_Wesson_Model_2
   status: approved
+- name: Smith & Wesson M&P 10
+  aliases:
+  - M&P 10
+  kind: rifle
+  country: United States
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  variants:
+  - label: M&P10 OPTICS READY 6.5 CREEDMOOR SPORT SERIES
+    caliber: 6.5mm Creedmoor
+    upc: 022188878578
+    part: '12606'
+    msrp: 1259.0
+    maker_url: https://www.smith-wesson.com/product/m-p-10-optics-ready-6.5-creedmoor-sport-series
+    source: maker-site
+    status: pending
+  - label: M&P10 SPORT OPTICS READY
+    upc: 022188869897
+    part: '11532'
+    msrp: 1259.0
+    maker_url: https://www.smith-wesson.com/product/m-p-10-sport-optics-ready
+    source: maker-site
+    status: pending
+  status: pending
+- name: Smith & Wesson M&P 12
+  aliases:
+  - M&P 12
+  kind: shotgun
+  country: United States
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  variants:
+  - label: M&P12
+    upc: 022188880137
+    part: '12490'
+    msrp: 1249.0
+    maker_url: https://www.smith-wesson.com/product/m-p-12
+    source: maker-site
+    status: pending
+  status: pending
 - name: Smith & Wesson M&P15
   aliases:
   - M&P15
@@ -18904,6 +20411,35 @@ models:
     maker_url: https://www.smith-wesson.com/product/m-p-15-axe-pistol-8-inch
     source: maker-site
     status: approved
+  - label: M&P15 AXE RIFLE 16 INCH
+    upc: 022188892109
+    part: '13665'
+    msrp: 1599.0
+    maker_url: https://www.smith-wesson.com/product/m-p-15-axe-rifle-16-inch
+    source: maker-site
+    status: pending
+  - label: M&P15 AXE SBR 11.5 INCH
+    upc: 022188894769
+    part: '13825'
+    msrp: 1559.0
+    maker_url: https://www.smith-wesson.com/product/m-p-15-axe-sbr-11-5-inch
+    source: maker-site
+    status: pending
+  - label: M&P15 AXE SBR 14.5 INCH
+    upc: 022188896060
+    part: '13824'
+    msrp: 1579.0
+    maker_url: https://www.smith-wesson.com/product/m-p-15-axe-sbr-14-5-inch
+    source: maker-site
+    status: pending
+  - label: M&P15 AXE SBR 8 INCH
+    barrel: 8.0
+    upc: 022188897876
+    part: '13888'
+    msrp: 1499.0
+    maker_url: https://www.smith-wesson.com/product/m-p-15-axe-sbr-8-inch
+    source: maker-site
+    status: pending
   - label: M&P15 PISTOL
     caliber: 5.56x45mm NATO
     upc: 022188884999
@@ -18920,6 +20456,90 @@ models:
     maker_url: https://www.smith-wesson.com/product/m-p-15-pistol-fixed-arm-brace
     source: maker-site
     status: approved
+  - label: M&P15 SBR 556 BCM Gunfighter Forend
+    upc: 022188890464
+    part: '13622'
+    maker_url: https://www.smith-wesson.com/product/mp-15-sbr-556-bcm-gunfighter-forend
+    source: maker-site
+    status: pending
+  - label: M&P15 SPORT III
+    upc: 022188894110
+    part: '13807'
+    msrp: 799.0
+    maker_url: https://www.smith-wesson.com/product/mp-15-sport-iii
+    source: maker-site
+    status: pending
+  - label: M&P15 SPORT III 10RD
+    upc: 022188895087
+    part: '13952'
+    msrp: 799.0
+    maker_url: https://www.smith-wesson.com/product/mp-15-sport-iii-10rd
+    source: maker-site
+    status: pending
+  - label: M&P15 SPORT III 10RD COMPLIANT WITH CT RED DOT
+    upc: 022188900644
+    part: '14406'
+    msrp: 829.0
+    maker_url: https://www.smith-wesson.com/product/mp-15-sport-iii-10rd-compliant-with-ct-red-dot
+    source: maker-site
+    status: pending
+  - label: M&P15 SPORT III 10RD FIXED STOCK COMPLIANT
+    upc: 022188895094
+    part: '13953'
+    msrp: 799.0
+    maker_url: https://www.smith-wesson.com/product/mp15-sport-iii-10rd-fixed-stock-compliant
+    source: maker-site
+    status: pending
+  - label: M&P15 SPORT III CA COMPLIANT
+    upc: 022188896763
+    part: '13955'
+    msrp: 849.0
+    maker_url: https://www.smith-wesson.com/product/mp-15-sport-iii-ca-compliant
+    source: maker-site
+    status: pending
+  - label: M&P15 SPORT III TOOL AND BAG BUNDLE
+    upc: 022188900736
+    part: '14426'
+    msrp: 849.0
+    maker_url: https://www.smith-wesson.com/product/mp-15-sport-iii-tool-and-bag-bundle
+    source: maker-site
+    status: pending
+  - label: M&P15 SPORT III TUNGSTEN GRAY
+    finish: Gray
+    upc: 022188900682
+    part: '14425'
+    msrp: 829.0
+    maker_url: https://www.smith-wesson.com/product/m-p-15-sport-iii-tungsten-gray
+    source: maker-site
+    status: pending
+  - label: M&P15 SPORT III WHITE
+    upc: 022188906202
+    part: '14798'
+    msrp: 899.0
+    maker_url: https://www.smith-wesson.com/product/m-p-15-sport-iii-white
+    source: maker-site
+    status: pending
+  - label: M&P15 SPORT III WHITE CA COMPLIANT
+    upc: 022188906219
+    part: '14799'
+    msrp: 949.0
+    maker_url: https://www.smith-wesson.com/product/m-p-15-sport-iii-white-ca-compliant
+    source: maker-site
+    status: pending
+  - label: M&P15 SPORT III WITH CT RED DOT
+    upc: 022188898194
+    part: '14207'
+    msrp: 829.0
+    maker_url: https://www.smith-wesson.com/product/mp-15-sport-iii-with-ct-red-dot
+    source: maker-site
+    status: pending
+  - label: M&P15 SPORT III WITH CT RED DOT 10 RD HEAVY BARREL FIXED STOCK COMPLIANT
+    upc: 022188898309
+    part: '14208'
+    msrp: 829.0
+    maker_url: https://www.smith-wesson.com/product/mp-15-sport-iii-with-ct-red-dot-10-rd-heavy-barrel-fixed-stock-compliant
+    source: maker-site
+    status: pending
   - label: M&P15-22 PISTOL 8 INCH BARREL
     caliber: .22 LR
     barrel: 8.0
@@ -18929,6 +20549,106 @@ models:
     maker_url: https://www.smith-wesson.com/product/mp-15-22-pistol
     source: maker-site
     status: approved
+  - label: M&P15-22 SPORT
+    upc: 022188868203
+    part: '10208'
+    msrp: 519.0
+    maker_url: https://www.smith-wesson.com/product/m-p-15-22-sport
+    source: maker-site
+    status: pending
+  - label: M&P15-22 SPORT FLAG FINISH
+    upc: 022188904444
+    part: '14714'
+    msrp: 569.0
+    maker_url: https://www.smith-wesson.com/product/m-p-15-22-sport-flag-finish
+    source: maker-site
+    status: pending
+  - label: M&P15-22 SPORT M-LOK COMPLIANT
+    upc: 022188868227
+    part: '10206'
+    msrp: 519.0
+    maker_url: https://www.smith-wesson.com/product/m-p-15-22-sport-m-lok-compliant
+    source: maker-site
+    status: pending
+  - label: M&P15-22 SPORT M-LOK COMPLIANT NO FLASH HIDER
+    upc: 022188868210
+    part: '10207'
+    msrp: 519.0
+    maker_url: https://www.smith-wesson.com/product/m-p-15-22-sport-m-lok-compliant-no-flash-hider
+    source: maker-site
+    status: pending
+  - label: M&P15-22 SPORT MOE SL FLAT DARK EARTH
+    finish: FDE
+    upc: 022188868258
+    part: '10210'
+    msrp: 579.0
+    maker_url: https://www.smith-wesson.com/product/m-p-15-22-sport-moe-sl-flat-dark-earth
+    source: maker-site
+    status: pending
+  - label: M&P15-22 SPORT MOE SL MATTE BLACK
+    finish: Black
+    upc: 022188868241
+    part: '10213'
+    msrp: 579.0
+    maker_url: https://www.smith-wesson.com/product/m-p-15-22-sport-moe-sl-matte-black
+    source: maker-site
+    status: pending
+  - label: M&P15-22 SPORT OD GREEN TOPOGRAPHIC FINISH
+    finish: OD Green
+    upc: 022188904376
+    part: '14469'
+    msrp: 589.0
+    maker_url: https://www.smith-wesson.com/product/m-p-15-22-sport-od-green-topographic-finish
+    source: maker-site
+    status: pending
+  - label: M&P15-22 SPORT OR W/ M&P RED/GREEN DOT OPTIC 10 ROUNDS
+    upc: 022188879414
+    part: '12723'
+    msrp: 539.0
+    maker_url: https://www.smith-wesson.com/product/m-p-15-22-sport-or-m-p-red-green-dot-optic-10-rounds
+    source: maker-site
+    status: pending
+  - label: M&P15-22 SPORT OR W/ M&P RED/GREEN DOT OPTIC 10 ROUNDS COMPLIANT
+    upc: 022188879421
+    part: '12724'
+    msrp: 539.0
+    maker_url: https://www.smith-wesson.com/product/m-p-15-22-sport-or-w-m-p-red-green-dot-optic-10-rounds-compliant
+    source: maker-site
+    status: pending
+  - label: M&P15-22 SPORT OR W/ M&P RED/GREEN DOT OPTIC 25 ROUNDS
+    upc: 022188879193
+    part: '12722'
+    msrp: 539.0
+    maker_url: https://www.smith-wesson.com/product/m-p-15-22-sport-or-m-p-red-green-dot-optic-25-rounds
+    source: maker-site
+    status: pending
+  - label: M&P15-22 SPORT WITH IMPACT SPORT IN EAR AND BAG BUNDLE
+    upc: 022188899702
+    part: '14375'
+    msrp: 599.0
+    maker_url: https://www.smith-wesson.com/product/mp-15-22-sport-with-impact-sport-in-ear-and-bag-bundle
+    source: maker-site
+    status: pending
+  - label: M&P15T SBR 556
+    upc: 022188891232
+    part: '13623'
+    maker_url: https://www.smith-wesson.com/product/mp-15t-sbr
+    source: maker-site
+    status: pending
+  - label: PERFORMANCE CENTER M&P 15-22 SPORT COMPLIANT
+    upc: 022188868142
+    part: '11507'
+    msrp: 809.0
+    maker_url: https://www.smith-wesson.com/product/performance-center-m-p-15-22-sport-compliant
+    source: maker-site
+    status: pending
+  - label: PERFORMANCE CENTER M&P15 AXE RIFLE 16 INCH
+    upc: 022188895780
+    part: '13986'
+    msrp: 1659.0
+    maker_url: https://www.smith-wesson.com/product/performance-center-m-p-15-axe-rifle-16-inch
+    source: maker-site
+    status: pending
   status: approved
 - name: Smith & Wesson M&P 22 Compact
   aliases:
@@ -18945,6 +20665,7 @@ models:
   variants:
   - label: M&P22 COMPACT
     caliber: .22 LR
+    frame: Compact
     upc: 022188083903
     part: '108390'
     msrp: 439.0
@@ -18954,6 +20675,7 @@ models:
   - label: M&P22 COMPACT CERAKOTE FLAT DARK EARTH THREADED BARREL
     caliber: .22 LR
     finish: FDE
+    frame: Compact
     upc: 022188868432
     part: '10242'
     msrp: 469.0
@@ -18962,6 +20684,7 @@ models:
     status: approved
   - label: M&P22 COMPACT THREADED BARREL
     caliber: .22 LR
+    frame: Compact
     upc: 022188866506
     part: '10199'
     msrp: 449.0
@@ -19043,6 +20766,7 @@ models:
   - Smith & Wesson
   modern_production: true
   maker_url: https://www.smith-wesson.com/product/m-p-340-no-internal-lock
+  frame_size: J-frame
   variants:
   - label: M&P340 NO INTERNAL LOCK
     caliber: .357 Magnum
@@ -19084,6 +20808,7 @@ models:
   variants:
   - label: M&P45 M2.0 THREADED BARREL OPTICS READY FULL SIZE
     caliber: .45 ACP
+    frame: Full size
     upc: 022188889963
     part: '13586'
     msrp: 699.0
@@ -19207,6 +20932,7 @@ models:
     status: approved
   - label: M&P 9 M2.0 COMPACT 10RD COMPLIANT
     caliber: 9mm Luger
+    frame: Compact
     upc: 022188896244
     part: '14099'
     msrp: 699.0
@@ -19216,6 +20942,7 @@ models:
   - label: M&P 9 M2.0 COMPACT FDE 10RD COMPLIANT
     caliber: 9mm Luger
     finish: FDE
+    frame: Compact
     upc: 022188896794
     part: '14100'
     msrp: 699.0
@@ -19225,6 +20952,7 @@ models:
   - label: M&P9 M2.0 3.6 INCH COMPACT NO THUMB SAFETY CARRY ON BUNDLE
     caliber: 9mm Luger
     barrel: 3.6
+    frame: Compact
     upc: 022188905410
     part: '14781'
     msrp: 799.0
@@ -19234,6 +20962,7 @@ models:
   - label: M&P9 M2.0 3.6 INCH METAL COMPACT NO THUMB SAFETY
     caliber: 9mm Luger
     barrel: 3.6
+    frame: Compact
     upc: 022188899962
     part: '14102'
     msrp: 949.0
@@ -19243,6 +20972,7 @@ models:
   - label: M&P9 M2.0 3.6 INCH METAL COMPACT THUMB SAFETY
     caliber: 9mm Luger
     barrel: 3.6
+    frame: Compact
     upc: 022188899993
     part: '14105'
     msrp: 949.0
@@ -19252,6 +20982,7 @@ models:
   - label: M&P9 M2.0 3.6 INCH METAL COMPACT THUMB SAFETY 10RD COMPLIANT
     caliber: 9mm Luger
     barrel: 3.6
+    frame: Compact
     upc: 022188900309
     part: '14106'
     msrp: 949.0
@@ -19261,6 +20992,7 @@ models:
   - label: M&P9 M2.0 3.6 INCH NO THUMB SAFETY OPTICS READY COMPACT SERIES
     caliber: 9mm Luger
     barrel: 3.6
+    frame: Compact
     upc: 022188889604
     part: '13571'
     msrp: 699.0
@@ -19270,6 +21002,7 @@ models:
   - label: M&P9 M2.0 3.6 INCH THUMB SAFETY OPTICS READY COMPACT SERIES
     caliber: 9mm Luger
     barrel: 3.6
+    frame: Compact
     upc: 022188889543
     part: '13570'
     msrp: 699.0
@@ -19279,6 +21012,7 @@ models:
   - label: M&P9 M2.0 4 INCH METAL COMPACT NO THUMB SAFETY
     caliber: 9mm Luger
     barrel: 4.0
+    frame: Compact
     upc: 022188899955
     part: '14101'
     msrp: 949.0
@@ -19288,6 +21022,7 @@ models:
   - label: M&P9 M2.0 4 INCH METAL COMPACT THUMB SAFETY
     caliber: 9mm Luger
     barrel: 4.0
+    frame: Compact
     upc: 022188899979
     part: '14103'
     msrp: 949.0
@@ -19297,6 +21032,7 @@ models:
   - label: M&P9 M2.0 4 INCH METAL COMPACT THUMB SAFETY 10RD COMPLIANT
     caliber: 9mm Luger
     barrel: 4.0
+    frame: Compact
     upc: 022188899986
     part: '14104'
     msrp: 949.0
@@ -19306,6 +21042,7 @@ models:
   - label: M&P9 M2.0 4 INCH OPTICS READY NO THUMB SAFETY COMPACT SERIES
     caliber: 9mm Luger
     barrel: 4.0
+    frame: Compact
     upc: 022188889628
     part: '13563'
     msrp: 699.0
@@ -19316,6 +21053,7 @@ models:
     caliber: 9mm Luger
     barrel: 4.0
     finish: FDE
+    frame: Compact
     upc: 022188889574
     part: '13572'
     msrp: 699.0
@@ -19325,6 +21063,7 @@ models:
   - label: M&P9 M2.0 4 INCH OPTICS READY THUMB SAFETY COMPACT SERIES
     caliber: 9mm Luger
     barrel: 4.0
+    frame: Compact
     upc: 022188889710
     part: '13568'
     msrp: 699.0
@@ -19335,6 +21074,7 @@ models:
     caliber: 9mm Luger
     barrel: 4.0
     finish: FDE
+    frame: Compact
     upc: 022188889635
     part: '13573'
     msrp: 699.0
@@ -19353,6 +21093,7 @@ models:
     caliber: 9mm Luger
     barrel: 5.0
     finish: FDE
+    frame: Full size
     upc: 022188889611
     part: '13569'
     msrp: 699.0
@@ -19403,6 +21144,7 @@ models:
     status: approved
   - label: M&P9 M2.0 METAL COMPACT CA COMPLIANT
     caliber: 9mm Luger
+    frame: Compact
     upc: 022188900538
     part: '14279'
     msrp: 949.0
@@ -19412,6 +21154,7 @@ models:
   - label: M&P9 M2.0 METAL COMPACT THUMB SAFETY 10RD COMPLIANT OD GREEN
     caliber: 9mm Luger
     finish: OD Green
+    frame: Compact
     upc: 022188903799
     part: '14654'
     msrp: 949.0
@@ -19421,6 +21164,7 @@ models:
   - label: M&P9 M2.0 METAL COMPACT THUMB SAFETY OD GREEN
     caliber: 9mm Luger
     finish: OD Green
+    frame: Compact
     upc: 022188903966
     part: '14652'
     msrp: 949.0
@@ -19534,6 +21278,7 @@ models:
     status: approved
   - label: M&P9 M2.0 OPTICS READY FULL SIZE SERIES
     caliber: 9mm Luger
+    frame: Full size
     upc: 022188889703
     part: '13564'
     msrp: 699.0
@@ -19551,6 +21296,7 @@ models:
     status: approved
   - label: M&P9 M2.0 THREADED BARREL OPTICS READY FULL SIZE
     caliber: 9mm Luger
+    frame: Full size
     upc: 022188889598
     part: '13585'
     msrp: 699.0
@@ -19567,6 +21313,7 @@ models:
     status: approved
   - label: M&P9 M2.0 THUMB SAFETY OPTICS READY FULL SIZE SERIES
     caliber: 9mm Luger
+    frame: Full size
     upc: 022188889581
     part: '13567'
     msrp: 699.0
@@ -19666,6 +21413,7 @@ models:
     status: approved
   - label: SPEC SERIES VI M&P 9 M2.0 METAL COMPACT
     caliber: 9mm Luger
+    frame: Compact
     upc: 022188905021
     part: '14634'
     msrp: 1899.0
@@ -19684,6 +21432,147 @@ models:
   - Smith & Wesson
   modern_production: true
   maker_url: https://www.smith-wesson.com/product/mp-fpc-fde
+  variants:
+  - label: M&P FPC
+    caliber: 9mm Luger
+    upc: 022188892512
+    part: '12575'
+    msrp: 719.0
+    maker_url: https://www.smith-wesson.com/product/fpc
+    source: maker-site
+    status: pending
+  - label: M&P FPC 10MM
+    caliber: 10mm Auto
+    upc: 022188900637
+    part: '14167'
+    msrp: 719.0
+    maker_url: https://www.smith-wesson.com/product/m-p-fpc-10mm
+    source: maker-site
+    status: pending
+  - label: M&P FPC 10MM 10RD COMPLIANT
+    caliber: 10mm Auto
+    upc: 022188901351
+    part: '14168'
+    msrp: 719.0
+    maker_url: https://www.smith-wesson.com/product/m-p-fpc-10mm-10rd-compliant
+    source: maker-site
+    status: pending
+  - label: M&P FPC 10MM CA COMPLIANT
+    caliber: 10mm Auto
+    upc: 022188902815
+    part: '14528'
+    msrp: 699.0
+    maker_url: https://www.smith-wesson.com/product/m-p-fpc-10mm-ca-compliant
+    source: maker-site
+    status: pending
+  - label: M&P FPC 10MM OD GREEN
+    caliber: 10mm Auto
+    finish: OD Green
+    upc: 022188903874
+    part: '14583'
+    msrp: 709.0
+    maker_url: https://www.smith-wesson.com/product/m-p-fpc-10mm-od-green
+    source: maker-site
+    status: pending
+  - label: M&P FPC 22LR
+    caliber: .22 LR
+    upc: 022188901580
+    part: '14171'
+    msrp: 549.0
+    maker_url: https://www.smith-wesson.com/product/m-p-fpc-22lr
+    source: maker-site
+    status: pending
+  - label: M&P FPC 22LR 10RD COMPLIANT
+    caliber: .22 LR
+    upc: 022188901849
+    part: '14172'
+    msrp: 549.0
+    maker_url: https://www.smith-wesson.com/product/m-p-fpc-22lr-10rd-compliant
+    source: maker-site
+    status: pending
+  - label: M&P FPC 22LR BUNDLE WITH CTS RED - GREEN DOT OPTIC
+    caliber: .22 LR
+    upc: 022188907438
+    part: '14872'
+    msrp: 599.0
+    maker_url: https://www.smith-wesson.com/product/m-p-fpc-22lr-bundle-with-cts-red-green-dot-optic
+    source: maker-site
+    status: pending
+  - label: M&P FPC 40 S&W
+    caliber: .40 S&W
+    upc: 022188898422
+    part: '13782'
+    msrp: 719.0
+    maker_url: https://www.smith-wesson.com/product/mp-fpc-40-sw
+    source: maker-site
+    status: pending
+  - label: M&P FPC 5.7
+    caliber: 9mm Luger
+    upc: 022188903829
+    part: '14169'
+    msrp: 719.0
+    maker_url: https://www.smith-wesson.com/product/m-p-fpc-5-7
+    source: maker-site
+    status: pending
+  - label: M&P FPC 5.7 10RD COMPLIANT
+    caliber: 9mm Luger
+    upc: 022188903782
+    part: '14170'
+    msrp: 719.0
+    maker_url: https://www.smith-wesson.com/product/m-p-fpc-5-7-10rd-compliant
+    source: maker-site
+    status: pending
+  - label: M&P FPC CA COMPLIANT
+    caliber: 9mm Luger
+    upc: 022188897630
+    part: '14142'
+    msrp: 719.0
+    maker_url: https://www.smith-wesson.com/product/mp-fpc-ca-compliant
+    source: maker-site
+    status: pending
+  - label: M&P FPC COMPLIANT
+    caliber: 9mm Luger
+    upc: 022188894929
+    part: '12576'
+    msrp: 719.0
+    maker_url: https://www.smith-wesson.com/product/fpc-10rd
+    source: maker-site
+    status: pending
+  - label: M&P FPC FDE
+    caliber: 9mm Luger
+    finish: FDE
+    upc: 022188899658
+    part: '14376'
+    msrp: 739.0
+    maker_url: https://www.smith-wesson.com/product/mp-fpc-fde
+    source: maker-site
+    status: pending
+  - label: M&P FPC OD GREEN
+    caliber: 9mm Luger
+    finish: OD Green
+    upc: 022188898163
+    part: '14182'
+    msrp: 739.0
+    maker_url: https://www.smith-wesson.com/product/fpc-od-green
+    source: maker-site
+    status: pending
+  - label: M&P FPC TUNGSTEN GRAY
+    caliber: 9mm Luger
+    finish: Gray
+    upc: 022188897869
+    part: '14173'
+    msrp: 739.0
+    maker_url: https://www.smith-wesson.com/product/mp-fpc-tungsten-gray
+    source: maker-site
+    status: pending
+  - label: M&P FPC WITH CTS RED - GREEN DOT OPTIC
+    caliber: 9mm Luger
+    upc: 022188899801
+    part: '14377'
+    msrp: 769.0
+    maker_url: https://www.smith-wesson.com/product/mp-fpc-with-cts-red-green-dot-optic
+    source: maker-site
+    status: pending
   status: approved
   notes: Added 2026-10-12 for M&P listings that matched no model.
 - name: Smith & Wesson M&P M2.0
@@ -19895,6 +21784,7 @@ models:
     status: approved
   - label: PERFORMANCE CENTER M&P9 M2.0 COMPACT CARRY COMP
     caliber: 9mm Luger
+    frame: Compact
     upc: 022188895841
     part: '13989'
     msrp: 849.0
@@ -19903,6 +21793,7 @@ models:
     status: approved
   - label: PERFORMANCE CENTER M&P9 M2.0 COMPACT CARRY COMP THUMB SAFETY 10RD COMPLIANT
     caliber: 9mm Luger
+    frame: Compact
     upc: 022188900811
     part: '14387'
     msrp: 849.0
@@ -19911,6 +21802,7 @@ models:
     status: approved
   - label: PERFORMANCE CENTER M&P9 M2.0 FULL-SIZE CARRY COMP
     caliber: 9mm Luger
+    frame: Full size
     upc: 022188900835
     part: '14415'
     msrp: 829.0
@@ -19962,6 +21854,7 @@ models:
   - label: PERFORMANCE CENTER M&P9 M2.0 METAL COMPACT CARRY COMP BLACK MULTICAM
     caliber: 9mm Luger
     finish: Black
+    frame: Compact
     upc: 022188904345
     part: '14647'
     msrp: 1099.0
@@ -19991,6 +21884,7 @@ models:
   - Smith & Wesson
   modern_production: true
   maker_url: https://www.smith-wesson.com/products/shield-m2-0
+  frame_size: Subcompact
   variants:
   - label: M&P SHIELD X CA COMPLIANT
     caliber: 9mm Luger
@@ -20209,6 +22103,7 @@ models:
   - Smith & Wesson
   modern_production: true
   maker_url: https://www.smith-wesson.com/products/shield-ez
+  frame_size: Subcompact
   variants:
   - label: M&P 380 SHIELD EZ
     caliber: .380 ACP
@@ -20381,6 +22276,7 @@ models:
   - Smith & Wesson
   modern_production: true
   maker_url: https://www.smith-wesson.com/products/shield-plus
+  frame_size: Micro
   variants:
   - label: M&P 9 SHIELD PLUS
     caliber: 9mm Luger
@@ -20536,6 +22432,40 @@ models:
   status: approved
   position: 890
   notes: Added 2026-10-11 for listings with no caliber.
+- name: Smith & Wesson Response
+  aliases:
+  - Response
+  kind: carbine
+  country: United States
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  variants:
+  - label: S&W RESPONSE 9MM
+    caliber: 9mm Luger
+    upc: 022188894134
+    part: '13797'
+    msrp: 799.0
+    maker_url: https://www.smith-wesson.com/product/response
+    source: maker-site
+    status: pending
+  - label: S&W RESPONSE 9MM 10RD COMPLIANT
+    caliber: 9mm Luger
+    upc: 022188896756
+    part: '13800'
+    msrp: 799.0
+    maker_url: https://www.smith-wesson.com/product/response-10-rd
+    source: maker-site
+    status: pending
+  - label: S&W RESPONSE 9MM 10RD FIXED STOCK NON-THREADED
+    caliber: 9mm Luger
+    upc: 022188896954
+    part: '13977'
+    msrp: 799.0
+    maker_url: https://www.smith-wesson.com/product/sw-response-9mm-10rd-nj-compliant
+    source: maker-site
+    status: pending
+  status: pending
 - name: Smith & Wesson Safety Hammerless
   aliases:
   - Safety Hammerless
@@ -20558,6 +22488,54 @@ models:
   manufacturers:
   - Smith & Wesson
   status: approved
+- name: Smith & Wesson SD40
+  aliases:
+  - SD40
+  kind: pistol
+  country: United States
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  variants:
+  - label: S&W SD40 2.0 2-Tone 10RD COMPLIANT
+    finish: Two-tone
+    upc: 022188898750
+    part: '13937'
+    msrp: 349.0
+    maker_url: https://www.smith-wesson.com/product/sw-sd40-2-2-tone-10rd-compliant
+    source: maker-site
+    status: pending
+  - label: S&W SD40 2.0 2-Tone 14RD
+    finish: Two-tone
+    upc: 022188898743
+    part: '13936'
+    msrp: 349.0
+    maker_url: https://www.smith-wesson.com/product/sw-sd40-2-2-tone-14rd
+    source: maker-site
+    status: pending
+  - label: S&W SD40 2.0 2-TONE WITH CT CMR-209 LIGHT
+    finish: Two-tone
+    upc: 022188902808
+    part: '14548'
+    msrp: 349.0
+    maker_url: https://www.smith-wesson.com/product/s-w-sd40-2-0-2-tone-with-ct-cmr-209-light
+    source: maker-site
+    status: pending
+  - label: S&W SD40 VE COMPLIANT
+    upc: 022188234039
+    part: '123403'
+    msrp: 399.0
+    maker_url: https://www.smith-wesson.com/product/s-w-sd40-ve-compliant
+    source: maker-site
+    status: pending
+  - label: S&W SD40 VE HI VIZ SIGHTS
+    upc: 022188871968
+    part: '11908'
+    msrp: 449.0
+    maker_url: https://www.smith-wesson.com/product/sdve-11908/
+    source: maker-site
+    status: pending
+  status: pending
 - name: Smith & Wesson SW1911
   aliases:
   - SW1911
@@ -20638,6 +22616,70 @@ models:
   manufacturers:
   - Smith & Wesson
   status: approved
+- name: Smith & Wesson Volunteer X
+  aliases:
+  - Volunteer X
+  kind: rifle
+  country: United States
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  variants:
+  - label: VOLUNTEER X 6.5 CREEDMOOR
+    caliber: 6.5mm Creedmoor
+    upc: 022188887785
+    part: '13521'
+    msrp: 1779.0
+    maker_url: https://www.smith-wesson.com/product/volunteer-x-6-5-creedmoor
+    source: maker-site
+    status: pending
+  status: pending
+- name: Smith & Wesson Volunteer XV
+  aliases:
+  - Volunteer XV
+  kind: rifle
+  country: United States
+  manufacturers:
+  - Smith & Wesson
+  modern_production: true
+  variants:
+  - label: VOLUNTEER XV 5.56 WITH OPTIC BUNDLE
+    caliber: 5.56x45mm NATO
+    upc: 022188899047
+    part: '14306'
+    msrp: 1099.0
+    maker_url: https://www.smith-wesson.com/product/volunteer-xv-5-56-with-optic-bundle
+    source: maker-site
+    status: pending
+  - label: VOLUNTEER XV COMPLIANT CA
+    upc: 022188888034
+    part: '13511'
+    msrp: 1079.0
+    maker_url: https://www.smith-wesson.com/product/mp-15-volunteer-13511/
+    source: maker-site
+    status: pending
+  - label: VOLUNTEER XV OPTICS READY RED DOT INCLUDED COMPLIANT
+    upc: 022188887914
+    part: '13514'
+    msrp: 1139.0
+    maker_url: https://www.smith-wesson.com/product/mp-15-volunteer-13514/
+    source: maker-site
+    status: pending
+  - label: VOLUNTEER XV PRO DMR M-LOK
+    upc: 022188888300
+    part: '13519'
+    msrp: 1609.0
+    maker_url: https://www.smith-wesson.com/product/volunteer-xv-pro-dmr-m-lok
+    source: maker-site
+    status: pending
+  - label: VOLUNTEER XV PRO M-LOK
+    upc: 022188888317
+    part: '13518'
+    msrp: 1589.0
+    maker_url: https://www.smith-wesson.com/product/volunteer-xv-pro-m-lok
+    source: maker-site
+    status: pending
+  status: pending
 - name: SMLE No.1 Mk III
   aliases:
   - SMLE
@@ -20729,6 +22771,7 @@ models:
   - Ruger
   modern_production: true
   maker_url: https://ruger.com/products/sp101/models.html
+  frame_size: Small frame
   variants:
   - label: SP101 22 LR 4.2" Stainless (Model 5765)
     caliber: .22 LR
@@ -20941,6 +22984,8 @@ models:
   - Mauser Model 1893
   - Model 1893 Mauser
   - Spanish M1893
+  - Oviedo Model 1893
+  - Spanish Oviedo Model 1893
   kind: rifle
   country: Spain
   calibers:
@@ -21167,6 +23212,10 @@ models:
   - U.S. Model 1842
   - US Model 1842
   - Springfield Model 1842 Musket
+  - Harper's Ferry Model 1842
+  - Harpers Ferry Model 1842
+  - Springfield Harper's Ferry Model 1842
+  - Model 1842 Musket
   kind: percussion_rifle
   country: United States
   calibers:
@@ -21509,6 +23558,22 @@ models:
   modern_production: true
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Steyr Kropatschek Model 1886
+  aliases:
+  - Kropatschek
+  - Kropatchek
+  - Kropatscheck
+  - Model 1886 Kropatschek
+  - Steyr Model 1886
+  - Portuguese Model 1886
+  kind: rifle
+  country: Austria
+  calibers:
+  - 8x60R
+  - 8x60mmR
+  manufacturers:
+  - Steyr
+  status: approved
 - name: Steyr M1895
   status: merged
   enabled: false
@@ -21639,6 +23704,75 @@ models:
   - .22 LR
   manufacturers:
   - Smith & Wesson
+  modern_production: true
+  variants:
+  - label: PERFORMANCE CENTER SW22 VICTORY TARGET MODEL 6" CARBON FIBER TARGET BARREL
+    caliber: .22 LR
+    barrel: 6.0
+    upc: 022188875560
+    part: '12080'
+    msrp: 779.0
+    maker_url: https://www.smith-wesson.com/product/performance-center-sw22-victory-target-model-6-carbon-fiber-target-barrel
+    source: maker-site
+    status: pending
+  - label: PERFORMANCE CENTER SW22 VICTORY TARGET MODEL 6" CARBON FIBER TARGET BARREL RED DOT SIGHT
+    caliber: .22 LR
+    barrel: 6.0
+    upc: 022188875553
+    part: '12081'
+    msrp: 999.0
+    maker_url: https://www.smith-wesson.com/product/performance-center-sw22-victory-target-model-6-carbon-fiber-target-barrel-red-dot-sight
+    source: maker-site
+    status: pending
+  - label: PERFORMANCE CENTER SW22 VICTORY TARGET MODEL 6" FLUTED BARREL RED DOT SIGHT
+    caliber: .22 LR
+    barrel: 6.0
+    upc: 022188875539
+    part: '12079'
+    msrp: 999.0
+    maker_url: https://www.smith-wesson.com/product/performance-center-sw22-victory-target-model-6-fluted-barrel-red-dot-sight
+    source: maker-site
+    status: pending
+  - label: PERFORMANCE CENTER SW22 VICTORY TARGET MODEL FIBER OPTIC SIGHTS
+    caliber: .22 LR
+    upc: 022188875546
+    part: '12078'
+    msrp: 779.0
+    maker_url: https://www.smith-wesson.com/product/performance-center-sw22-victory-target-model-fiber-optic-sights
+    source: maker-site
+    status: pending
+  - label: SW22 VICTORY
+    caliber: .22 LR
+    upc: 022188864076
+    part: '108490'
+    msrp: 469.0
+    maker_url: https://www.smith-wesson.com/product/sw22-victory
+    source: maker-site
+    status: pending
+  - label: SW22 VICTORY KRYPTEK
+    caliber: .22 LR
+    upc: 022188867886
+    part: '10297'
+    msrp: 509.0
+    maker_url: https://www.smith-wesson.com/product/sw22-victory-kryptek
+    source: maker-site
+    status: pending
+  - label: SW22 VICTORY TARGET MODEL
+    caliber: .22 LR
+    upc: 022188868319
+    part: '11536'
+    msrp: 489.0
+    maker_url: https://www.smith-wesson.com/product/sw22-victory-target-model
+    source: maker-site
+    status: pending
+  - label: SW22 VICTORY THREADED BARREL
+    caliber: .22 LR
+    upc: 022188868548
+    part: '10201'
+    msrp: 489.0
+    maker_url: https://www.smith-wesson.com/product/sw22-victory-threaded-barrel
+    source: maker-site
+    status: pending
   status: approved
 - name: SW40F
   kind: pistol
@@ -21697,6 +23831,10 @@ models:
   - M96 Swedish Mauser
   - Model 1896 Mauser
   - Swedish M96
+  - Swedish Mauser Model 1896
+  - Swede Model 1896
+  - Carl Gustaf M/96
+  - M/96 Carl Gustaf
   kind: rifle
   country: Sweden
   calibers:
@@ -21877,6 +24015,33 @@ models:
   country: Switzerland
   calibers:
   - 7.5x53.5mm
+  status: approved
+- name: Swiss Model 1893 Carbine
+  aliases:
+  - Swiss Model 1893
+  - Swiss Mannlicher 1893
+  - Model 1893 Mannlicher
+  - Swiss Model 1893 Mannlicher
+  kind: carbine
+  country: Switzerland
+  calibers:
+  - 7.5x53.5mm
+  manufacturers:
+  - Sig
+  status: approved
+- name: Swiss Model 1897 Cadet Rifle
+  aliases:
+  - Swiss Cadet Model 1897
+  - Kadettengewehr
+  - Kadettengewehre
+  - Schmidt Rubin Model 1897
+  - Model 1897 Cadet
+  kind: rifle
+  country: Switzerland
+  calibers:
+  - 7.5x53.5mm
+  manufacturers:
+  - W+F Bern
   status: approved
 - name: Swiss Model 1906
   aliases:
@@ -22825,11 +24990,26 @@ models:
   - Model 1842 Pistol
   - Model 1842 Percussion Pistol
   - Model 1842 Navy Pistol
+  - ASTON M1842
+  - M1842
+  - ASTON Mod. 1842
+  - Mod. 1842
+  - US Model 1842 Percussion Navy
+  - U.S. Model 1842 Navy
+  - Aston Model 1842
+  - H. Aston U.S. Model 1842
+  - U.S. Aston Model 1842
+  - US Model 1842 Ames
+  - Model 1842 N.P. Ames
+  - Model 1842 US Deringer
+  - U.S. Model 1842 Percussion
+  - Model 1842 Flintlock Pistol
   kind: percussion_pistol
   country: United States
   calibers:
   - '.54'
   manufacturers:
+  - ASTON
   - Springfield
   status: approved
   notes: Added 2026-10-09 from production's unmatched listings.
@@ -23044,16 +25224,6 @@ models:
   - Harrington & Richardson
   status: approved
   enabled: false
-- name: U.S. Model 327
-  aliases:
-  - Model 327
-  kind: pistol
-  country: United States
-  calibers:
-  - .357 Magnum
-  manufacturers:
-  - Smith & Wesson
-  status: approved
 - name: U.S. MODEL 416
   aliases:
   - MODEL 416
@@ -23613,6 +25783,7 @@ models:
   - label: Walther PDP Pro SD Compact 4.6" 9MM (2844176)
     caliber: 9mm Luger
     barrel: 4.6
+    frame: Compact
     part: '2844176'
     msrp: 999.0
     maker_url: https://waltherarms.com/defense/pdp/pdp-pro-sd-compact-4-6-in
@@ -23622,6 +25793,7 @@ models:
     caliber: 9mm Luger
     barrel: 4.6
     finish: Gray
+    frame: Compact
     part: '2876574'
     msrp: 999.0
     maker_url: https://waltherarms.com/defense/pdp/pdp-pro-sd-compact-4-6-in-gray
@@ -23630,6 +25802,7 @@ models:
   - label: Walther PDP Pro SD Full Size 5.1" 9MM (2842521)
     caliber: 9mm Luger
     barrel: 5.1
+    frame: Full size
     part: '2842521'
     msrp: 999.0
     maker_url: https://waltherarms.com/defense/pdp/pdp-pro-sd-full-size-5-1-in
@@ -23639,6 +25812,7 @@ models:
     caliber: 9mm Luger
     barrel: 5.1
     finish: FDE
+    frame: Full size
     part: '2876582'
     msrp: 999.0
     maker_url: https://waltherarms.com/defense/pdp/pdp-pro-sd-full-size-5-1-in-fde
@@ -23648,6 +25822,7 @@ models:
     caliber: 9mm Luger
     barrel: 5.1
     finish: Gray
+    frame: Full size
     part: '2877503'
     msrp: 999.0
     maker_url: https://waltherarms.com/defense/pdp/pdp-pro-sd-full-size-5-1-in-gray
@@ -23656,6 +25831,7 @@ models:
   - label: Walther PDP Standard Compact 4" 9MM (2851229)
     caliber: 9mm Luger
     barrel: 4.0
+    frame: Compact
     part: '2851229'
     msrp: 699.0
     maker_url: https://waltherarms.com/defense/pdp/pdp-standard-compact-4-in
@@ -23664,6 +25840,7 @@ models:
   - label: Walther PDP Standard Compact 5" 9MM (2844222)
     caliber: 9mm Luger
     barrel: 5.0
+    frame: Compact
     part: '2844222'
     msrp: 699.0
     maker_url: https://waltherarms.com/defense/pdp/pdp-standard-compact-5-in
@@ -23672,6 +25849,7 @@ models:
   - label: Walther PDP Standard Full Size 4" 9MM (2851237)
     caliber: 9mm Luger
     barrel: 4.0
+    frame: Full size
     part: '2851237'
     msrp: 699.0
     maker_url: https://waltherarms.com/defense/pdp/pdp-standard-full-size-4-in
@@ -23680,6 +25858,7 @@ models:
   - label: Walther PDP Standard Full Size 4.5" 9MM (2842475)
     caliber: 9mm Luger
     barrel: 4.5
+    frame: Full size
     part: '2842475'
     msrp: 699.0
     maker_url: https://waltherarms.com/defense/pdp/pdp-standard-full-size-4-5-in
@@ -23688,6 +25867,7 @@ models:
   - label: Walther PDP Standard Full Size 5" 9MM (2844001)
     caliber: 9mm Luger
     barrel: 5.0
+    frame: Full size
     part: '2844001'
     msrp: 699.0
     maker_url: https://waltherarms.com/defense/pdp/pdp-standard-full-size-5-in
@@ -23696,6 +25876,7 @@ models:
   - label: Walther PDP Steel Frame Compact 4" 9MM (2872111)
     caliber: 9mm Luger
     barrel: 4.0
+    frame: Compact
     part: '2872111'
     msrp: 1899.0
     maker_url: https://waltherarms.com/defense/pdp/pdp-steel-frame-compact-4-in
@@ -23704,6 +25885,7 @@ models:
   - label: Walther PDP Steel Frame Full Size 4.5" 9MM (2872285)
     caliber: 9mm Luger
     barrel: 4.5
+    frame: Full size
     part: '2872285'
     msrp: 1899.0
     maker_url: https://waltherarms.com/defense/pdp/pdp-steel-frame-full-size-4-5-in
@@ -24176,6 +26358,8 @@ models:
   - Winchester 1886
   - Win 1886
   - Winchester Model 86
+  - Winchester Deluxe Model 1886
+  - Winchester Special Order Model 1886
   kind: rifle
   country: United States
   manufacturers:
@@ -24255,6 +26439,19 @@ models:
   manufacturers:
   - Winchester
   wikipedia: https://en.wikipedia.org/wiki/Winchester_Model_70
+  status: approved
+- name: Winchester Model 88
+  aliases:
+  - Winchester 88
+  - Winchester Model 88 Lever Action
+  kind: rifle
+  country: United States
+  calibers:
+  - .243 Winchester
+  - .358 Winchester
+  - 7.62x51 NATO
+  manufacturers:
+  - Winchester
   status: approved
 - name: Winchester Model 94
   aliases:

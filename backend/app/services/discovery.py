@@ -425,6 +425,10 @@ _A_DATE = frozenset(
     )
 )
 
+#: "Model 1886", "MODEL 88", "Model 32": a number that names a gun only with
+#: its maker beside it. See model_candidates.
+_BARE_MODEL_NUMBER = re.compile(r"(?i)models?\s*\d+[a-z]?")
+
 #: Years a gun can be *named* for, as opposed to made in.
 #:
 #: Ordnance named a pattern for its year of adoption, and the practice had died
@@ -507,12 +511,24 @@ def _designations(text: str) -> Iterable[re.Match[str]]:
 def model_candidates(session: Session, title: str, caliber: str | None) -> list[str]:
     """Designations in this title that could be a model."""
     found: list[str] = []
-    for match in _designations(_strip_noise(title, caliber)):
+    stripped = _strip_noise(title, caliber)
+    for match in _designations(stripped):
         text = " ".join(match.group(0).split())
         # A cartridge is not a model. "GP11" has the shape and is the Swiss
         # service round, and it reached the queue before this line existed.
         if armory.canonical_caliber(session, text):
             continue
+        # Nor is "Model" and a number on its own: "Model 1886" is a
+        # Winchester and a Steyr Kropatschek, "MODEL 88" a Winchester, a
+        # Marlin and a Mossberg. Twelve such rows reached the queue on
+        # 2026-10-14, each gathering every maker's gun of that number. So the
+        # maker stays in the name, as the pattern-year rule keeps it --
+        # "Winchester Model 1873" -- and with no maker beside it, nothing.
+        if _BARE_MODEL_NUMBER.fullmatch(text):
+            maker = _name_before(stripped, match.start())
+            if not maker or not _is_a_plausible_maker(maker):
+                continue
+            text = f"{maker} {text}"
         if text not in found:
             found.append(text)
     return found

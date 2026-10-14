@@ -238,6 +238,8 @@ def clean_db(_database):
             "ammo_settings",
             # One row per read of the manufacturers' sites, like ammo_settings.
             "manufacturer_jobs",
+            # Graf & Sons' powders and primers, read by one refresh.
+            "reloading_supplies",
             "caliber_bullet_weights",
             "vendor_emails",
             "inbox_settings",

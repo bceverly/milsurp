@@ -3933,6 +3933,18 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
+/* A caliber's primer and load, typed by hand in its dialog. */
+.caliber-reloading {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--silver-200);
+  border-radius: 8px;
+  min-width: 0;
+}
+.caliber-reloading legend {
+  padding: 0 6px;
+  font-weight: 600;
+}
 .ammo__weights {
   font-size: 13.5px;
   width: 100%;

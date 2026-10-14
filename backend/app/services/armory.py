@@ -1142,6 +1142,7 @@ def _seed_calibers(
             wikipedia_url=entry.get("wikipedia"),
             bullet_diameter_in=entry.get("bullet_diameter_in"),
         )
+        write_reloading(cartridge, entry.get("reloading"))
         session.add(cartridge)
         calibers[name.lower()] = cartridge
         report.calibers += 1
@@ -1383,6 +1384,7 @@ def export_armory(session: Session) -> dict[str, Any]:
                     "wikipedia": row.wikipedia_url,
                     "rejected_wikipedia": rejected.get(("caliber", row.id, "wikipedia")),
                     "bullet_diameter_in": row.bullet_diameter_in,
+                    "reloading": reloading_entry(row),
                 }
             )
             for row in calibers
@@ -1874,6 +1876,57 @@ def _mark_list(marks: str | None) -> list[str]:
     return [line.strip() for line in (marks or "").splitlines() if line.strip()]
 
 
+#: A caliber's reloading facts typed by hand, as the shipped file spells them.
+#: The primer travels only when it was set by hand: one read from Wikipedia is
+#: read again wherever the file is loaded. Prices never travel.
+_RELOADING_KEYS = (
+    ("primer", "primer_size"),
+    ("primer_magnum", "primer_magnum"),
+    ("powder", "powder_name"),
+    ("charge_gr", "powder_charge_gr"),
+    ("bullet_gr", "powder_bullet_gr"),
+)
+
+
+class _Entry:
+    """A file's ``reloading`` mapping, read as a caliber row is."""
+
+    def __init__(self, entry: Any) -> None:
+        entry = entry if isinstance(entry, dict) else {}
+        self.primer_size: str | None = entry.get("primer")
+        self.primer_magnum: bool | None = entry.get("primer_magnum")
+        self.primer_source = "hand" if self.primer_size else None
+        self.powder_name: str | None = entry.get("powder")
+        self.powder_charge_gr: float | None = entry.get("charge_gr")
+        self.powder_bullet_gr: float | None = entry.get("bullet_gr")
+
+
+def reloading_entry(row: Any) -> dict[str, Any]:
+    """The caliber's hand-entered reloading facts, for the shipped file."""
+    hand = getattr(row, "primer_source", None) == "hand"
+    found = {
+        key: getattr(row, column, None)
+        for key, column in _RELOADING_KEYS
+        if hand or not column.startswith("primer")
+    }
+    if found.get("primer_magnum") is False:
+        found["primer_magnum"] = None
+    return _without_blanks(found)
+
+
+def write_reloading(row: Caliber, entry: Any) -> None:
+    """Put a file's hand-entered reloading facts on a caliber. A primer read
+    from Wikipedia is left alone when the file names none."""
+    given = _Entry(entry)
+    if given.primer_size or row.primer_source == "hand":
+        row.primer_size = given.primer_size
+        row.primer_magnum = bool(given.primer_magnum) if given.primer_size else None
+        row.primer_source = given.primer_source
+    row.powder_name = given.powder_name
+    row.powder_charge_gr = given.powder_charge_gr
+    row.powder_bullet_gr = given.powder_bullet_gr
+
+
 def _caliber_differences(row: Caliber, entry: dict[str, Any]) -> list[str]:
     return _differences(
         {
@@ -1882,6 +1935,7 @@ def _caliber_differences(row: Caliber, entry: dict[str, Any]) -> list[str]:
             "notes": row.notes,
             "wikipedia": row.wikipedia_url,
             "bullet_diameter_in": row.bullet_diameter_in,
+            "reloading": reloading_entry(row),
         },
         {
             "aliases": [str(a) for a in entry.get("aliases") or []],
@@ -1889,6 +1943,7 @@ def _caliber_differences(row: Caliber, entry: dict[str, Any]) -> list[str]:
             "notes": entry.get("notes"),
             "wikipedia": entry.get("wikipedia"),
             "bullet_diameter_in": entry.get("bullet_diameter_in"),
+            "reloading": reloading_entry(_Entry(entry.get("reloading"))),
         },
     )
 
@@ -2084,6 +2139,7 @@ def _sync_calibers(
             row.wikipedia_read_at = None
         row.wikipedia_url = entry.get("wikipedia")
         row.bullet_diameter_in = entry.get("bullet_diameter_in")
+        write_reloading(row, entry.get("reloading"))
 
     if prune:
         for key, row in list(known.items()):

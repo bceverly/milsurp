@@ -63,7 +63,7 @@ from sqlalchemy.orm import Session
 
 from ..models import AmmoSetting, ArmoryStatus, Caliber, CaliberBulletWeight, Item, as_utc, utcnow
 from ..scrapers.base import Disallowed, ScrapeContext, ScrapeError, text_of
-from . import armory, wikipedia
+from . import armory, reloading, wikipedia
 
 AMMO_COM = "https://ammo.com/"
 #: Ammo.com's category pages, each linking a page per caliber.
@@ -126,6 +126,9 @@ SAME_DIAMETER = 0.0015
 class ArticleFacts:
     diameter_in: float | None
     grains: list[float]
+    #: The primer the infobox names ("Large rifle"), and whether a magnum.
+    primer_size: str | None = None
+    primer_magnum: bool | None = None
 
 
 def _infobox(wikitext: str) -> str | None:
@@ -261,7 +264,8 @@ def article_facts(wikitext: str) -> ArticleFacts:
         # French Ordnance article gave a "6" (2026-10-12).
         if grains >= 10 and grains not in weights:
             weights.append(grains)
-    return ArticleFacts(diameter, sorted(weights))
+    primer, magnum = reloading.article_primer(params)
+    return ArticleFacts(diameter, sorted(weights), primer, magnum)
 
 
 def read_article(fetch: wikipedia.Fetch, url: str) -> str:
@@ -318,11 +322,17 @@ def refresh_articles(
             caliber.bullet_diameter_in = facts.diameter_in
         if facts.grains:
             set_weights(caliber, facts.grains)
+        # The primer is the cartridge's, read once; one set by hand is kept.
+        if facts.primer_size and caliber.primer_source != "hand":
+            caliber.primer_size, caliber.primer_magnum = facts.primer_size, facts.primer_magnum
+            caliber.primer_source = "wikipedia"
+            reloading.price_load(session, caliber)
         caliber.wikipedia_read_at = utcnow()
         session.commit()
         log(
             f"  {caliber.name}: diameter {facts.diameter_in or 'not stated'}, "
-            f"weights {', '.join(f'{g:g}' for g in facts.grains) or 'none stated'}"
+            f"weights {', '.join(f'{g:g}' for g in facts.grains) or 'none stated'}, "
+            f"primer {reloading.primer_key(facts.primer_size, bool(facts.primer_magnum)) if facts.primer_size else 'not stated'}"
         )
     return len(due)
 
@@ -919,6 +929,8 @@ class Sources:
     bullets: list[tuple[float, Offer]]
     milsurp: list[tuple[str, Offer]]
     notes: list[str]
+    #: Graf & Sons' brass, primers and powders, for reloading.
+    supplies: reloading.Supplies | None = None
 
 
 def grafs_catalog(ctx: ScrapeContext) -> list[tuple[float, Offer]]:
@@ -963,6 +975,10 @@ def _sources(session: Session, ctx: ScrapeContext, parts: Iterable[str] = PARTS)
             found.bullets = grafs_catalog(ctx)
         except (Disallowed, ScrapeError) as exc:
             found.notes.append(f"Graf & Sons not read ({exc})")
+        try:
+            found.supplies = reloading.read_supplies(ctx)
+        except (Disallowed, ScrapeError) as exc:
+            found.notes.append(f"Graf & Sons' brass, primers and powder not read ({exc})")
     return found
 
 
@@ -976,8 +992,17 @@ def _price_calibers(
 ) -> str:
     """Price every caliber for sale, for the parts asked for. Returns a summary."""
     parts = set(parts)
-    priced = projectiles = 0
+    priced = projectiles = brassed = whole = 0
     asked = for_sale(session)
+    supplies = sources.supplies if "reloading" in parts else None
+    brass: dict[str, list[reloading.Brass]] = {}
+    if supplies is not None:
+        reloading.store_supplies(session, supplies, now)
+        brass = reloading.brass_by_caliber(session, supplies.brass)
+        # Every caliber with a load entered, for sale here or not.
+        for caliber in session.execute(select(Caliber)).scalars():
+            reloading.price_load(session, caliber)
+        session.commit()
     for caliber in asked:
         if "prices" in parts:
             try:
@@ -991,16 +1016,25 @@ def _price_calibers(
                 break
         if "reloading" in parts and sources.bullets:
             projectiles += int(_projectiles(caliber, sources.bullets, now))
+        if supplies is not None:
+            brassed += int(reloading.price_brass(caliber, brass.get(caliber.name), now))
+            whole += int(reloading.reload_cost(caliber) is not None)
         session.commit()
         log(
             f"  {caliber.name}: factory {caliber.factory_cpr or '-'} "
-            f"({caliber.factory_source or 'none'}), projectile {caliber.projectile_cost or '-'}"
+            f"({caliber.factory_source or 'none'}), projectile {caliber.projectile_cost or '-'}, "
+            f"brass {caliber.brass_cost or '-'}, reloaded {reloading.reload_cost(caliber) or '-'}"
         )
     counts = []
     if "prices" in parts:
         counts.append(f"{priced} with factory prices")
     if "reloading" in parts:
         counts.append(f"{projectiles} with projectile prices")
+    if supplies is not None:
+        counts.append(
+            f"{brassed} with new brass, {whole} with a whole reloaded round "
+            f"({len(supplies.powders)} powders, {len(supplies.primers)} primers in stock)"
+        )
     head = f"{len(asked)} calibers for sale: {', '.join(counts)}"
     return "; ".join([head, *sources.notes])
 

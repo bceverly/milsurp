@@ -62,7 +62,7 @@ class TestModelDesignations:
     @pytest.mark.parametrize(
         ("title", "wanted"),
         [
-            ("Winchester Model 1873 Lever Action Rifle", "Model 1873"),
+            ("Winchester Model 1873 Lever Action Rifle", "Winchester Model 1873"),
             ("Japanese Arisaka Type 99 Rifle", "Type 99"),
             ("German K98k Mauser, all matching", "K98k"),
             ("WWI British No.4 Mk.I Bolt Action", "No.4 Mk.I"),
@@ -82,6 +82,19 @@ class TestModelDesignations:
 
     def test_nor_is_anything_after_a_serial_number(self, seeded):
         assert self.shapes(seeded, "Colt Python Revolver Serial T34147") == []
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "WINCHESTER MODEL 88 .308 CAL LEVER ACTION RIFLE",
+            "Winchester Special Order Model 1886 Deluxe Lever Action Rifle",
+            "Harrington & Richardson Small Frame 2nd Model 32 Hammerless",
+        ],
+    )
+    def test_nor_model_and_a_bare_number(self, seeded, title):
+        """2026-10-14: twelve rows like "Model 1886" reached the queue, each
+        gathering every maker's gun of that number."""
+        assert not any(shape.lower().startswith("model") for shape in self.shapes(seeded, title))
 
     def test_nor_a_caliber(self, seeded):
         """ ".380 ACP 3.5\\" barrel" produced "ACP 3" before the stop list."""
@@ -127,7 +140,7 @@ class TestTheCollectorShorthands:
             ("W+F BERN 06/24 Luger", "06/24"),
             # The prefix vocabulary, read case-insensitively for the vendors
             # who write a whole title in capitals.
-            ("COLT MODEL 1917 REVOLVER", "MODEL 1917"),
+            ("COLT MODEL 1917 REVOLVER", "COLT MODEL 1917"),
             ("Remington U.S. MODEL OF 1917 Rifle", "MODEL OF 1917"),
             ("MAC MODELE 1950 Pistol", "MODELE 1950"),
             ("MAS MLE 1936 Rifle", "MLE 1936"),
@@ -320,7 +333,7 @@ class TestWhatAPassProposes:
         listing(clean_db, site, "Winchester Model 1873 Lever Action Rifle")
         found = discovery.discover(clean_db, clean_db.query(Item).all())
         clean_db.commit()
-        assert "Model 1873" in found.models
+        assert "Winchester Model 1873" in found.models
 
     def test_but_not_from_an_accessory(self, clean_db, site):
         """A bayonet listing names the rifle it fits, and proposing that

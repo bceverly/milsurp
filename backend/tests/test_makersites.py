@@ -13,7 +13,14 @@ from pathlib import Path
 
 import pytest
 
-from app.models import ArmoryStatus, Caliber, FirearmModel, Manufacturer, ModelVariant
+from app.models import (
+    ArmoryStatus,
+    Caliber,
+    FirearmKind,
+    FirearmModel,
+    Manufacturer,
+    ModelVariant,
+)
 from app.scrapers.base import ScrapeError
 from app.services import makersites
 
@@ -384,6 +391,18 @@ class TestProductsNoModelNames:
     catch-all spelling "S&W M&P |" claimed them; an M2.0 listing would have
     shown their prices as its own versions."""
 
+    def test_a_model_switched_off_is_not_flagged_back_on(self, clean_db):
+        sw, _m2 = self._sw(clean_db)
+        old686 = clean_db.query(FirearmModel).filter_by(name="Smith & Wesson Model 686").one()
+        old686.enabled = False
+        clean_db.commit()
+        said = []
+        found = [makersites.Found(maker_part="6", label='MODEL 686 PLUS 6" BARREL')]
+        makersites._propose_models(clean_db, sw, {"Model 686 Plus": found}, said.append)
+        assert not old686.modern_production
+        assert old686.variants == []
+        assert any("not in use" in line for line in said)
+
     def test_a_catch_all_spelling_owns_nothing(self):
         assert makersites._specific(["m", "p", "9"])
         assert makersites._specific(["m", "p", "shield"])
@@ -404,7 +423,9 @@ class TestProductsNoModelNames:
         assert makersites._line_name(product) == line
 
     def _sw(self, session):
-        sw = Manufacturer(name="Smith & Wesson", status=ArmoryStatus.APPROVED)
+        sw = Manufacturer(
+            name="Smith & Wesson", status=ArmoryStatus.APPROVED, country="United States"
+        )
         m2 = FirearmModel(
             name="Smith & Wesson M&P M2.0",
             aliases="M&P M2.0\nS&W M&P |",
@@ -445,10 +466,20 @@ class TestProductsNoModelNames:
         }
         assert set(proposed) == {"Smith & Wesson M&P 5.7", "Smith & Wesson Model 1854"}
         assert len(proposed["Smith & Wesson Model 1854"].variants) == 3
+        # Stated as every modern row is: the maker's country, and the kind
+        # the one product naming one says; the M&P 5.7's say none.
+        lever = proposed["Smith & Wesson Model 1854"]
+        assert (lever.kind, lever.country) == (FirearmKind.RIFLE, "United States")
+        assert proposed["Smith & Wesson M&P 5.7"].kind is None
         assert all(
             v.status == ArmoryStatus.PENDING for v in proposed["Smith & Wesson M&P 5.7"].variants
         )
-        assert any("Model 686: 1 product(s)" in line for line in said)
+        # The Model 686 was never flagged as made; its product on the site
+        # flags it, and its version is read under it (2026-10-14).
+        old686 = clean_db.query(FirearmModel).filter_by(name="Smith & Wesson Model 686").one()
+        assert old686.modern_production
+        assert [v.maker_part for v in old686.variants] == ["6"]
+        assert any("Model 686: flagged as still made" in line for line in said)
 
         # A second run proposes nothing new: the models now exist.
         again = reader.unowned(object(), [m2, *proposed.values()])

@@ -29,16 +29,17 @@ const PARTS = [
     button: "Update Wikipedia facts",
     title: "Wikipedia facts",
     text:
-      "Each caliber’s article: its bullet diameter and weights. New and edited " +
+      "Each caliber’s article: its bullet diameter and weights, and the primer it " +
+      "takes. New and edited " +
       "calibers are read hourly; this reads every article again.",
   },
   {
     key: "reloading",
-    button: "Update reloading bullets",
-    title: "Reloading bullets",
+    button: "Update reloading prices",
+    title: "Reloading prices",
     text:
-      "What a projectile costs at each caliber’s diameter, from Graf & Sons, and " +
-      "whether Lee Precision makes dies for it.",
+      "What a projectile, a new case, a primer and a charge of powder cost, from " +
+      "Graf & Sons, and whether Lee Precision makes dies for it.",
   },
   {
     key: "prices",

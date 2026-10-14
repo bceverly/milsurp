@@ -155,6 +155,15 @@ class TestTheOtherSources:
         assert len(found) == 48
 
 
+#: Graf & Sons' collections as recorded on 2026-10-14, cut to a few cartridges.
+GRAFS_COLLECTIONS = {
+    "bullets": "grafs-bullets-311.json.gz",
+    "rifle-brass": "grafs-brass.json.gz",
+    "primers": "grafs-primers.json.gz",
+    "smokeless-powder": "grafs-powders.json.gz",
+}
+
+
 class RecordedSites:
     """Ammo.com, Graf & Sons, Milsurp Munitions and Lee as recorded, for a
     whole refresh."""
@@ -179,7 +188,9 @@ class RecordedSites:
             return "<html></html>"
         if url.startswith(ammunition.GRAFS):
             if url.endswith("page=1"):
-                return page("grafs-bullets-311.json.gz")
+                for handle, name in GRAFS_COLLECTIONS.items():
+                    if f"collections/{handle}/" in url:
+                        return page(name)
             return '{"products": []}'
         if url.startswith(ammunition.MILSURP_MUNITIONS):
             return page("milsurp-munitions-products.json.gz")

@@ -1470,7 +1470,7 @@ class TestAScanFillsTheArmoryQueue:
             listing("a", title="Winchester Model 1873 Lever Action Rifle", caliber=None)
         ]
         scan_service.run_scan(fake_site.id, trigger="test")
-        row = clean_db.query(FirearmModel).filter_by(name="Model 1873").one()
+        row = clean_db.query(FirearmModel).filter_by(name="Winchester Model 1873").one()
         assert row.status is ArmoryStatus.PENDING
         assert "Winchester" in (row.first_seen_in or "")
 
@@ -1498,7 +1498,7 @@ class TestAScanFillsTheArmoryQueue:
         scan_service.run_scan(fake_site.id, trigger="test")
         run_id = scan_service.run_scan(fake_site.id, trigger="test")
         assert "Armory: proposed" not in (clean_db.get(ScanRun, run_id).log or "")
-        assert clean_db.query(FirearmModel).filter_by(name="Model 1873").count() == 1
+        assert clean_db.query(FirearmModel).filter_by(name="Winchester Model 1873").count() == 1
 
     def test_a_catalog_larger_than_sqlites_variable_limit(self, clean_db, fake_site):
         """The keys are gathered back in one SELECT, and SQLite caps a

@@ -428,6 +428,7 @@ export const api = {
   // --- what it costs to shoot a caliber, and how often that is refreshed ---
   ammunition: (caliber) =>
     request(`/api/ammunition?caliber=${encodeURIComponent(caliber)}`),
+  ammoPowders: () => request("/api/ammunition/powders"),
   ammoSettings: () => request("/api/ammunition/settings"),
   updateAmmoSettings: (payload) =>
     request("/api/ammunition/settings", { method: "PATCH", body: payload }),

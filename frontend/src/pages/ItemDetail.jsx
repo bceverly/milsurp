@@ -174,11 +174,22 @@ function BarrelFacts({ item }) {
   const quotes = item.barrel_quotes || {};
   return (
     <>
-      <Quoted
-        label="Barrel"
-        value={item.barrel_inches != null ? inchesText(item.barrel_inches) : null}
-        quote={quotes.length}
-      />
+      {/* Always on a gun, "Unknown" when the listing does not say (asked for
+          on 2026-10-14), so its absence reads as an answer rather than a gap. */}
+      {item.barrel_inches != null ? (
+        <Quoted
+          label="Barrel"
+          value={inchesText(item.barrel_inches)}
+          quote={quotes.length}
+        />
+      ) : (
+        (item.is_rifle || item.is_pistol) &&
+        !item.is_parts_kit && (
+          <Fact label="Barrel" always>
+            {null}
+          </Fact>
+        )
+      )}
       <Quoted
         label="Threaded"
         value={said(item.barrel_threaded, "Yes", "No")}
@@ -462,10 +473,13 @@ function versionsOf(item) {
  * priced over a new one is worth saying so in red.
  */
 function overStreetPrice(item) {
-  const streets = versionsOf(item)
-    .map((v) => v.new_price)
-    .filter((p) => p != null);
-  if (!streets.length || item.current_price == null) return null;
+  const versions = versionsOf(item);
+  // Only when every version it could be has one: a "PDP SF" was red at
+  // $1,675 against the $749.99 Pro SD because its own Steel Frame versions,
+  // $1,899 new, had no store with one in stock (2026-10-14).
+  if (!versions.length || versions.some((v) => v.new_price == null)) return null;
+  const streets = versions.map((v) => v.new_price);
+  if (item.current_price == null) return null;
   const highest = Math.max(...streets);
   const over = Math.round((item.current_price - highest) * 100) / 100;
   return over > 0 ? over : null;

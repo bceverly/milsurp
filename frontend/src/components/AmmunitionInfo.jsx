@@ -36,6 +36,98 @@ function Source({ url, children }) {
   );
 }
 
+/** "Large rifle magnum", as the primer is named. */
+export function primerName(size, magnum) {
+  if (!size) return null;
+  return magnum ? `${size} magnum` : size;
+}
+
+/** What one reloaded round is made of, and what each part costs. */
+function Reloading({ facts, unknown }) {
+  const primer = primerName(facts.primer_size, facts.primer_magnum);
+  const load = facts.powder_name && facts.powder_charge_gr;
+  return (
+    <>
+      <dt>New brass</dt>
+      <dd data-testid="ammo-brass">
+        {facts.brass_cost != null ? (
+          <>
+            {perRound(facts.brass_cost)} a case
+            <span className="muted"> (cheapest new, unprimed case)</span>
+            {" · "}
+            <Source url={facts.brass_url}>Graf &amp; Sons</Source>
+          </>
+        ) : (
+          unknown
+        )}
+        <Checked at={facts.brass_checked_at} />
+      </dd>
+      <dt>Primer</dt>
+      <dd data-testid="ammo-primer">
+        {primer ? (
+          <>
+            {primer}
+            <span className="muted">
+              {facts.primer_source === "hand" ? " (set by hand)" : " (from the article)"}
+            </span>
+            {facts.primer_cost != null && (
+              <>
+                {" · "}
+                {perRound(facts.primer_cost)} each ·{" "}
+                <Source url={facts.primer_url}>Graf &amp; Sons</Source>
+              </>
+            )}
+          </>
+        ) : (
+          unknown
+        )}
+      </dd>
+      <dt>Powder</dt>
+      <dd data-testid="ammo-powder">
+        {load ? (
+          <>
+            {facts.powder_charge_gr} gr of{" "}
+            <Source url={facts.powder_url}>{facts.powder_name}</Source>
+            {facts.powder_bullet_gr ? ` under a ${facts.powder_bullet_gr} gr bullet` : ""}
+            {facts.powder_cost != null ? (
+              <>
+                {" · "}
+                {perRound(facts.powder_cost)} a charge
+                {facts.powder_per_pound != null && (
+                  <span className="muted">
+                    {" "}
+                    (${facts.powder_per_pound.toFixed(2)} a pound, 7,000 gr)
+                  </span>
+                )}
+              </>
+            ) : (
+              <span className="muted"> · not in stock at Graf &amp; Sons</span>
+            )}
+          </>
+        ) : (
+          <span className="muted">no load entered yet</span>
+        )}
+      </dd>
+      <dt>Reloaded round</dt>
+      <dd data-testid="ammo-reload">
+        {facts.reload_cost != null ? (
+          <>
+            <strong>{perRound(facts.reload_cost)} a round</strong>
+            <span className="muted">
+              {" "}
+              (bullet {perRound(facts.bullet_cost)} + brass {perRound(facts.brass_cost)} +
+              powder {perRound(facts.powder_cost)} + primer {perRound(facts.primer_cost)};
+              new brass, no shipping or hazmat)
+            </span>
+          </>
+        ) : (
+          <span className="muted">not known until all four parts are</span>
+        )}
+      </dd>
+    </>
+  );
+}
+
 export function AmmunitionPanel({ caliber }) {
   const [facts, setFacts] = useState(null);
   const [error, setError] = useState("");
@@ -118,6 +210,7 @@ export function AmmunitionPanel({ caliber }) {
           )}
           <Checked at={facts.projectile_checked_at} />
         </dd>
+        <Reloading facts={facts} unknown={unknown} />
       </dl>
       {weights.length > 0 && (
         <table className="table ammo__weights">

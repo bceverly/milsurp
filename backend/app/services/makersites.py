@@ -45,9 +45,16 @@ from bs4 import BeautifulSoup, Tag
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..models import ArmoryStatus, Caliber, FirearmModel, Manufacturer, ModelVariant
+from ..models import (
+    ArmoryStatus,
+    Caliber,
+    FirearmKind,
+    FirearmModel,
+    Manufacturer,
+    ModelVariant,
+)
 from ..scrapers.base import ScrapeContext, ScrapeError, text_of
-from . import armory, classify, frames, variants
+from . import armory, audit, classify, frames, variants
 
 
 @dataclass(frozen=True)
@@ -797,6 +804,64 @@ def run(
     return totals
 
 
+def _still_made(
+    session: Session, model: FirearmModel, found: list[Found], log: Callable[[str], None]
+) -> None:
+    """A model the maker's site still sells is still made (2026-10-14).
+
+    The Model 629 and Model 29 were never flagged when the flag was introduced,
+    so the reader passed them over while Smith & Wesson listed eleven 629s.
+    A model in use -- approved and switched on -- whose products are on its
+    maker's current site is flagged, its versions read in the same run, and
+    the change written to the audit log. A model switched off, merged away or
+    still awaiting approval is somebody's decision, and is only named. The
+    reverse is never automatic: a model missing from the site is not
+    unflagged, because a site is not a list of everything still made.
+    """
+    if model.status != ArmoryStatus.APPROVED or not model.enabled:
+        log(f"  {model.name}: {len(found)} product(s) on the site; the model is not in use.")
+        return
+    model.modern_production = True
+    audit.record(
+        session,
+        actor=None,
+        action=audit.ARMORY_EDITED,
+        target_type="model",
+        target_id=model.id,
+        target_label=model.name,
+        detail="modern_production (its products are on its maker's site)",
+    )
+    counts = record(session, model, found)
+    session.commit()
+    log(
+        f"  {model.name}: flagged as still made, {counts['proposed']} variant(s) proposed, "
+        f"{counts['refreshed']} refreshed."
+    )
+
+
+#: What a product's name says it is, the first word found deciding.
+_KIND_WORDS = (
+    (re.compile(r"\brevolvers?\b", re.I), FirearmKind.REVOLVER),
+    (re.compile(r"\bshotguns?\b", re.I), FirearmKind.SHOTGUN),
+    (re.compile(r"\bcarbines?\b", re.I), FirearmKind.CARBINE),
+    (re.compile(r"\brifles?\b", re.I), FirearmKind.RIFLE),
+    (re.compile(r"\bpistols?\b", re.I), FirearmKind.PISTOL),
+)
+
+
+def _kind_of(found: list[Found]) -> FirearmKind | None:
+    """The kind every product of a line that names one agrees on: "MODEL 432
+    THE ULTIMATE CARRY REVOLVER" is a revolver. None where they say nothing,
+    or disagree; the administrator approving it says."""
+    kinds = {
+        kind
+        for item in found
+        for kind in [next((k for word, k in _KIND_WORDS if word.search(item.label)), None)]
+        if kind
+    }
+    return kinds.pop() if len(kinds) == 1 else None
+
+
 def _propose_models(
     session: Session,
     firm: Manufacturer,
@@ -811,40 +876,43 @@ def _propose_models(
     **One model a family.** A line whose name begins with a shorter line's is
     a version of it: "Model 1854 Stealth" and "Model 1854 Walnut" go under the
     Model 1854, "SW22 Victory Target" under the SW22 Victory. And a line that
-    begins with a model the armory already has -- switched off, merged away,
-    or simply not flagged as still made, like the "Model 629 Deluxe" -- is not
-    proposed at all: that model was decided, and the log names it, in case it
-    should be flagged. Returns how many models were proposed.
+    begins with a model the armory already has -- the "Model 629 Deluxe" --
+    is not proposed at all: it is that model's, and :func:`_still_made`
+    decides what to do with it. Returns how many models were proposed.
     """
     maker_words = frozenset(_tokens(firm.name)) | {"s", "w"}
-    known: list[tuple[list[str], str]] = [
-        (need, model.name)
+    known: list[tuple[list[str], FirearmModel]] = [
+        (need, model)
         for model in session.execute(select(FirearmModel)).scalars()
         if firm in model.manufacturers
         for need in (_tokens(spelling, maker_words) for spelling in model.spellings)
         if need and _specific(need)
     ]
     families: list[tuple[list[str], str, list[Found]]] = []
-    decided: dict[str, int] = {}
+    decided: dict[int, tuple[FirearmModel, list[Found]]] = {}
     for line, found in sorted(lines.items(), key=lambda kv: len(_tokens(kv[0], maker_words))):
         words = _tokens(line, maker_words)
-        owner = next((name for need, name in known if words[: len(need)] == need), None)
+        owner = next((model for need, model in known if words[: len(need)] == need), None)
         if owner is not None:
-            decided[owner] = decided.get(owner, 0) + len(found)
+            decided.setdefault(owner.id, (owner, []))[1].extend(found)
             continue
         family = next((f for f in families if words[: len(f[0])] == f[0]), None)
         if family is not None:
             family[2].extend(found)
         else:
             families.append((words, line, list(found)))
-    for name, count in sorted(decided.items()):
-        log(f"  {name}: {count} product(s) on the site, but the model is not flagged as made.")
+    for model, owned in sorted(decided.values(), key=lambda pair: pair[0].name):
+        _still_made(session, model, owned, log)
     for _words, line, found in families:
         model = FirearmModel(
             name=f"{firm.name} {line}",
             aliases=line,
             status=ArmoryStatus.PENDING,
             modern_production=True,
+            # The maker's country, and a kind where its products name one: a
+            # proposal states both, as every modern row does.
+            kind=_kind_of(found),
+            country=firm.country,
             first_seen_in=f"{firm.name}'s site: {found[0].label}"[:500],
         )
         model.manufacturers = [firm]

@@ -5255,11 +5255,48 @@ matching variant".
   says "(with its Full size frame and 4.5" barrel)"; Site settings' re-read
   covers frame sizes too; the export file carries `frame_size` on models and
   `frame` on variants.
-* **Waiting on the release**: production cannot hold a model's size until
-  0075 is installed. The list for the one-size models -- Glock 17 / 22 Full
-  size, 19 / 23 / 45 Compact, 26 / 27 Subcompact, 34 / 35 Long slide, 43
-  Micro; P365 Micro, P226 Full size, P229 Compact; the S&W revolvers by frame
-  letter -- is applied after it.
+* **Applied in production with 4.9.0.0**: 77 one-size models -- Glock by its
+  own classes (the 43 and 43X Subcompact, the 48 Compact), the P365, Kimber
+  Micro, CSX and MAX-9 Micro, the 1911 patterns Full size, Smith & Wesson's
+  revolvers by frame letter and Ruger's by its small, medium and large frame
+  -- and 906 handguns took their model's size: 1,198 of production's now say
+  one, 292 of them in their own words.
+
+### A maker's site keeps "still made" right — **Changed** 2026-10-14
+
+The Model 629, 29, 686, SW22 and eleven more Smith & Wesson models were never
+flagged as still made when the flag was introduced -- the audit log has no
+change to any of them -- so the reader passed them over while the site listed
+eleven 629s. Flagged in production (the Model 29 and 327 were also typed as
+pistols, corrected; "U.S. Model 327" renamed Smith & Wesson Model 327). Asked:
+"how do we keep them from getting 'un-flipped'?" Nothing automatic clears the
+flag -- only the model's dialog, a script, or "Apply shipped armory" from a
+stale file, which exporting after every change guards -- and now the reader
+sets it: a model in use whose products are on its maker's current site is
+flagged, its versions read in the same run, the change audited
+(`makersites._still_made`). A model switched off or pending is only named;
+one missing from the site is never unflagged by it.
+
+### "Model" and a number is not a gun — **Fixed** 2026-10-14
+
+Twelve rows reached the queue after the generic rows of the morning were
+switched off: "Model 1886", "MODEL 88", "Model 1842" ... each gathering every
+maker's gun of that number, and "GP90", which is the Swiss cartridge. A
+proposal of "Model" and a number now keeps the maker in front of it --
+"Winchester Model 1873", as the pattern-year rule always did -- or is not made
+(`discovery._BARE_MODEL_NUMBER`). In production the twelve were switched off,
+GP90 became a spelling of 7.5x53.5mm, and their listings went where they
+belong: new rows for the Steyr Kropatschek 1886, Marlin 1893, Winchester 88,
+Mossberg Maverick 88, Browning 1955, Carcano 1941, Husqvarna 1887, Swiss 1893
+carbine and 1897 cadet rifle; spellings for the Swedish M96, Joslyn,
+Winchester 1886, Sharps 1853, Pattern 1853 and the U.S. Model 1842 pistol,
+whose two duplicate Aston rows were merged into it.
+
+### Barrel always shown on a gun — **Changed** 2026-10-14
+
+Asked for: "always display it even if it is 'unknown'". The listing page's
+Barrel line is on every gun, "Unknown" where the listing does not state a
+length; not on a bayonet or a stock.
 
 ### The listing page's main photo at screen size — **Fixed** 2026-10-14
 
@@ -5452,6 +5489,74 @@ on the host system like we do on the other projects?"
   shipped armory's growth (production's export, 2026-10-13) is now the
   longest pole: `armory.spec.js` loads it over and over and takes about ten
   of those minutes on its own.
+
+### What it costs to reload one round — **Shipped** 2026-10-14
+
+Asked for: the bullet, a new case, the powder and the primer, priced together,
+which would "get us the total cost to reload one round". The prices change and are read
+from Graf & Sons on the caliber data's schedule. The primer is a fact of the
+cartridge, read once from its Wikipedia article. The load (which powder and
+how much) is a fact too, typed by hand.
+
+* **Why the load is typed by hand.** loaddata.com was the first choice, using
+  the user's subscription. Its disclaimer allows its documents "for
+  informational and non-commercial or personal use only" and says they "will
+  not be copied or posted on any network computer". A site with other readers
+  is that, so it is not read, and no credentials for it belong in the
+  configuration. The caliber's dialog in the Armory has a Reloading section
+  instead: a Powder dropdown of every powder Graf & Sons sells, priced per
+  pound, a charge in grains, and optionally the bullet weight the load is
+  for. A charge costs the price per pound ÷ 7,000 × grains.
+* **New brass** (`services/reloading.py`, Graf's `rifle-brass` and
+  `handgun-brass`, 1,168 products): the cheapest new, unprimed case of each
+  caliber.
+  * Left out: primed and pulled-down cases (a primed case would count its
+    primer twice), fired, reconditioned and Lightning's cases, blanks,
+    dummies, and "Basic" parent cases meant to be formed into another
+    cartridge.
+  * Matched by number and words, not by the armory's loose title reading,
+    which took "25 Creedmoor" for .25 ACP, "303 Savage" for .303 British and
+    "222 Remington Magnum" for .222 Remington.
+  * A bare designation still matches its one caliber both ways: Graf's
+    "6.5x55mm", or the armory's "30-03" when Graf sells only one 30-03.
+  * Seven spellings were added in production for Graf's names: .44
+    Remington Magnum, .44 S&W Russian, .41 Long Colt, .338 Lapua Magnum,
+    .56-50 Spencer, 8x57mm Mauser, 8x58mmR Danish Krag.
+  * Coverage: 95 of the 282 calibers for sale have new brass. Most of the
+    rest are gauges, rimfire, bare bores (".45") and cartridges Graf does
+    not sell.
+* **Primers** (138 products): the cheapest per primer of each kind: small
+  or large pistol or rifle, each standard or magnum; 209 shotshell; .50
+  BMG. Counts are read from "Box of 1000", "Case of 5000" and "5000/CS".
+  Muzzleloader 209s are left out.
+* **The primer a cartridge takes** comes from the infobox's `primer=`.
+  * The first size named wins: "Large pistol LP (some makers are now using
+    small pistol SP)" is a large pistol.
+  * A Boxer size beats Berdan: "Berdan or boxer large rifle" is a large
+    rifle, since new brass takes Boxer primers.
+  * "Magnum" is kept as part of the kind.
+  * A primer set by hand is never read over. Clearing it hands it back to
+    the article.
+  * Migration 0076 marks every article to be read again, since all of them
+    were read before the primer was asked for.
+* **Powders** (smokeless and black, 396 products): named as Graf writes them
+  ("Hodgdon CFE 223", "Winchester StaBall HD"). A title written all in
+  capitals is re-cased, keeping its acronyms ("IMR 4064", "Hodgdon HS6").
+  Each powder keeps its cheapest price per pound across 8 oz to 8 lb
+  containers. A powder that goes out of stock stays in the dropdown, marked
+  so, and its charge is not priced.
+* **The Ammunition information panel** adds New brass, Primer (with whether
+  it came from the article or was set by hand), Powder, and Reloaded round:
+  the sum and its four parts. It shows "not known until all four parts are"
+  until they are. The bullet is the load's weight where that is priced,
+  otherwise the caliber's average.
+* Site settings' "Update reloading bullets" is now "Update reloading
+  prices". The export file carries a caliber's typed load and a primer set
+  by hand under `reloading`. Prices never travel in the file.
+* Also, so the shipped file keeps passing its checks: proposals from the maker-site reader
+  now state a kind (from their product names, where they agree) and the
+  maker's country, as every modern row must. The nineteen Smith & Wesson
+  proposals waiting in production were given theirs by hand.
 
 ### Every gun's barrel: its length, and whether it is threaded — **Shipped** 2026-10-13
 

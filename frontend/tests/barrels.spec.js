@@ -159,3 +159,23 @@ test("the versions say when the frame size narrowed them", async ({ signedIn }) 
     'Could be any of 2 versions (with its Full size frame and 4.5" barrel)',
   );
 });
+
+test("a gun whose barrel nobody stated says Unknown", async ({ signedIn }) => {
+  // Asked for on 2026-10-14: always shown, so a missing length reads as an answer.
+  await signedIn.route(/\/api\/items\/\d+$/, async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      json: {
+        ...(await response.json()),
+        is_pistol: true,
+        is_parts_kit: false,
+        barrel_inches: null,
+        barrel_quotes: null,
+      },
+    });
+  });
+  await signedIn.goto("/?availability=all");
+  await signedIn.locator(".item-card").first().click();
+  await expect(signedIn.locator(".detail__facts")).toContainText("BarrelUnknown");
+});

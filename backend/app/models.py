@@ -575,6 +575,24 @@ class Caliber(Base, TimestampMixin):
     projectile_cost: Mapped[float | None] = mapped_column(Float)
     projectile_url: Mapped[str | None] = mapped_column(String(500))
     projectile_checked_at: Mapped[datetime | None] = mapped_column(DateTime)
+    #: Reloading one round (app.services.reloading, 2026-10-14). The primer it
+    #: takes -- read from its article, or set by hand, which a re-read keeps --
+    #: and the load its administrator entered: a powder by Graf & Sons' name,
+    #: its charge in grains, and the bullet weight the load is for.
+    primer_size: Mapped[str | None] = mapped_column(String(16))
+    primer_magnum: Mapped[bool | None] = mapped_column(Boolean)
+    primer_source: Mapped[str | None] = mapped_column(String(16))
+    powder_name: Mapped[str | None] = mapped_column(String(128))
+    powder_charge_gr: Mapped[float | None] = mapped_column(Float)
+    powder_bullet_gr: Mapped[float | None] = mapped_column(Float)
+    #: And what each costs today, per round, read with the bullets.
+    brass_cost: Mapped[float | None] = mapped_column(Float)
+    brass_url: Mapped[str | None] = mapped_column(String(500))
+    brass_checked_at: Mapped[datetime | None] = mapped_column(DateTime)
+    primer_cost: Mapped[float | None] = mapped_column(Float)
+    primer_url: Mapped[str | None] = mapped_column(String(500))
+    powder_cost: Mapped[float | None] = mapped_column(Float)
+    powder_url: Mapped[str | None] = mapped_column(String(500))
 
     bullet_weights: Mapped[list["CaliberBulletWeight"]] = relationship(
         back_populates="caliber",
@@ -586,6 +604,28 @@ class Caliber(Base, TimestampMixin):
     def spellings(self) -> list[str]:
         """Every string that means this cartridge, canonical name first."""
         return _spellings(self.name, self.aliases)
+
+
+class ReloadingSupply(Base):
+    """A powder or a kind of primer, and its cheapest price at Graf & Sons.
+
+    ``unit_price`` is per pound for a powder and per primer for a primer; the
+    name is the powder's ("Hodgdon H322") or the primer's kind ("Large rifle
+    magnum"). Kept between reads so a load edited by hand is priced at once,
+    and a powder out of stock stays in the dropdown, marked so. See
+    app.services.reloading; migration 0076.
+    """
+
+    __tablename__ = "reloading_supplies"
+    __table_args__ = (UniqueConstraint("kind", "name", name="uq_reloading_supplies_kind_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    unit_price: Mapped[float | None] = mapped_column(Float)
+    url: Mapped[str | None] = mapped_column(String(500))
+    in_stock: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    checked_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
 class CaliberBulletWeight(Base):

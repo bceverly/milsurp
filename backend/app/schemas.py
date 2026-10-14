@@ -450,6 +450,14 @@ class CaliberOut(UTCModel):
     #: for the ammunition facts (app.services.ammunition).
     wikipedia_url: str | None = None
     bullet_diameter_in: float | None = None
+    #: Reloading it (app.services.reloading): the primer it takes, "wikipedia"
+    #: or "hand" for where that came from, and the load typed by hand.
+    primer_size: str | None = None
+    primer_magnum: bool | None = None
+    primer_source: str | None = None
+    powder_name: str | None = None
+    powder_charge_gr: float | None = None
+    powder_bullet_gr: float | None = None
 
 
 class CaliberCreate(BaseModel):
@@ -470,6 +478,14 @@ class CaliberUpdate(BaseModel):
     enabled: bool | None = None
     wikipedia_url: WebAddress = None
     bullet_diameter_in: float | None = Field(default=None, gt=0, lt=2)
+    #: The primer, by its name in app.services.reloading.PRIMER_SIZES; blank
+    #: hands it back to the article. Setting it makes it the caliber's own.
+    primer_size: str | None = Field(default=None, max_length=16)
+    primer_magnum: bool | None = None
+    #: A powder by Graf & Sons' name, from GET /api/ammunition/powders.
+    powder_name: str | None = Field(default=None, max_length=128)
+    powder_charge_gr: float | None = Field(default=None, gt=0, lt=1000)
+    powder_bullet_gr: float | None = Field(default=None, gt=0, lt=2000)
 
 
 class FirearmModelOut(UTCModel):
@@ -2332,6 +2348,42 @@ class AmmunitionOut(UTCModel):
     projectile_cost: float | None = None
     projectile_url: str | None = None
     projectile_checked_at: datetime | None = None
+    #: Reloading one round (app.services.reloading). The primer the cartridge
+    #: takes, and whether it came from its article or was set by hand.
+    primer_size: str | None = None
+    primer_magnum: bool | None = None
+    primer_source: str | None = None
+    #: The load typed by hand: a powder, its charge, the bullet it is for.
+    powder_name: str | None = None
+    powder_charge_gr: float | None = None
+    powder_bullet_gr: float | None = None
+    #: Dollars per round for each part, linked to where it was priced.
+    brass_cost: float | None = None
+    brass_url: str | None = None
+    brass_checked_at: datetime | None = None
+    primer_cost: float | None = None
+    primer_url: str | None = None
+    powder_cost: float | None = None
+    powder_url: str | None = None
+    #: The powder's price per pound, and whether Graf & Sons has it now.
+    powder_per_pound: float | None = None
+    powder_in_stock: bool | None = None
+    #: The bullet the load is for, or the average bullet; and the four summed,
+    #: None until all four are known.
+    bullet_cost: float | None = None
+    reload_cost: float | None = None
+
+
+class PowderOut(BaseModel):
+    """A powder Graf & Sons sells, or has: the reloading load's dropdown."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    name: str
+    #: Dollars per pound, the cheapest way it is sold.
+    unit_price: float | None = None
+    url: str | None = None
+    in_stock: bool = True
 
 
 class AmmoSettingsOut(UTCModel):

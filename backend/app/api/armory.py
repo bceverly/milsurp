@@ -67,7 +67,16 @@ from ..schemas import (
     FirearmModelUpdate,
 )
 from ..services import armory as service
-from ..services import armorybulk, armoryundo, audit, classify, frames, mailer, variants
+from ..services import (
+    armorybulk,
+    armoryundo,
+    audit,
+    classify,
+    frames,
+    mailer,
+    reloading,
+    variants,
+)
 from ..services import search as search_service
 
 router = APIRouter(prefix="/armory", tags=["armory"])
@@ -158,6 +167,12 @@ def _caliber_out(row: Caliber, items: dict[str, int], models: dict[int, int]) ->
         enabled=row.enabled,
         wikipedia_url=row.wikipedia_url,
         bullet_diameter_in=row.bullet_diameter_in,
+        primer_size=row.primer_size,
+        primer_magnum=row.primer_magnum,
+        primer_source=row.primer_source,
+        powder_name=row.powder_name,
+        powder_charge_gr=row.powder_charge_gr,
+        powder_bullet_gr=row.powder_bullet_gr,
     )
 
 
@@ -327,6 +342,7 @@ def update_caliber(
     changes = _emptied(payload.model_dump(exclude_unset=True))
     if "name" in changes and changes["name"] != row.name:
         _reject_duplicate(session, Caliber, changes["name"])
+    _reloading_changes(session, row, changes)
     # An edited caliber has its article read again (app.services.ammunition):
     # the Wikipedia facts are read once, and again whenever the row changes.
     row.wikipedia_read_at = None
@@ -352,6 +368,7 @@ def update_caliber(
         ip_address=client_address(request),
         before=before,
     )
+    reloading.price_load(session, row)
     session.commit()
     return ArmoryWrite(
         caliber=_caliber_out(row, _caliber_counts(session), _models_per_caliber(session)),
@@ -1023,7 +1040,46 @@ def _record(
 #: "the empty string". Storing "" makes a row that differs from an untouched
 #: one in the database and not on the screen, which is how an export and a
 #: sync ended up disagreeing forever about two Walthers.
-_OPTIONAL_TEXT = ("aliases", "notes", "wikipedia_url", "first_seen_in", "country")
+_OPTIONAL_TEXT = (
+    "aliases",
+    "notes",
+    "wikipedia_url",
+    "first_seen_in",
+    "country",
+    "primer_size",
+    "powder_name",
+)
+
+
+def _reloading_changes(session: DbSession, row: Caliber, changes: dict[str, Any]) -> None:
+    """Check a caliber's typed primer and load, and say where the primer came
+    from: typed is the caliber's own, which the article never overwrites;
+    cleared hands it back to the article, read again on the next refresh."""
+    if "primer_size" in changes:
+        typed = changes["primer_size"]
+        size = next(
+            (s for s in reloading.PRIMER_SIZES if typed and s.lower() == typed.strip().lower()),
+            None,
+        )
+        if typed and size is None:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                f"Unknown primer {typed!r}. Valid: {', '.join(reloading.PRIMER_SIZES)}.",
+            )
+        changes["primer_size"] = size
+        changes["primer_source"] = "hand" if size else None
+        if size is None:
+            changes["primer_magnum"] = None
+    elif "primer_magnum" in changes and row.primer_size:
+        changes["primer_source"] = "hand"
+    if changes.get("powder_name"):
+        known = reloading.supply(session, reloading.POWDER, changes["powder_name"])
+        if known is None:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                f"Graf & Sons has no powder called {changes['powder_name']!r}.",
+            )
+        changes["powder_name"] = known.name
 
 
 def _emptied(changes: dict[str, Any]) -> dict[str, Any]:

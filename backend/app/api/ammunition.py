@@ -17,8 +17,9 @@ from ..schemas import (
     AmmoSettingsUpdate,
     AmmunitionOut,
     BulletWeightOut,
+    PowderOut,
 )
-from ..services import ammunition
+from ..services import ammunition, reloading
 
 router = APIRouter(prefix="/ammunition", tags=["ammunition"])
 
@@ -36,6 +37,7 @@ def for_caliber(
     row = ammunition.facts(session, caliber)
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"No caliber called {caliber!r}.")
+    powder = reloading.supply(session, reloading.POWDER, row.powder_name)
     return AmmunitionOut(
         caliber_id=row.id,
         caliber=row.name,
@@ -52,7 +54,30 @@ def for_caliber(
         projectile_cost=row.projectile_cost,
         projectile_url=row.projectile_url,
         projectile_checked_at=row.projectile_checked_at,
+        primer_size=row.primer_size,
+        primer_magnum=row.primer_magnum,
+        primer_source=row.primer_source,
+        powder_name=row.powder_name,
+        powder_charge_gr=row.powder_charge_gr,
+        powder_bullet_gr=row.powder_bullet_gr,
+        brass_cost=row.brass_cost,
+        brass_url=row.brass_url,
+        brass_checked_at=row.brass_checked_at,
+        primer_cost=row.primer_cost,
+        primer_url=row.primer_url,
+        powder_cost=row.powder_cost,
+        powder_url=row.powder_url,
+        powder_per_pound=powder.unit_price if powder else None,
+        powder_in_stock=powder.in_stock if powder else None,
+        bullet_cost=reloading.bullet_cost(row),
+        reload_cost=reloading.reload_cost(row),
     )
+
+
+@router.get("/powders", response_model=list[PowderOut])
+def powders(_user: CurrentUser, session: DbSession) -> list[PowderOut]:
+    """Every powder Graf & Sons sells or has sold, for a load's dropdown."""
+    return [PowderOut.model_validate(row) for row in reloading.powders(session)]
 
 
 @router.get("/settings", response_model=AmmoSettingsOut)

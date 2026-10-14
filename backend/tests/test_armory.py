@@ -534,10 +534,33 @@ class TestTheExporterCarriesEveryColumn:
         "projectile_cost",
         "projectile_url",
         "projectile_checked_at",
+        # Reloading one round (app.services.reloading): the prices, for the
+        # same reason. The primer and the load typed by hand do travel, under
+        # "reloading".
+        "brass_cost",
+        "brass_url",
+        "brass_checked_at",
+        "primer_cost",
+        "primer_url",
+        "powder_cost",
+        "powder_url",
     }
 
     #: What the file calls a column, where the two differ.
-    RENAMED = {"wikipedia_url": "wikipedia"}
+    RENAMED = {
+        "wikipedia_url": "wikipedia",
+        **dict.fromkeys(
+            (
+                "primer_size",
+                "primer_magnum",
+                "primer_source",
+                "powder_name",
+                "powder_charge_gr",
+                "powder_bullet_gr",
+            ),
+            "reloading",
+        ),
+    }
 
     def _assert_every_column_travels(self, table, row, exported, section):
         written = next(entry for entry in exported[section] if entry["name"] == row.name)
@@ -579,6 +602,12 @@ class TestTheExporterCarriesEveryColumn:
             status=ArmoryStatus.APPROVED,
             wikipedia_url="https://example.invalid/9x99",
             bullet_diameter_in=0.355,
+            primer_size="Small pistol",
+            primer_magnum=True,
+            primer_source="hand",
+            powder_name="Hodgdon HS6",
+            powder_charge_gr=6.2,
+            powder_bullet_gr=124.0,
         )
         clean_db.add(row)
         clean_db.commit()

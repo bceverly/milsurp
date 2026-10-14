@@ -285,6 +285,178 @@ const EMPTY_MODEL = {
   notes: "",
 };
 
+//: The primers a cartridge takes, as app/services/reloading.py names them.
+const PRIMER_SIZES = [
+  "Small pistol",
+  "Large pistol",
+  "Small rifle",
+  "Large rifle",
+  ".50 BMG",
+  "209 shotshell",
+  "Berdan",
+];
+
+/** The reloading fields of a caliber, as the form holds them. */
+function reloadingForm(caliber) {
+  return {
+    primer_size: caliber.primer_size || "",
+    primer_magnum: Boolean(caliber.primer_magnum),
+    powder_name: caliber.powder_name || "",
+    powder_charge_gr: caliber.powder_charge_gr ?? "",
+    powder_bullet_gr: caliber.powder_bullet_gr ?? "",
+  };
+}
+
+/**
+ * Only what was changed: a primer read from the article and saved untouched
+ * stays the article's, and the next read may still correct it.
+ */
+function reloadingChanges(before, form) {
+  const number = (value) => (value === "" ? null : Number(value));
+  const changes = {};
+  if (
+    form.primer_size !== before.primer_size ||
+    form.primer_magnum !== before.primer_magnum
+  ) {
+    changes.primer_size = form.primer_size;
+    changes.primer_magnum = form.primer_size ? form.primer_magnum : null;
+  }
+  if (form.powder_name !== before.powder_name) changes.powder_name = form.powder_name;
+  for (const key of ["powder_charge_gr", "powder_bullet_gr"]) {
+    if (String(form[key]) !== String(before[key])) changes[key] = number(form[key]);
+  }
+  return changes;
+}
+
+/** "Hodgdon Varget — $52.12/lb", or that Graf & Sons is out of it. */
+function powderLabel(powder) {
+  if (!powder.in_stock) return `${powder.name} (out of stock)`;
+  return powder.unit_price != null
+    ? `${powder.name} — $${powder.unit_price.toFixed(2)}/lb`
+    : powder.name;
+}
+
+/**
+ * The load and the primer, typed by hand. Asked for on 2026-10-14: the
+ * powder is picked from what Graf & Sons sells, the charge typed, and the
+ * server prices the charge from the powder's price per pound.
+ */
+function ReloadingFields({ form, set }) {
+  const [powders, setPowders] = useState(null);
+  useEffect(() => {
+    let live = true;
+    api
+      .ammoPowders()
+      .then((found) => live && setPowders(found))
+      .catch(() => live && setPowders([]));
+    return () => {
+      live = false;
+    };
+  }, []);
+  const listed = powders || [];
+  // A load naming a powder no longer listed still shows what it names.
+  const missing =
+    form.powder_name && powders && !listed.some((p) => p.name === form.powder_name);
+  return (
+    <fieldset className="caliber-reloading" data-testid="caliber-reloading">
+      <legend>Reloading</legend>
+      <div className="form-row form-row--2">
+        <Field
+          label="Primer"
+          hint="Read from the article's infobox; choose one to set it by hand, blank to hand it back."
+        >
+          {(id, describedBy) => (
+            <select
+              id={id}
+              aria-describedby={describedBy}
+              className="input"
+              value={form.primer_size}
+              onChange={set("primer_size")}
+            >
+              <option value="">Not known</option>
+              {PRIMER_SIZES.map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
+          )}
+        </Field>
+        <Field label="Magnum primer">
+          {(id, describedBy) => (
+            <label className="checkbox">
+              <input
+                id={id}
+                aria-describedby={describedBy}
+                type="checkbox"
+                checked={form.primer_magnum}
+                disabled={!form.primer_size}
+                onChange={set("primer_magnum")}
+              />
+              <span>Magnum</span>
+            </label>
+          )}
+        </Field>
+      </div>
+      <div className="form-row form-row--3">
+        <Field label="Powder" hint="What Graf & Sons sells, priced by the pound.">
+          {(id, describedBy) => (
+            <select
+              id={id}
+              aria-describedby={describedBy}
+              className="input"
+              value={form.powder_name}
+              onChange={set("powder_name")}
+              disabled={powders === null}
+            >
+              <option value="">{powders === null ? "Loading…" : "No load"}</option>
+              {missing && <option value={form.powder_name}>{form.powder_name}</option>}
+              {listed.map((powder) => (
+                <option key={powder.name} value={powder.name}>
+                  {powderLabel(powder)}
+                </option>
+              ))}
+            </select>
+          )}
+        </Field>
+        <Field label="Charge (grains)">
+          {(id, describedBy) => (
+            <input
+              id={id}
+              aria-describedby={describedBy}
+              className="input"
+              type="number"
+              step="0.1"
+              min="0"
+              max="999"
+              value={form.powder_charge_gr}
+              onChange={set("powder_charge_gr")}
+            />
+          )}
+        </Field>
+        <Field
+          label="For a bullet of (grains)"
+          hint="Optional; prices that weight's bullet."
+        >
+          {(id, describedBy) => (
+            <input
+              id={id}
+              aria-describedby={describedBy}
+              className="input"
+              type="number"
+              step="1"
+              min="0"
+              max="1999"
+              value={form.powder_bullet_gr}
+              onChange={set("powder_bullet_gr")}
+            />
+          )}
+        </Field>
+      </div>
+    </fieldset>
+  );
+}
+
 const EMPTY_CALIBER = {
   name: "",
   aliases: "",
@@ -901,9 +1073,11 @@ function CaliberForm({ caliber, onSubmit, error }) {
           enabled: caliber.enabled !== false,
           wikipedia_url: caliber.wikipedia_url || "",
           bullet_diameter_in: caliber.bullet_diameter_in ?? "",
+          ...reloadingForm(caliber),
         }
       : EMPTY_CALIBER,
   );
+  const [before] = useState(() => (editing ? reloadingForm(caliber) : null));
   const set = (key) => (event) => {
     const target = event.target;
     setForm((prev) => ({
@@ -917,10 +1091,19 @@ function CaliberForm({ caliber, onSubmit, error }) {
       onSubmit={(event) => {
         event.preventDefault();
         // A blank diameter is "not known", not zero.
+        const {
+          primer_size: _primer,
+          primer_magnum: _magnum,
+          powder_name: _powder,
+          powder_charge_gr: _charge,
+          powder_bullet_gr: _bullet,
+          ...rest
+        } = form;
         onSubmit({
-          ...form,
+          ...rest,
           bullet_diameter_in:
             form.bullet_diameter_in === "" ? null : Number(form.bullet_diameter_in),
+          ...(editing ? reloadingChanges(before, form) : {}),
         });
       }}
     >
@@ -1009,6 +1192,7 @@ function CaliberForm({ caliber, onSubmit, error }) {
           )}
         </Field>
       </div>
+      {editing && <ReloadingFields form={form} set={set} />}
       <Field label="Notes">
         {(id, describedBy) => (
           <textarea
