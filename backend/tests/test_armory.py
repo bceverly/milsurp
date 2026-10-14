@@ -597,6 +597,7 @@ class TestTheExporterCarriesEveryColumn:
             wikipedia_url="https://example.invalid/em1",
             modern_production=True,
             maker_url="https://everything.example/em1",
+            frame_size="Compact",
             notes="a note",
             position=42,
             enabled=False,

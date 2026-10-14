@@ -851,6 +851,24 @@ def _restatus(
 # ---------------------------------------------------------------------------
 # Seeding
 # ---------------------------------------------------------------------------
+#: libyaml's loader where it is installed, the pure-Python one where not: the
+#: same safe subset, read eight times faster -- 0.12s against 1.02s for the
+#: shipped file once it carried production's armory (2026-10-14), which every
+#: "Load shipped armory", every sync plan and most Armory tests pay for.
+_YAML_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+
+
+def _read_yaml(text: str) -> Any:
+    # What yaml.safe_load does, with the faster of the two safe loaders --
+    # constructed here rather than handed to yaml.load, which this project
+    # never calls (tests/test_lucky13.py, "no code is loaded from data").
+    loader = _YAML_LOADER(text)
+    try:
+        return loader.get_single_data()
+    finally:
+        loader.dispose()
+
+
 #: The shipped armory, versioned in the repository beside the code.
 #:
 #: Under ``seed/`` and deliberately not ``data/``: this repository's .gitignore
@@ -1030,7 +1048,7 @@ def seed(
     ``events``, when given, collects one :class:`LoadEvent` per row added or
     filled in, for :func:`record_load`.
     """
-    data = yaml.safe_load((path or SEED_FILE).read_text(encoding="utf-8")) or {}
+    data = _read_yaml((path or SEED_FILE).read_text(encoding="utf-8")) or {}
     report = SeedReport()
     calibers = _seed_calibers(session, data.get("calibers") or [], report, events)
     makers = _seed_makers(session, data.get("manufacturers") or [], report, events)
@@ -1202,6 +1220,7 @@ def _seed_models(
             wikipedia_url=entry.get("wikipedia"),
             modern_production=bool(entry.get("modern_production")),
             maker_url=entry.get("maker_url"),
+            frame_size=entry.get("frame_size"),
             status=ArmoryStatus.PENDING,
             # The order rows are tried in is part of what the file says, as it
             # is for a maker above: the Carcano cavalry carbine is placed ahead
@@ -1381,6 +1400,7 @@ def export_armory(session: Session) -> dict[str, Any]:
                     "rejected_wikipedia": rejected.get(("model", row.id, "wikipedia")),
                     "modern_production": True if row.modern_production else None,
                     "maker_url": row.maker_url,
+                    "frame_size": row.frame_size,
                     "rejected_maker_pages": rejected.get(("model", row.id, "maker_page")),
                     "variants": _variant_entries(row),
                     "status": row.status.value,
@@ -1779,7 +1799,7 @@ class SyncPlan:
 
 def plan_sync(session: Session, path: Path) -> SyncPlan:
     """What :func:`apply_sync` would do, without doing any of it."""
-    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    data = _read_yaml(path.read_text(encoding="utf-8")) or {}
     plan = SyncPlan()
 
     firms = {str(e["name"]).strip().lower(): e for e in data.get("manufacturers") or []}
@@ -1884,6 +1904,7 @@ def _model_differences(row: FirearmModel, entry: dict[str, Any]) -> list[str]:
             "wikipedia": row.wikipedia_url,
             "modern_production": row.modern_production,
             "maker_url": row.maker_url,
+            "frame_size": row.frame_size,
             "variants": _variant_entries(row),
             "status": row.status.value,
             "position": row.position,
@@ -1899,6 +1920,7 @@ def _model_differences(row: FirearmModel, entry: dict[str, Any]) -> list[str]:
             "wikipedia": entry.get("wikipedia"),
             "modern_production": bool(entry.get("modern_production")),
             "maker_url": entry.get("maker_url"),
+            "frame_size": entry.get("frame_size"),
             "variants": [_without_blanks(dict(v)) for v in entry.get("variants") or []],
             "status": str(entry.get("status") or ArmoryStatus.PENDING.value),
             "position": int(entry.get("position") or 1000),
@@ -1956,7 +1978,7 @@ def apply_sync(
     instance is running -- and quietly deleting an admin's row because it has
     not been exported yet is the one mistake this must not make.
     """
-    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    data = _read_yaml(path.read_text(encoding="utf-8")) or {}
     done = {"added": 0, "updated": 0, "deleted": 0}
     sink: list[LoadEvent] = events if events is not None else []
     _sync_makers(session, data.get("manufacturers") or [], done, prune, sink)
@@ -2132,6 +2154,7 @@ def _variant_entries(row: FirearmModel) -> list[dict[str, Any]]:
                 "caliber": variant.caliber.name if variant.caliber else None,
                 "barrel": variant.barrel_inches,
                 "finish": variant.finish,
+                "frame": variant.frame_size,
                 "upc": variant.upc,
                 "part": variant.maker_part,
                 "msrp": variant.msrp,
@@ -2165,6 +2188,7 @@ def _write_variants(
         variant.caliber = calibers.get(caliber) if caliber else None
         variant.barrel_inches = entry.get("barrel")
         variant.finish = entry.get("finish")
+        variant.frame_size = entry.get("frame")
         variant.upc = str(entry["upc"]) if entry.get("upc") else None
         variant.maker_part = entry.get("part")
         variant.msrp = entry.get("msrp")
@@ -2194,6 +2218,7 @@ def _write_model(
     row.wikipedia_url = entry.get("wikipedia")
     row.modern_production = bool(entry.get("modern_production"))
     row.maker_url = entry.get("maker_url")
+    row.frame_size = entry.get("frame_size")
     _write_variants(row, entry.get("variants") or [], calibers)
     row.status = ArmoryStatus(str(entry.get("status") or ArmoryStatus.PENDING.value))
     row.position = int(entry.get("position") or 1000)

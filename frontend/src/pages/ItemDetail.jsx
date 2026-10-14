@@ -184,6 +184,19 @@ function BarrelFacts({ item }) {
         value={said(item.barrel_threaded, "Yes", "No")}
         quote={quotes.threaded}
       />
+      {/* A handgun's frame size (app/services/frames.py): the listing's words
+          when it states one, or else its model's from the armory. */}
+      {item.frame_size && (
+        <div>
+          <div className="fact__label">Frame size</div>
+          <div className="fact__value">{item.frame_size}</div>
+          {item.frame_quote ? (
+            <div className="fact__quote">“{item.frame_quote}”</div>
+          ) : (
+            <span className="fact__source">from the armory</span>
+          )}
+        </div>
+      )}
     </>
   );
 }
@@ -431,6 +444,11 @@ function inchesText(value) {
   return `${Number(Number(value).toFixed(3))}"`;
 }
 
+/** A frame size in a sentence: "Compact frame", "K-frame". */
+function frameText(size) {
+  return /frame$/i.test(size) ? size : `${size} frame`;
+}
+
 /** The versions this listing is or could be: the one, or the candidates. */
 function versionsOf(item) {
   if (item.variant) return [item.variant];
@@ -517,10 +535,17 @@ function VariantNote({ item }) {
         <span className="variant-note__label">
           {one ? "This version" : `Could be any of ${options.length} versions`}
         </span>
-        {!one && item.barrel_inches != null && (
+        {!one && (item.barrel_inches != null || item.frame_size) && (
           <span className="muted">
             {" "}
-            (with its {inchesText(item.barrel_inches)} barrel)
+            (with its{" "}
+            {[
+              item.frame_size && frameText(item.frame_size),
+              item.barrel_inches != null && `${inchesText(item.barrel_inches)} barrel`,
+            ]
+              .filter(Boolean)
+              .join(" and ")}
+            )
           </span>
         )}
         {msrps.length > 0 && <> · MSRP {range(msrps, money)}</>}

@@ -581,3 +581,29 @@ test.describe("armory tables", () => {
     expect(values).not.toContain("USSR");
   });
 });
+
+test.describe("the count over each table", () => {
+  test("names the view and counts every row it holds", async ({ signedIn }) => {
+    // Asked for on 2026-10-14, as the Manufacturer pages tab heads its list.
+    await openArmoryModels(signedIn);
+    await loadShipped(signedIn);
+    await signedIn.getByRole("tab", { name: "Models" }).click();
+    await signedIn.getByLabel("Showing").selectOption("");
+    const heading = signedIn.getByTestId("armory-count");
+    await expect(heading).toHaveText(/^Models in the armory \([\d,]+\)$/);
+    // The same number as the pager's "of N", which counts every page.
+    const total = (
+      await signedIn.locator(".armory-pager .pagination__status").first().innerText()
+    )
+      .split(" of ")[1]
+      .trim();
+    await expect(heading).toHaveText(`Models in the armory (${total})`);
+
+    await signedIn.getByLabel("Showing").selectOption("approved");
+    await expect(heading).toHaveText(/^Models in production \([\d,]+\)$/);
+    await signedIn.getByRole("tab", { name: "Calibers" }).click();
+    await expect(heading).toHaveText(/^Calibers in production \([\d,]+\)$/);
+    await signedIn.getByRole("tab", { name: "Manufacturers" }).click();
+    await expect(heading).toHaveText(/^Manufacturers in production \([\d,]+\)$/);
+  });
+});

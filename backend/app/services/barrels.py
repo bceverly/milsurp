@@ -488,16 +488,23 @@ def backfill(session: Any, *, batch: int = 1000) -> dict[str, int]:
 
 
 def refresh(session: Any) -> dict[str, int]:
-    """Re-read every gun's barrel, then re-match the listings of models still
-    made to their versions, which the length narrows. What Site settings'
-    "Re-read barrels" runs (services/makerjobs)."""
+    """Re-read every gun's barrel and every handgun's frame size, then re-match
+    the listings of models still made to their versions, which both narrow.
+    What Site settings' "Re-read barrels and frame sizes" runs
+    (services/makerjobs)."""
     from sqlalchemy import select
 
     from ..models import FirearmModel, Item
-    from . import variants
+    from . import frames, variants
 
     counts = backfill(session)
+    framed = frames.backfill(session)
     session.commit()
+    counts = {
+        **counts,
+        "frames_stated": framed["stated"],
+        "frames_from_armory": framed["from_armory"],
+    }
     relinked = 0
     modern = select(FirearmModel.id).where(FirearmModel.modern_production.is_(True))
     for item in session.execute(select(Item).where(Item.firearm_model_id.in_(modern))).scalars():

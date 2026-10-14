@@ -47,7 +47,7 @@ from sqlalchemy.orm import Session
 
 from ..models import ArmoryStatus, Caliber, FirearmModel, Manufacturer, ModelVariant
 from ..scrapers.base import ScrapeContext, ScrapeError, text_of
-from . import armory, classify, variants
+from . import armory, classify, frames, variants
 
 
 @dataclass(frozen=True)
@@ -607,18 +607,45 @@ def _caliber_row(session: Session, text: str | None) -> Caliber | None:
     return session.execute(select(Caliber).where(Caliber.name == name)).scalars().first()
 
 
+def _elsewhere(session: Session, model: FirearmModel, item: Found) -> ModelVariant | None:
+    """The same product already recorded under another of the maker's models.
+
+    A variant an administrator moved to the model it belongs to stays there:
+    the reader's choice of owner is a best guess from the product's name, and
+    the M&P40 Shield M2.0 went to the M&P M2.0 until it was moved to the
+    Shield on 2026-10-14. Without this the next run proposed it again, a
+    duplicate under the model it had been moved from.
+    """
+    if not item.maker_part:
+        return None
+    makers = {maker.id for maker in model.manufacturers}
+    for variant in session.execute(
+        select(ModelVariant).where(
+            ModelVariant.maker_part == item.maker_part, ModelVariant.model_id != model.id
+        )
+    ).scalars():
+        if makers & {maker.id for maker in variant.model.manufacturers}:
+            return variant
+    return None
+
+
 def record(session: Session, model: FirearmModel, found: Iterable[Found]) -> dict[str, int]:
     """Write what a reader found: new variants pending, known ones refreshed."""
     counts = {"proposed": 0, "refreshed": 0}
     by_part = {v.maker_part: v for v in model.variants if v.maker_part}
     by_upc = {v.upc: v for v in model.variants if v.upc}
     for item in found:
-        known = by_part.get(item.maker_part) or (by_upc.get(item.upc) if item.upc else None)
+        known = (
+            by_part.get(item.maker_part)
+            or (by_upc.get(item.upc) if item.upc else None)
+            or _elsewhere(session, model, item)
+        )
         if known is not None:
             known.msrp = item.msrp if item.msrp is not None else known.msrp
             known.maker_url = item.url or known.maker_url
             known.upc = known.upc or item.upc
             known.maker_part = known.maker_part or item.maker_part
+            known.frame_size = known.frame_size or frames.read(item.label, None, revolver=None)[0]
             counts["refreshed"] += 1
             continue
         caliber = _caliber_row(session, item.caliber)
@@ -631,6 +658,9 @@ def record(session: Session, model: FirearmModel, found: Iterable[Found]) -> dic
                 caliber_id=caliber.id if caliber else None,
                 barrel_inches=item.barrel_inches,
                 finish=item.finish,
+                # From the label, as a listing's from its title: "PDP Full
+                # Size 4.5"", "M&P9 M2.0 COMPACT". 2026-10-14.
+                frame_size=frames.read(item.label, None, revolver=None)[0],
                 upc=item.upc,
                 maker_part=item.maker_part,
                 msrp=item.msrp,

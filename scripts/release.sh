@@ -10,6 +10,8 @@
 # v1.0.0.0 rather than a bump of nothing.
 #
 # What it does, in order, after a single confirmation:
+#   0. Lints, as the pre-push hook would -- once, here, rather than in the
+#      hook for the branch push and again for the tag push.
 #   1. Works out the next version and asks you to confirm it.
 #   2. Writes that version into the project's version files.
 #   3. Commits and pushes that change.
@@ -91,6 +93,27 @@ if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null 2>&1; then
   warn "Delete it first if you really mean to move it:"
   warn "    git tag -d $TAG && git push --delete origin $TAG"
 fi
+
+# ---------------------------------------------------------------------------
+# Lint, once
+# ---------------------------------------------------------------------------
+# The release does the work the pre-push hook would, and does it once, before
+# anything is changed: the hook used to lint the branch push and then the tag
+# push, the same commit twice. MILSURP_RELEASE_LINTED, inherited by `git push`,
+# tells the hook this push was linted here (.githooks/pre-push).
+bold "Lint"
+# Only a clean tree, so what is linted is what is pushed: the lint reads the
+# working copy, and an uncommitted fix there would pass a commit that does not
+# have it -- and the point of the gate is that nothing bad reaches the public
+# repository. Untracked files are not pushed, so they are left out.
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+  git status --short --untracked-files=no | sed 's/^/    /'
+  die "Uncommitted changes. Commit or stash them, so the lint checks what is pushed."
+fi
+if ! scripts/lint.sh; then
+  die "Lint failed; nothing was changed. Fix it (make lint-fix) and release again."
+fi
+export MILSURP_RELEASE_LINTED=1
 
 # ---------------------------------------------------------------------------
 # Confirm

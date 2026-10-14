@@ -17,7 +17,7 @@ from ..deps import AdminUser, DbSession
 from ..logsafe import client_address
 from ..models import Caliber, FirearmModel, Item, ModelVariant
 from ..schemas import VariantIn, VariantOut, VariantUpdate
-from ..services import audit
+from ..services import audit, frames
 from ..services import variants as service
 
 router = APIRouter(prefix="/armory", tags=["armory"])
@@ -43,13 +43,22 @@ def _finish(text: str | None) -> str | None:
     return finish
 
 
+def _frame(text: str | None) -> str | None:
+    try:
+        return frames.checked(text)
+    except frames.UnknownFrameSize as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc
+
+
 def _rematch(session: DbSession, model_id: int) -> int:
     """Re-settle every listing of the model. Returns how many moved."""
     moved = 0
     for item in session.execute(select(Item).where(Item.firearm_model_id == model_id)).scalars():
-        was = (item.barrel_inches, item.finish, item.variant_id)
+        was = (item.barrel_inches, item.finish, item.frame_size, item.variant_id)
         service.settle(session, item)
-        moved += int((item.barrel_inches, item.finish, item.variant_id) != was)
+        moved += int((item.barrel_inches, item.finish, item.frame_size, item.variant_id) != was)
     return moved
 
 
@@ -77,6 +86,7 @@ def add_variant(
     _check_caliber(session, payload.caliber_id)
     data = payload.model_dump()
     data["finish"] = _finish(data["finish"])
+    data["frame_size"] = _frame(data["frame_size"])
     row = ModelVariant(model_id=model_id, **data)
     session.add(row)
     session.flush()
@@ -110,6 +120,8 @@ def update_variant(
         _check_caliber(session, changes["caliber_id"])
     if "finish" in changes:
         changes["finish"] = _finish(changes["finish"])
+    if "frame_size" in changes:
+        changes["frame_size"] = _frame(changes["frame_size"])
     for name, value in changes.items():
         setattr(row, name, value)
     session.flush()

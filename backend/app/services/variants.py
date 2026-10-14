@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import select
 
 from ..models import ArmoryStatus, Item, ModelVariant
-from . import barrels
+from . import barrels, frames
 from .carry import _FRACTIONS
 
 if TYPE_CHECKING:
@@ -132,18 +132,26 @@ def candidates(session: Session, item: Item) -> list[ModelVariant]:
         ]
     if item.finish:
         found = [v for v in found if v.finish is None or v.finish == item.finish]
+    # The frame size only where it settles something (asked for on
+    # 2026-10-14): both sides know it and a version has the listing's. A size
+    # no version has narrows nothing rather than everything -- the variants
+    # may simply not have been given theirs.
+    frame = getattr(item, "frame_size", None)
+    if frame and any(v.frame_size == frame for v in found):
+        found = [v for v in found if v.frame_size is None or v.frame_size == frame]
     return found
 
 
 def settle(session: Session, item: Item) -> None:
-    """Read the listing's barrel and finish and link it to its variant, if one.
+    """Read the listing's barrel, frame and finish and link it to its variant.
 
-    The barrel for every gun (app.services.barrels: asked for on 2026-10-13,
-    to search on, and read from the description too); the finish and the
-    variant only for a firearm whose model is in modern production, the only
-    ones with variants.
+    The barrel for every gun (app.services.barrels, 2026-10-13) and the frame
+    size for every handgun (app.services.frames, 2026-10-14), both read from
+    the description too; the finish and the variant only for a firearm whose
+    model is in modern production, the only ones with variants.
     """
     barrels.apply(item)
+    frames.apply(item)
     model = item.firearm_model
     if model is None or not model.modern_production or not (item.is_rifle or item.is_pistol):
         item.variant_id = None

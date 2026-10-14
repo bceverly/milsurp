@@ -105,9 +105,57 @@ test("Site settings re-reads every gun's barrel", async ({ signedIn }) => {
   await expect(section.getByTestId("manufacturer-job-barrels")).toContainText(
     "5,085 barrel length(s)",
   );
-  await section
-    .getByRole("button", { name: "Re-read barrel lengths and threading" })
-    .click();
+  await section.getByRole("button", { name: "Re-read barrels and frame sizes" }).click();
   await expect.poll(() => asked).toEqual(["/api/manufacturer-data/barrels/run"]);
   await expect(section.getByRole("button", { name: "Asked for" })).toBeDisabled();
+});
+
+test("a handgun shows its frame size, stated or from the armory", async ({
+  signedIn,
+}) => {
+  let changes = { frame_size: "Compact", frame_quote: "BERETTA 92X RDO COMPACT" };
+  await signedIn.route(/\/api\/items\/\d+$/, async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      json: { ...(await response.json()), is_pistol: true, ...changes },
+    });
+  });
+  await signedIn.goto("/?availability=all");
+  await signedIn.locator(".item-card").first().click();
+  const facts = signedIn.locator(".detail__facts");
+  await expect(facts).toContainText("Frame sizeCompact“BERETTA 92X RDO COMPACT”");
+
+  changes = { frame_size: "K-frame", frame_quote: null };
+  await signedIn.reload();
+  await expect(facts).toContainText("Frame sizeK-framefrom the armory");
+});
+
+test("the versions say when the frame size narrowed them", async ({ signedIn }) => {
+  await signedIn.route(/\/api\/items\/\d+$/, async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      json: {
+        ...(await response.json()),
+        frame_size: "Full size",
+        barrel_inches: 4.5,
+        variant: null,
+        variant_candidates: [
+          { id: 1, label: 'PDP Full Size 4.5"', msrp: 699, frame_size: "Full size" },
+          {
+            id: 2,
+            label: 'PDP Pro SD Full Size 4.5"',
+            msrp: 999,
+            frame_size: "Full size",
+          },
+        ],
+      },
+    });
+  });
+  await signedIn.goto("/?availability=all");
+  await signedIn.locator(".item-card").first().click();
+  await expect(signedIn.getByTestId("variant-note")).toContainText(
+    'Could be any of 2 versions (with its Full size frame and 4.5" barrel)',
+  );
 });

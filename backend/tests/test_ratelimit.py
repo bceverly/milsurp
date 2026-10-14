@@ -168,17 +168,37 @@ class TestTheCeilingIsCheap:
         so the sort ran on every request once full: an O(n log n) cost paid
         under exactly the flood it was defending against. Evicting down to a
         low-water mark amortizes it. The gap between the two is large -- 18x on
-        the suite -- so a loose bound here still catches a regression."""
+        the suite -- so a loose bound here still catches a regression.
+
+        Measured against the same register's own cost below the ceiling, in
+        the same run, rather than against a fixed number of microseconds: CI
+        runs the suite one worker per core on a two-core runner (2026-10-14),
+        and the fixed 50us failed there at 75.9us without anything having
+        regressed. A ratio is what the regression changes: about 4x as it
+        stands, about 560x with one key evicted per insert, so 25x sits far
+        from both."""
         import time as _time
+
+        def per_insert(register: AttemptRegister, prefix: str) -> float:
+            started = _time.perf_counter()
+            for i in range(20_000):
+                register.record(f"{prefix}{i}")
+            return (_time.perf_counter() - started) / 20_000
+
+        # Below any ceiling: what an insert costs with nothing to evict.
+        roomy = AttemptRegister(window_seconds=3600, max_keys=1_000_000)
+        for i in range(2_000):
+            roomy.record(f"fill{i}")
+        below = per_insert(roomy, "calm")
 
         register = AttemptRegister(window_seconds=3600, max_keys=2_000)
         for i in range(2_000):  # fill it
             register.record(f"fill{i}")
-
-        started = _time.monotonic()
-        for i in range(20_000):  # now run it at the ceiling
-            register.record(f"flood{i}")
-        per_insert_us = (_time.monotonic() - started) / 20_000 * 1e6
+        at_ceiling = per_insert(register, "flood")
 
         assert len(register) <= 2_000
-        assert per_insert_us < 50, f"{per_insert_us:.1f}us per insert at the ceiling"
+        ratio = at_ceiling / below
+        assert ratio < 25, (
+            f"{at_ceiling * 1e6:.1f}us per insert at the ceiling, {ratio:.1f}x the "
+            f"{below * 1e6:.1f}us below it"
+        )

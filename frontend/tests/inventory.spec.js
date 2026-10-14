@@ -1,6 +1,12 @@
 /** The inventory browser: search, filters, sorting, pagination, detail view. */
 import { test, expect } from "./fixtures.js";
 
+// Spread over the workers rather than run as one file (2026-10-14): the longest
+// file was setting the whole suite's floor, and none of these depends on
+// another -- each worker has its own database, and the one test that writes
+// (a correction) writes only to its own.
+test.describe.configure({ mode: "parallel" });
+
 /**
  * Open the Type and Availability folds.
  *

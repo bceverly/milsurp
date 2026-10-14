@@ -754,6 +754,11 @@ class FirearmModel(Base, TimestampMixin):
     #: Without one a listing links to a search of the maker's site instead --
     #: see Manufacturer.website.
     maker_url: Mapped[str | None] = mapped_column(String(500))
+    #: The frame size of a model only ever made in one (a Glock 19 is a
+    #: Compact, a Model 10 a K-frame), given to each listing of it that does
+    #: not state its own. Blank for a model made in several, whose variants
+    #: carry theirs. See app.services.frames; 2026-10-14.
+    frame_size: Mapped[str | None] = mapped_column(String(16))
     #: The listing title a pending row was proposed from, so an admin judging
     #: it can see what it came from without going hunting.
     first_seen_in: Mapped[str | None] = mapped_column(Text)
@@ -998,6 +1003,10 @@ class Item(Base, TimestampMixin):
     #: See app.services.barrels.
     barrel_threaded: Mapped[bool | None] = mapped_column(Boolean, index=True)
     barrel_quotes: Mapped[dict[str, str] | None] = mapped_column(JSON)
+    #: A handgun's frame size (app.services.frames): what the listing says,
+    #: with the words in ``frame_quote``, or else its model's, with no quote.
+    frame_size: Mapped[str | None] = mapped_column(String(16), index=True)
+    frame_quote: Mapped[str | None] = mapped_column(String(200))
 
     is_sold: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     #: When a scan (or the watchlist poller) first saw this listing marked
@@ -1435,6 +1444,9 @@ class ModelVariant(Base, TimestampMixin):
     barrel_inches: Mapped[float | None] = mapped_column(Float)
     #: One of variants.FINISHES: "Blued", "Stainless", "Black" ...
     finish: Mapped[str | None] = mapped_column(String(32))
+    #: Its frame size, in app.services.frames' vocabulary ("Compact",
+    #: "K-frame"), read from its label or typed in its dialog. 2026-10-14.
+    frame_size: Mapped[str | None] = mapped_column(String(16))
     upc: Mapped[str | None] = mapped_column(String(20), index=True)
     #: The maker's own part or model number: "2-440041TKR".
     maker_part: Mapped[str | None] = mapped_column(String(64))

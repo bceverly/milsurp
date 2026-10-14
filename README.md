@@ -3334,7 +3334,7 @@ scan in flight; `FORCE=1` skips the prompt.
 
 | Hook | Runs | Blocks on |
 |---|---|---|
-| `pre-push` | `make lint` | any finding, including black reporting it would reformat a file |
+| `pre-push` | `make lint` on a clean tree, except where it has already run: a push from `make release`, which lints once before it changes anything, and a push of tags alone, whose commits were linted when their branch went up | any finding, including black reporting it would reformat a file; and uncommitted changes to tracked files, since the lint reads the files on disk and they must be what is pushed |
 
 There is deliberately no `pre-commit` hook. A work-in-progress commit is nobody
 else's problem; a push is. Putting the single gate at the boundary where the
@@ -3374,8 +3374,8 @@ through a **private security advisory** on the repository, not a public issue
 
 | Command | What it runs | In CI |
 |---|---|---|
-| `make security` | bandit, semgrep, Snyk, pip-audit, npm audit, gitleaks, the **Lucky 13** check, and the local configuration checks | `security.yml`, job **Security scan**: every push and pull request to `main`, weekly on Mondays at 06:00 UTC, and on demand |
-| `make lucky13` | MITRE's "Lucky 13" check alone (`backend/tests/test_lucky13.py`, about ten seconds) | twice over: inside `make test-backend` in `ci.yml` (job **Unit tests**, on Python 3.12, 3.13 and 3.14), and inside `make security` above |
+| `make security` | semgrep, Snyk, pip-audit, npm audit, gitleaks, and the local configuration checks (bandit is in `make lint` and the Lucky 13 in `make test-backend`, so neither runs twice) | `security.yml`, job **Security scan**: every push and pull request to `main`, weekly on Mondays at 06:00 UTC, and on demand |
+| `make lucky13` | MITRE's "Lucky 13" check alone (`backend/tests/test_lucky13.py`, about ten seconds) | inside `make test-backend` in `ci.yml` (job **Unit tests**, on Python 3.12, 3.13 and 3.14) |
 | `make test-backend` | the whole backend suite, which includes the Lucky 13 check and the tests of every defense described here | `ci.yml`, job **Unit tests** |
 | `make lint` | includes bandit, and mypy and ruff with the security rules on | `ci.yml`, job **Lint**, and the pre-push hook |
 | — | CodeQL, Python and JavaScript, `security-extended` queries, reporting to the Security tab | `security.yml`, job **CodeQL** |
@@ -3393,8 +3393,7 @@ virtualenv of its own, `.venv-semgrep`: it pins the application's PyJWT to a
 release with critical advisories, and sharing `.venv` held the app back.
 gitleaks is pinned in `scripts/tool-versions.env`, which the CI workflow sources
 too, so both run the same binary; it is also accepted as a container image
-(`docker pull ghcr.io/gitleaks/gitleaks:latest`). The Lucky 13 check needs only
-`.venv`.
+(`docker pull ghcr.io/gitleaks/gitleaks:latest`).
 
 Snyk needs an account. CI has one — a `SNYK_TOKEN` repository secret, read by
 the `make security` step. Locally, run `snyk auth` once or export the same

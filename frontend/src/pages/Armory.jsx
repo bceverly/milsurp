@@ -229,6 +229,20 @@ const STATUSES = [
   { value: "", label: "Everything" },
 ];
 
+//: The heading over a table: "Models in production (1,510)".
+const TAB_NOUNS = {
+  manufacturers: "Manufacturers",
+  models: "Models",
+  calibers: "Calibers",
+};
+const SHOWING_PHRASES = {
+  pending: "awaiting approval",
+  approved: "in production",
+  disabled: "switched off",
+  merged: "merged away",
+  "": "in the armory",
+};
+
 //: What Showing means on the Manufacturer pages and Wikipedia tabs
 //: (2026-10-13): the links waiting on a decision, the ones in the armory, and
 //: the ones turned down. "Disabled" stands for rejected, so the value carries
@@ -250,6 +264,7 @@ const EMPTY_MODEL = {
   wikipedia_url: "",
   modern_production: false,
   maker_url: "",
+  frame_size: "",
   position: 1000,
   enabled: true,
   notes: "",
@@ -363,6 +378,7 @@ function ModelForm({
           wikipedia_url: model.wikipedia_url || "",
           modern_production: Boolean(model.modern_production),
           maker_url: model.maker_url || "",
+          frame_size: model.frame_size || "",
           position: model.position,
           enabled: model.enabled,
           notes: model.notes || "",
@@ -402,6 +418,7 @@ function ModelForm({
           // Sent blank rather than null to clear it: the update reads an
           // absent field as "leave it", and null is what absent looks like.
           maker_url: form.maker_url.trim(),
+          frame_size: form.frame_size,
         });
       }}
     >
@@ -607,6 +624,22 @@ function ModelForm({
               onChange={set("maker_url")}
               maxLength={500}
               placeholder="https://"
+            />
+          )}
+        </Field>
+      </div>
+
+      <div className="form-row form-row--2">
+        <Field
+          label="Frame size"
+          hint="Only for a model made in one size: a Glock 19 is a Compact, a Model 10 a K-frame. Its listings take it when they do not say. A model made in several leaves it blank and its variants carry theirs."
+        >
+          {(id, describedBy) => (
+            <FrameSizeSelect
+              id={id}
+              describedBy={describedBy}
+              value={form.frame_size}
+              onChange={set("frame_size")}
             />
           )}
         </Field>
@@ -1323,6 +1356,41 @@ function ArmoryApply({ onClose, onApplied }) {
   );
 }
 
+//: The frame sizes: services/frames.SIZES, in its order -- a pistol's size,
+//: then a revolver's frame.
+const FRAME_SIZES = [
+  "Long slide",
+  "Full size",
+  "Compact",
+  "Subcompact",
+  "Micro",
+  "J-frame",
+  "K-frame",
+  "L-frame",
+  "N-frame",
+  "X-frame",
+  "Small frame",
+  "Medium frame",
+  "Large frame",
+];
+
+function FrameSizeSelect({ id, describedBy, value, onChange }) {
+  return (
+    <select
+      id={id}
+      aria-describedby={describedBy}
+      className="select"
+      value={value}
+      onChange={onChange}
+    >
+      <option value="">—</option>
+      {FRAME_SIZES.map((name) => (
+        <option key={name}>{name}</option>
+      ))}
+    </select>
+  );
+}
+
 //: The finishes a variant can be: services/variants.FINISHES, in its order.
 const FINISHES = [
   "Black",
@@ -1344,6 +1412,7 @@ const EMPTY_VARIANT = {
   caliber_id: "",
   barrel_inches: "",
   finish: "",
+  frame_size: "",
   upc: "",
   maker_part: "",
   msrp: "",
@@ -1381,6 +1450,7 @@ function VariantsEditor({ model, calibers }) {
     caliber_id: form.caliber_id ? Number(form.caliber_id) : null,
     barrel_inches: form.barrel_inches === "" ? null : Number(form.barrel_inches),
     finish: form.finish || null,
+    frame_size: form.frame_size || null,
     upc: form.upc.trim() || null,
     maker_part: form.maker_part.trim() || null,
     msrp: form.msrp === "" ? null : Number(form.msrp),
@@ -1433,6 +1503,7 @@ function VariantsEditor({ model, calibers }) {
       caliber_id: row.caliber_id ? String(row.caliber_id) : "",
       barrel_inches: row.barrel_inches ?? "",
       finish: row.finish || "",
+      frame_size: row.frame_size || "",
       upc: row.upc || "",
       maker_part: row.maker_part || "",
       msrp: row.msrp ?? "",
@@ -1445,8 +1516,8 @@ function VariantsEditor({ model, calibers }) {
     <section className="variants" data-testid="variants-editor">
       <h3>Variants</h3>
       <p className="field__hint">
-        The versions a buyer chooses between. A listing whose title states a barrel and
-        finish is matched to the one it is.
+        The versions a buyer chooses between. A listing whose words state a barrel, a
+        frame size and a finish is matched to the one it is.
       </p>
       {error && <p className="alert alert--error">{error}</p>}
       {pendingIds.length > 1 && (
@@ -1465,6 +1536,7 @@ function VariantsEditor({ model, calibers }) {
               <tr>
                 <th>Variant</th>
                 <th>Barrel</th>
+                <th>Frame</th>
                 <th>Finish</th>
                 <th>MSRP</th>
                 <th aria-label="Actions" />
@@ -1483,6 +1555,7 @@ function VariantsEditor({ model, calibers }) {
                     </div>
                   </td>
                   <td>{row.barrel_inches != null ? `${row.barrel_inches}"` : "—"}</td>
+                  <td>{row.frame_size || "—"}</td>
                   <td>{row.finish || "—"}</td>
                   <td>{row.msrp != null ? `$${row.msrp.toFixed(2)}` : "—"}</td>
                   <td className="table__actions">
@@ -1574,6 +1647,17 @@ function VariantsEditor({ model, calibers }) {
                   <option key={name}>{name}</option>
                 ))}
               </select>
+            )}
+          </Field>
+        </div>
+        <div className="form-row form-row--3">
+          <Field label="Frame size">
+            {(id) => (
+              <FrameSizeSelect
+                id={id}
+                value={form.frame_size}
+                onChange={set("frame_size")}
+              />
             )}
           </Field>
         </div>
@@ -2962,6 +3046,16 @@ export default function Armory() {
         </div>
       )}
 
+      {/* How many rows the table holds, as the link tabs say theirs (asked
+          for on 2026-10-14): every row the Showing filter and the search
+          admit, not just the page on screen. */}
+      {!SUGGESTION_FIELD[tab] && (
+        <h2 className="armory-count" data-testid="armory-count">
+          {TAB_NOUNS[tab]} {SHOWING_PHRASES[statusFilter] ?? "in the armory"}
+          {search.trim() && <> matching “{search.trim()}”</>} (
+          {loading && rows.length === 0 ? "…" : rows.length.toLocaleString()})
+        </h2>
+      )}
       {SUGGESTION_FIELD[tab] ? (
         <ReferenceLinks
           key={tab}

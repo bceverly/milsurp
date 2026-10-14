@@ -67,7 +67,7 @@ from ..schemas import (
     FirearmModelUpdate,
 )
 from ..services import armory as service
-from ..services import armorybulk, armoryundo, audit, classify, mailer
+from ..services import armorybulk, armoryundo, audit, classify, frames, mailer, variants
 from ..services import search as search_service
 
 router = APIRouter(prefix="/armory", tags=["armory"])
@@ -175,6 +175,7 @@ def _model_out(row: FirearmModel, matched: int = 0, mentions: int | None = None)
         wikipedia_url=row.wikipedia_url,
         modern_production=row.modern_production,
         maker_url=row.maker_url,
+        frame_size=row.frame_size,
         status=row.status,
         position=row.position,
         enabled=row.enabled,
@@ -397,6 +398,7 @@ def create_model(
 ) -> FirearmModelOut:
     _reject_duplicate(session, FirearmModel, payload.name)
     data = _emptied(payload.model_dump())
+    data["frame_size"] = _frame(data.get("frame_size"))
     makers = _makers(session, data.pop("manufacturer_ids"))
     cartridges = _calibers(session, data.pop("caliber_ids"))
     row = FirearmModel(**data)
@@ -408,6 +410,16 @@ def create_model(
     session.commit()
     service.invalidate()
     return _model_out(row)
+
+
+def _frame(text: str | None) -> str | None:
+    """A typed frame size in the vocabulary of services/frames, or a 422."""
+    try:
+        return frames.checked(text)
+    except frames.UnknownFrameSize as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc
 
 
 @router.patch("/models/{model_id}", response_model=ArmoryWrite)
@@ -422,6 +434,8 @@ def update_model(
     changes = _emptied(payload.model_dump(exclude_unset=True))
     if "name" in changes and changes["name"] != row.name:
         _reject_duplicate(session, FirearmModel, changes["name"])
+    if "frame_size" in changes:
+        changes["frame_size"] = _frame(changes["frame_size"])
     if "manufacturer_ids" in changes:
         row.manufacturers = _makers(session, changes.pop("manufacturer_ids") or [])
     if "caliber_ids" in changes:
@@ -434,6 +448,10 @@ def update_model(
     session.flush()
     service.invalidate()
     changed = service.reprocess(session, [*spellings, *row.spellings])
+    if "frame_size" in changes:
+        # A model's size is the one its listings take when they state none.
+        for item in session.execute(select(Item).where(Item.firearm_model_id == row.id)).scalars():
+            variants.settle(session, item)
     audit.record(
         session,
         actor=admin,

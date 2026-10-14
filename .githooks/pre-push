@@ -22,6 +22,56 @@ while [ -n "$REPO_ROOT" ] && [ ! -f "$REPO_ROOT/Makefile" ] && [ "$REPO_ROOT" !=
 done
 cd "$REPO_ROOT" || exit 1
 
+# `make release` lints before it pushes, so its pushes are not linted again
+# here: the work is done once, in the release (scripts/release.sh).
+if [ "${MILSURP_RELEASE_LINTED:-}" = "1" ]; then
+  printf '\n\033[1;94m▸ pre-push: linted by make release, not again\033[0m\n\n'
+  exit 0
+fi
+
+# A push of tags alone has nothing new to lint: `make release` pushes the
+# branch -- linted here a moment ago -- and then the tag pointing at that same
+# commit, and the whole lint ran twice. Git hands the hook one line per ref,
+# "<local ref> <local sha> <remote ref> <remote sha>"; when every remote ref is
+# a tag, the commits under them were linted when their branch went up.
+ONLY_TAGS=1
+SAW_REF=0
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  [ -n "${remote_ref:-}" ] || continue
+  SAW_REF=1
+  case "$remote_ref" in
+    refs/tags/*) ;;
+    *) ONLY_TAGS=0 ;;
+  esac
+done
+if [ "$SAW_REF" = "1" ] && [ "$ONLY_TAGS" = "1" ]; then
+  printf '\n\033[1;94m▸ pre-push: tags only — linted with their branch, not again\033[0m\n\n'
+  exit 0
+fi
+
+# The lint reads the working copy, and a push sends commits: with uncommitted
+# changes the two differ, and a lint that passes on a fix not yet committed
+# lets the commit without it through. The point of this gate is that nothing
+# bad reaches the public repository, so it lints only a clean tree. Untracked
+# files are not pushed and are left out.
+if [ -n "$(git status --porcelain --untracked-files=no 2>/dev/null)" ]; then
+  git status --short --untracked-files=no | sed 's/^/    /'
+  cat <<'DIRTY'
+
+  ────────────────────────────────────────────────────────────────
+   PUSH BLOCKED — uncommitted changes.
+
+   The lint reads the files on disk, and these differ from what is
+   being pushed, so it cannot vouch for the push. Commit or stash
+   them, then push again.
+
+   To bypass in an emergency:  git push --no-verify
+  ────────────────────────────────────────────────────────────────
+
+DIRTY
+  exit 1
+fi
+
 printf '\n\033[1;94m▸ pre-push: linting\033[0m\n'
 
 if [ ! -x scripts/lint.sh ]; then

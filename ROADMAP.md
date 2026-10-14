@@ -5223,6 +5223,129 @@ makers` on the server.
   (not in Walther's menu). Whether each is still "in modern production" is a
   decision for the Armory, not a reader fault.
 
+### A handgun's frame size — **Shipped** 2026-10-14
+
+Asked for: frame size on a listing "just like barrel length", tested on the
+production database "to see how tightly you can get our heuristic parser to fill
+it in", kept in the armory, and used "to narrow down pricing comparisons ...
+where both the item and the armory have a populated value and there is a
+matching variant".
+
+* **One field, two vocabularies** (`services/frames.py`): a pistol's size --
+  Long slide, Full size, Compact, Subcompact, Micro, with the 1911's
+  Government, Commander and Officer's put on that scale -- and a revolver's
+  frame: J, K, L, N, X, or small / medium / large.
+* **Read tightly.** A title's size words are the version's name ("SIG P320
+  Full size", "BERETTA 92X RDO COMPACT", "WALTHER PDP FS"). A description's
+  are mostly adjectives -- "a compact and reliable firearm", "in a more
+  compact and lighter weight pistol" -- so from a description only a labeled
+  field or a capitalized size naming a version, never after an article, and
+  never a "Full-Size Grip". "Government" only as the 1911's name, never "U.S.
+  Government property"; "Officer's" only as the ACP. Over production's 8,545
+  pistols and revolvers: 292 sizes from the text, every sample read checked
+  right; over its 605 variant labels, 75, all right.
+* **The armory supplies the rest**: a model only ever made in one size carries
+  it (a Glock 19 is a Compact, a Model 10 a K-frame), and its listings take it
+  when they state none -- shown as "from the armory". Variants carry their own,
+  read from their labels (the manufacturer readers do it as they go; migration
+  0075 did it for those already stored) or picked in the variant form.
+* **Narrowing** (`variants.candidates`): only where both sides know it and a
+  version has the listing's size -- a size no version has narrows nothing.
+* The listing page shows Frame size with its quote; the versions' heading
+  says "(with its Full size frame and 4.5" barrel)"; Site settings' re-read
+  covers frame sizes too; the export file carries `frame_size` on models and
+  `frame` on variants.
+* **Waiting on the release**: production cannot hold a model's size until
+  0075 is installed. The list for the one-size models -- Glock 17 / 22 Full
+  size, 19 / 23 / 45 Compact, 26 / 27 Subcompact, 34 / 35 Long slide, 43
+  Micro; P365 Micro, P226 Full size, P229 Compact; the S&W revolvers by frame
+  letter -- is applied after it.
+
+### semgrep in half the time — **Changed** 2026-10-14
+
+Asked for: "any way to speed up the semgrep run?" It took 647 seconds for 411
+files, and the time was not where it looked like it would be: `.gitignore`
+already kept it off the 39 GB of photographs, the virtualenvs and
+node_modules, and `--jobs` made it slower (915s) -- 98% of the time went to
+the dozen largest files, which no worker count shortens.
+
+* **The rules for frameworks the project does not use are left out.** The four
+  packs expand to about 1,180 rules; on `scan_service.py` three quarters of the
+  matching went to Flask, Django, AWS Lambda, serverless and CherryPy taint
+  rules, on `Armory.jsx` four fifths to Express, hapi, Koa and NestJS. 724
+  rules are dropped, each family only while nothing imports it or
+  `frontend/package.json` does not depend on it, so adding one brings its
+  rules back. 328 seconds, the same (empty) findings.
+* **The scan ran a different semgrep.** semgrep runs a helper, `pysemgrep`,
+  that it finds on PATH, and with `.venv-semgrep` not on PATH it found a pipx
+  copy -- 1.177 where 1.179 is pinned -- so a local scan was not CI's.
+  `security.sh` puts the scanner's own directory first.
+* What is left is the largest file, `Armory.jsx`, at about two minutes alone.
+
+### Each check runs once — **Changed** 2026-10-14
+
+Asked for: nothing duplicated between `make lint`, `make security`, `make
+release` and the hooks, and anything `make release` and a hook would both do
+done once, in `make release`. The guard is the public repository: nothing runs
+at commit, and nothing should reach the repository unlinted.
+
+* **`make release` lints once, first**, before it changes anything, and only on
+  a clean tree so what it lints is what it pushes; its pushes tell the hook so
+  (`MILSURP_RELEASE_LINTED`). The hook had linted the branch push and then the
+  tag push -- the same commit twice.
+* **The pre-push hook** skips a push of tags alone, and refuses a push while
+  tracked files have uncommitted changes: it lints the files on disk, and a
+  fix not yet committed would have passed the commit without it.
+* **bandit** runs in `make lint` only (the hook and CI's Lint job), and **the
+  Lucky 13** in `make test-backend` only (CI's Unit tests on every Python);
+  `make security` ran both again on every push to main.
+
+### A count over each Armory table — **Changed** 2026-10-14
+
+Asked for: "just like we have 'Manufacturer pages in the armory (xxx)'", the
+same on Manufacturers, Models and Calibers. Each table is headed by what it
+shows and how many -- "Models in production (1,510)", "Calibers awaiting
+approval (9)", "Manufacturers in the armory (290)", with "matching ..." while
+a search is typed -- counting every row the Showing filter and the search
+admit, not the page on screen.
+
+### The variants reviewed — **Done** 2026-10-14
+
+583 of the 593 pending approved in production, through the application's own
+code and audit log, and 34 listings linked to their exact version. On the way:
+the Ruger Redhawk, Super Redhawk and Vaquero gained the calibers Ruger sells
+them in (.45 ACP; 10mm, .22 Hornet, .357, .454 Casull; 9mm, .45 ACP); seven
+Shield products the reader had given the M&P M2.0 or M&P45 moved to the Shield
+and Shield EZ; and the Smith & Wesson labels' calibers were filled from their
+names (Bodyguard 2.0 .380, Bodyguard 38 .38 Special, M&P380 .380 ...). The M&P
+5.7 and M&P22X (10) wait: there is no model for them. A product moved to
+another of its maker's models is now refreshed where it was moved
+(`makersites._elsewhere`), not proposed again under the first.
+
+### Models no longer made — **Done** 2026-10-14
+
+Eleven left modern production, none on its maker's current site: Ruger EC9S,
+SR22 and American Pistol; Smith & Wesson Model 64, Model 625 and the original
+M&P40 (the M2.0 is a variant of the M&P M2.0); Kimber 2K11; Walther Creed, PPQ,
+Q4 and Q5 Match.
+
+### Generic models made to mean one gun — **Done** 2026-10-14
+
+Derived calibers contradicting their model went from 300 to 202. Rows with a
+bare year for a spelling -- "U.S. Model 1886" matched Winchester 1886s and
+Steyr Kropatscheks, "U.S. MODEL 88" Winchester, Marlin and Mossberg 88s,
+"British Model 1853" Sharps -- were switched off where a specific model
+already existed (Joslyn M1864, Winchester 1876 and 1886, Krag-Jørgensen, Sharps
+Slant Breech) or where they meant nothing (U.S. Model 32, Model 88, Model
+1897), and renamed where they meant one gun (Winchester Model 1887, Johnson
+Model 1941, Smith & Wesson Model 1955). Spanish Model 1893 and Springfield
+Model 1842 lost their bare-year spellings; Pattern 1842 its 7.5x55 Swiss. The
+Colt Single Action Army, M1911A1, SMLE, K31, Ballester Molina, Walther PP and
+PPK and Colt Army Special gained the calibers they were made in; 11.25mm was
+merged into .45 ACP, which it is. The 202 left are the parser misreading single
+listings -- "9mm Largo" as 9mm Luger, a Webley ".38" as .38 Special, a bare
+".45" -- a parser pass of its own.
+
 ### `make test` on every core — **Changed** 2026-10-14
 
 Asked for: "can we parallelize it based dynamically on the number of CPU cores
@@ -5242,6 +5365,16 @@ on the host system like we do on the other projects?"
   worker's app from `TEST_PARALLEL_INDEX`, so every spec follows without
   change. 13.6 minutes on eight cores against 37 for one worker. Files run in
   parallel, a file's tests still in order.
+* **The shipped armory reads eight times faster** (2026-10-14): libyaml's
+  safe loader where installed -- 0.12s against 1.02s for the file -- so "Load
+  shipped armory" costs 0.40s rather than 2.2, and the Armory specs that call
+  it two dozen times stop paying for it. `inventory.spec.js` runs its tests
+  across the workers (none depends on another). The suite: 8.6 minutes.
+* **A timing test that measured the machine**: the rate limiter's "a full
+  register is cheap" asserted 50us per insert, and on CI's two-core runners
+  with a worker per core it read 75.9us. It now compares the ceiling's cost
+  with the same register's below it, in the same run: about 4x as it stands,
+  about 560x with the old one-key eviction, bounded at 25x.
 * **What it shook out**: `allRowNames` read a page under its loading spinner
   and skipped it -- a race that only a loaded machine reached. And the
   shipped armory's growth (production's export, 2026-10-13) is now the

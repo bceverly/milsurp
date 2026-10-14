@@ -5,7 +5,7 @@
 #   make lint        check everything; any finding is a failure
 #   make lint-fix    auto-fix what can be fixed, then re-check
 #
-# Exit codes: 0 clean, 1 findings. The pre-commit hook depends on that, and on
+# Exit codes: 0 clean, 1 findings. The pre-push hook depends on that, and on
 # black reporting whether it changed anything.
 set -uo pipefail
 
@@ -76,7 +76,7 @@ if have black; then
     ok "formatted"
   else
     # --check --diff reports without writing. A non-zero exit means files are
-    # not formatted; the pre-commit hook treats that as a blocking failure.
+    # not formatted; the pre-push hook treats that as a blocking failure.
     if "$VENV/bin/black" --line-length 100 --check --quiet backend scripts 2>/dev/null; then
       ok "all files already formatted"
     else
@@ -115,8 +115,9 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 4. bandit — Python security lint. Also part of `make security`; it runs here
-#    too so a problem is caught before the commit rather than in CI.
+# 4. bandit — Python security lint. Here only, not in `make security` as well:
+#    the pre-push hook runs this, so a finding is caught before it leaves the
+#    machine, and CI's Lint job runs it on every push.
 # ---------------------------------------------------------------------------
 section "bandit (Python security)"
 if have bandit; then

@@ -11,7 +11,7 @@ from __future__ import annotations
 import gzip
 from pathlib import Path
 
-from app.models import ArmoryStatus, Caliber, FirearmModel, Manufacturer
+from app.models import ArmoryStatus, Caliber, FirearmModel, Manufacturer, ModelVariant
 from app.scrapers.base import ScrapeError
 from app.services import makersites
 
@@ -339,3 +339,39 @@ class TestARecordedPageIsTheMakersOwn:
         assert not makersites._on_site("https://ruger.com.example.net/x", "ruger.com")
         assert not makersites._on_site("https://notruger.com/x", "ruger.com")
         assert not makersites._on_site(None, "waltherarms.com")
+
+
+class TestAMovedVariantStaysMoved:
+    def test_the_next_run_refreshes_it_where_it_was_moved(self, clean_db):
+        """The M&P40 Shield M2.0 went to the M&P M2.0 and was moved to the
+        Shield on 2026-10-14; the next run must not propose it again."""
+        sw = Manufacturer(name="Smith & Wesson", status=ArmoryStatus.APPROVED)
+        m2 = FirearmModel(name="M&P M2.0", status=ArmoryStatus.APPROVED, modern_production=True)
+        shield = FirearmModel(
+            name="M&P Shield", status=ArmoryStatus.APPROVED, modern_production=True
+        )
+        m2.manufacturers = [sw]
+        shield.manufacturers = [sw]
+        clean_db.add_all([sw, m2, shield])
+        clean_db.flush()
+        moved = ModelVariant(
+            model_id=shield.id, label="M&P40 SHIELD M2.0", maker_part="13101", msrp=399.0
+        )
+        clean_db.add(moved)
+        clean_db.commit()
+        found = makersites.Found(
+            maker_part="13101",
+            label="M&P40 SHIELD M2.0",
+            caliber=None,
+            barrel_inches=None,
+            finish=None,
+            upc=None,
+            msrp=429.0,
+            url=None,
+        )
+        counts = makersites.record(clean_db, m2, [found])
+        clean_db.commit()
+        assert counts == {"proposed": 0, "refreshed": 1}
+        assert m2.variants == []
+        clean_db.refresh(moved)
+        assert (moved.model_id, moved.msrp) == (shield.id, 429.0)

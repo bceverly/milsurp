@@ -82,7 +82,11 @@ fi
 
 cat <<'SUMMARY'
   pre-push    blocks the push on ANY lint finding, including black
-              reporting that it would reformat a file
+              reporting that it would reformat a file, and refuses a
+              push while tracked files have uncommitted changes -- the
+              lint reads the files on disk, so it must be what is pushed.
+              Skipped for `make release`, which lints once itself, and
+              for a push of tags alone.
 
   Committing is deliberately unguarded. A work-in-progress commit is
   nobody else's problem; a push is. The gate sits at the boundary where

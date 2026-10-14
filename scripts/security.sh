@@ -4,10 +4,15 @@
 #
 #   make security
 #
-# Covers: bandit (Python security lint), semgrep (rule-based SAST), Snyk
-# (dependency CVEs), pip-audit / npm audit (dependency CVEs without a Snyk
-# account), gitleaks (committed secrets), and MITRE's "Lucky 13"
-# unforgivable vulnerabilities (backend/tests/test_lucky13.py).
+# Covers: semgrep (rule-based SAST), Snyk (dependency CVEs), pip-audit / npm
+# audit (dependency CVEs without a Snyk account), gitleaks (committed secrets),
+# and the local configuration checks.
+#
+# Not bandit, and not MITRE's "Lucky 13" (backend/tests/test_lucky13.py): each
+# runs in one place, not two (2026-10-14). bandit is in `make lint` -- the
+# pre-push hook and CI's Lint job -- and the Lucky 13 are in `make
+# test-backend`, CI's Unit tests on every Python; `make lucky13` runs them
+# alone. Running them here as well paid for both twice on every push to main.
 #
 # Anything not installed is reported as skipped rather than failing the run, so
 # this is useful before every one of them is set up. CI installs them all.
@@ -39,23 +44,6 @@ if have_venv python; then PY="$VENV/bin/python"; else PY="$(command -v python3 |
 printf '\n\033[1mSecurity scan\033[0m \033[2m(same tools as CI)\033[0m\n'
 
 # ---------------------------------------------------------------------------
-section "bandit — Python security lint"
-if have_venv bandit; then
-  if "$VENV/bin/bandit" -q -c pyproject.toml -r backend/app scripts \
-       -f json -o "$REPORTS/bandit.json" 2>/dev/null; then
-    ok "no issues"
-  else
-    # Bandit exits non-zero on any finding; show the high/medium ones.
-    bad "findings — see $REPORTS/bandit.json"
-    "$VENV/bin/bandit" -q -c pyproject.toml -r backend/app scripts 2>/dev/null \
-      | grep -E "^>>|Issue:|Severity:|Location:" | head -40 | sed 's/^/    /'
-    FAILURES+=("bandit")
-  fi
-else
-  skip "bandit not installed — pip install -r backend/requirements-dev.txt"
-fi
-
-# ---------------------------------------------------------------------------
 section "semgrep — rule-based static analysis"
 # Looked up in its own virtualenv first: `make install-dev` puts semgrep in
 # .venv-semgrep (see backend/requirements-semgrep.txt), which is not on PATH,
@@ -75,8 +63,69 @@ fi
 if [ -n "$SEMGREP" ]; then
   # p/security-audit and p/secrets are the registry rulesets CI uses; the
   # language packs catch framework-specific issues.
-  if "$SEMGREP" --config=p/security-audit --config=p/secrets \
-             --config=p/python --config=p/javascript \
+  SEMGREP_CONFIGS=(--config=p/security-audit --config=p/secrets --config=p/python --config=p/javascript)
+
+  # semgrep runs a helper, pysemgrep, that it finds on PATH. With .venv-semgrep
+  # not on PATH it found a different install -- a pipx copy, 1.177 against the
+  # pinned 1.179 -- so a local scan was not the scan CI runs (2026-10-14).
+  case "$SEMGREP" in
+    */*) PATH="$(dirname "$SEMGREP"):$PATH"; export PATH ;;
+  esac
+
+  # **The rules for frameworks this project does not use are left out**, and
+  # that is most of the time: the packs expand to about 1,180 rules, and on
+  # scan_service.py three quarters of the matching went to Flask, Django,
+  # AWS Lambda, serverless and CherryPy taint rules, on Armory.jsx four fifths
+  # to Express, hapi, Koa and NestJS -- 647 seconds for 411 files, nearly all
+  # of it on the dozen largest. Each family is dropped only while nothing
+  # imports it (the Python ones) or depends on it (frontend/package.json), so
+  # adding one brings its rules straight back. Rule ids are read from a scan
+  # of an empty file, which costs the config download and little else.
+  UNUSED=()
+  python_unused() {  # <rule family> <import name>
+    grep -rqE "^[[:space:]]*(import|from)[[:space:]]+$2\b" backend scripts --include='*.py' \
+      || UNUSED+=("$1")
+  }
+  node_unused() {  # <rule family> <package name>
+    grep -q "\"$2\"" frontend/package.json || UNUSED+=("$1")
+  }
+  python_unused "python\.(tars\.)?flask" flask
+  python_unused "python\.(tars\.)?(django|sql_django_db_connection)" django
+  python_unused "python\.(tars\.)?cherrypy" cherrypy
+  python_unused "python\.(tars\.)?pyramid" pyramid
+  python_unused "python\.(tars\.)?(aws-lambda|serverless)" "(aws_lambda_powertools|mangum|chalice)"
+  node_unused "javascript\.express" express
+  node_unused "javascript\.hapi" "@hapi/hapi"
+  node_unused "javascript\.koa" koa
+  node_unused "javascript\.nestjs" "@nestjs/core"
+
+  EXCLUDES=()
+  if [ ${#UNUSED[@]} -gt 0 ] && [ -n "$PY" ]; then
+    EMPTY="$REPORTS/semgrep-empty.py"
+    : > "$EMPTY"
+    "$SEMGREP" "${SEMGREP_CONFIGS[@]}" --quiet --metrics=off --time --json \
+      --output="$REPORTS/semgrep-rules.json" "$EMPTY" >/dev/null 2>&1 || true
+    PATTERN="^($(IFS='|'; echo "${UNUSED[*]}"))\."
+    while IFS= read -r rule; do
+      [ -n "$rule" ] && EXCLUDES+=(--exclude-rule "$rule")
+    done < <("$PY" - "$REPORTS/semgrep-rules.json" "$PATTERN" <<'PYEOF'
+import json, re, sys
+try:
+    rules = json.load(open(sys.argv[1]))["time"]["rules"]
+except (OSError, ValueError, KeyError):
+    raise SystemExit
+pattern = re.compile(sys.argv[2])
+for rule in rules:
+    rule_id = rule["id"] if isinstance(rule, dict) else rule
+    if pattern.match(rule_id):
+        print(rule_id)
+PYEOF
+)
+    rm -f "$EMPTY"
+    note "$((${#EXCLUDES[@]} / 2)) rules left out for frameworks nothing here uses"
+  fi
+
+  if "$SEMGREP" "${SEMGREP_CONFIGS[@]}" "${EXCLUDES[@]}" \
              --error --quiet --metrics=off \
              --exclude=node_modules --exclude=.venv --exclude=dist \
              --json --output="$REPORTS/semgrep.json" . >/dev/null 2>&1; then
@@ -254,24 +303,6 @@ if gitleaks_available; then
 else
   skip "gitleaks not installed"
   note "run 'make install-dev', or: docker pull $GITLEAKS_IMAGE"
-fi
-
-# ---------------------------------------------------------------------------
-section "MITRE Lucky 13 — unforgivable vulnerabilities"
-# Christey, "Unforgivable Vulnerabilities" (MITRE, 2007): thirteen kinds of
-# bug that five minutes of testing finds. backend/tests/test_lucky13.py does
-# that testing, one class per item; CI runs it with the rest of the suite.
-if have_venv python; then
-  if (cd backend && MILSURP_ENV=dev "$VENV/bin/python" -m pytest tests/test_lucky13.py \
-        -q --no-cov -p no:cacheprovider) >"$REPORTS/lucky13.txt" 2>&1; then
-    ok "$(grep -Eo '[0-9]+ passed' "$REPORTS/lucky13.txt" | tail -1), all thirteen items"
-  else
-    bad "Lucky 13 check failed — see $REPORTS/lucky13.txt"
-    grep -E '^(FAILED|ERROR)' "$REPORTS/lucky13.txt" | sed 's/^/    /'
-    FAILURES+=("lucky13")
-  fi
-else
-  skip "lucky13 (no .venv — run 'make install-dev')"
 fi
 
 # ---------------------------------------------------------------------------

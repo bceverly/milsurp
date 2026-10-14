@@ -493,6 +493,8 @@ class FirearmModelOut(UTCModel):
     modern_production: bool = False
     #: The model's page on its maker's site.
     maker_url: str | None = None
+    #: Its one frame size, for a model only made in one. See services/frames.
+    frame_size: str | None = None
     status: ArmoryStatus
     position: int
     enabled: bool
@@ -519,6 +521,7 @@ class FirearmModelCreate(BaseModel):
     wikipedia_url: str | None = Field(default=None, max_length=500)
     modern_production: bool = False
     maker_url: WebAddress = None
+    frame_size: str | None = Field(default=None, max_length=16)
     status: ArmoryStatus = ArmoryStatus.PENDING
     position: int = Field(default=1000, ge=0, le=100_000)
     enabled: bool = True
@@ -536,6 +539,8 @@ class FirearmModelUpdate(BaseModel):
     modern_production: bool | None = None
     #: Sent blank to clear it.
     maker_url: WebAddress = None
+    #: Sent blank to clear it.
+    frame_size: str | None = Field(default=None, max_length=16)
     status: ArmoryStatus | None = None
     position: int | None = Field(default=None, ge=0, le=100_000)
     enabled: bool | None = None
@@ -1008,6 +1013,7 @@ class VariantOut(BaseModel):
     caliber: str | None = None
     barrel_inches: float | None = None
     finish: str | None = None
+    frame_size: str | None = None
     upc: str | None = None
     maker_part: str | None = None
     msrp: float | None = None
@@ -1028,6 +1034,8 @@ class VariantIn(BaseModel):
     #: One of the vocabulary in services/variants.FINISHES; anything else is
     #: read into it ("matte black" is Black) or refused.
     finish: str | None = Field(default=None, max_length=32)
+    #: One of services/frames.SIZES; anything else is read into it or refused.
+    frame_size: str | None = Field(default=None, max_length=16)
     upc: str | None = Field(default=None, pattern=r"^\d{8,14}$")
     maker_part: str | None = Field(default=None, max_length=64)
     msrp: float | None = Field(default=None, ge=0, le=1_000_000)
@@ -1041,6 +1049,7 @@ class VariantUpdate(BaseModel):
     caliber_id: int | None = None
     barrel_inches: float | None = Field(default=None, gt=0, le=40)
     finish: str | None = Field(default=None, max_length=32)
+    frame_size: str | None = Field(default=None, max_length=16)
     upc: str | None = Field(default=None, pattern=r"^\d{8,14}$")
     maker_part: str | None = Field(default=None, max_length=64)
     msrp: float | None = Field(default=None, ge=0, le=1_000_000)
@@ -1057,6 +1066,7 @@ class VariantBrief(BaseModel):
     msrp: float | None = None
     maker_url: str | None = None
     upc: str | None = None
+    frame_size: str | None = None
     #: What it costs new today, across how many stores, and where that was read.
     new_price: float | None = None
     new_stores: int | None = None
@@ -1215,6 +1225,10 @@ class ItemOut(UTCModel):
     barrel_inches: float | None = None
     barrel_threaded: bool | None = None
     barrel_quotes: dict[str, str] | None = None
+    #: A handgun's frame size (app.services.frames), and the listing's words
+    #: for it -- none where it came from the model's armory row.
+    frame_size: str | None = None
+    frame_quote: str | None = None
 
     #: What it costs at the reader's dealer: the price, the shop's firearm
     #: shipping and the reader's transfer fee. Firearms only; each part None

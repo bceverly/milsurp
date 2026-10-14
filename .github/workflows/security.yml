@@ -42,7 +42,8 @@ env:
 
 jobs:
   # ==========================================================================
-  # bandit · semgrep · Snyk · pip-audit · npm audit · gitleaks · Lucky 13 · config checks
+  # semgrep · Snyk · pip-audit · npm audit · gitleaks · config checks (bandit runs in
+  # ci.yml's Lint job and the Lucky 13 in its Unit tests, so neither runs twice)
   # ==========================================================================
   security:
     name: Security scan

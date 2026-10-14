@@ -3990,3 +3990,10 @@
 .active-filters__chip--removal button:hover {
   background: rgb(179 38 30 / 0.15);
 }
+
+/* The count over an armory table, as the link tabs' panels head theirs. */
+.armory-count {
+  margin: 4px 0 10px;
+  font-size: 15px;
+  font-weight: 600;
+}
