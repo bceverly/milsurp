@@ -5,7 +5,7 @@
  * these check the page shows and sends what it should.
  */
 import { test, expect, openPage } from "./fixtures.js";
-import { openArmoryModels, searchFor } from "./armory-helpers.js";
+import { addModel, openArmoryModels, searchFor } from "./armory-helpers.js";
 
 const PROPOSALS = [
   {
@@ -148,12 +148,7 @@ test("a Wikipedia article is added, edited and removed by hand under Production"
 }) => {
   await openArmoryModels(signedIn);
   const name = `Wiki Test ${Date.now()}`;
-  await signedIn.getByRole("button", { name: "Add model" }).click();
-  await signedIn.getByRole("dialog").getByLabel("Name").fill(name);
-  await signedIn
-    .getByRole("dialog")
-    .getByRole("button", { name: "Add, awaiting approval" })
-    .click();
+  await addModel(signedIn, name);
   await searchFor(signedIn, name);
   await signedIn.locator("tbody tr", { hasText: name }).getByRole("checkbox").check();
   await signedIn.getByRole("button", { name: "Promote to production" }).click();

@@ -86,6 +86,27 @@ export async function searchFor(page, text) {
   await expect(page.locator("tbody tr", { hasText: text }).first()).toBeVisible();
 }
 
+/**
+ * Add a model awaiting approval through its dialog, and wait until it is saved.
+ *
+ * A search typed while the add was still in flight loaded the table without
+ * the new row, and nothing asked again: on a loaded CI runner the following
+ * searchFor waited out its timeout on a row that did exist (2026-10-15).
+ */
+export async function addModel(page, name) {
+  await page.getByRole("button", { name: "Add model" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Name").fill(name);
+  const saved = page.waitForResponse(
+    (response) =>
+      /\/api\/armory\/models$/.test(new URL(response.url()).pathname) &&
+      response.request().method() === "POST",
+  );
+  await dialog.getByRole("button", { name: "Add, awaiting approval" }).click();
+  expect((await saved).ok()).toBe(true);
+  await expect(dialog).toHaveCount(0);
+}
+
 /** Clear the Search box, back to every row the Showing filter admits. */
 export async function clearSearch(page) {
   await page.getByLabel("Search").fill("");

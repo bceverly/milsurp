@@ -8,7 +8,7 @@
  * it is sent, and that the armory edits the fields it is decided from.
  */
 import { test, expect, openPage } from "./fixtures.js";
-import { searchFor, openArmoryModels } from "./armory-helpers.js";
+import { addModel, searchFor, openArmoryModels } from "./armory-helpers.js";
 
 async function openListingWith(page, makerLink) {
   await page.route(/\/api\/items\/\d+$/, async (route) => {
@@ -133,12 +133,7 @@ test.describe("the Manufacturer pages tab", () => {
   }) => {
     await openArmoryModels(signedIn);
     const name = `Page Test ${Date.now()}`;
-    await signedIn.getByRole("button", { name: "Add model" }).click();
-    await signedIn.getByRole("dialog").getByLabel("Name").fill(name);
-    await signedIn
-      .getByRole("dialog")
-      .getByRole("button", { name: "Add, awaiting approval" })
-      .click();
+    await addModel(signedIn, name);
     await searchFor(signedIn, name);
     const row = signedIn.locator("tbody tr", { hasText: name });
     await row.getByRole("checkbox").check();
