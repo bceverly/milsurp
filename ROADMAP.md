@@ -5490,6 +5490,148 @@ on the host system like we do on the other projects?"
   longest pole: `armory.spec.js` loads it over and over and takes about ten
   of those minutes on its own.
 
+### Why a Glock had no MSRP or street price: an audit — **Fixed** 2026-10-15
+
+Asked: "a glock that doesn't have comparable prices for MSRP and street? Seems
+like a bug. can you do an audit and fix what you find?" (listing 4246, an LE
+trade-in Glock 21 Gen 4).
+
+* **Not the page: no versions.** Versions came only from the makers with a
+  reader of their own (Ruger, Smith & Wesson, Kimber, Walther, Armscor).
+  Every other maker's still-made models had none. Measured in production:
+  * Glock: 21 models, 0 with versions, 325 active listings.
+  * Sig Sauer: 10 models, 0 with versions, 252 listings.
+  * Springfield (74 listings), Colt (52), Beretta (48), CZ (48), Taurus (44)
+    and H&K (42), each likewise.
+  * Glock's own site states neither a price nor a model number. Sig Sauer's,
+    H&K's and Mossberg's answer every request with a bot challenge, which is
+    not worked around.
+* **Bud's Gun Shop as the reader for everyone else** (`makersites.BudsReader`,
+  suggested by the user). Its robots.txt allows public pages, its llms.txt
+  invites automated readers, and its terms say nothing against reading.
+  * For a maker with no reader of its own, Bud's in-stock handguns, rifles
+    and shotguns under that brand are read, a page at a time.
+  * A product not yet recorded has its page read once, for its condition
+    (new only: a police trade-in is not a version), UPC, the maker's own
+    model number (Glock's "P61950203") and the MSRP Bud's strikes through.
+  * A product already recorded is refreshed from its list tile alone.
+  * The UPC then finds the street price at gun.deals, as for every other
+    version, under the unchanged rule: by identifier, never by name.
+  * A product goes to the model whose whole designation its name carries:
+    "Glock 19" in "Glock 19 Gen6", not in "Glock 17C". Bud's "17V" reads as
+    the 17 V. What no model names is proposed as a model, as for the other
+    readers.
+  * Glock, measured: 150 requests found 120 new in-stock pistols, with MSRPs
+    and UPCs, across 13 models, and proposed the 17C, 19C, 43XC and 45C.
+  * The first run reads every product page once, so it takes a while: a
+    request every 3 seconds, and about 150 for Glock alone.
+* **Bugs found along the way:**
+  * **Barrel rounding.** A dealer's whole-inch barrel is usually rounded (a
+    MAX-9's 3.2" written 3", a Mini-14's 18.5" written 18", a PPK/S's 3.3"
+    written 3"), and 23 listings had no version at all under the 0.15"
+    match. A whole number now allows half an inch.
+  * **.25-06 read as .25 ACP**, and so were every .25-20 and .25-35
+    Winchester: the bare ".25" took the start of the name. They're now read
+    first. Production's six listings were corrected, and .25-20 Winchester
+    and .25-35 Winchester added to the armory.
+  * **A bare "Model 41" spelling** on the S&W Model 41 caught Colt's Third
+    Model .41 deringers and a 1941 Johnson rifle. It's replaced with "S&W
+    Model 41", "S&W 41", "Smith & Wesson 41" and "Performance Center Model
+    41".
+* **What is still left, and why:**
+  * Most of the remaining 105 listings with no version are configurations
+    the maker no longer sells: a PPK in .22, a stainless New Model
+    Blackhawk, a Single-Six in .22.
+  * The 89 with an MSRP but no street price are waiting on gun.deals'
+    once-a-day lookup.
+
+### A saved search from scratch — **Shipped** 2026-10-15
+
+Asked for: an alert "if a certain firearm shows up anywhere", entered "from
+scratch for one that doesn't exist anywhere in the database", with "a .32 ACP
+version of the Bersa Thunder pistol" as the example. The user's own word for
+it was a manually created saved search, and that is what it is: the
+instant-alert want list already sent an email and a push the moment a
+listing matches.
+
+* **New search from scratch** on the Saved searches page: keywords (every
+  word must be in the listing), a manufacturer and a caliber offered from the
+  armory as you type (free text still allowed), a price range, and the
+  instant alert on by default, with the digest email optional. It saves the
+  same query the inventory would.
+* No price ceiling is needed for the alert: any listing that newly matches
+  is news, once.
+* The armory lookup box moved out of the collection form into
+  `components/ArmoryInput.jsx`, shared by both.
+
+### Rock Island Armory's site read, and Tisas put right — **Shipped** 2026-10-15
+
+Asked: "do we look up armscor/rock island armory guns on the armscor website
+like we do other manufacturers? if not, we need to add that. tisas as well."
+Neither was. Rock Island Armory had no website recorded and no model marked
+still made, so neither lookup reached it. Tisas had no manufacturer row.
+
+* **A fifth reader, armscor.com** (`makersites.ArmscorReader`). The site is
+  HubSpot, with one page per product listed in its sitemap (256 that day).
+  Each page has a specification table: the SKU, which is the model number
+  listings use ("Rock Island Armory 52000 Pro Ultra Match"), the series,
+  caliber, barrel, finish and US MSRP.
+  * Discontinued products are passed over, since the reader is what says a
+    model is still made.
+  * Armscor's names don't name the model ("PRO Ultra Match 6" 45ACP 8rd" is
+    a 1911), so a product's line comes from its series. Every 1911 series
+    (GI, ROCK, TAC, PRO, TCM, XT, Baby Rock) is the Rock Island 1911.
+    Anything else is the model its name starts with: STK100, STK150 and
+    STK200, MAPP, RIA 5.0, M206, VR60, VR80, TM22, M1600 and so on.
+  * Products named by no model ("All Generations 12GA Pump Action",
+    "Single Shot 12GA") aren't read. Nor is the Derya series: another
+    maker's guns that Armscor distributes.
+  * A pistol's frame is in its name: FS is Full size, MS (the Commander
+    length) Compact, CS (the Officer's) Subcompact, Baby Rock Micro.
+  * A product's kind comes from the table (a gauge means a shotgun, the
+    Revolvers and Rifles series say so), so the models it proposes state
+    one.
+  * Measured over the whole catalog: 149 current products read, 139 with an
+    MSRP, in 23 lines. The run reads the sitemap and each product page once.
+* **In production's armory:**
+  * Rock Island Armory now has its website (armscor.com) and its country
+    (the Philippines), and comes ahead of Rock Island Arsenal in matching
+    order. The Arsenal's "Rock Island" had been crediting every Rock Island
+    Armory listing to the Arsenal.
+  * The Rock Island 1911 is flagged still made, comes ahead of the generic
+    M1911A1 (which answers to "M1911" and "1911A1" and had been catching
+    them), and answers to the shops' spellings ("Rock Island Armory M1911",
+    "Armscor 1911A1", "Rock Ultra", "Tac Ultra", "Pro Ultra"). The STK100
+    and VRBP-100 have their maker, kind and country.
+  * New manufacturers: **Tisas** (Turkey, its factory site tisasarms.com)
+    and **Military Armament Corp**, SDS Arms' brand, whose MAC 9 DS is
+    made by Tisas and had been credited to Châtellerault through the French
+    arsenal's "MAC".
+  * The Tisas 1911 now says Turkey, not the United States, and answers to
+    Tisas's line names (Tank Commander, Night Stalker, Carry 9 DS, Carry
+    Stingray). PX-9 was merged into PX9. The SS45R and MAC 9 have their
+    makers.
+  * Every Tisas, SDS and Rock Island Armory listing was re-matched, and the
+    seed was exported from production.
+* **The Philippines is a country** the classifier reads ("Philippine",
+  "Filipino"), added to its list and, by migration 0078, to the countries
+  table, so the armory can name it without splitting a filter in two.
+
+### Tisas's US site — **Waiting**
+
+Tisas has no reader yet. SDS Arms stopped importing Tisas in February 2026
+(SDS's notice of 2/18/26). The new US importer is "Tisas Arms Corp", whose
+site could not be confirmed from here:
+
+* `tisas-us.com` redirects to that SDS notice.
+* `tisasarms.us` is a parked domain.
+* `tisasusa.com` refuses automated requests (403), and is not worked around.
+* `tisasarms.com` is the factory's Turkish site, with no US model numbers
+  or MSRPs. It is recorded as Tisas's website, so the manufacturer-page
+  finder can use it.
+
+With the importer's site confirmed, a reader is a day's work, like Armscor's.
+
 ### When a gun was made: its serial and the year — **Shipped** 2026-10-15
 
 Asked for: capture each listing's serial number, store it and show it, and

@@ -104,6 +104,18 @@ class TestNarrowing:
         item = listing(session, model, site, 'Used TAURUS TRACKER 44MAG 2.5" BLUED')
         assert variants.candidates(session, item) == []
 
+    def test_a_whole_inch_is_read_as_rounded(self, tracker):
+        """A dealer's 6" Tracker is the 6.5" one (2026-10-15): a whole number
+        allows half an inch; 2.5" is still nothing, and 6.4" too precise to
+        be anything but 6.4"."""
+        session, model, site = tracker
+        item = listing(session, model, site, 'Used TAURUS TRACKER 44MAG 6" BLACK')
+        assert session.get(ModelVariant, item.variant_id).label == 'Tracker .44 Magnum 6.5" Black'
+        precise = listing(session, model, site, 'TAURUS TRACKER 44MAG 6.2" BLACK', key="p")
+        assert variants.candidates(session, precise) == []
+        assert variants.barrel_tolerance(18.0) == 0.5
+        assert variants.barrel_tolerance(18.5) == variants.BARREL_TOLERANCE
+
     def test_a_model_no_longer_made_has_no_variant_but_has_its_barrel(self, tracker):
         """Its barrel read since 2026-10-13, as every gun's is (services/barrels);
         a variant still only for a model in production."""

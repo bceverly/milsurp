@@ -484,3 +484,186 @@ class TestProductsNoModelNames:
         # A second run proposes nothing new: the models now exist.
         again = reader.unowned(object(), [m2, *proposed.values()])
         assert makersites._propose_models(clean_db, sw, again, said.append) == 0
+
+
+ARMSCOR = "https://www.armscor.com/"
+ARMSCOR_LIST = ARMSCOR + "firearms-list/"
+ARMSCOR_PAGES = {
+    ARMSCOR + "sitemap.xml": "armscor-sitemap.xml.gz",
+    **{
+        ARMSCOR_LIST + slug: f"armscor-{slug}.html.gz"
+        for slug in (
+            "pro-ultra-match-6-45acp-8rd",
+            "tac-ultra-cs-9mm-8rd",
+            "mapp-ms-9mm-10rd",
+            "vr80-5rd-12ga",
+            "all-generations-12ga-pump-action-28-barrel-5rd-standard-black-finish",
+        )
+    },
+}
+
+
+def armscor(slug):
+    return makersites.armscor_product(page(f"armscor-{slug}.html.gz"), ARMSCOR_LIST + slug)
+
+
+class TestTheArmscorReader:
+    """Rock Island Armory, added and its pages recorded on 2026-10-15."""
+
+    def test_a_1911_from_its_specification_table(self):
+        line, found = armscor("tac-ultra-cs-9mm-8rd")
+        assert line == "1911"
+        assert found.maker_part == "51700"
+        assert found.label == "Rock Island Armory TAC Ultra CS 9MM 8rd (51700)"
+        assert (found.caliber, found.kind, found.frame_size) == (
+            "9MM",
+            FirearmKind.PISTOL,
+            "Subcompact",
+        )
+        assert found.msrp and found.barrel_inches
+
+    def test_another_line_is_the_model_its_name_starts_with(self):
+        line, found = armscor("mapp-ms-9mm-10rd")
+        assert (line, found.frame_size) == ("MAPP", "Compact")
+        line, found = armscor("vr80-5rd-12ga")
+        assert (line, found.kind, found.frame_size) == ("VR80", FirearmKind.SHOTGUN, None)
+
+    def test_discontinued_and_unnamed_products_are_not_read(self):
+        assert armscor("pro-ultra-match-6-45acp-8rd") is None
+        assert (
+            armscor("all-generations-12ga-pump-action-28-barrel-5rd-standard-black-finish") is None
+        )
+
+    @pytest.mark.parametrize(
+        ("name", "series", "line"),
+        [
+            ('PRO Ultra Match 6" 45ACP 8rd', "Pro", "1911"),
+            ("CAL. 380 M1911 BABY ROCK Titanium Blue", "Baby Rock", "1911"),
+            ("M1911 A2 Tac Ultra FS HC - 10mm Auto", "RIA-USA", "1911"),
+            ("RIA5.0E 9mm 17rd Grey Ghost", "RIA-USA", "RIA 5.0"),
+            ("STK200 9MM 15rd", "STK", "STK200"),
+            ("M206 Spurless 38Spl 6rd", "Revolvers", "M206"),
+            ("Melik 9mm 17rd Two Tone", "Derya", None),
+            ("Single Shot Real Tree Timber 12GA 1rd", "Single Shot", None),
+        ],
+    )
+    def test_the_lines(self, name, series, line):
+        assert makersites.armscor_line(name, series) == line
+
+    def test_a_run_reads_the_1911_and_proposes_the_rest(self, clean_db):
+        (r1911,) = _modern(clean_db, "Rock Island Armory", ("Rock Island 1911", "RIA 1911"))
+        r1911.manufacturers[0].country = "Philippines"
+        clean_db.commit()
+        site = RecordedSite(ARMSCOR_PAGES)
+        said = []
+        totals = makersites.run(clean_db, site, maker="Rock Island Armory", log=said.append)
+        assert [v.maker_part for v in r1911.variants] == ["51700"]
+        proposed = {
+            m.name: m
+            for m in clean_db.query(FirearmModel).filter(
+                FirearmModel.status == ArmoryStatus.PENDING
+            )
+        }
+        assert set(proposed) == {"Rock Island Armory MAPP", "Rock Island Armory VR80"}
+        assert totals["models_proposed"] == 2
+        vr80 = proposed["Rock Island Armory VR80"]
+        assert (vr80.kind, vr80.country) == (FirearmKind.SHOTGUN, "Philippines")
+        # The sitemap once, and each product page once, whatever the models.
+        assert site.asked.count(ARMSCOR + "sitemap.xml") == 1
+        assert len(site.asked) == len(set(site.asked))
+
+
+BUDS = "https://www.budsgunshop.com/"
+BUDS_G19 = (
+    BUDS
+    + "products/pistols/glock-19-gen6-optic-ready-9mm-15plus1-4-02-inch-blue-black-pistol-186901"
+)
+BUDS_G17 = BUDS + "products/pistols/glock-17-gen-4-9mm-17-plus-1-4-49-inch-black-pistol-411561085"
+
+
+class BudsSite(RecordedSite):
+    """Bud's Gun Shop as recorded on 2026-10-15: the first page of Glock's
+    in-stock handguns, one new pistol's page and one police trade-in's. Any
+    other product page, list page or category is not there."""
+
+    def __init__(self):
+        super().__init__(
+            {
+                BUDS
+                + "categories/firearms/handguns?brand=Glock&availability=in+stock&page=1": (
+                    "buds-list1.html.gz"
+                ),
+                BUDS_G19: "buds-g19.html.gz",
+                BUDS_G17: "buds-g17.html.gz",
+            }
+        )
+
+
+class TestTheBudsReader:
+    """For makers whose own site cannot be read or does not say (2026-10-15)."""
+
+    def test_a_product_page(self):
+        new = makersites.buds_product(page("buds-g19.html.gz"))
+        assert (new["new"], new["upc"], new["model"], new["msrp"], new["barrel"]) == (
+            True,
+            "764503068256",
+            "P61950203",
+            745.0,
+            4.02,
+        )
+        used = makersites.buds_product(page("buds-g17.html.gz"))
+        assert used["new"] is False
+
+    def test_the_tiles(self):
+        cards = makersites.buds_cards(page("buds-list1.html.gz"))
+        g19 = next(c for c in cards if c.url == BUDS_G19)
+        assert (g19.msrp, g19.barrel_inches) == (745.0, 4.02)
+        # Featured products of other makers share the page.
+        assert any(c.name.startswith("Smith & Wesson") for c in cards)
+
+    def test_a_brand_by_any_of_the_makers_spellings(self):
+        def firm(name, aliases=None):
+            return Manufacturer(name=name, aliases=aliases)
+
+        assert makersites.buds_brand(firm("Glock")) == "Glock"
+        assert makersites.buds_brand(firm("Heckler Koch")) == "HK"
+        assert makersites.buds_brand(firm("Springfield")) == "Springfield Armory"
+        assert makersites.buds_brand(firm("Sig Sauer", "SIG")) == "Sig Sauer"
+        assert makersites.buds_brand(firm("Mauser")) is None
+
+    @pytest.mark.parametrize(
+        ("name", "owner", "line"),
+        [
+            ("Glock 19 Gen6 Optic Ready 9mm Blue/Black Pistol", "Glock 19", "19"),
+            ("Glock 19X V-Series 9mm FDE Pistol", None, "19X"),
+            ("Glock 17V C4 Optics Cut 9mm Pistol", "Glock 17", "17"),
+            ("Glock 17C Compensated Gen5 9mm Black Pistol", None, "17C"),
+            ("Glock Branded Range Bag", None, None),
+        ],
+    )
+    def test_a_product_goes_to_the_whole_designation(self, name, owner, line):
+        rows = [FirearmModel(name="Glock 19"), FirearmModel(name="Glock 17")]
+        reader = makersites.BudsReader("Glock", "Glock")
+        found = reader._owner(name, rows)
+        assert (found.name if found else None, reader.line(name)) == (owner, line)
+
+    def test_a_run_for_a_maker_with_no_reader_of_its_own(self, clean_db):
+        g19, g17 = _modern(clean_db, "Glock", ("Glock 19", "G19"), ("Glock 17", None))
+        site = BudsSite()
+        said = []
+        makersites.run(clean_db, site, maker="Glock", log=said.append)
+        (version,) = g19.variants
+        assert (version.maker_part, version.upc, version.msrp, version.source) == (
+            "P61950203",
+            "764503068256",
+            745.0,
+            "budsgunshop",
+        )
+        assert version.status == ArmoryStatus.PENDING
+        # The police trade-in is not a version of anything.
+        assert g17.variants == []
+        assert BUDS_G17 in site.asked
+        # A second run takes the MSRP from the tile: no product page again.
+        site.asked.clear()
+        makersites.run(clean_db, site, maker="Glock", log=said.append)
+        assert BUDS_G19 not in site.asked

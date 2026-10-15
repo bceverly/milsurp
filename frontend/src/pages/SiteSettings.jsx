@@ -242,8 +242,9 @@ const MANUFACTURER_JOBS = [
     button: "Update MSRPs and variants",
     text:
       "Each model's versions -- caliber, barrel, finish, UPC and MSRP -- from Ruger, " +
-      "Smith & Wesson, Kimber and Walther. New ones wait for approval in each model's " +
-      "dialog on the Armory.",
+      "Smith & Wesson, Kimber, Walther and Rock Island Armory, and for every other " +
+      "maker from Bud's Gun Shop's catalog. New ones wait for approval on the " +
+      "Armory's Variants tab.",
   },
   {
     name: "pages",

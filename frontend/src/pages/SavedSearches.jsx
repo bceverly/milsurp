@@ -22,6 +22,8 @@ import { useTitle } from "../hooks.js";
 import { formatMoney, formatRelative, timeTitle } from "../format.js";
 import { Bell, Bookmark, Mail, Refresh, Trash } from "../components/Icons.jsx";
 import { fromMap } from "../lookup";
+import ArmoryInput from "../components/ArmoryInput.jsx";
+import Field from "../components/Field.jsx";
 
 /** What the email-limit dropdown offers; mirrors SAVED_SEARCH_LIMITS. */
 const LIMITS = [5, 10, 20, 30, 50, 100];
@@ -267,10 +269,189 @@ function SavedSearchCard({ search, onChange, onDelete }) {
   );
 }
 
+/** The query a from-scratch search stands for, as the browse page writes one. */
+export function scratchQuery(form) {
+  const params = new URLSearchParams();
+  if (form.search.trim()) params.set("search", form.search.trim());
+  if (form.manufacturer.trim()) params.set("manufacturer", form.manufacturer.trim());
+  if (form.caliber.trim()) params.set("caliber", form.caliber.trim());
+  if (form.min_price !== "") params.set("min_price", form.min_price);
+  if (form.max_price !== "") params.set("max_price", form.max_price);
+  return params.toString();
+}
+
+const EMPTY_SCRATCH = {
+  name: "",
+  search: "",
+  manufacturer: "",
+  caliber: "",
+  min_price: "",
+  max_price: "",
+  alert_instantly: true,
+  email_enabled: false,
+};
+
+/**
+ * A saved search typed in rather than saved from the inventory's filters.
+ *
+ * Asked for on 2026-10-15: "I'd really like to find a .32 ACP version of the
+ * Bersa Thunder pistol and have the system send me an immediate email alert
+ * if one shows up" -- a gun that may be for sale nowhere yet, so there are no
+ * filters on the inventory to set. Keywords, a maker and a caliber (offered
+ * from the armory as you type, free text still allowed), a price range, and
+ * the instant alert on by default: the same search the inventory would save.
+ */
+function ScratchSearchForm({ onSaved, onCancel }) {
+  const [form, setForm] = useState(EMPTY_SCRATCH);
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const set = (key) => (value) => setForm((current) => ({ ...current, [key]: value }));
+  const query = scratchQuery(form);
+  const suggested =
+    [form.search.trim(), form.caliber.trim()].filter(Boolean).join(" in ") || "";
+
+  async function submit(event) {
+    event.preventDefault();
+    if (!query) {
+      setError("Give it at least one thing to look for.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const saved = await api.createSavedSearch({
+        name: (form.name.trim() || suggested).slice(0, 80),
+        query,
+        alert_instantly: form.alert_instantly,
+        email_enabled: form.email_enabled,
+      });
+      onSaved(saved);
+    } catch (problem) {
+      setError(problem.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form className="card scratch-search" onSubmit={submit} data-testid="scratch-search">
+      <h2>A search from scratch</h2>
+      <p className="muted">
+        For a gun that may not be for sale anywhere yet. Every word you give must be in
+        the listing; leave out what you do not mind.
+      </p>
+      <div className="form-row form-row--2">
+        <Field label="Keywords" hint="Words in the title or description: Bersa Thunder.">
+          {(id, describedBy) => (
+            <input
+              id={id}
+              aria-describedby={describedBy}
+              className="input"
+              value={form.search}
+              maxLength={200}
+              onChange={(event) => set("search")(event.target.value)}
+            />
+          )}
+        </Field>
+        <Field label="Name" hint={suggested ? `Blank names it “${suggested}”.` : null}>
+          {(id, describedBy) => (
+            <input
+              id={id}
+              aria-describedby={describedBy}
+              className="input"
+              value={form.name}
+              maxLength={80}
+              onChange={(event) => set("name")(event.target.value)}
+            />
+          )}
+        </Field>
+      </div>
+      <div className="form-row form-row--2">
+        <ArmoryInput
+          id="scratch-maker"
+          label="Manufacturer"
+          value={form.manufacturer}
+          maxLength={128}
+          lookup={api.collectionMakers}
+          onChange={set("manufacturer")}
+        />
+        <ArmoryInput
+          id="scratch-caliber"
+          label="Caliber"
+          value={form.caliber}
+          maxLength={64}
+          lookup={api.collectionCalibers}
+          onChange={set("caliber")}
+        />
+      </div>
+      <div className="form-row form-row--2">
+        <Field label="Lowest price">
+          {(id, describedBy) => (
+            <input
+              id={id}
+              aria-describedby={describedBy}
+              className="input"
+              type="number"
+              min="0"
+              step="1"
+              value={form.min_price}
+              onChange={(event) => set("min_price")(event.target.value)}
+            />
+          )}
+        </Field>
+        <Field label="Highest price" hint="With the alert on, this is your target price.">
+          {(id, describedBy) => (
+            <input
+              id={id}
+              aria-describedby={describedBy}
+              className="input"
+              type="number"
+              min="0"
+              step="1"
+              value={form.max_price}
+              onChange={(event) => set("max_price")(event.target.value)}
+            />
+          )}
+        </Field>
+      </div>
+      <label className="checkbox">
+        <input
+          type="checkbox"
+          checked={form.alert_instantly}
+          onChange={(event) => set("alert_instantly")(event.target.checked)}
+        />
+        <span>Alert me the moment one appears (email and push)</span>
+      </label>
+      <label className="checkbox">
+        <input
+          type="checkbox"
+          checked={form.email_enabled}
+          onChange={(event) => set("email_enabled")(event.target.checked)}
+        />
+        <span>Also list its matches in my email digest</span>
+      </label>
+      {error && (
+        <p className="alert alert--error" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="page-head__actions">
+        <button type="button" className="btn btn--ghost" onClick={onCancel}>
+          Cancel
+        </button>
+        <button type="submit" className="btn btn--primary" disabled={busy}>
+          Save search
+        </button>
+      </div>
+    </form>
+  );
+}
+
 export default function SavedSearches() {
   useTitle("Saved searches");
   const [searches, setSearches] = useState(null);
   const [error, setError] = useState(null);
+  const [scratch, setScratch] = useState(false);
 
   /**
    * The newest `load()` wins, and a local change retires whatever is in
@@ -333,10 +514,26 @@ export default function SavedSearches() {
             of its price range as your target.
           </p>
         </div>
-        <button className="btn btn--secondary" onClick={load}>
-          <Refresh size={15} /> Refresh
-        </button>
+        <div className="page-head__actions">
+          <button className="btn btn--primary" onClick={() => setScratch(true)}>
+            <Bell size={15} /> New search from scratch
+          </button>
+          <button className="btn btn--secondary" onClick={load}>
+            <Refresh size={15} /> Refresh
+          </button>
+        </div>
       </div>
+
+      {scratch && (
+        <ScratchSearchForm
+          onCancel={() => setScratch(false)}
+          onSaved={(saved) => {
+            supersedeLoad();
+            setSearches((rows) => [saved, ...(rows || [])]);
+            setScratch(false);
+          }}
+        />
+      )}
 
       {error && (
         <p className="alert alert--error" role="alert">
@@ -352,7 +549,7 @@ export default function SavedSearches() {
           <h3>No saved searches yet</h3>
           <p>
             Set up the filters you want on the <Link to="/">inventory</Link>, then choose
-            “Save this search”.
+            “Save this search” — or describe the gun from scratch above.
           </p>
         </div>
       )}

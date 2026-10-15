@@ -39,7 +39,7 @@ import re
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import urlencode, urljoin, urlsplit
 
 from bs4 import BeautifulSoup, Tag
 from sqlalchemy import select
@@ -69,6 +69,15 @@ class Found:
     upc: str | None = None
     msrp: float | None = None
     url: str | None = None
+    #: Where the site states it outright -- Armscor's FS, MS and CS -- rather
+    #: than leaving it to be read from the label.
+    frame_size: str | None = None
+    #: What it is, where the site says: Armscor's specification table names a
+    #: gauge or a series of revolvers or rifles. For a proposed model's kind.
+    kind: FirearmKind | None = None
+    #: Where it was read: the maker's own site, or a retailer's catalog for a
+    #: maker whose site cannot be read (:class:`BudsReader`).
+    source: str = "maker-site"
 
 
 def _money(text: str | None) -> float | None:
@@ -661,12 +670,503 @@ def walther_tiles(html: str, page: str) -> list[Found]:
     return found
 
 
-Reader = RugerReader | SmithWessonReader | KimberReader | WaltherReader
+class ArmscorReader:
+    """armscor.com, Rock Island Armory: a page per product, listed in its sitemap.
+
+    Added on 2026-10-15. HubSpot pages under ``/firearms-list/`` -- 256 in
+    the sitemap that day -- each with a specification table: the SKU (the
+    model number listings use, "Rock Island Armory 52000 Pro Ultra Match"),
+    the series, caliber, barrel, finish and the US MSRP; and a notice where
+    the product is discontinued, which is passed over, as a current site is
+    what says a model is still made. The catalog is read once a run.
+
+    **A product goes to its line, and its line to a model.** Armscor's names
+    do not name the model the way Kimber's do ("PRO Ultra Match 6" 45ACP 8rd"
+    is a 1911), so a product's line comes from its series: every 1911 series
+    -- GI, ROCK, TAC, PRO, TCM, XT, Baby Rock -- is the "1911", which the
+    armory's Rock Island 1911 answers to; anything else is the model its name
+    starts with ("STK200 9MM 15rd", "VR80 5rd 12GA", "RIA 5.0 SP"). A product
+    named by no model -- "All Generations 12GA Pump Action", "Single Shot
+    12GA" -- has no line and is not read. Nor is the Derya series: Derya's
+    own guns, which Armscor distributes.
+
+    A pistol's frame is in its name: FS is full size, MS mid size (a
+    Commander's length, the armory's Compact), CS compact (an Officer's, its
+    Subcompact), Baby Rock a micro 1911.
+    """
+
+    maker = "Rock Island Armory"
+    home = "https://www.armscor.com/"
+    _MAKER_WORDS = frozenset({"rock", "island", "armory", "armscor"})
+    #: The series of 1911s, as the specification table writes them.
+    ONE_NINE_ELEVEN_SERIES = frozenset({"gi", "rock", "tac", "pro", "tcm", "xt", "baby rock"})
+    #: Another maker's guns, sold by Armscor.
+    NOT_ARMSCOR = frozenset({"derya"})
+    _FRAMES = (
+        (re.compile(r"\bFS\b"), frames.FULL),
+        (re.compile(r"\bMS\b"), frames.COMPACT),
+        (re.compile(r"\bCS\b"), frames.SUBCOMPACT),
+        (re.compile(r"\bbaby\s+rock\b|\bBBR\b", re.I), frames.MICRO),
+    )
+
+    def __init__(self) -> None:
+        self._catalog: list[tuple[str, Found]] | None = None
+
+    def catalog(self, ctx: ScrapeContext) -> list[tuple[str, Found]]:
+        """Every current product with a line, as ``(line, found)``."""
+        if self._catalog is None:
+            sitemap = ctx.get_text(urljoin(self.home, "sitemap.xml"))
+            pages = [
+                loc
+                for loc in dict.fromkeys(re.findall(r"<loc>\s*([^<\s]+)\s*</loc>", sitemap))
+                if "/firearms-list/" in loc and _on_site(loc, "armscor.com")
+            ]
+            found: dict[str, tuple[str, Found]] = {}
+            for page in pages:
+                try:
+                    product = armscor_product(ctx.get_text(page), page)
+                except ScrapeError:
+                    # One page gone from the site costs that product only.
+                    continue
+                if product is not None:
+                    found.setdefault(product[1].maker_part, product)
+            self._catalog = list(found.values())
+        return self._catalog
+
+    def _owner(self, line: str, models: list[FirearmModel]) -> FirearmModel | None:
+        """The model whose name is the line's, as _propose_models decides it."""
+        words = _tokens(line, self._MAKER_WORDS)
+        best: tuple[int, FirearmModel] | None = None
+        for model in models:
+            for spelling in model.spellings:
+                need = _tokens(spelling, self._MAKER_WORDS)
+                if (
+                    need
+                    and _specific(need)
+                    and words[: len(need)] == need
+                    and (best is None or len(need) > best[0])
+                ):
+                    best = (len(need), model)
+        return best[1] if best else None
+
+    def read(
+        self, ctx: ScrapeContext, model: FirearmModel, siblings: list[FirearmModel]
+    ) -> list[Found]:
+        return [found for line, found in self.catalog(ctx) if self._owner(line, siblings) is model]
+
+    def unowned(self, ctx: ScrapeContext, siblings: list[FirearmModel]) -> dict[str, list[Found]]:
+        lines: dict[str, list[Found]] = {}
+        for line, found in self.catalog(ctx):
+            if self._owner(line, siblings) is None:
+                lines.setdefault(line, []).append(found)
+        return lines
+
+    @classmethod
+    def frame_of(cls, name: str) -> str | None:
+        return next((size for pattern, size in cls._FRAMES if pattern.search(name)), None)
+
+
+def armscor_line(name: str, series: str) -> str | None:
+    """The line an Armscor product belongs to, or None for one no model names."""
+    family = series.strip().lower()
+    if family in ArmscorReader.NOT_ARMSCOR:
+        return None
+    if family in ArmscorReader.ONE_NINE_ELEVEN_SERIES or re.search(
+        r"\b(?:M?1911)\b|\bM1911", name, re.I
+    ):
+        return "1911"
+    if re.match(r"(?:RIA\s*|US)5\.0", name, re.I):
+        return "RIA 5.0"
+    if re.match(r"MAPP\b", name, re.I):
+        return "MAPP"
+    first = name.split(maxsplit=1)[0] if name.split() else ""
+    # A model's own name has a number in it: STK200, VR80, M206, TM22, PK-12.
+    first = first.strip('",')
+    return first.upper() if re.search(r"\d", first) and len(first) <= 12 else None
+
+
+def _armscor_kind(series: str, caliber: str | None, action: str | None) -> FirearmKind:
+    family = series.strip().lower()
+    if re.search(r"\d+\s*GA\b", caliber or "", re.I):
+        return FirearmKind.SHOTGUN
+    if "revolver" in family:
+        return FirearmKind.REVOLVER
+    if family in {"rifles", "tm22", "youth"} or (action or "").lower() in {"bolt", "lever"}:
+        return FirearmKind.RIFLE
+    return FirearmKind.PISTOL
+
+
+def armscor_product(html: str, url: str) -> tuple[str, Found] | None:
+    """One Armscor product page, as ``(line, found)``; None when it is
+    discontinued, has no SKU, or belongs to no line."""
+    soup = BeautifulSoup(html, "html.parser")
+    if soup.select_one(".discontinued-notice"):
+        return None
+    specs: dict[str, str] = {}
+    for row in soup.select("table.spec-table tr"):
+        cells = [" ".join(cell.get_text(" ", strip=True).split()) for cell in row.select("td")]
+        if len(cells) == 2 and cells[0]:
+            specs[cells[0]] = cells[1]
+    heading = soup.select_one("h1")
+    name = " ".join(heading.get_text(" ", strip=True).split()) if heading else ""
+    number = specs.get("SKU")
+    if not number or not name:
+        return None
+    line = armscor_line(name, specs.get("Series", ""))
+    if line is None:
+        return None
+    caliber = specs.get("Caliber")
+    kind = _armscor_kind(specs.get("Series", ""), caliber, specs.get("Action"))
+    return line, Found(
+        maker_part=number,
+        label=_label("Rock Island Armory", name, caliber, number),
+        caliber=caliber,
+        barrel_inches=variants.read_barrel(specs.get("Barrel") or ""),
+        finish=variants.normalize_finish(specs.get("Finish")) or variants.read_finish(name),
+        msrp=_money(specs.get("MSRP (US)")) or None,
+        url=url,
+        frame_size=ArmscorReader.frame_of(name) if kind == FirearmKind.PISTOL else None,
+        kind=kind,
+    )
+
+
+#: Bud's brand names where none of the armory's spellings of the maker is one.
+BUDS_BRANDS = {
+    "Heckler Koch": "HK",
+    "Heckler & Koch": "HK",
+    "Springfield": "Springfield Armory",
+    "Kahr": "Kahr Arms",
+    "Kel-Tec": "Kel-Tec Cnc Industries Inc.",
+    "Steyr": "Steyr Arms",
+    "Israel Weapon Industries": "IWI",
+    "LWRC": "LWRCI",
+    "SAR Arms": "SAR USA",
+    "Savage": "Savage Arms",
+}
+#: The brands Bud's filters by, as its handgun page listed them on 2026-10-15.
+BUDS_BRAND_NAMES = frozenset(
+    {
+        "Arex",
+        "Auto Ordnance",
+        "BUL Armory",
+        "Beretta",
+        "Bersa",
+        "Bond Arms",
+        "Browning",
+        "CZ",
+        "Canik",
+        "Century Arms",
+        "Charter Arms",
+        "Chiappa",
+        "Colt",
+        "Dan Wesson",
+        "Daniel Defense",
+        "Diamondback Firearms",
+        "European American Armory",
+        "FN",
+        "Girsan",
+        "Glock",
+        "HK",
+        "Heritage Manufacturing",
+        "Hi-Point",
+        "Howa",
+        "IWI",
+        "KRISS",
+        "Kahr Arms",
+        "Kel-Tec Cnc Industries Inc.",
+        "Kimber",
+        "LWRCI",
+        "Magnum Research",
+        "Mossberg",
+        "North American Arms",
+        "Remington",
+        "Rossi",
+        "SAR USA",
+        "SCCY",
+        "Savage Arms",
+        "Shadow Systems",
+        "Sig Sauer",
+        "Springfield Armory",
+        "Staccato",
+        "Steyr Arms",
+        "Stoeger",
+        "Taurus",
+        "Tisas",
+        "Uberti",
+        "Wilson Combat",
+    }
+)
+
+
+def buds_brand(firm: Manufacturer) -> str | None:
+    """The brand Bud's Gun Shop files a maker's guns under, or None."""
+    for spelling in firm.spellings:
+        if spelling in BUDS_BRANDS:
+            return BUDS_BRANDS[spelling]
+        for brand in BUDS_BRAND_NAMES:
+            if _compact(brand) == _compact(spelling):
+                return brand
+    return None
+
+
+@dataclass(frozen=True)
+class BudsCard:
+    """One product tile on a Bud's list page."""
+
+    url: str
+    name: str
+    msrp: float | None
+    price: float | None
+    barrel_inches: float | None
+
+
+class BudsReader:
+    """budsgunshop.com: a retailer's catalog, for a maker whose own site cannot
+    be read or does not say.
+
+    Suggested on 2026-10-15, when the audit of a Glock listing with no MSRP and
+    no street price found that 21 Glock models, 10 Sig Sauer, 17 Springfield
+    and a dozen more makers' had no versions at all: Glock's own site states
+    no price and no part number, and Sig Sauer's, H&K's and Mossberg's answer
+    every request with a bot challenge. Bud's robots.txt allows its public
+    pages, its llms.txt invites automated readers, and its terms say nothing
+    against reading.
+
+    **What is read.** The maker's in-stock handguns, rifles and shotguns,
+    from ``/categories/firearms/<category>?brand=<brand>&availability=in
+    stock`` a page at a time; each tile gives the product's page, its name,
+    the MSRP Bud's strikes through and its own price. A product not yet
+    recorded has its page read once: its structured data says whether it is
+    new (a police trade-in is not), and gives the UPC and the maker's own
+    model number (Glock's "P61950203"). A product already recorded is
+    refreshed from its tile alone. The UPC is what then finds the street
+    price at gun.deals, as for every other version.
+
+    **A product goes to the model it names.** "Glock 19 Gen6 Optic Ready" is
+    a Glock 19; "Glock 19X V-Series" is not, since the X is part of the
+    number, and is left to be proposed as a model of its own.
+    """
+
+    home = "https://www.budsgunshop.com/"
+    CATEGORIES = (
+        ("handguns", None),
+        ("rifles", FirearmKind.RIFLE),
+        ("shotguns", FirearmKind.SHOTGUN),
+    )
+    #: The most list pages read for one category: Glock's in-stock handguns
+    #: were six on 2026-10-15.
+    PAGES = 20
+
+    def __init__(self, maker: str, brand: str) -> None:
+        self.maker = maker
+        self.brand = brand
+        self._catalog: list[tuple[str, Found]] | None = None
+
+    def _page(self, category: str, number: int) -> str:
+        query = urlencode({"brand": self.brand, "availability": "in stock", "page": number})
+        return urljoin(self.home, f"categories/firearms/{category}?{query}")
+
+    def catalog(self, ctx: ScrapeContext, siblings: list[FirearmModel]) -> list[tuple[str, Found]]:
+        """Every new in-stock product of the brand, as ``(name, found)``."""
+        if self._catalog is not None:
+            return self._catalog
+        known = {
+            v.maker_url: v
+            for model in siblings
+            for v in model.variants
+            if v.maker_url and _on_site(v.maker_url, "budsgunshop.com")
+        }
+        found: dict[str, tuple[str, Found]] = {}
+        for category, kind in self.CATEGORIES:
+            for number in range(1, self.PAGES + 1):
+                try:
+                    html = ctx.get_text(self._page(category, number))
+                except ScrapeError:
+                    # A category the brand has nothing in costs that category.
+                    break
+                cards = [c for c in buds_cards(html) if self._ours(c.name)]
+                for card in cards:
+                    if card.url in found:
+                        continue
+                    product = self._product(ctx, card, known.get(card.url), kind)
+                    if product is not None:
+                        found[card.url] = (card.name, product)
+                if not cards or f"page={number + 1}" not in html:
+                    break
+        self._catalog = list(found.values())
+        return self._catalog
+
+    def _ours(self, name: str) -> bool:
+        """Whether a tile is the brand's: a list page also shows featured
+        products of other makers."""
+        return _compact(name).startswith(_compact(self.brand)) or _compact(name).startswith(
+            _compact(self.maker)
+        )
+
+    def _product(
+        self,
+        ctx: ScrapeContext,
+        card: BudsCard,
+        known: ModelVariant | None,
+        kind: FirearmKind | None,
+    ) -> Found | None:
+        if known is not None and known.maker_part:
+            # Recorded already, as new: the tile's MSRP is all that moves.
+            return Found(
+                maker_part=known.maker_part,
+                label=known.label,
+                upc=known.upc,
+                msrp=card.msrp,
+                url=card.url,
+                source="budsgunshop",
+            )
+        try:
+            page = buds_product(ctx.get_text(card.url))
+        except ScrapeError:
+            return None
+        if page is None or not page["new"] or not page["model"]:
+            return None
+        if _compact(page["brand"]) not in {_compact(self.brand), _compact(self.maker)}:
+            return None
+        name = page["name"] or card.name
+        found_kind = kind or (
+            FirearmKind.REVOLVER
+            if "/revolvers/" in card.url or re.search(r"\brevolver\b", name, re.I)
+            else FirearmKind.PISTOL
+        )
+        return Found(
+            maker_part=page["model"],
+            label=f"{name} ({page['model']})"[:200],
+            caliber=classify.extract_caliber(name),
+            barrel_inches=page["barrel"] or card.barrel_inches,
+            finish=variants.read_finish(name),
+            upc=page["upc"],
+            msrp=page["msrp"] or card.msrp,
+            url=card.url,
+            kind=found_kind,
+            source="budsgunshop",
+        )
+
+    def _owner(self, name: str, models: list[FirearmModel]) -> FirearmModel | None:
+        """The model whose name the product's carries, as a whole designation:
+        "Glock 19" in "Glock 19 Gen6", not in "Glock 19X"."""
+        name = _unglued(name)
+        best: tuple[int, FirearmModel] | None = None
+        for model in models:
+            for spelling in model.spellings:
+                words = spelling.split()
+                if not words or not _specific(_tokens(spelling)):
+                    continue
+                pattern = r"(?<![\w])" + r"[\s-]*".join(map(re.escape, words)) + r"(?![\w])"
+                if re.search(pattern, name, re.I) and (best is None or len(spelling) > best[0]):
+                    best = (len(spelling), model)
+        return best[1] if best else None
+
+    def read(
+        self, ctx: ScrapeContext, model: FirearmModel, siblings: list[FirearmModel]
+    ) -> list[Found]:
+        return [
+            found
+            for name, found in self.catalog(ctx, siblings)
+            if self._owner(name, siblings) is model
+        ]
+
+    def unowned(self, ctx: ScrapeContext, siblings: list[FirearmModel]) -> dict[str, list[Found]]:
+        lines: dict[str, list[Found]] = {}
+        for name, found in self.catalog(ctx, siblings):
+            if self._owner(name, siblings) is None and (line := self.line(name)):
+                lines.setdefault(line, []).append(found)
+        return lines
+
+    def line(self, name: str) -> str | None:
+        """The designation a product's name starts with after the brand:
+        "Glock 19X V-Series 9mm" is the 19X, "Sig Sauer P320 Spectre" the P320.
+        None where it starts with a word and no number: a name, not a model."""
+        rest = _unglued(name)
+        for prefix in sorted({self.brand, self.maker}, key=len, reverse=True):
+            if rest.lower().startswith(prefix.lower()):
+                rest = rest[len(prefix) :]
+                break
+        first = rest.split()[0] if rest.split() else ""
+        return first if re.search(r"\d", first) and len(first) <= 12 else None
+
+
+def _unglued(name: str) -> str:
+    """A series letter written onto the number: Bud's "Glock 17V" and "45V"
+    are the 17 and 45 of the V series, "19XV" the 19X's."""
+    return re.sub(r"(?<=[0-9X])V\b", " V", name)
+
+
+def buds_cards(html: str) -> list[BudsCard]:
+    """The product tiles on a Bud's list page."""
+    soup = BeautifulSoup(html, "html.parser")
+    cards = []
+    for pricing in soup.select('[id^="card-pricing-display-"]'):
+        card: Tag | None = pricing
+        for _ in range(8):
+            card = card.parent if card is not None else None
+            if card is None or card.select_one('a[href*="/products/"]'):
+                break
+        if card is None:
+            continue
+        link = card.select_one('a[href*="/products/"]')
+        text = " ".join(card.get_text(" ", strip=True).split())
+        names = [a.get_text(" ", strip=True) for a in card.select('a[href*="/products/"]')]
+        name = max(names, key=len) if names else ""
+        struck = pricing.select_one(".line-through")
+        prices = [_money(s.get_text()) for s in pricing.select("span")]
+        prices = [p for p in prices if p]
+        barrel = re.search(r"Barrel Length:\s*([\d.]+)\s*inch", text)
+        cards.append(
+            BudsCard(
+                url=str(link.get("href")).split("?")[0] if link else "",
+                name=" ".join(name.split()),
+                msrp=_money(struck.get_text()) if struck else None,
+                price=prices[-1] if prices else None,
+                barrel_inches=float(barrel.group(1)) if barrel else None,
+            )
+        )
+    return [card for card in cards if card.url and card.name]
+
+
+def buds_product(html: str) -> dict[str, Any] | None:
+    """A Bud's product page: its name, brand, condition, UPC, the maker's model
+    number, barrel length, and the MSRP struck through beside its price."""
+    soup = BeautifulSoup(html, "html.parser")
+    product: dict[str, Any] | None = None
+    for script in soup.select('script[type="application/ld+json"]'):
+        try:
+            data = json.loads(script.string or "")
+        except ValueError:
+            continue
+        for node in data.get("@graph", [data]) if isinstance(data, dict) else []:
+            if isinstance(node, dict) and node.get("@type") == "Product":
+                product = node
+    if product is None:
+        return None
+    brand = product.get("brand")
+    pdp = soup.select_one('[data-lazy-suspense="product-pdp"]')
+    struck = pdp.select_one(".line-through") if pdp else None
+    text = " ".join(soup.get_text(" ", strip=True).split())
+    barrel = re.search(r"Barrel Length:\s*([\d.]+)\s*inch", text)
+    return {
+        "name": " ".join(str(product.get("name") or "").split()),
+        "brand": str(brand.get("name") if isinstance(brand, dict) else brand or ""),
+        "new": str(product.get("itemCondition") or "").endswith("NewCondition"),
+        "upc": _digits(str(product.get("gtin12") or product.get("gtin") or "")),
+        "model": str(product.get("model") or product.get("mpn") or "").strip()[:64] or None,
+        "msrp": _money(struck.get_text()) if struck else None,
+        "barrel": float(barrel.group(1)) if barrel else None,
+    }
+
+
+Reader = RugerReader | SmithWessonReader | KimberReader | WaltherReader | ArmscorReader | BudsReader
 READERS: dict[str, Callable[[], Reader]] = {
     "Ruger": RugerReader,
     "Smith & Wesson": SmithWessonReader,
     "Kimber": KimberReader,
     "Walther": WaltherReader,
+    "Rock Island Armory": ArmscorReader,
 }
 
 
@@ -715,7 +1215,11 @@ def record(session: Session, model: FirearmModel, found: Iterable[Found]) -> dic
             known.maker_url = item.url or known.maker_url
             known.upc = known.upc or item.upc
             known.maker_part = known.maker_part or item.maker_part
-            known.frame_size = known.frame_size or frames.read(item.label, None, revolver=None)[0]
+            known.frame_size = (
+                known.frame_size
+                or item.frame_size
+                or frames.read(item.label, None, revolver=None)[0]
+            )
             counts["refreshed"] += 1
             continue
         caliber = _caliber_row(session, item.caliber)
@@ -730,18 +1234,41 @@ def record(session: Session, model: FirearmModel, found: Iterable[Found]) -> dic
                 finish=item.finish,
                 # From the label, as a listing's from its title: "PDP Full
                 # Size 4.5"", "M&P9 M2.0 COMPACT". 2026-10-14.
-                frame_size=frames.read(item.label, None, revolver=None)[0],
+                frame_size=item.frame_size or frames.read(item.label, None, revolver=None)[0],
                 upc=item.upc,
                 maker_part=item.maker_part,
                 msrp=item.msrp,
                 maker_url=item.url,
-                source="maker-site",
+                source=item.source,
                 status=ArmoryStatus.PENDING,
             )
         )
         by_part[item.maker_part] = model.variants[-1]
         counts["proposed"] += 1
     return counts
+
+
+def _readers(session: Session, maker: str | None) -> list[tuple[Manufacturer, Reader]]:
+    """Each maker with models still made, and the reader for it: its own
+    site's where one is built, else Bud's Gun Shop's catalog where Bud's
+    carries the brand (2026-10-15)."""
+    firms = [
+        firm
+        for firm in session.execute(
+            select(Manufacturer).where(
+                Manufacturer.status == ArmoryStatus.APPROVED, Manufacturer.enabled.is_(True)
+            )
+        ).scalars()
+        if not maker or firm.name.lower() == maker.lower()
+    ]
+    found: list[tuple[Manufacturer, Reader]] = []
+    for firm in firms:
+        make = READERS.get(firm.name)
+        if make is not None:
+            found.append((firm, make()))
+        elif brand := buds_brand(firm):
+            found.append((firm, BudsReader(firm.name, brand)))
+    return found
 
 
 def run(
@@ -753,42 +1280,37 @@ def run(
 ) -> dict[str, int]:
     """Read every modern-production model of a maker with a reader."""
     totals = {"models": 0, "proposed": 0, "refreshed": 0, "unread": 0, "models_proposed": 0}
-    for name, make in READERS.items():
-        if maker and name.lower() != maker.lower():
-            continue
-        reader = make()
-        firm = (
-            session.execute(select(Manufacturer).where(Manufacturer.name == name)).scalars().first()
-        )
-        if firm is None:
+    modern = list(
+        session.execute(
+            select(FirearmModel).where(
+                FirearmModel.modern_production.is_(True), FirearmModel.enabled.is_(True)
+            )
+        ).scalars()
+    )
+    for firm, reader in _readers(session, maker):
+        name = firm.name
+        siblings = [model for model in modern if firm in model.manufacturers]
+        if not siblings:
             continue
         ctx.keep_at_least(reader.home, 3.0)
-        siblings = [
-            model
-            for model in session.execute(
-                select(FirearmModel).where(
-                    FirearmModel.modern_production.is_(True), FirearmModel.enabled.is_(True)
-                )
-            ).scalars()
-            if firm in model.manufacturers
-        ]
+        where = "Bud's Gun Shop" if isinstance(reader, BudsReader) else f"{name}'s site"
         for model in siblings:
             totals["models"] += 1
             try:
                 found = reader.read(ctx, model, siblings)
             except ScrapeError as exc:
-                log(f"  {model.name}: could not read {name}'s site ({exc}).")
+                log(f"  {model.name}: could not read {where} ({exc}).")
                 totals["unread"] += 1
                 continue
             if not found:
-                log(f"  {model.name}: no page found on {name}'s site; set its manufacturer's page.")
+                log(f"  {model.name}: nothing found on {where}.")
                 totals["unread"] += 1
                 continue
             counts = record(session, model, found)
             session.commit()
             log(
-                f"  {model.name}: {len(found)} found, {counts['proposed']} new (pending), "
-                f"{counts['refreshed']} refreshed."
+                f"  {model.name}: {len(found)} found on {where}, {counts['proposed']} new "
+                f"(pending), {counts['refreshed']} refreshed."
             )
             totals["proposed"] += counts["proposed"]
             totals["refreshed"] += counts["refreshed"]
@@ -856,7 +1378,9 @@ def _kind_of(found: list[Found]) -> FirearmKind | None:
     kinds = {
         kind
         for item in found
-        for kind in [next((k for word, k in _KIND_WORDS if word.search(item.label)), None)]
+        for kind in [
+            item.kind or next((k for word, k in _KIND_WORDS if word.search(item.label)), None)
+        ]
         if kind
     }
     return kinds.pop() if len(kinds) == 1 else None

@@ -908,6 +908,20 @@ class TestCalibersFoundByAuditingTheCatalog:
         at once."""
         assert classify.extract_caliber(title) == ".25 ACP"
 
+    @pytest.mark.parametrize(
+        ("title", "caliber"),
+        [
+            ("33004- RUGER NO. 1 SINGLE SHOT .25-06 CAL. RIFLE", "25-06 Remington"),
+            ("Remington 700 25-06 Rem", "25-06 Remington"),
+            ("WINCHESTER MODEL 1892 .25-20 WCF LEVER ACTION RIFLE", ".25-20 Winchester"),
+            ("Winchester Model 1894 .25-35 WCF", ".25-35 Winchester"),
+        ],
+    )
+    def test_a_hyphenated_25_is_a_rifle_cartridge(self, title, caliber):
+        """Each was stored as .25 ACP until 2026-10-15: the bare ".25" took the
+        start of the name."""
+        assert classify.extract_caliber(title) == caliber
+
     def test_the_metric_name_for_8mm_mauser(self):
         assert classify.extract_caliber("Yugoslavian 24/47 rifle 7.92x57mm") == "8mm Mauser"
 

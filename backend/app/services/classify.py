@@ -376,7 +376,14 @@ CALIBER_NORMALIZATIONS: tuple[tuple[str, str], ...] = (
     # The "mm" is spelled out rather than left to a word boundary, for the same
     # reason the generic metric rule now does: there is no boundary between the
     # 35 and the mm of "6.35mm".
-    (r"\.25\s*acp|\b6\.35\s*mm\b|\b6\.35\b|\.25\b", ".25 ACP"),
+    # The hyphenated .25s are rifle cartridges, not the pistol's: a Ruger No.
+    # 1 in ".25-06" was stored as .25 ACP, and so was every .25-20 and .25-35
+    # Winchester (measured 2026-10-15). Read first, and the bare ".25" below
+    # never takes the start of one.
+    (r"(?<![\d.])\.?25\s*-\s*06\b", "25-06 Remington"),
+    (r"(?<![\d.])\.?25\s*-\s*35\b", ".25-35 Winchester"),
+    (r"(?<![\d.])\.?25\s*-\s*20\b", ".25-20 Winchester"),
+    (r"\.25\s*acp|\b6\.35\s*mm\b|\b6\.35\b|\.25\b(?!\s*-\s*\d)", ".25 ACP"),
     # The dot is optional: "Rock Island BBR Standard 380acp" carries none, and
     # without a caliber _kind_from_caliber falls back to *rifle*.
     (r"\.?380\s*(?:acp|auto)|\.380\b", ".380 ACP"),
@@ -3058,6 +3065,8 @@ COUNTRY_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"\bCanadian?\b|\bCanada\b", "Canada"),
     (r"\bIndian?\b|\bIshapore\b", "India"),
     (r"\bEgyptian?\b", "Egypt"),
+    # Armscor's Rock Island Armory guns are made in Marikina (2026-10-15).
+    (r"\bPhilippines?\b|\bPhilippine\b|\bFilipino\b", "Philippines"),
     (r"\bEthiopian?\b", "Ethiopia"),
     (r"\bBulgarian?\b", "Bulgaria"),
     # Added with the modern shelf: 27 active listings say Israel or Israeli

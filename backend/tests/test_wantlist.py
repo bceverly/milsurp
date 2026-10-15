@@ -134,6 +134,36 @@ class TestWhatIsNews:
         assert _due_ids(clean_db, user) == []
 
 
+class TestAWantTypedFromScratch:
+    """Asked for on 2026-10-15: an alert for a gun that may be for sale
+    nowhere -- "a .32 ACP version of the Bersa Thunder" -- typed on the Saved
+    searches page as keywords and a caliber, with no price ceiling."""
+
+    def test_the_caliber_decides_and_no_ceiling_is_needed(self, clean_db, reader):
+        user, site = reader
+        _want(clean_db, user, query="caliber=.32+ACP&search=Bersa+Thunder")
+        wanted = _item(
+            clean_db, site, "32", price=399, title="Bersa Thunder 32 ACP", caliber=".32 ACP"
+        )
+        _item(clean_db, site, "380", price=299, title="Bersa Thunder 380", caliber=".380 ACP")
+        _item(clean_db, site, "other", price=299, title="Walther PP .32", caliber=".32 ACP")
+        clean_db.commit()
+        assert _due_ids(clean_db, user) == [wanted.id]
+
+    def test_saved_through_the_api_with_the_alert_on(self, client, normal_user):
+        made = client.post(
+            "/api/saved-searches",
+            json={
+                "name": "Bersa Thunder in .32 ACP",
+                "query": "search=Bersa+Thunder&caliber=.32+ACP",
+                "alert_instantly": True,
+            },
+            headers=normal_user["headers"],
+        )
+        assert made.status_code == 201, made.text
+        assert made.json()["alert_instantly"] is True
+
+
 class TestTheBacklogIsNotNews:
     def test_what_already_matched_is_not_mailed(self, clean_db, reader):
         user, site = reader

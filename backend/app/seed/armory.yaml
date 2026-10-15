@@ -779,6 +779,16 @@ manufacturers:
   - Merwin and Hulbert
   country: United States
   status: approved
+- name: Military Armament Corp
+  aliases:
+  - Military Armament Corporation
+  - MAC 9 DS
+  - MAC9DS
+  - MAC 9DS
+  country: United States
+  website: https://sdsarms.com/
+  status: approved
+  position: 990
 - name: Milled
   status: pending
   enabled: false
@@ -943,7 +953,13 @@ manufacturers:
 - name: Rock Island Armory
   aliases:
   - Armscor
+  - Armscor Rock Island
+  - Armscor International
+  - RIA USA
+  country: Philippines
+  website: https://www.armscor.com/
   status: approved
+  position: 990
 - name: Rock Island Arsenal
   aliases:
   - Rock Island
@@ -1197,6 +1213,17 @@ manufacturers:
   country: Finland
   status: approved
   position: 20
+- name: Tisas
+  aliases:
+  - Tisas USA
+  - Tisas Arms
+  - Tisas Arms Corp
+  - TİSAŞ
+  - Trabzon Silah
+  country: Turkey
+  website: https://tisasarms.com/
+  status: approved
+  position: 990
 - name: Tokarev
   aliases:
   - TT-33
@@ -1810,6 +1837,23 @@ calibers:
   - 25-06
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.25-06_Remington
+  bullet_diameter_in: 0.257
+- name: .25-20 Winchester
+  aliases:
+  - .25-20
+  - 25-20
+  - .25-20 WCF
+  - 25-20 WCF
+  - .25 WCF
+  status: approved
+  bullet_diameter_in: 0.257
+- name: .25-35 Winchester
+  aliases:
+  - .25-35
+  - 25-35
+  - .25-35 WCF
+  - 25-35 WCF
+  status: approved
   bullet_diameter_in: 0.257
 - name: .257 Roberts
   status: approved
@@ -3154,7 +3198,7 @@ calibers:
   - 6.5x52
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/6.5%C3%9752mm_Carcano
-  bullet_diameter_in: 0.264
+  bullet_diameter_in: 0.2677
   reloading:
     primer: Large rifle
     powder: Hodgdon H335
@@ -3965,7 +4009,7 @@ calibers:
   - 6.8x51
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.277_Fury
-  bullet_diameter_in: 0.2776
+  bullet_diameter_in: 0.278
 models:
 - name: 04/43
   status: approved
@@ -4091,6 +4135,8 @@ models:
   manufacturers:
   - Ruger
   status: approved
+- name: ADC MODEL 1
+  status: pending
 - name: AF 409
   status: approved
 - name: AG42
@@ -4645,6 +4691,8 @@ models:
   - Ballard
   wikipedia: https://en.wikipedia.org/wiki/Ballard_rifle
   status: approved
+- name: BAYARD MODEL 1908
+  status: pending
 - name: Belgian M1886
   aliases:
   - M1886
@@ -4958,6 +5006,8 @@ models:
   manufacturers:
   - Bernardelli
   status: approved
+- name: Bern Schmidt Rubin Model 1911
+  status: pending
 - name: Bersa Thunder
   aliases:
   - Thunder 380
@@ -6141,6 +6191,8 @@ models:
   wikipedia: https://en.wikipedia.org/wiki/M1917_revolver
   status: approved
   position: 900
+- name: COLT MODEL 62
+  status: pending
 - name: Colt Mustang
   aliases:
   - Mustang Pocketlite
@@ -7853,6 +7905,8 @@ models:
   manufacturers:
   - Mauser
   status: approved
+- name: GEWEHRFABRIK DANZIG MODEL 2
+  status: pending
 - name: GHM9
   status: approved
 - name: GIRK 308
@@ -11094,6 +11148,15 @@ models:
   - MAC
   status: approved
 - name: MAC 9
+  aliases:
+  - MAC 9 DS
+  - MAC9DS
+  - MAC 9DS
+  kind: pistol
+  country: Turkey
+  manufacturers:
+  - Military Armament Corp
+  modern_production: true
   status: approved
 - name: MAC M1950
   aliases:
@@ -13152,6 +13215,8 @@ models:
   manufacturers:
   - OVIEDO
   status: approved
+- name: OVIEDO MODEL 1895
+  status: pending
 - name: P018S
   kind: pistol
   country: Italy
@@ -13358,6 +13423,8 @@ models:
   manufacturers:
   - Sig Sauer
   status: approved
+- name: P226X
+  status: pending
 - name: P227
   kind: pistol
   country: Germany
@@ -14071,6 +14138,13 @@ models:
 - name: PX9
   aliases:
   - PX-9
+  - Zigana PX-9
+  - Tisas PX-9
+  kind: pistol
+  country: Turkey
+  manufacturers:
+  - Tisas
+  modern_production: true
   status: approved
 - name: R13
   status: pending
@@ -14299,6 +14373,14 @@ models:
   manufacturers:
   - Remington
   status: approved
+- name: Remington Model 12
+  kind: rifle
+  country: United States
+  status: pending
+- name: Remington Model 121
+  kind: rifle
+  country: United States
+  status: pending
 - name: Remington Model 1889
   aliases:
   - Remington 1889
@@ -14312,6 +14394,8 @@ models:
   manufacturers:
   - Remington
   status: approved
+- name: REMINGTON MODEL 241
+  status: pending
 - name: Remington Model 51
   aliases:
   - Model 51
@@ -14424,14 +14508,30 @@ models:
   - Rock Island Rock Standard
   - RIA 1911
   - Rock Island Armory 1911
+  - Rock Island Armory M1911
+  - Rock Island Armory M1911A1
+  - Rock Island Armory M1911-A1
+  - Rock Island Armory 1911A1
+  - Rock Island M1911
+  - Rock Island M1911A1
+  - Rock Island 1911A1
+  - Armscor 1911
+  - Armscor 1911A1
+  - Armscor M1911
+  - Armscor M1911A1
+  - Rock Ultra
+  - Tac Ultra
+  - Pro Ultra
   kind: pistol
-  country: United States
+  country: Philippines
   calibers:
   - .45 ACP
   - 9mm Luger
   manufacturers:
   - Rock Island Armory
+  modern_production: true
   status: approved
+  position: 990
 - name: Rogers & Spencer Army
   aliases:
   - Rogers & Spencer
@@ -16755,6 +16855,8 @@ models:
   manufacturers:
   - W+F Bern
   status: approved
+- name: Schmidt Rubin Model 1911
+  status: pending
 - name: Schmidt-Rubin Model 1911
   aliases:
   - G1911
@@ -18215,17 +18317,17 @@ models:
   modern_production: true
   variants:
   - label: MODEL 1854 - AMERICA 250
-    upc: 022188909777
-    part: '14970'
-    msrp: 1499.0
-    maker_url: https://www.smith-wesson.com/product/s-w-model-1854-america-250-45-70-govt
-    source: maker-site
-    status: approved
-  - label: MODEL 1854 - AMERICA 250
     upc: 022188909760
     part: '14969'
     msrp: 1399.0
     maker_url: https://www.smith-wesson.com/product/s-w-model-1854-america-250-44-magnum
+    source: maker-site
+    status: approved
+  - label: MODEL 1854 - AMERICA 250
+    upc: 022188909777
+    part: '14970'
+    msrp: 1499.0
+    maker_url: https://www.smith-wesson.com/product/s-w-model-1854-america-250-45-70-govt
     source: maker-site
     status: approved
   - label: S&W MODEL 1854 LEVER-ACTION RIFLE 30-30 WIN
@@ -19066,7 +19168,10 @@ models:
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Smith & Wesson Model 41
   aliases:
-  - Model 41
+  - S&W Model 41
+  - S&W 41
+  - Smith & Wesson 41
+  - Performance Center Model 41
   kind: pistol
   country: United States
   calibers:
@@ -23527,6 +23632,12 @@ models:
   - Ruger
   status: approved
 - name: SS45R
+  aliases:
+  - Duty SS45R
+  kind: pistol
+  country: Turkey
+  manufacturers:
+  - Tisas
   status: approved
 - name: ST-15
   status: approved
@@ -23789,11 +23900,12 @@ models:
   enabled: false
 - name: STK100
   kind: pistol
-  country: United States
+  country: Philippines
   calibers:
   - 9mm Luger
   manufacturers:
-  - Rock Island Arsenal
+  - Rock Island Armory
+  modern_production: true
   status: approved
 - name: STR-9
   kind: pistol
@@ -24603,9 +24715,27 @@ models:
   - Thompson
   status: approved
 - name: Tisas Arms 1911
+  aliases:
+  - Tisas 1911
+  - Tisas 1911A1
+  - Tisas 1911-A1
+  - Tisas 1911 A1
+  - Tisas USA 1911
+  - Tisas USA 1911A1
+  - Tisas Arms 1911A1
+  - Tisas Arms 1911 A1
+  - Tank Commander
+  - Night Stalker
+  - Nightstalker
+  - Carry 9 DS
+  - Carry Stingray
   kind: pistol
-  country: United States
+  country: Turkey
+  manufacturers:
+  - Tisas
+  modern_production: true
   status: approved
+  position: 990
 - name: TO 3
   status: pending
   enabled: false
@@ -25545,12 +25675,13 @@ models:
   status: merged
   enabled: false
 - name: VRBP-100
-  kind: rifle
-  country: United States
+  kind: shotgun
+  country: Philippines
   calibers:
   - 12 gauge
   manufacturers:
-  - Rock Island Arsenal
+  - Rock Island Armory
+  modern_production: true
   status: approved
 - name: VX11
   kind: rifle
@@ -26381,6 +26512,8 @@ models:
 - name: WF BERN MAUSER 1896
   status: approved
   enabled: false
+- name: WILKINSON WEBLEY MODEL 1911
+  status: pending
 - name: Wilson Combat CQB
   aliases:
   - CQB Elite
@@ -26450,6 +26583,8 @@ models:
   manufacturers:
   - Winchester
   status: approved
+- name: WINCHESTER MODEL 02
+  status: pending
 - name: Winchester Model 12
   aliases:
   - Winchester M12
@@ -26543,6 +26678,8 @@ models:
   manufacturers:
   - Winchester
   status: approved
+- name: WINCHESTER MODEL 1895
+  status: pending
 - name: Winchester Model 1897
   aliases:
   - Winchester Model 97
@@ -26557,6 +26694,10 @@ models:
   - Winchester
   wikipedia: https://en.wikipedia.org/wiki/Winchester_Model_1897
   status: approved
+- name: WINCHESTER MODEL 1912
+  status: pending
+- name: WINCHESTER MODEL 24
+  status: pending
 - name: Winchester Model 42
   aliases:
   - Model 42
@@ -26567,6 +26708,8 @@ models:
   manufacturers:
   - Winchester
   status: approved
+- name: WINCHESTER MODEL 52
+  status: pending
 - name: Winchester Model 61
   aliases:
   - Model 61
@@ -26590,6 +26733,10 @@ models:
   - Winchester
   wikipedia: https://en.wikipedia.org/wiki/Winchester_Model_70
   status: approved
+- name: WINCHESTER MODEL 71
+  status: pending
+- name: WINCHESTER MODEL 75
+  status: pending
 - name: Winchester Model 88
   aliases:
   - Winchester 88
@@ -26603,6 +26750,8 @@ models:
   manufacturers:
   - Winchester
   status: approved
+- name: WINCHESTER MODEL 92
+  status: pending
 - name: Winchester Model 94
   aliases:
   - Winchester 94
@@ -26613,6 +26762,8 @@ models:
   - Winchester
   wikipedia: https://en.wikipedia.org/wiki/Winchester_Model_1894
   status: approved
+- name: WINCHESTER MODEL 95
+  status: pending
 - name: WS-1
   kind: shotgun
   country: United States

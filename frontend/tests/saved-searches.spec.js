@@ -236,3 +236,54 @@ test.describe("a saved search, read back", () => {
     await expect(signedIn.getByRole("alert")).toContainText("The database is busy.");
   });
 });
+
+test.describe("a search from scratch", () => {
+  // Asked for on 2026-10-15: an alert for a gun that is for sale nowhere yet.
+  test("typed in, saved with the instant alert on", async ({ signedIn }) => {
+    // The armory's calibers are the server's business; its answer is supplied.
+    await signedIn.route(/\/api\/collection\/calibers/, (route) =>
+      route.fulfill({ json: [{ name: ".32 ACP" }, { name: ".32 S&W" }] }),
+    );
+    await signedIn.goto("/saved-searches");
+    await signedIn.getByRole("button", { name: "New search from scratch" }).click();
+    const form = signedIn.getByTestId("scratch-search");
+    await form.getByLabel("Keywords").fill("Bersa Thunder");
+    const caliber = form.getByLabel("Caliber");
+    await caliber.fill(".32 A");
+    // The armory's spelling, offered as it is typed.
+    await form.getByRole("button", { name: /^\.32 ACP/ }).click();
+    await expect(caliber).toHaveValue(".32 ACP");
+    await expect(
+      form.getByLabel("Alert me the moment one appears (email and push)"),
+    ).toBeChecked();
+    const sent = signedIn.waitForRequest(
+      (request) =>
+        request.url().endsWith("/api/saved-searches") && request.method() === "POST",
+    );
+    await form.getByRole("button", { name: "Save search" }).click();
+    expect((await sent).postDataJSON()).toEqual({
+      name: "Bersa Thunder in .32 ACP",
+      query: "search=Bersa+Thunder&caliber=.32+ACP",
+      alert_instantly: true,
+      email_enabled: false,
+    });
+    const card = signedIn.locator(".saved-search", {
+      hasText: "Bersa Thunder in .32 ACP",
+    });
+    await expect(card).toBeVisible();
+    await expect(card.locator(".saved-search__filters")).toContainText("“Bersa Thunder”");
+    await expect(card.locator(".saved-search__filters")).toContainText(".32 ACP");
+    await expect(card).toContainText("On your want list");
+    await card.getByRole("button", { name: /Delete/ }).click();
+  });
+
+  test("nothing to look for is refused", async ({ signedIn }) => {
+    await signedIn.goto("/saved-searches");
+    await signedIn.getByRole("button", { name: "New search from scratch" }).click();
+    const form = signedIn.getByTestId("scratch-search");
+    await form.getByRole("button", { name: "Save search" }).click();
+    await expect(form.getByRole("alert")).toHaveText(
+      "Give it at least one thing to look for.",
+    );
+  });
+});

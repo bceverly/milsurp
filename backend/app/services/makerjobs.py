@@ -5,8 +5,9 @@ and now a button too, and since 2026-10-14 a re-read of the catalog itself:
 
 * **variants** -- app.services.makersites: each modern model's versions, with
   MSRP, barrel, finish and UPC, from the readers built for Ruger, Smith &
-  Wesson, Kimber and Walther. They arrive as pending variants, approved in
-  each model's dialog on the Armory.
+  Wesson, Kimber, Walther and Rock Island Armory (Armscor), and for every
+  other maker from Bud's Gun Shop's catalog (makersites.BudsReader). They
+  arrive as pending variants, approved on the Armory's Variants tab.
 * **pages** -- app.services.makerpages: each modern model's own page on its
   manufacturer's site, suggested on the Armory's Manufacturer pages tab.
 * **barrels** -- app.services.barrels, frames and serials: every stored

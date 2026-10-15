@@ -60,6 +60,16 @@ _BARREL = re.compile(
 #: How close two barrel lengths must be to be the same barrel: 3.1" and 3.12"
 #: are one P365, 3" and 4" are two Trackers.
 BARREL_TOLERANCE = 0.15
+#: ...unless the listing states a whole number of inches, which a dealer has
+#: usually rounded: a MAX-9's 3.2" written 3", a Mini-14's 18.5" written 18",
+#: a PPK/S's 3.3" written 3". Measured on 2026-10-15, those 23 listings had no
+#: version at all under the tighter rule.
+ROUNDED_TOLERANCE = 0.5
+
+
+def barrel_tolerance(stated: float) -> float:
+    """How far a version's barrel may be from a listing's stated length."""
+    return ROUNDED_TOLERANCE if float(stated).is_integer() else BARREL_TOLERANCE
 
 
 def read_finish(title: str | None) -> str | None:
@@ -124,11 +134,11 @@ def candidates(session: Session, item: Item) -> list[ModelVariant]:
             if v.caliber is None or wanted in (s.lower() for s in v.caliber.spellings)
         ]
     if item.barrel_inches is not None:
+        slack = barrel_tolerance(item.barrel_inches)
         found = [
             v
             for v in found
-            if v.barrel_inches is None
-            or abs(v.barrel_inches - item.barrel_inches) <= BARREL_TOLERANCE
+            if v.barrel_inches is None or abs(v.barrel_inches - item.barrel_inches) <= slack
         ]
     if item.finish:
         found = [v for v in found if v.finish is None or v.finish == item.finish]

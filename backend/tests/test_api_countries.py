@@ -44,8 +44,15 @@ def _fresh_registry(restore_classification_rules):
 class TestTheSeededList:
     def test_the_migration_filled_it(self, client, admin_headers):
         rows = client.get("/api/countries", headers=admin_headers).json()
-        assert len(rows) == 38
-        assert {row["name"] for row in rows} >= {"Germany", "Russia", "United States"}
+        # 0029's 38, and the Philippines (0078, for Rock Island Armory).
+        assert len(rows) == 39
+        assert {row["name"] for row in rows} >= {
+            "Germany",
+            "Russia",
+            "United States",
+            "Philippines",
+        }
+        assert classify.extract_country("Made in the Philippines") == "Philippines"
 
     def test_it_says_what_the_code_said(self):
         """The table's whole promise. Checked here on the cases whose spelling
