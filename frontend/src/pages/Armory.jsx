@@ -21,7 +21,7 @@
  *   "7.65mm Browning" are one cartridge written two ways, and until they are
  *   one row a filter on either shows half the listings.
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api.js";
 import { useTitle } from "../hooks.js";
@@ -343,6 +343,11 @@ function powderLabel(powder) {
  */
 function ReloadingFields({ form, set }) {
   const [powders, setPowders] = useState(null);
+  // Each row's hint below the row, not below one field: a hint under one
+  // field of a row pushed that field taller than its neighbors, and the boxes
+  // stopped lining up (asked 2026-10-15).
+  const primerHint = useId();
+  const loadHint = useId();
   useEffect(() => {
     let live = true;
     api
@@ -361,14 +366,11 @@ function ReloadingFields({ form, set }) {
     <fieldset className="caliber-reloading" data-testid="caliber-reloading">
       <legend>Reloading</legend>
       <div className="form-row form-row--2">
-        <Field
-          label="Primer"
-          hint="Read from the article's infobox; choose one to set it by hand, blank to hand it back."
-        >
-          {(id, describedBy) => (
+        <Field label="Primer">
+          {(id) => (
             <select
               id={id}
-              aria-describedby={describedBy}
+              aria-describedby={primerHint}
               className="input"
               value={form.primer_size}
               onChange={set("primer_size")}
@@ -383,11 +385,11 @@ function ReloadingFields({ form, set }) {
           )}
         </Field>
         <Field label="Magnum primer">
-          {(id, describedBy) => (
-            <label className="checkbox">
+          {(id) => (
+            <label className="checkbox caliber-reloading__check">
               <input
                 id={id}
-                aria-describedby={describedBy}
+                aria-describedby={primerHint}
                 type="checkbox"
                 checked={form.primer_magnum}
                 disabled={!form.primer_size}
@@ -398,12 +400,16 @@ function ReloadingFields({ form, set }) {
           )}
         </Field>
       </div>
+      <p className="field__hint caliber-reloading__hint" id={primerHint}>
+        Read from the cartridge&rsquo;s article. Choose one to set it by hand, or blank to
+        hand it back to the article.
+      </p>
       <div className="form-row form-row--3">
-        <Field label="Powder" hint="What Graf & Sons sells, priced by the pound.">
-          {(id, describedBy) => (
+        <Field label="Powder">
+          {(id) => (
             <select
               id={id}
-              aria-describedby={describedBy}
+              aria-describedby={loadHint}
               className="input"
               value={form.powder_name}
               onChange={set("powder_name")}
@@ -420,10 +426,10 @@ function ReloadingFields({ form, set }) {
           )}
         </Field>
         <Field label="Charge (grains)">
-          {(id, describedBy) => (
+          {(id) => (
             <input
               id={id}
-              aria-describedby={describedBy}
+              aria-describedby={loadHint}
               className="input"
               type="number"
               step="0.1"
@@ -434,14 +440,11 @@ function ReloadingFields({ form, set }) {
             />
           )}
         </Field>
-        <Field
-          label="For a bullet of (grains)"
-          hint="Optional; prices that weight's bullet."
-        >
-          {(id, describedBy) => (
+        <Field label="Bullet (grains)">
+          {(id) => (
             <input
               id={id}
-              aria-describedby={describedBy}
+              aria-describedby={loadHint}
               className="input"
               type="number"
               step="1"
@@ -453,6 +456,10 @@ function ReloadingFields({ form, set }) {
           )}
         </Field>
       </div>
+      <p className="field__hint caliber-reloading__hint" id={loadHint}>
+        Powders and their price per pound from Graf &amp; Sons. The bullet weight is
+        optional: it prices the load with that weight&rsquo;s bullet.
+      </p>
     </fieldset>
   );
 }

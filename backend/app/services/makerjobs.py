@@ -9,8 +9,9 @@ and now a button too, and since 2026-10-14 a re-read of the catalog itself:
   each model's dialog on the Armory.
 * **pages** -- app.services.makerpages: each modern model's own page on its
   manufacturer's site, suggested on the Armory's Manufacturer pages tab.
-* **barrels** -- app.services.barrels and app.services.frames: every stored
-  gun's barrel length and threading, and every handgun's frame size, read
+* **barrels** -- app.services.barrels, frames and serials: every stored
+  gun's barrel length and threading, every handgun's frame size, and every
+  gun's serial and year made, read
   again from its own words, as ``cli.py barrels-backfill`` does,
   and the listings of models still made matched to their versions again. No
   site is asked anything.
@@ -78,6 +79,8 @@ def _summary(name: str, counts: dict[str, Any]) -> str:
             f"{counts.get('not_threaded', 0):,} stated not threaded; "
             f"{counts.get('frames_stated', 0):,} frame size(s) stated and "
             f"{counts.get('frames_from_armory', 0):,} from the armory; "
+            f"{counts.get('years_stated', 0):,} year(s) made stated and "
+            f"{counts.get('years_placed', 0):,} placed by serial; "
             f"{counts.get('relinked', 0):,} listing(s) matched to a different version."
         )
     if name == "variants":

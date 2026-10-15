@@ -105,7 +105,9 @@ test("Site settings re-reads every gun's barrel", async ({ signedIn }) => {
   await expect(section.getByTestId("manufacturer-job-barrels")).toContainText(
     "5,085 barrel length(s)",
   );
-  await section.getByRole("button", { name: "Re-read barrels and frame sizes" }).click();
+  await section
+    .getByRole("button", { name: "Re-read barrels, frames and years" })
+    .click();
   await expect.poll(() => asked).toEqual(["/api/manufacturer-data/barrels/run"]);
   await expect(section.getByRole("button", { name: "Asked for" })).toBeDisabled();
 });

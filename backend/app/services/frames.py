@@ -248,15 +248,30 @@ def backfill(session: Any) -> dict[str, int]:
     settings re-read share it. ORM rather than Core: the model's size is
     the fallback."""
     from sqlalchemy import select
-    from sqlalchemy.orm import selectinload
+    from sqlalchemy.orm import load_only, selectinload
 
-    from ..models import Item
+    from ..models import FirearmModel, Item
 
     counts = {"examined": 0, "stated": 0, "from_armory": 0}
+    # Only the columns read and written: migration 0075 runs this, and a
+    # whole row names every column added since, which 0075's table lacks.
     query = (
         select(Item)
         .where(Item.is_pistol.is_(True), Item.is_parts_kit.is_(False))
-        .options(selectinload(Item.firearm_model))
+        .options(
+            load_only(
+                Item.id,
+                Item.title,
+                Item.description,
+                Item.kind,
+                Item.is_pistol,
+                Item.is_parts_kit,
+                Item.firearm_model_id,
+                Item.frame_size,
+                Item.frame_quote,
+            ),
+            selectinload(Item.firearm_model).load_only(FirearmModel.id, FirearmModel.frame_size),
+        )
     )
     for item in session.execute(query).scalars():
         counts["examined"] += 1

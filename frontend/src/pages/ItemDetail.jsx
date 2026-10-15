@@ -212,6 +212,43 @@ function BarrelFacts({ item }) {
   );
 }
 
+/** "1943", or "1943–1944" for a range. */
+export function yearsText(from, to) {
+  if (from == null) return null;
+  return to == null || to === from ? String(from) : `${from}–${to}`;
+}
+
+/**
+ * When it was made (app/services/serials.py, asked for on 2026-10-15): the
+ * year the listing states, in its words; or "about" the years its serial
+ * falls between, among this model and maker's listings that state theirs,
+ * naming the two. And the serial itself, as the listing gives it. Where
+ * neither says, the C&R reader's year as before (app/services/curio.py),
+ * which is looser and stays the one the C&R verdict is judged on.
+ */
+function MadeFacts({ item }) {
+  const years = yearsText(item.made_from, item.made_to);
+  return (
+    <>
+      {!years && <Fact label="Made">{item.manufacture_year}</Fact>}
+      {years && (
+        <div data-testid="year-made">
+          <div className="fact__label">Made</div>
+          <div className="fact__value">
+            {item.made_source === "serial" ? `about ${years}` : years}
+          </div>
+          {item.made_source === "serial" ? (
+            <span className="fact__source">from its serial, {item.made_quote}</span>
+          ) : (
+            item.made_quote && <div className="fact__quote">“{item.made_quote}”</div>
+          )}
+        </div>
+      )}
+      {item.serial && <Fact label="Serial">{item.serial}</Fact>}
+    </>
+  );
+}
+
 function CollectorFacts({ item }) {
   const quotes = item.trait_quotes || {};
   const finish = said(item.refinished, "Refinished", "Original");
@@ -1517,7 +1554,7 @@ export default function ItemDetail() {
             {/* Ahead of the rest: for somebody buying to their own license
                 it decides whether the listing is reachable at all. */}
             <CurioFact item={item} />
-            <Fact label="Made">{item.manufacture_year}</Fact>
+            <MadeFacts item={item} />
             <Fact label="Manufacturer" always source={sources.manufacturer}>
               {item.manufacturer}
               {item.manufacturer && (

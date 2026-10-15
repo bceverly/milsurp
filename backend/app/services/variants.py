@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import select
 
 from ..models import ArmoryStatus, Item, ModelVariant
-from . import barrels, frames
+from . import barrels, frames, serials
 from .carry import _FRACTIONS
 
 if TYPE_CHECKING:
@@ -147,11 +147,13 @@ def settle(session: Session, item: Item) -> None:
 
     The barrel for every gun (app.services.barrels, 2026-10-13) and the frame
     size for every handgun (app.services.frames, 2026-10-14), both read from
-    the description too; the finish and the variant only for a firearm whose
+    the description too; when it was made (app.services.serials, 2026-10-15);
+    the finish and the variant only for a firearm whose
     model is in modern production, the only ones with variants.
     """
     barrels.apply(item)
     frames.apply(item)
+    serials.apply(session, item)
     model = item.firearm_model
     if model is None or not model.modern_production or not (item.is_rifle or item.is_pistol):
         item.variant_id = None

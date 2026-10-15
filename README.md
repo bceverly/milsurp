@@ -255,6 +255,11 @@ changed — filtered to the sites you care about and capped so it stays readable
   in-stock new price, how many stores have it, how far under new this one
   is, and a link to the page the price came from. Asked hourly, at most once
   a day per version, and only for versions with a listing for sale.
+- **When it was made.** A listing shows its serial number, where the
+  listing labels one, and the year the gun was made: as the listing states it,
+  quoted, or else placed by its serial between this model and maker's
+  listings that state theirs, shown as "about 1943–1944" with the two it
+  fell between. A model whose serials restart every year is never placed.
 - **Wikipedia.** A small link beside the maker's and the model's names on a
   listing, when the armory has an article for either. Articles are proposed
   by `cli.py armory wikipedia` and accepted or rejected on the Armory page.

@@ -5490,6 +5490,114 @@ on the host system like we do on the other projects?"
   longest pole: `armory.spec.js` loads it over and over and takes about ten
   of those minutes on its own.
 
+### When a gun was made: its serial and the year — **Shipped** 2026-10-15
+
+Asked for: capture each listing's serial number, store it and show it, and
+the year of manufacture too, "parsed from the description or, if that cannot
+be done, ... from the serial number lookup" (`services/serials.py`, migration
+0077).
+
+* **The serial** is read only where the listing labels it, because a
+  description is full of other numbers (SKUs, stock and drawing numbers).
+  * Labels read: "Serial no. 165791", "Serial # 5121908", "Serial Number:
+    253765", Kittery's "Serial#: AB167255", "SN: 43575", "S/N 780xx".
+  * A partly hidden serial is kept as the range it could be: "10550xx" is
+    1,055,000 to 1,055,099, and "in the 3,733,xxx range" works the same way.
+  * The letter prefix is part of the serial: a "BC" block is not an "AG"
+    block.
+* **The year, from the description first.** Only phrases about making are
+  read: "Manufactured in 1945", "Date Manufactured: 1942", "circa mid-late
+  1942", "placing production in approximately 1945", "1917 production",
+  "circa 1840s" (read as 1840 to 1849).
+  * Never a bare year, which is as often a model ("Model 1903") or an import
+    ("1971 IMPORT").
+  * Never the start of a production run ("began M1903 production in
+    September 1941").
+* **Then the serial, placed by evidence.** The published serial tables
+  could not be fetched while this was built, and a table typed from memory
+  could be wrong. So a serial is placed among the listings of the same
+  model and maker that state both a serial and a year: the nearest stated
+  serial below it and the nearest above, when they agree within two years.
+  The result is shown as "about 1943–1944", naming the two listings, and
+  never extrapolated past either end.
+  * A model only qualifies when at least five of its listings give both a
+    serial and a year, and those years rise with the serials. That leaves
+    out, on its own evidence, the guns whose numbers restart each year or
+    block: the P38, Luger, K98k and Nambu.
+  * A stated year that both of its neighbors contradict (a 1952 National
+    Match rebuild among 1943 Springfields) is left out of the evidence.
+* **Measured on production's 9,276 gun listings that mention a serial or a
+  date:**
+  * 2,472 serials and 3,022 stated years.
+  * Of the listings with a serial but no stated year, 44 can be placed
+    today: 19 M1 Garands, 12 M1 Carbines, M1903s and others. The number
+    grows as more listings state their year.
+  * Leave-one-out test: placing each stating listing from the others gave
+    46 right and 8 wrong. Of the 8, three were the dealer's stated year
+    being wrong (a sale or rebuild year), two were Garands at the 1942/1943
+    boundary, and two were Model 1868 Trapdoors filed under the Model 1873.
+* **On the listing page**, "Made" shows the stated year with its quote, or
+  "about" the placed years with the two listings it fell between. "Serial"
+  shows the serial as given. Where neither applies, "Made" shows the C&R
+  reader's year as before (`curio.py`), so there is still only one line.
+* Read on every scan. Site settings' re-read is now "Re-read barrels,
+  frames and years". The CSV export gains `serial` and `year_made`.
+* Fixed along the way: migration 0075's frame-size backfill loaded whole
+  listing rows, so any later column broke it on a fresh database. It now
+  loads only the columns it uses, and so does the new backfill.
+
+### Serial tables, and what else to do with the year — **Planned**
+
+Not done yet; written down so it is not forgotten.
+
+* **Published serial-to-date tables**, as a curated file shipped like the
+  armory and consulted before the evidence. Each row: model, maker, prefix,
+  serial range, years, and the source it came from. Start with the
+  well-documented ones:
+  * M1 Garand (Springfield, Winchester, International Harvester,
+    Harrington & Richardson);
+  * M1 Carbine contractor blocks;
+  * the 1903 (Springfield, Rock Island, Remington, Smith-Corona);
+  * the 1911/1911A1 (Colt and the wartime contractors);
+  * then Winchester, Marlin's year letters, Colt, Glock's year prefixes,
+    and the K98k and P38 by their year codes plus serial.
+  The sources still need fetching: this session's web search had run out.
+* **Ruger's online serial lookup**: check its terms before any automated
+  use, as was done for loaddata.com.
+* **Modern Walther** (PDP, PPS, PD380): Walther publishes nothing, so
+  nothing to do.
+* **The C&R verdict** could take a year stated in a listing's own words, or
+  the later end of a range placed by serial, where the C&R reader found
+  none. That is a regulated-purchase answer, so it should be its own change
+  with its own measurement.
+* **A Year made filter** on the Inventory rail, like Barrel. `made_from` is
+  already indexed.
+* **Editing a serial table from the Armory**, once the tables exist.
+
+### The last proposals reviewed — **Done** 2026-10-15
+
+All six waiting models and 201 waiting variants were approved after these fixes:
+
+* **Model 63:** kept as is. It is Smith & Wesson's current .22 LR J-frame,
+  not a cut-off 637.
+* **Renamed:**
+  * "Model 396 Night" became the Model 396 (Night Guard is a series name).
+  * "Model 43 C" became the Model 43C.
+  * The "X95" proposal became the IWI Tavor X95: Israel Weapon Industries,
+    a rifle, still made.
+* **M&P15-22:** a model of its own (.22 LR). Its twelve products had been
+  filed under the M&P15. It sits ahead of the M&P15 in matching order,
+  because the M&P15's "M&P 15" spelling also matches "M&P 15-22".
+* **Moved:** the Model 1854 in .360 Buckhammer, from the Model 360 revolver
+  to the Model 1854.
+* **Calibers:**
+  * The M&P FPC 5.7 is 5.7x28mm, not 9mm.
+  * The Ruger American Rifles in 6mm ARC, 6mm Creedmoor, 7mm-08 and 7mm PRC
+    lost their vague "6mm" and "7mm".
+  * Calibers were filled in where the product or model settles them.
+* The caliber dialog's Reloading boxes now line up on each row. Each row's
+  hint sits under the row, and the labels fit on one line.
+
 ### What it costs to reload one round — **Shipped** 2026-10-14
 
 Asked for: the bullet, a new case, the powder and the primer, priced together,

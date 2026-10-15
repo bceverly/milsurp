@@ -3945,6 +3945,20 @@
   padding: 0 6px;
   font-weight: 600;
 }
+/* Each row's controls on one line: the checkbox centered on the dropdown
+   beside it, and the hint for the row under the row. */
+.caliber-reloading__check {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+}
+.caliber-reloading__hint {
+  display: block;
+  margin: 6px 0 14px;
+}
+.caliber-reloading__hint:last-child {
+  margin-bottom: 0;
+}
 .ammo__weights {
   font-size: 13.5px;
   width: 100%;

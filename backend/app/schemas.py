@@ -1251,6 +1251,15 @@ class ItemOut(UTCModel):
     #: for it -- none where it came from the model's armory row.
     frame_size: str | None = None
     frame_quote: str | None = None
+    #: When it was made (app.services.serials): the serial the listing gives,
+    #: and the years -- "stated" in its words, or "serial", placed among the
+    #: listings that state theirs. ``made_quote`` is the words, or the two
+    #: listings it fell between.
+    serial: str | None = None
+    made_from: int | None = None
+    made_to: int | None = None
+    made_source: str | None = None
+    made_quote: str | None = None
 
     #: What it costs at the reader's dealer: the price, the shop's firearm
     #: shipping and the reader's transfer fee. Firearms only; each part None

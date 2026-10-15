@@ -232,6 +232,25 @@ test("a caliber's load is typed on its dialog, the powder picked from Graf's", a
     "Hodgdon Varget — $52.12/lb",
     "IMR 3031 (out of stock)",
   ]);
+  // Each row's boxes on one line (asked 2026-10-15): the hints sit under the
+  // row, so none pushes its own field down.
+  const tops = (...labels) =>
+    Promise.all(
+      labels.map(async (label) =>
+        Math.round((await fields.getByLabel(label).boundingBox()).y),
+      ),
+    );
+  const [powderTop, chargeTop, bulletTop] = await tops(
+    "Powder",
+    "Charge (grains)",
+    "Bullet (grains)",
+  );
+  expect([chargeTop, bulletTop]).toEqual([powderTop, powderTop]);
+  const primerBox = await fields.getByLabel("Primer", { exact: true }).boundingBox();
+  const magnumBox = await fields.getByLabel("Magnum primer").boundingBox();
+  expect(
+    Math.abs(primerBox.y + primerBox.height / 2 - (magnumBox.y + magnumBox.height / 2)),
+  ).toBeLessThan(3);
   await powder.selectOption("Hodgdon Varget");
   await fields.getByLabel("Charge (grains)").fill("46.5");
   // The magnum box waits for a primer.

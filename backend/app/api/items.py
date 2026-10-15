@@ -816,6 +816,8 @@ EXPORT_COLUMNS: tuple[str, ...] = (
     "barrel_inches",
     "barrel_threaded",
     "frame_size",
+    "serial",
+    "year_made",
     "site",
     "url",
     "is_sold",
@@ -831,6 +833,18 @@ EXPORT_COLUMNS: tuple[str, ...] = (
 #: silently truncating, because an export that quietly stops is worse than one
 #: that refuses.
 EXPORT_LIMIT = 25_000
+
+
+def _year_made(item: Item) -> str | None:
+    """ "1943", or "1943-1944" for a range; "about" when placed by serial."""
+    if item.made_from is None:
+        return None
+    years = (
+        str(item.made_from)
+        if item.made_to in (None, item.made_from)
+        else f"{item.made_from}-{item.made_to}"
+    )
+    return f"about {years}" if item.made_source == "serial" else years
 
 
 def _export_row(item: Item, site_names: dict[int, str]) -> dict[str, object]:
@@ -851,6 +865,8 @@ def _export_row(item: Item, site_names: dict[int, str]) -> dict[str, object]:
         "barrel_inches": item.barrel_inches,
         "barrel_threaded": item.barrel_threaded,
         "frame_size": item.frame_size,
+        "serial": item.serial,
+        "year_made": _year_made(item),
         "site": site_names.get(item.site_id, ""),
         "url": item.url,
         "is_sold": item.is_sold,

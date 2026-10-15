@@ -1047,6 +1047,19 @@ class Item(Base, TimestampMixin):
     #: with the words in ``frame_quote``, or else its model's, with no quote.
     frame_size: Mapped[str | None] = mapped_column(String(16), index=True)
     frame_quote: Mapped[str | None] = mapped_column(String(200))
+    #: When it was made (app.services.serials, 2026-10-15). The serial the
+    #: listing labels as one, and the number in it -- a range, for a partly
+    #: hidden "10550xx". Then the years it was made: as the listing states
+    #: them ("stated", the words in ``made_quote``), or placed by its serial
+    #: among the listings that state theirs ("serial", the two it fell
+    #: between in ``made_quote``).
+    serial: Mapped[str | None] = mapped_column(String(32))
+    serial_low: Mapped[int | None] = mapped_column(Integer)
+    serial_high: Mapped[int | None] = mapped_column(Integer)
+    made_from: Mapped[int | None] = mapped_column(Integer, index=True)
+    made_to: Mapped[int | None] = mapped_column(Integer)
+    made_source: Mapped[str | None] = mapped_column(String(16))
+    made_quote: Mapped[str | None] = mapped_column(String(200))
 
     is_sold: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     #: When a scan (or the watchlist poller) first saw this listing marked
