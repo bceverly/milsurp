@@ -5490,6 +5490,32 @@ on the host system like we do on the other projects?"
   longest pole: `armory.spec.js` loads it over and over and takes about ten
   of those minutes on its own.
 
+### The first Bud's run reviewed — **Done** 2026-10-16
+
+The first full "Update MSRPs and variants" with the Bud's Gun Shop reader
+(3 hours 6 minutes, 259 models) left 2,713 versions and 323 proposed models
+waiting.
+
+* **Models:**
+  * 259 approved, kinds and names put right where needed: the Beretta 686,
+    A400 and AX800 and Browning 725 and A5 were shotguns marked as rifles;
+    the M400, DB15 and MR556 were AR pattern; Kahr "CT4543" is the CT45.
+  * 55 merged into the row they duplicate, such as Winchester "Model 92" into
+    the Model 1892, Colt "CR6920" and "M4" into the LE6920, Howa "1500" into
+    the M1500, and "Colt Third Model Deringer" into its Derringer.
+  * 14 switched off: a BB gun, a flare pistol, a starter pistol, fragments
+    of a title ("ARMS COMPANY FULTON MODEL 12" was a 12-gauge), and the
+    generic "AR9".
+* **All 2,713 versions approved**, after moving 11 that were left under
+  merged models, and correcting a 6.8 SPC recorded as 8mm Mauser.
+* **A proposed model's bare line as a spelling** (`makersites._distinctive`).
+  A proposal took its product line alone as a second spelling, and Bud's
+  lines are often just a number: "44", "686", "1911", "617". Each is another
+  maker's model too, and "44", merged into the Rossi R92, took a Belgian .44
+  Russian revolver for one. 68 such spellings came off today's models. A line
+  is now kept as a spelling only when it has a letter and more than three
+  characters ("SUB2000"); the full name ("Rossi R92") always stays.
+
 ### Capacity, and searching by capacity and frame size — **Shipped** 2026-10-16
 
 Asked for: "i'd like to be able to search on frame size in the inventory",
@@ -5694,20 +5720,30 @@ still made, so neither lookup reached it. Tisas had no manufacturer row.
   "Filipino"), added to its list and, by migration 0078, to the countries
   table, so the armory can name it without splitting a filter in two.
 
-### Tisas's US site — **Waiting**
+### Tisas's own site read — **Shipped** 2026-10-16
 
-Tisas has no reader yet. SDS Arms stopped importing Tisas in February 2026
-(SDS's notice of 2/18/26). The new US importer is "Tisas Arms Corp", whose
-site could not be confirmed from here:
+Tisas's new US importer, Tisas Arms Corp, is at tisasarmsusa.com, as the user
+supplied. Earlier tries had found only a parked domain, a firewall that
+refused us, and the factory's Turkish site (SDS Arms stopped importing Tisas
+in February 2026).
 
-* `tisas-us.com` redirects to that SDS notice.
-* `tisasarms.us` is a parked domain.
-* `tisasusa.com` refuses automated requests (403), and is not worked around.
-* `tisasarms.com` is the factory's Turkish site, with no US model numbers
-  or MSRPs. It is recorded as Tisas's website, so the manufacturer-page
-  finder can use it.
-
-With the importer's site confirmed, a reader is a day's work, like Armscor's.
+* **A sixth reader** (`makersites.TisasReader`). The site is BigCommerce, and
+  its "All Pistols" page lists the whole lineup in one request: 74 tiles,
+  each with its family, name, caliber, finish and MSRP. Each product's own
+  page gives Tisas's SKU, the UPC and the barrel. A product already recorded
+  is refreshed from its tile, so a run after the first is one request.
+* The "Legacy Models" family is the retired one and is passed over.
+* **Families to models:**
+  * PX-9 goes to the armory's PX9.
+  * 1911 Carry, Classics, Duty and Double Stack go to the Tisas 1911.
+  * PX-5.7 goes to the Tisas PX-5.7.
+  * Regent BR9 goes to the Tisas Regent BR9. Bud's had misspelled it "B9R";
+    the model was renamed in production.
+  * Fatih is proposed as a new model.
+* Versions Bud's had recorded for Tisas are recognized by their UPC, not
+  recorded again.
+* Tisas's website in the armory is now tisasarmsusa.com, which the
+  manufacturer-page finder uses too.
 
 ### When a gun was made: its serial and the year — **Shipped** 2026-10-15
 

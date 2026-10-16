@@ -647,6 +647,14 @@ class TestTheBudsReader:
         found = reader._owner(name, rows)
         assert (found.name if found else None, reader.line(name)) == (owner, line)
 
+    def test_a_proposed_models_bare_line_is_a_spelling_only_if_distinctive(self):
+        """Bud's lines "44", "686" and "1911" were each another maker's model
+        (2026-10-16): the proposal keeps its full name, not those."""
+        assert makersites._distinctive("SUB2000")
+        assert not makersites._distinctive("44")
+        assert not makersites._distinctive("1911")
+        assert not makersites._distinctive("AR9")
+
     def test_a_run_for_a_maker_with_no_reader_of_its_own(self, clean_db):
         g19, g17 = _modern(clean_db, "Glock", ("Glock 19", "G19"), ("Glock 17", None))
         site = BudsSite()
@@ -679,3 +687,71 @@ class TestTheBudsReader:
         site.asked.clear()
         makersites.run(clean_db, site, maker="Glock", log=said.append)
         assert BUDS_G19 not in site.asked
+
+
+TISAS = "https://tisasarmsusa.com/"
+
+
+class TestTheTisasReader:
+    """Tisas USA's own site, added 2026-10-16; pages recorded that day."""
+
+    def test_the_lineup_from_one_page(self):
+        tiles = makersites.tisas_tiles(page("tisas-all-pistols.html.gz"), TISAS)
+        assert len(tiles) == 74
+        assert tiles[0] == {
+            "family": "PX-9",
+            "name": "PX-9D",
+            "caliber": "9MM",
+            "finish": "QPQ",
+            "msrp": 379.99,
+            "url": TISAS + "px-9d/",
+        }
+
+    def test_a_product_page(self):
+        assert makersites.tisas_product(page("tisas-px-9d.html.gz")) == {
+            "sku": "15000100",
+            "upc": "711500175258",
+            "msrp": 379.99,
+            "barrel": 4.1,
+        }
+
+    def test_each_family_goes_to_its_model(self):
+        rows = [
+            FirearmModel(name="PX9", aliases="PX-9"),
+            FirearmModel(name="Tisas Arms 1911", aliases="Tisas 1911"),
+            FirearmModel(name="Tisas PX-5.7"),
+        ]
+        reader = makersites.TisasReader()
+
+        def owner(family):
+            found = reader._owner(family, rows)
+            return found.name if found else None
+
+        assert owner("PX-9") == "PX9"
+        assert owner("1911 Carry") == "Tisas Arms 1911"
+        assert owner("1911 Double Stack") == "Tisas Arms 1911"
+        assert owner("PX-5.7") == "Tisas PX-5.7"
+        assert owner("Fatih") is None
+
+    def test_a_run_reads_the_pages_it_has_not_seen(self, clean_db):
+        (px9,) = _modern(clean_db, "Tisas", ("PX9", "PX-9"))
+        site = RecordedSite(
+            {
+                TISAS + "all-pistols/": "tisas-all-pistols.html.gz",
+                TISAS + "px-9d/": "tisas-px-9d.html.gz",
+            }
+        )
+        makersites.run(clean_db, site, maker="Tisas", log=lambda _m: None)
+        (version,) = px9.variants
+        assert (version.maker_part, version.upc, version.msrp, version.barrel_inches) == (
+            "15000100",
+            "711500175258",
+            379.99,
+            4.1,
+        )
+        # The retired family's pages are never asked for.
+        assert not any("legacy" in url for url in site.asked)
+        # A second run takes the MSRP from the tile: no product page again.
+        site.asked.clear()
+        makersites.run(clean_db, site, maker="Tisas", log=lambda _m: None)
+        assert TISAS + "px-9d/" not in site.asked

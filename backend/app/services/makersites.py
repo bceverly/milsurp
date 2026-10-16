@@ -830,6 +830,161 @@ def armscor_product(html: str, url: str) -> tuple[str, Found] | None:
     )
 
 
+class TisasReader:
+    """tisasarmsusa.com, Tisas USA: one page lists the whole lineup.
+
+    Added on 2026-10-16, once the new US importer's site was known. A
+    BigCommerce store whose "All Pistols" page carries every pistol as a tile
+    -- its family ("PX-9", "1911 Carry", "Regent BR9"), its name, caliber,
+    finish and MSRP -- in one request. Each product's own page gives Tisas's
+    SKU, the UPC and the barrel. The "Legacy Models" family is the retired
+    one and is passed over, as a current site is what says a model is still
+    made.
+
+    **A product goes to the model its family names**, as Armscor's do: the
+    four 1911 families are the armory's Tisas 1911, "PX-9" its PX9. A family
+    no model names is proposed as one.
+    """
+
+    maker = "Tisas"
+    home = "https://tisasarmsusa.com/"
+    _MAKER_WORDS = frozenset({"tisas", "arms", "usa"})
+    #: The retired family.
+    RETIRED = frozenset({"legacy models"})
+
+    def __init__(self) -> None:
+        self._catalog: list[tuple[str, Found]] | None = None
+
+    def catalog(self, ctx: ScrapeContext, siblings: list[FirearmModel]) -> list[tuple[str, Found]]:
+        """Every current pistol, as ``(family, found)``."""
+        if self._catalog is not None:
+            return self._catalog
+        known = {
+            v.maker_url: v
+            for model in siblings
+            for v in model.variants
+            if v.maker_url and _on_site(v.maker_url, "tisasarmsusa.com")
+        }
+        found: list[tuple[str, Found]] = []
+        for tile in tisas_tiles(ctx.get_text(urljoin(self.home, "all-pistols/")), self.home):
+            if tile["family"].lower() in self.RETIRED:
+                continue
+            seen = known.get(tile["url"])
+            if seen is not None and seen.maker_part:
+                # Recorded already: the tile's MSRP is all that moves.
+                found.append(
+                    (
+                        tile["family"],
+                        Found(
+                            maker_part=seen.maker_part,
+                            label=seen.label,
+                            upc=seen.upc,
+                            msrp=tile["msrp"],
+                            url=tile["url"],
+                        ),
+                    )
+                )
+                continue
+            try:
+                page = tisas_product(ctx.get_text(tile["url"]))
+            except ScrapeError:
+                continue
+            number = page.get("sku")
+            if not number:
+                continue
+            found.append(
+                (
+                    tile["family"],
+                    Found(
+                        maker_part=number,
+                        label=_label("Tisas", tile["name"], tile["caliber"], number),
+                        caliber=tile["caliber"],
+                        barrel_inches=page.get("barrel"),
+                        finish=variants.normalize_finish(tile["finish"])
+                        or variants.read_finish(tile["name"]),
+                        upc=page.get("upc"),
+                        msrp=tile["msrp"] or page.get("msrp"),
+                        url=tile["url"],
+                        kind=FirearmKind.PISTOL,
+                    ),
+                )
+            )
+        self._catalog = found
+        return found
+
+    def _owner(self, family: str, models: list[FirearmModel]) -> FirearmModel | None:
+        words = _tokens(family, self._MAKER_WORDS)
+        best: tuple[int, FirearmModel] | None = None
+        for model in models:
+            for spelling in model.spellings:
+                need = _tokens(spelling, self._MAKER_WORDS)
+                if (
+                    need
+                    and _specific(need)
+                    and words[: len(need)] == need
+                    and (best is None or len(need) > best[0])
+                ):
+                    best = (len(need), model)
+        return best[1] if best else None
+
+    def read(
+        self, ctx: ScrapeContext, model: FirearmModel, siblings: list[FirearmModel]
+    ) -> list[Found]:
+        return [
+            found
+            for family, found in self.catalog(ctx, siblings)
+            if self._owner(family, siblings) is model
+        ]
+
+    def unowned(self, ctx: ScrapeContext, siblings: list[FirearmModel]) -> dict[str, list[Found]]:
+        lines: dict[str, list[Found]] = {}
+        for family, found in self.catalog(ctx, siblings):
+            if self._owner(family, siblings) is None:
+                lines.setdefault(family, []).append(found)
+        return lines
+
+
+def tisas_tiles(html: str, home: str) -> list[dict[str, Any]]:
+    """The tiles of Tisas USA's All Pistols page."""
+    tiles = []
+    for article in BeautifulSoup(html, "html.parser").select("article.sku"):
+        try:
+            facts = json.loads(str(article.get("data-s") or "{}"))
+        except ValueError:
+            facts = {}
+        name = article.select_one(".n")
+        link = article.select_one("a.buy[href]")
+        price = article.select_one(".price")
+        if not (name and link):
+            continue
+        tiles.append(
+            {
+                "family": str(facts.get("Family") or ""),
+                "name": " ".join(name.get_text(" ", strip=True).split()),
+                "caliber": facts.get("Caliber"),
+                "finish": facts.get("Finish"),
+                "msrp": _money(price.get_text(" ", strip=True)) if price else None,
+                "url": urljoin(home, str(link.get("href"))),
+            }
+        )
+    return tiles
+
+
+def tisas_product(html: str) -> dict[str, Any]:
+    """A Tisas USA product page's SKU, UPC, MSRP and barrel."""
+    lines = _lines(html)
+    found: dict[str, Any] = {
+        "sku": _after(lines, "SKU"),
+        "upc": _digits(_after(lines, "UPC")),
+        "msrp": _money(_after(lines, "MSRP")),
+        "barrel": None,
+    }
+    barrel = _after(lines, "Barrel")
+    if barrel:
+        found["barrel"] = variants.read_barrel(barrel.lstrip("· ").strip())
+    return found
+
+
 #: Bud's brand names where none of the armory's spellings of the maker is one.
 BUDS_BRANDS = {
     "Heckler Koch": "HK",
@@ -1177,13 +1332,22 @@ def buds_product(html: str) -> dict[str, Any] | None:
     }
 
 
-Reader = RugerReader | SmithWessonReader | KimberReader | WaltherReader | ArmscorReader | BudsReader
+Reader = (
+    RugerReader
+    | SmithWessonReader
+    | KimberReader
+    | WaltherReader
+    | ArmscorReader
+    | TisasReader
+    | BudsReader
+)
 READERS: dict[str, Callable[[], Reader]] = {
     "Ruger": RugerReader,
     "Smith & Wesson": SmithWessonReader,
     "Kimber": KimberReader,
     "Walther": WaltherReader,
     "Rock Island Armory": ArmscorReader,
+    "Tisas": TisasReader,
 }
 
 
@@ -1421,6 +1585,13 @@ def _kind_of(found: list[Found]) -> FirearmKind | None:
     return kinds.pop() if len(kinds) == 1 else None
 
 
+def _distinctive(spelling: str) -> bool:
+    """A spelling that names one gun without its maker: a letter in it, and
+    more than three characters."""
+    text = spelling.strip()
+    return bool(re.search(r"[A-Za-z]", text)) and len(text) > 3
+
+
 def _propose_models(
     session: Session,
     firm: Manufacturer,
@@ -1465,7 +1636,11 @@ def _propose_models(
     for _words, line, found in families:
         model = FirearmModel(
             name=f"{firm.name} {line}",
-            aliases=line,
+            # The line alone as a spelling only where it says enough on its
+            # own: "SUB2000" does, Bud's "44", "686" or "1911" do not -- each
+            # was another maker's model too, and "44" took a .44 Russian
+            # revolver for the Rossi R92 (2026-10-16).
+            aliases=line if _distinctive(line) else None,
             status=ArmoryStatus.PENDING,
             modern_production=True,
             # The maker's country, and a kind where its products name one: a
