@@ -940,7 +940,10 @@ class BudsReader:
     new (a police trade-in is not), and gives the UPC and the maker's own
     model number (Glock's "P61950203"). A product already recorded is
     refreshed from its tile alone. The UPC is what then finds the street
-    price at gun.deals, as for every other version.
+    price at gun.deals, as for every other version. Only the products of the
+    armory's models have their pages read, and :data:`PER_UNNAMED_LINE` of
+    any other line's: a list page carries 24 products, and a product page
+    one.
 
     **A product goes to the model it names.** "Glock 19 Gen6 Optic Ready" is
     a Glock 19; "Glock 19X V-Series" is not, since the X is part of the
@@ -956,6 +959,11 @@ class BudsReader:
     #: The most list pages read for one category: Glock's in-stock handguns
     #: were six on 2026-10-15.
     PAGES = 20
+    #: Product pages read for a line no model names: enough for a proposed
+    #: model to arrive with versions, not the whole line. Browning has one
+    #: model still made here and a thousand products at Bud's; reading every
+    #: one made the first run some 6,000 requests (measured 2026-10-16).
+    PER_UNNAMED_LINE = 3
 
     def __init__(self, maker: str, brand: str) -> None:
         self.maker = maker
@@ -977,6 +985,7 @@ class BudsReader:
             if v.maker_url and _on_site(v.maker_url, "budsgunshop.com")
         }
         found: dict[str, tuple[str, Found]] = {}
+        unnamed: dict[str, int] = {}
         for category, kind in self.CATEGORIES:
             for number in range(1, self.PAGES + 1):
                 try:
@@ -988,6 +997,14 @@ class BudsReader:
                 for card in cards:
                     if card.url in found:
                         continue
+                    if self._owner(card.name, siblings) is None and card.url not in known:
+                        # A line no model names: a few of its products, to
+                        # propose it with; nothing at all for a name with
+                        # no designation in it.
+                        line = self.line(card.name)
+                        if line is None or unnamed.get(line, 0) >= self.PER_UNNAMED_LINE:
+                            continue
+                        unnamed[line] = unnamed.get(line, 0) + 1
                     product = self._product(ctx, card, known.get(card.url), kind)
                     if product is not None:
                         found[card.url] = (card.name, product)
@@ -1279,7 +1296,14 @@ def run(
     log: Callable[[str], None] = print,
 ) -> dict[str, int]:
     """Read every modern-production model of a maker with a reader."""
-    totals = {"models": 0, "proposed": 0, "refreshed": 0, "unread": 0, "models_proposed": 0}
+    totals = {
+        "models": 0,
+        "proposed": 0,
+        "refreshed": 0,
+        "unread": 0,
+        "models_proposed": 0,
+        "errors": 0,
+    }
     modern = list(
         session.execute(
             select(FirearmModel).where(
@@ -1287,13 +1311,22 @@ def run(
             )
         ).scalars()
     )
-    for firm, reader in _readers(session, maker):
+    plan = [
+        (firm, reader, [model for model in modern if firm in model.manufacturers])
+        for firm, reader in _readers(session, maker)
+    ]
+    plan = [(firm, reader, siblings) for firm, reader, siblings in plan if siblings]
+    errored: set[str] = set()
+    for at, (firm, reader, siblings) in enumerate(plan, start=1):
         name = firm.name
-        siblings = [model for model in modern if firm in model.manufacturers]
-        if not siblings:
-            continue
         ctx.keep_at_least(reader.home, 3.0)
         where = "Bud's Gun Shop" if isinstance(reader, BudsReader) else f"{name}'s site"
+        # A heading for Site settings' progress line (services/makerjobs).
+        log(
+            f"{where if isinstance(reader, BudsReader) else name}: "
+            f"{name if isinstance(reader, BudsReader) else 'its own site'} "
+            f"({at} of {len(plan)} makers)"
+        )
         for model in siblings:
             totals["models"] += 1
             try:
@@ -1301,6 +1334,7 @@ def run(
             except ScrapeError as exc:
                 log(f"  {model.name}: could not read {where} ({exc}).")
                 totals["unread"] += 1
+                errored.add(name)
                 continue
             if not found:
                 log(f"  {model.name}: nothing found on {where}.")
@@ -1323,6 +1357,7 @@ def run(
             totals["models_proposed"] = totals.get("models_proposed", 0) + _propose_models(
                 session, firm, lines, log
             )
+    totals["errors"] = len(errored)
     return totals
 
 

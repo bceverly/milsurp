@@ -4038,3 +4038,15 @@
 .scratch-search p {
   margin: 0;
 }
+
+/* Where a Site settings job stands (2026-10-16). */
+.job-status p {
+  margin: 8px 0 0;
+}
+.job-status .chip {
+  vertical-align: baseline;
+}
+.job-status__summary {
+  display: block;
+  margin-top: 4px;
+}

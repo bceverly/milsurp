@@ -989,6 +989,7 @@ def _price_calibers(
     now: datetime,
     log: Callable[[str], None],
     parts: Iterable[str] = PARTS,
+    progress: Callable[[str], None] | None = None,
 ) -> str:
     """Price every caliber for sale, for the parts asked for. Returns a summary."""
     parts = set(parts)
@@ -1003,7 +1004,9 @@ def _price_calibers(
         for caliber in session.execute(select(Caliber)).scalars():
             reloading.price_load(session, caliber)
         session.commit()
-    for caliber in asked:
+    for at, caliber in enumerate(asked, start=1):
+        if progress is not None and (at == 1 or at % 10 == 0):
+            progress(f"Pricing calibers: {at} of {len(asked)} ({caliber.name})")
         if "prices" in parts:
             try:
                 priced += int(
@@ -1061,11 +1064,20 @@ def refresh(
     row = settings(session)
     row.requested_at = None
     row.requested_parts = None
+    # While it runs (2026-10-16), for Site settings: since when, and on what.
+    row.started_at, row.progress = utcnow(), "Starting"
     session.commit()
     now = utcnow()
+
+    def step(message: str) -> None:
+        current = settings(session)
+        current.progress = message[:200]
+        session.commit()
+
     try:
         notes = []
         if "wikipedia" in parts and fetch is not None:
+            step("Wikipedia: the calibers' articles")
             wikipedia.run(session, fetch, kinds=("caliber",), log=log)
             if reread:
                 for caliber in session.execute(
@@ -1075,20 +1087,39 @@ def refresh(
                 session.commit()
             notes.append(f"Wikipedia: {refresh_articles(session, fetch, log=log)} articles read")
         if "reloading" in parts:
+            step("Lee Precision's dies")
             notes.append(_refresh_lee(session, ctx, now))
         if "prices" in parts or "reloading" in parts:
             ctx.keep_at_least(AMMO_COM, 5.0)
             ctx.keep_at_least(GRAFS, 5.0)
+            step("Reading the shops' catalogs")
             sources = _sources(session, ctx, parts)
             sources.notes[:0] = notes
-            summary = _price_calibers(session, ctx, sources, now, log, parts)
+            summary = _price_calibers(session, ctx, sources, now, log, parts, progress=step)
+            # A source that could not be read: finished, with less than asked.
+            unread = [note for note in sources.notes if "not read" in note or "stopped" in note]
         else:
             summary = "; ".join(notes) or "Nothing to do"
-        status, error = "ok", None
+            unread = []
+        status, error = ("warning" if unread else "ok"), None
     except Exception as exc:  # recorded where the Caliber data page shows it
         session.rollback()
         summary, status, error = f"Failed: {exc}", "failed", str(exc)[:500]
         log(summary)
+    _record_run(session, parts, now, status, error, summary, time.monotonic() - started)
+    return summary
+
+
+def _record_run(
+    session: Session,
+    parts: tuple[str, ...],
+    now: datetime,
+    status: str,
+    error: str | None,
+    summary: str,
+    seconds: float,
+) -> None:
+    """How a refresh went, on the settings row Site settings shows."""
     row = settings(session)
     row.last_status, row.last_error = status, error
     row.last_run_at = now
@@ -1096,9 +1127,25 @@ def refresh(
     if parts == PARTS:
         row.last_full_at = now
     row.last_summary = summary[:500]
-    row.last_seconds = round(time.monotonic() - started, 1)
+    row.last_seconds = round(seconds, 1)
+    row.started_at = row.progress = None
     session.commit()
-    return summary
+
+
+def reap_interrupted(session: Session) -> bool:
+    """Mark a refresh the service restarted under as interrupted, as
+    makerjobs.reap_interrupted does. Called as the scheduler starts."""
+    row = settings(session)
+    if row.started_at is None:
+        return False
+    row.last_run_at = utcnow()
+    row.last_status = "interrupted"
+    row.last_summary = (
+        f"Interrupted: the service restarted during the refresh, at {row.progress or 'its start'}."
+    )[:500]
+    row.started_at = row.progress = None
+    session.commit()
+    return True
 
 
 def facts(session: Session, name: str) -> Caliber | None:

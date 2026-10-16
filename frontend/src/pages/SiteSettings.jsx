@@ -16,11 +16,87 @@
  */
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
-import { formatRelative } from "../format.js";
+import { formatDateTime, formatRelative } from "../format.js";
 import { useTitle } from "../hooks.js";
 import Field from "../components/Field.jsx";
 import HotDealControls from "../components/HotDealControls.jsx";
 import { Refresh } from "../components/Icons.jsx";
+
+//: How a job's last run is shown (2026-10-16): its outcome, as a chip.
+const OUTCOMES = {
+  ok: ["Success", "chip--success"],
+  warning: ["Warning", "chip--warning"],
+  failed: ["Failed", "chip--danger"],
+  interrupted: ["Interrupted", "chip--warning"],
+};
+
+//: How often the page asks again while something is running or waiting.
+const POLL_MS = 15000;
+
+/** "2h 14m", "3m 20s", "41.2s": how long a run took, or has taken. */
+export function longDuration(seconds) {
+  if (seconds == null) return null;
+  if (seconds < 60) return `${seconds.toFixed(1)}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ${Math.round(seconds % 60)}s`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+}
+
+/** Whether a job row is running or waiting, so the page should look again. */
+export function isBusy(row) {
+  return Boolean(row && (row.started_at || row.requested_at));
+}
+
+/**
+ * Where a job stands (asked for on 2026-10-16: "how do i know when update
+ * msrps and variants is done?"). Running, with since when and what it is on;
+ * waiting for the scheduler; and the last run's time, how long it took and
+ * how it went -- Success, Warning, Failed or Interrupted -- with its summary.
+ */
+export function JobStatus({ row, what = "Last run" }) {
+  if (!row) return null;
+  const outcome = OUTCOMES[row.last_status];
+  return (
+    <div className="job-status" data-testid="job-status">
+      {row.started_at ? (
+        <p className="job-status__now">
+          <span className="chip chip--info">Running</span> since{" "}
+          <span title={formatDateTime(row.started_at)}>
+            {formatRelative(row.started_at)}
+          </span>
+          {row.progress && <>: {row.progress}</>}
+        </p>
+      ) : (
+        row.requested_at && (
+          <p className="job-status__now">
+            <span className="chip chip--neutral">Waiting to start</span> asked for{" "}
+            {formatRelative(row.requested_at)}; it starts within a minute of any job ahead
+            of it finishing.
+          </p>
+        )
+      )}
+      {row.last_run_at ? (
+        <p className="muted job-status__last">
+          {what} {formatDateTime(row.last_run_at)}
+          {row.last_seconds != null && <>, took {longDuration(row.last_seconds)}</>}
+          {outcome && (
+            <>
+              {" "}
+              <span className={`chip ${outcome[1]}`}>{outcome[0]}</span>
+            </>
+          )}
+          {(row.last_error || row.last_summary) && (
+            <span className="job-status__summary">
+              {row.last_error || row.last_summary}
+            </span>
+          )}
+        </p>
+      ) : (
+        !row.started_at && <p className="muted job-status__last">Not run yet.</p>
+      )}
+    </div>
+  );
+}
 
 /** The parts of a refresh, in the order a full one runs them. */
 const PARTS = [
@@ -107,6 +183,19 @@ function CaliberData() {
       .catch((err) => setMessage({ ok: false, text: err.message }));
   }, []);
 
+  // While a refresh runs or waits, look again until it has an answer.
+  const running = isBusy(state);
+  useEffect(() => {
+    if (!running) return undefined;
+    const timer = setInterval(() => {
+      api
+        .ammoSettings()
+        .then(setState)
+        .catch(() => {});
+    }, POLL_MS);
+    return () => clearInterval(timer);
+  }, [running]);
+
   async function choose(event) {
     setMessage(null);
     try {
@@ -135,7 +224,7 @@ function CaliberData() {
     }
   }
 
-  const waiting = Boolean(state?.requested_at);
+  const waiting = isBusy(state);
   return (
     <section className="settings-section" data-testid="caliber-data-section">
       <div className="settings-section__head">
@@ -208,24 +297,14 @@ function CaliberData() {
                   </select>
                 )}
               </Field>
-              <p className="muted" data-testid="caliber-data-last">
-                {waiting && (
-                  <>
-                    An update of {named(state.requested_parts).toLowerCase()} was asked
-                    for and starts within a minute.{" "}
-                  </>
+              <div data-testid="caliber-data-last">
+                {state.last_parts && state.last_run_at && (
+                  <p className="muted job-status__parts">
+                    Last updated: {named(state.last_parts).toLowerCase()}.
+                  </p>
                 )}
-                {state.last_run_at ? (
-                  <>
-                    Last updated {formatRelative(state.last_run_at)} (
-                    {named(state.last_parts).toLowerCase()})
-                    {state.last_status === "failed" ? " and failed: " : ": "}
-                    {state.last_error || state.last_summary}
-                  </>
-                ) : (
-                  "Not updated yet."
-                )}
-              </p>
+                <JobStatus row={state} what="Last updated" />
+              </div>
             </div>
           </div>
         </div>
@@ -283,6 +362,22 @@ function JobSection({ title, intro, jobs: offered, testId }) {
       .catch((err) => setMessage({ ok: false, text: err.message }));
   }, []);
 
+  // While one of these runs or waits, look again, so the card moves on to
+  // its result without a reload.
+  const running = (jobs || []).some(
+    (row) => isBusy(row) && offered.some((job) => job.name === row.name),
+  );
+  useEffect(() => {
+    if (!running) return undefined;
+    const timer = setInterval(() => {
+      api
+        .manufacturerJobs()
+        .then(setJobs)
+        .catch(() => {});
+    }, POLL_MS);
+    return () => clearInterval(timer);
+  }, [running]);
+
   async function run(job) {
     setBusy(true);
     setMessage(null);
@@ -331,21 +426,15 @@ function JobSection({ title, intro, jobs: offered, testId }) {
                     type="button"
                     className="btn btn--ghost"
                     onClick={() => run(job)}
-                    disabled={busy || Boolean(row.requested_at)}
+                    disabled={busy || isBusy(row)}
                   >
-                    {row.requested_at ? "Asked for" : job.button}
+                    {row.started_at
+                      ? "Running"
+                      : row.requested_at
+                        ? "Asked for"
+                        : job.button}
                   </button>
-                  <p className="muted">
-                    {row.last_run_at ? (
-                      <>
-                        Last run {formatRelative(row.last_run_at)}
-                        {row.last_status === "failed" ? " and failed: " : ": "}
-                        {row.last_summary}
-                      </>
-                    ) : (
-                      "Not run yet."
-                    )}
-                  </p>
+                  <JobStatus row={row} />
                 </div>
               </div>
             );

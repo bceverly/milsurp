@@ -91,37 +91,95 @@ def _summary(name: str, counts: dict[str, Any]) -> str:
             f"{counts.get('unread', 0)} with no page found; "
             f"{counts.get('models_proposed', 0)} new model(s) proposed for products no "
             "model names."
+            + (
+                f" {counts['errors']} maker site(s) answered with an error."
+                if counts.get("errors")
+                else ""
+            )
         )
     return (
         f"Asked about {counts.get('asked', 0)} model(s): {counts.get('proposed', 0)} page(s) "
         f"suggested, {counts.get('confident', 0)} of them confident; "
         f"{counts.get('nothing', 0)} with no page found."
+        + (f" {counts['unread']} maker site(s) could not be read." if counts.get("unread") else "")
     )
 
 
+#: What a run's outcome is called on its row, and on Site settings.
+OK = "ok"
+WARNING = "warning"
+FAILED = "failed"
+INTERRUPTED = "interrupted"
+
+
+def _status(name: str, counts: dict[str, Any]) -> str:
+    """Finished, but some of what was asked could not be read: a maker's site
+    that answered with an error. A model with nothing on its maker's site is
+    an answer, not a warning."""
+    trouble = counts.get("unread") if name == "pages" else counts.get("errors")
+    return WARNING if trouble else OK
+
+
+def reap_interrupted(session: Session) -> int:
+    """Mark a run the service restarted under as interrupted, so Site
+    settings does not say it is running for ever. Called as the scheduler
+    starts. Returns how many there were."""
+    stuck = list(
+        session.execute(
+            select(ManufacturerJob).where(ManufacturerJob.started_at.is_not(None))
+        ).scalars()
+    )
+    for row in stuck:
+        row.last_run_at = utcnow()
+        row.last_status = INTERRUPTED
+        row.last_summary = (
+            f"Interrupted: the service restarted during the run, at {row.progress or 'its start'}."
+        )[:500]
+        row.started_at = row.progress = None
+    session.commit()
+    return len(stuck)
+
+
 def run(session: Session, ctx: ScrapeContext, name: str, log: Callable[[str], None] = print) -> str:
-    """Run one job now, recording how it went. Returns its summary."""
+    """Run one job now, recording how it went. Returns its summary.
+
+    While it runs, its row says so: ``started_at``, and ``progress`` -- the
+    last step the job reported, "Bud's Gun Shop: Sig Sauer (2 of 34 makers)".
+    """
     from . import barrels, makerpages, makersites
 
     started = time.monotonic()
     row = job(session, name)
     row.requested_at = None
+    row.started_at = utcnow()
+    row.progress = "Starting"
     session.commit()
+
+    def report(message: str) -> None:
+        log(message)
+        # A step heading, not every line: those begin with a space.
+        if message and not message.startswith(" "):
+            current = job(session, name)
+            current.progress = message.strip()[:200]
+            session.commit()
+
     try:
         if name == "barrels":
+            report("Reading every stored gun")
             counts = barrels.refresh(session)
         elif name == "variants":
-            counts = makersites.run(session, ctx, log=log)
+            counts = makersites.run(session, ctx, log=report)
         else:
-            counts = makerpages.run(session, ctx, log=log)
-        summary, status = _summary(name, counts), "ok"
+            counts = makerpages.run(session, ctx, log=report)
+        summary, status = _summary(name, counts), _status(name, counts)
     except Exception as exc:  # recorded where Site settings shows it
         session.rollback()
-        summary, status = f"Failed: {exc}", "failed"
+        summary, status = f"Failed: {exc}", FAILED
     row = job(session, name)
     row.last_run_at = utcnow()
     row.last_status = status
     row.last_summary = summary[:500]
     row.last_seconds = round(time.monotonic() - started, 1)
+    row.started_at = row.progress = None
     session.commit()
     return summary

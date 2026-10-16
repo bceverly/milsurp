@@ -5490,6 +5490,49 @@ on the host system like we do on the other projects?"
   longest pole: `armory.spec.js` loads it over and over and takes about ten
   of those minutes on its own.
 
+### Site settings shows each job running, and how it last went — **Shipped** 2026-10-16
+
+Asked: "how do i know when update msrps and variants is done? on the settings
+page, can we show when something is 'running' and a 'last updated date/time'
+and 'last status' (success, warning or failure) for each one of these?"
+Nothing recorded that a run was going: the scheduler cleared the request as
+it took it, and the result was written at the end.
+
+* **While it runs** (`started_at`, `progress`; migration 0079): the card
+  says "Running since 40 minutes ago", with the step the job last reported,
+  such as "Bud's Gun Shop: Glock (12 of 34 makers)" or "Pricing calibers: 40
+  of 280". A request not yet taken says "Waiting to start". The page looks
+  again every 15 seconds while anything is running or waiting.
+* **The last run**: its date and time, how long it took, and how it went.
+  * Success.
+  * Warning: finished, but some of it could not be read, such as a maker's
+    site that answered with an error, or a source the caliber data could not
+    reach.
+  * Failed.
+  * Interrupted: the service restarted under it. Marked when the scheduler
+    starts, so a card never says "running" for ever.
+* Covers the three Manufacturer and Listing data jobs, and the caliber data.
+
+### Bud's Gun Shop reads only what it needs — **Changed** 2026-10-16
+
+The first production run would have been some 6,150 requests at one every
+3 seconds, nearly six hours, measured from Bud's list pages on 2026-10-16.
+The reader opened the product page of every in-stock product of each brand,
+and Browning, with one model still made here, has about a thousand.
+
+Now only the products of the armory's models have their pages read, plus
+three of each line no model names: enough for it to be proposed with real
+versions (`BudsReader.PER_UNNAMED_LINE`). The list pages, 24 products each,
+are read in full as before.
+
+### The release gate waits 90 minutes — **Changed** 2026-10-15
+
+A release failed at "Wait for CI and Security" after 60 minutes, although
+CI and Security both went on to pass on the same commit: the suites had
+outgrown the wait. It is now 90 minutes (`release.yml`, `TIMEOUT_MINUTES`).
+When it happens, re-running the failed job is enough: the gate starts no
+tests of its own, and finds the passed runs on its first pass.
+
 ### Why a Glock had no MSRP or street price: an audit — **Fixed** 2026-10-15
 
 Asked: "a glock that doesn't have comparable prices for MSRP and street? Seems

@@ -680,6 +680,12 @@ class AmmoSetting(Base):
     #: What the last refresh did, in a sentence.
     last_summary: Mapped[str | None] = mapped_column(String(500))
     last_seconds: Mapped[float | None] = mapped_column(Float)
+    #: While a run is going (2026-10-16): when it started, and what it is on
+    #: now -- "Bud's Gun Shop: Sig Sauer (2 of 34 makers)" -- so Site settings
+    #: can say it is running and how far it has got. Cleared when it ends; a
+    #: run the service restarted under is marked interrupted on the next start.
+    started_at: Mapped[datetime | None] = mapped_column(DateTime)
+    progress: Mapped[str | None] = mapped_column(String(200))
 
 
 class ManufacturerJob(Base):
@@ -703,6 +709,12 @@ class ManufacturerJob(Base):
     last_status: Mapped[str | None] = mapped_column(String(16))
     last_summary: Mapped[str | None] = mapped_column(String(500))
     last_seconds: Mapped[float | None] = mapped_column(Float)
+    #: While a run is going (2026-10-16): when it started, and what it is on
+    #: now -- "Bud's Gun Shop: Sig Sauer (2 of 34 makers)" -- so Site settings
+    #: can say it is running and how far it has got. Cleared when it ends; a
+    #: run the service restarted under is marked interrupted on the next start.
+    started_at: Mapped[datetime | None] = mapped_column(DateTime)
+    progress: Mapped[str | None] = mapped_column(String(200))
 
 
 class FirearmModel(Base, TimestampMixin):

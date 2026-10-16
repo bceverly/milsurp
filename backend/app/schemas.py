@@ -2413,6 +2413,9 @@ class AmmoSettingsOut(UTCModel):
     last_error: str | None = None
     last_summary: str | None = None
     last_seconds: float | None = None
+    #: Set while a refresh is running, with what it is on now.
+    started_at: datetime | None = None
+    progress: str | None = None
 
 
 class ManufacturerJobOut(UTCModel):
@@ -2423,9 +2426,14 @@ class ManufacturerJobOut(UTCModel):
     name: str
     requested_at: datetime | None = None
     last_run_at: datetime | None = None
+    #: "ok", "warning" (finished, but some of it could not be read), "failed"
+    #: or "interrupted" (the service restarted under it).
     last_status: str | None = None
     last_summary: str | None = None
     last_seconds: float | None = None
+    #: Set while it runs (2026-10-16), with what it is on now.
+    started_at: datetime | None = None
+    progress: str | None = None
 
 
 class AmmoSettingsUpdate(BaseModel):

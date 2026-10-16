@@ -100,6 +100,7 @@ class Scheduler:
             log.info("Scheduler is disabled in the configuration file.")
             return
         self._stop.clear()
+        self._reap_interrupted_jobs()
         self._pool = ThreadPoolExecutor(
             max_workers=max(1, self.config.scheduler.max_concurrent_scans),
             thread_name_prefix="milsurp-scan",
@@ -115,6 +116,20 @@ class Scheduler:
             self.config.scheduler.tick_seconds,
             self.config.scheduler.max_concurrent_scans,
         )
+
+    def _reap_interrupted_jobs(self) -> None:
+        """A Site settings job the last process was running when it stopped
+        is marked interrupted, not left saying it is running (2026-10-16)."""
+        from .services import ammunition, makerjobs
+
+        try:
+            with session_scope() as session:
+                reaped = makerjobs.reap_interrupted(session)
+                reaped += int(ammunition.reap_interrupted(session))
+            if reaped:
+                log.info("Marked %d interrupted Site settings job(s).", reaped)
+        except Exception:
+            log.exception("Could not mark interrupted Site settings jobs")
 
     def stop(self, timeout: float = 10.0) -> None:
         self._stop.set()

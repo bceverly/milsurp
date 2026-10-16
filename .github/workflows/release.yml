@@ -74,7 +74,9 @@ jobs:
           SHA: ${{ github.sha }}
           # Long enough for the slowest leg (the Python matrix plus CodeQL),
           # short enough that a stuck run does not hold a runner all day.
-          TIMEOUT_MINUTES: "60"
+          # 60 until 2026-10-15, when a release gave up while CI and Security
+          # were still passing: the suites had outgrown it.
+          TIMEOUT_MINUTES: "90"
         # **What counts, and why it is not simply "the latest run".**
         #
         # Only this commit's own runs: event push, schedule or workflow_dispatch.

@@ -4,7 +4,7 @@ production because the only way to was a command on the server."""
 
 from __future__ import annotations
 
-from app.models import Item, ManufacturerJob, Site
+from app.models import Item, ManufacturerJob, Site, utcnow
 from app.services import makerjobs, makerpages, makersites
 
 
@@ -34,6 +34,65 @@ class TestAsking:
             "Failed: the site moved"
         )
         assert clean_db.get(ManufacturerJob, "pages").last_status == "failed"
+
+
+class TestWhileItRuns:
+    """Asked for on 2026-10-16: whether a job is running, and how far it has
+    got; its last time and status, success, warning or failure."""
+
+    def test_running_shows_its_start_and_its_progress(self, clean_db, monkeypatch):
+        seen = {}
+
+        def reading(session, _ctx, *, log, **_k):
+            log("Bud's Gun Shop: Glock (12 of 34 makers)")
+            log("  Glock 19: 8 found on Bud's Gun Shop")  # a detail, not a heading
+            row = session.get(ManufacturerJob, "variants")
+            seen["running"] = (row.started_at is not None, row.progress)
+            return {"models": 1, "proposed": 0, "refreshed": 0, "unread": 0}
+
+        monkeypatch.setattr(makersites, "run", reading)
+        makerjobs.ask(clean_db, "variants")
+        makerjobs.run(clean_db, object(), "variants", log=lambda _m: None)
+        assert seen["running"] == (True, "Bud's Gun Shop: Glock (12 of 34 makers)")
+        row = clean_db.get(ManufacturerJob, "variants")
+        assert (row.started_at, row.progress, row.last_status) == (None, None, "ok")
+
+    def test_a_site_that_errs_is_a_warning(self, clean_db, monkeypatch):
+        monkeypatch.setattr(
+            makersites,
+            "run",
+            lambda *_a, **_k: {
+                "models": 3,
+                "proposed": 0,
+                "refreshed": 2,
+                "unread": 1,
+                "errors": 1,
+            },
+        )
+        makerjobs.ask(clean_db, "variants")
+        summary = makerjobs.run(clean_db, object(), "variants", log=lambda _m: None)
+        assert clean_db.get(ManufacturerJob, "variants").last_status == "warning"
+        assert "1 maker site(s) answered with an error" in summary
+
+    def test_a_run_the_service_restarted_under_is_interrupted(self, clean_db):
+        row = makerjobs.job(clean_db, "variants")
+        row.started_at = utcnow()
+        row.progress = "Bud's Gun Shop: Sig Sauer (2 of 34 makers)"
+        clean_db.commit()
+        assert makerjobs.reap_interrupted(clean_db) == 1
+        assert (row.started_at, row.last_status) == (None, "interrupted")
+        assert "Sig Sauer (2 of 34 makers)" in row.last_summary
+        assert makerjobs.reap_interrupted(clean_db) == 0
+
+    def test_the_api_says_so(self, client, admin_headers, clean_db):
+        row = makerjobs.job(clean_db, "variants")
+        row.started_at = utcnow()
+        row.progress = "Kimber: its own site (4 of 34 makers)"
+        clean_db.commit()
+        shown = client.get("/api/manufacturer-data", headers=admin_headers).json()
+        variants = next(job for job in shown if job["name"] == "variants")
+        assert variants["progress"] == "Kimber: its own site (4 of 34 makers)"
+        assert variants["started_at"] is not None
 
 
 class TestTheBarrels:

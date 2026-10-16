@@ -433,7 +433,9 @@ def run(
             by_site.setdefault(firm.website, []).append(model)
             makers_of[model.id] = list(firm.spellings)
             break
-    for website, models in sorted(by_site.items()):
+    for at, (website, models) in enumerate(sorted(by_site.items()), start=1):
+        # A heading for Site settings' progress line (services/makerjobs).
+        log(f"{_host(website)} ({at} of {len(by_site)} sites)")
         log(f"  {website}: {len(models)} model(s)")
         pages = sitemap_pages(ctx, website, log)
         reader = _READERS.get(_host(website))

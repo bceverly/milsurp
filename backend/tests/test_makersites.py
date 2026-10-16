@@ -663,6 +663,18 @@ class TestTheBudsReader:
         # The police trade-in is not a version of anything.
         assert g17.variants == []
         assert BUDS_G17 in site.asked
+        # A line no model names has a few pages read, not all (2026-10-16):
+        # the 43X's, with no 43X model here, and none for a product whose
+        # name has no designation.
+        products = [u for u in site.asked if "/products/" in u]
+        assert 0 < sum("glock-43x" in u for u in products) <= 3
+        assert len(products) < len(
+            [
+                c
+                for c in makersites.buds_cards(page("buds-list1.html.gz"))
+                if c.name.startswith("Glock")
+            ]
+        )
         # A second run takes the MSRP from the tile: no product page again.
         site.asked.clear()
         makersites.run(clean_db, site, maker="Glock", log=said.append)

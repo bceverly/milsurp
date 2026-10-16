@@ -628,6 +628,27 @@ class TestWhenAmmoComFails:
         assert (mosin_round.factory_cpr, mosin_round.factory_source) == (0.6715, "ammo-com")
         assert (mannlicher.factory_cpr, mannlicher.factory_source) == (2.9975, "milsurp-munitions")
 
+    def test_a_source_not_read_is_a_warning_and_progress_is_cleared(self, clean_db, mosin_round):
+        """Site settings' status (2026-10-16): finished, with less than asked."""
+
+        class NoAmmoCom(RecordedSites):
+            def get_text(self, url, **kwargs):
+                if url.startswith(ammunition.AMMO_COM):
+                    raise ScrapeError(f"GET {url}: 503 Server Error")
+                return super().get_text(url, **kwargs)
+
+        ammunition.refresh(clean_db, NoAmmoCom(), log=lambda _m: None, parts=("prices",))
+        row = clean_db.get(AmmoSetting, 1)
+        assert (row.last_status, row.started_at, row.progress) == ("warning", None, None)
+
+    def test_a_refresh_the_service_restarted_under_is_interrupted(self, clean_db):
+        row = ammunition.settings(clean_db)
+        row.started_at, row.progress = utcnow(), "Pricing calibers: 40 of 280 (.30-06)"
+        clean_db.commit()
+        assert ammunition.reap_interrupted(clean_db) is True
+        assert (row.last_status, row.started_at) == ("interrupted", None)
+        assert "40 of 280" in row.last_summary
+
     def test_a_gauge_is_priced_by_its_cheapest_round_not_its_slugs(self, clean_db):
         class Shells(RecordedSites):
             def get_text(self, url, **kwargs):
