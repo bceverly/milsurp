@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import select
 
 from ..models import ArmoryStatus, Item, ModelVariant
-from . import barrels, frames, serials
+from . import barrels, capacity, frames, serials
 from .carry import _FRACTIONS
 
 if TYPE_CHECKING:
@@ -163,6 +163,7 @@ def settle(session: Session, item: Item) -> None:
     """
     barrels.apply(item)
     frames.apply(item)
+    capacity.apply(item)
     serials.apply(session, item)
     model = item.firearm_model
     if model is None or not model.modern_production or not (item.is_rifle or item.is_pistol):

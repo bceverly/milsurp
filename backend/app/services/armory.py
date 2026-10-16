@@ -1222,6 +1222,7 @@ def _seed_models(
             modern_production=bool(entry.get("modern_production")),
             maker_url=entry.get("maker_url"),
             frame_size=entry.get("frame_size"),
+            capacity=entry.get("capacity"),
             status=ArmoryStatus.PENDING,
             # The order rows are tried in is part of what the file says, as it
             # is for a maker above: the Carcano cavalry carbine is placed ahead
@@ -1403,6 +1404,7 @@ def export_armory(session: Session) -> dict[str, Any]:
                     "modern_production": True if row.modern_production else None,
                     "maker_url": row.maker_url,
                     "frame_size": row.frame_size,
+                    "capacity": row.capacity,
                     "rejected_maker_pages": rejected.get(("model", row.id, "maker_page")),
                     "variants": _variant_entries(row),
                     "status": row.status.value,
@@ -1960,6 +1962,7 @@ def _model_differences(row: FirearmModel, entry: dict[str, Any]) -> list[str]:
             "modern_production": row.modern_production,
             "maker_url": row.maker_url,
             "frame_size": row.frame_size,
+            "capacity": row.capacity,
             "variants": _variant_entries(row),
             "status": row.status.value,
             "position": row.position,
@@ -1976,6 +1979,7 @@ def _model_differences(row: FirearmModel, entry: dict[str, Any]) -> list[str]:
             "modern_production": bool(entry.get("modern_production")),
             "maker_url": entry.get("maker_url"),
             "frame_size": entry.get("frame_size"),
+            "capacity": entry.get("capacity"),
             "variants": [_without_blanks(dict(v)) for v in entry.get("variants") or []],
             "status": str(entry.get("status") or ArmoryStatus.PENDING.value),
             "position": int(entry.get("position") or 1000),
@@ -2275,6 +2279,7 @@ def _write_model(
     row.modern_production = bool(entry.get("modern_production"))
     row.maker_url = entry.get("maker_url")
     row.frame_size = entry.get("frame_size")
+    row.capacity = entry.get("capacity")
     _write_variants(row, entry.get("variants") or [], calibers)
     row.status = ArmoryStatus(str(entry.get("status") or ArmoryStatus.PENDING.value))
     row.position = int(entry.get("position") or 1000)

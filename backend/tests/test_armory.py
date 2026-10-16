@@ -627,6 +627,7 @@ class TestTheExporterCarriesEveryColumn:
             modern_production=True,
             maker_url="https://everything.example/em1",
             frame_size="Compact",
+            capacity=15,
             notes="a note",
             position=42,
             enabled=False,

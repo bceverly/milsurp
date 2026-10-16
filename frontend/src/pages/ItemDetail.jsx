@@ -195,6 +195,22 @@ function BarrelFacts({ item }) {
         value={said(item.barrel_threaded, "Yes", "No")}
         quote={quotes.threaded}
       />
+      {/* How many rounds it holds (app/services/capacity.py, 2026-10-16): the
+          listing's words when it states it, or else its model's standard
+          capacity from the armory. */}
+      {item.capacity != null && (
+        <div data-testid="capacity">
+          <div className="fact__label">Capacity</div>
+          <div className="fact__value">
+            {item.capacity} {item.capacity === 1 ? "round" : "rounds"}
+          </div>
+          {item.capacity_quote ? (
+            <div className="fact__quote">“{item.capacity_quote}”</div>
+          ) : (
+            <span className="fact__source">from the armory</span>
+          )}
+        </div>
+      )}
       {/* A handgun's frame size (app/services/frames.py): the listing's words
           when it states one, or else its model's from the armory. */}
       {item.frame_size && (

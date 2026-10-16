@@ -280,6 +280,7 @@ const EMPTY_MODEL = {
   modern_production: false,
   maker_url: "",
   frame_size: "",
+  capacity: "",
   position: 1000,
   enabled: true,
   notes: "",
@@ -747,6 +748,7 @@ function ModelForm({
           modern_production: Boolean(model.modern_production),
           maker_url: model.maker_url || "",
           frame_size: model.frame_size || "",
+          capacity: model.capacity ?? "",
           position: model.position,
           enabled: model.enabled,
           notes: model.notes || "",
@@ -787,6 +789,8 @@ function ModelForm({
           // absent field as "leave it", and null is what absent looks like.
           maker_url: form.maker_url.trim(),
           frame_size: form.frame_size,
+          // Blank is "not known", not zero.
+          capacity: form.capacity === "" ? null : Number(form.capacity),
         });
       }}
     >
@@ -1008,6 +1012,24 @@ function ModelForm({
               describedBy={describedBy}
               value={form.frame_size}
               onChange={set("frame_size")}
+            />
+          )}
+        </Field>
+        <Field
+          label="Capacity (rounds)"
+          hint="Its standard capacity: the full magazine, not the restricted-state ten, or the cylinder. Its listings take it when they do not say."
+        >
+          {(id, describedBy) => (
+            <input
+              id={id}
+              aria-describedby={describedBy}
+              className="input"
+              type="number"
+              min="1"
+              max="100"
+              step="1"
+              value={form.capacity}
+              onChange={set("capacity")}
             />
           )}
         </Field>

@@ -64,6 +64,7 @@ from ..services import (
     watchlist,
     wishlist,
 )
+from ..services import frames as frame_sizes
 from ..services.image_store import DISPLAY_MAX_EDGE, ImageStore, ImageStoreError
 from ..services.search import (
     DEFAULT_SORT,
@@ -190,6 +191,33 @@ def _checked_grades(wanted: list[str] | None) -> list[str] | None:
             detail=f"Unknown grade {unknown[0]!r}. Valid: {', '.join(traits.GRADES)}.",
         )
     return wanted
+
+
+def _checked_frames(wanted: list[str] | None) -> list[str] | None:
+    unknown = [value for value in wanted or [] if value not in frame_sizes.SIZES]
+    if unknown:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown frame size {unknown[0]!r}. Valid: {', '.join(frame_sizes.SIZES)}.",
+        )
+    return wanted
+
+
+def _frame_counts(session: DbSession, base: Select) -> list[FacetValue]:
+    """The frame sizes of the current handguns, largest pistol first, then
+    the revolvers' frames, in app.services.frames' order (2026-10-16)."""
+    rows = dict(
+        session.execute(
+            base.with_only_columns(Item.frame_size, func.count(Item.id))
+            .where(Item.frame_size.is_not(None))
+            .group_by(Item.frame_size)
+        ).all()
+    )
+    return [
+        FacetValue(value=size, label=size, count=int(rows[size]))
+        for size in frame_sizes.SIZES
+        if rows.get(size)
+    ]
 
 
 def _to_out(
@@ -628,6 +656,7 @@ def _all_facets(
         session, filtered(trait_values=None, drop="trait"), chosen.get("traits")
     )
     facets.grades = _grade_counts(session, filtered(grades=None, drop="grade"))
+    facets.frames = _frame_counts(session, filtered(frames=None))
     # The price histogram too, and more sharply, because the price control is
     # a *slider*: shaped by its own setting, narrowing to $500-$1,000 would
     # redraw the histogram as only that slice, with nothing on screen to widen
@@ -677,6 +706,11 @@ def list_items(
     barrel_min: float | None = Query(default=None, ge=0, le=100),
     barrel_max: float | None = Query(default=None, ge=0, le=100),
     threaded: str | None = Query(default=None, pattern="^(yes|no)$"),
+    frame: list[str] | None = Query(
+        default=None, description="A handgun's frame size: Full size | Compact | K-frame | …"
+    ),
+    capacity_min: int | None = Query(default=None, ge=0, le=200),
+    capacity_max: int | None = Query(default=None, ge=0, le=200),
     sort: str = Query(default=DEFAULT_SORT),
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=48, ge=1, le=200),
@@ -691,6 +725,7 @@ def list_items(
     curio_states = _checked_curio(curio)
     trait_values = _checked_traits(trait)
     grades = _checked_grades(grade)
+    frames = _checked_frames(frame)
     excluded = _excluded(request)
 
     # Every filter, less whichever one a facet is about. A function with typed
@@ -712,6 +747,7 @@ def list_items(
         grades: list[str] | None = grades,
         min_price: float | None = min_price,
         max_price: float | None = max_price,
+        frames: list[str] | None = frames,
         drop: str | None = None,
     ) -> Select:
         """``drop`` is the facet being counted, whose removals go with its
@@ -740,6 +776,9 @@ def list_items(
             barrel_min=barrel_min,
             barrel_max=barrel_max,
             threaded=threaded,
+            frames=frames,
+            capacity_min=capacity_min,
+            capacity_max=capacity_max,
             excluded={name: v for name, v in excluded.items() if name != drop},
         )
 
@@ -816,6 +855,7 @@ EXPORT_COLUMNS: tuple[str, ...] = (
     "barrel_inches",
     "barrel_threaded",
     "frame_size",
+    "capacity",
     "serial",
     "year_made",
     "site",
@@ -865,6 +905,7 @@ def _export_row(item: Item, site_names: dict[int, str]) -> dict[str, object]:
         "barrel_inches": item.barrel_inches,
         "barrel_threaded": item.barrel_threaded,
         "frame_size": item.frame_size,
+        "capacity": item.capacity,
         "serial": item.serial,
         "year_made": _year_made(item),
         "site": site_names.get(item.site_id, ""),
@@ -904,6 +945,11 @@ def export_items(
     barrel_min: float | None = Query(default=None, ge=0, le=100),
     barrel_max: float | None = Query(default=None, ge=0, le=100),
     threaded: str | None = Query(default=None, pattern="^(yes|no)$"),
+    frame: list[str] | None = Query(
+        default=None, description="A handgun's frame size: Full size | Compact | K-frame | …"
+    ),
+    capacity_min: int | None = Query(default=None, ge=0, le=200),
+    capacity_max: int | None = Query(default=None, ge=0, le=200),
 ) -> Response:
     """The listings a browse page is showing, as a file.
 
@@ -939,6 +985,9 @@ def export_items(
         barrel_min=barrel_min,
         barrel_max=barrel_max,
         threaded=threaded,
+        frames=_checked_frames(frame),
+        capacity_min=capacity_min,
+        capacity_max=capacity_max,
         excluded=_excluded(request),
     )
 

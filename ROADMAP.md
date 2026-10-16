@@ -5490,6 +5490,40 @@ on the host system like we do on the other projects?"
   longest pole: `armory.spec.js` loads it over and over and takes about ten
   of those minutes on its own.
 
+### Capacity, and searching by capacity and frame size — **Shipped** 2026-10-16
+
+Asked for: "i'd like to be able to search on frame size in the inventory",
+and capacity: "let's go with the non-California standard capacity and store
+it as an attribute of the model and show it on the inventory details page ...
+and i'd like to be able to search by capacity."
+
+* **Capacity on each listing** (`services/capacity.py`, migration 0080), as
+  the frame size is: the listing's own words where it states one, otherwise
+  its model's standard capacity, shown as "from the armory".
+  * Measured over production's 16,912 gun listings, 2,183 state one. The
+    shapes read: "17rd", "17+1", "One 17-round magazine", "Capacity: 6",
+    "magazine capacity (incl) (1) 15rd", "6-Shot Revolver".
+  * Only a number tied to a magazine, a cylinder or the word "capacity" is
+    read. Not "3rd generation" or "3rd Variation", not "200 rounds through
+    it", not "#4 shot", and not "Capacity 1lb" or the "4" of "capacity 4.25"
+    barrel", which ran into the next field.
+  * "10/13 round capacity" is 13: two magazines, and the larger is the
+    standard.
+  * A title is read in order, so "with 20rnd and 10rnd Magazines" is 20.
+  * Bounded by kind: up to 12 for a revolver, 50 for a handgun, 100 for a
+    long gun.
+* **A model's standard capacity**, editable in the Armory and shipped in the
+  seed. Each model with none is given the capacity its listings state most
+  often, where at least two agree; 195 models have one.
+  * The restricted-state 10 gives way to the full capacity when the model is
+    commonly sold with more: a Glock 17 is 17, a Glock 19 15, a P320 17.
+  * Where 10 is the real standard, it stays: the Glock 43X, the Ruger 10/22.
+  * Changing a model's capacity re-reads its listings.
+* **Searching**: a Capacity box on the Inventory rail ("15", "10-17", "15+",
+  "-8") and a Frame size facet with counts. Both work in saved searches and
+  the CSV export, and capacity appears on the listing page.
+* Site settings' re-read now covers capacities too.
+
 ### Site settings shows each job running, and how it last went — **Shipped** 2026-10-16
 
 Asked: "how do i know when update msrps and variants is done? on the settings

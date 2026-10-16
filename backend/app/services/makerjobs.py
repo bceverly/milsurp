@@ -80,6 +80,8 @@ def _summary(name: str, counts: dict[str, Any]) -> str:
             f"{counts.get('not_threaded', 0):,} stated not threaded; "
             f"{counts.get('frames_stated', 0):,} frame size(s) stated and "
             f"{counts.get('frames_from_armory', 0):,} from the armory; "
+            f"{counts.get('capacity_stated', 0):,} capacity value(s) stated and "
+            f"{counts.get('capacity_from_armory', 0):,} from the armory; "
             f"{counts.get('years_stated', 0):,} year(s) made stated and "
             f"{counts.get('years_placed', 0):,} placed by serial; "
             f"{counts.get('relinked', 0):,} listing(s) matched to a different version."

@@ -511,6 +511,9 @@ class FirearmModelOut(UTCModel):
     maker_url: str | None = None
     #: Its one frame size, for a model only made in one. See services/frames.
     frame_size: str | None = None
+    #: Its standard capacity in rounds: the full magazine, not the restricted
+    #: ten. See services/capacity.
+    capacity: int | None = None
     status: ArmoryStatus
     position: int
     enabled: bool
@@ -538,6 +541,7 @@ class FirearmModelCreate(BaseModel):
     modern_production: bool = False
     maker_url: WebAddress = None
     frame_size: str | None = Field(default=None, max_length=16)
+    capacity: int | None = Field(default=None, ge=1, le=100)
     status: ArmoryStatus = ArmoryStatus.PENDING
     position: int = Field(default=1000, ge=0, le=100_000)
     enabled: bool = True
@@ -557,6 +561,8 @@ class FirearmModelUpdate(BaseModel):
     maker_url: WebAddress = None
     #: Sent blank to clear it.
     frame_size: str | None = Field(default=None, max_length=16)
+    #: Sent null to clear it.
+    capacity: int | None = Field(default=None, ge=1, le=100)
     status: ArmoryStatus | None = None
     position: int | None = Field(default=None, ge=0, le=100_000)
     enabled: bool | None = None
@@ -1251,6 +1257,10 @@ class ItemOut(UTCModel):
     #: for it -- none where it came from the model's armory row.
     frame_size: str | None = None
     frame_quote: str | None = None
+    #: How many rounds it holds (services/capacity): the listing's words in
+    #: ``capacity_quote``, or none where it is its model's standard capacity.
+    capacity: int | None = None
+    capacity_quote: str | None = None
     #: When it was made (app.services.serials): the serial the listing gives,
     #: and the years -- "stated" in its words, or "serial", placed among the
     #: listings that state theirs. ``made_quote`` is the words, or the two
@@ -1560,6 +1570,8 @@ class ItemFacets(BaseModel):
     #: The whole gun's stated condition, best first rather than busiest first,
     #: with an "Unknown" row for the listings that state none.
     grades: list[FacetValue] = Field(default_factory=list)
+    #: A handgun's frame size (services/frames), 2026-10-16.
+    frames: list[FacetValue] = Field(default_factory=list)
     #: The price shape of the current results. Absent when nothing in them has
     #: a price, which is a real state on a catalog full of "call for price".
     prices: PriceDistributionOut | None = None

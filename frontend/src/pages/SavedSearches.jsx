@@ -67,6 +67,7 @@ function describe(query) {
   if (params.get("search")) parts.push(`“${params.get("search")}”`);
   named("kind", "Type");
   named("caliber", "Caliber");
+  named("frame", "Frame size");
   named("country", "Country");
   named("manufacturer", "Manufacturer");
   named("category", "Category");
@@ -88,6 +89,13 @@ function describe(query) {
       params.get("barrel_max") ? Number(params.get("barrel_max")) : null,
     );
     parts.push(`Barrel: ${text}"`);
+  }
+  if (params.get("capacity_min") || params.get("capacity_max")) {
+    const text = barrelText(
+      params.get("capacity_min") ? Number(params.get("capacity_min")) : null,
+      params.get("capacity_max") ? Number(params.get("capacity_max")) : null,
+    );
+    parts.push(`Capacity: ${text} rounds`);
   }
   if (params.get("threaded") === "yes") parts.push("Threaded barrel");
   if (params.get("threaded") === "no") parts.push("Barrel not threaded");

@@ -255,6 +255,10 @@ changed — filtered to the sites you care about and capped so it stays readable
   in-stock new price, how many stores have it, how far under new this one
   is, and a link to the page the price came from. Asked hourly, at most once
   a day per version, and only for versions with a listing for sale.
+- **Capacity and frame size.** A gun's capacity, as the listing states it or
+  as its model's standard capacity (the full magazine, not the restricted
+  ten), and a handgun's frame size, both on the listing page and searchable
+  from the Inventory rail.
 - **When it was made.** A listing shows its serial number, where the
   listing labels one, and the year the gun was made: as the listing states it,
   quoted, or else placed by its serial between this model and maker's

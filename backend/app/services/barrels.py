@@ -489,16 +489,17 @@ def backfill(session: Any, *, batch: int = 1000) -> dict[str, int]:
 
 def refresh(session: Any) -> dict[str, int]:
     """Re-read every gun's barrel, every handgun's frame size and every gun's
-    serial and year made, then re-match the listings of models still made to
+    capacity, serial and year made, then re-match the listings of models still made to
     their versions, which the first two narrow. What Site settings' "Re-read
     listing details" runs (services/makerjobs)."""
     from sqlalchemy import select
 
     from ..models import FirearmModel, Item
-    from . import frames, serials, variants
+    from . import capacity, frames, serials, variants
 
     counts = backfill(session)
     framed = frames.backfill(session)
+    held = capacity.backfill(session)
     made = serials.backfill(session)
     session.commit()
     counts = {
@@ -507,6 +508,8 @@ def refresh(session: Any) -> dict[str, int]:
         "frames_from_armory": framed["from_armory"],
         "years_stated": made["stated"],
         "years_placed": made["placed"],
+        "capacity_stated": held["stated"],
+        "capacity_from_armory": held["from_armory"],
     }
     relinked = 0
     modern = select(FirearmModel.id).where(FirearmModel.modern_production.is_(True))

@@ -811,6 +811,11 @@ class FirearmModel(Base, TimestampMixin):
     #: not state its own. Blank for a model made in several, whose variants
     #: carry theirs. See app.services.frames; 2026-10-14.
     frame_size: Mapped[str | None] = mapped_column(String(16))
+    #: Its standard capacity, in rounds: the full magazine, not the
+    #: restricted-state ten, or the cylinder. Given to each listing of it that
+    #: states none. Read from its listings by migration 0080, typed after.
+    #: See app.services.capacity; 2026-10-16.
+    capacity: Mapped[int | None] = mapped_column(Integer)
     #: The listing title a pending row was proposed from, so an admin judging
     #: it can see what it came from without going hunting.
     first_seen_in: Mapped[str | None] = mapped_column(Text)
@@ -1059,6 +1064,11 @@ class Item(Base, TimestampMixin):
     #: with the words in ``frame_quote``, or else its model's, with no quote.
     frame_size: Mapped[str | None] = mapped_column(String(16), index=True)
     frame_quote: Mapped[str | None] = mapped_column(String(200))
+    #: How many rounds it holds (app.services.capacity, 2026-10-16): what the
+    #: listing says, with the words in ``capacity_quote``, or else its model's
+    #: standard capacity, with no quote.
+    capacity: Mapped[int | None] = mapped_column(Integer, index=True)
+    capacity_quote: Mapped[str | None] = mapped_column(String(200))
     #: When it was made (app.services.serials, 2026-10-15). The serial the
     #: listing labels as one, and the number in it -- a range, for a partly
     #: hidden "10550xx". Then the years it was made: as the listing states

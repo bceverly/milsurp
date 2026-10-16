@@ -191,6 +191,7 @@ def _model_out(row: FirearmModel, matched: int = 0, mentions: int | None = None)
         modern_production=row.modern_production,
         maker_url=row.maker_url,
         frame_size=row.frame_size,
+        capacity=row.capacity,
         status=row.status,
         position=row.position,
         enabled=row.enabled,
@@ -465,8 +466,9 @@ def update_model(
     session.flush()
     service.invalidate()
     changed = service.reprocess(session, [*spellings, *row.spellings])
-    if "frame_size" in changes:
-        # A model's size is the one its listings take when they state none.
+    if "frame_size" in changes or "capacity" in changes:
+        # A model's size and capacity are what its listings take when they
+        # state none.
         for item in session.execute(select(Item).where(Item.firearm_model_id == row.id)).scalars():
             variants.settle(session, item)
     audit.record(

@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 
 from ..models import FirearmModel, Item, utcnow
 from . import carry, curio, traits
+from . import frames as frame_sizes
 
 log = logging.getLogger("milsurp.search")
 
@@ -315,6 +316,9 @@ def apply_filters[S: Select](  # noqa: PLR0912, PLR0915 - one branch per filter;
     barrel_min: float | None = None,
     barrel_max: float | None = None,
     threaded: str | None = None,
+    frames: list[str] | None = None,
+    capacity_min: int | None = None,
+    capacity_max: int | None = None,
     excluded: dict[str, list[str]] | None = None,
 ) -> S:
     if site_ids:
@@ -417,6 +421,18 @@ def apply_filters[S: Select](  # noqa: PLR0912, PLR0915 - one branch per filter;
     if threaded in THREADED:
         stmt = stmt.where(Item.barrel_threaded.is_(THREADED[threaded]))
 
+    # A handgun's frame size (app.services.frames) and a gun's capacity
+    # (app.services.capacity), asked for on 2026-10-16. A listing with
+    # neither stated nor its model's is in no size and no range.
+    if frames:
+        stmt = stmt.where(Item.frame_size.in_(frames))
+    if capacity_min is not None or capacity_max is not None:
+        stmt = stmt.where(Item.capacity.is_not(None))
+        if capacity_min is not None:
+            stmt = stmt.where(Item.capacity >= capacity_min)
+        if capacity_max is not None:
+            stmt = stmt.where(Item.capacity <= capacity_max)
+
     if new_since_hours:
         stmt = stmt.where(Item.first_seen_at >= utcnow() - timedelta(hours=new_since_hours))
 
@@ -460,6 +476,7 @@ EXCLUDABLE = (
     "curio",
     "trait",
     "grade",
+    "frame",
 )
 
 
@@ -485,6 +502,7 @@ def _excluding(name: str, unwanted: list[str]):
         "country": Item.country,
         "manufacturer": Item.manufacturer,
         "grade": Item.condition_grade,
+        "frame": Item.frame_size,
     }
     if name in columns:
         return _without(columns[name], unwanted)
@@ -542,6 +560,11 @@ QUERY_PARAMS: dict[str, bool] = {
     "barrel_min": False,
     "barrel_max": False,
     "threaded": False,
+    # A handgun's frame size, in app.services.frames' words; repeats. And the
+    # capacity, in rounds, as a range: 2026-10-16.
+    "frame": True,
+    "capacity_min": False,
+    "capacity_max": False,
     "sort": False,
     # Each removable facet's "everything but": not_caliber, not_model ...
     **{f"not_{name}": True for name in EXCLUDABLE},
@@ -613,6 +636,7 @@ _FILTER_NAMES = {
     "curio": "curio_states",
     "trait": "trait_values",
     "grade": "grades",
+    "frame": "frames",
 }
 
 
@@ -659,6 +683,9 @@ def parse_query(query_string: str) -> SearchQuery:  # noqa: PLR0912 - one branch
         "barrel_min": None,
         "barrel_max": None,
         "threaded": None,
+        "frames": None,
+        "capacity_min": None,
+        "capacity_max": None,
         "excluded": {},
     }
 
@@ -691,9 +718,19 @@ def parse_query(query_string: str) -> SearchQuery:  # noqa: PLR0912 - one branch
         )
     if filters["new_since_hours"] is not None:
         filters["new_since_hours"] = _int(name="new_since_hours", value=filters["new_since_hours"])
+    for name in ("capacity_min", "capacity_max"):
+        if filters[name] is not None:
+            filters[name] = _int(name=name, value=filters[name])
     filters["price_drops_only"] = str(filters["price_drops_only"]).lower() in ("1", "true", "yes")
     filters["guns_only"] = str(filters["guns_only"]).lower() in ("1", "true", "yes")
 
+    _check_choices(filters)
+
+    return SearchQuery(filters, sort)
+
+
+def _check_choices(filters: dict[str, Any]) -> None:
+    """Refuse a value a list-of-choices filter does not offer."""
     if filters["kinds"]:
         unknown = [k for k in filters["kinds"] if k not in KINDS]
         if unknown:
@@ -713,8 +750,12 @@ def parse_query(query_string: str) -> SearchQuery:  # noqa: PLR0912 - one branch
         unknown = [g for g in filters["grades"] if g not in (*traits.GRADES, UNKNOWN)]
         if unknown:
             raise BadQuery(f"Unknown grade {unknown[0]!r}. Valid: {', '.join(traits.GRADES)}.")
-
-    return SearchQuery(filters, sort)
+    if filters["frames"]:
+        unknown = [f for f in filters["frames"] if f not in frame_sizes.SIZES]
+        if unknown:
+            raise BadQuery(
+                f"Unknown frame size {unknown[0]!r}. Valid: {', '.join(frame_sizes.SIZES)}."
+            )
 
 
 def _int(*, name: str, value: str) -> int:

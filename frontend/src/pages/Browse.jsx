@@ -10,6 +10,7 @@ import { api } from "../api.js";
 import { useDebounced, useOptimisticSearchParams, useTitle } from "../hooks.js";
 import PriceRange from "../components/PriceRange.jsx";
 import BarrelFilter, { barrelText } from "../components/BarrelFilter.jsx";
+import CapacityFilter, { capacityText } from "../components/CapacityFilter.jsx";
 import { formatMoney, formatRelative, timeTitle } from "../format.js";
 import AuthImage from "../components/AuthImage.jsx";
 import WishButton from "../components/WishButton.jsx";
@@ -221,6 +222,9 @@ const FACETS = [
   // a vendor happened to type — which is why it filters by id.
   { param: "model", facet: "models", title: "Model" },
   { param: "caliber", facet: "calibers", title: "Caliber" },
+  // A handgun's frame size: Full size, Compact ... or a revolver's K-frame.
+  // As the listing states it, or its model's (2026-10-16).
+  { param: "frame", facet: "frames", title: "Frame size" },
   // Then the things that decide what a particular gun is worth rather than
   // which gun it is: the vendor's own word for its condition, and the three
   // details a collector checks first. Both come from the listing's prose,
@@ -568,6 +572,12 @@ export default function Browse() {
   const barrelMin = params.get("barrel_min") ? Number(params.get("barrel_min")) : null;
   const barrelMax = params.get("barrel_max") ? Number(params.get("barrel_max")) : null;
   const threaded = params.get("threaded") || null;
+  const capacityMin = params.get("capacity_min")
+    ? Number(params.get("capacity_min"))
+    : null;
+  const capacityMax = params.get("capacity_max")
+    ? Number(params.get("capacity_max"))
+    : null;
   const perPage = PER_PAGE_CHOICES.includes(Number(params.get("per_page")))
     ? Number(params.get("per_page"))
     : DEFAULT_PER_PAGE;
@@ -602,6 +612,8 @@ export default function Browse() {
     if (barrelMin !== null) built.barrel_min = barrelMin;
     if (barrelMax !== null) built.barrel_max = barrelMax;
     if (threaded) built.threaded = threaded;
+    if (capacityMin !== null) built.capacity_min = capacityMin;
+    if (capacityMax !== null) built.capacity_max = capacityMax;
     for (const { param } of FACETS) {
       const values = params.getAll(param);
       if (values.length) built[param] = values;
@@ -622,6 +634,8 @@ export default function Browse() {
     barrelMin,
     barrelMax,
     threaded,
+    capacityMin,
+    capacityMax,
   ]);
 
   useEffect(() => {
@@ -762,6 +776,17 @@ export default function Browse() {
           }),
       });
     }
+    if (capacityMin !== null || capacityMax !== null) {
+      chips.push({
+        key: "capacity",
+        label: `Capacity: ${capacityText(capacityMin, capacityMax)} rounds`,
+        clear: () =>
+          update((next) => {
+            next.delete("capacity_min");
+            next.delete("capacity_max");
+          }),
+      });
+    }
     if (threaded) {
       chips.push({
         key: "threaded",
@@ -783,6 +808,8 @@ export default function Browse() {
     barrelMin,
     barrelMax,
     threaded,
+    capacityMin,
+    capacityMax,
   ]);
 
   const clearAll = () => {
@@ -1014,6 +1041,24 @@ export default function Browse() {
                   else search.set("barrel_max", String(next.max));
                   if (next.threaded) search.set("threaded", next.threaded);
                   else search.delete("threaded");
+                })
+              }
+            />
+          </Collapsible>
+
+          <Collapsible
+            title="Capacity"
+            defaultOpen={capacityMin !== null || capacityMax !== null}
+          >
+            <CapacityFilter
+              min={capacityMin}
+              max={capacityMax}
+              onChange={(next) =>
+                update((search) => {
+                  if (next.min == null) search.delete("capacity_min");
+                  else search.set("capacity_min", String(next.min));
+                  if (next.max == null) search.delete("capacity_max");
+                  else search.set("capacity_max", String(next.max));
                 })
               }
             />

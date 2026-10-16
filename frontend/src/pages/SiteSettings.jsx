@@ -339,13 +339,13 @@ const MANUFACTURER_JOBS = [
 const LISTING_JOBS = [
   {
     name: "barrels",
-    title: "Barrels, frame sizes and years made",
+    title: "Barrels, frames, capacities and years made",
     button: "Re-read barrels, frames and years",
     text:
       "Every gun's barrel length and whether it is threaded, every handgun's frame " +
-      "size, and every gun's serial and the year it was made, read again from its " +
-      "title and description; each listing of a model still made matched to its " +
-      "versions again. Asks no website anything.",
+      "size, and every gun's capacity, serial and the year it was made, read again " +
+      "from its title and description; each listing of a model still made matched " +
+      "to its versions again. Asks no website anything.",
   },
 ];
 

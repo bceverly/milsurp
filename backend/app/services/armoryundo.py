@@ -86,6 +86,7 @@ def snapshot(row: Any) -> dict[str, Any]:
         "modern_production",
         "maker_url",
         "frame_size",
+        "capacity",
         "website",
         "bullet_diameter_in",
         "primer_size",
