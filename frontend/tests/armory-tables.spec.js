@@ -39,11 +39,21 @@ test.describe("armory tables", () => {
     const tab = signedIn.getByRole("tab", { name: /^Manufacturers/ });
     await expect(tab).toHaveText(/^Manufacturers \([\d,]+\)$/);
     await tab.click();
+    // Both re-read until they agree: the heading's words change with Showing
+    // at once, its number only when the filtered list arrives, so one read
+    // could catch the pending view's count under "in production".
     const count = signedIn.getByTestId("armory-count");
-    await expect(count).toHaveText(/\([\d,]+\)$/);
-    const heading = await count.textContent();
-    const counted = heading.match(/\(([\d,]+)\)$/)[1];
-    await expect(tab).toHaveText(`Manufacturers (${counted})`);
+    const number = async (locator) =>
+      ((await locator.textContent()) || "").match(/\(([\d,]+)\)$/)?.[1];
+    await expect(count).toContainText("in production");
+    await expect
+      .poll(async () => {
+        const [table, label] = [await number(count), await number(tab)];
+        return table && table === label
+          ? "same"
+          : `${table} over the table, ${label} on the tab`;
+      })
+      .toBe("same");
   });
 
   test("a maker expands to the models the armory says it built", async ({ signedIn }) => {
