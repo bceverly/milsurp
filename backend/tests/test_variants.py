@@ -245,6 +245,8 @@ class TestTheVariantsTab:
         assert listed() == []
         assert [row["id"] for row in listed("disabled")] == ids[2:]
         assert len(listed("")) == 3
+        counts = client.get("/api/armory/variants/counts", headers=admin_headers).json()
+        assert counts == {"pending": 0, "approved": 2, "disabled": 1, "": 3}
 
     def test_an_unknown_view_is_refused(self, tracker, client, admin_headers):
         response = client.get(

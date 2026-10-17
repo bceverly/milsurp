@@ -32,6 +32,20 @@ test.describe("armory tables", () => {
     await expect(signedIn.getByLabel("Models")).toHaveCount(0);
   });
 
+  test("each tab says how many rows Showing lists on it", async ({ signedIn }) => {
+    /** Asked for on 2026-10-17: a count on every tab, as Variants had, that
+     *  follows the Showing box. The heading over the table is the same count. */
+    await signedIn.getByLabel("Showing").selectOption("approved");
+    const tab = signedIn.getByRole("tab", { name: /^Manufacturers/ });
+    await expect(tab).toHaveText(/^Manufacturers \([\d,]+\)$/);
+    await tab.click();
+    const count = signedIn.getByTestId("armory-count");
+    await expect(count).toHaveText(/\([\d,]+\)$/);
+    const heading = await count.textContent();
+    const counted = heading.match(/\(([\d,]+)\)$/)[1];
+    await expect(tab).toHaveText(`Manufacturers (${counted})`);
+  });
+
   test("a maker expands to the models the armory says it built", async ({ signedIn }) => {
     await loadShipped(signedIn);
     await signedIn.getByRole("tab", { name: "Manufacturers" }).click();

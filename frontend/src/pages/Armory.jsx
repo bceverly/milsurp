@@ -235,6 +235,15 @@ const STATUSES = [
   { value: "", label: "Everything" },
 ];
 
+/** Whether a row is one the Showing setting lists, as the server's
+ * ``_view_clause`` decides it (app/services/armory.py). */
+function inView(row, view) {
+  if (!view) return true;
+  if (view === "merged") return row.status === "merged";
+  if (view === "disabled") return !row.enabled && row.status !== "merged";
+  return row.status === view && row.enabled !== false;
+}
+
 //: The heading over a table: "Models in production (1,510)".
 const TAB_NOUNS = {
   manufacturers: "Manufacturers",
@@ -3005,18 +3014,35 @@ export default function Armory() {
       })),
     ];
   };
-  // How many variants are waiting, for the Variants tab's label: fetched on
-  // arrival and again after the tab approves or switches any off.
-  const [variantsWaiting, setVariantsWaiting] = useState(0);
+  // How many variants each Showing setting lists, for the Variants tab's
+  // label: fetched on arrival and again after the tab approves or switches
+  // any off.
+  const [variantCounts, setVariantCounts] = useState({});
   const countVariants = useCallback(() => {
     api
-      .armoryVariants({ status: "pending" })
-      .then((pending) => setVariantsWaiting(pending.length))
+      .armoryVariantCounts()
+      .then(setVariantCounts)
       .catch(() => {});
   }, []);
   useEffect(() => {
     countVariants();
   }, [countVariants]);
+  // How many links of each kind were turned down, for the link tabs' labels
+  // under Rejected and Everything.
+  const [rejectedCounts, setRejectedCounts] = useState({});
+  const countRejected = useCallback(() => {
+    for (const field of Object.values(SUGGESTION_FIELD)) {
+      api
+        .referenceProposals({ field, status: "rejected" })
+        .then((found) =>
+          setRejectedCounts((prev) => ({ ...prev, [field]: found.length })),
+        )
+        .catch(() => {});
+    }
+  }, []);
+  useEffect(() => {
+    countRejected();
+  }, [countRejected]);
   // How many of each kind are waiting, for the tabs' labels.
   const waiting = useMemo(() => {
     const counts = {};
@@ -3026,6 +3052,32 @@ export default function Armory() {
     }
     return counts;
   }, [proposals]);
+
+  /**
+   * The count in a tab's label (asked for on 2026-10-17): how many rows the
+   * tab lists under the current Showing setting, whatever the search -- so
+   * Awaiting approval shows each tab's queue and Production its size. Read
+   * from the unfiltered lists, which `load()` refreshes after every write.
+   */
+  const tabCount = (key) => {
+    if (key === "variants") return variantCounts[makerPageView] || 0;
+    const field = SUGGESTION_FIELD[key];
+    if (field) {
+      const pending = waiting[field] || 0;
+      const linked = linkRows(field).filter((row) => row.url).length;
+      const rejected = rejectedCounts[field] || 0;
+      return {
+        pending,
+        approved: linked,
+        disabled: rejected,
+        "": pending + linked + rejected,
+      }[makerPageView];
+    }
+    const list = { manufacturers: allMakers, models: allModels, calibers: allCalibers }[
+      key
+    ];
+    return list.filter((row) => inView(row, statusFilter)).length;
+  };
 
   // Everything on arrival; after that a changed filter reloads only what it
   // filters.
@@ -3369,10 +3421,7 @@ export default function Armory() {
             onClick={() => setTab(entry.key)}
           >
             {entry.label}
-            {SUGGESTION_FIELD[entry.key] &&
-              waiting[SUGGESTION_FIELD[entry.key]] > 0 &&
-              ` (${waiting[SUGGESTION_FIELD[entry.key]]})`}
-            {entry.key === "variants" && variantsWaiting > 0 && ` (${variantsWaiting})`}
+            {tabCount(entry.key) > 0 && ` (${tabCount(entry.key).toLocaleString()})`}
           </button>
         ))}
       </div>
@@ -3493,6 +3542,7 @@ export default function Armory() {
           failure={proposalError}
           onChanged={() => {
             loadProposals();
+            countRejected();
             load();
           }}
         />

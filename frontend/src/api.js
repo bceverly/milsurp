@@ -415,6 +415,8 @@ export const api = {
   modelVariants: (modelId) => request(`/api/armory/models/${modelId}/variants`),
   // Every model's variants together, for the Armory's Variants tab.
   armoryVariants: (params = {}) => request(`/api/armory/variants${qs(params)}`),
+  // How many variants each Showing setting lists: { pending, approved, disabled, "" }.
+  armoryVariantCounts: () => request("/api/armory/variants/counts"),
   approveVariants: (ids) =>
     request("/api/armory/variants/approve", { method: "POST", body: { ids } }),
   disableVariants: (ids) =>

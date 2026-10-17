@@ -120,6 +120,26 @@ def every_variant(
     return [_out(row) for row in rows]
 
 
+@router.get("/variants/counts", response_model=dict[str, int])
+def variant_counts(_admin: AdminUser, session: DbSession) -> dict[str, int]:
+    """How many variants each Showing setting lists, for the Variants tab's
+    label (asked for on 2026-10-17): the counts without the rows, which run to
+    thousands once approved.
+    """
+    counts = {"pending": 0, "approved": 0, "disabled": 0, "": 0}
+    for row_status, enabled, n in session.execute(
+        select(ModelVariant.status, ModelVariant.enabled, func.count(ModelVariant.id)).group_by(
+            ModelVariant.status, ModelVariant.enabled
+        )
+    ):
+        counts[""] += n
+        if not enabled:
+            counts["disabled"] += n
+        elif row_status in (ArmoryStatus.PENDING, ArmoryStatus.APPROVED):
+            counts[row_status.value] += n
+    return counts
+
+
 def _bulk(
     session: DbSession,
     admin: Any,

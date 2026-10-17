@@ -83,6 +83,13 @@ def _search_index() -> str:
     return _index_kind
 
 
+def trigram_indexed() -> bool:
+    """Whether ``search_document`` has PostgreSQL's trigram index, which serves
+    any ``ILIKE '%x%'`` on it -- for other lookups to narrow by, as
+    ``manufacturers.items_mentioning`` does."""
+    return _search_index() == "postgres"
+
+
 def forget_search_index() -> None:
     """Drop the cached answer. For the tests, which build several databases in
     one process, and for a migration applied while the app is running."""

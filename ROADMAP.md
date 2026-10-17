@@ -5490,6 +5490,53 @@ on the host system like we do on the other projects?"
   longest pole: `armory.spec.js` loads it over and over and takes about ten
   of those minutes on its own.
 
+### An Armory save no longer reads every listing — **Fixed** 2026-10-17
+
+Asked: "are there any places where adding an index to postgres would help
+improve interactive performance?" Measured on production with
+pg_stat_statements: almost nowhere. The whole database is about 250 MB
+against 1.5 GB of shared buffers, the columns the browse filters use are
+indexed, and the browse and facet queries take 5 to 30 ms.
+
+The one exception was `manufacturers.items_mentioning`, which finds the
+listings an armory edit can change, so every Save in the Armory runs it. Its
+`title ILIKE` / `description ILIKE` pairs can't use an index and read all
+20,000 listings: 220 ms for two spellings, and 7 to 9 seconds for a batch of
+two hundred. No new index was needed: `search_document`, the search box's
+column, already has a trigram index and holds the title and description word
+for word. Each spelling is now looked up there first and the ILIKEs only
+recheck the hits, which took the same query to 1.8 ms. PostgreSQL only
+(`search.trigram_indexed`); SQLite keeps the scan.
+
+### A count on every Armory tab — **Changed** 2026-10-17
+
+Asked for: "in the tab hypertext links ... always displayed any >0 counts
+parenthetically like you do with variants depending on the showing dropdown".
+Every tab's label now carries how many rows it lists under the Showing
+setting, whatever the search: "Models (12)" under Awaiting approval, the
+whole production list under Production. Manufacturers, Models and Calibers count the unfiltered
+lists the page already loads, as the server's `_view_clause` reads a Showing
+value; Wikipedia and Manufacturer pages count the suggestions waiting, the
+links in the armory and the ones rejected; Variants asks a new
+`GET /api/armory/variants/counts`, rather than fetch thousands of approved
+rows to count them. A count of none shows no number, as before.
+
+### The second Bud's run reviewed — **Done** 2026-10-17
+
+The run of 2026-10-17 (1 hour 53 minutes, 437 models) left 825 versions, 12
+proposed models and 2 calibers waiting.
+
+* **Models:** the Savage Model 1919 (the .22 NRA Match rifle), Cobra CB38
+  (a .38 Special derringer) and Tisas Fatih approved; Browning "Model 1919",
+  "Budapest Model 1895", "Gewehr 88", "No 4 MK1" and "RAS-47" merged into the
+  M1919A4, Steyr M95, Gewehr 1888, Lee-Enfield No.4 Mk1 and RAS47; and a
+  Luger cleaning rod, "GARDONE VT 1940" (a Carcano's factory and year), "wz.98"
+  and "AK 63" switched off, the last two as their earlier spellings were.
+* **All 825 versions approved**, and 7 listings linked to a different
+  version.
+* **Calibers:** .656 (a Pattern 1859 sergeant's fusil) and 14 Gauge, with "14
+  Bore", beside the .629 and the other bores.
+
 ### The first Bud's run reviewed — **Done** 2026-10-16
 
 The first full "Update MSRPs and variants" with the Bud's Gun Shop reader

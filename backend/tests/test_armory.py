@@ -1715,6 +1715,47 @@ class TestRematchingAfterABigApproval:
         # Once, though two spellings in different batches both name it.
         assert [item.external_key for item in found] == ["a"]
 
+    def test_the_indexed_lookup_finds_what_the_scan_does(self, clean_db, monkeypatch):
+        """PostgreSQL looks each spelling up in the search box's trigram index
+        before the title and description ILIKEs (2026-10-17). The same listings
+        either way: in the description only, in another case, or only in a
+        column the index holds and the lookup must not count."""
+        from app.models import Item, Site
+        from app.services import manufacturers, search
+
+        site = Site(slug="s", name="S", base_url="https://s.test/")
+        clean_db.add(site)
+        clean_db.flush()
+        clean_db.add_all(
+            [
+                Item(site_id=site.id, external_key="t", url="https://s.test/t", title="GEWEHR 88"),
+                Item(
+                    site_id=site.id,
+                    external_key="d",
+                    url="https://s.test/d",
+                    title="Commission rifle",
+                    description="A Loewe Gewehr 88, 1891",
+                ),
+                Item(
+                    site_id=site.id,
+                    external_key="m",
+                    url="https://s.test/m",
+                    title="Rifle",
+                    manufacturer="Gewehr 88 Works",
+                ),
+            ]
+        )
+        clean_db.commit()
+
+        def found():
+            items = manufacturers.items_mentioning(clean_db, ["gewehr 88", "100% Nothing"])
+            return sorted(item.external_key for item in items)
+
+        monkeypatch.setattr(search, "_index_kind", "columns")
+        scanned = found()
+        monkeypatch.setattr(search, "_index_kind", "postgres")
+        assert found() == scanned == ["d", "t"]
+
     def test_and_none_is_no_query_at_all(self, clean_db):
         from app.services import manufacturers
 

@@ -235,6 +235,12 @@ test("the Variants tab lists every model's, and approves them in bulk", async ({
       });
       return;
     }
+    if (url.pathname.endsWith("/counts")) {
+      await route.fulfill({
+        json: { pending: pending.length, approved: 0, disabled: 0, "": pending.length },
+      });
+      return;
+    }
     await route.fulfill({
       json: url.searchParams.get("status") === "pending" ? pending : [],
     });

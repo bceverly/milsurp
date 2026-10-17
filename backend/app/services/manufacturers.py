@@ -28,7 +28,7 @@ import re
 import threading
 from collections.abc import Iterable
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from ..models import ArmoryStatus, FirearmModel, Item, Manufacturer
@@ -458,7 +458,17 @@ def items_mentioning(session: Session, spellings: Iterable[str]) -> list[Item]:
     spelling here is matched. Each listing once, however many spellings it
     mentions.
     """
+    from . import search
+
     wanted = list(dict.fromkeys(text.strip() for text in spellings if text and text.strip()))
+    # On PostgreSQL, each spelling is looked up in the search box's trigram
+    # index first (2026-10-17). The title and description are in the indexed
+    # `search_document` word for word, so the index finds every listing they
+    # would and the ILIKEs below only recheck its few hits. Without it, every
+    # Save in the Armory read the whole table: 220ms for two spellings on
+    # production's 20,000 listings, 1.8ms with it, and 7 to 9 seconds for a
+    # batch of two hundred.
+    indexed = search.trigram_indexed()
     found: dict[int, Item] = {}
     for start in range(0, len(wanted), _SPELLINGS_PER_QUERY):
         clauses = []
@@ -467,8 +477,13 @@ def items_mentioning(session: Session, spellings: Iterable[str]) -> list[Item]:
             # ilike: the spellings are matched case-insensitively everywhere
             # else in this module, and SQLite's LIKE gave that for free where
             # PostgreSQL's does not.
-            clauses.append(Item.title.ilike(pattern, escape="!"))
-            clauses.append(Item.description.ilike(pattern, escape="!"))
+            either = or_(
+                Item.title.ilike(pattern, escape="!"),
+                Item.description.ilike(pattern, escape="!"),
+            )
+            if indexed:
+                either = and_(Item.search_document.ilike(pattern, escape="!"), either)
+            clauses.append(either)
         for item in session.execute(select(Item).where(or_(*clauses))).scalars():
             found.setdefault(item.id, item)
     return list(found.values())
