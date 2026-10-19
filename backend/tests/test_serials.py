@@ -556,3 +556,118 @@ def test_migration_0077_does_not_ask_for_the_tables(garands, monkeypatch):
 )
 def test_a_maker_named_in_the_listings_words(text, spelling, named):
     assert serials._names(text, spelling) is named
+
+
+@pytest.fixture
+def coded(clean_db):
+    """A K98k and a P38 with the makers and marks the shipped armory gives them."""
+    from app.models import Manufacturer
+
+    mauser = Manufacturer(name="Mauser", marks="byf\nsvw\nar\nS/42\nS/243")
+    gustloff = Manufacturer(name="Gustloff", marks="bcd")
+    walther = Manufacturer(name="Walther", marks="ac")
+    k98k = FirearmModel(name="Karabiner 98k", status=ArmoryStatus.APPROVED)
+    p38 = FirearmModel(name="Walther P38", status=ArmoryStatus.APPROVED)
+    k98k.manufacturers = [mauser, gustloff]
+    p38.manufacturers = [walther, mauser]
+    site = Site(slug="cd", name="Shop CD", base_url="https://cd.test/")
+    clean_db.add_all([k98k, p38, site])
+    clean_db.commit()
+    return clean_db, k98k, p38, site
+
+
+def gun(session, model, site, key, title, description=None, *, pistol=False):
+    item = Item(
+        site_id=site.id,
+        external_key=key,
+        url=f"https://cd.test/{key}",
+        title=title,
+        description=description,
+        is_rifle=not pistol,
+        is_pistol=pistol,
+        firearm_model_id=model.id,
+        is_active=True,
+        is_sold=False,
+    )
+    session.add(item)
+    session.flush()
+    variants.settle(session, item)
+    session.commit()
+    return item
+
+
+class TestAYearBesideTheMakersCode:
+    """The K98k and the P38 (2026-10-19): Wikipedia's "Karabiner 98k" and
+    "Walther P38" say the year is stamped beside the maker's code."""
+
+    @pytest.mark.parametrize(
+        ("title", "year"),
+        [
+            ("German K98k Mauser byf 43 7.92x57", 1943),
+            ("WWII K98K bcd 4 code rifle, receiver dated bcd44", 1944),
+            ("Mauser K98k S/42 1937 Oberndorf", 1937),
+            ("Early Mauser K98k S/42 K, all matching", 1934),
+            ("Early Mauser K98k S/42 G", 1935),
+            ("SOLD VERY SCARCE DUAL CODE bcd/ar42 K98k ZF41", 1942),
+            ("German K-98 Rifle, BCD,1943 Dated, All Matching", 1943),
+            ("FINE WW2 WALTHER P-38 P38 BYF/42 OR BYF-42 ( MAUSER CODE )", 1942),
+            ("German K98k, bcd 43, all matching.", 1943),
+            ("A fine German K98k by Gustloff, bcd 44.", 1944),
+        ],
+    )
+    def test_a_k98k(self, coded, title, year):
+        session, k98k, _p38, site = coded
+        item = gun(session, k98k, site, "k", title)
+        assert (item.made_from, item.made_source) == (year, "stated")
+
+    def test_a_p38(self, coded):
+        session, _k98k, p38, site = coded
+        item = gun(session, p38, site, "p", "Walther P38 ac44 9mm", pistol=True)
+        assert (item.made_from, item.made_quote) == (1944, "Walther P38 ac44 9mm")
+        late = gun(session, p38, site, "s", "Mauser P38 svw 46 French", pistol=True)
+        assert late.made_from == 1946
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "German K98k byf 7.92x57 rifle",  # a caliber, not a year
+            "Mauser K98k ar 15 style sling",  # not a year a K98k was made
+            "K98k byf code, 20 rounds included",
+            "Walther P38 AC No Date",
+        ],
+    )
+    def test_not_a_year(self, coded, title):
+        session, k98k, p38, site = coded
+        if "No Date" in title:
+            # The description compares it with the dated ones.
+            words = "(AC40) Examples of this AC NO date variation are rare"
+            item = gun(session, p38, site, "n", title, words, pistol=True)
+        else:
+            item = gun(session, k98k, site, "n", title)
+        assert item.made_source is None
+
+    def test_only_on_the_models_dated_that_way(self, coded):
+        """The same words on another model say nothing: "bcd" is a code only
+        among the K98k's makers."""
+        session, _k98k, _p38, site = coded
+        other = FirearmModel(name="M1 Garand", status=ArmoryStatus.APPROVED)
+        session.add(other)
+        session.commit()
+        assert gun(session, other, site, "g", "Garand-style bcd 43").made_source is None
+
+    def test_a_description_comparing_two_is_not_read(self, coded):
+        session, k98k, _p38, site = coded
+        item = gun(
+            session,
+            k98k,
+            site,
+            "c",
+            "Rare dual code German K98k",
+            "Commonly seen on byf 44 rifles, rarer on a bcd 42.",
+        )
+        assert item.made_source is None
+
+    def test_the_listings_own_words_come_first(self, coded):
+        session, k98k, _p38, site = coded
+        item = gun(session, k98k, site, "w", "Mauser K98k byf 43", "Manufactured in 1942.")
+        assert item.made_from == 1942

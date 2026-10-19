@@ -507,6 +507,7 @@ def refresh(session: Any) -> dict[str, int]:
         "frames_stated": framed["stated"],
         "frames_from_armory": framed["from_armory"],
         "years_stated": made["stated"],
+        "years_coded": made["coded"],
         "years_from_tables": made["table"],
         "years_placed": made["placed"],
         "capacity_stated": held["stated"],

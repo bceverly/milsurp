@@ -83,6 +83,7 @@ def _summary(name: str, counts: dict[str, Any]) -> str:
             f"{counts.get('capacity_stated', 0):,} capacity value(s) stated and "
             f"{counts.get('capacity_from_armory', 0):,} from the armory; "
             f"{counts.get('years_stated', 0):,} year(s) made stated, "
+            f"{counts.get('years_coded', 0):,} read beside a maker's code, "
             f"{counts.get('years_from_tables', 0):,} from a serial table and "
             f"{counts.get('years_placed', 0):,} placed by serial among listings; "
             f"{counts.get('relinked', 0):,} listing(s) matched to a different version."

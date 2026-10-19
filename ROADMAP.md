@@ -1938,7 +1938,11 @@ source is always one click away.
   scan that reads nothing de-lists nothing. **And a scan that would de-list
   more than 30% of a site's active listings de-lists none of them**, finishing
   PARTIAL with a warning that says how many and how to accept it
-  (`cli.py scan --site <slug> --accept-delist`). The threshold was measured:
+  (`cli.py scan --site <slug> --accept-delist`, and since 2026-10-19 **Scan
+  and accept de-listing** on the site's card, shown only after a scan held
+  back, confirmed first and written to the audit log. Asked for when Clyde
+  Armory dropped 27 of its 45 listings, which the CLI de-listed that day). The
+  threshold was measured:
   across 42 dev scans that de-listed anything, none above 13% was an ordinary
   sell-through — the larger ones were the J&G Sales outage (100%) and scraper
   rewrites (Legacy 50%, Royal Tiger 40%). Sites under 20 listings are not
@@ -5949,10 +5953,31 @@ on 2026-10-15.
   written permission. The lookup itself says it is "provided as reference
   only, and accuracy is not guaranteed."
 
+* **The K98k and the P38, by the year beside the maker's code** (2026-10-19,
+  `serials.read_code_year`). Their serials restart, so no table dates them,
+  but the year is stamped beside the maker's code. Wikipedia's "Karabiner
+  98k": receivers were "stamped with a factory code indicating date and
+  location of manufacture", with "'K' for 1934 or 'G' for 1935" after an
+  "S/" code, and after 1935 "the two- or four-digit year of manufacture".
+  Its "Walther P38": "ac (Walther); byf (Mauser), and cyq (Spreewerk),
+  followed by the date (e.g.: ac44: Walther 1944 production)". The codes are
+  the armory's own maker marks, read only on these models and only within
+  each model's years (K98k 1934-1945, P38 1939-1946, which includes Mauser's
+  French-supervised svw45 and svw46): "byf 43", "ac41", "dot/1944", "bcd/ar42",
+  "S/42 G". A description giving two code years is comparing guns and is not
+  read, and a listing that says "no date" or "undated" is never given one.
+  Spot-checked on production first: of the twelve years read from
+  descriptions, the one wrong was an "AC No Date" P38 that the description
+  compared with "AC40" guns, which the no-date rule now leaves alone. Applied
+  that day: 124 listings dated, taking dated K98ks from 55 to 94 of 298 and
+  P38s from 63 to 148 of 215.
+
 Still not done: the M1 Carbine's contractor blocks, and Remington's 1903s,
-which need a source that can be reached and trusted. The K98k and P38, whose
-serials restart within year codes, and Glock's letter-coded years need a rule
-rather than a table.
+which need a source that can be reached and trusted. **Glock's years** too:
+no reachable page says how a Glock serial's letters map to years (Wikipedia
+notes only that early imports were "AF000" in January 1986), and a mapping
+typed from memory is the thing this whole section refuses. Nor are Walther's
+"480" code and the undated "ac" P38s read: no source in hand gives their year.
 
 ### The last proposals reviewed — **Done** 2026-10-15
 

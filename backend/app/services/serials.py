@@ -545,9 +545,121 @@ def estimate(session: Any, item: Any, *, tables: bool = True) -> None:
         item.made_from = item.made_to = item.made_source = item.made_quote = None
 
 
+# -- A year beside a maker's code ----------------------------------------------
+#: The models dated by a year stamped beside their maker's code, and the years
+#: that can be (2026-10-19). Wikipedia's "Karabiner 98k": receivers were
+#: "stamped with a factory code indicating date and location of manufacture",
+#: "suffixed with 'K' for 1934 or 'G' for 1935", and after 1935 "the two- or
+#: four-digit year of manufacture was stamped on the receiver ring". Its
+#: "Walther P38": each wartime maker "used a letter code: ac (Walther); byf
+#: (Mauser), and cyq (Spreewerk), followed by the date (e.g.: ac44: Walther
+#: 1944 production)"; "Spreewerk did not mark production dates". The codes
+#: themselves are the armory's: each maker's marks (Manufacturer.marks), for
+#: the makers linked to these models -- "byf" means nothing on a Garand.
+CODED: tuple[tuple[tuple[str, ...], int, int], ...] = (
+    (("Karabiner 98k",), 1934, 1945),
+    # Mauser's svw45 and svw46 were made under French control after the war.
+    (("Walther P38", "P38"), 1939, 1946),
+)
+#: A gun its maker did not date.
+_UNDATED = re.compile(r"\b(?:no[\s-]+date|undated|non[\s-]?dated)\b", re.I)
+#: The K98k's first two years, as a letter after its "S/" code: "S/42 K".
+_LETTER_YEARS = {"K": 1934, "G": 1935}
+_S_CODE = re.compile(r"(?<![\w/])S/\d{1,3}\s*([KG])(?![\w/])")
+
+
+def _coded(session: Any) -> dict[int, tuple[re.Pattern[str], int, int, bool]]:
+    """Each coded model's id: its makers' marks run into a year, and the
+    years a gun of it can be."""
+    cache: dict[int, tuple[re.Pattern[str], int, int, bool]] | None = session.info.get(
+        "serials_coded"
+    )
+    if cache is not None:
+        return cache
+    from sqlalchemy import select
+
+    from ..models import FirearmModel
+
+    cache = {}
+    for names, first, last in CODED:
+        models = list(
+            session.execute(select(FirearmModel).where(FirearmModel.name.in_(names))).scalars()
+        )
+        marks = sorted(
+            {
+                line.strip()
+                for model in models
+                for maker in model.manufacturers
+                for line in (maker.marks or "").splitlines()
+                if line.strip()
+            },
+            key=len,
+            reverse=True,
+        )
+        if not marks:
+            continue
+        # "byf 43", "ac41", "AC-44", "dot 1944", "S/42 1937", "BYF/42", "BNZ,
+        # 1943", a dual code's "bcd/ar42": a code, then the year straight after
+        # it, and nothing that makes it another number.
+        pattern = re.compile(
+            r"(?<!\w)(" + "|".join(re.escape(mark) for mark in marks) + r")"
+            r"[\s,/-]*(\d{4}|\d{2})(?!\d|[.,/]\d|\s*(?:mm|rd|round|cal|x\d))",
+            re.I,
+        )
+        letters = any(mark.upper().startswith("S/") for mark in marks)
+        for model in models:
+            cache[model.id] = (pattern, first, last, letters)
+    session.info["serials_coded"] = cache
+    return cache
+
+
+def read_code_year(session: Any, item: Any) -> Made | None:
+    """The year beside the maker's code, on a model dated that way
+    (:data:`CODED`): "Mauser K98k byf 43" is 1943."""
+    found = _coded(session).get(item.firearm_model_id)
+    if found is None:
+        return None
+    pattern, first, last, letters = found
+    # "Walther P38 AC No Date": a gun its maker did not date, whatever the
+    # description compares it with ("(AC40) Examples of this AC NO date...").
+    if _UNDATED.search(f"{item.title or ''}\n{item.description or ''}"):
+        return None
+    for text in (item.title or "", item.description or ""):
+        hits = []
+        for hit in pattern.finditer(text):
+            digits = hit.group(2)
+            year = int(digits) if len(digits) == 4 else 1900 + int(digits)
+            if first <= year <= last:
+                hits.append((hit.start(), year, hit))
+        if letters:
+            hits += [
+                (hit.start(), _LETTER_YEARS[hit.group(1).upper()], hit)
+                for hit in _S_CODE.finditer(text)
+            ]
+        # A description giving two years is comparing guns -- "commonly seen
+        # on byf 44 rifles" under a bcd 42 -- not saying which this one is.
+        if text is not item.title and len({year for _s, year, _h in hits}) > 1:
+            continue
+        if hits:
+            _start, year, hit = min(hits, key=lambda h: h[0])
+            return Made(year, year, STATED, _quote(text, hit.start(), hit.end()))
+    return None
+
+
+def code_year(session: Any, item: Any) -> None:
+    """Fill in the year beside the maker's code, where nothing stated one."""
+    if item.made_source is not None or not is_firearm(item):
+        return
+    made = read_code_year(session, item)
+    if made:
+        item.made_from, item.made_to = made.year_from, made.year_to
+        item.made_source, item.made_quote = made.source, made.quote
+
+
 def apply(session: Any, item: Any) -> None:
     """Read one listing's serial and year, and place the serial if it must."""
     read(item)
+    code_year(session, item)
     estimate(session, item)
 
 
@@ -563,7 +675,7 @@ def backfill(session: Any, *, tables: bool = True) -> dict[str, int]:
 
     from ..models import Item
 
-    counts = {"examined": 0, "serial": 0, "stated": 0, "table": 0, "placed": 0}
+    counts = {"examined": 0, "serial": 0, "stated": 0, "coded": 0, "table": 0, "placed": 0}
     # Only the columns read and written, for the reason frames.backfill
     # gives: migration 0077 runs this, and later columns must not break it.
     guns = (
@@ -594,6 +706,10 @@ def backfill(session: Any, *, tables: bool = True) -> dict[str, int]:
         read(item)
         counts["serial"] += item.serial is not None
         counts["stated"] += item.made_source == STATED
+        if tables and item.made_source is None:
+            # Like the tables, the codes are the armory's: 0077 runs first.
+            code_year(session, item)
+            counts["coded"] += item.made_source == STATED
     session.flush()
     waiting = guns.where(Item.serial_low.is_not(None), Item.made_source.is_(None))
     for item in session.execute(waiting).scalars():

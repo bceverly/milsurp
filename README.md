@@ -3331,8 +3331,10 @@ completed scan de-list more than 30% of a site's active listings at once**
 (`SiteScraper.max_delist_share`, for sites of 20 or more): a normal scan removes
 a few percent, and one that would remove a third has far more likely stopped
 reading the catalog than watched it sell. It de-lists nothing, finishes PARTIAL,
-and says so; `cli.py scan --site <slug> --accept-delist` lets one run through
-when the shop really has cleared its shelves. Hunter's Lodge is exempt, since
+and says so. **Scan and accept de-listing** on that site's card on the Sites
+page (after a confirmation, and recorded in the audit log), or `cli.py scan
+--site <slug> --accept-delist`, lets one run through when the shop really has
+cleared its shelves. Hunter's Lodge is exempt, since
 each new flyer replaces its whole catalog. An unchanged
 gallery — same URLs in the same order — is skipped entirely, so re-scanning a
 static catalog costs no image traffic. `make stop` warns before interrupting a

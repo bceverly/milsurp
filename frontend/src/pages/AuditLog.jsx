@@ -33,6 +33,7 @@ const LABELS = {
   "site.enabled": "Site enabled",
   "site.disabled": "Site disabled",
   "site.newsletter_confirmed": "Mailing list marked confirmed",
+  "site.delist_accepted": "Scan let through to de-list",
   "session.revoked": "Session revoked",
   "session.revoked_all": "Other sessions revoked",
   "armory.edited": "Armory row changed",

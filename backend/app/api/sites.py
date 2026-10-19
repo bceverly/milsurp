@@ -76,6 +76,10 @@ def _site_out(
     data.active_item_count = int(active or 0)
     data.is_scanning = scan_service.is_running(site.id)
     data.last_run = ScanRunOut.model_validate(last_run) if last_run else None
+    if data.last_run is not None:
+        data.last_run.delist_held_back = scan_service.held_back_delisting(
+            data.last_run.error_message
+        )
 
     counts = photos if photos is not None else scan_service.pending_photo_counts(session)
     data.photos_pending, data.photos_failed = counts.get(site.id, (0, 0))
@@ -362,7 +366,17 @@ def confirm_newsletter(
 @router.post(
     "/{site_id}/scan", response_model=ScanStartResponse, status_code=status.HTTP_202_ACCEPTED
 )
-def start_scan(site_id: int, _admin: AdminUser, session: DbSession) -> ScanStartResponse:
+def start_scan(
+    site_id: int,
+    admin: AdminUser,
+    session: DbSession,
+    request: Request,
+    accept_delist: bool = Query(
+        default=False,
+        description="Let this scan de-list more than the site's usual share: the CLI's "
+        "--accept-delist, for a shop that really has cleared its shelves.",
+    ),
+) -> ScanStartResponse:
     """Kick off a scan now, regardless of the schedule."""
     site = session.get(Site, site_id)
     if site is None:
@@ -377,6 +391,18 @@ def start_scan(site_id: int, _admin: AdminUser, session: DbSession) -> ScanStart
             status_code=status.HTTP_409_CONFLICT,
             detail="A scan for this site is already running.",
         )
+    if accept_delist:
+        # It can take a whole catalog off the shelf at once: who said so.
+        audit.record(
+            session,
+            actor=admin,
+            action=audit.SITE_DELIST_ACCEPTED,
+            target_type="site",
+            target_id=site.id,
+            target_label=site.name,
+            ip_address=client_address(request),
+        )
+        session.commit()
 
     # Run off-request: a browser-driven scan takes minutes and must not hold an
     # HTTP connection open. Progress is polled from the scan_runs row.
@@ -385,7 +411,9 @@ def start_scan(site_id: int, _admin: AdminUser, session: DbSession) -> ScanStart
 
     def _run() -> None:
         try:
-            result["run_id"] = scan_service.run_scan(site_id, trigger="manual")
+            result["run_id"] = scan_service.run_scan(
+                site_id, trigger="manual", accept_delist=accept_delist
+            )
         except scan_service.ScanBusy:
             result["run_id"] = -1
         finally:

@@ -1219,6 +1219,10 @@ class ScanRunOut(UTCModel):
     price_drops: int
     images_downloaded: int
     error_message: str | None = None
+    #: Whether this run held back from de-listing more than the site's usual
+    #: share (scan_service._shrink_warning), so the Sites page can offer to
+    #: scan again and accept it (2026-10-19).
+    delist_held_back: bool = False
 
     @field_validator("status", mode="before")
     @classmethod

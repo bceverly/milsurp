@@ -450,6 +450,7 @@ function SiteCard({ site, result, onChange, onError, onNotice, onDismissResult }
   // therefore skip. This is what a fix to how a page is parsed cannot reach.
   const alreadyRead = site.details_fetched || 0;
   const [confirmRefetch, setConfirmRefetch] = useState(false);
+  const [confirmDelist, setConfirmDelist] = useState(false);
 
   async function patch(body) {
     setBusy(true);
@@ -485,10 +486,11 @@ function SiteCard({ site, result, onChange, onError, onNotice, onDismissResult }
     }
   }
 
-  async function scanNow() {
+  async function scanNow({ acceptDelist = false } = {}) {
     setBusy(true);
+    setConfirmDelist(false);
     try {
-      await api.startScan(site.id);
+      await api.startScan(site.id, { acceptDelist });
       onChange({ ...site, is_scanning: true });
     } catch (error) {
       onError(error.message);
@@ -714,7 +716,7 @@ function SiteCard({ site, result, onChange, onError, onNotice, onDismissResult }
         */}
         <button
           className="btn btn--primary btn--sm"
-          onClick={scanNow}
+          onClick={() => scanNow()}
           disabled={
             busy ||
             !site.is_available ||
@@ -746,6 +748,24 @@ function SiteCard({ site, result, onChange, onError, onNotice, onDismissResult }
           <Stop size={14} />
           Stop
         </button>
+
+        {/*
+          The CLI's --accept-delist, asked for on 2026-10-19. Only after a scan
+          held back from de-listing because too much had gone, and only once
+          somebody has said the shop really did take those listings down: a
+          scraper that stopped reading looks exactly the same from here.
+        */}
+        {site.last_run?.delist_held_back && !site.is_scanning && (
+          <button
+            className="btn btn--secondary btn--sm"
+            onClick={() => setConfirmDelist(true)}
+            disabled={busy || !site.is_available || Boolean(site.resting_seconds)}
+            title="The last scan read the shop but de-listed nothing, because too many listings had gone"
+          >
+            <Play size={14} />
+            Scan and accept de-listing
+          </button>
+        )}
 
         {/*
           Named for the state it ends, not for what it permits. "Fetch anyway"
@@ -812,6 +832,39 @@ function SiteCard({ site, result, onChange, onError, onNotice, onDismissResult }
           History
         </Link>
       </div>
+
+      {confirmDelist && (
+        <Modal
+          title="Scan and accept de-listing"
+          onClose={() => setConfirmDelist(false)}
+          footer={
+            <>
+              <button
+                className="btn btn--secondary"
+                onClick={() => setConfirmDelist(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn--danger"
+                onClick={() => scanNow({ acceptDelist: true })}
+                disabled={busy}
+              >
+                Scan and de-list
+              </button>
+            </>
+          }
+        >
+          <p>{site.last_run?.error_message}</p>
+          <p className="muted">
+            Scan {site.name} now and de-list whatever it does not find, however many that
+            is — for when the shop really has taken them down. If the scraper has stopped
+            reading part of the shop instead, this marks listings that are still for sale
+            as gone. This scan only: the next scheduled one is held to the usual share
+            again.
+          </p>
+        </Modal>
+      )}
 
       {confirmRefetch && (
         <Modal

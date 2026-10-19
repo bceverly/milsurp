@@ -139,6 +139,52 @@ class TestScanControl:
         finally:
             scan_service._running.pop(site.id, None)
 
+    def test_a_scan_that_accepts_de_listing(self, client, admin_headers, seeded, site, monkeypatch):
+        """The Sites page's "Scan and accept de-listing", the CLI's
+        --accept-delist (2026-10-19): passed through, and on the audit log."""
+        from app.models import AuditEvent
+        from app.services import audit, scan_service
+
+        asked = []
+
+        def fake_run(site_id, trigger="scheduled", *, accept_delist=False):
+            asked.append((site_id, trigger, accept_delist))
+            return 7
+
+        monkeypatch.setattr(scan_service, "run_scan", fake_run)
+        response = client.post(
+            f"/api/sites/{site.id}/scan",
+            params={"accept_delist": "true"},
+            headers=admin_headers,
+        )
+        assert response.status_code == 202, response.text
+        assert asked == [(site.id, "manual", True)]
+        seeded.expire_all()
+        events = seeded.query(AuditEvent).filter_by(action=audit.SITE_DELIST_ACCEPTED).all()
+        assert [e.target_id for e in events] == [str(site.id)]
+
+        client.post(f"/api/sites/{site.id}/scan", headers=admin_headers)
+        assert asked[-1] == (site.id, "manual", False)
+
+    def test_a_run_that_held_back_says_so(self, client, admin_headers, seeded, site):
+        from app.models import ScanRun, ScanStatus
+        from app.services import scan_service
+
+        warning = scan_service._shrink_warning(45, 27, 0.3, slug=site.slug, accepted=False)
+        seeded.add(
+            ScanRun(
+                site_id=site.id,
+                status=ScanStatus.PARTIAL,
+                trigger="scheduled",
+                error_message=warning,
+            )
+        )
+        seeded.commit()
+        listed = client.get("/api/sites", headers=admin_headers).json()
+        row = next(entry for entry in listed if entry["id"] == site.id)
+        assert row["last_run"]["delist_held_back"] is True
+        assert "Scan and accept de-listing" in row["last_run"]["error_message"]
+
     def test_cancel_without_a_running_scan(self, client, admin_headers, site):
         response = client.post(f"/api/sites/{site.id}/scan/cancel", headers=admin_headers)
         assert response.status_code == 409

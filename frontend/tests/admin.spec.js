@@ -87,6 +87,59 @@ test.describe("sites", () => {
     await expect(stop).toBeDisabled();
   });
 
+  test("a scan that held back from de-listing can be run again, accepting it", async ({
+    signedIn,
+  }) => {
+    /** The CLI's --accept-delist (2026-10-19), for a shop that really has
+     *  cleared its shelves. Only on a site whose last scan held back, and only
+     *  after a confirmation that repeats what it would remove. */
+    const warning =
+      "This scan would de-list 27 of 45 active listings (60%), more than the 30% a " +
+      "normal scan does, so nothing was de-listed.";
+    let target = null;
+    await signedIn.route(/\/api\/sites$/, async (route) => {
+      const response = await route.fetch();
+      const sites = await response.json();
+      const site = sites.find((s) => s.is_available && !s.resting_seconds && s.last_run);
+      target = site.id;
+      site.is_scanning = false;
+      site.last_run = {
+        ...site.last_run,
+        status: "partial",
+        error_message: warning,
+        delist_held_back: true,
+      };
+      await route.fulfill({ response, json: sites });
+    });
+    const asked = [];
+    await signedIn.route(/\/api\/sites\/\d+\/scan(\?.*)?$/, async (route) => {
+      asked.push(new URL(route.request().url()));
+      await route.fulfill({
+        status: 202,
+        json: { scan_run_id: 1, site_id: target, message: "Scan started." },
+      });
+    });
+    await signedIn.goto("/sites");
+
+    const button = signedIn.getByRole("button", { name: "Scan and accept de-listing" });
+    // One card: the one whose last scan held back.
+    await expect(button).toHaveCount(1);
+    await button.click();
+    const dialog = signedIn.getByRole("dialog");
+    await expect(dialog).toContainText("27 of 45 active listings");
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    expect(asked).toEqual([]);
+
+    await button.click();
+    await signedIn
+      .getByRole("dialog")
+      .getByRole("button", { name: "Scan and de-list" })
+      .click();
+    await expect.poll(() => asked.length).toBe(1);
+    expect(asked[0].pathname).toBe(`/api/sites/${target}/scan`);
+    expect(asked[0].searchParams.get("accept_delist")).toBe("true");
+  });
+
   test("a host that refused us is shown resting, and can be woken", async ({
     signedIn,
   }) => {

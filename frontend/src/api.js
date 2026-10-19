@@ -260,7 +260,12 @@ export const api = {
   site: (id) => request(`/api/sites/${id}`),
   updateSite: (id, patch) =>
     request(`/api/sites/${id}`, { method: "PATCH", body: patch }),
-  startScan: (id) => request(`/api/sites/${id}/scan`, { method: "POST" }),
+  // acceptDelist: let this run de-list more than the site's usual share --
+  // the CLI's --accept-delist (2026-10-19).
+  startScan: (id, { acceptDelist = false } = {}) =>
+    request(`/api/sites/${id}/scan${acceptDelist ? "?accept_delist=true" : ""}`, {
+      method: "POST",
+    }),
   confirmNewsletter: (id) =>
     request(`/api/sites/${id}/newsletter/confirmed`, { method: "POST" }),
   cancelScan: (id) => request(`/api/sites/${id}/scan/cancel`, { method: "POST" }),

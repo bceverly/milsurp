@@ -892,6 +892,16 @@ def _stale_items(
     return len(active), going
 
 
+#: The words every :func:`_shrink_warning` carries, for :func:`held_back_delisting`.
+_HELD_BACK = "so nothing was de-listed"
+
+
+def held_back_delisting(message: str | None) -> bool:
+    """Whether a run's warnings include the shrink guard's: it read the shop
+    but de-listed nothing, because too much had gone."""
+    return _HELD_BACK in (message or "")
+
+
 def _shrink_warning(
     active: int, going: int, share: float | None, *, slug: str, accepted: bool
 ) -> str | None:
@@ -908,8 +918,9 @@ def _shrink_warning(
         return None
     return (
         f"This scan would de-list {going} of {active} active listings "
-        f"({going / active:.0%}), more than the {share:.0%} a normal scan does, so "
-        f"nothing was de-listed. If the shop really did remove them, run "
+        f"({going / active:.0%}), more than the {share:.0%} a normal scan does, "
+        f"{_HELD_BACK}. If the shop really did remove them, use "
+        f'"Scan and accept de-listing" on the Sites page, or run '
         f"`cli.py scan --site {slug} --accept-delist`."
     )
 

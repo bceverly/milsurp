@@ -84,6 +84,10 @@ CLASSIFIER_KEYWORD_CHANGED = "classifier_keyword.changed"
 SITE_ENABLED = "site.enabled"
 SITE_DISABLED = "site.disabled"
 SITE_NEWSLETTER_CONFIRMED = "site.newsletter_confirmed"
+#: A scan let through to de-list more than the site's usual share, from the
+#: Sites page's "Scan and accept de-listing" (the CLI's --accept-delist has
+#: nobody signed in to record).
+SITE_DELIST_ACCEPTED = "site.delist_accepted"
 ITEM_OVERRIDDEN = "item.overridden"
 ITEM_OVERRIDE_CLEARED = "item.override_cleared"
 SESSION_REVOKED = "session.revoked"
