@@ -11,6 +11,7 @@ import { useDebounced, useOptimisticSearchParams, useTitle } from "../hooks.js";
 import PriceRange from "../components/PriceRange.jsx";
 import BarrelFilter, { barrelText } from "../components/BarrelFilter.jsx";
 import CapacityFilter, { capacityText } from "../components/CapacityFilter.jsx";
+import YearMadeFilter, { yearMadeText } from "../components/YearMadeFilter.jsx";
 import { formatMoney, formatRelative, timeTitle } from "../format.js";
 import AuthImage from "../components/AuthImage.jsx";
 import WishButton from "../components/WishButton.jsx";
@@ -578,6 +579,8 @@ export default function Browse() {
   const capacityMax = params.get("capacity_max")
     ? Number(params.get("capacity_max"))
     : null;
+  const madeMin = params.get("made_min") ? Number(params.get("made_min")) : null;
+  const madeMax = params.get("made_max") ? Number(params.get("made_max")) : null;
   const perPage = PER_PAGE_CHOICES.includes(Number(params.get("per_page")))
     ? Number(params.get("per_page"))
     : DEFAULT_PER_PAGE;
@@ -614,6 +617,8 @@ export default function Browse() {
     if (threaded) built.threaded = threaded;
     if (capacityMin !== null) built.capacity_min = capacityMin;
     if (capacityMax !== null) built.capacity_max = capacityMax;
+    if (madeMin !== null) built.made_min = madeMin;
+    if (madeMax !== null) built.made_max = madeMax;
     for (const { param } of FACETS) {
       const values = params.getAll(param);
       if (values.length) built[param] = values;
@@ -636,6 +641,8 @@ export default function Browse() {
     threaded,
     capacityMin,
     capacityMax,
+    madeMin,
+    madeMax,
   ]);
 
   useEffect(() => {
@@ -787,6 +794,17 @@ export default function Browse() {
           }),
       });
     }
+    if (madeMin !== null || madeMax !== null) {
+      chips.push({
+        key: "made",
+        label: `Made: ${yearMadeText(madeMin, madeMax)}`,
+        clear: () =>
+          update((next) => {
+            next.delete("made_min");
+            next.delete("made_max");
+          }),
+      });
+    }
     if (threaded) {
       chips.push({
         key: "threaded",
@@ -810,6 +828,8 @@ export default function Browse() {
     threaded,
     capacityMin,
     capacityMax,
+    madeMin,
+    madeMax,
   ]);
 
   const clearAll = () => {
@@ -1059,6 +1079,24 @@ export default function Browse() {
                   else search.set("capacity_min", String(next.min));
                   if (next.max == null) search.delete("capacity_max");
                   else search.set("capacity_max", String(next.max));
+                })
+              }
+            />
+          </Collapsible>
+
+          <Collapsible
+            title="Year made"
+            defaultOpen={madeMin !== null || madeMax !== null}
+          >
+            <YearMadeFilter
+              min={madeMin}
+              max={madeMax}
+              onChange={(next) =>
+                update((search) => {
+                  if (next.min == null) search.delete("made_min");
+                  else search.set("made_min", String(next.min));
+                  if (next.max == null) search.delete("made_max");
+                  else search.set("made_max", String(next.max));
                 })
               }
             />

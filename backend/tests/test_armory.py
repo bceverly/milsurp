@@ -447,6 +447,25 @@ class TestTheShippedCatalogFile:
             seeded.query(FirearmModel).filter(FirearmModel.status != ArmoryStatus.PENDING).count()
         )
 
+    def test_it_carries_the_published_serial_tables(self, seeded):
+        """2026-10-19. Every range read from a named page, within itself."""
+        from app.models import SerialRange
+
+        armory.seed(seeded)
+        seeded.commit()
+        ranges = seeded.query(SerialRange).all()
+        assert len(ranges) > 500
+        assert all(r.source.startswith("https://") for r in ranges)
+        assert all(r.serial_low <= r.serial_high and r.year_from <= r.year_to for r in ranges)
+        garand = seeded.query(FirearmModel).filter_by(name="M1 Garand").one()
+        springfield = [
+            r
+            for r in garand.serial_ranges
+            if r.manufacturer and r.manufacturer.name == "Springfield"
+        ]
+        # The National Park Service's end of 1942: 1,090,310.
+        assert any(r.serial_high == 1_090_310 and r.year_from == 1942 for r in springfield)
+
     def test_running_it_twice_adds_nothing(self, seeded):
         armory.seed(seeded)
         seeded.commit()

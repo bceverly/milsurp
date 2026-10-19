@@ -1083,6 +1083,53 @@ class VariantUpdate(BaseModel):
     enabled: bool | None = None
 
 
+class SerialRangeOut(BaseModel):
+    """One range of a published serial table. See models.SerialRange."""
+
+    id: int
+    model_id: int
+    model_name: str
+    manufacturer_id: int | None = None
+    maker: str | None = None
+    prefix: str = ""
+    suffix: str = ""
+    serial_low: int
+    serial_high: int
+    year_from: int
+    year_to: int
+    source: str
+    note: str | None = None
+
+
+class SerialRangeIn(BaseModel):
+    model_id: int
+    #: None for a model only one maker numbered.
+    manufacturer_id: int | None = None
+    prefix: str = Field(default="", max_length=8, pattern=r"^[A-Za-z]*$")
+    suffix: str = Field(default="", max_length=8, pattern=r"^[A-Za-z]*$")
+    serial_low: int = Field(ge=0, le=999_999_999)
+    serial_high: int = Field(ge=0, le=999_999_999)
+    year_from: int = Field(ge=1700, le=2100)
+    year_to: int = Field(ge=1700, le=2100)
+    #: Where the range was read: a page's address, or a book and its page.
+    #: Required -- a table typed from memory is worse than none.
+    source: str = Field(min_length=3, max_length=500)
+    note: str | None = Field(default=None, max_length=2000)
+
+
+class SerialRangeUpdate(BaseModel):
+    model_id: int | None = None
+    manufacturer_id: int | None = None
+    prefix: str | None = Field(default=None, max_length=8, pattern=r"^[A-Za-z]*$")
+    suffix: str | None = Field(default=None, max_length=8, pattern=r"^[A-Za-z]*$")
+    serial_low: int | None = Field(default=None, ge=0, le=999_999_999)
+    serial_high: int | None = Field(default=None, ge=0, le=999_999_999)
+    year_from: int | None = Field(default=None, ge=1700, le=2100)
+    year_to: int | None = Field(default=None, ge=1700, le=2100)
+    source: str | None = Field(default=None, min_length=3, max_length=500)
+    note: str | None = Field(default=None, max_length=2000)
+
+
 class VariantBrief(BaseModel):
     """A variant as a listing shows it."""
 

@@ -53,7 +53,9 @@ def upgrade() -> None:
     from app.services import serials
 
     session = Session(bind=op.get_bind())
-    counts = serials.backfill(session)
+    # Without the published tables: their table is made by 0081, which has
+    # not run yet. Site settings' re-read dates by them once it has.
+    counts = serials.backfill(session, tables=False)
     session.flush()
     log.info(
         "Years made: %s gun(s) read, %s with a serial, %s stating a year, %s placed by serial.",

@@ -15,6 +15,7 @@
  * away rather than in the digest. See services/wantlist.py.
  */
 import { barrelText } from "../components/BarrelFilter.jsx";
+import { yearMadeText } from "../components/YearMadeFilter.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api.js";
@@ -96,6 +97,13 @@ function describe(query) {
       params.get("capacity_max") ? Number(params.get("capacity_max")) : null,
     );
     parts.push(`Capacity: ${text} rounds`);
+  }
+  if (params.get("made_min") || params.get("made_max")) {
+    const text = yearMadeText(
+      params.get("made_min") ? Number(params.get("made_min")) : null,
+      params.get("made_max") ? Number(params.get("made_max")) : null,
+    );
+    parts.push(`Made: ${text}`);
   }
   if (params.get("threaded") === "yes") parts.push("Threaded barrel");
   if (params.get("threaded") === "no") parts.push("Barrel not threaded");

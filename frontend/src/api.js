@@ -417,6 +417,12 @@ export const api = {
   armoryVariants: (params = {}) => request(`/api/armory/variants${qs(params)}`),
   // How many variants each Showing setting lists: { pending, approved, disabled, "" }.
   armoryVariantCounts: () => request("/api/armory/variants/counts"),
+  // Published serial-to-date tables, a range to a row (2026-10-19).
+  serialRanges: (params = {}) => request(`/api/armory/serials${qs(params)}`),
+  addSerialRange: (body) => request("/api/armory/serials", { method: "POST", body }),
+  updateSerialRange: (id, body) =>
+    request(`/api/armory/serials/${id}`, { method: "PATCH", body }),
+  deleteSerialRange: (id) => request(`/api/armory/serials/${id}`, { method: "DELETE" }),
   approveVariants: (ids) =>
     request("/api/armory/variants/approve", { method: "POST", body: { ids } }),
   disableVariants: (ids) =>

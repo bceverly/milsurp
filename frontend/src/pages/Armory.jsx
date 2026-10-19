@@ -26,6 +26,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api.js";
 import { useTitle } from "../hooks.js";
 import Modal from "../components/Modal.jsx";
+import SerialTables from "../components/SerialTables.jsx";
 import SortHeader from "../components/SortHeader.jsx";
 import { COLLATOR, compareCalibers } from "../sorting.js";
 import Field from "../components/Field.jsx";
@@ -60,6 +61,8 @@ const TABS = [
   // Every model's versions on one list, approved or switched off in bulk
   // (2026-10-14): they could only be reached one model's dialog at a time.
   { key: "variants", label: "Variants" },
+  // The published serial-to-date tables, a range to a row (2026-10-19).
+  { key: "serials", label: "Serial tables" },
 ];
 
 /** The two tabs of suggestions, and which kind each shows. */
@@ -87,6 +90,7 @@ const TAB_HASH = {
   wikipedia: "wikipedia",
   maker_pages: "manufacturer-pages",
   variants: "variants",
+  serials: "serial-tables",
 };
 const TAB_FROM_HASH = {
   manufacturer: "manufacturers",
@@ -101,6 +105,8 @@ const TAB_FROM_HASH = {
   maker_pages: "maker_pages",
   variant: "variants",
   variants: "variants",
+  "serial-tables": "serials",
+  serials: "serials",
 };
 
 /** Which tab a URL fragment asks for, falling back to the default. */
@@ -3027,6 +3033,18 @@ export default function Armory() {
   useEffect(() => {
     countVariants();
   }, [countVariants]);
+  // How many serial ranges there are, for the Serial tables tab's label. They
+  // have no approval, so the count is every one whatever Showing says.
+  const [serialCount, setSerialCount] = useState(0);
+  const countSerials = useCallback(() => {
+    api
+      .serialRanges()
+      .then((found) => setSerialCount(found.length))
+      .catch(() => {});
+  }, []);
+  useEffect(() => {
+    countSerials();
+  }, [countSerials]);
   // How many links of each kind were turned down, for the link tabs' labels
   // under Rejected and Everything.
   const [rejectedCounts, setRejectedCounts] = useState({});
@@ -3061,6 +3079,7 @@ export default function Armory() {
    */
   const tabCount = (key) => {
     if (key === "variants") return variantCounts[makerPageView] || 0;
+    if (key === "serials") return serialCount;
     const field = SUGGESTION_FIELD[key];
     if (field) {
       const pending = waiting[field] || 0;
@@ -3345,7 +3364,7 @@ export default function Armory() {
           >
             <Refresh /> Apply shipped armory…
           </button>
-          {!SUGGESTION_FIELD[tab] && (
+          {!SUGGESTION_FIELD[tab] && tab !== "serials" && (
             <button
               type="button"
               className="btn btn--primary"
@@ -3372,30 +3391,35 @@ export default function Armory() {
       {failure && <p className="alert alert--error">{failure}</p>}
 
       <div className="form-row form-row--2">
-        <Field label="Showing">
-          {(id, describedBy) => (
-            <select
-              id={id}
-              aria-describedby={describedBy}
-              className="input"
-              value={
-                SUGGESTION_FIELD[tab] || tab === "variants" ? makerPageView : statusFilter
-              }
-              onChange={(event) => setStatusFilter(event.target.value)}
-            >
-              {(tab === "variants"
-                ? VARIANT_VIEWS
-                : SUGGESTION_FIELD[tab]
-                  ? LINK_VIEWS
-                  : STATUSES
-              ).map((entry) => (
-                <option key={entry.value || "all"} value={entry.value}>
-                  {entry.label}
-                </option>
-              ))}
-            </select>
-          )}
-        </Field>
+        {/* Serial ranges have no approval, so nothing for Showing to pick. */}
+        {tab !== "serials" && (
+          <Field label="Showing">
+            {(id, describedBy) => (
+              <select
+                id={id}
+                aria-describedby={describedBy}
+                className="input"
+                value={
+                  SUGGESTION_FIELD[tab] || tab === "variants"
+                    ? makerPageView
+                    : statusFilter
+                }
+                onChange={(event) => setStatusFilter(event.target.value)}
+              >
+                {(tab === "variants"
+                  ? VARIANT_VIEWS
+                  : SUGGESTION_FIELD[tab]
+                    ? LINK_VIEWS
+                    : STATUSES
+                ).map((entry) => (
+                  <option key={entry.value || "all"} value={entry.value}>
+                    {entry.label}
+                  </option>
+                ))}
+              </select>
+            )}
+          </Field>
+        )}
         <Field label="Search" hint="Matches names and every spelling on them.">
           {(id, describedBy) => (
             <input
@@ -3520,14 +3544,21 @@ export default function Armory() {
       {/* How many rows the table holds, as the link tabs say theirs (asked
           for on 2026-10-14): every row the Showing filter and the search
           admit, not just the page on screen. */}
-      {!SUGGESTION_FIELD[tab] && tab !== "variants" && (
+      {!SUGGESTION_FIELD[tab] && tab !== "variants" && tab !== "serials" && (
         <h2 className="armory-count" data-testid="armory-count">
           {TAB_NOUNS[tab]} {SHOWING_PHRASES[statusFilter] ?? "in the armory"}
           {search.trim() && <> matching “{search.trim()}”</>} (
           {loading && rows.length === 0 ? "…" : rows.length.toLocaleString()})
         </h2>
       )}
-      {tab === "variants" ? (
+      {tab === "serials" ? (
+        <SerialTables
+          search={search}
+          models={allModels.filter((m) => m.status !== "merged" && m.enabled !== false)}
+          makers={allMakers.filter((m) => m.status !== "merged" && m.enabled !== false)}
+          onChanged={countSerials}
+        />
+      ) : tab === "variants" ? (
         <VariantsTab view={makerPageView} search={search} onChanged={countVariants} />
       ) : SUGGESTION_FIELD[tab] ? (
         <ReferenceLinks

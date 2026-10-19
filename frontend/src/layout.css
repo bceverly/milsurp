@@ -4024,6 +4024,15 @@
   font-weight: 600;
 }
 
+/* The Serial tables tab: its count, and its Add button beside it (2026-10-19). */
+.armory-count-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 /* A saved search typed in from scratch (2026-10-15). */
 .scratch-search {
   margin: 0 0 20px;

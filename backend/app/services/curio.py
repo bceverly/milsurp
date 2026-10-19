@@ -74,6 +74,11 @@ UNKNOWN = "unknown"
 BY_VENDOR = "vendor"
 BY_DATE = "dated"
 BY_YEAR = "year"
+#: The year the listing says it was made, or its serial places
+#: (app.services.serials): 2026-10-19.
+BY_MADE = "made"
+BY_TABLE = "table"
+BY_SERIAL = "serial"
 
 #: Four digits standing alone, and not a price: not the "1869" inside "Serial
 #: Number 118692", which dated a 1917 revolver 1869, nor the "$1750" a pre-64
@@ -195,6 +200,100 @@ def status(stated: bool | None, year: int | None, *, today: date | None = None) 
     return UNKNOWN
 
 
+def judged_year(
+    manufacture_year: int | None, made_to: int | None, made_source: str | None
+) -> int | None:
+    """The year the fifty-year rule is judged on, where the vendor is silent.
+
+    Three readers give a year, and this is their order (2026-10-19):
+
+    * **The year the listing says it was made** (``serials.read_stated_year``),
+      first. It reads only phrases about making -- "Manufactured in December
+      1917", "placing production in approximately 1945" -- where this module's
+      own reader takes any year that is not a designation. Measured on
+      production that day, the two disagreed about the verdict on 21 listings
+      and this one was right on most: an Eddystone of 1917 that the shop's
+      stock number "L2026-07471" had dated 2026, a CMP Garand of 1945 dated
+      2020, and 1980s reproductions of Civil War arms dated 1863 and 1847,
+      which made them eligible.
+    * **The year a published serial table gives it**, as strong: a range read
+      from a named source.
+    * **This module's year**, as before.
+    * **The year its serial places**, last: an estimate from other listings.
+
+    A span is judged on its later end -- "circa 1920s" is 1929, a serial
+    between a 1943 and a 1944 listing is 1944 -- so a gun is never eligible on
+    the strength of the earlier year it might have been made in.
+    """
+    if made_source in ("stated", "table") and made_to is not None:
+        return made_to
+    if manufacture_year is not None:
+        return manufacture_year
+    if made_source == "serial" and made_to is not None:
+        return made_to
+    return None
+
+
+def judged_evidence(
+    stated: bool | None,
+    evidence: str | None,
+    manufacture_year: int | None,
+    made_to: int | None,
+    made_source: str | None,
+) -> str | None:
+    """Which source :func:`judged_year` took, for the page to say so."""
+    if stated is not None:
+        return evidence
+    if made_source == "stated" and made_to is not None:
+        return BY_MADE
+    if made_source == "table" and made_to is not None:
+        return BY_TABLE
+    if manufacture_year is not None:
+        return evidence
+    if made_source == "serial" and made_to is not None:
+        return BY_SERIAL
+    return evidence
+
+
+def of(item: object) -> str:
+    """:func:`status` for a stored listing, on :func:`judged_year`."""
+    return status(
+        getattr(item, "cr_stated", None),
+        judged_year(
+            getattr(item, "manufacture_year", None),
+            getattr(item, "made_to", None),
+            getattr(item, "made_source", None),
+        ),
+    )
+
+
+def evidence_of(item: object) -> str | None:
+    return judged_evidence(
+        getattr(item, "cr_stated", None),
+        getattr(item, "cr_evidence", None),
+        getattr(item, "manufacture_year", None),
+        getattr(item, "made_to", None),
+        getattr(item, "made_source", None),
+    )
+
+
+def _judged_year_column():
+    """:func:`judged_year` as a SQL expression, for :func:`clause`."""
+    from sqlalchemy import case
+
+    from ..models import Item
+
+    return case(
+        (
+            sa_and(Item.made_source.in_(("stated", "table")), Item.made_to.is_not(None)),
+            Item.made_to,
+        ),
+        (Item.manufacture_year.is_not(None), Item.manufacture_year),
+        (Item.made_source == "serial", Item.made_to),
+        else_=None,
+    )
+
+
 #: The three states, in the order a filter should offer them.
 STATES: tuple[str, ...] = (ELIGIBLE, NOT_ELIGIBLE, UNKNOWN)
 
@@ -212,6 +311,7 @@ def clause(state: str, *, today: date | None = None):
 
     edge = cutoff(today)
     silent = Item.cr_stated.is_(None)
+    year = _judged_year_column()
     # The same test as applies(), so a bayonet is in none of the three states
     # rather than quietly in "unknown".
     firearm = sa_and(
@@ -221,15 +321,15 @@ def clause(state: str, *, today: date | None = None):
     if state == ELIGIBLE:
         verdict = sa_or(
             Item.cr_stated.is_(True),
-            sa_and(silent, Item.manufacture_year.is_not(None), Item.manufacture_year <= edge),
+            sa_and(silent, year.is_not(None), year <= edge),
         )
     elif state == NOT_ELIGIBLE:
         verdict = sa_or(
             Item.cr_stated.is_(False),
-            sa_and(silent, Item.manufacture_year.is_not(None), Item.manufacture_year > edge),
+            sa_and(silent, year.is_not(None), year > edge),
         )
     elif state == UNKNOWN:
-        verdict = sa_and(silent, Item.manufacture_year.is_(None))
+        verdict = sa_and(silent, year.is_(None))
     else:
         raise ValueError(f"unknown curio state {state!r}")
     return sa_and(firearm, verdict)

@@ -12781,6 +12781,364 @@ models:
   manufacturers:
   - Colt
   frame_size: Full size
+  serials:
+  - maker: Colt
+    suffix: C
+    low: 240228
+    high: 247700
+    from: 1950
+    source: https://www.proofhouse.com/colt/1145.htm
+    note: C suffix (e.g. 247701C). Start-of-year serials converted to ranges; 1970 ends at 336169C per
+      both ProofHouse and sightm1911.com. sightm1911.com gives the same year boundaries.
+  - maker: Colt
+    suffix: C
+    low: 247701
+    high: 253179
+    from: 1951
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    suffix: C
+    low: 253180
+    high: 259549
+    from: 1952
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    suffix: C
+    low: 259550
+    high: 266349
+    from: 1953
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    suffix: C
+    low: 266350
+    high: 270549
+    from: 1954
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    suffix: C
+    low: 270550
+    high: 272549
+    from: 1955
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    suffix: C
+    low: 272550
+    high: 276699
+    from: 1956
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    suffix: C
+    low: 276700
+    high: 281999
+    from: 1957
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    suffix: C
+    low: 282000
+    high: 283799
+    from: 1958
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    suffix: C
+    low: 283800
+    high: 285799
+    from: 1959
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    suffix: C
+    low: 285800
+    high: 287999
+    from: 1960
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    suffix: C
+    low: 288000
+    high: 289849
+    from: 1961
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    suffix: C
+    low: 289850
+    high: 291299
+    from: 1962
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    suffix: C
+    low: 291300
+    high: 293799
+    from: 1963
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    suffix: C
+    low: 293800
+    high: 295999
+    from: 1964
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    suffix: C
+    low: 296000
+    high: 300299
+    from: 1965
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    suffix: C
+    low: 300300
+    high: 308499
+    from: 1966
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    suffix: C
+    low: 308500
+    high: 315599
+    from: 1967
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    suffix: C
+    low: 315600
+    high: 324499
+    from: 1968
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    suffix: C
+    low: 324500
+    high: 332649
+    from: 1969
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    suffix: C
+    low: 332650
+    high: 336169
+    from: 1970
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 1
+    high: 1899
+    from: 1912
+    source: https://www.proofhouse.com/colt/1145.htm
+    note: 'C prefix. ProofHouse gives the first serial of each year; converted to ranges (start to next
+      year''s start minus one). sightm1911.com gives explicit ranges that match except 1922-1923: ProofHouse
+      puts 1923 at C134000 (so C130000-C133999 would be 1922), sightm1911 has 1922 = C129000-C129999 and
+      1923 = C130000-C133999; the disputed span is given as 1922-1923. No commercial production 1943-1945.
+      In 1950 the C moved from prefix to suffix at 240228 (see the suffix table), so the 1950 prefix range
+      ends at C240227.'
+  - maker: Colt
+    prefix: C
+    low: 1900
+    high: 5399
+    from: 1913
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 5400
+    high: 16599
+    from: 1914
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 16600
+    high: 27599
+    from: 1915
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 27600
+    high: 74999
+    from: 1916
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 75000
+    high: 98999
+    from: 1917
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 99000
+    high: 105999
+    from: 1918
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 106000
+    high: 120999
+    from: 1919
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 121000
+    high: 126999
+    from: 1920
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 127000
+    high: 128999
+    from: 1921
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 129000
+    high: 129999
+    from: 1922
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 130000
+    high: 133999
+    from: 1922
+    to: 1923
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 134000
+    high: 134999
+    from: 1923
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 135000
+    high: 139999
+    from: 1924
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 140000
+    high: 144999
+    from: 1925
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 145000
+    high: 150999
+    from: 1926
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 151000
+    high: 151999
+    from: 1927
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 152000
+    high: 154999
+    from: 1928
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 155000
+    high: 155999
+    from: 1929
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 156000
+    high: 158999
+    from: 1930
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 159000
+    high: 160999
+    from: 1931
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 161000
+    high: 164799
+    from: 1932
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 164800
+    high: 174599
+    from: 1933
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 174600
+    high: 177999
+    from: 1934
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 178000
+    high: 179799
+    from: 1935
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 179800
+    high: 183199
+    from: 1936
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 183200
+    high: 188699
+    from: 1937
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 188700
+    high: 189599
+    from: 1938
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 189600
+    high: 198899
+    from: 1939
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 198900
+    high: 199299
+    from: 1940
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 199300
+    high: 208799
+    from: 1941
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 208800
+    high: 215018
+    from: 1942
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 221001
+    high: 222000
+    from: 1946
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 222001
+    high: 231999
+    from: 1947
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 232000
+    high: 238500
+    from: 1948
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 238501
+    high: 240000
+    from: 1949
+    source: https://www.proofhouse.com/colt/1145.htm
+  - maker: Colt
+    prefix: C
+    low: 240001
+    high: 240227
+    from: 1950
+    source: https://www.proofhouse.com/colt/1145.htm
   status: approved
 - name: Colt King Cobra
   aliases:
@@ -14107,6 +14465,154 @@ models:
     maker_url: https://www.budsgunshop.com/products/revolvers/colt-python-two-tone-357-mag-6-round-3-inch-matte-blued-matte-stainless-revolver-752014142
     source: budsgunshop
     status: approved
+  serials:
+  - maker: Colt
+    low: 1
+    high: 299
+    from: 1955
+    source: https://www.proofhouse.com/colt/pyth.htm
+    note: No prefix/suffix, 1955-1969. Start-of-year serials converted to ranges; 1969 ends at 99999 per
+      source.
+  - maker: Colt
+    low: 300
+    high: 1649
+    from: 1956
+    source: https://www.proofhouse.com/colt/pyth.htm
+  - maker: Colt
+    low: 1650
+    high: 5549
+    from: 1957
+    source: https://www.proofhouse.com/colt/pyth.htm
+  - maker: Colt
+    low: 5550
+    high: 7049
+    from: 1958
+    source: https://www.proofhouse.com/colt/pyth.htm
+  - maker: Colt
+    low: 7050
+    high: 9099
+    from: 1959
+    source: https://www.proofhouse.com/colt/pyth.htm
+  - maker: Colt
+    low: 9100
+    high: 13099
+    from: 1960
+    source: https://www.proofhouse.com/colt/pyth.htm
+  - maker: Colt
+    low: 13100
+    high: 18799
+    from: 1961
+    source: https://www.proofhouse.com/colt/pyth.htm
+  - maker: Colt
+    low: 18800
+    high: 24799
+    from: 1962
+    source: https://www.proofhouse.com/colt/pyth.htm
+  - maker: Colt
+    low: 24800
+    high: 30799
+    from: 1963
+    source: https://www.proofhouse.com/colt/pyth.htm
+  - maker: Colt
+    low: 30800
+    high: 41399
+    from: 1964
+    source: https://www.proofhouse.com/colt/pyth.htm
+  - maker: Colt
+    low: 41400
+    high: 50499
+    from: 1965
+    source: https://www.proofhouse.com/colt/pyth.htm
+  - maker: Colt
+    low: 50500
+    high: 60999
+    from: 1966
+    source: https://www.proofhouse.com/colt/pyth.htm
+  - maker: Colt
+    low: 61000
+    high: 73799
+    from: 1967
+    source: https://www.proofhouse.com/colt/pyth.htm
+  - maker: Colt
+    low: 73800
+    high: 89999
+    from: 1968
+    source: https://www.proofhouse.com/colt/pyth.htm
+  - maker: Colt
+    low: 90000
+    high: 99999
+    from: 1969
+    source: https://www.proofhouse.com/colt/pyth.htm
+  - maker: Colt
+    suffix: E
+    low: 1001
+    high: 15000
+    from: 1975
+    source: https://www.proofhouse.com/colt/pyth.htm
+    note: E suffix (e.g. 15001E). Explicit ranges from source. Later series (01001N, V01001, 1978 on)
+      have no end serials on the page and are not included.
+  - maker: Colt
+    suffix: E
+    low: 15001
+    high: 48300
+    from: 1976
+    source: https://www.proofhouse.com/colt/pyth.htm
+  - maker: Colt
+    suffix: E
+    low: 48301
+    high: 86200
+    from: 1977
+    source: https://www.proofhouse.com/colt/pyth.htm
+  - maker: Colt
+    suffix: E
+    low: 86201
+    high: 99999
+    from: 1978
+    source: https://www.proofhouse.com/colt/pyth.htm
+  - maker: Colt
+    prefix: E
+    low: 1001
+    high: 6300
+    from: 1969
+    source: https://www.proofhouse.com/colt/pyth.htm
+    note: E prefix (e.g. E21201). Start-of-year serials converted to ranges; ends at E99999 in 1975 per
+      source.
+  - maker: Colt
+    prefix: E
+    low: 6301
+    high: 21200
+    from: 1970
+    source: https://www.proofhouse.com/colt/pyth.htm
+  - maker: Colt
+    prefix: E
+    low: 21201
+    high: 38000
+    from: 1971
+    source: https://www.proofhouse.com/colt/pyth.htm
+  - maker: Colt
+    prefix: E
+    low: 38001
+    high: 53500
+    from: 1972
+    source: https://www.proofhouse.com/colt/pyth.htm
+  - maker: Colt
+    prefix: E
+    low: 53501
+    high: 61000
+    from: 1973
+    source: https://www.proofhouse.com/colt/pyth.htm
+  - maker: Colt
+    prefix: E
+    low: 61001
+    high: 83700
+    from: 1974
+    source: https://www.proofhouse.com/colt/pyth.htm
+  - maker: Colt
+    prefix: E
+    low: 83701
+    high: 99999
+    from: 1975
+    source: https://www.proofhouse.com/colt/pyth.htm
   status: approved
 - name: Colt Remington Rand Model 1911
   status: pending
@@ -14153,6 +14659,484 @@ models:
   - Colt
   wikipedia: https://en.wikipedia.org/wiki/Colt_Single_Action_Army
   capacity: 6
+  serials:
+  - maker: Colt
+    low: 1
+    high: 199
+    from: 1873
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+    note: Start-of-year serials converted to ranges. The source gives no last serial, so serials from
+      357000 (1940) on are not included.
+  - maker: Colt
+    low: 200
+    high: 14999
+    from: 1874
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 15000
+    high: 21999
+    from: 1875
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 22000
+    high: 32999
+    from: 1876
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 33000
+    high: 40999
+    from: 1877
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 41000
+    high: 48999
+    from: 1878
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 49000
+    high: 52999
+    from: 1879
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 53000
+    high: 61999
+    from: 1880
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 62000
+    high: 72999
+    from: 1881
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 73000
+    high: 84999
+    from: 1882
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 85000
+    high: 101999
+    from: 1883
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 102000
+    high: 113999
+    from: 1884
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 114000
+    high: 116999
+    from: 1885
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 117000
+    high: 118999
+    from: 1886
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 119000
+    high: 124999
+    from: 1887
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 125000
+    high: 127999
+    from: 1888
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 128000
+    high: 129999
+    from: 1889
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 130000
+    high: 135999
+    from: 1890
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 136000
+    high: 143999
+    from: 1891
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 144000
+    high: 148999
+    from: 1892
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 149000
+    high: 153999
+    from: 1893
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 154000
+    high: 158999
+    from: 1894
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 159000
+    high: 162999
+    from: 1895
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 163000
+    high: 167999
+    from: 1896
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 168000
+    high: 174999
+    from: 1897
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 175000
+    high: 181999
+    from: 1898
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 182000
+    high: 191999
+    from: 1899
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 192000
+    high: 202999
+    from: 1900
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 203000
+    high: 219999
+    from: 1901
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 220000
+    high: 237999
+    from: 1902
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 238000
+    high: 249999
+    from: 1903
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 250000
+    high: 260999
+    from: 1904
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 261000
+    high: 272999
+    from: 1905
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 273000
+    high: 287999
+    from: 1906
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 288000
+    high: 303999
+    from: 1907
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 304000
+    high: 307999
+    from: 1908
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 308000
+    high: 311999
+    from: 1909
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 312000
+    high: 315999
+    from: 1910
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 316000
+    high: 320999
+    from: 1911
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 321000
+    high: 324999
+    from: 1912
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 325000
+    high: 327999
+    from: 1913
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 328000
+    high: 329499
+    from: 1914
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 329500
+    high: 331999
+    from: 1915
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 332000
+    high: 334999
+    from: 1916
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 335000
+    high: 336999
+    from: 1917
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 337000
+    high: 337199
+    from: 1918
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 337200
+    high: 337999
+    from: 1919
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 338000
+    high: 340999
+    from: 1920
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 341000
+    high: 342999
+    from: 1921
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 343000
+    high: 344499
+    from: 1922
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 344500
+    high: 346399
+    from: 1923
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 346400
+    high: 347299
+    from: 1924
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 347300
+    high: 348199
+    from: 1925
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 348200
+    high: 349799
+    from: 1926
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 349800
+    high: 351299
+    from: 1927
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 351300
+    high: 352399
+    from: 1928
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 352400
+    high: 353799
+    from: 1929
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 353800
+    high: 354099
+    from: 1930
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 354100
+    high: 354499
+    from: 1931
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 354500
+    high: 354799
+    from: 1932
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 354800
+    high: 354999
+    from: 1933
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 355000
+    high: 355199
+    from: 1934
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 355200
+    high: 355299
+    from: 1935
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 355300
+    high: 355399
+    from: 1936
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 355400
+    high: 356099
+    from: 1937
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 356100
+    high: 356599
+    from: 1938
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    low: 356600
+    high: 356999
+    from: 1939
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_pre-war.htm
+  - maker: Colt
+    suffix: SA
+    low: 1
+    high: 8799
+    from: 1956
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_post-war.htm
+    note: SA suffix (e.g. 18500SA); the source lists 1956 simply as "1". Start-of-year serials converted
+      to ranges; ends 99999SA in 1978. After 99999SA numbering restarted as SA01001 (prefix), not included.
+  - maker: Colt
+    suffix: SA
+    low: 8800
+    high: 18499
+    from: 1957
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_post-war.htm
+  - maker: Colt
+    suffix: SA
+    low: 18500
+    high: 23399
+    from: 1958
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_post-war.htm
+  - maker: Colt
+    suffix: SA
+    low: 23400
+    high: 28499
+    from: 1959
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_post-war.htm
+  - maker: Colt
+    suffix: SA
+    low: 28500
+    high: 33599
+    from: 1960
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_post-war.htm
+  - maker: Colt
+    suffix: SA
+    low: 33600
+    high: 35649
+    from: 1961
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_post-war.htm
+  - maker: Colt
+    suffix: SA
+    low: 35650
+    high: 37299
+    from: 1962
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_post-war.htm
+  - maker: Colt
+    suffix: SA
+    low: 37300
+    high: 38499
+    from: 1963
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_post-war.htm
+  - maker: Colt
+    suffix: SA
+    low: 38500
+    high: 39999
+    from: 1964
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_post-war.htm
+  - maker: Colt
+    suffix: SA
+    low: 40000
+    high: 41499
+    from: 1965
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_post-war.htm
+  - maker: Colt
+    suffix: SA
+    low: 41500
+    high: 43799
+    from: 1966
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_post-war.htm
+  - maker: Colt
+    suffix: SA
+    low: 43800
+    high: 46299
+    from: 1967
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_post-war.htm
+  - maker: Colt
+    suffix: SA
+    low: 46300
+    high: 48999
+    from: 1968
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_post-war.htm
+  - maker: Colt
+    suffix: SA
+    low: 49000
+    high: 52599
+    from: 1969
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_post-war.htm
+  - maker: Colt
+    suffix: SA
+    low: 52600
+    high: 59399
+    from: 1970
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_post-war.htm
+  - maker: Colt
+    suffix: SA
+    low: 59400
+    high: 61699
+    from: 1971
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_post-war.htm
+  - maker: Colt
+    suffix: SA
+    low: 61700
+    high: 64399
+    from: 1972
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_post-war.htm
+  - maker: Colt
+    suffix: SA
+    low: 64400
+    high: 69399
+    from: 1973
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_post-war.htm
+  - maker: Colt
+    suffix: SA
+    low: 69400
+    high: 70499
+    from: 1974
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_post-war.htm
+  - maker: Colt
+    suffix: SA
+    low: 70500
+    high: 73200
+    from: 1975
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_post-war.htm
+  - maker: Colt
+    suffix: SA
+    low: 73201
+    high: 82199
+    from: 1976
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_post-war.htm
+  - maker: Colt
+    suffix: SA
+    low: 82200
+    high: 90499
+    from: 1977
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_post-war.htm
+  - maker: Colt
+    suffix: SA
+    low: 90500
+    high: 99999
+    from: 1978
+    source: https://www.proofhouse.com/colt/sa_army_%20bisley_post-war.htm
   status: approved
 - name: Colt Third Model Deringer
   aliases:
@@ -29152,6 +30136,273 @@ models:
   - Springfield
   wikipedia: https://en.wikipedia.org/wiki/M1903_Springfield
   capacity: 5
+  serials:
+  - maker: Rock Island Arsenal
+    low: 1
+    high: 7500
+    from: 1903
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+    note: 'Receiver serial, calendar years, approximate. No production 1914-1916. NPS typos resolved from
+      the Bowers table: 1904 start 7,500 -> 7,501; 1912 start 210,634 -> 210,635; 1917 start "324,831"
+      -> 234,831. Double heat treatment from exactly 285,507; nickel steel from 319,921.'
+  - maker: Rock Island Arsenal
+    low: 7501
+    high: 16000
+    from: 1904
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Rock Island Arsenal
+    low: 16001
+    high: 28000
+    from: 1905
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Rock Island Arsenal
+    low: 28001
+    high: 75000
+    from: 1906
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Rock Island Arsenal
+    low: 75001
+    high: 130000
+    from: 1907
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Rock Island Arsenal
+    low: 130001
+    high: 165000
+    from: 1908
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Rock Island Arsenal
+    low: 165001
+    high: 178000
+    from: 1909
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Rock Island Arsenal
+    low: 178001
+    high: 201000
+    from: 1910
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Rock Island Arsenal
+    low: 201001
+    high: 210634
+    from: 1911
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Rock Island Arsenal
+    low: 210635
+    high: 217801
+    from: 1912
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Rock Island Arsenal
+    low: 217802
+    high: 234830
+    from: 1913
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Rock Island Arsenal
+    low: 234831
+    high: 257061
+    from: 1917
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Rock Island Arsenal
+    low: 257062
+    high: 326935
+    from: 1918
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Rock Island Arsenal
+    low: 326936
+    high: 348414
+    from: 1919
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Smith-Corona
+    low: 3608000
+    high: 3707999
+    from: 1943
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+    note: 'Block-level dating only: each block is labeled with one year on both NPS and Bowers; whether
+      a block ran across a year end is not given.'
+  - maker: Smith-Corona
+    low: 4708000
+    high: 4992000
+    from: 1944
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 1
+    high: 16000
+    from: 1903
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+    note: 'Receiver serial, calendar years; NPS says all figures are approximate. No production in 1936.
+      NPS has typos that the Bowers Firearms table (same data, contiguous) resolves: 1918 end 1,005,091
+      -> 1,055,091; 1931 start "1,3697,761" -> 1,369,761; 1933 start 1,425,935 -> 1,425,934. Improved
+      (double) heat treatment began at about 800,000; nickel steel at 1,275,767. CMP warns against firing
+      "low number" receivers (SA below about 800,000).'
+  - maker: Springfield
+    low: 16001
+    high: 67000
+    from: 1904
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 67001
+    high: 119000
+    from: 1905
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 119001
+    high: 269450
+    from: 1906
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 269451
+    high: 337861
+    from: 1907
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 337862
+    high: 358084
+    from: 1908
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 358085
+    high: 398275
+    from: 1909
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 398276
+    high: 456375
+    from: 1910
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 456376
+    high: 502045
+    from: 1911
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 502046
+    high: 531520
+    from: 1912
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 531521
+    high: 570560
+    from: 1913
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 570561
+    high: 595600
+    from: 1914
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 595601
+    high: 620120
+    from: 1915
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 620121
+    high: 632825
+    from: 1916
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 632826
+    high: 761757
+    from: 1917
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 761758
+    high: 1055091
+    from: 1918
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 1055092
+    high: 1162500
+    from: 1919
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 1162501
+    high: 1211299
+    from: 1920
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 1211300
+    high: 1239640
+    from: 1921
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 1239641
+    high: 1252386
+    from: 1922
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 1252387
+    high: 1261486
+    from: 1923
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 1261487
+    high: 1267100
+    from: 1924
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 1267101
+    high: 1270300
+    from: 1925
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 1270301
+    high: 1274764
+    from: 1926
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 1274765
+    high: 1285265
+    from: 1927
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 1285266
+    high: 1305900
+    from: 1928
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 1305901
+    high: 1338405
+    from: 1929
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 1338406
+    high: 1369760
+    from: 1930
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 1369761
+    high: 1404025
+    from: 1931
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 1404026
+    high: 1425933
+    from: 1932
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 1425934
+    high: 1441811
+    from: 1933
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 1441812
+    high: 1491531
+    from: 1934
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 1491532
+    high: 1496022
+    from: 1935
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 1496023
+    high: 1510387
+    from: 1937
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
+  - maker: Springfield
+    low: 1510388
+    high: 1532878
+    from: 1938
+    to: 1939
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-springfield-model-1903-production.htm
   status: approved
 - name: M1906
   status: approved
@@ -29712,6 +30963,386 @@ models:
     maker_url: https://www.budsgunshop.com/products/pistols/colt-1911-tuxedo-limited-edition-38-super-9-plus-1-5-inch-stainless-steel-pistol-182755
     source: budsgunshop
     status: approved
+  serials:
+  - maker: Colt
+    low: 1
+    high: 17250
+    from: 1912
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+    note: ProofHouse (Marc Wade) government-contract table; it marks some year splits as approximate ("~
+      approximate serial at the beginning of the year, as those pistols were not manufactured or shipped
+      in numerical order"). Rows labeled with two years and no split carry year/year_end. sightm1911.com
+      gives coarser and partly conflicting ranges (for example it dates all of Colt 857,000-1,609,529
+      and Remington Rand 1,471,431-1,609,528 to 1943); ProofHouse is used because it is block-by-block
+      and internally consistent. 551,000-573,000 appears under both 1918 and 1919 ("continued from 1918"),
+      so it is 1918-1919. 128,617-133,186 were Colt pistols numbered in a range suspended from Springfield
+      Armory (1916-1917). 856,101-958,100 includes 856,101-856,404 "replacement numbers" and duplicates
+      Ithaca 856,405-916,404 and Remington Rand 916,405-958,100; 1,088,726-1,092,896 duplicates Union
+      Switch & Signal. Last Colt-made pistol 2,368,781. M1911A1 designation applies above 700,000.
+  - maker: Colt
+    low: 17251
+    high: 60400
+    from: 1913
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 60401
+    high: 72570
+    from: 1914
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 83856
+    high: 102596
+    from: 1914
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 107597
+    high: 113496
+    from: 1915
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 120567
+    high: 125566
+    from: 1915
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 128617
+    high: 133186
+    from: 1916
+    to: 1917
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 133187
+    high: 137400
+    from: 1916
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 137401
+    high: 151186
+    from: 1917
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 151187
+    high: 151986
+    from: 1916
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 151987
+    high: 186200
+    from: 1917
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 186201
+    high: 204986
+    from: 1917
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 204987
+    high: 209586
+    from: 1918
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 209587
+    high: 216986
+    from: 1917
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 216987
+    high: 217386
+    from: 1918
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 217387
+    high: 217800
+    from: 1917
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 217801
+    high: 223952
+    from: 1918
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 223953
+    high: 550999
+    from: 1918
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 551000
+    high: 573000
+    from: 1918
+    to: 1919
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 573001
+    high: 629500
+    from: 1919
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 700001
+    high: 710000
+    from: 1924
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 710001
+    high: 712349
+    from: 1937
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 712350
+    high: 713645
+    from: 1938
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 713646
+    high: 717281
+    from: 1939
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 717282
+    high: 721977
+    from: 1940
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 721978
+    high: 756733
+    from: 1941
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 756734
+    high: 800000
+    from: 1942
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 801001
+    high: 856100
+    from: 1942
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 856101
+    high: 861999
+    from: 1942
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 862000
+    high: 958100
+    from: 1943
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 1088726
+    high: 1092896
+    from: 1943
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 1096405
+    high: 1154999
+    from: 1943
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 1155000
+    high: 1208673
+    from: 1944
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 1609529
+    high: 1719999
+    from: 1944
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 1720000
+    high: 1743846
+    from: 1945
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 2244804
+    high: 2380013
+    from: 1945
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Ithaca
+    low: 856405
+    high: 916404
+    from: 1943
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+    note: ProofHouse (Marc Wade) government-contract table; it marks some year splits as approximate ("~
+      approximate serial at the beginning of the year, as those pistols were not manufactured or shipped
+      in numerical order"). Rows labeled with two years and no split carry year/year_end. sightm1911.com
+      gives coarser and partly conflicting ranges (for example it dates all of Colt 857,000-1,609,529
+      and Remington Rand 1,471,431-1,609,528 to 1943); ProofHouse is used because it is block-by-block
+      and internally consistent. 856,405-916,404 was duplicated by Colt (look for the maker marking).
+      1,816,642-1,890,503 is given as 1944-1945 because the source's approximate 1945 split ("1,816,642
+      - 1,845,997") starts at the block's first number and cannot be right as printed. Last Ithaca-made
+      pistol 2,660,318.
+  - maker: Ithaca
+    low: 1208674
+    high: 1234999
+    from: 1943
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Ithaca
+    low: 1235000
+    high: 1279673
+    from: 1944
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Ithaca
+    low: 1441431
+    high: 1471430
+    from: 1944
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Ithaca
+    low: 1816642
+    high: 1890503
+    from: 1944
+    to: 1945
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Ithaca
+    low: 2075104
+    high: 2110464
+    from: 1944
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Ithaca
+    low: 2110465
+    high: 2134403
+    from: 1945
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Ithaca
+    low: 2619014
+    high: 2693613
+    from: 1945
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Remington
+    low: 1
+    high: 13381
+    from: 1918
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+    note: ProofHouse (Marc Wade) government-contract table; it marks some year splits as approximate ("~
+      approximate serial at the beginning of the year, as those pistols were not manufactured or shipped
+      in numerical order"). Rows labeled with two years and no split carry year/year_end. sightm1911.com
+      gives coarser and partly conflicting ranges (for example it dates all of Colt 857,000-1,609,529
+      and Remington Rand 1,471,431-1,609,528 to 1943); ProofHouse is used because it is block-by-block
+      and internally consistent. Remington-UMC used its own number series starting at 1.
+  - maker: Remington
+    low: 13382
+    high: 21676
+    from: 1919
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Remington Rand
+    low: 916405
+    high: 921699
+    from: 1942
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+    note: ProofHouse (Marc Wade) government-contract table; it marks some year splits as approximate ("~
+      approximate serial at the beginning of the year, as those pistols were not manufactured or shipped
+      in numerical order"). Rows labeled with two years and no split carry year/year_end. sightm1911.com
+      gives coarser and partly conflicting ranges (for example it dates all of Colt 857,000-1,609,529
+      and Remington Rand 1,471,431-1,609,528 to 1943); ProofHouse is used because it is block-by-block
+      and internally consistent. 916,405-958,100 was duplicated by Colt. Last Remington Rand-made pistol
+      2,465,139.
+  - maker: Remington Rand
+    low: 921700
+    high: 1041404
+    from: 1943
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Remington Rand
+    low: 1279699
+    high: 1363699
+    from: 1943
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Remington Rand
+    low: 1363700
+    high: 1441430
+    from: 1944
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Remington Rand
+    low: 1471431
+    high: 1609528
+    from: 1944
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Remington Rand
+    low: 1743847
+    high: 1816641
+    from: 1944
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Remington Rand
+    low: 1890504
+    high: 2031599
+    from: 1944
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Remington Rand
+    low: 2031600
+    high: 2075103
+    from: 1945
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Remington Rand
+    low: 2134404
+    high: 2244803
+    from: 1945
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Remington Rand
+    low: 2380014
+    high: 2619013
+    from: 1945
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Singer Manufacturing
+    prefix: S
+    low: 800001
+    high: 800500
+    from: 1941
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+    note: S prefix. sightm1911.com agrees (S800001-S800500, 1941) and warns these are the most-counterfeited
+      M1911A1s. ProofHouse also lists H800501-H801000 as "Assigned to H&R" with no production or year;
+      not included.
+  - maker: Springfield
+    low: 72571
+    high: 81750
+    from: 1914
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+    note: ProofHouse (Marc Wade) government-contract table; it marks some year splits as approximate ("~
+      approximate serial at the beginning of the year, as those pistols were not manufactured or shipped
+      in numerical order"). Rows labeled with two years and no split carry year/year_end. sightm1911.com
+      gives coarser and partly conflicting ranges (for example it dates all of Colt 857,000-1,609,529
+      and Remington Rand 1,471,431-1,609,528 to 1943); ProofHouse is used because it is block-by-block
+      and internally consistent. The 1916-1917 row (125,567-133,186) gives only 127,131-127,978 as 1917,
+      and 128,617-133,186 went to Colt; 127,979-128,616 is therefore given as 1916-1917.
+  - maker: Springfield
+    low: 81751
+    high: 83855
+    from: 1915
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Springfield
+    low: 102597
+    high: 107596
+    from: 1915
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Springfield
+    low: 113497
+    high: 120200
+    from: 1915
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Springfield
+    low: 120201
+    high: 120566
+    from: 1916
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Springfield
+    low: 125567
+    high: 127130
+    from: 1916
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Springfield
+    low: 127131
+    high: 127978
+    from: 1917
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Springfield
+    low: 127979
+    high: 128616
+    from: 1916
+    to: 1917
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Union Switch & Signal
+    low: 1041405
+    high: 1096404
+    from: 1943
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+    note: 1,088,726-1,092,896 inside this block was duplicated by Colt (check maker marking). sightm1911.com
+      agrees on the block and year.
   status: approved
 - name: M1912
   status: pending
@@ -29855,6 +31486,147 @@ models:
   - Winchester
   wikipedia: https://en.wikipedia.org/wiki/M1_Garand
   capacity: 8
+  serials:
+  - maker: Springfield
+    low: 1
+    high: 1034
+    from: 1932
+    to: 1937
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-m1-garand-rifle-production.htm
+    note: 'Receiver serial. NPS gives the last serial made each month (credited to Scott A. Duff, "The
+      M1 Garand: World War II"), collapsed here to years; NPS calls all figures approximate. 1-1,034:
+      NPS lists 80 rifles made 1932-1934 and production resuming August 1937 without saying which serials
+      the 80 carry, so serials up to 1,034 are given as 1932-1937. 1940 second block starts at 165,501
+      (NPS prints "165,001" and "165,5010"; Fulton/Duff and the Winchester block 100,001-165,500 give
+      165,501). 2,410,000-2,420,191 (1943) and the 1944 start of 2,420,192 come from the Fulton Armory/Duff
+      table only; NPS lists just the month-end serial 2,543,412 for January 1944. 2,420,192-2,533,142
+      is duplicated by Winchester (both sources note the duplication), and 1,357,474-1,380,000 is duplicated
+      by Winchester; check the maker stamp. Postwar block years are as NPS gives them (1952-1954, August
+      1952, 1954-1955, 1955-1957). Fulton page carries a copyright notice from Scott Duff; NPS republishes
+      the same data.'
+  - maker: Springfield
+    low: 1035
+    high: 6972
+    from: 1938
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-m1-garand-rifle-production.htm
+  - maker: Springfield
+    low: 6973
+    high: 23567
+    from: 1939
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-m1-garand-rifle-production.htm
+  - maker: Springfield
+    low: 23568
+    high: 100000
+    from: 1940
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-m1-garand-rifle-production.htm
+  - maker: Springfield
+    low: 165501
+    high: 169073
+    from: 1940
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-m1-garand-rifle-production.htm
+  - maker: Springfield
+    low: 169074
+    high: 429811
+    from: 1941
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-m1-garand-rifle-production.htm
+  - maker: Springfield
+    low: 429812
+    high: 1090310
+    from: 1942
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-m1-garand-rifle-production.htm
+  - maker: Springfield
+    low: 1090311
+    high: 1200000
+    from: 1943
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-m1-garand-rifle-production.htm
+  - maker: Springfield
+    low: 1357474
+    high: 2305849
+    from: 1943
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-m1-garand-rifle-production.htm
+  - maker: Springfield
+    low: 2410000
+    high: 2420191
+    from: 1943
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-m1-garand-rifle-production.htm
+  - maker: Springfield
+    low: 2420192
+    high: 3359159
+    from: 1944
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-m1-garand-rifle-production.htm
+  - maker: Springfield
+    low: 3359160
+    high: 3888081
+    from: 1945
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-m1-garand-rifle-production.htm
+  - maker: Springfield
+    low: 4200001
+    high: 4399999
+    from: 1952
+    to: 1954
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-m1-garand-rifle-production.htm
+  - maker: Springfield
+    low: 5000000
+    high: 5000500
+    from: 1952
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-m1-garand-rifle-production.htm
+  - maker: Springfield
+    low: 5278246
+    high: 5488246
+    from: 1954
+    to: 1955
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-m1-garand-rifle-production.htm
+  - maker: Springfield
+    low: 5793848
+    high: 6099905
+    from: 1955
+    to: 1957
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-m1-garand-rifle-production.htm
+  - maker: Winchester
+    low: 100001
+    high: 137960
+    from: 1941
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-m1-garand-rifle-production.htm
+    note: Receiver serial. Month-end serials collapsed to years; NPS calls them approximate. Start 100,001
+      is from the NPS block assignment (Winchester 100,001-165,500). 1945 January ends at 2,536,600 per
+      NPS; the Fulton Armory/Duff page says 2,534,232. The 1,600,000-1,640,000 block ("WIN-13") was made
+      mid-January to June 30, 1945. 1,357,474-1,380,000 and 2,305,850-2,533,142 overlap Springfield Armory
+      numbers.
+  - maker: Winchester
+    low: 137961
+    high: 165500
+    from: 1942
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-m1-garand-rifle-production.htm
+  - maker: Winchester
+    low: 1200001
+    high: 1276102
+    from: 1942
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-m1-garand-rifle-production.htm
+  - maker: Winchester
+    low: 1276103
+    high: 1380000
+    from: 1943
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-m1-garand-rifle-production.htm
+  - maker: Winchester
+    low: 1600000
+    high: 1640000
+    from: 1945
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-m1-garand-rifle-production.htm
+  - maker: Winchester
+    low: 2305850
+    high: 2364642
+    from: 1943
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-m1-garand-rifle-production.htm
+  - maker: Winchester
+    low: 2364643
+    high: 2533142
+    from: 1944
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-m1-garand-rifle-production.htm
+  - maker: Winchester
+    low: 2533143
+    high: 2536600
+    from: 1945
+    source: https://www.nps.gov/spar/learn/historyculture/u-s-m1-garand-rifle-production.htm
   status: approved
 - name: M2
   status: approved
@@ -32146,6 +33918,386 @@ models:
   - Remington
   - Springfield
   frame_size: Full size
+  serials:
+  - maker: Colt
+    low: 1
+    high: 17250
+    from: 1912
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+    note: ProofHouse (Marc Wade) government-contract table; it marks some year splits as approximate ("~
+      approximate serial at the beginning of the year, as those pistols were not manufactured or shipped
+      in numerical order"). Rows labeled with two years and no split carry year/year_end. sightm1911.com
+      gives coarser and partly conflicting ranges (for example it dates all of Colt 857,000-1,609,529
+      and Remington Rand 1,471,431-1,609,528 to 1943); ProofHouse is used because it is block-by-block
+      and internally consistent. 551,000-573,000 appears under both 1918 and 1919 ("continued from 1918"),
+      so it is 1918-1919. 128,617-133,186 were Colt pistols numbered in a range suspended from Springfield
+      Armory (1916-1917). 856,101-958,100 includes 856,101-856,404 "replacement numbers" and duplicates
+      Ithaca 856,405-916,404 and Remington Rand 916,405-958,100; 1,088,726-1,092,896 duplicates Union
+      Switch & Signal. Last Colt-made pistol 2,368,781. M1911A1 designation applies above 700,000.
+  - maker: Colt
+    low: 17251
+    high: 60400
+    from: 1913
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 60401
+    high: 72570
+    from: 1914
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 83856
+    high: 102596
+    from: 1914
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 107597
+    high: 113496
+    from: 1915
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 120567
+    high: 125566
+    from: 1915
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 128617
+    high: 133186
+    from: 1916
+    to: 1917
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 133187
+    high: 137400
+    from: 1916
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 137401
+    high: 151186
+    from: 1917
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 151187
+    high: 151986
+    from: 1916
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 151987
+    high: 186200
+    from: 1917
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 186201
+    high: 204986
+    from: 1917
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 204987
+    high: 209586
+    from: 1918
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 209587
+    high: 216986
+    from: 1917
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 216987
+    high: 217386
+    from: 1918
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 217387
+    high: 217800
+    from: 1917
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 217801
+    high: 223952
+    from: 1918
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 223953
+    high: 550999
+    from: 1918
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 551000
+    high: 573000
+    from: 1918
+    to: 1919
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 573001
+    high: 629500
+    from: 1919
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 700001
+    high: 710000
+    from: 1924
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 710001
+    high: 712349
+    from: 1937
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 712350
+    high: 713645
+    from: 1938
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 713646
+    high: 717281
+    from: 1939
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 717282
+    high: 721977
+    from: 1940
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 721978
+    high: 756733
+    from: 1941
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 756734
+    high: 800000
+    from: 1942
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 801001
+    high: 856100
+    from: 1942
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 856101
+    high: 861999
+    from: 1942
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 862000
+    high: 958100
+    from: 1943
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 1088726
+    high: 1092896
+    from: 1943
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 1096405
+    high: 1154999
+    from: 1943
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 1155000
+    high: 1208673
+    from: 1944
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 1609529
+    high: 1719999
+    from: 1944
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 1720000
+    high: 1743846
+    from: 1945
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Colt
+    low: 2244804
+    high: 2380013
+    from: 1945
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Ithaca
+    low: 856405
+    high: 916404
+    from: 1943
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+    note: ProofHouse (Marc Wade) government-contract table; it marks some year splits as approximate ("~
+      approximate serial at the beginning of the year, as those pistols were not manufactured or shipped
+      in numerical order"). Rows labeled with two years and no split carry year/year_end. sightm1911.com
+      gives coarser and partly conflicting ranges (for example it dates all of Colt 857,000-1,609,529
+      and Remington Rand 1,471,431-1,609,528 to 1943); ProofHouse is used because it is block-by-block
+      and internally consistent. 856,405-916,404 was duplicated by Colt (look for the maker marking).
+      1,816,642-1,890,503 is given as 1944-1945 because the source's approximate 1945 split ("1,816,642
+      - 1,845,997") starts at the block's first number and cannot be right as printed. Last Ithaca-made
+      pistol 2,660,318.
+  - maker: Ithaca
+    low: 1208674
+    high: 1234999
+    from: 1943
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Ithaca
+    low: 1235000
+    high: 1279673
+    from: 1944
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Ithaca
+    low: 1441431
+    high: 1471430
+    from: 1944
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Ithaca
+    low: 1816642
+    high: 1890503
+    from: 1944
+    to: 1945
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Ithaca
+    low: 2075104
+    high: 2110464
+    from: 1944
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Ithaca
+    low: 2110465
+    high: 2134403
+    from: 1945
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Ithaca
+    low: 2619014
+    high: 2693613
+    from: 1945
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Remington
+    low: 1
+    high: 13381
+    from: 1918
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+    note: ProofHouse (Marc Wade) government-contract table; it marks some year splits as approximate ("~
+      approximate serial at the beginning of the year, as those pistols were not manufactured or shipped
+      in numerical order"). Rows labeled with two years and no split carry year/year_end. sightm1911.com
+      gives coarser and partly conflicting ranges (for example it dates all of Colt 857,000-1,609,529
+      and Remington Rand 1,471,431-1,609,528 to 1943); ProofHouse is used because it is block-by-block
+      and internally consistent. Remington-UMC used its own number series starting at 1.
+  - maker: Remington
+    low: 13382
+    high: 21676
+    from: 1919
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Remington Rand
+    low: 916405
+    high: 921699
+    from: 1942
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+    note: ProofHouse (Marc Wade) government-contract table; it marks some year splits as approximate ("~
+      approximate serial at the beginning of the year, as those pistols were not manufactured or shipped
+      in numerical order"). Rows labeled with two years and no split carry year/year_end. sightm1911.com
+      gives coarser and partly conflicting ranges (for example it dates all of Colt 857,000-1,609,529
+      and Remington Rand 1,471,431-1,609,528 to 1943); ProofHouse is used because it is block-by-block
+      and internally consistent. 916,405-958,100 was duplicated by Colt. Last Remington Rand-made pistol
+      2,465,139.
+  - maker: Remington Rand
+    low: 921700
+    high: 1041404
+    from: 1943
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Remington Rand
+    low: 1279699
+    high: 1363699
+    from: 1943
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Remington Rand
+    low: 1363700
+    high: 1441430
+    from: 1944
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Remington Rand
+    low: 1471431
+    high: 1609528
+    from: 1944
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Remington Rand
+    low: 1743847
+    high: 1816641
+    from: 1944
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Remington Rand
+    low: 1890504
+    high: 2031599
+    from: 1944
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Remington Rand
+    low: 2031600
+    high: 2075103
+    from: 1945
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Remington Rand
+    low: 2134404
+    high: 2244803
+    from: 1945
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Remington Rand
+    low: 2380014
+    high: 2619013
+    from: 1945
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Singer Manufacturing
+    prefix: S
+    low: 800001
+    high: 800500
+    from: 1941
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+    note: S prefix. sightm1911.com agrees (S800001-S800500, 1941) and warns these are the most-counterfeited
+      M1911A1s. ProofHouse also lists H800501-H801000 as "Assigned to H&R" with no production or year;
+      not included.
+  - maker: Springfield
+    low: 72571
+    high: 81750
+    from: 1914
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+    note: ProofHouse (Marc Wade) government-contract table; it marks some year splits as approximate ("~
+      approximate serial at the beginning of the year, as those pistols were not manufactured or shipped
+      in numerical order"). Rows labeled with two years and no split carry year/year_end. sightm1911.com
+      gives coarser and partly conflicting ranges (for example it dates all of Colt 857,000-1,609,529
+      and Remington Rand 1,471,431-1,609,528 to 1943); ProofHouse is used because it is block-by-block
+      and internally consistent. The 1916-1917 row (125,567-133,186) gives only 127,131-127,978 as 1917,
+      and 128,617-133,186 went to Colt; 127,979-128,616 is therefore given as 1916-1917.
+  - maker: Springfield
+    low: 81751
+    high: 83855
+    from: 1915
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Springfield
+    low: 102597
+    high: 107596
+    from: 1915
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Springfield
+    low: 113497
+    high: 120200
+    from: 1915
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Springfield
+    low: 120201
+    high: 120566
+    from: 1916
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Springfield
+    low: 125567
+    high: 127130
+    from: 1916
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Springfield
+    low: 127131
+    high: 127978
+    from: 1917
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Springfield
+    low: 127979
+    high: 128616
+    from: 1916
+    to: 1917
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+  - maker: Union Switch & Signal
+    low: 1041405
+    high: 1096404
+    from: 1943
+    source: https://www.proofhouse.com/colt/gvt1911.htm
+    note: 1,088,726-1,092,896 inside this block was duplicated by Colt (check maker marking). sightm1911.com
+      agrees on the block and year.
   status: approved
 - name: Model of 1917
   kind: rifle
@@ -62811,6 +64963,346 @@ models:
   manufacturers:
   - Winchester
   wikipedia: https://en.wikipedia.org/wiki/Winchester_Model_1912
+  serials:
+  - maker: Winchester
+    low: 1
+    high: 5308
+    from: 1912
+    source: https://www.proofhouse.com/win/winchester.htm
+    note: 'ProofHouse (Marc Wade) compilation of Winchester start-of-year serials; the page does not cite
+      its source. Converted to ranges (start to next year''s start minus one). Each start was cross-checked
+      against the page''s "number made" column; starts that are out of order, or that fail that check
+      on both sides, were dropped and the neighboring years merged into a year/year_end span. The last
+      year on the page has no end serial and is not included. Dropped: 1964 start "1062018", 1972 start
+      "1070899". Page says some serials were skipped in 1959, 1961 and 1972; the "Y series" from 1972
+      (Y2000100) is not included.'
+  - maker: Winchester
+    low: 5309
+    high: 32424
+    from: 1913
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 32425
+    high: 79772
+    from: 1914
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 79773
+    high: 109523
+    from: 1915
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 109524
+    high: 136420
+    from: 1916
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 136421
+    high: 159399
+    from: 1917
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 159400
+    high: 183469
+    from: 1918
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 183470
+    high: 219465
+    from: 1919
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 219466
+    high: 245655
+    from: 1920
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 245656
+    high: 265450
+    from: 1921
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 265451
+    high: 302512
+    from: 1922
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 302513
+    high: 344517
+    from: 1923
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 344518
+    high: 383394
+    from: 1924
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 383395
+    high: 421254
+    from: 1925
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 421255
+    high: 462760
+    from: 1926
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 462761
+    high: 508889
+    from: 1927
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 508890
+    high: 556046
+    from: 1928
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 556047
+    high: 599030
+    from: 1929
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 599031
+    high: 625192
+    from: 1930
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 625193
+    high: 649451
+    from: 1931
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 649452
+    high: 658296
+    from: 1932
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 658297
+    high: 662730
+    from: 1933
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 662731
+    high: 672180
+    from: 1934
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 672181
+    high: 685164
+    from: 1935
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 685165
+    high: 718502
+    from: 1936
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 718503
+    high: 752436
+    from: 1937
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 752437
+    high: 777641
+    from: 1938
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 777642
+    high: 812307
+    from: 1939
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 812308
+    high: 854685
+    from: 1940
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 854686
+    high: 905617
+    from: 1941
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 905618
+    high: 956489
+    from: 1942
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 956490
+    high: 973825
+    from: 1943
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 973826
+    high: 974730
+    from: 1944
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 974731
+    high: 987341
+    from: 1945
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 987342
+    high: 1029101
+    from: 1946
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1029102
+    high: 1092210
+    from: 1947
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1092211
+    high: 1163717
+    from: 1948
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1163718
+    high: 1212616
+    from: 1949
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1212617
+    high: 1251918
+    from: 1950
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1251919
+    high: 1289314
+    from: 1951
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1289315
+    high: 1328171
+    from: 1952
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1328172
+    high: 1398814
+    from: 1953
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1398815
+    high: 1470840
+    from: 1954
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1470841
+    high: 1541722
+    from: 1955
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1541723
+    high: 1611743
+    from: 1956
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1611744
+    high: 1650731
+    from: 1957
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1650732
+    high: 1690748
+    from: 1958
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1690749
+    high: 1795421
+    from: 1959
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1795422
+    high: 1800071
+    from: 1960
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1800072
+    high: 1928017
+    from: 1961
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1928018
+    high: 1955318
+    from: 1962
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1955319
+    high: 1963489
+    from: 1963
+    to: 1964
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1963490
+    high: 1963830
+    from: 1965
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1963831
+    high: 1964463
+    from: 1966
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1964464
+    high: 1964894
+    from: 1967
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1964895
+    high: 1965816
+    from: 1968
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1965817
+    high: 1967999
+    from: 1969
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1968000
+    high: 1968835
+    from: 1970
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1968836
+    high: 2005728
+    from: 1971
+    to: 1972
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2005729
+    high: 2021758
+    from: 1973
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2021759
+    high: 2022037
+    from: 1974
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2022038
+    high: 2023470
+    from: 1975
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2023471
+    high: 2025173
+    from: 1976
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2025174
+    high: 2025837
+    from: 1977
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2025838
+    high: 2026122
+    from: 1978
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2026123
+    high: 2026371
+    from: 1979
+    source: https://www.proofhouse.com/win/winchester.htm
   status: approved
 - name: Winchester Model 1866
   aliases:
@@ -62834,6 +65326,246 @@ models:
   - Winchester
   wikipedia: https://en.wikipedia.org/wiki/Winchester_Model_1873
   capacity: 15
+  serials:
+  - maker: Winchester
+    low: 1
+    high: 2726
+    from: 1873
+    to: 1874
+    source: https://www.proofhouse.com/win/winchester.htm
+    note: 'ProofHouse (Marc Wade) compilation of Winchester start-of-year serials; the page does not cite
+      its source. Converted to ranges (start to next year''s start minus one). Each start was cross-checked
+      against the page''s "number made" column; starts that are out of order, or that fail that check
+      on both sides, were dropped and the neighboring years merged into a year/year_end span. The last
+      year on the page has no end serial and is not included. Dropped as typos: 1874 start "12", 1877
+      start "2315". Page notes only 18 guns shipped in 1873; total production 720,609.'
+  - maker: Winchester
+    low: 2727
+    high: 11325
+    from: 1875
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 11326
+    high: 23628
+    from: 1876
+    to: 1877
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 23629
+    high: 27501
+    from: 1878
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 27502
+    high: 41521
+    from: 1879
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 41522
+    high: 63536
+    from: 1880
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 63537
+    high: 81620
+    from: 1881
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 81621
+    high: 109507
+    from: 1882
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 109508
+    high: 145503
+    from: 1883
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 145504
+    high: 175126
+    from: 1884
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 175127
+    high: 196221
+    from: 1885
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 196222
+    high: 222937
+    from: 1886
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 222938
+    high: 255922
+    from: 1887
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 255923
+    high: 284529
+    from: 1888
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 284530
+    high: 323956
+    from: 1889
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 323957
+    high: 363220
+    from: 1890
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 363221
+    high: 405026
+    from: 1891
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 405027
+    high: 441625
+    from: 1892
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 441626
+    high: 466641
+    from: 1893
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 466642
+    high: 481826
+    from: 1894
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 481827
+    high: 499308
+    from: 1895
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 499309
+    high: 507545
+    from: 1896
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 507546
+    high: 513421
+    from: 1897
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 513422
+    high: 525922
+    from: 1898
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 525923
+    high: 541328
+    from: 1899
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 541329
+    high: 554128
+    from: 1900
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 554129
+    high: 557236
+    from: 1901
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 557237
+    high: 564557
+    from: 1902
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 564558
+    high: 573956
+    from: 1903
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 573957
+    high: 588953
+    from: 1904
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 588954
+    high: 602557
+    from: 1905
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 602558
+    high: 613780
+    from: 1906
+    to: 1908
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 613781
+    high: 630385
+    from: 1909
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 630386
+    high: 656101
+    from: 1910
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 656102
+    high: 669324
+    from: 1911
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 669325
+    high: 678527
+    from: 1912
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 678528
+    high: 684419
+    from: 1913
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 684420
+    high: 686510
+    from: 1914
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 686511
+    high: 688431
+    from: 1915
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 688432
+    high: 694020
+    from: 1916
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 694021
+    high: 698617
+    from: 1917
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 698618
+    high: 700734
+    from: 1918
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 700735
+    high: 702042
+    from: 1919
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 702043
+    high: 702049
+    from: 1920
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 702050
+    high: 702075
+    from: 1921
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 702076
+    high: 702348
+    from: 1922
+    source: https://www.proofhouse.com/win/winchester.htm
   status: approved
 - name: Winchester Model 1876
   aliases:
@@ -62895,6 +65627,258 @@ models:
   country: United States
   manufacturers:
   - Winchester
+  serials:
+  - maker: Winchester
+    low: 1
+    high: 23701
+    from: 1892
+    source: https://www.proofhouse.com/win/winchester.htm
+    note: 'ProofHouse (Marc Wade) compilation of Winchester start-of-year serials; the page does not cite
+      its source. Converted to ranges (start to next year''s start minus one). Each start was cross-checked
+      against the page''s "number made" column; starts that are out of order, or that fail that check
+      on both sides, were dropped and the neighboring years merged into a year/year_end span. The last
+      year on the page has no end serial and is not included. Dropped: none. The Model 65 was numbered
+      in the 1892 series. Last row (1941, from 1,004,583) not included.'
+  - maker: Winchester
+    low: 23702
+    high: 35987
+    from: 1893
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 35988
+    high: 73508
+    from: 1894
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 73509
+    high: 106721
+    from: 1895
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 106722
+    high: 144935
+    from: 1896
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 144936
+    high: 159312
+    from: 1897
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 159313
+    high: 165431
+    from: 1898
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 165432
+    high: 171820
+    from: 1899
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 171821
+    high: 183411
+    from: 1900
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 183412
+    high: 191787
+    from: 1901
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 191788
+    high: 208871
+    from: 1902
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 208872
+    high: 253935
+    from: 1903
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 253936
+    high: 278546
+    from: 1904
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 278547
+    high: 315425
+    from: 1905
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 315426
+    high: 376496
+    from: 1906
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 376497
+    high: 437919
+    from: 1907
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 437920
+    high: 476540
+    from: 1908
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 476541
+    high: 522162
+    from: 1909
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 522163
+    high: 586996
+    from: 1910
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 586997
+    high: 643483
+    from: 1911
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 643484
+    high: 694752
+    from: 1912
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 694753
+    high: 742675
+    from: 1913
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 742676
+    high: 771444
+    from: 1914
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 771445
+    high: 804622
+    from: 1915
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 804623
+    high: 830031
+    from: 1916
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 830032
+    high: 853819
+    from: 1917
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 853820
+    high: 870942
+    from: 1918
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 870943
+    high: 903649
+    from: 1919
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 903650
+    high: 906754
+    from: 1920
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 906755
+    high: 910476
+    from: 1921
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 910477
+    high: 917300
+    from: 1922
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 917301
+    high: 926329
+    from: 1923
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 926330
+    high: 938641
+    from: 1924
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 938642
+    high: 954997
+    from: 1925
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 954998
+    high: 973896
+    from: 1926
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 973897
+    high: 990883
+    from: 1927
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 990884
+    high: 996517
+    from: 1928
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 996518
+    high: 999238
+    from: 1929
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 999239
+    high: 999730
+    from: 1930
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 999731
+    high: 1000727
+    from: 1931
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1000728
+    high: 1001324
+    from: 1932
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1001325
+    high: 1001862
+    from: 1933
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1001863
+    high: 1002454
+    from: 1934
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1002455
+    high: 1002958
+    from: 1935
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1002959
+    high: 1003419
+    from: 1936
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1003420
+    high: 1004034
+    from: 1937
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1004035
+    high: 1004251
+    from: 1938
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1004252
+    high: 1004388
+    from: 1939
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1004389
+    high: 1004582
+    from: 1940
+    source: https://www.proofhouse.com/win/winchester.htm
   status: approved
 - name: Winchester Model 1894
   aliases:
@@ -62903,6 +65887,427 @@ models:
   country: United States
   manufacturers:
   - Winchester
+  serials:
+  - maker: Winchester
+    low: 1
+    high: 14759
+    from: 1894
+    source: https://www.proofhouse.com/win/winchester.htm
+    note: 'ProofHouse (Marc Wade) compilation of Winchester start-of-year serials; the page does not cite
+      its source. Converted to ranges (start to next year''s start minus one). Each start was cross-checked
+      against the page''s "number made" column; starts that are out of order, or that fail that check
+      on both sides, were dropped and the neighboring years merged into a year/year_end span. The last
+      year on the page has no end serial and is not included. Dropped: 1981 start "4891952". 1943-1948
+      figures are missing on the page (1942 to 1949 merged); 1964 has no count. Page warns that figures
+      from 1948 on (U.S. Repeating Arms records) may be off by one year, especially 1971, 1972, 1974-1976
+      and 1979.'
+  - maker: Winchester
+    low: 14760
+    high: 44359
+    from: 1895
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 44360
+    high: 76464
+    from: 1896
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 76465
+    high: 111453
+    from: 1897
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 111454
+    high: 147684
+    from: 1898
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 147685
+    high: 183371
+    from: 1899
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 183372
+    high: 204427
+    from: 1900
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 204428
+    high: 233975
+    from: 1901
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 233976
+    high: 273854
+    from: 1902
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 273855
+    high: 291506
+    from: 1903
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 291507
+    high: 311363
+    from: 1904
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 311364
+    high: 337557
+    from: 1905
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 337558
+    high: 378878
+    from: 1906
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 378879
+    high: 430985
+    from: 1907
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 430986
+    high: 474241
+    from: 1908
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 474242
+    high: 505831
+    from: 1909
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 505832
+    high: 553062
+    from: 1910
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 553063
+    high: 599263
+    from: 1911
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 599264
+    high: 646114
+    from: 1912
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 646115
+    high: 703701
+    from: 1913
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 703702
+    high: 756066
+    from: 1914
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 756067
+    high: 784052
+    from: 1915
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 784053
+    high: 807741
+    from: 1916
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 807742
+    high: 821972
+    from: 1917
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 821973
+    high: 838175
+    from: 1918
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 838176
+    high: 870762
+    from: 1919
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 870763
+    high: 880627
+    from: 1920
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 880628
+    high: 908318
+    from: 1921
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 908319
+    high: 919583
+    from: 1922
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 919584
+    high: 938539
+    from: 1923
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 938540
+    high: 953198
+    from: 1924
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 953199
+    high: 978523
+    from: 1925
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 978524
+    high: 997603
+    from: 1926
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 997604
+    high: 1027571
+    from: 1927
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1027572
+    high: 1054465
+    from: 1928
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1054466
+    high: 1077097
+    from: 1929
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1077098
+    high: 1081755
+    from: 1930
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1081756
+    high: 1084156
+    from: 1931
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1084157
+    high: 1087836
+    from: 1932
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1087837
+    high: 1089271
+    from: 1933
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1089272
+    high: 1091192
+    from: 1934
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1091193
+    high: 1099608
+    from: 1935
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1099609
+    high: 1112194
+    from: 1936
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1112195
+    high: 1138781
+    from: 1937
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1138782
+    high: 1169370
+    from: 1938
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1169371
+    high: 1197211
+    from: 1939
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1197212
+    high: 1238584
+    from: 1940
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1238585
+    high: 1287468
+    from: 1941
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1287469
+    high: 1500000
+    from: 1942
+    to: 1948
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1500001
+    high: 1626100
+    from: 1949
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1626101
+    high: 1724295
+    from: 1950
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1724296
+    high: 1819800
+    from: 1951
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1819801
+    high: 1910000
+    from: 1952
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1910001
+    high: 1999999
+    from: 1953
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2000000
+    high: 2071100
+    from: 1954
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2071101
+    high: 2145296
+    from: 1955
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2145297
+    high: 2225000
+    from: 1956
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2225001
+    high: 2290296
+    from: 1957
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2290297
+    high: 2365887
+    from: 1958
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2365888
+    high: 2410555
+    from: 1959
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2410556
+    high: 2469821
+    from: 1960
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2469822
+    high: 2500000
+    from: 1961
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2500001
+    high: 2551921
+    from: 1962
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2551922
+    high: 2586000
+    from: 1963
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2586001
+    high: 2797428
+    from: 1964
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2797429
+    high: 2894428
+    from: 1965
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2894429
+    high: 2991927
+    from: 1966
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2991928
+    high: 3088458
+    from: 1967
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 3088459
+    high: 3185691
+    from: 1968
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 3185692
+    high: 3284570
+    from: 1969
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 3284571
+    high: 3381298
+    from: 1970
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 3381299
+    high: 3557385
+    from: 1971
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 3557386
+    high: 3806499
+    from: 1972
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 3806500
+    high: 3929364
+    from: 1973
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 3929365
+    high: 4111426
+    from: 1974
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 4111427
+    high: 4277926
+    from: 1975
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 4277927
+    high: 4463553
+    from: 1976
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 4463554
+    high: 4565925
+    from: 1977
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 4565926
+    high: 4662210
+    from: 1978
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 4662211
+    high: 4826596
+    from: 1979
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 4826597
+    high: 5024957
+    from: 1980
+    to: 1981
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 5024958
+    high: 5103248
+    from: 1982
+    source: https://www.proofhouse.com/win/winchester.htm
   status: approved
 - name: Winchester Model 1895
   aliases:
@@ -63071,6 +66476,147 @@ models:
   manufacturers:
   - Winchester
   wikipedia: https://en.wikipedia.org/wiki/Winchester_Model_70
+  serials:
+  - maker: Winchester
+    low: 1
+    high: 19
+    from: 1935
+    source: https://www.proofhouse.com/win/winchester.htm
+    note: 'ProofHouse (Marc Wade) compilation of Winchester start-of-year serials; the page does not cite
+      its source. Converted to ranges (start to next year''s start minus one). Each start was cross-checked
+      against the page''s "number made" column; starts that are out of order, or that fail that check
+      on both sides, were dropped and the neighboring years merged into a year/year_end span. The last
+      year on the page has no end serial and is not included. Dropped: 1965 start "740600". 1944-1947
+      records were combined on the page. Ends at 1963: the page gives 1964 as starting at 581,471, but
+      the next start it prints (1965, 740,600) fails the number-made check, and the page says post-64
+      numbering began at 700,000 late in 1964, so pre-64 rifles from 581,471 up are 1964 but their last
+      serial is not given. Post-64 and G-prefix serials not included.'
+  - maker: Winchester
+    low: 20
+    high: 2238
+    from: 1936
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2239
+    high: 11573
+    from: 1937
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 11574
+    high: 17844
+    from: 1938
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 17845
+    high: 23991
+    from: 1939
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 23992
+    high: 31675
+    from: 1940
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 31676
+    high: 50753
+    from: 1941
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 50754
+    high: 58206
+    from: 1942
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 58207
+    high: 58986
+    from: 1943
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 58987
+    high: 75675
+    from: 1944
+    to: 1947
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 75676
+    high: 101680
+    from: 1948
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 101681
+    high: 131580
+    from: 1949
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 131581
+    high: 173150
+    from: 1950
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 173151
+    high: 206625
+    from: 1951
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 206626
+    high: 238820
+    from: 1952
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 238821
+    high: 282735
+    from: 1953
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 282736
+    high: 323530
+    from: 1954
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 323531
+    high: 361025
+    from: 1955
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 361026
+    high: 393595
+    from: 1956
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 393596
+    high: 425283
+    from: 1957
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 425284
+    high: 440792
+    from: 1958
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 440793
+    high: 465040
+    from: 1959
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 465041
+    high: 504257
+    from: 1960
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 504258
+    high: 545446
+    from: 1961
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 545447
+    high: 565592
+    from: 1962
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 565593
+    high: 581470
+    from: 1963
+    source: https://www.proofhouse.com/win/winchester.htm
   status: approved
 - name: Winchester Model 71
   kind: rifle
@@ -63111,6 +66657,427 @@ models:
   manufacturers:
   - Winchester
   wikipedia: https://en.wikipedia.org/wiki/Winchester_Model_1894
+  serials:
+  - maker: Winchester
+    low: 1
+    high: 14759
+    from: 1894
+    source: https://www.proofhouse.com/win/winchester.htm
+    note: 'ProofHouse (Marc Wade) compilation of Winchester start-of-year serials; the page does not cite
+      its source. Converted to ranges (start to next year''s start minus one). Each start was cross-checked
+      against the page''s "number made" column; starts that are out of order, or that fail that check
+      on both sides, were dropped and the neighboring years merged into a year/year_end span. The last
+      year on the page has no end serial and is not included. Dropped: 1981 start "4891952". 1943-1948
+      figures are missing on the page (1942 to 1949 merged); 1964 has no count. Page warns that figures
+      from 1948 on (U.S. Repeating Arms records) may be off by one year, especially 1971, 1972, 1974-1976
+      and 1979.'
+  - maker: Winchester
+    low: 14760
+    high: 44359
+    from: 1895
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 44360
+    high: 76464
+    from: 1896
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 76465
+    high: 111453
+    from: 1897
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 111454
+    high: 147684
+    from: 1898
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 147685
+    high: 183371
+    from: 1899
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 183372
+    high: 204427
+    from: 1900
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 204428
+    high: 233975
+    from: 1901
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 233976
+    high: 273854
+    from: 1902
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 273855
+    high: 291506
+    from: 1903
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 291507
+    high: 311363
+    from: 1904
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 311364
+    high: 337557
+    from: 1905
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 337558
+    high: 378878
+    from: 1906
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 378879
+    high: 430985
+    from: 1907
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 430986
+    high: 474241
+    from: 1908
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 474242
+    high: 505831
+    from: 1909
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 505832
+    high: 553062
+    from: 1910
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 553063
+    high: 599263
+    from: 1911
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 599264
+    high: 646114
+    from: 1912
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 646115
+    high: 703701
+    from: 1913
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 703702
+    high: 756066
+    from: 1914
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 756067
+    high: 784052
+    from: 1915
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 784053
+    high: 807741
+    from: 1916
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 807742
+    high: 821972
+    from: 1917
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 821973
+    high: 838175
+    from: 1918
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 838176
+    high: 870762
+    from: 1919
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 870763
+    high: 880627
+    from: 1920
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 880628
+    high: 908318
+    from: 1921
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 908319
+    high: 919583
+    from: 1922
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 919584
+    high: 938539
+    from: 1923
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 938540
+    high: 953198
+    from: 1924
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 953199
+    high: 978523
+    from: 1925
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 978524
+    high: 997603
+    from: 1926
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 997604
+    high: 1027571
+    from: 1927
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1027572
+    high: 1054465
+    from: 1928
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1054466
+    high: 1077097
+    from: 1929
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1077098
+    high: 1081755
+    from: 1930
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1081756
+    high: 1084156
+    from: 1931
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1084157
+    high: 1087836
+    from: 1932
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1087837
+    high: 1089271
+    from: 1933
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1089272
+    high: 1091192
+    from: 1934
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1091193
+    high: 1099608
+    from: 1935
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1099609
+    high: 1112194
+    from: 1936
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1112195
+    high: 1138781
+    from: 1937
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1138782
+    high: 1169370
+    from: 1938
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1169371
+    high: 1197211
+    from: 1939
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1197212
+    high: 1238584
+    from: 1940
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1238585
+    high: 1287468
+    from: 1941
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1287469
+    high: 1500000
+    from: 1942
+    to: 1948
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1500001
+    high: 1626100
+    from: 1949
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1626101
+    high: 1724295
+    from: 1950
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1724296
+    high: 1819800
+    from: 1951
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1819801
+    high: 1910000
+    from: 1952
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 1910001
+    high: 1999999
+    from: 1953
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2000000
+    high: 2071100
+    from: 1954
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2071101
+    high: 2145296
+    from: 1955
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2145297
+    high: 2225000
+    from: 1956
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2225001
+    high: 2290296
+    from: 1957
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2290297
+    high: 2365887
+    from: 1958
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2365888
+    high: 2410555
+    from: 1959
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2410556
+    high: 2469821
+    from: 1960
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2469822
+    high: 2500000
+    from: 1961
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2500001
+    high: 2551921
+    from: 1962
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2551922
+    high: 2586000
+    from: 1963
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2586001
+    high: 2797428
+    from: 1964
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2797429
+    high: 2894428
+    from: 1965
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2894429
+    high: 2991927
+    from: 1966
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 2991928
+    high: 3088458
+    from: 1967
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 3088459
+    high: 3185691
+    from: 1968
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 3185692
+    high: 3284570
+    from: 1969
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 3284571
+    high: 3381298
+    from: 1970
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 3381299
+    high: 3557385
+    from: 1971
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 3557386
+    high: 3806499
+    from: 1972
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 3806500
+    high: 3929364
+    from: 1973
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 3929365
+    high: 4111426
+    from: 1974
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 4111427
+    high: 4277926
+    from: 1975
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 4277927
+    high: 4463553
+    from: 1976
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 4463554
+    high: 4565925
+    from: 1977
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 4565926
+    high: 4662210
+    from: 1978
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 4662211
+    high: 4826596
+    from: 1979
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 4826597
+    high: 5024957
+    from: 1980
+    to: 1981
+    source: https://www.proofhouse.com/win/winchester.htm
+  - maker: Winchester
+    low: 5024958
+    high: 5103248
+    from: 1982
+    source: https://www.proofhouse.com/win/winchester.htm
   status: approved
 - name: WINCHESTER MODEL 95
   status: merged

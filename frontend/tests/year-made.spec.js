@@ -63,3 +63,70 @@ test("with neither, the C&R reader's year as before", async ({ signedIn }) => {
   await expect(facts).toContainText("Made1943");
   await expect(facts.locator(".fact__label", { hasText: /^Serial$/ })).toHaveCount(0);
 });
+
+test("the rail asks for the years it was made", async ({ signedIn }) => {
+  /** Asked for on 2026-10-17. Which listings match is the server's business
+   *  (app/services/search.py); this checks what the box asks for. */
+  const asked = [];
+  await signedIn.route(/\/api\/items\?/, async (route) => {
+    asked.push(new URL(route.request().url()).searchParams);
+    await route.continue();
+  });
+  await signedIn.goto("/?availability=all");
+  const last = () => asked[asked.length - 1];
+  const made = () => [last().get("made_min"), last().get("made_max")];
+
+  await signedIn.locator(".facet__summary", { hasText: /^Year made$/ }).click();
+  const box = signedIn.getByLabel("Years", { exact: true });
+  await box.fill("1940-1945");
+  await box.press("Enter");
+  await expect.poll(made).toEqual(["1940", "1945"]);
+  await expect(
+    signedIn.getByRole("button", { name: "Remove Made: 1940–1945" }),
+  ).toBeVisible();
+
+  // Antique means made before 1899: the last of it is 1898.
+  await box.fill("pre-1899");
+  await box.press("Enter");
+  await expect.poll(made).toEqual([null, "1898"]);
+  await expect(box).toHaveValue("1898 or earlier");
+
+  await box.fill("after 1945");
+  await box.press("Enter");
+  await expect.poll(made).toEqual(["1946", null]);
+
+  await box.fill("soon");
+  await box.press("Enter");
+  await expect(signedIn.locator("#year-made-hint")).toHaveText(
+    "A year (1943), a range (1940-1945), or one end (1950+, pre-1899).",
+  );
+
+  await signedIn.getByRole("button", { name: "Remove Made: 1946 or later" }).click();
+  await expect.poll(made).toEqual([null, null]);
+});
+
+test("the C&R line says when it went by the year made", async ({ signedIn }) => {
+  const facts = await showListing(signedIn, {
+    made_from: 1917,
+    made_to: 1917,
+    made_source: "stated",
+    curio: "eligible",
+    curio_label: "Eligible by age",
+    curio_evidence: "made",
+  });
+  await expect(facts).toContainText("from the year it was made");
+});
+
+test("a year from a published serial table names its source", async ({ signedIn }) => {
+  await showListing(signedIn, {
+    serial: "60123",
+    made_from: 1941,
+    made_to: 1941,
+    made_source: "table",
+    made_quote: "in Springfield's 50,000 to 99,999, made 1941, as thecmp.org publishes",
+  });
+  await expect(signedIn.getByTestId("year-made")).toHaveText(
+    "Made1941from its serial, in Springfield's 50,000 to 99,999, made 1941, " +
+      "as thecmp.org publishes",
+  );
+});

@@ -829,6 +829,12 @@ class FirearmModel(Base, TimestampMixin):
     variants: Mapped[list["ModelVariant"]] = relationship(
         back_populates="model", cascade="all, delete-orphan", order_by="ModelVariant.label"
     )
+    #: Its published serial-to-date tables. See SerialRange.
+    serial_ranges: Mapped[list["SerialRange"]] = relationship(
+        back_populates="model",
+        cascade="all, delete-orphan",
+        order_by="(SerialRange.manufacturer_id, SerialRange.prefix, SerialRange.suffix, SerialRange.serial_low)",
+    )
     merged_into: Mapped["FirearmModel | None"] = relationship(remote_side="FirearmModel.id")
     manufacturers: Mapped[list["Manufacturer"]] = relationship(
         secondary=firearm_model_manufacturers,
@@ -1072,9 +1078,10 @@ class Item(Base, TimestampMixin):
     #: When it was made (app.services.serials, 2026-10-15). The serial the
     #: listing labels as one, and the number in it -- a range, for a partly
     #: hidden "10550xx". Then the years it was made: as the listing states
-    #: them ("stated", the words in ``made_quote``), or placed by its serial
-    #: among the listings that state theirs ("serial", the two it fell
-    #: between in ``made_quote``).
+    #: them ("stated", the words in ``made_quote``), found in a published
+    #: serial table ("table", the range and its source in ``made_quote``;
+    #: 2026-10-19), or placed by its serial among the listings that state
+    #: theirs ("serial", the two it fell between in ``made_quote``).
     serial: Mapped[str | None] = mapped_column(String(32))
     serial_low: Mapped[int | None] = mapped_column(Integer)
     serial_high: Mapped[int | None] = mapped_column(Integer)
@@ -1545,6 +1552,49 @@ class ModelVariant(Base, TimestampMixin):
 
     model: Mapped[FirearmModel] = relationship(back_populates="variants")
     caliber: Mapped["Caliber | None"] = relationship()
+
+
+class SerialRange(Base, TimestampMixin):
+    """One range of a published serial-to-date table: a model's serials from
+    one maker, from ``serial_low`` to ``serial_high``, made in these years.
+
+    Asked for on 2026-10-15 and built on 2026-10-19 ("Serial tables" in
+    ROADMAP.md): the M1 Garand's Springfield and Winchester numbers, the M1
+    Carbine's contractor blocks, the 1903's and the 1911's. Shipped in the
+    armory file under each model, like its variants, and edited on the
+    Armory's Serial tables tab. A serial found in a range is dated by it,
+    ahead of the estimate from other listings (app.services.serials).
+
+    ``source`` is where the range was read, and is required: a table typed
+    from memory is worse than none, because it is believed.
+    """
+
+    __tablename__ = "serial_ranges"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    model_id: Mapped[int] = mapped_column(
+        ForeignKey("firearm_models.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    #: Whose numbers these are; none for a model only one maker numbered. The
+    #: Garand's Winchester and Springfield ranges overlap.
+    manufacturer_id: Mapped[int | None] = mapped_column(
+        ForeignKey("manufacturers.id", ondelete="CASCADE")
+    )
+    #: Letters in front of the number, where a block is lettered: Walther's
+    #: "BC" is not its "AG". Empty for none.
+    prefix: Mapped[str] = mapped_column(String(8), default="", nullable=False)
+    #: Letters after it: Colt's post-war Single Action Army runs "…SA", and a
+    #: Python's "…E" block is not its plain one. Empty for none.
+    suffix: Mapped[str] = mapped_column(String(8), default="", nullable=False)
+    serial_low: Mapped[int] = mapped_column(Integer, nullable=False)
+    serial_high: Mapped[int] = mapped_column(Integer, nullable=False)
+    year_from: Mapped[int] = mapped_column(Integer, nullable=False)
+    year_to: Mapped[int] = mapped_column(Integer, nullable=False)
+    source: Mapped[str] = mapped_column(String(500), nullable=False)
+    note: Mapped[str | None] = mapped_column(Text)
+
+    model: Mapped[FirearmModel] = relationship(back_populates="serial_ranges")
+    manufacturer: Mapped["Manufacturer | None"] = relationship()
 
 
 class ReferenceProposal(Base, TimestampMixin):

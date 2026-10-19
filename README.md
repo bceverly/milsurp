@@ -261,9 +261,13 @@ changed — filtered to the sites you care about and capped so it stays readable
   from the Inventory rail.
 - **When it was made.** A listing shows its serial number, where the
   listing labels one, and the year the gun was made: as the listing states it,
-  quoted, or else placed by its serial between this model and maker's
-  listings that state theirs, shown as "about 1943–1944" with the two it
-  fell between. A model whose serials restart every year is never placed.
+  quoted; or from a published serial table, naming its source; or else placed
+  by its serial between this model and maker's listings that state theirs,
+  shown as "about 1943–1944" with the two it fell between. A model whose
+  serials restart every year is never placed. The tables are edited on the
+  Armory's Serial tables tab and shipped in the armory file. The Inventory
+  rail searches by **Year made** ("1943", "1940-1945", "pre-1899"), and the
+  C&R line goes by the year made where the shop says nothing.
 - **Wikipedia.** A small link beside the maker's and the model's names on a
   listing, when the armory has an article for either. Articles are proposed
   by `cli.py armory wikipedia` and accepted or rejected on the Armory page.

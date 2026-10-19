@@ -236,9 +236,9 @@ def _to_out(
     # for anything that is not a firearm -- a bayonet has no C&R status, and
     # the item page shows no C&R line when this is None.
     if curio.applies(item.is_rifle, item.is_pistol, item.is_parts_kit):
-        data.curio = curio.status(item.cr_stated, item.manufacture_year)
+        data.curio = curio.of(item)
         data.curio_label = CURIO_LABELS.get(data.curio)
-        data.curio_evidence = item.cr_evidence
+        data.curio_evidence = curio.evidence_of(item)
     data.manufacture_year = item.manufacture_year
     # Only for a firearm, as C&R is: "all matching" on a bayonet listing is
     # about the bayonet, and the question these answer is about a gun.
@@ -711,6 +711,8 @@ def list_items(
     ),
     capacity_min: int | None = Query(default=None, ge=0, le=200),
     capacity_max: int | None = Query(default=None, ge=0, le=200),
+    made_min: int | None = Query(default=None, ge=1500, le=2100),
+    made_max: int | None = Query(default=None, ge=1500, le=2100),
     sort: str = Query(default=DEFAULT_SORT),
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=48, ge=1, le=200),
@@ -779,6 +781,8 @@ def list_items(
             frames=frames,
             capacity_min=capacity_min,
             capacity_max=capacity_max,
+            made_min=made_min,
+            made_max=made_max,
             excluded={name: v for name, v in excluded.items() if name != drop},
         )
 
@@ -950,6 +954,8 @@ def export_items(
     ),
     capacity_min: int | None = Query(default=None, ge=0, le=200),
     capacity_max: int | None = Query(default=None, ge=0, le=200),
+    made_min: int | None = Query(default=None, ge=1500, le=2100),
+    made_max: int | None = Query(default=None, ge=1500, le=2100),
 ) -> Response:
     """The listings a browse page is showing, as a file.
 
@@ -988,6 +994,8 @@ def export_items(
         frames=_checked_frames(frame),
         capacity_min=capacity_min,
         capacity_max=capacity_max,
+        made_min=made_min,
+        made_max=made_max,
         excluded=_excluded(request),
     )
 

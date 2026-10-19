@@ -72,6 +72,8 @@ class TestAYearStated:
             ("RECEIVER CIRCA JANUARY 1941. Serial number", (1941, 1941)),
             ("Circa 1840s percussion pistol", (1840, 1849)),
             ("MADE IN OCTOBER 1934 AND LATER PRIATIZED", (1934, 1934)),
+            ("All models would be produced in 1981", (1981, 1981)),
+            ("1943 production, all matching", (1943, 1943)),
         ],
     )
     def test_in_the_dealers_words(self, text, years):
@@ -84,6 +86,11 @@ class TestAYearStated:
             "The M1 Garand was produced from 1937 to 1957",
             "U.S. Model 1903 rifle, Model 1911 pistol",
             "1971 IMPORT, WATER DAMAGE",
+            # Misread on production, 2026-10-19:
+            "Luger 45 P2020 Made in USA Caliber: 45 ACP",
+            "Luger 45 Commander Model 1907 Made in USA Caliber: 45 ACP",
+            "MODEL 1861 MILLER CONVERSION 58 RIMFIRE RIFLE MUSKET. RARE ONLY 2000 MADE",
+            "returned from foreign nations and sold in a DCM Lottery circa 1995",
         ],
     )
     def test_not_this_guns_year(self, text):
@@ -254,3 +261,250 @@ class TestStoredOnTheListing:
             "stated",
         )
         assert body["made_quote"] == "Manufactured in 1945"
+
+
+class TestSearchingByYearMade:
+    """The Year made filter (asked for on 2026-10-17): the year the listing's
+    page shows -- stated, placed by its serial, or the C&R reader's."""
+
+    def test_a_range_touches_a_span_and_the_c_and_r_year_counts(
+        self, garands, client, admin_headers
+    ):
+        session, model, site = garands
+        listing(session, model, site, "a", "Serial no. 165791. Manufactured in 1942.")
+        listing(session, model, site, "b", "Manufactured circa 1943-1944.")
+        older = listing(session, model, site, "c", "A fine rifle.")
+        older.manufacture_year = 1918
+        listing(session, model, site, "d", "Nothing said about when.")
+        session.commit()
+
+        def found(**params):
+            page = client.get(
+                "/api/items", params={"availability": "all", **params}, headers=admin_headers
+            ).json()
+            return sorted(row["url"].rsplit("/", 1)[1] for row in page["items"])
+
+        assert found(made_min=1944) == ["b"]
+        assert found(made_max=1943) == ["a", "b", "c"]
+        assert found(made_min=1940, made_max=1942) == ["a"]
+        assert found(made_max=1920) == ["c"]
+        assert (
+            client.get("/api/items", params={"made_min": 900}, headers=admin_headers).status_code
+            == 422
+        )
+
+    def test_a_saved_search_keeps_it(self):
+        from app.services import search
+
+        query = search.parse_query("made_min=1940&made_max=1945")
+        assert "made_min=1940" in query.as_query_string()
+        with pytest.raises(search.BadQuery):
+            search.parse_query("made_min=soon")
+
+
+@pytest.fixture
+def tables(garands):
+    """Ranges for the test, not the real tables: the shipped file carries
+    those, each with its source."""
+    from app.models import Manufacturer, SerialRange
+
+    session, model, site = garands
+    springfield = Manufacturer(name="Springfield", aliases="Springfield Armory")
+    winchester = Manufacturer(name="Winchester")
+    session.add_all([springfield, winchester])
+    session.flush()
+    for low, high, year in ((1, 49_999, 1940), (50_000, 99_999, 1941)):
+        session.add(
+            SerialRange(
+                model_id=model.id,
+                manufacturer_id=springfield.id,
+                serial_low=low,
+                serial_high=high,
+                year_from=year,
+                year_to=year,
+                source="https://www.cmp.test/garand-serials",
+            )
+        )
+    session.commit()
+    session.expire_all()
+    return session, model, site
+
+
+class TestAPublishedTable:
+    def test_a_serial_in_a_range_is_dated_by_it(self, tables):
+        session, model, site = tables
+        item = listing(session, model, site, "a", "Serial no. 60123. Nice bore.")
+        assert (item.made_from, item.made_to, item.made_source) == (1941, 1941, "table")
+        assert item.made_quote == (
+            "in Springfield's 50,000 to 99,999, made 1941, as cmp.test publishes"
+        )
+
+    def test_only_for_its_maker_and_its_letters(self, tables):
+        session, model, site = tables
+        other = listing(session, model, site, "w", "Serial no. 60123.", maker="Winchester")
+        assert other.made_source is None
+        lettered = listing(session, model, site, "l", "Serial no. AB60123.")
+        assert lettered.made_source is None
+        # A maker's other spelling is the maker.
+        spelled = listing(session, model, site, "s", "Serial # 123.", maker="Springfield Armory")
+        assert spelled.made_from == 1940
+
+    def test_letters_after_the_number_are_another_block(self, tables):
+        """A Python's "12345E" is not its plain 12345 (2026-10-19)."""
+        from app.models import SerialRange
+
+        session, model, site = tables
+        session.add(
+            SerialRange(
+                model_id=model.id,
+                suffix="E",
+                serial_low=1,
+                serial_high=99_999,
+                year_from=1975,
+                year_to=1975,
+                source="https://www.proofhouse.test/pyth.htm",
+            )
+        )
+        session.commit()
+        lettered = listing(session, model, site, "e", "Serial no. 60123E.", maker="Winchester")
+        assert (lettered.made_from, lettered.made_source) == (1975, "table")
+        assert lettered.made_quote == "in 1E to 99,999E, made 1975, as proofhouse.test publishes"
+        plain = listing(session, model, site, "p", "Serial no. 60123.", maker="Winchester")
+        assert plain.made_source is None
+
+    def test_a_hidden_digit_must_fall_inside_one_range(self, tables):
+        session, model, site = tables
+        item = listing(session, model, site, "h", "serial number 4xxxx. The receiver")
+        assert item.made_from == 1940
+        # 100,000 to 199,999: past the table's end.
+        past = listing(session, model, site, "x", "S/N 1xxxxx")
+        assert past.made_source is None
+
+    def test_it_comes_before_the_listings_estimate(self, tables):
+        session, model, site = tables
+        for at, (number, made) in enumerate(
+            [(10_000, 1950), (20_000, 1950), (30_000, 1951), (40_000, 1951), (45_000, 1952)]
+        ):
+            listing(session, model, site, f"s{at}", f"Serial no. {number}. Manufactured in {made}.")
+        placed = listing(session, model, site, "p", "Serial # 35000.")
+        assert (placed.made_from, placed.made_source) == (1940, "table")
+
+    def test_the_c_and_r_line_goes_by_it(self, tables, client, admin_headers):
+        session, model, site = tables
+        item = listing(session, model, site, "c", "Serial no. 60123. Rebuilt 2010 import.")
+        body = client.get(f"/api/items/{item.id}", headers=admin_headers).json()
+        assert (body["curio"], body["curio_evidence"]) == ("eligible", "table")
+
+    def test_the_armory_file_carries_them(self, tables, tmp_path):
+        import yaml
+
+        from app.services import armory
+
+        session, model, _site = tables
+        path = tmp_path / "armory.yaml"
+        armory.write_export(session, path)
+        written = yaml.safe_load(path.read_text(encoding="utf-8"))
+        entry = next(m for m in written["models"] if m["name"] == "M1 Garand")
+        assert entry["serials"][0] == {
+            "maker": "Springfield",
+            "low": 1,
+            "high": 49_999,
+            "from": 1940,
+            "source": "https://www.cmp.test/garand-serials",
+        }
+        assert not armory.plan_sync(session, path)
+
+        entry["serials"][1]["to"] = 1942
+        path.write_text(yaml.safe_dump(written), encoding="utf-8")
+        [change] = armory.plan_sync(session, path).models
+        assert change.fields == ["serials"]
+        armory.apply_sync(session, path)
+        session.commit()
+        session.refresh(model)
+        assert [r.year_to for r in model.serial_ranges] == [1940, 1942]
+
+
+class TestEditingTablesInTheArmory:
+    def test_add_change_and_delete_a_range(self, garands, client, admin_headers):
+        from app.models import Manufacturer
+
+        session, model, site = garands
+        springfield = Manufacturer(name="Springfield")
+        session.add(springfield)
+        session.commit()
+        item = listing(session, model, site, "a", "Serial no. 60123.")
+        assert item.made_source is None
+
+        body = {
+            "model_id": model.id,
+            "manufacturer_id": springfield.id,
+            "serial_low": 50_000,
+            "serial_high": 99_999,
+            "year_from": 1941,
+            "year_to": 1941,
+            "source": "https://www.cmp.test/garand-serials",
+        }
+        made = client.post("/api/armory/serials", json=body, headers=admin_headers)
+        assert made.status_code == 201, made.text
+        assert made.json()["maker"] == "Springfield"
+        session.expire_all()
+        assert session.get(Item, item.id).made_from == 1941
+
+        changed = client.patch(
+            f"/api/armory/serials/{made.json()['id']}",
+            json={"year_from": 1942, "year_to": 1942},
+            headers=admin_headers,
+        )
+        assert changed.status_code == 200, changed.text
+        session.expire_all()
+        assert session.get(Item, item.id).made_from == 1942
+
+        listed = client.get(
+            "/api/armory/serials", params={"search": "garand"}, headers=admin_headers
+        ).json()
+        assert [row["serial_low"] for row in listed] == [50_000]
+
+        gone = client.delete(f"/api/armory/serials/{made.json()['id']}", headers=admin_headers)
+        assert gone.status_code == 204
+        session.expire_all()
+        assert session.get(Item, item.id).made_source is None
+
+    @pytest.mark.parametrize(
+        "change",
+        [
+            {"serial_low": 10, "serial_high": 5},
+            {"year_from": 1945, "year_to": 1940},
+            {"source": ""},
+            {"manufacturer_id": 99_999},
+            {"prefix": "A1"},
+        ],
+    )
+    def test_a_range_that_cannot_be_one_is_refused(self, garands, client, admin_headers, change):
+        _session, model, _site = garands
+        body = {
+            "model_id": model.id,
+            "serial_low": 1,
+            "serial_high": 100,
+            "year_from": 1940,
+            "year_to": 1940,
+            "source": "TM 9-1005-222-12",
+            **change,
+        }
+        refused = client.post("/api/armory/serials", json=body, headers=admin_headers)
+        assert refused.status_code == 422
+
+
+def test_migration_0077_does_not_ask_for_the_tables(garands, monkeypatch):
+    """0077 fills in the years before 0081 makes the table of serial ranges:
+    on a database with listings, asking for them failed (2026-10-19)."""
+    session, model, site = garands
+    item = listing(session, model, site, "a", "Serial # 2300000.")
+    item.made_source = None
+    session.commit()
+
+    def no_table(*_args, **_kwargs):
+        raise AssertionError("serial_ranges does not exist yet")
+
+    monkeypatch.setattr(serials, "from_table", no_table)
+    counts = serials.backfill(session, tables=False)
+    assert counts["serial"] == 1

@@ -86,6 +86,19 @@ const CURIO_WHY = {
     "from a year in the listing",
     "A year in the listing that is not the model's own designation — so it reads as a date rather than a pattern.",
   ],
+  // The year under Made, judged on its later end (2026-10-19).
+  made: [
+    "from the year it was made",
+    "The year the listing says this gun was made, as shown under Made. Over a span, the later year.",
+  ],
+  table: [
+    "from a published serial table",
+    "Its serial falls in a range a published table dates, as shown under Made. Over a span, the later year.",
+  ],
+  serial: [
+    "from the year its serial places",
+    "No year in the listing, so the year its serial places it in, as shown under Made. Over a span, the later year.",
+  ],
 };
 
 //: Why a gun under fifty is not simply "not a C&R".
@@ -253,7 +266,8 @@ function MadeFacts({ item }) {
           <div className="fact__value">
             {item.made_source === "serial" ? `about ${years}` : years}
           </div>
-          {item.made_source === "serial" ? (
+          {/* A published table's range, or the listings it fell between. */}
+          {item.made_source === "serial" || item.made_source === "table" ? (
             <span className="fact__source">from its serial, {item.made_quote}</span>
           ) : (
             item.made_quote && <div className="fact__quote">“{item.made_quote}”</div>

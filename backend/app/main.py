@@ -37,6 +37,7 @@ from .api import (
     references,
     saved_searches,
     scans,
+    serials,
     sites,
     system,
     variants,
@@ -481,6 +482,7 @@ def create_app() -> FastAPI:
     api.include_router(ammunition.router)
     api.include_router(makerjobs.router)
     api.include_router(variants.router)
+    api.include_router(serials.router)
     api.include_router(armory.router)
     api.include_router(scans.router)
     api.include_router(items.router)

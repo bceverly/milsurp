@@ -18,14 +18,17 @@ began M1903 production in September 1941 at serial number 3,000,000").
 numbers, drawing numbers. A partly hidden one ("serial number 10550xx", "in
 the 5,8xx,xxx serial range") is kept as the range it could be.
 
-**A serial is placed by evidence, not by a table typed from memory.** The
-published serial-to-date tables could not be fetched when this was built, and
-a wrong table would be worse than none. So a serial is placed between the
+**A serial is dated by a published table first** (2026-10-19): the
+armory's serial ranges (``models.SerialRange``), each read from a source it
+names -- the M1 Garand's Springfield and Winchester numbers, the M1 Carbine's
+contractor blocks. Never a table typed from memory: a wrong one would be
+worse than none, because it is believed.
+
+**Then by evidence.** A serial no table covers is placed between the
 listings of the same model and maker that state both a serial and a year:
 the nearest below and the nearest above. Only where both exist and agree to
 within :data:`MAX_SPAN` years -- "1943-1944", never a guess past the ends of
-what is known. Published tables can be added later (ROADMAP.md, "Serial
-tables"), and would sit in front of this.
+what is known.
 """
 
 from __future__ import annotations
@@ -54,6 +57,7 @@ EARLIEST = 1700
 _QUOTE_CHARS = 160
 
 STATED = "stated"
+TABLE = "table"
 SERIAL = "serial"
 
 # -- The serial number ---------------------------------------------------------
@@ -96,11 +100,15 @@ def _quote(text: str, start: int, end: int) -> str:
     return re.sub(r"\s+", " ", text[left:right]).strip(" ,;:-").rstrip(".")[:_QUOTE_CHARS]
 
 
+#: A serial's parts: its letters in front, its number, its letters after.
+_PARTS = re.compile(r"([A-Za-z]{0,3})-?(\d[\d,]*(?:[xX*][\dxX*,]*)?)([A-WYZa-wyz]{0,2})")
+
+
 def _number(value: str) -> tuple[str, int, int] | None:
     """A serial's prefix, its number, and the range a hidden digit allows:
     "AB167255" is AB 167255; "10550xx" is 1055000-1055099; "3,733,xxx"
     3733000-3733999."""
-    parts = re.fullmatch(r"([A-Za-z]{0,3})-?(\d[\d,]*(?:[xX*][\dxX*,]*)?)[A-WYZa-wyz]{0,2}", value)
+    parts = _PARTS.fullmatch(value)
     if not parts:
         return None
     digits = re.sub(r"[xX*]", "x", parts.group(2).replace(",", ""))
@@ -134,6 +142,15 @@ _PART = r"(?:(?:early|mid|late|the\s+end\s+of|spring|summer|fall|autumn|winter)[
 _YEAR = r"(1[789]\d\d|20[0-2]\d)"
 #: "1954-1955", "1954-55", "1943/44".
 _YEARS = _YEAR + r"(?:\s*(?:-|\u2013|/|to)\s*(\d{4}|\d{2})(?!\d))?"
+#: "1917 production", "1942 mfg", "1944 manufacture". Not part of a model's
+#: name ("P2020 Made in USA"), not where it was made ("Model 1907 Made in
+#: USA"), and not a count ("ONLY 2000 MADE": see _COUNT_BEFORE).
+_YEAR_FIRST = re.compile(
+    r"(?<![A-Za-z\d-])"
+    + _YEARS
+    + r"\s+(?:production|manufacture|mfg\b\.?|mfd\b\.?|made\b(?!\s+in\s+(?!\d)))",
+    re.I,
+)
 _STATED = (
     # A labeled field: "Date Manufactured: 1942", "Year of Manufacture 1917".
     re.compile(
@@ -156,18 +173,22 @@ _STATED = (
         + _YEARS,
         re.I,
     ),
-    # "1917 production", "1942 mfg", "1944 manufacture".
-    re.compile(_YEARS + r"\s+(?:production|manufacture|mfg\b\.?|mfd\b\.?|made\b)", re.I),
+    _YEAR_FIRST,
     # "receiver circa January 1941", "circa 1944": a date for this gun.
     re.compile(r"\bcirca\s+" + _PART + rf"(?:{_MONTH}\s+)?" + _YEARS, re.I),
 )
 #: A year that starts or ends a production run, or is history, not this gun:
 #: "began M1903 production in September 1941", "production ended in 1945".
+#: And a year something else happened to it: "sold in a DCM Lottery circa
+#: 1995", "rebuilt circa 1952", "imported in 1989" (2026-10-19).
 _RUN_BEFORE = re.compile(
     r"\b(?:began|begun|begin|start(?:ed|ing)?|commenced|ended|ceased|stopped|until|"
-    r"first|last|resumed|from|since|between)\b[\w\s,.'-]{0,40}$",
+    r"first|last|resumed|from|since|between|sold|imported|rebuilt|refurbished|reworked|"
+    r"refinished|purchased|bought|lottery)\b[\w\s,.'-]{0,40}$",
     re.I,
 )
+#: A number of guns, not a year: "only 2000 made", "a total of 1,800 made".
+_COUNT_BEFORE = re.compile(r"\b(?:only|just|total\s+of|some|approximately|about)\s*$", re.I)
 _RUN_AFTER = re.compile(r"^\s*(?:to|until|through|and)\s+(?:\d{4}|the\b)", re.I)
 
 
@@ -201,6 +222,8 @@ def read_stated_year(title: str, description: str | None) -> Made | None:
                 if _RUN_BEFORE.search(text[max(0, found.start() - 60) : found.start()]):
                     continue
                 if _RUN_AFTER.match(text[found.end() :]):
+                    continue
+                if pattern is _YEAR_FIRST and _COUNT_BEFORE.search(text[: found.start()]):
                     continue
                 years = _years(found, first)
                 # "circa 1840s": the decade.
@@ -340,6 +363,13 @@ def prefix_of(text: str | None) -> str:
     return number[0] if number else ""
 
 
+def suffix_of(text: str | None) -> str:
+    """The letters after a serial's number, which a published table can turn
+    on: Colt's post-war Single Action Army is "…SA", a Python "…E" (2026-10-19)."""
+    parts = _PARTS.fullmatch(text or "") if _number(text or "") else None
+    return parts.group(3).upper() if parts else ""
+
+
 # -- Storing it -----------------------------------------------------------------
 def is_firearm(item: Any) -> bool:
     return bool(
@@ -366,17 +396,76 @@ def read(item: Any) -> None:
         item.made_from = item.made_to = item.made_source = item.made_quote = None
 
 
-def estimate(session: Any, item: Any) -> None:
-    """Place a serial with no stated year among the listings that state one."""
+def from_table(session: Any, item: Any) -> tuple[int, int, str] | None:
+    """The years a published table gives the listing's serial, and a note
+    naming the range and its source; None where no range of the model's, for
+    its maker, holds the whole serial.
+
+    A range with no maker is the model's whatever the maker. A partly hidden
+    serial must fall wholly inside a range; two ranges that both hold it
+    (tables that overlap) are taken together if they agree to within
+    :data:`MAX_SPAN` years.
+    """
+    if item.firearm_model_id is None or item.serial_low is None:
+        return None
+    from urllib.parse import urlparse
+
+    from sqlalchemy import select
+
+    from ..models import SerialRange
+
+    maker = _maker(item.manufacturer)
+    hits = [
+        row
+        for row in session.execute(
+            select(SerialRange).where(
+                SerialRange.model_id == item.firearm_model_id,
+                SerialRange.prefix == prefix_of(item.serial),
+                SerialRange.suffix == suffix_of(item.serial),
+                SerialRange.serial_low <= item.serial_low,
+                SerialRange.serial_high >= item.serial_high,
+            )
+        ).scalars()
+        if row.manufacturer is None
+        or (maker and maker in {_maker(name) for name in row.manufacturer.spellings})
+    ]
+    if not hits:
+        return None
+    year_from = min(row.year_from for row in hits)
+    year_to = max(row.year_to for row in hits)
+    if year_to - year_from > MAX_SPAN:
+        return None
+    first = min(hits, key=lambda row: row.serial_low)
+    whose = f"{first.manufacturer.name}'s " if first.manufacturer else ""
+    where = urlparse(first.source).netloc.removeprefix("www.") or first.source
+    low = f"{first.prefix}{first.serial_low:,}{first.suffix}"
+    high = f"{first.prefix}{first.serial_high:,}{first.suffix}"
+    note = (
+        f"in {whose}{low} to {high}, "
+        f"made {_span(first.year_from, first.year_to)}, as {where} publishes"
+    )
+    return year_from, year_to, note
+
+
+def estimate(session: Any, item: Any, *, tables: bool = True) -> None:
+    """Date a serial with no stated year: by a published table, or else among
+    the listings that state one. ``tables`` is False only for migration 0077,
+    which runs before 0081 has made the table of them."""
     if item.made_source == STATED or item.serial_low is None:
         return
-    found = place(
-        Serial(item.serial or "", item.serial_low, item.serial_high, "", prefix_of(item.serial)),
-        evidence_for(session, item.firearm_model_id, item.manufacturer),
-    )
+    found = from_table(session, item) if tables else None
+    source = TABLE
+    if found is None:
+        found = place(
+            Serial(
+                item.serial or "", item.serial_low, item.serial_high, "", prefix_of(item.serial)
+            ),
+            evidence_for(session, item.firearm_model_id, item.manufacturer),
+        )
+        source = SERIAL
     if found:
         item.made_from, item.made_to, note = found
-        item.made_source, item.made_quote = SERIAL, note[:200]
+        item.made_source, item.made_quote = source, note[:200]
     else:
         item.made_from = item.made_to = item.made_source = item.made_quote = None
 
@@ -387,7 +476,7 @@ def apply(session: Any, item: Any) -> None:
     estimate(session, item)
 
 
-def backfill(session: Any) -> dict[str, int]:
+def backfill(session: Any, *, tables: bool = True) -> dict[str, int]:
     """Read every stored gun, then place every serial with no stated year.
 
     Two passes because the second leans on the first: a serial is placed among
@@ -399,7 +488,7 @@ def backfill(session: Any) -> dict[str, int]:
 
     from ..models import Item
 
-    counts = {"examined": 0, "serial": 0, "stated": 0, "placed": 0}
+    counts = {"examined": 0, "serial": 0, "stated": 0, "table": 0, "placed": 0}
     # Only the columns read and written, for the reason frames.backfill
     # gives: migration 0077 runs this, and later columns must not break it.
     guns = (
@@ -433,7 +522,8 @@ def backfill(session: Any) -> dict[str, int]:
     session.flush()
     waiting = guns.where(Item.serial_low.is_not(None), Item.made_source.is_(None))
     for item in session.execute(waiting).scalars():
-        estimate(session, item)
+        estimate(session, item, tables=tables)
+        counts["table"] += item.made_source == TABLE
         counts["placed"] += item.made_source == SERIAL
     session.flush()
     return counts

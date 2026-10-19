@@ -326,6 +326,8 @@ def apply_filters[S: Select](  # noqa: PLR0912, PLR0915 - one branch per filter;
     frames: list[str] | None = None,
     capacity_min: int | None = None,
     capacity_max: int | None = None,
+    made_min: int | None = None,
+    made_max: int | None = None,
     excluded: dict[str, list[str]] | None = None,
 ) -> S:
     if site_ids:
@@ -439,6 +441,19 @@ def apply_filters[S: Select](  # noqa: PLR0912, PLR0915 - one branch per filter;
             stmt = stmt.where(Item.capacity >= capacity_min)
         if capacity_max is not None:
             stmt = stmt.where(Item.capacity <= capacity_max)
+
+    # The year made (asked for on 2026-10-17), as the listing's page gives it:
+    # the year it states or its serial places (app.services.serials), or else
+    # the C&R reader's. A listing made over a span ("1943-1944", "circa
+    # 1920s") is in any range the span touches; one with no year is in none.
+    if made_min is not None or made_max is not None:
+        earliest = func.coalesce(Item.made_from, Item.manufacture_year)
+        latest = func.coalesce(Item.made_to, Item.manufacture_year)
+        stmt = stmt.where(earliest.is_not(None))
+        if made_min is not None:
+            stmt = stmt.where(latest >= made_min)
+        if made_max is not None:
+            stmt = stmt.where(earliest <= made_max)
 
     if new_since_hours:
         stmt = stmt.where(Item.first_seen_at >= utcnow() - timedelta(hours=new_since_hours))
@@ -572,6 +587,9 @@ QUERY_PARAMS: dict[str, bool] = {
     "frame": True,
     "capacity_min": False,
     "capacity_max": False,
+    # The year made, as a range: 2026-10-17.
+    "made_min": False,
+    "made_max": False,
     "sort": False,
     # Each removable facet's "everything but": not_caliber, not_model ...
     **{f"not_{name}": True for name in EXCLUDABLE},
@@ -693,6 +711,8 @@ def parse_query(query_string: str) -> SearchQuery:  # noqa: PLR0912 - one branch
         "frames": None,
         "capacity_min": None,
         "capacity_max": None,
+        "made_min": None,
+        "made_max": None,
         "excluded": {},
     }
 
@@ -725,7 +745,7 @@ def parse_query(query_string: str) -> SearchQuery:  # noqa: PLR0912 - one branch
         )
     if filters["new_since_hours"] is not None:
         filters["new_since_hours"] = _int(name="new_since_hours", value=filters["new_since_hours"])
-    for name in ("capacity_min", "capacity_max"):
+    for name in ("capacity_min", "capacity_max", "made_min", "made_max"):
         if filters[name] is not None:
             filters[name] = _int(name=name, value=filters[name])
     filters["price_drops_only"] = str(filters["price_drops_only"]).lower() in ("1", "true", "yes")

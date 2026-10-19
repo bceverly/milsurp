@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import enum
 import json
+import logging
 import re
 import threading
 from collections.abc import Iterable, Sequence
@@ -50,9 +51,12 @@ from ..models import (
     Manufacturer,
     ModelVariant,
     ReferenceProposal,
+    SerialRange,
     firearm_model_manufacturers,
 )
 from . import arsenals, classify, manufacturers
+
+log = logging.getLogger(__name__)
 
 #: How many listing titles to keep on a pending row. Enough to judge it by,
 #: and not so many that the column becomes a log.
@@ -1253,6 +1257,7 @@ def _seed_models(
                 if events is not None:
                     events.append(LoadEvent("added", "manufacturer", maker, maker.name))
             gun.manufacturers.append(maker)
+        _write_serials(gun, entry.get("serials") or [], makers)
         session.add(gun)
         seen.add(name.lower())
         report.models += 1
@@ -1338,6 +1343,7 @@ def export_armory(session: Session) -> dict[str, Any]:
                 selectinload(FirearmModel.manufacturers),
                 selectinload(FirearmModel.calibers),
                 selectinload(FirearmModel.variants),
+                selectinload(FirearmModel.serial_ranges).selectinload(SerialRange.manufacturer),
             )
             .order_by(func.lower(FirearmModel.name))
         )
@@ -1407,6 +1413,7 @@ def export_armory(session: Session) -> dict[str, Any]:
                     "capacity": row.capacity,
                     "rejected_maker_pages": rejected.get(("model", row.id, "maker_page")),
                     "variants": _variant_entries(row),
+                    "serials": _serial_entries(row),
                     "status": row.status.value,
                     "position": row.position if row.position != 1000 else None,
                     "enabled": None if row.enabled else False,
@@ -1964,6 +1971,7 @@ def _model_differences(row: FirearmModel, entry: dict[str, Any]) -> list[str]:
             "frame_size": row.frame_size,
             "capacity": row.capacity,
             "variants": _variant_entries(row),
+            "serials": _serial_entries(row),
             "status": row.status.value,
             "position": row.position,
             "enabled": row.enabled,
@@ -1981,6 +1989,7 @@ def _model_differences(row: FirearmModel, entry: dict[str, Any]) -> list[str]:
             "frame_size": entry.get("frame_size"),
             "capacity": entry.get("capacity"),
             "variants": [_without_blanks(dict(v)) for v in entry.get("variants") or []],
+            "serials": _serial_file_entries(entry.get("serials") or []),
             "status": str(entry.get("status") or ArmoryStatus.PENDING.value),
             "position": int(entry.get("position") or 1000),
             "enabled": bool(entry.get("enabled", True)),
@@ -2260,6 +2269,104 @@ def _write_variants(
     row.variants = wanted
 
 
+def _serial_entries(row: FirearmModel) -> list[dict[str, Any]]:
+    """A model's serial ranges as the file carries them (models.SerialRange):
+    by maker, prefix, suffix and number. ``to`` is left out where it is ``from``."""
+    ranges = sorted(
+        row.serial_ranges,
+        key=lambda r: (
+            (r.manufacturer.name.lower() if r.manufacturer else ""),
+            r.prefix,
+            r.suffix,
+            r.serial_low,
+        ),
+    )
+    return [
+        _without_blanks(
+            {
+                "maker": r.manufacturer.name if r.manufacturer else None,
+                "prefix": r.prefix or None,
+                "suffix": r.suffix or None,
+                "low": r.serial_low,
+                "high": r.serial_high,
+                "from": r.year_from,
+                "to": r.year_to if r.year_to != r.year_from else None,
+                "source": r.source,
+                "note": r.note,
+            }
+        )
+        for r in ranges
+    ]
+
+
+def _serial_file_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The file's serial ranges as :func:`_serial_entries` writes them, so the
+    two compare equal when nothing has changed."""
+    tidy = []
+    for entry in entries:
+        year_from = int(entry["from"])
+        year_to = int(entry.get("to") or year_from)
+        tidy.append(
+            _without_blanks(
+                {
+                    "maker": str(entry["maker"]).strip() if entry.get("maker") else None,
+                    "prefix": str(entry.get("prefix") or "").strip().upper() or None,
+                    "suffix": str(entry.get("suffix") or "").strip().upper() or None,
+                    "low": int(entry["low"]),
+                    "high": int(entry["high"]),
+                    "from": year_from,
+                    "to": year_to if year_to != year_from else None,
+                    "source": str(entry["source"]).strip(),
+                    "note": entry.get("note"),
+                }
+            )
+        )
+    return sorted(
+        tidy,
+        key=lambda e: (
+            str(e.get("maker") or "").lower(),
+            e.get("prefix") or "",
+            e.get("suffix") or "",
+            e["low"],
+        ),
+    )
+
+
+def _write_serials(
+    row: FirearmModel, entries: list[dict[str, Any]], makers: dict[str, Manufacturer]
+) -> None:
+    """Make a model's serial ranges what the file says.
+
+    Replaced rather than matched: nothing links to a range, so keeping ids
+    buys nothing. A range naming a maker the armory does not have is skipped
+    rather than invented, as a model's makers are in :func:`_write_model`.
+    """
+    wanted = []
+    for entry in _serial_file_entries(entries):
+        maker = None
+        if entry.get("maker"):
+            maker = makers.get(entry["maker"].lower())
+            if maker is None:
+                log.warning(
+                    "Serial range of %s skipped: no manufacturer %r.", row.name, entry["maker"]
+                )
+                continue
+        wanted.append(
+            SerialRange(
+                manufacturer=maker,
+                prefix=entry.get("prefix") or "",
+                suffix=entry.get("suffix") or "",
+                serial_low=entry["low"],
+                serial_high=entry["high"],
+                year_from=entry["from"],
+                year_to=entry.get("to") or entry["from"],
+                source=entry["source"],
+                note=entry.get("note"),
+            )
+        )
+    row.serial_ranges = wanted
+
+
 def _write_model(
     row: FirearmModel,
     entry: dict[str, Any],
@@ -2281,6 +2388,7 @@ def _write_model(
     row.frame_size = entry.get("frame_size")
     row.capacity = entry.get("capacity")
     _write_variants(row, entry.get("variants") or [], calibers)
+    _write_serials(row, entry.get("serials") or [], makers)
     row.status = ArmoryStatus(str(entry.get("status") or ArmoryStatus.PENDING.value))
     row.position = int(entry.get("position") or 1000)
     row.enabled = bool(entry.get("enabled", True))

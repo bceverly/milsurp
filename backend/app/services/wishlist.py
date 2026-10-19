@@ -159,7 +159,7 @@ def build(session: Session, user: User) -> Wishlist:
     for entry in entries(session, user):
         item = entry.item
         firearm = delivered.is_firearm(item)
-        status = curio.status(item.cr_stated, item.manufacture_year) if firearm else None
+        status = curio.of(item) if firearm else None
         fee, waived, missing = _fee(user, item, status)
         shipping = costs.shipping(item)
         price = float(item.current_price) if item.current_price is not None else None

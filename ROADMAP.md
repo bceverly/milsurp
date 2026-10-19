@@ -5848,33 +5848,93 @@ be done, ... from the serial number lookup" (`services/serials.py`, migration
   listing rows, so any later column broke it on a fresh database. It now
   loads only the columns it uses, and so does the new backfill.
 
-### Serial tables, and what else to do with the year — **Planned**
+### Serial tables, and what else to do with the year — **Shipped** 2026-10-19
 
-Not done yet; written down so it is not forgotten.
+Asked for on 2026-10-19 ("let's do this stuff"), from the list written down
+on 2026-10-15.
 
-* **Published serial-to-date tables**, as a curated file shipped like the
-  armory and consulted before the evidence. Each row: model, maker, prefix,
-  serial range, years, and the source it came from. Start with the
-  well-documented ones:
-  * M1 Garand (Springfield, Winchester, International Harvester,
-    Harrington & Richardson);
-  * M1 Carbine contractor blocks;
-  * the 1903 (Springfield, Rock Island, Remington, Smith-Corona);
-  * the 1911/1911A1 (Colt and the wartime contractors);
-  * then Winchester, Marlin's year letters, Colt, Glock's year prefixes,
-    and the K98k and P38 by their year codes plus serial.
-  The sources still need fetching: this session's web search had run out.
-* **Ruger's online serial lookup**: check its terms before any automated
-  use, as was done for loaddata.com.
-* **Modern Walther** (PDP, PPS, PD380): Walther publishes nothing, so
-  nothing to do.
-* **The C&R verdict** could take a year stated in a listing's own words, or
-  the later end of a range placed by serial, where the C&R reader found
-  none. That is a regulated-purchase answer, so it should be its own change
-  with its own measurement.
-* **A Year made filter** on the Inventory rail, like Barrel. `made_from` is
-  already indexed.
-* **Editing a serial table from the Armory**, once the tables exist.
+* **Published serial tables** (`models.SerialRange`, migration 0081). A
+  range is a model's serials from one maker -- or any maker, for a model one
+  maker numbered -- from one number to another, made in these years, with an
+  optional letter prefix, and the source it was read from, which is
+  required. They are shipped in the armory file under each model as
+  `serials:`, beside its variants, so "Load shipped armory", "Apply shipped
+  armory" and the export carry them. A serial wholly inside a range is dated
+  by it ("table": "in Springfield's 50,000 to 99,999, made 1941, as
+  thecmp.org publishes"), ahead of the estimate from other listings.
+
+  **Shipped with 732 ranges over 13 models**, each read from a page fetched
+  on 2026-10-19 and spot-checked against it. The National Park Service's
+  Springfield Armory site gives the M1 Garand (Springfield 1932-1957,
+  Winchester 1941-1945) and the M1903 (Springfield, Rock Island Arsenal,
+  Smith-Corona). ProofHouse gives the government 1911s (Colt, Springfield,
+  Remington-UMC, Singer, Ithaca, Remington Rand, Union Switch & Signal), the
+  commercial Colt Government Model, the Python, the Single Action Army, and
+  the Winchester 1873, 1892, 1894, Model 12 and pre-64 Model 70. Where the
+  sources disagree or have typos, each table's first range says which number
+  was kept. The 1911 tables are under both "M1911A1" and "MODEL OF 1911". The
+  1894 table is under both "Winchester Model 1894" and "Winchester Model 94".
+
+  **About the sources** (the user's decision, 2026-10-19, after being shown
+  the notices): the Garand figures are Scott Duff's, as NPS credits them, and
+  Duff's own page asks that they not be copied without permission;
+  sightm1911.com carries a similar notice.
+
+  **Letters after the number** count, as letters before it do: a Python's
+  "…E" and a post-war Single Action Army's "…SA" are blocks of their own
+  (`SerialRange.suffix`, `serials.suffix_of`).
+
+  **Left out:**
+  * International Harvester and Harrington & Richardson Garands, and Rock
+    Island's "X" block: NPS gives only their serial blocks, with no years.
+  * North American Arms' 1918 1911s: the armory has no manufacturer row for
+    them.
+  * The Colt Series 70's "70G" and "G70" blocks: the serial reader cannot read
+    a serial with digits in its letters.
+  * Remington's 1903s: the two sources contradict each other.
+  * The M1 Carbine: no reachable source had the contractor blocks (one
+    refused the fetch).
+  * Marlin, Glock, the K98k and the P38: no reachable source.
+* **Editing them in the Armory**: a Serial tables tab lists every range,
+  with add, edit and delete. Every change re-dates the model's listings at
+  once (`api/serials.py`).
+* **A Year made filter** on the Inventory rail, typed as a collector says it:
+  "1943", "1940-1945", "1950+", "-1898", "pre-1899" (1898 or earlier: antique
+  means made before 1899), "after 1945". It filters on the year the listing's
+  page shows -- the year made, or else the C&R reader's -- and a span
+  ("1943-1944", "circa 1920s") matches any range it touches. Saved searches
+  keep it (`made_min`, `made_max`).
+* **The C&R verdict uses the year made** (`curio.judged_year`). Where the shop
+  says nothing either way, the year is the one the listing says the gun was
+  made, or a published table gives it; then the C&R reader's own year; then
+  the year its serial places among listings. A span counts by its later year.
+  Measured on production first: only 24 listings with no verdict would get
+  one, all eligible. But on 21 listings the two readers disagreed about the
+  verdict, and the made-year reader was right on most of them. An Eddystone
+  "Manufactured in December 1917" had been dated 2026 from the shop's stock
+  number "L2026-07471". DWM Lugers of the 1920s were dated 2025 the same way.
+  A CMP Garand that its serial places in 1945 was dated 2020. And 1980s
+  reproductions of Civil War arms were dated 1863 and 1847, which made them
+  eligible. The item page says which year it went by.
+* **Misreadings fixed** on the way, found in that comparison. "P2020 Made in
+  USA" and "Model 1907 Made in USA" are a model's name and where it was made,
+  not a year. "ONLY 2000 MADE" is a count. "Sold in a DCM Lottery circa
+  1995" is a sale, as are rebuilt, refurbished and imported years.
+* **Migration 0077 fills in years without the tables**, which 0081 makes
+  after it. A development database at 0075 failed there on its first upgrade
+  (`relation "serial_ranges" does not exist`); production was already past
+  0077.
+* **Ruger's online serial lookup**: **not to be automated.** Ruger's Terms of
+  Use (ruger.com/footer/Terms.html) forbid using "any robot, spider, site
+  search/retrieval application, or other manual or automatic device or process
+  to retrieve, index, 'data mine,' scrape" the site without Ruger's prior
+  written permission. The lookup itself says it is "provided as reference
+  only, and accuracy is not guaranteed."
+
+Still not done: the M1 Carbine's contractor blocks, and Remington's 1903s,
+which need a source that can be reached and trusted. The K98k and P38, whose
+serials restart within year codes, and Glock's letter-coded years need a rule
+rather than a table.
 
 ### The last proposals reviewed — **Done** 2026-10-15
 

@@ -164,12 +164,24 @@ class TestTheTwoReadingsAgree:
         site = Site(slug="curio-test", name="Curio", base_url="https://c.test/")
         session.add(site)
         session.flush()
+        # And the year the listing says it was made, or its serial places
+        # (2026-10-19), which judged_year weighs against this reader's.
+        made = (
+            (None, None),
+            ("stated", 1943),
+            ("stated", CUTOFF + 1),
+            ("table", 1943),
+            ("table", CUTOFF + 1),
+            ("serial", 1943),
+            ("serial", CUTOFF + 1),
+        )
         combinations = [
-            (stated, year)
+            (stated, year, made_source, made_to)
             for stated in (True, False, None)
             for year in (1943, CUTOFF, CUTOFF + 1, 2021, None)
+            for made_source, made_to in made
         ]
-        for n, (stated, year) in enumerate(combinations):
+        for n, (stated, year, made_source, made_to) in enumerate(combinations):
             session.add(
                 Item(
                     site_id=site.id,
@@ -178,6 +190,9 @@ class TestTheTwoReadingsAgree:
                     title=f"Listing {n}",
                     cr_stated=stated,
                     manufacture_year=year,
+                    made_source=made_source,
+                    made_from=made_to,
+                    made_to=made_to,
                     is_rifle=True,
                 )
             )
@@ -206,8 +221,8 @@ class TestTheTwoReadingsAgree:
         )
         by_status = {
             f"c{n}"
-            for n, (stated, year) in enumerate(combinations)
-            if curio.status(stated, year) == state
+            for n, (stated, year, made_source, made_to) in enumerate(combinations)
+            if curio.status(stated, curio.judged_year(year, made_to, made_source)) == state
         }
         assert by_clause == by_status
 
@@ -221,6 +236,20 @@ class TestTheTwoReadingsAgree:
                 session.execute(select(Item.external_key).where(curio.clause(state))).scalars()
             )
         assert sorted(seen) == sorted(f"c{n}" for n in range(len(combinations)))
+
+    def test_the_year_made_comes_first_then_this_reader_then_the_serial(self):
+        """Measured on production, 2026-10-19: where the two readers disagreed,
+        the one reading only phrases about making was right -- an Eddystone
+        "Manufactured in December 1917" that a stock number had dated 2026."""
+        assert curio.judged_year(2026, 1917, "stated") == 1917
+        assert curio.judged_year(1863, None, None) == 1863
+        assert curio.judged_year(None, 1944, "serial") == 1944
+        assert curio.judged_year(1960, 1944, "serial") == 1960
+        assert curio.judged_evidence(None, "year", 2026, 1917, "stated") == curio.BY_MADE
+        assert curio.judged_evidence(None, None, None, 1944, "serial") == curio.BY_SERIAL
+        assert curio.judged_year(2026, 1944, "table") == 1944
+        assert curio.judged_evidence(None, "year", 2026, 1944, "table") == curio.BY_TABLE
+        assert curio.judged_evidence(True, "vendor", None, 1990, "stated") == "vendor"
 
     def test_an_invented_state_is_refused(self):
         with pytest.raises(ValueError, match="unknown curio state"):
