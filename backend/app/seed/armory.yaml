@@ -2667,6 +2667,12 @@ calibers:
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.44_Magnum
   bullet_diameter_in: 0.429
+  reloading:
+    primer: Large pistol
+    primer_magnum: true
+    powder: Hodgdon H110
+    charge_gr: 24.1
+    bullet_gr: 240.0
 - name: 4.4mm
   status: approved
   rejected_wikipedia:
@@ -7900,6 +7906,16 @@ models:
     maker_url: https://www.budsgunshop.com/products/pistols/bersa-bp9cc-concealed-carry-9mm-8-1-3-2-inch-flat-dark-earth-pistol-139449
     source: budsgunshop
     status: approved
+  - label: Bersa BP9CC Optic Ready 9mm Flat Dark Earth Pistol (BP9FDECCOR)
+    caliber: 9mm Luger
+    barrel: 3.3
+    finish: FDE
+    upc: '810083202440'
+    part: BP9FDECCOR
+    msrp: 384.0
+    maker_url: https://www.budsgunshop.com/products/pistols/bersa-bp9cc-optic-ready-9mm-8-plus-1-flat-dark-earth-pistol-200863
+    source: budsgunshop
+    status: approved
   - label: Bersa BP9CC OR Optic Ready 9mm Matte Black Pistol (BP9MCCOR)
     caliber: 9mm Luger
     barrel: 3.3
@@ -11184,6 +11200,8 @@ models:
 - name: CCF-15F
   calibers:
   - 5.56x45mm NATO
+  status: approved
+- name: CDS9
   status: approved
 - name: CEZE544
   status: pending
@@ -15366,6 +15384,17 @@ models:
     maker_url: https://www.budsgunshop.com/products/pistols/shadow-systems-cr920p-war-poet-9mm-13-1-375-inch-black-pistol-729000800
     source: budsgunshop
     status: approved
+  - label: Shadow Systems CR920X Compact 9mm Black Pistol w/ Holosun Red Dot (LE5306H)
+    caliber: 9mm Luger
+    barrel: 3.25
+    finish: Black
+    frame: Compact
+    upc: '810120317830'
+    part: LE5306H
+    msrp: 805.0
+    maker_url: https://www.budsgunshop.com/products/pistols/shadow-systems-cr920x-9mm-15-plus-1-3-25-inch-black-pistol-holosun-red-dot-712034126
+    source: budsgunshop
+    status: approved
   - label: Shadow Systems CR920X Elite 9mm 15+1 Blue/Black Pistol (SS5011)
     caliber: 9mm Luger
     barrel: 3.41
@@ -15384,6 +15413,16 @@ models:
     part: SS5039
     msrp: 940.0
     maker_url: https://www.budsgunshop.com/products/pistols/shadow-systems-cr920x-elite-9mm-black-nitride-pistol-10-1-3-41-inch-165871
+    source: budsgunshop
+    status: approved
+  - label: Shadow Systems CR920X Elite 9mm Black Nitride Pistol (SS5040)
+    caliber: 9mm Luger
+    barrel: 3.41
+    finish: Black
+    upc: '810120315256'
+    part: SS5040
+    msrp: 940.0
+    maker_url: https://www.budsgunshop.com/products/pistols/shadow-systems-cr920x-elite-9mm-10-plus-1-3-41-inch-black-nitride-pistol-165872
     source: budsgunshop
     status: approved
   - label: Shadow Systems CR920X Elite High-Capacity Optic-Ready 9mm Blue/Black Pistol (SS5012)
@@ -15414,6 +15453,16 @@ models:
     upc: '810120317984'
     part: SS5305B
     maker_url: https://www.budsgunshop.com/products/pistols/shadow-systems-cr920x-foundation-optic-ready-9mm-15-1-4-inch-black-bronze-barrel-752017820
+    source: budsgunshop
+    status: approved
+  - label: Shadow Systems CR920X LE 9mm Black Pistol (LE5334)
+    caliber: 9mm Luger
+    barrel: 3.6
+    finish: Black
+    upc: '810120317199'
+    part: LE5334
+    msrp: 565.0
+    maker_url: https://www.budsgunshop.com/products/pistols/shadow-systems-cr920x-le-9mm-10-plus-1-3-6-inch-black-pistol-712031827
     source: budsgunshop
     status: approved
   - label: Shadow Systems CR920X LE 9mm Colored Pistol (LE5306)
@@ -15481,6 +15530,25 @@ models:
     part: LE5356
     msrp: 565.0
     maker_url: https://www.budsgunshop.com/products/pistols/shadow-systems-cr920xl-law-enforcement-edition-9mm-10-plus-1-4-18-inch-black-nitride-pistol-752000570
+    source: budsgunshop
+    status: approved
+  - label: Shadow Systems CR920XL LE Edition Slimline 9mm Pistol (LE5328)
+    caliber: 9mm Luger
+    barrel: 4.2
+    upc: '810120317205'
+    part: LE5328
+    msrp: 565.0
+    maker_url: https://www.budsgunshop.com/products/pistols/shadow-systems-cr920xl-le-edition-9mm-13-plus-1-42-inch-black-pistol-713103083
+    source: budsgunshop
+    status: approved
+  - label: Shadow Systems CR920XL Optic Ready 9mm Black Pistol w/ Holosun Red Dot (LE5328H)
+    caliber: 9mm Luger
+    barrel: 3.7
+    finish: Black
+    upc: '810120317847'
+    part: LE5328H
+    msrp: 829.0
+    maker_url: https://www.budsgunshop.com/products/pistols/shadow-systems-cr920xl-9mm-10-1-3-7-inch-black-pistol-holosun-red-dot-712034127
     source: budsgunshop
     status: approved
   - label: Shadow Systems CR920XP Elite 9mm Black Nitride Pistol (SS5240)
@@ -18561,6 +18629,16 @@ models:
     maker_url: https://www.budsgunshop.com/products/pistols/shadow-systems-dr920p-elite-compensated-9mm-10-plus-1-45-inch-black-and-bronze-pistol-723018111
     source: budsgunshop
     status: approved
+  - label: Shadow Systems DR920P Elite Compensated 9mm Black Pistol (SS-2240)
+    caliber: 9mm Luger
+    barrel: 4.6
+    finish: Black
+    upc: '810013437508'
+    part: SS-2240
+    msrp: 1293.0
+    maker_url: https://www.budsgunshop.com/products/pistols/shadow-systems-dr920p-elite-compensated-9mm-10-1-black-pistol-723018113
+    source: budsgunshop
+    status: approved
   - label: Shadow Systems DR920P Elite Compensated 9mm Black Pistol (SS2239CA)
     caliber: 9mm Luger
     barrel: 4.5
@@ -19764,7 +19842,12 @@ models:
     source: budsgunshop
     status: approved
   status: approved
+- name: FN 510
+  status: merged
+  enabled: false
 - name: FN510
+  aliases:
+  - FN 510
   kind: pistol
   country: Belgium
   calibers:
@@ -35226,13 +35309,22 @@ models:
     maker_url: https://www.budsgunshop.com/products/shotguns-tactical/mossberg-590m-pro-12-gauge-10-1-18-5-inch-2-3-4in-tungsten-orange-magpul-furniture-shotgun-184740
     source: budsgunshop
     status: approved
+  - label: Mossberg 590M Pro Magazine-Fed 12 Gauge Orange/Gray Shotgun (50220)
+    caliber: 12 gauge
+    finish: Gray
+    upc: 015813502207
+    part: '50220'
+    msrp: 938.0
+    maker_url: https://www.budsgunshop.com/products/shotguns-tactical/mossberg-590m-pro-magazine-fed-12-gauge-10-plus-1-18-5-inch-orange-gray-shotgun-184738
+    source: budsgunshop
+    status: approved
   - label: Mossberg 590M Shockwave Breacher Muzzle 12 Gauge Matte Blue Shotgun (50217)
     caliber: 12 gauge
     finish: Blued
     upc: 015813502177
     part: '50217'
     msrp: 1078.0
-    maker_url: https://www.budsgunshop.com/products/shotguns-tactical/mossberg-590m-shockwave-12-gauge-10-round-14-inch-3-inch-matte-blue-shotgun-174402
+    maker_url: https://www.budsgunshop.com/products/shotguns-tactical/mossberg-590m-breacher-12-gauge-10-plus-1-14-375-inch-tungsten-shotgun-712029160
     source: budsgunshop
     status: approved
   - label: Mossberg 590M Tactical 12 Gauge Shotgun (50218M)
@@ -35261,6 +35353,15 @@ models:
     maker_url: https://www.budsgunshop.com/products/shotguns-hunting/mossberg-590r-12-gauge-6-plus-1-18-5-inch-3-inch-flat-dark-earth-shotgun-184743
     source: budsgunshop
     status: approved
+  - label: Mossberg 590R 12 Gauge OD Green Cerakote Shotgun (50759)
+    caliber: 12 gauge
+    finish: OD Green
+    upc: 015813507592
+    part: '50759'
+    msrp: 1036.0
+    maker_url: https://www.budsgunshop.com/products/shotguns-hunting/mossberg-590r-12-gauge-6-plus-1-18-5-inch-3-inch-od-green-cerakote-shotgun-184744
+    source: budsgunshop
+    status: approved
   - label: Mossberg 590R 12 Gauge Shotgun (50762)
     caliber: 12 gauge
     upc: 015813507622
@@ -35276,6 +35377,23 @@ models:
     part: '50213'
     msrp: 1085.0
     maker_url: https://www.budsgunshop.com/products/shotguns-tactical/mossberg-590rm-mag-fed-12-gauge-10-plus-1-18-5-inch-3-inch-matte-blue-shotgun-174401
+    source: budsgunshop
+    status: approved
+  - label: Mossberg 590S Compact OR 12 Gauge Shotgun (51607)
+    caliber: 12 gauge
+    frame: Compact
+    upc: 015813516075
+    part: '51607'
+    msrp: 742.0
+    maker_url: https://www.budsgunshop.com/products/shotguns-hunting/mossberg-590s-compact-or-12-gauge-5-plus-1-18-5-inch-3-inch-matte-blue-shotgun-161106
+    source: budsgunshop
+    status: approved
+  - label: Mossberg 590S Magpul 12 Gauge Shotgun w/ Holosun HS407K (51606)
+    caliber: 12 gauge
+    upc: 015813516068
+    part: '51606'
+    msrp: 1064.0
+    maker_url: https://www.budsgunshop.com/products/shotguns-hunting/mossberg-590s-magpul-combo-12-gauge-5-1-18-5-inch-3in-shotgun-161105
     source: budsgunshop
     status: approved
   - label: Mossberg 590S Shockwave 12 Gauge Matte Blued Shotgun (51600)
@@ -38056,6 +38174,8 @@ models:
   modern_production: true
   status: approved
   notes: Approved 2026-10-12 from the pending queue.
+- name: Pattern 1738
+  status: approved
 - name: pattern 1756
   status: approved
 - name: Pattern 1769
@@ -44742,6 +44862,9 @@ models:
   manufacturers:
   - Sig Sauer
   status: approved
+- name: SIG SAUER 1911
+  status: pending
+  enabled: false
 - name: Sig Sauer 1911
   aliases:
   - Sig 1911
@@ -44944,9 +45067,6 @@ models:
     status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
-- name: SIG SAUER 1911
-  status: pending
-  enabled: false
 - name: Sig Sauer 47/8
   aliases:
   - 47/8
@@ -49617,18 +49737,20 @@ models:
   - Smith & Wesson
   modern_production: true
   variants:
-  - label: MODEL 1854 - AMERICA 250
-    upc: 022188909777
-    part: '14970'
-    msrp: 1499.0
-    maker_url: https://www.smith-wesson.com/product/s-w-model-1854-america-250-45-70-govt
-    source: maker-site
-    status: approved
-  - label: MODEL 1854 - AMERICA 250
+  - label: Model 1854 America 250 .44 Magnum
+    caliber: .44 Magnum
     upc: 022188909760
     part: '14969'
     msrp: 1399.0
     maker_url: https://www.smith-wesson.com/product/s-w-model-1854-america-250-44-magnum
+    source: maker-site
+    status: approved
+  - label: Model 1854 America 250 .45-70 Government
+    caliber: .45-70 Government
+    upc: 022188909777
+    part: '14970'
+    msrp: 1499.0
+    maker_url: https://www.smith-wesson.com/product/s-w-model-1854-america-250-45-70-govt
     source: maker-site
     status: approved
   - label: S&W MODEL 1854 LEVER-ACTION RIFLE 30-30 WIN
@@ -66380,6 +66502,8 @@ models:
   manufacturers:
   - Winchester
   status: approved
+- name: Winchester Model 290
+  status: approved
 - name: Winchester Model 42
   aliases:
   - Model 42
@@ -67220,6 +67344,8 @@ models:
   - 9mm Luger
   manufacturers:
   - Springfield
+  status: approved
+- name: XDM-10
   status: approved
 - name: XDM-40
   kind: pistol

@@ -73,6 +73,7 @@ class TestAYearStated:
             ("Circa 1840s percussion pistol", (1840, 1849)),
             ("MADE IN OCTOBER 1934 AND LATER PRIATIZED", (1934, 1934)),
             ("All models would be produced in 1981", (1981, 1981)),
+            ("Winchester Model 94 Saddle Ring Carbine Built 1911 Serial #497382", (1911, 1911)),
             ("1943 production, all matching", (1943, 1943)),
         ],
     )
@@ -91,6 +92,7 @@ class TestAYearStated:
             "Luger 45 Commander Model 1907 Made in USA Caliber: 45 ACP",
             "MODEL 1861 MILLER CONVERSION 58 RIMFIRE RIFLE MUSKET. RARE ONLY 2000 MADE",
             "returned from foreign nations and sold in a DCM Lottery circa 1995",
+            "Colt manufactured 2000 rifles that year",
         ],
     )
     def test_not_this_guns_year(self, text):
@@ -212,7 +214,7 @@ class TestStoredOnTheListing:
                 made,
                 "stated",
             )
-        placed = listing(session, model, site, "p", "Serial # 2300000. Nice bore.")
+        placed = listing(session, model, site, "p", "Springfield. Serial # 2300000. Nice bore.")
         assert (placed.serial_low, placed.made_from, placed.made_to, placed.made_source) == (
             2_300_000,
             1943,
@@ -235,7 +237,7 @@ class TestStoredOnTheListing:
             ]
         ):
             listing(session, model, site, f"s{at}", f"Serial no. {number}. Manufactured in {made}.")
-        waiting = listing(session, model, site, "p", "Serial # 2300000.")
+        waiting = listing(session, model, site, "p", "Springfield. Serial # 2300000.")
         waiting.made_from = waiting.made_source = None
         session.commit()
         counts = serials.backfill(session)
@@ -333,7 +335,7 @@ def tables(garands):
 class TestAPublishedTable:
     def test_a_serial_in_a_range_is_dated_by_it(self, tables):
         session, model, site = tables
-        item = listing(session, model, site, "a", "Serial no. 60123. Nice bore.")
+        item = listing(session, model, site, "a", "Springfield. Serial no. 60123. Nice bore.")
         assert (item.made_from, item.made_to, item.made_source) == (1941, 1941, "table")
         assert item.made_quote == (
             "in Springfield's 50,000 to 99,999, made 1941, as cmp.test publishes"
@@ -343,11 +345,38 @@ class TestAPublishedTable:
         session, model, site = tables
         other = listing(session, model, site, "w", "Serial no. 60123.", maker="Winchester")
         assert other.made_source is None
-        lettered = listing(session, model, site, "l", "Serial no. AB60123.")
+        lettered = listing(session, model, site, "l", "Springfield. Serial no. AB60123.")
         assert lettered.made_source is None
         # A maker's other spelling is the maker.
-        spelled = listing(session, model, site, "s", "Serial # 123.", maker="Springfield Armory")
+        spelled = listing(
+            session,
+            model,
+            site,
+            "s",
+            "Springfield Armory. Serial # 123.",
+            maker="Springfield Armory",
+        )
         assert spelled.made_from == 1940
+
+    def test_only_where_the_listing_names_its_maker(self, tables):
+        """A maker read from anything but the listing's words -- "Colt" from a
+        ".45 Colt" caliber, "Winchester" for a Krag -- dated the wrong guns
+        on production (2026-10-19)."""
+        session, model, site = tables
+        silent = listing(session, model, site, "n", "Serial no. 60123. Nice bore.")
+        assert silent.made_source is None
+
+    @pytest.mark.parametrize(
+        "words",
+        [
+            "Springfield pattern by A. Uberti. Serial no. 60123.",
+            "Springfield reproduction. Serial no. 60123.",
+            "Non-firing Springfield replica. Serial no. 60123.",
+        ],
+    )
+    def test_never_a_reproduction(self, tables, words):
+        session, model, site = tables
+        assert listing(session, model, site, "r", words).made_source is None
 
     def test_letters_after_the_number_are_another_block(self, tables):
         """A Python's "12345E" is not its plain 12345 (2026-10-19)."""
@@ -366,15 +395,19 @@ class TestAPublishedTable:
             )
         )
         session.commit()
-        lettered = listing(session, model, site, "e", "Serial no. 60123E.", maker="Winchester")
+        lettered = listing(
+            session, model, site, "e", "Winchester. Serial no. 60123E.", maker="Winchester"
+        )
         assert (lettered.made_from, lettered.made_source) == (1975, "table")
         assert lettered.made_quote == "in 1E to 99,999E, made 1975, as proofhouse.test publishes"
-        plain = listing(session, model, site, "p", "Serial no. 60123.", maker="Winchester")
+        plain = listing(
+            session, model, site, "p", "Winchester. Serial no. 60123.", maker="Winchester"
+        )
         assert plain.made_source is None
 
     def test_a_hidden_digit_must_fall_inside_one_range(self, tables):
         session, model, site = tables
-        item = listing(session, model, site, "h", "serial number 4xxxx. The receiver")
+        item = listing(session, model, site, "h", "Springfield, serial number 4xxxx. The receiver")
         assert item.made_from == 1940
         # 100,000 to 199,999: past the table's end.
         past = listing(session, model, site, "x", "S/N 1xxxxx")
@@ -386,12 +419,14 @@ class TestAPublishedTable:
             [(10_000, 1950), (20_000, 1950), (30_000, 1951), (40_000, 1951), (45_000, 1952)]
         ):
             listing(session, model, site, f"s{at}", f"Serial no. {number}. Manufactured in {made}.")
-        placed = listing(session, model, site, "p", "Serial # 35000.")
+        placed = listing(session, model, site, "p", "Springfield. Serial # 35000.")
         assert (placed.made_from, placed.made_source) == (1940, "table")
 
     def test_the_c_and_r_line_goes_by_it(self, tables, client, admin_headers):
         session, model, site = tables
-        item = listing(session, model, site, "c", "Serial no. 60123. Rebuilt 2010 import.")
+        item = listing(
+            session, model, site, "c", "Springfield. Serial no. 60123. Rebuilt 2010 import."
+        )
         body = client.get(f"/api/items/{item.id}", headers=admin_headers).json()
         assert (body["curio"], body["curio_evidence"]) == ("eligible", "table")
 
@@ -432,7 +467,7 @@ class TestEditingTablesInTheArmory:
         springfield = Manufacturer(name="Springfield")
         session.add(springfield)
         session.commit()
-        item = listing(session, model, site, "a", "Serial no. 60123.")
+        item = listing(session, model, site, "a", "Springfield. Serial no. 60123.")
         assert item.made_source is None
 
         body = {
@@ -508,3 +543,16 @@ def test_migration_0077_does_not_ask_for_the_tables(garands, monkeypatch):
     monkeypatch.setattr(serials, "from_table", no_table)
     counts = serials.backfill(session, tables=False)
     assert counts["serial"] == 1
+
+
+@pytest.mark.parametrize(
+    ("text", "spelling", "named"),
+    [
+        ("U.S. MODEL 1903A3 BY SMITH CORONA", "Smith-Corona", True),
+        ("REMINGTON-UMC U.S. MODEL 1911", "Remington", True),
+        ("Colt 45 Bisley SAA", "Colt", True),
+        ("Coltrane's rifle", "Colt", False),
+    ],
+)
+def test_a_maker_named_in_the_listings_words(text, spelling, named):
+    assert serials._names(text, spelling) is named

@@ -173,6 +173,15 @@ _STATED = (
         + _YEARS,
         re.I,
     ),
+    # "Built 1911", "Manufactured 1943": the year straight after, as
+    # Rock Island Auction writes it (2026-10-19). Not a count: "manufactured
+    # 2000 rifles".
+    re.compile(
+        r"\b(?:built|manufactured|mfd\.?|mfg\.?)\s+"
+        + _YEARS
+        + r"(?!\s+(?:units|rifles|pistols|revolvers|guns|examples|of)\b)",
+        re.I,
+    ),
     _YEAR_FIRST,
     # "receiver circa January 1941", "circa 1944": a date for this gun.
     re.compile(r"\bcirca\s+" + _PART + rf"(?:{_MONTH}\s+)?" + _YEARS, re.I),
@@ -396,10 +405,68 @@ def read(item: Any) -> None:
         item.made_from = item.made_to = item.made_source = item.made_quote = None
 
 
+#: A copy of a gun, whose serial is its own maker's and not the original's: a
+#: Uberti Single Action Army numbered in Colt's 1890s range is not an 1890s
+#: Colt (production, 2026-10-19). The makers are the ones that reproduce the
+#: designs the tables cover.
+_REPRODUCTION = re.compile(
+    r"\b(?:replica|reproduction|repro|non-?firing|miniature|scale\s+model|uberti|pietta|"
+    r"cimarron|miroku|chiappa|armi\s+san\s+marco|taylor'?s\s*(?:&|and)\s*co|navy\s+arms|"
+    r"hy\s+hunter|great\s+western|e\.?m\.?f\.?\b|american\s+western\s+arms|"
+    r"standard\s+manufacturing|rossi|puma)\b",
+    re.I,
+)
+
+
+def _names(text: str, spelling: str) -> bool:
+    """Whether *text* names *spelling*: whole words, with a space and a
+    hyphen alike -- "SMITH CORONA" names Smith-Corona, "REMINGTON-UMC"
+    names Remington."""
+    words = [re.escape(word) for word in re.split(r"[\s-]+", spelling.strip()) if word]
+    if not words:
+        return False
+    return bool(re.search(r"(?<!\w)" + r"[\s-]*".join(words) + r"(?!\w)", text, re.I))
+
+
+def _spellings(session: Any, maker: str) -> list[str]:
+    """Every spelling of the armory's maker of this name, or just the name."""
+    from sqlalchemy import func, select
+
+    from ..models import Manufacturer
+
+    cache: dict[str, list[str]] = session.info.setdefault("serials_maker_spellings", {})
+    if maker not in cache:
+        row = session.execute(
+            select(Manufacturer).where(func.lower(Manufacturer.name) == maker.lower())
+        ).scalar_one_or_none()
+        cache[maker] = row.spellings if row is not None else [maker]
+    return cache[maker]
+
+
+def _text(item: Any) -> str:
+    return f"{item.title or ''}\n{item.description or ''}"
+
+
+def datable(session: Any, item: Any) -> bool:
+    """Whether a serial may date this listing at all, by a table or among
+    other listings: not a reproduction (:data:`_REPRODUCTION`), and a maker,
+    if it has one, that the listing names in its own words (2026-10-19)."""
+    text = _text(item)
+    if _REPRODUCTION.search(text):
+        return False
+    return not item.manufacturer or any(
+        _names(text, name) for name in _spellings(session, item.manufacturer)
+    )
+
+
 def from_table(session: Any, item: Any) -> tuple[int, int, str] | None:
     """The years a published table gives the listing's serial, and a note
     naming the range and its source; None where no range of the model's, for
     its maker, holds the whole serial.
+
+    Only for a listing that names the range's maker in its own words: a maker
+    read from anything else ("Colt" out of a ".45 Colt" caliber, "Winchester"
+    for a Krag matched to the Model 1892) dated the wrong guns.
 
     A range with no maker is the model's whatever the maker. A partly hidden
     serial must fall wholly inside a range; two ranges that both hold it
@@ -414,6 +481,7 @@ def from_table(session: Any, item: Any) -> tuple[int, int, str] | None:
 
     from ..models import SerialRange
 
+    text = _text(item)
     maker = _maker(item.manufacturer)
     hits = [
         row
@@ -427,7 +495,11 @@ def from_table(session: Any, item: Any) -> tuple[int, int, str] | None:
             )
         ).scalars()
         if row.manufacturer is None
-        or (maker and maker in {_maker(name) for name in row.manufacturer.spellings})
+        or (
+            maker
+            and maker in {_maker(name) for name in row.manufacturer.spellings}
+            and any(_names(text, name) for name in row.manufacturer.spellings)
+        )
     ]
     if not hits:
         return None
@@ -452,6 +524,9 @@ def estimate(session: Any, item: Any, *, tables: bool = True) -> None:
     the listings that state one. ``tables`` is False only for migration 0077,
     which runs before 0081 has made the table of them."""
     if item.made_source == STATED or item.serial_low is None:
+        return
+    if not datable(session, item):
+        item.made_from = item.made_to = item.made_source = item.made_quote = None
         return
     found = from_table(session, item) if tables else None
     source = TABLE

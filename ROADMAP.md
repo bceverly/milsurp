@@ -5920,6 +5920,24 @@ on 2026-10-15.
   USA" and "Model 1907 Made in USA" are a model's name and where it was made,
   not a year. "ONLY 2000 MADE" is a count. "Sold in a DCM Lottery circa
   1995" is a sale, as are rebuilt, refurbished and imported years.
+* **Loaded in production the same day, and corrected by what it dated.**
+  The first pass dated 43 listings from the tables, and among them were an
+  "UBERTI SAA PRE OWNED", whose maker had been read as Colt from its ".45
+  Colt" caliber and which came out as an 1897 Colt; a 47% scale non-firing
+  miniature Single Action Army, dated 1874; and an 1892 Krag-Jorgensen matched
+  to the Winchester Model 1892. So a serial now dates a listing, by a table or
+  among other listings, only when the listing names its maker in its own words
+  (any of the maker's spellings, with a space and a hyphen alike, so "SMITH
+  CORONA" names Smith-Corona) and does not read as a reproduction: replica,
+  reproduction, non-firing, miniature, or a maker of copies (Uberti, Pietta,
+  Cimarron, Miroku, Chiappa, Rossi and others; `serials.datable`). Two
+  Winchester 94s whose listings say "Built 1911" and "Built 1917" were dated
+  two years later by the table. The table matches ProofHouse, so the dealers'
+  years come from elsewhere, and the listing's own words now win: "Built
+  1911", "Manufactured 1944" and "Mfg. 1905" are read as stated years, which
+  added 115 across the catalog. After both, production has 34 listings dated
+  by a table, and 8 placed among other listings (from 27; the rest did not
+  name their maker).
 * **Migration 0077 fills in years without the tables**, which 0081 makes
   after it. A development database at 0075 failed there on its first upgrade
   (`relation "serial_ranges" does not exist`); production was already past
