@@ -24,7 +24,7 @@ from .shopify import ShopifyScraper
 SITE_BASE = "https://www.muzzle-loaders.com/"
 
 #: Modern inline muzzleloaders, by the word or by the line.
-_INLINE = re.compile(
+INLINE = re.compile(
     r"\b(?:in[\s-]?line|209|vortek|accura|optima|wolf|pursuit|triumph|encore|impact|"
     r"buckstalker|strikerfire|nitrofire|code\s+black)\b",
     re.I,
@@ -53,6 +53,6 @@ class MuzzleLoadersScraper(ShopifyScraper):
         self, product: dict[str, Any], collection: str, category: str
     ) -> ScrapedItem | None:
         item = super().item_from_product(product, collection, category)
-        if item is None or _INLINE.search(item.title):
+        if item is None or INLINE.search(item.title):
             return None
         return item

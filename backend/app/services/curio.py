@@ -61,6 +61,8 @@ from datetime import UTC, date, datetime
 from sqlalchemy import and_ as sa_and
 from sqlalchemy import or_ as sa_or
 
+from .reproductions import is_reproduction
+
 #: The ATF's first limb: manufactured at least this many years ago.
 CURIO_YEARS = 50
 
@@ -150,6 +152,14 @@ def read(title: str, description: str | None = None, model_name: str | None = No
     if _SAYS.search(text):
         return Reading(stated=True, evidence=BY_VENDOR)
 
+    # A copy of an old pattern is not as old as the pattern: "Pietta 1858 New
+    # Army", "created to replicate the Hawken of the 1840's" (2026-10-20). No
+    # year is read from one, so it is unknown rather than eligible by age.
+    return Reading() if is_reproduction(text) else _year_reading(text, model_name)
+
+
+def _year_reading(text: str, model_name: str | None) -> Reading:
+    """The manufacture year the text gives, where the vendor said nothing."""
     dated = [int(y) for y in _DATED_BEFORE.findall(text) + _DATED_AFTER.findall(text)]
     if dated:
         # The earliest, because a listing naming two dates is usually a receiver
@@ -372,9 +382,12 @@ def backfill(session: object, *, only_missing: bool = True, batch: int = 1000) -
         counts["examined"] += 1
         found = read(title or "", description, model_name)
         counts[status(found.stated, found.year)] += 1
-        if not found.says_anything:
+        if not found.says_anything and only_missing:
             # Nothing to write. Left null rather than stamped "unknown", so a
-            # later run with better rules still sees it as unexamined.
+            # later run with better rules still sees it as unexamined. When
+            # re-reading everything, though, silence is written: a reading the
+            # rules no longer give -- a reproduction's pattern year, 2026-10-20
+            # -- must be cleared, not kept because nothing replaced it.
             continue
         pending.append(
             {

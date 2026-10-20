@@ -1,0 +1,22 @@
+{
+  "slug": "the-gun-works",
+  "recorded_at": "2026-10-20T07:56:46+00:00",
+  "pages": [
+    {
+      "url": "https://thegunworks.com/wp-json/wc/store/v1/products?per_page=100&page=1&orderby=date&order=desc&category=120",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://thegunworks.com/wp-json/wc/store/v1/products?per_page=100&page=1&orderby=date&order=desc&category=147",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://thegunworks.com/wp-json/wc/store/v1/products?per_page=100&page=1&orderby=date&order=desc&category=4380",
+      "file": "0003.html.gz"
+    },
+    {
+      "url": "https://thegunworks.com/wp-json/wc/store/v1/products?per_page=100&page=1&orderby=date&order=desc&category=4404",
+      "file": "0004.html.gz"
+    }
+  ]
+}

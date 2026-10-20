@@ -102,6 +102,7 @@ the whole catalog as JSON to the widget that draws the grid. See
 | [Tortuga Trading](https://www.tortugatrading.com/collections/firearms) | `tortuga-trading` | Shopify — original antique flintlock arms, ~40; only what the shop files as a firearm |
 | [Track of the Wolf](https://www.trackofthewolf.com/parts/list/2584/1) | `track-of-the-wolf` | Custom — six flintlock and percussion sections paged by path, ~50 antiques, customs and used Pedersolis |
 | [Comer's Gunworks](https://www.comersgunworks.com/catalog/black-powder-weapons-and-defarbing) | `comers-gunworks` | Custom — Black Powder Weapons, ~65 reproductions and a few originals; defarbing services left out |
+| [The Gun Works](https://thegunworks.com/product-category/custom-and-production-guns/) | `the-gun-works` | WooCommerce Store API — Oregon muzzleloading shop: custom flintlock and percussion rifles and pistols, used customs and originals, new Traditions, Lyman and Uberti rifles, pistols and revolvers; ~80. Parts, kits, inlines and shotguns left out |
 
 ### Planned
 
@@ -5511,6 +5512,41 @@ column, already has a trigram index and holds the title and description word
 for word. Each spelling is now looked up there first and the ILIKEs only
 recheck the hits, which took the same query to 1.8 ms. PostgreSQL only
 (`search.trigram_indexed`); SQLite keeps the scan.
+
+### The Gun Works, and no C&R year for a reproduction — **Shipped** 2026-10-20
+
+Asked for: "please add this site for flintlock and percussion rifles and
+pistols: thegunworks.com. is it ok to add in?" Measured first: WooCommerce on
+WP Engine behind Cloudflare, but no challenge, to a browser fetch or to this
+application's own HTTP client (the fixture was recorded with it); robots.txt
+allows the store and asks for ten seconds between requests, which the
+fetcher honors; the Store API answers. No mailing-list signup and no
+published shipping terms. `the-gun-works` reads twelve sections, finished guns
+only: custom rifles and pistols, the used customs and originals, and the new
+Traditions, Lyman and Uberti rifles, pistols and percussion revolvers -- 80 on
+the first dry run. Left out: each maker's parts sections, the kits, the
+inlines (by name, as at Muzzle-Loaders.com), the used shotguns and cartridge
+gun, and two parts the used sections sell beside the guns ("Original – Lock –
+1842 Model", "Colt 2nd Generation – Pin").
+
+**A reproduction no longer gets a C&R year** (`app/services/reproductions.py`).
+A new shop of reproductions brought it to light: the C&R reader took a
+pattern's year for the gun's, so production carried 183 guns dated that way,
+89 of them Muzzle-Loaders.com's new Piettas and Pedersolis ("1858 New Army",
+or "created to replicate the Hawken of the 1840's"), nearly all "eligible by
+age". A listing that reads as a reproduction -- the words replica,
+reproduction, repro, replicate, non-firing, "1/2 scale", or a maker of copies
+(Uberti, Pietta, Pedersoli, Chiappa, Cimarron, Euroarms, Taylor's & Co. and
+others) -- now gets no year from its text, unless the shop itself says C&R.
+The serial dating shares the same check. Measured against production before
+it was applied: a first draft took 376 listings' years, and the cases it got
+wrong set the rules. It skips a denial ("NOT A REPRODUCTION"), a plural
+("Portugal received K98k replicas"), and the word near a part ("reproduction
+P.38 holster", "owners manual (repro)", "Mount is a possible reproduction").
+It also leaves out makers that made or sold originals too (Rossi, Navy Arms,
+Great Western, Miroku). Applied: 225 listings lost a year they should not
+have had. On the way, `curio.backfill(only_missing=False)` now clears a reading
+the rules no longer give instead of keeping it for want of a replacement.
 
 ### A count on every Armory tab — **Changed** 2026-10-17
 

@@ -326,6 +326,19 @@ class TestTheBackfill:
         curio.backfill(stored, only_missing=False)
         assert self._by_key(stored)["dated"].manufacture_year == 1939
 
+    def test_recomputing_clears_a_year_the_rules_no_longer_give(self, stored):
+        """A reproduction's pattern year, read before the rule against it
+        (2026-10-20): re-reading must clear it, not keep it for want of a
+        replacement."""
+        rows = self._by_key(stored)
+        rows["quiet"].title = "Pietta 1858 New Army"
+        rows["quiet"].manufacture_year, rows["quiet"].cr_evidence = 1858, curio.BY_YEAR
+        stored.flush()
+
+        curio.backfill(stored, only_missing=False)
+        quiet = self._by_key(stored)["quiet"]
+        assert (quiet.manufacture_year, quiet.cr_evidence) == (None, None)
+
 
 class TestFilteringTheCatalog:
     @pytest.fixture

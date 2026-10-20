@@ -39,6 +39,8 @@ from datetime import UTC, datetime
 from itertools import pairwise
 from typing import Any
 
+from .reproductions import is_reproduction
+
 #: The widest estimate given, in years: a serial between a 1943 and a 1945
 #: listing is "1943-1945"; wider than that says nothing worth showing.
 MAX_SPAN = 2
@@ -405,19 +407,6 @@ def read(item: Any) -> None:
         item.made_from = item.made_to = item.made_source = item.made_quote = None
 
 
-#: A copy of a gun, whose serial is its own maker's and not the original's: a
-#: Uberti Single Action Army numbered in Colt's 1890s range is not an 1890s
-#: Colt (production, 2026-10-19). The makers are the ones that reproduce the
-#: designs the tables cover.
-_REPRODUCTION = re.compile(
-    r"\b(?:replica|reproduction|repro|non-?firing|miniature|scale\s+model|uberti|pietta|"
-    r"cimarron|miroku|chiappa|armi\s+san\s+marco|taylor'?s\s*(?:&|and)\s*co|navy\s+arms|"
-    r"hy\s+hunter|great\s+western|e\.?m\.?f\.?\b|american\s+western\s+arms|"
-    r"standard\s+manufacturing|rossi|puma)\b",
-    re.I,
-)
-
-
 def _names(text: str, spelling: str) -> bool:
     """Whether *text* names *spelling*: whole words, with a space and a
     hyphen alike -- "SMITH CORONA" names Smith-Corona, "REMINGTON-UMC"
@@ -449,10 +438,10 @@ def _text(item: Any) -> str:
 
 def datable(session: Any, item: Any) -> bool:
     """Whether a serial may date this listing at all, by a table or among
-    other listings: not a reproduction (:data:`_REPRODUCTION`), and a maker,
+    other listings: not a reproduction (app.services.reproductions), and a maker,
     if it has one, that the listing names in its own words (2026-10-19)."""
     text = _text(item)
-    if _REPRODUCTION.search(text):
+    if is_reproduction(text):
         return False
     return not item.manufacturer or any(
         _names(text, name) for name in _spellings(session, item.manufacturer)
