@@ -249,3 +249,27 @@ class TestFiveSevenAndTwentyTwo:
         assert carried("Walther PPK/S .22 LR", caliber=".22 LR")
         assert carried("Beretta 21A Bobcat .22 LR", caliber=".22 LR", model="Beretta 21A Bobcat")
         assert not carried('Browning Buck Mark Target 22 LR 5.5"', caliber=".22 LR")
+
+
+@pytest.mark.parametrize(
+    ("caliber", "is_carry"),
+    [
+        (".357 SIG", True),
+        (".44 Magnum", True),
+        (".44 Rem Mag", True),
+        (".45 Colt", True),
+        (".45 Long Colt", True),
+        (".22 WMR", True),
+        (".22 Magnum", True),
+        (".32 S&W Long", True),
+        (".45 ACP", True),
+        (".25 ACP", True),
+        (".22 LR", True),
+        ("9mm Makarov", False),
+        (".32 S&W", False),
+        (".30-06 Springfield", False),
+    ],
+)
+def test_one_list_with_the_carry_shops(caliber, is_carry):
+    """2026-10-20: the calibers the carry shops' scrapers read."""
+    assert carry.is_carry_caliber(caliber) is is_carry

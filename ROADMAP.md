@@ -103,6 +103,13 @@ the whole catalog as JSON to the widget that draws the grid. See
 | [Track of the Wolf](https://www.trackofthewolf.com/parts/list/2584/1) | `track-of-the-wolf` | Custom — six flintlock and percussion sections paged by path, ~50 antiques, customs and used Pedersolis |
 | [Comer's Gunworks](https://www.comersgunworks.com/catalog/black-powder-weapons-and-defarbing) | `comers-gunworks` | Custom — Black Powder Weapons, ~65 reproductions and a few originals; defarbing services left out |
 | [The Gun Works](https://thegunworks.com/product-category/custom-and-production-guns/) | `the-gun-works` | WooCommerce Store API — Oregon muzzleloading shop: custom flintlock and percussion rifles and pistols, used customs and originals, new Traditions, Lyman and Uberti rifles, pistols and revolvers; ~80. Parts, kits, inlines and shotguns left out |
+| [Locked & Loaded](https://lockedloaded.com/product-category-group/handguns) | `locked-loaded` | Coreware, Meilisearch catalog (`coreware_search`) — in-stock handguns in the carry calibers, ~2,250, nearly all a distributor's new guns |
+| [Florida Guns](https://www.floridaguns.com/product-category-group/handguns) | `florida-guns` | Coreware, Meilisearch catalog — as Locked & Loaded; 29 handguns in the shop itself |
+| [Battlehawk Armory](https://battlehawkarmory.com/product-category-group/handguns) | `battlehawk-armory` | Coreware's older storefront (`coreware_store`) — pistols, revolvers and used pistols in the carry calibers; titles cut at 50 characters, the whole one read from the product page once |
+| [DeLeon RX Guns and Ammo](https://deleonrxgunsandammo.com/product-category-group/handguns) | `deleon-rx` | Coreware's older storefront — as Battlehawk; 66 handguns in the store itself |
+| [G4G Guns](https://g4gguns.com/) | `g4g-guns` | WooCommerce Store API (`woo_carry`) — a distributor's catalog; in-stock handguns in the carry calibers |
+| [Frisco Guns](https://friscoguns.com/) | `frisco-guns` | WooCommerce Store API (`woo_carry`) — as G4G; its "DEMO" guns read as used |
+| [James River Armory](https://www.jamesriverarmory.com/index.php?dispatch=categories.view&category_id=27) | `james-river-armory` | CS-Cart — "Available Firearms", 11: M14s, BM-59s and BM-62s, Yugoslav M72s, a Galil, Civil War reproductions; every product page read every scan |
 
 ### Planned
 
@@ -5512,6 +5519,49 @@ column, already has a trigram index and holds the title and description word
 for word. Each spelling is now looked up there first and the ILIKEs only
 recheck the hits, which took the same query to 1.8 ms. PostgreSQL only
 (`search.trigram_indexed`); SQLite keeps the scan.
+
+### Carry shops, and new or used — **Shipped** 2026-10-20
+
+Asked for: concealed carry pistols and revolvers from eight shops, then "build
+all of them including new. distinguish between used and new in the database
+and add a search for new versus used", and James River Armory "for rifles".
+
+**Measured first**, each with this application's own HTTP client:
+
+| Shop | Verdict |
+| --- | --- |
+| Locked & Loaded, Florida Guns | **Shipped.** Coreware with a Meilisearch catalog and a search-only key on the page; complete records (caliber, capacity, UPC, stock), no product page needed |
+| Battlehawk Armory, DeLeon RX | **Shipped.** Coreware's older storefront; `get_products` answers a whole category as JSON |
+| G4G Guns, Frisco Guns | **Shipped.** WooCommerce Store API; distributor SKUs (Lipsey's, RSR, Kroll, CSSI) |
+| James River Armory | **Shipped.** CS-Cart, eleven rifles, no bot protection |
+| Dahlonega Armory | **Refused.** robots.txt disallows `?page=` and every filter for crawlers like this one, so only the first 48 of 4,356 handguns could be read; its used page lists nothing |
+| GrabAGun | **Blocked.** Cloudflare challenges this application (403), as before |
+
+**What these shops are.** Mostly distributors' catalogs of new guns, the same
+guns at every one: Locked & Loaded had 5,390 handguns in stock and 282 on its
+own shelf. Only the carry calibers are read, about 2,250 there.
+
+**One list of carry calibers** (`carry.is_carry_caliber`), read by these
+scrapers and by the Concealed carry category alike: .32 ACP, .380, 9mm, 10mm,
+.40 S&W, .357 SIG, 5.7x28mm, .45 ACP, .25 ACP and .22 LR in pistols; .32 S&W
+Long, .32 H&R, .327, .38 Special, .357 Magnum, .44 Special and Magnum, .45 Colt
+and .22 WMR in revolvers. Added that day: .357 SIG (it had been excluded),
+.44 Magnum, .45 Colt, .22 WMR and .32 S&W Long. Every one but 10mm and 5.7
+is still under the size rule, so a 6" Redhawk is not a carry gun.
+
+**New or used** (`items.is_new`, migration 0082, `app/services/newness.py`):
+the scraper's own filing first (a used category, a new-gun section); then
+what the shop sells (`SiteScraper.sells`: "used" for the surplus, antique and
+trade-in dealers, "new" for Muzzle-Loaders.com, "mixed" for Centerfire, SARCO,
+Comer's and The Gun Works); and on a mixed shop, the section's and the title's
+words ("Certified Used", "Pre-Owned", "Trade-In", "Demo"; "New in Box"). The
+Inventory rail's **New or used** filter, saved searches and the listing page
+read it.
+
+**A title cut short** (`ScrapedItem.title_truncated`): Coreware's older
+storefront cuts every title at fifty characters, so the whole title is read
+from the product page once and a scan keeps it rather than writing the short
+one back over it.
 
 ### The Gun Works, and no C&R year for a reproduction — **Shipped** 2026-10-20
 

@@ -1,0 +1,22 @@
+{
+  "slug": "g4g-guns",
+  "recorded_at": "2026-10-20T18:36:42+00:00",
+  "pages": [
+    {
+      "url": "https://g4gguns.com/wp-json/wc/store/v1/products?per_page=100&page=1&orderby=date&order=desc&category=179&stock_status=instock",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://g4gguns.com/wp-json/wc/store/v1/products?per_page=100&page=2&orderby=date&order=desc&category=179&stock_status=instock",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://g4gguns.com/wp-json/wc/store/v1/products?per_page=100&page=3&orderby=date&order=desc&category=179&stock_status=instock",
+      "file": "0003.html.gz"
+    },
+    {
+      "url": "https://g4gguns.com/wp-json/wc/store/v1/products?per_page=100&page=4&orderby=date&order=desc&category=179&stock_status=instock",
+      "file": "0004.html.gz"
+    }
+  ]
+}

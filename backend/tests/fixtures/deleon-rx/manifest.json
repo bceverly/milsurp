@@ -1,0 +1,22 @@
+{
+  "slug": "deleon-rx",
+  "recorded_at": "2026-10-20T18:41:41+00:00",
+  "pages": [
+    {
+      "url": "https://deleonrxgunsandammo.com/retail-store-controller?ajax=true&url_action=get_products&product_category_id=22764&exclude_out_of_stock=1",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://deleonrxgunsandammo.com/retail-store-controller?ajax=true&url_action=get_products&product_category_id=22644&exclude_out_of_stock=1",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://deleonrxgunsandammo.com/product-details?id=89713868",
+      "file": "0003.html.gz"
+    },
+    {
+      "url": "https://deleonrxgunsandammo.com/product/ruger-6759-sr1911-target-9mm-luger-sao-5-91-deluxe-checkered-g10-grip-low-glare-stainless-steel-frame--slide",
+      "file": "0004.html.gz"
+    }
+  ]
+}

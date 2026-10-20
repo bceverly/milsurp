@@ -1,0 +1,22 @@
+{
+  "slug": "james-river-armory",
+  "recorded_at": "2026-10-20T18:44:24+00:00",
+  "pages": [
+    {
+      "url": "https://www.jamesriverarmory.com/index.php?dispatch=categories.view&category_id=27",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://www.jamesriverarmory.com/index.php?dispatch=products.view&product_id=381",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://www.jamesriverarmory.com/index.php?dispatch=products.view&product_id=376",
+      "file": "0003.html.gz"
+    },
+    {
+      "url": "https://www.jamesriverarmory.com/index.php?dispatch=products.view&product_id=148",
+      "file": "0004.html.gz"
+    }
+  ]
+}

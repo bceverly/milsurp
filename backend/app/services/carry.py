@@ -11,7 +11,10 @@ sale that day, the size rule had admitted none. **5.7x28mm likewise**, asked
 for the same day ("let's be all modern"): the Five-seveN, the Ruger-57 and
 the PSA Rock are full-size guns too. **And .22 LR**, also the same day, but
 under the size rule like every other carry cartridge: a snub .22 revolver or
-a pocket .22 is carried, a Buck Mark target pistol is not. It is one of the browse page's Types and one of the hot-deals tabs,
+a pocket .22 is carried, a Buck Mark target pistol is not. **And .357 SIG, .44
+Magnum, .45 Colt, .22 WMR and .32 S&W Long** (2026-10-20), so that this and
+the carry shops' scrapers read one list (:func:`is_carry_caliber`): under
+the size rule too, so a 6" Redhawk is not a carry gun and a 3" GP100 is. It is one of the browse page's Types and one of the hot-deals tabs,
 and it outranks Police surplus there: a traded-in Glock 19 is shopped for as a
 carry gun, so that is where it is found (see search.KINDS).
 
@@ -57,14 +60,20 @@ _CARRY_CALIBER = re.compile(
     # The pocket-pistol cartridges, added 2026-10-08 at the owner's request.
     r"|\.?32\s*(?:acp|auto)|7\.65\s*(?:mm)?\s*(?:browning|br)\b|\.?25\s*(?:acp|auto)|6\.35\s*(?:mm)?"
     # 5.7x28mm and .22 LR, added 2026-10-11.
-    r"|5\.7\s*x\s*28|\.?22\s*(?:lr|long\s*rifle)\b" r")",
+    r"|5\.7\s*x\s*28|\.?22\s*(?:lr|long\s*rifle)\b"
+    # One list with the carry shops' scrapers, 2026-10-20: .357 SIG, .44
+    # Magnum, .45 Colt, .22 WMR and .32 S&W Long.
+    r"|\.?357\s*sig|\.?44\s*(?:rem(?:ington)?\s*)?mag(?:num)?\b|\.?45\s*(?:long\s*)?colt\b|\.?45\s*lc\b"
+    r"|\.?22\s*(?:wmr|win(?:chester)?\s*mag(?:num)?|mag(?:num)?\b|wm\b)"
+    r"|\.?32\s*(?:s\s*&?\s*w\s*)?long\b"
+    r")",
     re.I,
 )
 
 #: Calibers a carry gun is chambered in that the regex above would let through
 #: by their first characters. "9mm Makarov" is the obvious one -- a Makarov is
 #: carried, but it was not asked for.
-_NOT_CARRY_CALIBER = re.compile(r"makarov|9\s*x\s*18|largo|steyr|nambu|\.357\s*sig", re.I)
+_NOT_CARRY_CALIBER = re.compile(r"makarov|9\s*x\s*18|largo|steyr|nambu", re.I)
 
 #: 10mm Auto and 5.7x28mm, which count at any size; and what is not such a
 #: handgun even so: a Lefaucheux pinfire (a different 10mm entirely), a

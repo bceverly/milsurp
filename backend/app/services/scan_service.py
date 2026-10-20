@@ -60,6 +60,7 @@ from . import (
     discovery,
     flyer_alert,
     manufacturers,
+    newness,
     overrides,
     provenance,
     scanalerts,
@@ -382,6 +383,28 @@ def _fill_from_vendor(item: Item, scraped: ScrapedItem) -> None:
     item.stated_kind = scraped.stated_kind or item.stated_kind
 
 
+def _title(stored: str | None, scraped: ScrapedItem) -> str:
+    """The listing's title: the scraped one, unless the catalog cut it short
+    and the stored one is the whole of it (``ScrapedItem.title_truncated``)."""
+    if (
+        scraped.title_truncated
+        and stored
+        and stored.lower().startswith(scraped.title.lower())
+        and len(stored) > len(scraped.title)
+    ):
+        return stored
+    return scraped.title
+
+
+def _file(item: Item, scraped: ScrapedItem, site: Site) -> None:
+    """Where the shop files the listing: its section, and new or used
+    (app.services.newness, 2026-10-20)."""
+    item.category = scraped.category
+    item.is_new = newness.decide(
+        scraped.is_new, newness.sells_for(site.slug), scraped.title, scraped.category
+    )
+
+
 def _stored_item(session: Session, site: Site, scraped: ScrapedItem) -> Item | None:
     """The row this listing is stored under, adopting one under a replaced key.
 
@@ -499,14 +522,14 @@ def _upsert_item(
         session.add(item)
 
     item.url = scraped.url
-    item.title = scraped.title
+    item.title = _title(item.title, scraped)
     if scraped.description:
         # The shop's standing notices come off the end here rather than at
         # display time, so every reader of the column -- the detail page, the
         # digest, the classifier reading prose for facts -- sees the same text.
         # Conservative by construction: see app/services/boilerplate.
         item.description = boilerplate.strip_boilerplate(scraped.description)
-    item.category = scraped.category
+    _file(item, scraped, site)
     # Only what the scraper actually stated, exactly like the description above.
     #
     # These four can come from a *product page*, and a scraper skips the

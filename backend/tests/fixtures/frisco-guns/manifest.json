@@ -1,0 +1,22 @@
+{
+  "slug": "frisco-guns",
+  "recorded_at": "2026-10-20T18:36:54+00:00",
+  "pages": [
+    {
+      "url": "https://friscoguns.com/wp-json/wc/store/v1/products?per_page=100&page=1&orderby=date&order=desc&category=284&stock_status=instock",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://friscoguns.com/wp-json/wc/store/v1/products?per_page=100&page=2&orderby=date&order=desc&category=284&stock_status=instock",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://friscoguns.com/wp-json/wc/store/v1/products?per_page=100&page=3&orderby=date&order=desc&category=284&stock_status=instock",
+      "file": "0003.html.gz"
+    },
+    {
+      "url": "https://friscoguns.com/wp-json/wc/store/v1/products?per_page=100&page=4&orderby=date&order=desc&category=284&stock_status=instock",
+      "file": "0004.html.gz"
+    }
+  ]
+}

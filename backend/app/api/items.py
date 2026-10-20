@@ -713,6 +713,7 @@ def list_items(
     capacity_max: int | None = Query(default=None, ge=0, le=200),
     made_min: int | None = Query(default=None, ge=1500, le=2100),
     made_max: int | None = Query(default=None, ge=1500, le=2100),
+    newness: str | None = Query(default=None, pattern="^(new|used)$"),
     sort: str = Query(default=DEFAULT_SORT),
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=48, ge=1, le=200),
@@ -783,6 +784,7 @@ def list_items(
             capacity_max=capacity_max,
             made_min=made_min,
             made_max=made_max,
+            newness=newness,
             excluded={name: v for name, v in excluded.items() if name != drop},
         )
 
@@ -956,6 +958,7 @@ def export_items(
     capacity_max: int | None = Query(default=None, ge=0, le=200),
     made_min: int | None = Query(default=None, ge=1500, le=2100),
     made_max: int | None = Query(default=None, ge=1500, le=2100),
+    newness: str | None = Query(default=None, pattern="^(new|used)$"),
 ) -> Response:
     """The listings a browse page is showing, as a file.
 
@@ -996,6 +999,7 @@ def export_items(
         capacity_max=capacity_max,
         made_min=made_min,
         made_max=made_max,
+        newness=newness,
         excluded=_excluded(request),
     )
 

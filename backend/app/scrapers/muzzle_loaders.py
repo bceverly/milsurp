@@ -37,6 +37,7 @@ class MuzzleLoadersScraper(ShopifyScraper):
     base_url = SITE_BASE
     description = "Reproduction flintlock and percussion rifles, pistols and revolvers."
     default_interval_minutes = 1440
+    sells = "new"
     newsletter_url = SITE_BASE
     newsletter_note = "Klaviyo signup on the home page"
     shipping_note = "No firearm shipping rate published; checked 2026-10-08"

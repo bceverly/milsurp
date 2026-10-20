@@ -1585,6 +1585,9 @@ export default function ItemDetail() {
                 it decides whether the listing is reachable at all. */}
             <CurioFact item={item} />
             <MadeFacts item={item} />
+            {item.is_new != null && (
+              <Fact label="New or used">{item.is_new ? "New" : "Used"}</Fact>
+            )}
             <Fact label="Manufacturer" always source={sources.manufacturer}>
               {item.manufacturer}
               {item.manufacturer && (

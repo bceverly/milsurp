@@ -955,6 +955,10 @@ class Item(Base, TimestampMixin):
     #: Null means the vendor said nothing, which Simpson also use for their
     #: accessories -- so a blank here is an answer, not a gap.
     stated_kind: Mapped[str | None] = mapped_column(String(32))
+    #: New (True), used (False), or not known (None): app.services.newness,
+    #: from the shop's own filing, what the shop sells, and on a shop that sells
+    #: both, the title's words. 2026-10-20.
+    is_new: Mapped[bool | None] = mapped_column(Boolean, index=True)
 
     # --- where each derived field's value came from -------------------------
     #

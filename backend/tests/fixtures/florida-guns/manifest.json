@@ -1,0 +1,22 @@
+{
+  "slug": "florida-guns",
+  "recorded_at": "2026-10-20T18:35:30+00:00",
+  "pages": [
+    {
+      "url": "https://www.floridaguns.com/product-category-group/handguns",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://search.coreware.com/indexes/gunsandrange_com/search?q=&filter=departments+%3D+FIREARMS+AND+categoryGroups+IN+%5BHANDGUNS%5D+AND+categories+IN+%5BPISTOLS%2C+REVOLVERS%2C+RIMFIRE_PISTOLS%2C+RIMFIRE_REVOLVERS%2C+TACTICAL_PISTOLS%2C+1911%2C+BREAK_ACTION_HANDGUNS%5D+AND+inStock+%3D+1&limit=0&facets=facets.CALIBER",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://search.coreware.com/indexes/gunsandrange_com/search?q=&filter=departments+%3D+FIREARMS+AND+categoryGroups+IN+%5BHANDGUNS%5D+AND+categories+IN+%5BPISTOLS%2C+REVOLVERS%2C+RIMFIRE_PISTOLS%2C+RIMFIRE_REVOLVERS%2C+TACTICAL_PISTOLS%2C+1911%2C+BREAK_ACTION_HANDGUNS%5D+AND+inStock+%3D+1+AND+facets.CALIBER+%3D+%22.22+LR%22&limit=250&offset=0",
+      "file": "0003.html.gz"
+    },
+    {
+      "url": "https://search.coreware.com/indexes/gunsandrange_com/search?q=&filter=departments+%3D+FIREARMS+AND+categoryGroups+IN+%5BHANDGUNS%5D+AND+categories+IN+%5BPISTOLS%2C+REVOLVERS%2C+RIMFIRE_PISTOLS%2C+RIMFIRE_REVOLVERS%2C+TACTICAL_PISTOLS%2C+1911%2C+BREAK_ACTION_HANDGUNS%5D+AND+inStock+%3D+1+AND+facets.CALIBER+%3D+%22.22+Mag+%28.22+WMR%29%22&limit=250&offset=0",
+      "file": "0004.html.gz"
+    }
+  ]
+}

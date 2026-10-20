@@ -532,6 +532,13 @@ function ItemRow({ item }) {
   );
 }
 
+//: The "New or used" choices: what app.services.newness files a listing as.
+const NEWNESS = [
+  { value: "", label: "Either" },
+  { value: "new", label: "New" },
+  { value: "used", label: "Used" },
+];
+
 export default function Browse() {
   useTitle("Inventory");
   const [params, setParams] = useOptimisticSearchParams();
@@ -573,6 +580,9 @@ export default function Browse() {
   const barrelMin = params.get("barrel_min") ? Number(params.get("barrel_min")) : null;
   const barrelMax = params.get("barrel_max") ? Number(params.get("barrel_max")) : null;
   const threaded = params.get("threaded") || null;
+  const newness = NEWNESS.some((o) => o.value === params.get("newness"))
+    ? params.get("newness")
+    : "";
   const capacityMin = params.get("capacity_min")
     ? Number(params.get("capacity_min"))
     : null;
@@ -615,6 +625,7 @@ export default function Browse() {
     if (barrelMin !== null) built.barrel_min = barrelMin;
     if (barrelMax !== null) built.barrel_max = barrelMax;
     if (threaded) built.threaded = threaded;
+    if (newness) built.newness = newness;
     if (capacityMin !== null) built.capacity_min = capacityMin;
     if (capacityMax !== null) built.capacity_max = capacityMax;
     if (madeMin !== null) built.made_min = madeMin;
@@ -639,6 +650,7 @@ export default function Browse() {
     barrelMin,
     barrelMax,
     threaded,
+    newness,
     capacityMin,
     capacityMax,
     madeMin,
@@ -805,6 +817,13 @@ export default function Browse() {
           }),
       });
     }
+    if (newness) {
+      chips.push({
+        key: "newness",
+        label: newness === "new" ? "New" : "Used",
+        clear: () => update((next) => next.delete("newness")),
+      });
+    }
     if (threaded) {
       chips.push({
         key: "threaded",
@@ -826,6 +845,7 @@ export default function Browse() {
     barrelMin,
     barrelMax,
     threaded,
+    newness,
     capacityMin,
     capacityMax,
     madeMin,
@@ -1122,6 +1142,27 @@ export default function Browse() {
                     {kindCounts.get(option.value).toLocaleString()}
                   </span>
                 )}
+              </label>
+            ))}
+          </Collapsible>
+
+          {/* New or used (2026-10-20): the shop's own filing, what the shop
+              sells, or on a shop that sells both, the listing's words. */}
+          <Collapsible title="New or used" defaultOpen={Boolean(newness)}>
+            {NEWNESS.map((option) => (
+              <label className="facet__option" key={option.value || "any"}>
+                <input
+                  type="radio"
+                  name="newness"
+                  checked={newness === option.value}
+                  onChange={() =>
+                    update((next) => {
+                      if (option.value) next.set("newness", option.value);
+                      else next.delete("newness");
+                    })
+                  }
+                />
+                <span className="facet__option-label">{option.label}</span>
               </label>
             ))}
           </Collapsible>

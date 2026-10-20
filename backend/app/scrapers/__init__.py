@@ -28,6 +28,7 @@ from .base import (
     ScrapeError,
     SiteScraper,
 )
+from .battlehawk_armory import BattlehawkArmoryScraper
 from .botach import BotachScraper
 from .bowman_arms import BowmanArmsScraper
 from .centerfire_systems import CenterfireSystemsScraper
@@ -41,21 +42,27 @@ from .collectors_firearms import CollectorsFirearmsScraper
 from .comers_gunworks import ComersGunworksScraper
 from .david_condon import DavidCondonScraper
 from .dbg_firearms import DbgFirearmsScraper
+from .deleon_rx import DeleonRxScraper
 from .demo import DemoScraper
 from .dupage_trading import DupageTradingScraper
 from .ebayonet import EBayonetScraper
 from .empire_arms import EmpireArmsScraper
+from .florida_guns import FloridaGunsScraper
+from .frisco_guns import FriscoGunsScraper
+from .g4g_guns import G4gGunsScraper
 from .greentop import GreentopScraper
 from .gunprime import GunPrimeScraper
 from .horse_soldier import HorseSoldierScraper
 from .hunters_lodge import HuntersLodgeScraper
 from .ima_usa import ImaUsaScraper
+from .james_river_armory import JamesRiverArmoryScraper
 from .jg_sales import JgSalesScraper
 from .jj_military import JjMilitaryScraper
 from .joe_salter import JoeSalterScraper
 from .kittery_trading_post import KitteryTradingPostScraper
 from .langara_arms import LangaraArmsScraper
 from .legacy_collectibles import LegacyCollectiblesScraper
+from .locked_loaded import LockedLoadedScraper
 from .lugerman import LugerManScraper
 from .madison_guns import MadisonGunsScraper
 from .merz_antiques import MerzAntiquesScraper
@@ -161,6 +168,13 @@ SCRAPER_CLASSES: tuple[type[SiteScraper], ...] = (
     TrackOfTheWolfScraper,
     ComersGunworksScraper,
     TheGunWorksScraper,
+    LockedLoadedScraper,
+    FloridaGunsScraper,
+    G4gGunsScraper,
+    FriscoGunsScraper,
+    BattlehawkArmoryScraper,
+    DeleonRxScraper,
+    JamesRiverArmoryScraper,
 )
 
 _REGISTRY: dict[str, type[SiteScraper]] = {cls.slug: cls for cls in SCRAPER_CLASSES}

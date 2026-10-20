@@ -26,6 +26,8 @@ SITE_BASE = "https://centerfiresystems.com/"
 
 class CenterfireSystemsScraper(ShopifyScraper):
     slug = "centerfire-systems"
+    #: Both new and used guns: see app.services.newness.
+    sells = "mixed"
     shipping_long_gun = 19.99
     shipping_handgun = 19.99
     shipping_note = "$19.99 per firearm; stacks with accessory/ammo rates; AK/HI flat $100"

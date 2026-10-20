@@ -52,6 +52,8 @@ class TheGunWorksScraper(WooStoreApiScraper):
         "rifles, pistols and revolvers."
     )
     default_interval_minutes = 1440
+    #: The used sections and the new: each listing is filed by its section.
+    sells = "mixed"
     newsletter_url = None
     newsletter_note = "No signup found on the site; checked 2026-10-20"
     shipping_note = "No firearm shipping rate published; checked 2026-10-20"
@@ -76,4 +78,6 @@ class TheGunWorksScraper(WooStoreApiScraper):
         item = super().item_from_product(product, label)
         if item is None or INLINE.search(item.title) or is_part(item.title):
             return None
+        # The custom guns are built new by the shop; the used sections are used.
+        item.is_new = not label.startswith("Used ")
         return item

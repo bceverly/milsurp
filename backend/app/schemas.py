@@ -1312,6 +1312,8 @@ class ItemOut(UTCModel):
     #: ``capacity_quote``, or none where it is its model's standard capacity.
     capacity: int | None = None
     capacity_quote: str | None = None
+    #: New (True) or used (False), or not known (app.services.newness).
+    is_new: bool | None = None
     #: When it was made (app.services.serials): the serial the listing gives,
     #: and the years -- "stated" in its words, or "serial", placed among the
     #: listings that state theirs. ``made_quote`` is the words, or the two

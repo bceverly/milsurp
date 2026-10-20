@@ -105,6 +105,8 @@ function describe(query) {
     );
     parts.push(`Made: ${text}`);
   }
+  if (params.get("newness") === "new") parts.push("New");
+  if (params.get("newness") === "used") parts.push("Used");
   if (params.get("threaded") === "yes") parts.push("Threaded barrel");
   if (params.get("threaded") === "no") parts.push("Barrel not threaded");
   if (params.get("price_drops_only") === "true") parts.push("Price reduced");

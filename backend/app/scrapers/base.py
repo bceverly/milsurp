@@ -57,6 +57,15 @@ class ScrapedItem:
     #: The vendor's own word for what this is, where they state one per
     #: listing. See Item.stated_kind: it outranks the classifier's heuristics.
     stated_kind: str | None = None
+    #: New (True) or used (False), where the shop files it as one: a "Used
+    #: Firearms" section, a maker's new-gun shelf. None leaves it to the
+    #: scraper's :attr:`SiteScraper.sells` (app.services.newness).
+    is_new: bool | None = None
+    #: The catalog cuts this title short ("Korth Mongoose, .357 Magnum, 4\"
+    #: Barrel, 6rd Cylind"), so a stored title that begins with it -- the full
+    #: one, read from the product page once -- is kept rather than replaced.
+    #: 2026-10-20, for the older Coreware storefront.
+    title_truncated: bool = False
     is_sold: bool = False
     posted_at: datetime | None = None
     image_urls: list[str] = field(default_factory=list)
@@ -778,6 +787,11 @@ class SiteScraper(abc.ABC):
     #: end of its listing's gallery, so the first picture a reader sees is the
     #: gun. Kept, not deleted: it is still what the shop published.
     demoted_images: tuple[str, ...] = ()
+    #: What the shop sells: "used" (the default: the surplus, antique and
+    #: trade-in dealers this application was built for), "new", or "mixed".
+    #: How a listing is filed new or used where it says nothing itself; see
+    #: app.services.newness. 2026-10-20.
+    sells: str = "used"
     #: Where a person signs up for this vendor's marketing email, for the Sites
     #: card's mailing-list link. The notification account is subscribed to
     #: these so the inbox reader (ROADMAP, "Vendor mailing lists") hears about

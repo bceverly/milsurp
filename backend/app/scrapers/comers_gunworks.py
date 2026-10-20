@@ -82,6 +82,8 @@ def parse_page(html_text: str, page_url: str, category: str) -> list[ScrapedItem
 
 class ComersGunworksScraper(CatalogPagesScraper):
     slug = "comers-gunworks"
+    #: Both new and used guns: see app.services.newness.
+    sells = "mixed"
     name = "Comer's Gunworks"
     base_url = SITE_BASE
     description = "Reenactors' dealer: reproduction muskets, rifles and revolvers."

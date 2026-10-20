@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 from ..models import FirearmModel, Item, utcnow
 from . import carry, curio, traits
 from . import frames as frame_sizes
+from . import newness as newness_service
 
 log = logging.getLogger("milsurp.search")
 
@@ -291,6 +292,8 @@ def _kind_clause(kind: str) -> Any:
     return KINDS[kind]
 
 
+#: The "New or used" filter's answers (app.services.newness).
+NEWNESS = newness_service.CHOICES
 #: The barrel filter's "threaded" answers, and what each asks of the column.
 THREADED: dict[str, bool] = {"yes": True, "no": False}
 #: How far either side of one stated length still counts as that length: a
@@ -328,6 +331,7 @@ def apply_filters[S: Select](  # noqa: PLR0912, PLR0915 - one branch per filter;
     capacity_max: int | None = None,
     made_min: int | None = None,
     made_max: int | None = None,
+    newness: str | None = None,
     excluded: dict[str, list[str]] | None = None,
 ) -> S:
     if site_ids:
@@ -454,6 +458,11 @@ def apply_filters[S: Select](  # noqa: PLR0912, PLR0915 - one branch per filter;
             stmt = stmt.where(latest >= made_min)
         if made_max is not None:
             stmt = stmt.where(earliest <= made_max)
+
+    # New or used (app.services.newness, 2026-10-20). A listing nothing files
+    # either way is in neither.
+    if newness in NEWNESS:
+        stmt = stmt.where(Item.is_new.is_(NEWNESS[newness]))
 
     if new_since_hours:
         stmt = stmt.where(Item.first_seen_at >= utcnow() - timedelta(hours=new_since_hours))
@@ -590,6 +599,8 @@ QUERY_PARAMS: dict[str, bool] = {
     # The year made, as a range: 2026-10-17.
     "made_min": False,
     "made_max": False,
+    # New or used: 2026-10-20.
+    "newness": False,
     "sort": False,
     # Each removable facet's "everything but": not_caliber, not_model ...
     **{f"not_{name}": True for name in EXCLUDABLE},
@@ -713,6 +724,7 @@ def parse_query(query_string: str) -> SearchQuery:  # noqa: PLR0912 - one branch
         "capacity_max": None,
         "made_min": None,
         "made_max": None,
+        "newness": None,
         "excluded": {},
     }
 
@@ -739,6 +751,8 @@ def parse_query(query_string: str) -> SearchQuery:  # noqa: PLR0912 - one branch
     for name in ("min_price", "max_price", "barrel_min", "barrel_max"):
         if filters[name] is not None:
             filters[name] = _float(name=name, value=filters[name])
+    if filters["newness"] is not None and filters["newness"] not in NEWNESS:
+        raise BadQuery(f"newness must be one of {', '.join(NEWNESS)}, not {filters['newness']!r}.")
     if filters["threaded"] is not None and filters["threaded"] not in THREADED:
         raise BadQuery(
             f"threaded must be one of {', '.join(THREADED)}, not {filters['threaded']!r}."
