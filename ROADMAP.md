@@ -5530,7 +5530,13 @@ answered 403: DeLeon from 03:15, until its scan failed on the revolver list at
 06:44 (3,786 listings saved), and Battlehawk from 02:48 to every request,
 home page included (3,666 saved) until its scan was stopped at 07:51.
 DeLeon was answering again by 07:47; Battlehawk still refused its pages, but
-not its robots.txt, at 08:07. Both were switched off in production.
+not its robots.txt, at 08:07. Both were switched off in production. Battlehawk
+still refused at 11:26, and was taken as having blocked us for good: its
+3,687 listings were deleted, with their 6,269 photo files, rather than
+de-listed, because a de-listing reads as a gun leaving the shelf and 3,687 at
+once would have filled the Market page's departures. Nobody had collected,
+watched or wished for one; 110 hot deals and 27 saved-search alert records
+went with them.
 
 The fix (`coreware_store`): at most 400 product pages a scan, about 25
 minutes at the shops' pace, with the rest keeping their short titles until a
@@ -5562,7 +5568,8 @@ and add a search for new versus used", and James River Armory "for rifles".
 | Shop | Verdict |
 | --- | --- |
 | Locked & Loaded, Florida Guns | **Shipped.** Coreware with a Meilisearch catalog and a search-only key on the page; complete records (caliber, capacity, UPC, stock), no product page needed |
-| Battlehawk Armory, DeLeon RX | **Shipped.** Coreware's older storefront; `get_products` answers a whole category as JSON |
+| Battlehawk Armory | **Shipped, then refused** (2026-10-21): it blocked this connection after the first scan's two hours of product pages, and still refused every page but robots.txt eight hours later. Switched off and its 3,687 listings deleted; the scraper is kept for if the shop allows us back |
+| DeLeon RX | **Shipped.** Coreware's older storefront; `get_products` answers a whole category as JSON |
 | G4G Guns, Frisco Guns | **Shipped.** WooCommerce Store API; distributor SKUs (Lipsey's, RSR, Kroll, CSSI) |
 | James River Armory | **Shipped.** CS-Cart, eleven rifles, no bot protection |
 | Dahlonega Armory | **Refused.** robots.txt disallows `?page=` and every filter for crawlers like this one, so only the first 48 of 4,356 handguns could be read; its used page lists nothing |

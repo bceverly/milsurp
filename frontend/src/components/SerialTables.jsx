@@ -184,7 +184,7 @@ export default function SerialTables({ search, models, makers, onChanged }) {
       {message && <p className="alert alert--success">{message}</p>}
       {error && <p className="alert alert--error">{error}</p>}
       <div className="table-wrap">
-        <table className="table">
+        <table className="table serial-table">
           <thead>
             <tr>
               <th>Model</th>
@@ -207,13 +207,22 @@ export default function SerialTables({ search, models, makers, onChanged }) {
               rows.map((row) => (
                 <tr key={row.id}>
                   <td>{row.model_name}</td>
-                  <td>{row.maker || "—"}</td>
+                  <td className="table__nowrap">{row.maker || "—"}</td>
                   <td>
-                    {serialText(row)}
-                    {row.note && <div className="muted">{row.note}</div>}
+                    <span className="serial-table__serials">{serialText(row)}</span>
+                    {/* The whole note on hover: in full, the first range of a
+                        table carries a paragraph about its source, which
+                        squeezed every other column into broken words. */}
+                    {row.note && (
+                      <div className="muted serial-table__note" title={row.note}>
+                        {row.note}
+                      </div>
+                    )}
                   </td>
-                  <td>{yearsText(row.year_from, row.year_to)}</td>
-                  <td>
+                  <td className="table__nowrap">
+                    {yearsText(row.year_from, row.year_to)}
+                  </td>
+                  <td className="table__nowrap">
                     <Source text={row.source} />
                   </td>
                   <td className="table__actions">

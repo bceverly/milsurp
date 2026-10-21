@@ -4024,6 +4024,32 @@
   font-weight: 600;
 }
 
+/* The Serial tables table: headings and model names whole, the serials on one
+   line, and a range's note two lines at most -- in full it squeezed the other
+   columns into broken words ("Springfi-eld", "nps.g-ov"). */
+.serial-table th {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+.serial-table td:first-child {
+  overflow-wrap: normal;
+}
+
+.serial-table__serials {
+  white-space: nowrap;
+}
+
+.serial-table__note {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  max-width: 48ch;
+  font-size: 0.85em;
+}
+
 /* The Serial tables tab: its count, and its Add button beside it (2026-10-19). */
 .armory-count-row {
   display: flex;
