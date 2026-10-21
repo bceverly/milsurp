@@ -6,8 +6,8 @@ from __future__ import annotations
 import pytest
 
 from app.scrapers.base import ScrapedItem
-from app.scrapers.battlehawk_armory import BattlehawkArmoryScraper
 from app.scrapers.coreware_search import ScrapeError, search_settings
+from app.scrapers.deleon_rx import DeleonRxScraper
 from app.scrapers.g4g_guns import G4gGunsScraper
 from app.scrapers.james_river_armory import parse_product, product_ids
 from app.scrapers.locked_loaded import LockedLoadedScraper
@@ -60,7 +60,7 @@ class TestCorewareSearch:
 
 class TestCorewareStore:
     def test_a_short_title_is_marked_short_and_the_caliber_read(self):
-        scraper = BattlehawkArmoryScraper()
+        scraper = DeleonRxScraper()
         record = {
             "product_id": 194172,
             "description": 'NAA SW250 Sidewinder  22 Mag 5rd 2.50" Stainless S...',
@@ -77,7 +77,7 @@ class TestCorewareStore:
         assert item.image_urls == ["https://images.coreware.com/images/products/49-14360798.jpg"]
 
     def test_used_by_section_or_title_and_only_carry_calibers(self):
-        scraper = BattlehawkArmoryScraper()
+        scraper = DeleonRxScraper()
         used = scraper.item_from_record(
             {
                 "product_id": 1,
@@ -111,7 +111,7 @@ def test_a_cut_short_title_keeps_the_whole_one(clean_db):
     from app.models import Site
     from app.services import scan_service
 
-    site = Site(slug="battlehawk-armory", name="Battlehawk", base_url="https://b.test/")
+    site = Site(slug="deleon-rx", name="DeLeon RX", base_url="https://d.test/")
     clean_db.add(site)
     clean_db.commit()
 
@@ -240,7 +240,7 @@ class TestGentleWithTheOlderStorefront:
     """Both shops refused us after two hours of product pages (2026-10-21)."""
 
     def scraper(self, **attrs):
-        scraper = BattlehawkArmoryScraper()
+        scraper = DeleonRxScraper()
         scraper.sources = ({"category": "Pistols", "id": 1}, {"category": "Revolvers", "id": 2})
         for name, value in attrs.items():
             setattr(scraper, name, value)

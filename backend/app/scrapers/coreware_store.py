@@ -1,7 +1,8 @@
 """Shared machinery for gun shops on Coreware's older storefront.
 
-Battlehawk Armory and DeLeon RX Guns and Ammo, asked for on 2026-10-20 for
-concealed carry pistols and revolvers. The same platform as
+DeLeon RX Guns and Ammo, asked for on 2026-10-20 for concealed carry pistols
+and revolvers. (Battlehawk Armory, on the same storefront, was added the
+same day and removed on 2026-10-21: it blocked this application for good.) The same platform as
 :mod:`app.scrapers.coreware_search`, without the search app: a category page
 embeds twenty products as JavaScript and a "Load More" reloads the page, so
 the walk asks the endpoint the page itself uses --
@@ -10,7 +11,7 @@ category and ``exclude_out_of_stock=1`` -- which answers every match at once,
 as JSON with its field names alongside. robots.txt allows everything.
 
 * **Most of it is a distributor's**, as at the other Coreware shops: 5,911
-  handguns in stock at Battlehawk that day, 772 in the shop. Both are read.
+  handguns in stock at DeLeon that day, 66 in the store. Both are read.
 * **A title is cut to fifty characters** ("Korth Mongoose, .357 Magnum, 4\\"
   Barrel, 6rd Cylind..."), so a listing's product page is read once, for the
   whole title (``h1#_product_description``) and the specifications table as
@@ -62,7 +63,7 @@ _USED_TITLE = re.compile(r"\b(?:used|usd|pre[\s-]*owned|demo)\b", re.I)
 def product_rows(results: Any) -> list[list[Any]]:
     """The product rows, whichever way the shop's PHP encoded them: a list, or
     -- when its array's keys are not in order -- an object keyed "0", "1",
-    ... (Battlehawk's revolvers, 2026-10-20, which read as ten products made
+    ... (Battlehawk Armory's revolvers, 2026-10-20, which read as ten products made
     of the keys' characters before this)."""
     if isinstance(results, dict):
         return [

@@ -105,8 +105,7 @@ the whole catalog as JSON to the widget that draws the grid. See
 | [The Gun Works](https://thegunworks.com/product-category/custom-and-production-guns/) | `the-gun-works` | WooCommerce Store API — Oregon muzzleloading shop: custom flintlock and percussion rifles and pistols, used customs and originals, new Traditions, Lyman and Uberti rifles, pistols and revolvers; ~80. Parts, kits, inlines and shotguns left out |
 | [Locked & Loaded](https://lockedloaded.com/product-category-group/handguns) | `locked-loaded` | Coreware, Meilisearch catalog (`coreware_search`) — in-stock handguns in the carry calibers, ~2,250, nearly all a distributor's new guns |
 | [Florida Guns](https://www.floridaguns.com/product-category-group/handguns) | `florida-guns` | Coreware, Meilisearch catalog — as Locked & Loaded; 29 handguns in the shop itself |
-| [Battlehawk Armory](https://battlehawkarmory.com/product-category-group/handguns) | `battlehawk-armory` | Coreware's older storefront (`coreware_store`) — pistols, revolvers and used pistols in the carry calibers; titles cut at 50 characters, the whole one read from the product page once |
-| [DeLeon RX Guns and Ammo](https://deleonrxgunsandammo.com/product-category-group/handguns) | `deleon-rx` | Coreware's older storefront — as Battlehawk; 66 handguns in the store itself |
+| [DeLeon RX Guns and Ammo](https://deleonrxgunsandammo.com/product-category-group/handguns) | `deleon-rx` | Coreware's older storefront (`coreware_store`) — pistols, revolvers and used guns in the carry calibers; titles cut at 50 characters, the whole one read from the product page, at most 400 a scan; 66 handguns in the store itself |
 | [G4G Guns](https://g4gguns.com/) | `g4g-guns` | WooCommerce Store API (`woo_carry`) — a distributor's catalog; in-stock handguns in the carry calibers |
 | [Frisco Guns](https://friscoguns.com/) | `frisco-guns` | WooCommerce Store API (`woo_carry`) — as G4G; its "DEMO" guns read as used |
 | [James River Armory](https://www.jamesriverarmory.com/index.php?dispatch=categories.view&category_id=27) | `james-river-armory` | CS-Cart — "Available Firearms", 11: M14s, BM-59s and BM-62s, Yugoslav M72s, a Galil, Civil War reproductions; every product page read every scan |
@@ -5536,7 +5535,11 @@ still refused at 11:26, and was taken as having blocked us for good: its
 de-listed, because a de-listing reads as a gun leaving the shelf and 3,687 at
 once would have filled the Market page's departures. Nobody had collected,
 watched or wished for one; 110 hot deals and 27 saved-search alert records
-went with them.
+went with them. Then removed entirely on the owner's word ("remove battlehawk armory
+completely and flag it as not viable"): the scraper and its recorded fixture
+are gone, so the next start marks its site row unavailable, and the row is
+deleted then -- deleting it while the scraper was still registered would have
+had the next start add it back, switched on.
 
 The fix (`coreware_store`): at most 400 product pages a scan, about 25
 minutes at the shops' pace, with the rest keeping their short titles until a
@@ -5568,7 +5571,7 @@ and add a search for new versus used", and James River Armory "for rifles".
 | Shop | Verdict |
 | --- | --- |
 | Locked & Loaded, Florida Guns | **Shipped.** Coreware with a Meilisearch catalog and a search-only key on the page; complete records (caliber, capacity, UPC, stock), no product page needed |
-| Battlehawk Armory | **Shipped, then refused** (2026-10-21): it blocked this connection after the first scan's two hours of product pages, and still refused every page but robots.txt eight hours later. Switched off and its 3,687 listings deleted; the scraper is kept for if the shop allows us back |
+| Battlehawk Armory | **Not viable** (2026-10-21). Built and scanned once; it blocked this connection after the first scan's two hours of product pages and still refused every page but robots.txt eight hours later. Removed: the scraper, its fixtures and its site row, and its 3,687 listings deleted. Not to be re-added unless the shop agrees to allow this application |
 | DeLeon RX | **Shipped.** Coreware's older storefront; `get_products` answers a whole category as JSON |
 | G4G Guns, Frisco Guns | **Shipped.** WooCommerce Store API; distributor SKUs (Lipsey's, RSR, Kroll, CSSI) |
 | James River Armory | **Shipped.** CS-Cart, eleven rifles, no bot protection |

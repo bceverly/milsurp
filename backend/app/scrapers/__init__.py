@@ -28,7 +28,6 @@ from .base import (
     ScrapeError,
     SiteScraper,
 )
-from .battlehawk_armory import BattlehawkArmoryScraper
 from .botach import BotachScraper
 from .bowman_arms import BowmanArmsScraper
 from .centerfire_systems import CenterfireSystemsScraper
@@ -172,7 +171,6 @@ SCRAPER_CLASSES: tuple[type[SiteScraper], ...] = (
     FloridaGunsScraper,
     G4gGunsScraper,
     FriscoGunsScraper,
-    BattlehawkArmoryScraper,
     DeleonRxScraper,
     JamesRiverArmoryScraper,
 )
