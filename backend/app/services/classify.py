@@ -3067,6 +3067,8 @@ COUNTRY_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"\bEgyptian?\b", "Egypt"),
     # Armscor's Rock Island Armory guns are made in Marikina (2026-10-15).
     (r"\bPhilippines?\b|\bPhilippine\b|\bFilipino\b", "Philippines"),
+    # Grand Power builds the Stribog in Slovakia (2026-10-21).
+    (r"\bSlovakia\b|\bSlovak(?:ian)?\b", "Slovakia"),
     (r"\bEthiopian?\b", "Ethiopia"),
     (r"\bBulgarian?\b", "Bulgaria"),
     # Added with the modern shelf: 27 active listings say Israel or Israeli

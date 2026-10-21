@@ -187,3 +187,97 @@ class TestJamesRiverArmory:
         ]
         gone = parse_product(page.replace("ty-qty-in-stock", "ty-qty-out-of-stock"), "211", "u")
         assert gone.is_sold
+
+
+class FakeContext:
+    """Just enough of ScrapeContext for the older-Coreware walk."""
+
+    def __init__(self, pages, refuse=()):
+        self.pages, self.refuse = pages, set(refuse)
+        self.asked, self.warnings, self.unread = [], [], set()
+
+    def keep_at_least(self, *_args):
+        pass
+
+    def check_stop(self):
+        pass
+
+    def log(self, _message):
+        pass
+
+    def warn(self, message):
+        self.warnings.append(message)
+
+    def not_read(self, category):
+        self.unread.add(category)
+
+    def needs_detail(self, _key):
+        return True
+
+    def get_text(self, url, **_kwargs):
+        self.asked.append(url)
+        if any(part in url for part in self.refuse):
+            raise ScrapeError(f"GET {url}: 403", status=403)
+        for part, text in self.pages.items():
+            if part in url:
+                return text
+        return "<h1 id='_product_description'>Whole title</h1>"
+
+
+def product_list(*ids):
+    import json
+
+    rows = [[i, f"Glock 19 9mm Gen5 number {i}...", f"/product/glock-19-9mm-{i}"] for i in ids]
+    return json.dumps(
+        {
+            "product_field_names": ["product_id", "description", "product_detail_link"],
+            "product_results": rows,
+        }
+    )
+
+
+class TestGentleWithTheOlderStorefront:
+    """Both shops refused us after two hours of product pages (2026-10-21)."""
+
+    def scraper(self, **attrs):
+        scraper = BattlehawkArmoryScraper()
+        scraper.sources = ({"category": "Pistols", "id": 1}, {"category": "Revolvers", "id": 2})
+        for name, value in attrs.items():
+            setattr(scraper, name, value)
+        return scraper
+
+    def test_at_most_so_many_product_pages_a_scan(self):
+        ctx = FakeContext(
+            {
+                "product_category_id=1": product_list(1, 2, 3, 4),
+                "product_category_id=2": product_list(),
+            }
+        )
+        items = list(self.scraper(max_details_per_scan=2).scrape(ctx))
+        assert len(items) == 4
+        assert [i.title_truncated for i in items] == [False, False, True, True]
+        assert sum("/product/" in url for url in ctx.asked) == 2
+
+    def test_the_first_refusal_ends_the_product_pages(self):
+        ctx = FakeContext(
+            {
+                "product_category_id=1": product_list(1, 2, 3),
+                "product_category_id=2": product_list(),
+            },
+            refuse=("glock-19-9mm-1",),
+        )
+        items = list(self.scraper().scrape(ctx))
+        assert len(items) == 3
+        assert sum("/product/" in url for url in ctx.asked) == 1
+        assert any("no more product pages" in w for w in ctx.warnings)
+
+    def test_an_unreadable_list_is_a_gap_not_a_failure(self):
+        ctx = FakeContext(
+            {"product_category_id=1": product_list(1)}, refuse=("product_category_id=2",)
+        )
+        items = list(self.scraper().scrape(ctx))
+        assert [i.external_key for i in items] == ["cws-1"]
+        assert ctx.unread == {"Revolvers"}
+        everything_refused = FakeContext({}, refuse=("product_category_id",))
+        with pytest.raises(ScrapeError):
+            list(self.scraper().scrape(everything_refused))

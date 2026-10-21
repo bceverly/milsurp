@@ -44,8 +44,9 @@ def _fresh_registry(restore_classification_rules):
 class TestTheSeededList:
     def test_the_migration_filled_it(self, client, admin_headers):
         rows = client.get("/api/countries", headers=admin_headers).json()
-        # 0029's 38, and the Philippines (0078, for Rock Island Armory).
-        assert len(rows) == 39
+        # 0029's 38, the Philippines (0078, for Rock Island Armory) and
+        # Slovakia (0083, for Grand Power).
+        assert len(rows) == 40
         assert {row["name"] for row in rows} >= {
             "Germany",
             "Russia",
@@ -53,6 +54,7 @@ class TestTheSeededList:
             "Philippines",
         }
         assert classify.extract_country("Made in the Philippines") == "Philippines"
+        assert classify.extract_country("Grand Power Stribog, made in Slovakia") == "Slovakia"
 
     def test_it_says_what_the_code_said(self):
         """The table's whole promise. Checked here on the cases whose spelling
@@ -114,10 +116,10 @@ class TestEditingOne:
         client.patch(f"/api/countries/{czech.id}", json={"position": 9999}, headers=csrf(signed_in))
         client.post(
             "/api/countries",
-            json={"name": "Slovakia", "aliases": "Czechoslovak", "position": 1},
+            json={"name": "Czechoslovakia", "aliases": "Czechoslovak", "position": 1},
             headers=csrf(signed_in),
         )
-        assert classify.extract_country("Czechoslovak vz.24") == "Slovakia"
+        assert classify.extract_country("Czechoslovak vz.24") == "Czechoslovakia"
 
     def test_a_normal_user_cannot_edit(self, client, clean_db, normal_user):
         row = clean_db.query(Country).filter_by(name="Germany").one()

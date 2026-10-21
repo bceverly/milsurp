@@ -545,10 +545,13 @@ class ScrapeContext:
         if resting > 0:
             raise HostResting(url, resting)
         timeout = kwargs.pop("timeout", self.scraping.request_timeout)
+        # Fewer tries for a request whose caller would rather move on: a
+        # product page a shop has started refusing (coreware_store, 2026-10-21).
+        attempts = int(kwargs.pop("retries", None) or self.scraping.max_retries)
         # Taken once, outside the retry loop, so a retry sends the same thing.
         headers = {**self._agent_header(url), **(kwargs.pop("headers", None) or {})}
         last_error: Exception | None = None
-        for attempt in range(self.scraping.max_retries):
+        for attempt in range(attempts):
             self.check_stop()
             self._throttle(url)
             try:
@@ -587,7 +590,7 @@ class ScrapeContext:
             except requests.RequestException as exc:
                 last_error = exc
                 self._last_request_at = time.monotonic()
-                if attempt < self.scraping.max_retries - 1:
+                if attempt < attempts - 1:
                     self.sleep(self._backoff(url, exc, attempt))
             else:
                 # It answered, so whatever it was refusing before, it is not
@@ -599,7 +602,7 @@ class ScrapeContext:
                 cooldown.succeeded(url)
                 return response
         raise ScrapeError(
-            f"{method} {url} failed after {self.scraping.max_retries} attempts: {last_error}",
+            f"{method} {url} failed after {attempts} attempts: {last_error}",
             status=getattr(getattr(last_error, "response", None), "status_code", None),
         )
 

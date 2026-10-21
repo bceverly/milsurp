@@ -5520,6 +5520,37 @@ for word. Each spelling is now looked up there first and the ILIKEs only
 recheck the hits, which took the same query to 1.8 ms. PostgreSQL only
 (`search.trigram_indexed`); SQLite keeps the scan.
 
+### The first carry-shop scans, and two shops that refused us — **Fixed** 2026-10-21
+
+The first scheduled scans (00:49 UTC) went through at G4G (4,339 listings),
+Frisco (4,272), Florida Guns (2,900), Locked & Loaded (2,843) and James River
+(11). Battlehawk and DeLeon RX, Coreware's older storefront, read a product
+page for every new listing, about 4,000 each, and after about two hours both
+answered 403: DeLeon from 03:15, until its scan failed on the revolver list at
+06:44 (3,786 listings saved), and Battlehawk from 02:48 to every request,
+home page included (3,666 saved) until its scan was stopped at 07:51.
+DeLeon was answering again by 07:47; Battlehawk still refused its pages, but
+not its robots.txt, at 08:07. Both were switched off in production.
+
+The fix (`coreware_store`): at most 400 product pages a scan, about 25
+minutes at the shops' pace, with the rest keeping their short titles until a
+later scan; no more product pages after the first refusal, which is asked
+once (`ScrapeContext` now takes `retries`); and a category list that cannot
+be read is a gap (`not_read`) rather than the end of the scan. They stay
+switched off until this build is installed.
+
+**The armory after the first scans:** 449 proposed models, nearly all title
+fragments from distributor shorthand ("COMM 10R", "BBL 6", "100/10"): 125
+approved under maker-and-model names, 144 merged into the rows they duplicate
+(Glock "G19" into the Glock 19, the FN 509C, M and T into the FN 509, the
+Desert Eagle's five spellings into one), 180 switched off. 65 proposed makers:
+19 approved (Magnum Research, Girsan, Rost Martin, Seecamp, Standard
+Manufacturing, North American Arms and others), 4 merged, 42 switched off,
+the short codes among them ("SPG", "GLK", "SHAS") because a merged name stays
+as a spelling. 9 calibers: 7 merged into the rows they spell ("22 Mag" into
+.22 WMR, ".40SW" into .40 S&W), "380" and "7x32" switched off. Slovakia was
+added as a country (migration 0083) for Grand Power.
+
 ### Carry shops, and new or used — **Shipped** 2026-10-20
 
 Asked for: concealed carry pistols and revolvers from eight shops, then "build

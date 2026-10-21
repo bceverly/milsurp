@@ -21,6 +21,16 @@ as JSON with its field names alongside. robots.txt allows everything.
   carries the whole title in lower case ("naa-sw250-sidewinder-22-mag-..."),
   and only the carry calibers are kept (:func:`carry.is_carry_caliber`).
 * **Used** is a used category, or "USED" in the title.
+
+**Gently, after both shops refused us** (2026-10-21). The first scans read a
+product page for every one of about 4,000 listings each, and after about two
+hours both answered 403 -- DeLeon for some hours, Battlehawk to every request,
+its home page included. So a scan now reads at most
+:attr:`~CorewareStoreScraper.max_details_per_scan` product pages, the rest
+waiting for the next scan with their short titles; it stops reading product
+pages at the first refusal rather than asking each one four times; and a
+category list it cannot read is a gap (``ScrapeContext.not_read``), not a
+reason to throw away the others or to de-list that category.
 """
 
 from __future__ import annotations
@@ -76,6 +86,9 @@ class CorewareStoreScraper(SiteScraper):
     #: ``https://{image_cdn}/cache/image-full-{filename}``.
     image_cdn = ""
     wanted_caliber: Callable[[str], bool] = staticmethod(carry.is_carry_caliber)
+    #: Product pages read per scan: about 25 minutes at the shops' pace, well
+    #: under the two hours that brought both refusals.
+    max_details_per_scan = 400
 
     def scrape(self, ctx: ScrapeContext) -> Iterable[ScrapedItem]:
         return self._stream(ctx)
@@ -83,7 +96,10 @@ class CorewareStoreScraper(SiteScraper):
     def _stream(self, ctx: ScrapeContext) -> Iterator[ScrapedItem]:
         if self.min_request_delay:
             ctx.keep_at_least(self.base_url, self.min_request_delay)
+        self._details_read = 0
+        self._details_refused = False
         seen: set[str] = set()
+        read_any = False
         for source in self.sources:
             ctx.check_stop()
             query = urlencode(
@@ -94,13 +110,19 @@ class CorewareStoreScraper(SiteScraper):
                     "exclude_out_of_stock": 1,
                 }
             )
-            text = ctx.get_text(f"{self.base_url}retail-store-controller?{query}")
+            try:
+                text = ctx.get_text(f"{self.base_url}retail-store-controller?{query}")
+            except (Disallowed, ScrapeError) as exc:
+                ctx.warn(f"{source['category']}: could not read the list ({exc}).")
+                ctx.not_read(str(source["category"]))
+                continue
             try:
                 answer = json.loads(text)
                 names = list(answer["product_field_names"])
                 rows = product_rows(answer.get("product_results"))
             except (ValueError, TypeError, KeyError) as exc:
                 raise ScrapeError(f"{source['category']}: not the product list ({exc})") from exc
+            read_any = True
             ctx.log(f"{source['category']}: {len(rows)} in stock.")
             for row in rows:
                 ctx.check_stop()
@@ -109,6 +131,8 @@ class CorewareStoreScraper(SiteScraper):
                     continue
                 seen.add(item.external_key)
                 yield self.with_detail(ctx, item)
+        if not read_any:
+            raise ScrapeError("No category list could be read.")
 
     def item_from_record(
         self, record: dict[str, Any], source: dict[str, Any]
@@ -156,12 +180,22 @@ class CorewareStoreScraper(SiteScraper):
     def with_detail(self, ctx: ScrapeContext, item: ScrapedItem) -> ScrapedItem:
         """The whole title and the specifications, from the product page --
         once per listing."""
+        if self._details_refused or self._details_read >= self.max_details_per_scan:
+            return item
         if not ctx.needs_detail(item.external_key):
             return item
+        self._details_read += 1
         try:
-            soup = BeautifulSoup(ctx.get_text(item.url), "html.parser")
+            soup = BeautifulSoup(ctx.get_text(item.url, retries=1), "html.parser")
         except (Disallowed, ScrapeError) as exc:
-            ctx.log(f"Could not read {item.url}: {exc}. Keeping the catalog entry only.")
+            if getattr(exc, "status", None) in (403, 429):
+                self._details_refused = True
+                ctx.warn(
+                    f"{item.url} was refused ({exc}); no more product pages this scan. "
+                    "The rest keep their short titles until a later scan."
+                )
+            else:
+                ctx.log(f"Could not read {item.url}: {exc}. Keeping the catalog entry only.")
             return item
         heading = soup.select_one("h1#_product_description")
         whole = normalize_whitespace(text_of(heading)) if heading is not None else ""
