@@ -18,6 +18,9 @@
 #     /opt/milsurp/backend/cli.py armory export --file /tmp/armory.yaml
 
 manufacturers:
+- name: ACP
+  status: pending
+  enabled: false
 - name: Adams
   country: United Kingdom
   status: approved
@@ -133,7 +136,13 @@ manufacturers:
 - name: Black
   status: pending
   enabled: false
+- name: BLK
+  status: pending
+  enabled: false
 - name: BLK SAO X-RAY
+  status: pending
+  enabled: false
+- name: BM BLK LBL
   status: pending
   enabled: false
 - name: Bodeo
@@ -152,6 +161,14 @@ manufacturers:
   - FNA
   country: Italy
   status: approved
+- name: Brigade Manufacturing
+  aliases:
+  - BRIGADE
+  country: United States
+  status: approved
+- name: BRN BM BLK
+  status: pending
+  enabled: false
 - name: Browning
   country: United States
   status: approved
@@ -222,6 +239,9 @@ manufacturers:
   status: merged
   enabled: false
 - name: CASED GRULLA ARMAS
+  status: pending
+  enabled: false
+- name: CENT
   status: pending
   enabled: false
 - name: Century Arms
@@ -340,6 +360,11 @@ manufacturers:
   status: approved
   enabled: false
   notes: Not a firm; no listing of its own.
+- name: Derya
+  aliases:
+  - Derya Firearms
+  country: Turkey
+  status: approved
 - name: Desert Eagle Mark
   status: pending
   enabled: false
@@ -352,6 +377,10 @@ manufacturers:
 - name: Diamondback Firearms
   country: United States
   website: https://www.diamondbackfirearms.com
+  status: approved
+- name: Dickinson
+  aliases:
+  - Dickinson Arms
   status: approved
 - name: DPMS
   country: United States
@@ -424,13 +453,25 @@ manufacturers:
   - ROF (F)
   country: United Kingdom
   status: approved
+- name: FDE
+  status: pending
+  enabled: false
 - name: FEG
   country: Hungary
   status: approved
 - name: Femaru
   country: Hungary
   status: approved
+- name: FIREARMS STRIKE ONE
+  status: pending
+  enabled: false
 - name: Flare Signal Co.
+  country: United States
+  status: approved
+- name: FMK
+  aliases:
+  - FMK G3
+  - FMK Firearms
   country: United States
   status: approved
 - name: FN
@@ -498,6 +539,9 @@ manufacturers:
 - name: GECO
   country: Germany
   status: approved
+- name: GFA
+  status: pending
+  enabled: false
 - name: GForce
   status: merged
   enabled: false
@@ -519,6 +563,15 @@ manufacturers:
 - name: GNS
   status: pending
   enabled: false
+- name: Grand Power
+  country: Slovakia
+  status: approved
+- name: Great Lakes Firearms
+  aliases:
+  - GLFA
+  - Great Lakes
+  country: United States
+  status: approved
 - name: GREEN HEART
   status: approved
   enabled: false
@@ -794,6 +847,9 @@ manufacturers:
   - LMT
   country: United States
   status: approved
+- name: LFA APOLLO
+  status: pending
+  enabled: false
 - name: LINDSAY
   status: approved
 - name: Lithgow
@@ -839,6 +895,9 @@ manufacturers:
 - name: MAC
   country: France
   status: merged
+- name: MACH HGA IN
+  status: pending
+  enabled: false
 - name: Magnum Research
   country: United States
   status: approved
@@ -910,6 +969,9 @@ manufacturers:
   country: Germany
   status: approved
   position: 50
+- name: MB
+  status: pending
+  enabled: false
 - name: MENZ
   country: Germany
   status: approved
@@ -1166,6 +1228,9 @@ manufacturers:
   - Roma Arsenal
   country: Italy
   status: approved
+- name: ROS
+  status: pending
+  enabled: false
 - name: Rossi
   aliases:
   - Amadeo Rossi
@@ -1492,6 +1557,9 @@ manufacturers:
   - MAT
   country: France
   status: approved
+- name: TUNG
+  status: pending
+  enabled: false
 - name: Uberti
   aliases:
   - A. Uberti
@@ -3424,7 +3492,11 @@ calibers:
 - name: 6.35mm
   status: merged
 - name: '.64'
+  aliases:
+  - 64 Caliber
   status: approved
+- name: 64 Caliber
+  status: merged
 - name: '.65'
   status: merged
 - name: '.656'
@@ -4302,6 +4374,9 @@ models:
 - name: 100/10
   status: pending
   enabled: false
+- name: 10/1
+  status: pending
+  enabled: false
 - name: 10/10
   status: pending
   enabled: false
@@ -4444,7 +4519,7 @@ models:
     msrp: 1099.0
     maker_url: https://www.budsgunshop.com/products/rifles/beretta-a300-ultima-kick-off-12-gauge-3-plus-1-28-inch-mossy-oak-bottomland-shotgun-182960
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Beretta A300 Ultima KO Kick-Off 12 Gauge Max-7 Camouflage Shotgun (J32TS18)
     caliber: 12 gauge
     upc: '82442967479'
@@ -4915,10 +4990,12 @@ models:
   country: United States
   manufacturers:
   - American Tactical
+  capacity: 8
   status: approved
 - name: American Tactical FXS9
   aliases:
   - FXS9
+  - FXS-9
   kind: pistol
   country: United States
   manufacturers:
@@ -4949,6 +5026,9 @@ models:
   manufacturers:
   - Anschutz
   status: approved
+- name: ANSE 357
+  status: pending
+  enabled: false
 - name: ANV 45
   status: pending
   enabled: false
@@ -5181,6 +5261,9 @@ models:
   manufacturers:
   - Colt
   status: approved
+- name: AS 5R
+  status: pending
+  enabled: false
 - name: ASTON M1842
   aliases:
   - M1842
@@ -5439,6 +5522,9 @@ models:
   maker_url: https://www.benelliusa.com/shotguns/supernova-pump-action-shotguns
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: BER 84
+  status: pending
+  enabled: false
 - name: Beretta 1301
   kind: shotgun
   country: Italy
@@ -5489,7 +5575,7 @@ models:
     part: LTT1301HBMBLK
     maker_url: https://www.budsgunshop.com/products/shotguns-tactical/beretta-1301-ltt-langdon-tactical-12-gauge-7-plus-1-18-5-inch-black-oxide-shotgun-181035
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Beretta 1301 LTT Langdon Tactical 12 Gauge Black Shotgun (LTT1301HZFRMBLK)
     caliber: 12 gauge
     finish: Black
@@ -5879,7 +5965,7 @@ models:
     part: J686FR8
     maker_url: https://www.budsgunshop.com/products/shotguns-hunting/beretta-686-silver-pigeon-i-28-gauge-2-round-28-inch-3in-chamber-oil-finished-wood-shotgun-723036304
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Beretta 686 Silver Pigeon I B-Fast Sporting 12 Gauge Blue/Black Shotgun (J686S1230BF)
     caliber: 12 gauge
     finish: Blued
@@ -6119,7 +6205,7 @@ models:
     part: J6873FK8V
     maker_url: https://www.budsgunshop.com/products/shotguns-hunting/beretta-687-silver-pigeon-iii-vittoria-20-gauge-2-round-28-inch-3-inch-chamber-shotgun-723036319
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Beretta 687 Silver Pigeon III Over and Under Multi-Choke 28 Gauge Silver Shotgun (J6873FM0)
     caliber: 28 Gauge
     upc: 082442937694
@@ -7043,7 +7129,7 @@ models:
     msrp: 1549.0
     maker_url: https://www.budsgunshop.com/products/rifles/beretta-a400-solo-kick-off-12-gauge-2-plus-1-26-inch-black-shotgun-200720
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Beretta A400 Solo Synthetic 12 Gauge Optifade Marsh Shotgun (J40SLMR10)
     caliber: 12 gauge
     upc: 082442071770
@@ -7155,7 +7241,7 @@ models:
     msrp: 2599.0
     maker_url: https://www.budsgunshop.com/products/shotguns-target/beretta-a400-xcel-sporting-12-gauge-2-plus-1-30-inch-wolf-gray-shotgun-139806
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Beretta A400 Xcel Sporting KO Sporting 12 Gauge Gray Shotgun (J42CK18)
     caliber: 12 gauge
     finish: Gray
@@ -7754,12 +7840,13 @@ models:
   modern_production: true
   variants:
   - label: BERETTA AX800 SPREMA 12/26/3.5 SGRSS (JAX8OSG16)
+    caliber: 12 gauge
     upc: 082442064901
     part: JAX8OSG16
     msrp: 2599.0
     maker_url: https://www.budsgunshop.com/products/rifles/beretta-ax800-sprema-12-26-3-5-sgrss-203478
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Beretta AX800 Suprema 12 Gauge Black Shotgun (JAX8BK18)
     caliber: 12 gauge
     finish: Black
@@ -7778,12 +7865,13 @@ models:
     source: budsgunshop
     status: approved
   - label: BERETTA AX800 SUPREMA 12/26 MARSH (JAX8MR16)
+    caliber: 12 gauge
     upc: 082442064932
     part: JAX8MR16
     msrp: 2599.0
     maker_url: https://www.budsgunshop.com/products/rifles/beretta-ax800-suprema-12-26-marsh-203466
     source: budsgunshop
-    status: pending
+    status: approved
   - label: BERETTA AX800 SUPREMA 12/26/3.5 Black (JAX8BK16)
     finish: Black
     upc: 082442064567
@@ -7913,14 +8001,13 @@ models:
     source: budsgunshop
     status: approved
   - label: Beretta BRX1 Straight-Pull 7mm Rem Mag Black/Green Rifle (JBRX1GN370)
-    caliber: 7mm
     finish: Black
     upc: 082442013275
     part: JBRX1GN370
     msrp: 1599.0
     maker_url: https://www.budsgunshop.com/products/rifles/beretta-brx1-straight-pull-7mm-remington-mag-5-plus-1-22-inch-black-green-rifle-730017930
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Beretta BRX1 Straight-Pull Bolt Action .300 Win Mag Blue/Black Rifle (JBRX1E33122)
     finish: Blued
     upc: 082442981475
@@ -8363,6 +8450,8 @@ models:
     status: approved
   status: approved
 - name: Bersa BP9
+  aliases:
+  - BP9
   kind: pistol
   country: Argentina
   manufacturers:
@@ -8524,7 +8613,7 @@ models:
     msrp: 1589.0
     maker_url: https://www.budsgunshop.com/products/pistols/bersa-m2xi-double-stack-9mm-17-plus-1-5-inch-black-nitride-pistol-173704
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Bersa M2XI Match Grade Bull Barrel 9mm Brushed Stainless Pistol (M2XIO5SSFN)
     caliber: 9mm Luger
     barrel: 5.0
@@ -8889,6 +8978,9 @@ models:
 - name: BLUE 6R
   status: pending
   enabled: false
+- name: BM 250
+  status: pending
+  enabled: false
 - name: BM-59
   aliases:
   - BM59
@@ -8954,6 +9046,9 @@ models:
   country: United States
   capacity: 2
   status: approved
+- name: BP9
+  status: merged
+  enabled: false
 - name: Brazilian 08/34
   aliases:
   - 08/34
@@ -9945,7 +10040,7 @@ models:
     msrp: 2229.99
     maker_url: https://www.budsgunshop.com/products/shotguns-hunting/browning-a5-sweet-sixteen-16-gauge-4-plus-1-26-inch-2-3-4-inch-mossy-oak-bottomland-shotgun-150363
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Browning A5 16 Gauge Realtree MAX-7 Shotgun (0119125004)
     caliber: 16 gauge
     upc: 023614853237
@@ -10587,13 +10682,13 @@ models:
     source: budsgunshop
     status: approved
   - label: Browning BL-22 Grade II .22 LR/.22 Long/.22 Short Rifle (024101103)
-    caliber: .22 Short
+    caliber: .22 LR
     upc: 023614025481
     part: '024101103'
     msrp: 1049.99
     maker_url: https://www.budsgunshop.com/products/rifles/browning-bl-22-grade-ii-22-lr-15-20-inch-rifle-28275
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Browning BL-22 Micro Midas .22 LR Gloss Black Walnut Rifle (024115103)
     caliber: .22 LR
     finish: Black
@@ -11473,6 +11568,9 @@ models:
 - name: C434B
   status: pending
   enabled: false
+- name: C75
+  status: pending
+  enabled: false
 - name: C77
   kind: pistol
   country: Germany
@@ -11569,7 +11667,7 @@ models:
     msrp: 1129.99
     maker_url: https://www.budsgunshop.com/products/pistols/canik-55-sfx-rival-s-9mm-mchr-18r-752020876
     source: budsgunshop
-    status: pending
+    status: approved
   status: approved
 - name: CANW609
   status: pending
@@ -11883,6 +11981,12 @@ models:
   calibers:
   - 5.56x45mm NATO
   status: approved
+- name: CCW 1
+  status: pending
+  enabled: false
+- name: CCW 2
+  status: pending
+  enabled: false
 - name: CDS9
   capacity: 15
   status: approved
@@ -11899,6 +12003,9 @@ models:
   status: pending
   enabled: false
 - name: CEZE544
+  status: pending
+  enabled: false
+- name: CF 250
   status: pending
   enabled: false
 - name: CF380
@@ -11918,6 +12025,9 @@ models:
   - Carl Gustaf
   status: approved
 - name: CG63
+  status: merged
+  enabled: false
+- name: CH 856
   status: merged
   enabled: false
 - name: Charles Daly 1911
@@ -16394,7 +16504,7 @@ models:
     part: SS-5306-B
     maker_url: https://www.budsgunshop.com/products/pistols/shadow-systems-cr920x-foundation-9mm-15-plus-1-3-8-inch-black-pistol-752017821
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Shadow Systems CR920X Foundation Optic Ready 9mm Black with Bronze Barrel Pistol (SS5305B)
     caliber: 9mm Luger
     barrel: 4.0
@@ -16552,6 +16662,9 @@ models:
   status: pending
   enabled: false
 - name: CRY 5
+  status: pending
+  enabled: false
+- name: CS1
   status: pending
   enabled: false
 - name: CS 45
@@ -16852,7 +16965,7 @@ models:
     msrp: 999.0
     maker_url: https://www.budsgunshop.com/products/rifles/cz-457-at-one-varmint-suppressor-ready-22-lr-5-16-5-inch-blue-black-rifle-107729
     source: budsgunshop
-    status: pending
+    status: approved
   - label: CZ 457 AT-ONE Varmint Suppressor Ready .22 LR Blue/Black Rifle (02366)
     caliber: .22 LR
     finish: Blued
@@ -16861,7 +16974,7 @@ models:
     msrp: 999.0
     maker_url: https://www.budsgunshop.com/products/rifles/cz-457-at-one-varmint-suppressor-ready-22-lr-blue-black-rifle-107730
     source: budsgunshop
-    status: pending
+    status: approved
   - label: CZ 457 Lux .22 LR Blue/Black Bolt Action Rifle (02301)
     caliber: .22 LR
     finish: Blued
@@ -17416,6 +17529,7 @@ models:
   aliases:
   - Model 75
   - CZ-75B
+  - CZ 75B
   kind: pistol
   country: Czech Republic
   calibers:
@@ -17731,6 +17845,9 @@ models:
   maker_url: https://www.czfirearms.com/en-us/products/pistols/cz-75-series
   capacity: 15
   status: approved
+- name: CZ 75B
+  status: merged
+  enabled: false
 - name: CZ-75B
   status: merged
   enabled: false
@@ -18424,6 +18541,12 @@ models:
 - name: DEC 8
   status: pending
   enabled: false
+- name: Derya DY9
+  kind: pistol
+  country: Turkey
+  manufacturers:
+  - Derya
+  status: approved
 - name: Derya DY9Z
   aliases:
   - DY9Z
@@ -19029,7 +19152,7 @@ models:
     part: DB1912O061
     maker_url: https://www.budsgunshop.com/products/pistols/diamondback-firearms-db15-762x39mm-281-7-inch-fde-pistol-155889
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Diamondback Firearms DB15 Carbon Lower 7.62x39mm Black Anodized Hardcoat Pistol (DB1912O001)
     caliber: 7.62x39mm
     barrel: 7.0
@@ -19837,6 +19960,9 @@ models:
   kind: rifle
   country: Netherlands
   status: approved
+- name: DUTY 22
+  status: pending
+  enabled: false
 - name: DUTY 9
   status: merged
   enabled: false
@@ -20025,6 +20151,9 @@ models:
   manufacturers:
   - Ruger
   status: approved
+- name: ECP 45
+  status: pending
+  enabled: false
 - name: Ed Brown EVO CCO9
   aliases:
   - CCO9
@@ -20035,6 +20164,8 @@ models:
   capacity: 9
   status: approved
 - name: Ed Brown FX2
+  aliases:
+  - FX2
   kind: pistol
   country: United States
   manufacturers:
@@ -20452,6 +20583,8 @@ models:
   status: merged
   enabled: false
 - name: FN 502
+  aliases:
+  - FNH 502
   kind: pistol
   country: Belgium
   manufacturers:
@@ -21086,7 +21219,7 @@ models:
     msrp: 1099.0
     maker_url: https://www.budsgunshop.com/products/pistols/fn-510-mrd-compact-10mm-flat-dark-earth-pistol-15-plus-1-443-inch-barrel-177155
     source: budsgunshop
-    status: pending
+    status: approved
   - label: FN 510 Tactical 10mm Blue/Black Pistol (66101377)
     caliber: 10mm Auto
     barrel: 4.7
@@ -21117,7 +21250,7 @@ models:
     msrp: 930.0
     maker_url: https://www.budsgunshop.com/products/pistols/fn-america-fn-510-mrd-full-size-10mm-blue-black-pistol-10-1-4-1-inch-158117
     source: budsgunshop
-    status: pending
+    status: approved
   - label: FN America FN 510 MRD Full Size 10mm FDE/Tan Pistol (66101382)
     caliber: 10mm Auto
     barrel: 4.1
@@ -21128,7 +21261,7 @@ models:
     msrp: 930.0
     maker_url: https://www.budsgunshop.com/products/pistols/fn-america-fn-510-mrd-full-size-10mm-10-1-4-1-inch-fde-tan-pistol-158118
     source: budsgunshop
-    status: pending
+    status: approved
   status: approved
 - name: FN 510T
   kind: pistol
@@ -21219,6 +21352,9 @@ models:
     source: budsgunshop
     status: approved
   status: approved
+- name: FNH 502
+  status: merged
+  enabled: false
 - name: FNH 545
   status: approved
 - name: FN HERSTAL 1935
@@ -21557,6 +21693,9 @@ models:
   calibers:
   - 7.62x51 NATO
   status: approved
+- name: FS 10R
+  status: pending
+  enabled: false
 - name: FS 5B
   status: pending
   enabled: false
@@ -21605,6 +21744,9 @@ models:
 - name: FX19X
   status: merged
   enabled: false
+- name: FX2
+  status: merged
+  enabled: false
 - name: FX9
   status: merged
   enabled: false
@@ -21617,6 +21759,9 @@ models:
 - name: FXD 15R
   status: pending
   enabled: false
+- name: FXS-9
+  status: merged
+  enabled: false
 - name: G10
   status: pending
   enabled: false
@@ -21626,6 +21771,9 @@ models:
   status: merged
   enabled: false
 - name: G19
+  status: merged
+  enabled: false
+- name: G19X
   status: merged
   enabled: false
 - name: G20
@@ -21647,6 +21795,9 @@ models:
   status: merged
   enabled: false
 - name: G26
+  status: merged
+  enabled: false
+- name: G26V
   status: merged
   enabled: false
 - name: G29
@@ -22086,7 +22237,12 @@ models:
   manufacturers:
   - Mauser
   status: approved
+- name: GF9
+  status: merged
+  enabled: false
 - name: GForce Arms GF9
+  aliases:
+  - GF9
   kind: pistol
   country: United States
   manufacturers:
@@ -22129,6 +22285,9 @@ models:
   calibers:
   - 9mm Luger
   status: approved
+- name: GLK 43
+  status: merged
+  enabled: false
 - name: Glock 17
   aliases:
   - Glock G17
@@ -22577,6 +22736,17 @@ models:
     maker_url: https://www.budsgunshop.com/products/pistols/glock-19xv-mos-9mm-10-plus-1-4-02-inch-flat-dark-earth-pistol-752013985
     source: budsgunshop
     status: approved
+  status: approved
+- name: Glock 19X
+  aliases:
+  - Glock G19X
+  - Glock V-Series Model 19x
+  kind: pistol
+  country: Austria
+  manufacturers:
+  - Glock
+  capacity: 17
+  variants:
   - label: Glock 19XV MOS Threaded Barrel 9mm Black Pistol (PV1950S03XMOSTB)
     caliber: 9mm Luger
     barrel: 4.5
@@ -22586,15 +22756,7 @@ models:
     msrp: 819.98
     maker_url: https://www.budsgunshop.com/products/pistols/glock-19xv-mos-9mm-19-plus-1-45-inch-black-pistol-411562279
     source: budsgunshop
-    status: pending
-  status: approved
-- name: Glock 19X
-  aliases:
-  - Glock G19X
-  kind: pistol
-  country: Austria
-  manufacturers:
-  - Glock
+    status: approved
   status: approved
 - name: Glock 20
   aliases:
@@ -22620,7 +22782,7 @@ models:
     msrp: 745.0
     maker_url: https://www.budsgunshop.com/products/pistols/glock-20-v-mos-10mm-15-plus-1-4-61-inch-blue-black-pistol-186893
     source: budsgunshop
-    status: pending
+    status: approved
   status: approved
 - name: Glock 21
   aliases:
@@ -22708,6 +22870,7 @@ models:
   aliases:
   - Glock G26
   - Glock 26X
+  - Glock G26V
   kind: pistol
   country: Austria
   calibers:
@@ -22908,6 +23071,7 @@ models:
 - name: Glock 43
   aliases:
   - Glock G43
+  - GLK 43
   kind: pistol
   country: Austria
   calibers:
@@ -23093,7 +23257,7 @@ models:
     msrp: 1106.0
     maker_url: https://www.budsgunshop.com/products/pistols/glock-43x-mos-9mm-15-plus-1-3-41-inch-black-pistol-195519
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Glock 43X MOS 9mm Pistol w/ Holosun HS407K X2 Red Dot (UX4350204NR15ORNINO2)
     caliber: 9mm Luger
     barrel: 3.41
@@ -23298,6 +23462,7 @@ models:
 - name: Glock 44
   aliases:
   - Glock G44
+  - Glock V-Series Model 44
   kind: pistol
   country: Austria
   calibers:
@@ -23518,8 +23683,17 @@ models:
 - name: Glock Model 20
   status: merged
   enabled: false
+- name: Glock V-Series Model 19x
+  status: merged
+  enabled: false
+- name: Glock V-Series Model 44
+  status: merged
+  enabled: false
 - name: GMR-15
   status: merged
+  enabled: false
+- name: GNS 17
+  status: pending
   enabled: false
 - name: GNS 17R
   status: pending
@@ -23546,6 +23720,9 @@ models:
   frame_size: Medium frame
   capacity: 6
   status: approved
+- name: GP 15R
+  status: pending
+  enabled: false
 - name: GP90
   status: pending
   enabled: false
@@ -23587,6 +23764,9 @@ models:
   status: pending
   enabled: false
 - name: GRY 18
+  status: pending
+  enabled: false
+- name: GRY 18R
   status: pending
   enabled: false
 - name: GSG-16
@@ -23631,6 +23811,14 @@ models:
   manufacturers:
   - GSG
   capacity: 10
+  status: approved
+- name: GSG MP40
+  aliases:
+  - MP40
+  kind: pistol
+  country: Germany
+  manufacturers:
+  - GSG
   status: approved
 - name: GT27
   country: United States
@@ -24482,7 +24670,7 @@ models:
     msrp: 454.99
     maker_url: https://www.budsgunshop.com/products/pistols/taurus-gx4-toro-9mm-black-pistol-194214
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Taurus GX4 TORO Optics Ready 9mm Stainless Pistol (1-GX4CRP941-10SI)
     caliber: 9mm Luger
     barrel: 3.7
@@ -24630,6 +24818,9 @@ models:
   status: approved
 - name: HD-18
   status: approved
+- name: HEAT 45
+  status: pending
+  enabled: false
 - name: Heckler & Koch 45
   aliases:
   - HK45
@@ -24708,7 +24899,7 @@ models:
     part: 81000976BDL
     maker_url: https://www.budsgunshop.com/products/pistols/heckler-koch-hk416-pistol-22-lr-10-plus-1-8-5-inch-hk-fde-752014781
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Heckler & Koch HK416 Pistol AR-Style .22 LR 20+1 HK Brown Cerakote Pistol (81000975)
     caliber: .22 LR
     barrel: 8.5
@@ -25801,6 +25992,9 @@ models:
 - name: HGA 45
   status: merged
   enabled: false
+- name: HGA 9M
+  status: pending
+  enabled: false
 - name: HGR 22
   status: pending
   enabled: false
@@ -25841,6 +26035,8 @@ models:
   capacity: 10
   status: approved
 - name: Hi-Point YC9
+  aliases:
+  - YC9
   kind: pistol
   country: United States
   manufacturers:
@@ -26583,7 +26779,7 @@ models:
     msrp: 599.0
     maker_url: https://www.budsgunshop.com/products/rifles/howa-1500-legacy-hogue-overmolded-308-win-4-plus-1-16-25-inch-blue-black-rifle-127219
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Howa 1500 Legacy Hunter .22-250 Remington Blue/Black Bolt Action Rifle (HWH250T)
     caliber: .22 LR
     finish: Blued
@@ -27404,13 +27600,14 @@ models:
     source: budsgunshop
     status: approved
   - label: Howa M1500 Mini Action Super Deluxe Walnut .223 Remington Blue/Black Rifle (HWH223LUX)
+    caliber: 5.56x45mm NATO
     finish: Blued
     upc: '682146854466'
     part: HWH223LUX
     msrp: 839.0
     maker_url: https://www.budsgunshop.com/products/rifles/howa-m1500-mini-action-super-deluxe-walnut-223-remington-4-plus-1-22-inch-blue-black-rifle-729001637
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Howa M1500 Mini Action Threaded Barrel .223 Remington Matte Blue Rifle (HMA70223)
     finish: Blued
     upc: '682146394115'
@@ -28338,6 +28535,9 @@ models:
   manufacturers:
   - Koishikawa
   status: approved
+- name: JJ 9R
+  status: pending
+  enabled: false
 - name: Johnson Automatics Model 41
   status: merged
   enabled: false
@@ -29477,7 +29677,7 @@ models:
     msrp: 649.0
     maker_url: https://www.budsgunshop.com/products/pistols/kel-tec-sub-2000-sdp-9mm-27-plus-1-6-inch-threaded-pistol-200486
     source: budsgunshop
-    status: pending
+    status: approved
   status: approved
 - name: Kel-Tec SU-16A
   aliases:
@@ -31278,6 +31478,7 @@ models:
   aliases:
   - SDP 45
   - Vector SDP
+  - SDP 10
   kind: pistol
   country: United States
   capacity: 33
@@ -31340,6 +31541,9 @@ models:
   status: approved
 - name: LAR-8
   status: approved
+- name: LBL 250
+  status: pending
+  enabled: false
 - name: LBL 3
   status: pending
   enabled: false
@@ -31370,6 +31574,9 @@ models:
   status: approved
 - name: LCP380
   status: merged
+  enabled: false
+- name: LC ST MODEL 8
+  status: pending
   enabled: false
 - name: LDLX 22
   status: merged
@@ -31473,6 +31680,9 @@ models:
   - Lefaucheux
   status: approved
 - name: LI 380
+  status: merged
+  enabled: false
+- name: LI380
   status: merged
   enabled: false
 - name: LION 12
@@ -33898,12 +34108,17 @@ models:
   capacity: 9
   status: approved
 - name: MAC RA9
+  aliases:
+  - RA9
   kind: pistol
   country: United States
   manufacturers:
   - Military Armament Corp
   capacity: 17
   status: approved
+- name: MAG 2
+  status: pending
+  enabled: false
 - name: MAG 4
   status: pending
   enabled: false
@@ -34590,6 +34805,10 @@ models:
     source: maker-site
     status: approved
   status: approved
+- name: Maxim Defense MD9
+  kind: pistol
+  country: United States
+  status: approved
 - name: MAY 15
   status: pending
   enabled: false
@@ -34677,7 +34896,7 @@ models:
     msrp: 689.99
     maker_url: https://www.budsgunshop.com/products/pistols/canik-55-mete-mc9-l-9mm-w-optic-752020881
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Canik METE MC9 California 9mm Black Pistol (HG7651CAN)
     caliber: 9mm Luger
     barrel: 3.18
@@ -35002,7 +35221,7 @@ models:
     msrp: 500.0
     maker_url: https://www.budsgunshop.com/products/pistols/canik-mete-mc9l-9mm-17-plus-1-3-18-inch-barrel-black-pistol-171065
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Canik Mete MC9L 9mm Black Pistol (HG7882N)
     caliber: 9mm Luger
     barrel: 3.18
@@ -35012,7 +35231,7 @@ models:
     msrp: 500.0
     maker_url: https://www.budsgunshop.com/products/pistols/canik-mete-mc9l-9mm-17plus1-3-18-inch-black-pistol-171063
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Canik METE MC9L 9mm Black Pistol (HG7884N)
     caliber: 9mm Luger
     barrel: 3.18
@@ -35022,7 +35241,7 @@ models:
     msrp: 499.99
     maker_url: https://www.budsgunshop.com/products/pistols/canik-mete-mc9l-9mm-10-1-3-18-inch-black-pistol-171071
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Canik Mete MC9L 9mm Two-Tone FDE/Black Pistol (HG7882BDN)
     caliber: 9mm Luger
     barrel: 3.18
@@ -35032,7 +35251,7 @@ models:
     msrp: 500.0
     maker_url: https://www.budsgunshop.com/products/pistols/canik-mete-mc9l-9mm-17-plus-1-3-18-inch-two-tone-fde-black-pistol-171064
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Canik METE MC9L California Compliant 9mm FDE/BLK Pistol (HG7884CABDN)
     caliber: 9mm Luger
     barrel: 3.18
@@ -35042,7 +35261,7 @@ models:
     msrp: 524.99
     maker_url: https://www.budsgunshop.com/products/pistols/canik-mete-mc9l-california-compliant-9mm-10-plus-1-3-18-inch-fde-blk-pistol-183724
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Canik METE MC9L Compact 9mm Black Pistol (HG7884CAN)
     caliber: 9mm Luger
     barrel: 3.18
@@ -35053,7 +35272,7 @@ models:
     msrp: 524.99
     maker_url: https://www.budsgunshop.com/products/pistols/canik-mete-mc9l-9mm-10-plus-1-3-18-inch-black-pistol-183723
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Canik METE MC9L Compact 9mm Flat Dark Earth Pistol (HG7882DX)
     caliber: 9mm Luger
     barrel: 3.18
@@ -35063,7 +35282,7 @@ models:
     part: HG7882DX
     maker_url: https://www.budsgunshop.com/products/pistols/canik-mete-mc9l-9mm-17-plus-1-3-18-inch-flat-dark-earth-pistol-712033480
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Canik METE MC9L Optics Ready 9mm Black Pistol w/ Mecanik MO1 Red Dot (HG7882VN)
     caliber: 9mm Luger
     barrel: 3.18
@@ -35073,7 +35292,7 @@ models:
     msrp: 654.99
     maker_url: https://www.budsgunshop.com/products/pistols/canik-mete-mc9l-9mm-17-plus-1-3-18-inch-black-pistol-mecanik-mo1-red-dot-171066
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Canik METE MC9LS 9mm Flat Dark Earth Pistol (HG7883DN)
     caliber: 9mm Luger
     barrel: 3.64
@@ -37432,7 +37651,7 @@ models:
     msrp: 1036.0
     maker_url: https://www.budsgunshop.com/products/shotguns-hunting/mossberg-590r-stand-off-12-gauge-6-plus-1-18-5-inch-flat-dark-earth-shotgun-184741
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Mossberg 590R Stand-Off 12 Gauge Matte Blue Shotgun (50761)
     caliber: 12 gauge
     finish: Blued
@@ -37441,7 +37660,7 @@ models:
     msrp: 980.0
     maker_url: https://www.budsgunshop.com/products/shotguns-tactical/mossberg-590r-stand-off-12-gauge-10-plus-1-18-5-inch-matte-blue-shotgun-174404
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Mossberg 590RM Mag-Fed 12 Gauge Matte Blue Pump Action Shotgun (50213)
     caliber: 12 gauge
     finish: Blued
@@ -37458,7 +37677,7 @@ models:
     msrp: 777.0
     maker_url: https://www.budsgunshop.com/products/shotguns-hunting/mossberg-590s-12-gauge-5-plus-1-18-5-inch-3-inch-matte-blue-shotgun-184755
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Mossberg 590S Compact OR 12 Gauge Shotgun (51607)
     caliber: 12 gauge
     frame: Compact
@@ -38919,6 +39138,9 @@ models:
   status: pending
   enabled: false
 - name: ODG 15R
+  status: pending
+  enabled: false
+- name: ODG 17
   status: pending
   enabled: false
 - name: ODG 18
@@ -40416,6 +40638,9 @@ models:
   kind: rifle
   country: United Kingdom
   status: approved
+- name: PC 327
+  status: merged
+  enabled: false
 - name: PC 460
   status: pending
   enabled: false
@@ -40735,6 +40960,9 @@ models:
   manufacturers:
   - Radom
   status: approved
+- name: POLY 357M
+  status: pending
+  enabled: false
 - name: Polymer80 P80
   kind: pistol
   country: United States
@@ -40874,6 +41102,9 @@ models:
   calibers:
   - 7.62x54mmR
   status: approved
+- name: PST 12
+  status: pending
+  enabled: false
 - name: PST 5B
   status: pending
   enabled: false
@@ -40957,12 +41188,16 @@ models:
 - name: PTR 9
   aliases:
   - PTR 601
+  - PTR 9B
   kind: pistol
   country: United States
   manufacturers:
   - PTR Industries
   capacity: 30
   status: approved
+- name: PTR 9B
+  status: merged
+  enabled: false
 - name: PUMP 10
   status: pending
   enabled: false
@@ -41214,6 +41449,9 @@ models:
   enabled: false
 - name: RA-5R
   status: approved
+- name: RA9
+  status: merged
+  enabled: false
 - name: Radom MOD 35
   aliases:
   - MOD 35
@@ -41424,7 +41662,7 @@ models:
     msrp: 755.0
     maker_url: https://www.budsgunshop.com/products/rifles/remington-700-adl-bolt-action-308-win-4-plus-1-24-inch-blue-black-rifle-138623
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Remington 700 ADL Internal Magazine 6.5 Creedmoor Matte Blued Rifle (R85447)
     caliber: 6.5mm Creedmoor
     finish: Blued
@@ -41904,6 +42142,7 @@ models:
   - Pro Ultra
   - LI 380
   - CS 45
+  - LI380
   kind: pistol
   country: Philippines
   calibers:
@@ -43405,6 +43644,15 @@ models:
     source: maker-site
     status: approved
   status: approved
+- name: Rock Island XT22
+  aliases:
+  - XT22
+  - XT 22
+  kind: pistol
+  country: Philippines
+  manufacturers:
+  - Rock Island Armory
+  status: approved
 - name: RODS-2
   status: pending
   enabled: false
@@ -43512,13 +43760,14 @@ models:
   capacity: 4
   variants:
   - label: Rossi Model R95 Classic Lever Action .444 Marlin Black Oxide Finish Rifle (950444201)
+    caliber: .444 Marlin
     finish: Black
     upc: '754908344604'
     part: '950444201'
     msrp: 1060.99
     maker_url: https://www.budsgunshop.com/products/rifles/rossi-model-r95-classic-444-marlin-black-oxide-finish-rifle-6-plus-1-20-inch-170087
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Rossi R95 .30-30 Winchester Black Lever Action Rifle (953030181PLY)
     caliber: .30-30 Winchester
     finish: Black
@@ -43655,7 +43904,7 @@ models:
     msrp: 1287.99
     maker_url: https://www.budsgunshop.com/products/rifles/rossi-r95-lever-action-45-70-govt-stainless-silver-rifle-5-round-18-inch-162671
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Rossi R95 TBP Tactical .454 Casull Black Pistol (95P454131)
     barrel: 13.25
     finish: Black
@@ -44083,7 +44332,7 @@ models:
     msrp: 419.99
     maker_url: https://www.budsgunshop.com/products/rifles/rossi-rs22m-22-wmr-10plus1-21-inch-black-synthetic-threaded-rifle-149116
     source: budsgunshop
-    status: pending
+    status: approved
   status: approved
   notes: Approved 2026-10-12 from the pending queue.
 - name: Rossi ST-12
@@ -44157,6 +44406,9 @@ models:
 - name: RPX9
   capacity: 15
   status: approved
+- name: RPXC39
+  status: pending
+  enabled: false
 - name: RR51
   status: pending
   enabled: false
@@ -45581,6 +45833,15 @@ models:
     status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Ruger Security-380
+  aliases:
+  - SEC-380
+  - Security 380
+  kind: pistol
+  country: United States
+  manufacturers:
+  - Ruger
+  status: approved
 - name: Ruger Security-9
   aliases:
   - Security-9
@@ -46405,6 +46666,9 @@ models:
 - name: SAO 5
   status: pending
   enabled: false
+- name: SAO 9
+  status: pending
+  enabled: false
 - name: SAR-1
   kind: rifle
   country: Romania
@@ -47030,6 +47294,9 @@ models:
   wikipedia: https://en.wikipedia.org/wiki/Schmidt%E2%80%93Rubin
   status: approved
   position: 999
+- name: SCS 2
+  status: pending
+  enabled: false
 - name: SCT-19
   status: approved
 - name: SCT19
@@ -47127,6 +47394,9 @@ models:
     source: maker-site
     status: approved
   status: approved
+- name: SDP 10
+  status: merged
+  enabled: false
 - name: SDR 2
   status: merged
   enabled: false
@@ -47400,9 +47670,6 @@ models:
   manufacturers:
   - Sig Sauer
   status: approved
-- name: SIG SAUER 1911
-  status: pending
-  enabled: false
 - name: Sig Sauer 1911
   aliases:
   - Sig 1911
@@ -47606,6 +47873,9 @@ models:
     status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: SIG SAUER 1911
+  status: pending
+  enabled: false
 - name: Sig Sauer 47/8
   aliases:
   - 47/8
@@ -47947,7 +48217,7 @@ models:
     msrp: 2729.99
     maker_url: https://www.budsgunshop.com/products/pistols/sig-sauer-mcx-spear-lt-ir-223-remington-556-nato-nitride-pistol-170944
     source: budsgunshop
-    status: pending
+    status: approved
   - label: SIG Sauer MCX-SPEAR 16-Inch 7.62x51 NATO Coyote Tan Rifle (RSPEAR76216B)
     caliber: 7.62x51 NATO
     finish: FDE
@@ -52805,6 +53075,7 @@ models:
   - Model 327 TRR8
   - Model 327 Performance Center
   - TRR8
+  - PC 327
   kind: revolver
   country: United States
   calibers:
@@ -54203,6 +54474,7 @@ models:
   - Smith & Wesson 66
   - S&W 66
   - Smith and Wesson Model 66
+  - SW 66
   kind: revolver
   country: United States
   calibers:
@@ -55832,7 +56104,7 @@ models:
     msrp: 779.0
     maker_url: https://www.smith-wesson.com/product/m-p-fpc-black-topographic-finish
     source: maker-site
-    status: pending
+    status: approved
   - label: M&P FPC CA COMPLIANT
     caliber: 9mm Luger
     upc: 022188897630
@@ -56104,13 +56376,14 @@ models:
     source: maker-site
     status: approved
   - label: PERFORMANCE CENTER M&P9 M2.0 COMPACT CARRY COMP CA COMPLIANT
+    caliber: 9mm Luger
     frame: Compact
     upc: 022188905502
     part: '14774'
     msrp: 849.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-9-m2-0-compact-carry-comp-ca-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P9 M2.0 COMPACT CARRY COMP THUMB SAFETY 10RD COMPLIANT
     caliber: 9mm Luger
     frame: Compact
@@ -56146,12 +56419,13 @@ models:
     source: maker-site
     status: approved
   - label: PERFORMANCE CENTER M&P9 M2.0 METAL CARRY COMP CA COMPLIANT
+    caliber: 9mm Luger
     upc: 022188904192
     part: '14773'
     msrp: 1049.0
     maker_url: https://www.smith-wesson.com/product/performance-center-m-p-9-m2-0-metal-carry-comp-ca-compliant
     source: maker-site
-    status: pending
+    status: approved
   - label: PERFORMANCE CENTER M&P9 M2.0 METAL CARRY COMP MIDNIGHT BRONZE
     caliber: 9mm Luger
     upc: 022188907308
@@ -59779,7 +60053,7 @@ models:
     msrp: 1982.0
     maker_url: https://www.budsgunshop.com/products/rifles/springfield-armory-m1a-scout-squad-308-win-10-plus-1-18-inch-blue-black-rifle-24311
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Springfield Armory M1A Standard .308 Win 7.62x51 NATO Flat Dark Earth Rifle (MA9120)
     caliber: 7.62x51 NATO
     finish: FDE
@@ -60694,6 +60968,9 @@ models:
   country: Philippines
   capacity: 18
   status: approved
+- name: SR1
+  status: merged
+  enabled: false
 - name: SR22
   aliases:
   - SR22P
@@ -60756,6 +61033,9 @@ models:
   manufacturers:
   - Tisas
   status: approved
+- name: SS 6R
+  status: pending
+  enabled: false
 - name: SS 8
   status: pending
   enabled: false
@@ -60792,7 +61072,25 @@ models:
   - Standard Manufacturing
   capacity: 8
   status: approved
+- name: Standard Manufacturing SAP22
+  aliases:
+  - SAP22
+  kind: pistol
+  country: United States
+  manufacturers:
+  - Standard Manufacturing
+  status: approved
+- name: Standard Manufacturing SG22
+  aliases:
+  - SG22
+  kind: pistol
+  country: United States
+  manufacturers:
+  - Standard Manufacturing
+  status: approved
 - name: Standard Manufacturing SR1
+  aliases:
+  - SR1
   kind: pistol
   country: United States
   manufacturers:
@@ -61287,6 +61585,9 @@ models:
 - name: SW 500
   status: pending
   enabled: false
+- name: SW 66
+  status: merged
+  enabled: false
 - name: SW 686
   status: merged
   enabled: false
@@ -61299,6 +61600,9 @@ models:
   manufacturers:
   - Smith & Wesson
   status: approved
+- name: SW 9F
+  status: pending
+  enabled: false
 - name: SW9F
   kind: pistol
   country: United States
@@ -61629,6 +61933,12 @@ models:
   - Fratelli Tanfoglio
   status: approved
 - name: TAC 9M
+  status: pending
+  enabled: false
+- name: TACT 1
+  status: pending
+  enabled: false
+- name: TACT 2
   status: pending
   enabled: false
 - name: Tandem Kross ADX 22
@@ -62031,6 +62341,7 @@ models:
 - name: Taurus 856
   aliases:
   - TAU 856
+  - CH 856
   kind: revolver
   country: Brazil
   manufacturers:
@@ -62076,7 +62387,7 @@ models:
     part: '285625'
     maker_url: https://www.budsgunshop.com/products/pistols/taurus-856-38-special-6-round-2-inch-stainless-black-revolver-196758
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Taurus 856 2 Inch .38 Special Two Tone Revolver (285625BG10)
     caliber: .38 Special
     barrel: 2.0
@@ -62096,7 +62407,7 @@ models:
     msrp: 430.99
     maker_url: https://www.budsgunshop.com/products/revolvers/taurus-856-38-special-6-round-2-inch-matte-black-revolver-150720
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Taurus 856 2-Inch Compact .38 Special +P Stainless/Silver Revolver (285629MA)
     caliber: .38 Special
     barrel: 2.0
@@ -62107,7 +62418,7 @@ models:
     msrp: 446.99
     maker_url: https://www.budsgunshop.com/products/revolvers/taurus-856-38-special-plus-p-6-round-2-inch-stainless-silver-revolver-150927
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Taurus 856 38SPL 2 Stainless 6RD BluedEM (Z2856029)
     caliber: .38 Special
     barrel: 2.0
@@ -62166,7 +62477,7 @@ models:
     msrp: 469.0
     maker_url: https://www.budsgunshop.com/products/revolvers/taurus-856-defender-38-special-6-round-2-inch-revolver-149975
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Taurus 856 Executive Grade .38 Special Stainless/Silver Revolver (2856EX39CH)
     caliber: .38 Special
     barrel: 3.0
@@ -64679,7 +64990,7 @@ models:
     msrp: 416.99
     maker_url: https://www.budsgunshop.com/products/pistols/taurus-tx22-gen-ii-toro-22-lr-22-plus-1-4-6-inch-blue-black-pistol-166866
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Taurus TX22 T.O.R.O. .22 LR Black Pistol w/ Viridian Green Red Dot (12TX22P141RFX)
     caliber: .22 LR
     barrel: 4.6
@@ -64693,6 +65004,7 @@ models:
 - name: Taurus TX9
   aliases:
   - TX9
+  - TX 9
   kind: pistol
   country: Brazil
   calibers:
@@ -64791,6 +65103,9 @@ models:
     status: approved
   status: approved
   notes: Approved 2026-10-12 from the pending queue.
+- name: Taylor 1873
+  status: merged
+  enabled: false
 - name: Taylor Company 1873
   status: merged
   enabled: false
@@ -64803,6 +65118,7 @@ models:
   - Company AWE 1873
   - Company DE 1873
   - Taylor Company 1873
+  - Taylor 1873
   kind: revolver
   country: Italy
   capacity: 6
@@ -64895,7 +65211,7 @@ models:
     msrp: 406.99
     maker_url: https://www.budsgunshop.com/products/pistols/taurus-th9-compact-9mm-13-plus-1-black-pistol-100186
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Taurus TH9 Full Size 9mm Black Pistol (1TH9041)
     caliber: 9mm Luger
     barrel: 4.27
@@ -65773,6 +66089,9 @@ models:
   modern_production: true
   status: approved
   notes: Approved 2026-10-12 from the pending queue.
+- name: TONE 4
+  status: pending
+  enabled: false
 - name: TOP 22
   status: pending
   enabled: false
@@ -66020,6 +66339,9 @@ models:
   status: approved
   position: 990
 - name: TX22C
+  status: merged
+  enabled: false
+- name: TX 9
   status: merged
   enabled: false
 - name: TYP2
@@ -66885,6 +67207,15 @@ models:
   - Rock Island Armory
   modern_production: true
   status: approved
+- name: VT2
+  status: pending
+  enabled: false
+- name: VTX 1
+  status: pending
+  enabled: false
+- name: VTX 2
+  status: pending
+  enabled: false
 - name: VX11
   kind: rifle
   country: United States
@@ -67144,6 +67475,14 @@ models:
   manufacturers:
   - Walther
   capacity: 5
+  status: approved
+- name: Walther GSP500
+  aliases:
+  - GSP500
+  kind: pistol
+  country: Germany
+  manufacturers:
+  - Walther
   status: approved
 - name: Walther HP
   aliases:
@@ -70277,6 +70616,9 @@ models:
 - name: Winch Model 70
   status: merged
   enabled: false
+- name: WMR 30
+  status: pending
+  enabled: false
 - name: WMR 5
   status: pending
   enabled: false
@@ -70317,7 +70659,12 @@ models:
   status: pending
   enabled: false
 - name: wz.29
+  aliases:
+  - WZ29
   status: approved
+- name: WZ29
+  status: merged
+  enabled: false
 - name: WZ.43/52
   status: approved
 - name: WZ-48
@@ -70413,7 +70760,7 @@ models:
     msrp: 398.0
     maker_url: https://www.budsgunshop.com/products/pistols/springfield-armory-xd-mod-4-optic-ready-9mm-16-plus-1-4-inch-blue-black-pistol-195049
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Springfield Armory XD Mod.4 OSP 4 Inch 9mm Black Pistol (XDDG9101BLCM4)
     caliber: 9mm Luger
     barrel: 4.0
@@ -70423,7 +70770,7 @@ models:
     msrp: 398.0
     maker_url: https://www.budsgunshop.com/products/pistols/springfield-armory-xd-mod-4-osp-9mm-10-plus-1-4-inch-black-pistol-195050
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Springfield Armory XD Mod.4 OSP 9mm Pistol Gear Pac w/ Viridian RFX11 Green Dot (XDDG9101BLCM4PAC)
     caliber: 9mm Luger
     barrel: 4.0
@@ -70432,7 +70779,7 @@ models:
     msrp: 560.0
     maker_url: https://www.budsgunshop.com/products/pistols/springfield-armory-9mm-10-plus-1-4-inch-black-melonite-201671
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Springfield Armory XD Mod.4 OSP Gear Pac 9mm Black Pistol w/ Viridian RFX11 Green Dot (XDDG9101BM4PAC)
     caliber: 9mm Luger
     barrel: 4.0
@@ -70442,7 +70789,7 @@ models:
     msrp: 560.0
     maker_url: https://www.budsgunshop.com/products/pistols/springfield-armory-xd-mod-4-osp-gear-pac-9mm-16-plus-1-4-inch-black-pistol-201672
     source: budsgunshop
-    status: pending
+    status: approved
   - label: Springfield Armory XD-9 Sub-Compact 9mm Stainless/Silver Pistol (XD9821)
     caliber: 9mm Luger
     barrel: 3.1
@@ -70520,13 +70867,6 @@ models:
   modern_production: true
   maker_url: https://www.springfield-armory.com/xd-series-handguns/xd-s-mod-2-handguns/
   variants:
-  - label: Springfield Armory XD-S Mod.2 OSP 3.3" 9mm Pistol Factory Demo 9+1 (XDSG9339BOSPD)
-    caliber: 9mm Luger
-    upc: '411562441'
-    part: XDSG9339BOSPD
-    maker_url: https://www.budsgunshop.com/products/pistols/springfield-armory-xd-s-mod-2-osp-3-3-9mm-pistol-factory-demo-9-1-411562441
-    source: budsgunshop
-    status: pending
   - label: Springfield Armory XD-S Mod.2 OSP Compact .45 ACP Black Pistol (XDSG93345BOSP)
     caliber: .45 ACP
     barrel: 3.3
@@ -70537,7 +70877,7 @@ models:
     msrp: 482.0
     maker_url: https://www.budsgunshop.com/products/pistols/springfield-armory-xd-s-mod-2-osp-45-acp-6-plus-1-3-3-inch-black-pistol-140841
     source: budsgunshop
-    status: pending
+    status: approved
   status: approved
 - name: XDS-9
   aliases:
@@ -70550,6 +70890,14 @@ models:
   - Springfield
   modern_production: true
   maker_url: https://www.springfield-armory.com/xd-series-handguns/xd-s-mod-2-handguns/
+  variants:
+  - label: Springfield Armory XD-S Mod.2 OSP 3.3" 9mm Pistol Factory Demo 9+1 (XDSG9339BOSPD)
+    caliber: 9mm Luger
+    upc: '411562441'
+    part: XDSG9339BOSPD
+    maker_url: https://www.budsgunshop.com/products/pistols/springfield-armory-xd-s-mod-2-osp-3-3-9mm-pistol-factory-demo-9-1-411562441
+    source: budsgunshop
+    status: approved
   status: approved
 - name: XENA-15
   calibers:
@@ -70852,6 +71200,9 @@ models:
   status: approved
 - name: XVR 460
   status: pending
+  enabled: false
+- name: YC9
+  status: merged
   enabled: false
 - name: YCG1
   status: pending
