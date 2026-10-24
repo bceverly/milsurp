@@ -5679,6 +5679,23 @@ application's own client.
   listings, both Cimarron 1862 Pocket .380 ACP conversions already filed as
   black powder.
 
+**After the first production scans (2026-10-24).** Antique Weapon Store also
+files two "vampire killing kits" and a pair of bronze model cannons (plural, which
+`\bcannon\b` missed) under Firearms; both are now left out. Veteran Arms'
+sections are now "Muzzleloading Muskets" and "Muzzleloading Pistols": its
+titles often name only a pattern ("1795 Springfield", "1853 Enfield"), so only
+20 of its 42 guns were filed as black powder, and every gun it sells is one.
+The armory took the new shops' patterns: the British India Pattern and Pattern
+1742, French Model 1777 and 1728, the Eliott carbine and Sea Service pistol,
+and `armory qualify` gave the British and French pattern rows their country in
+the name ("British Pattern 1769").
+
+**Simpson Ltd. renamed its Cloud Functions.** On 2026-10-23 `fetchDataByCategory_v3`
+and `fetchSKU_Inventory` began answering 404 on every shelf, and the scan
+failed with nothing read. The site's bundle now calls `fetchDataByCategory_v6`
+and `fetchSKU_v2`, with the same parameters and the same answers; `_v6` adds a
+`sold` parameter that, left out, returns unsold stock as before.
+
 ### A count on every Armory tab — **Changed** 2026-10-17
 
 Asked for: "in the tab hypertext links ... always displayed any >0 counts

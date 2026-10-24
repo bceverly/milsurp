@@ -300,7 +300,7 @@ class TestItYieldsRatherThanReturns:
 
         def answer(url, **_kwargs):
             served.append(url)
-            if "fetchSKU_Inventory" in url:
+            if "fetchSKU_v2" in url:
                 return json.dumps(GALLERY)
             return json.dumps({"data": [RECORD], "totalPages": 1})
 

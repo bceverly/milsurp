@@ -9,10 +9,10 @@ robots.txt asking nothing of it.
 
 Read: the Firearms category, the sold guns with it (kept as sold). Not read:
 everything else. The category also files a few things that are not guns --
-a bronze cannon barrel, wheellock spanners, a holster, a line-throwing
-pistol -- and those are left out by name (:func:`is_not_a_gun`). A gun
-priced at zero is priced on request, and reads as unpriced (the Store API
-base's rule).
+a bronze cannon barrel and model cannons, wheellock spanners, a holster, a
+line-throwing pistol, "vampire killing kits" -- and those are left out by
+name (:func:`is_not_a_gun`). A gun priced at zero is priced on request, and
+reads as unpriced (the Store API base's rule).
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ SITE_BASE = "https://www.antiqueweaponstore.com/"
 #: bayonet, which is sold *with* a gun ("Rifle Musket, with Bayonet"), nor a
 #: tool company ("Providence Tool Co."), nor a holster a gun comes with.
 _NOT_A_GUN = re.compile(
-    r"\b(?:cannon|spanner|tools?(?!\s+co\b)|line[\s-]throwing|powder\s+(?:flask|horn|measure)|"
+    r"\b(?:cannons?|killing\s+kits?|spanners?|tools?(?!\s+co\b)|line[\s-]throwing|powder\s+(?:flask|horn|measure)|"
     r"bullet\s+mou?ld|(?<!with\s)holsters?|lock\s+only)\b",
     re.I,
 )

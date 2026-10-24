@@ -106,6 +106,8 @@ manufacturers:
   website: https://www.benelliusa.com/
   status: approved
 - name: Beretta
+  aliases:
+  - BTA
   country: Italy
   website: https://www.beretta.com/en-us
   status: approved
@@ -197,6 +199,9 @@ manufacturers:
   enabled: false
 - name: B&T
   status: approved
+- name: BTA
+  status: merged
+  enabled: false
 - name: BUL
   aliases:
   - BUL Armory
@@ -1794,6 +1799,12 @@ calibers:
   enabled: false
 - name: 1/10
   status: merged
+- name: 11.15x42R
+  aliases:
+  - 11.15x42mmR
+  - 11.15x42 R
+  - 11,15x42R
+  status: approved
 - name: 11.15x58mmR Kropatschek
   aliases:
   - 11.15x58R
@@ -1999,6 +2010,11 @@ calibers:
   - https://en.wikipedia.org/wiki/Gauge_(firearms)
   - https://en.wikipedia.org/wiki/Shotgun_cartridge
   bullet_diameter_in: 0.615
+- name: .218 Bee
+  aliases:
+  - 218 Bee
+  - .218 Winchester Bee
+  status: approved
 - name: '.22'
   status: merged
 - name: .220 Swift
@@ -4423,6 +4439,9 @@ models:
   enabled: false
 - name: 1766/68
   status: approved
+- name: 1769/75
+  status: merged
+  enabled: false
 - name: 1868/71
   status: pending
   enabled: false
@@ -5090,6 +5109,9 @@ models:
   status: approved
 - name: APC9
   status: approved
+- name: APXA1
+  status: merged
+  enabled: false
 - name: AR-10
   aliases:
   - AR10
@@ -5378,6 +5400,7 @@ models:
   - GI 45
   - Thompson 1911
   - Auto-Ordnance Trump Fight 1911
+  - Kahr Trmp Cstm 1911
   kind: pistol
   country: United States
   manufacturers:
@@ -5497,6 +5520,13 @@ models:
 - name: BBL 804
   status: pending
   enabled: false
+- name: Bear Creek BCA10
+  aliases:
+  - BCA10
+  - BCA-10
+  kind: rifle
+  country: United States
+  status: approved
 - name: BEAUTIFUL STEVENS LADIES MODEL 47
   status: pending
   enabled: false
@@ -7649,6 +7679,8 @@ models:
     status: approved
   status: approved
 - name: Beretta APX
+  aliases:
+  - APXA1
   kind: pistol
   country: Italy
   calibers:
@@ -9119,6 +9151,24 @@ models:
   modern_production: true
   status: approved
   notes: Approved 2026-10-12 from the pending queue.
+- name: British Eliott Carbine
+  aliases:
+  - 1773/90
+  - Eliott Dragoon Carbine
+  - Eliott Carbine
+  kind: flintlock_carbine
+  country: United Kingdom
+  status: approved
+- name: British India Pattern
+  aliases:
+  - India Pattern
+  - Pattern 1793
+  - India Pattern Brown Bess
+  - M1793
+  - M1810
+  kind: flintlock_rifle
+  country: United Kingdom
+  status: approved
 - name: British Mod. 1895
   aliases:
   - Mod. 1895
@@ -9136,6 +9186,44 @@ models:
   - '.577'
   status: approved
   enabled: false
+- name: British Pattern 1738
+  aliases:
+  - Pattern 1738
+  kind: flintlock_pistol
+  country: United Kingdom
+  status: approved
+- name: British Pattern 1742
+  aliases:
+  - Pattern 1742
+  - Long Land Pattern 1742
+  kind: flintlock_rifle
+  country: United Kingdom
+  status: approved
+- name: British Pattern 1756
+  aliases:
+  - pattern 1756
+  kind: flintlock_rifle
+  country: United Kingdom
+  status: approved
+- name: British Pattern 1769
+  aliases:
+  - Pattern 1769
+  - 1769/75
+  kind: flintlock_rifle
+  country: United Kingdom
+  status: approved
+- name: British Pattern 1777
+  aliases:
+  - Pattern 1777
+  kind: flintlock_rifle
+  country: United Kingdom
+  status: approved
+- name: British Pattern 1796
+  aliases:
+  - Pattern 1796
+  kind: flintlock_pistol
+  country: United Kingdom
+  status: approved
 - name: British Pattern 1843
   aliases:
   - Pattern 1843
@@ -9196,6 +9284,13 @@ models:
   country: United Kingdom
   calibers:
   - '.577'
+  status: approved
+- name: British Sea Service Pistol
+  aliases:
+  - 1716/77
+  - Sea Service Pistol
+  kind: flintlock_pistol
+  country: United Kingdom
   status: approved
 - name: BRN-10
   status: approved
@@ -10656,6 +10751,14 @@ models:
     maker_url: https://www.budsgunshop.com/products/rifles/browning-ab3-stalker-7mm-remington-mag-3-plus-1-26-inch-matte-blued-rifle-88522
     source: budsgunshop
     status: approved
+  status: approved
+- name: Browning BDA-380
+  aliases:
+  - BDA-380
+  - BDA 380
+  - BDA380
+  kind: pistol
+  country: Italy
   status: approved
 - name: Browning BL-22
   aliases:
@@ -20735,6 +20838,7 @@ models:
   - FN 509M
   - FN 509T
   - FN509T
+  - FNH 509
   kind: pistol
   country: Belgium
   calibers:
@@ -21428,6 +21532,9 @@ models:
 - name: FNH 502
   status: merged
   enabled: false
+- name: FNH 509
+  status: merged
+  enabled: false
 - name: FNH 545
   status: approved
 - name: FN HERSTAL 1935
@@ -21608,6 +21715,14 @@ models:
 - name: FNS-9C
   status: merged
   enabled: false
+- name: FN SCAR 15P
+  aliases:
+  - SCAR 15P
+  - SCAR-15P
+  - SCAR15P
+  kind: pistol
+  country: Belgium
+  status: approved
 - name: FN Trombone
   aliases:
   - Trombone
@@ -21706,6 +21821,14 @@ models:
   manufacturers:
   - Manufacture d'Armes de Saint-Étienne
   status: approved
+- name: French MLE 1822
+  aliases:
+  - MLE 1822
+  - M1822
+  country: France
+  calibers:
+  - '.69'
+  status: approved
 - name: French MLE 1822/42
   aliases:
   - MLE 1822/42
@@ -21743,6 +21866,22 @@ models:
   - 7.5x54mm French
   manufacturers:
   - Manufacture d'Armes de Saint-Étienne
+  status: approved
+- name: French Model 1728
+  aliases:
+  - 1728/46
+  - French M1728
+  - Model 1728/46
+  kind: flintlock_rifle
+  country: France
+  status: approved
+- name: French Model 1777
+  aliases:
+  - M1777
+  - French M1777
+  - Model An IX
+  kind: flintlock_rifle
+  country: France
   status: approved
 - name: French Model 1935S
   aliases:
@@ -28977,6 +29116,9 @@ models:
     source: budsgunshop
     status: approved
   status: approved
+- name: Kahr Trmp Cstm 1911
+  status: merged
+  enabled: false
 - name: Kahr X9
   kind: pistol
   country: United States
@@ -32224,6 +32366,12 @@ models:
   status: approved
   enabled: false
   notes: 'Disabled: identifies nothing on its own -- a Colt revolver and a gas mask.'
+- name: M1793
+  status: merged
+  enabled: false
+- name: M1795
+  status: merged
+  enabled: false
 - name: M17X
   status: merged
   enabled: false
@@ -32232,6 +32380,12 @@ models:
   - 9mm Luger
   capacity: 21
   status: approved
+- name: M1810
+  status: merged
+  enabled: false
+- name: M1822
+  status: merged
+  enabled: false
 - name: M1857
   status: approved
 - name: M1864
@@ -34223,6 +34377,13 @@ models:
   - Military Armament Corp
   capacity: 17
   status: approved
+- name: Madsen Model 47
+  aliases:
+  - Madsen M47
+  - Madsen 1947
+  kind: rifle
+  country: Denmark
+  status: approved
 - name: MAG 2
   status: pending
   enabled: false
@@ -35572,10 +35733,6 @@ models:
 - name: MKII 12
   status: pending
   enabled: false
-- name: MLE 1822
-  calibers:
-  - '.69'
-  status: approved
 - name: MLE 1935A
   calibers:
   - .32 French Long
@@ -40730,16 +40887,6 @@ models:
   modern_production: true
   status: approved
   notes: Approved 2026-10-12 from the pending queue.
-- name: Pattern 1738
-  status: approved
-- name: pattern 1756
-  status: approved
-- name: Pattern 1769
-  status: approved
-- name: Pattern 1777
-  status: approved
-- name: Pattern 1796
-  status: approved
 - name: Pattern 1809
   status: approved
 - name: Pattern 1842
@@ -41587,6 +41734,13 @@ models:
 - name: RA9
   status: merged
   enabled: false
+- name: Radical Firearms RF-15
+  aliases:
+  - RF-15
+  - RF15
+  kind: rifle
+  country: United States
+  status: approved
 - name: Radom MOD 35
   aliases:
   - MOD 35
@@ -42150,6 +42304,12 @@ models:
   - Remington
   status: approved
   position: 990
+- name: Remington R51
+  aliases:
+  - R51
+  kind: pistol
+  country: United States
+  status: approved
 - name: Remington Rolling Block
   aliases:
   - Remington Rolling Block Rifle
@@ -42197,6 +42357,9 @@ models:
 - name: RFX-11
   status: pending
   enabled: false
+- name: RFX11
+  status: pending
+  enabled: false
 - name: RFX15
   status: pending
   enabled: false
@@ -42211,6 +42374,13 @@ models:
 - name: RGTB44
   status: pending
   enabled: false
+- name: R Guns TRR15
+  aliases:
+  - TRR15
+  - TRR-15
+  kind: rifle
+  country: United States
+  status: approved
 - name: RIA 206
   status: merged
   enabled: false
@@ -42218,6 +42388,9 @@ models:
   status: pending
   enabled: false
 - name: RIB 12
+  status: pending
+  enabled: false
+- name: RJW225
   status: pending
   enabled: false
 - name: RL 380
@@ -47374,6 +47547,9 @@ models:
 - name: SC9
   capacity: 16
   status: approved
+- name: SCAR15P
+  status: merged
+  enabled: false
 - name: SCAR 16S
   kind: rifle
   country: Belgium
@@ -47440,6 +47616,9 @@ models:
   status: approved
   position: 999
 - name: SCS 2
+  status: pending
+  enabled: false
+- name: SCT17
   status: pending
   enabled: false
 - name: SCT-19
@@ -47818,6 +47997,9 @@ models:
   manufacturers:
   - Sig Sauer
   status: approved
+- name: SIG SAUER 1911
+  status: pending
+  enabled: false
 - name: Sig Sauer 1911
   aliases:
   - Sig 1911
@@ -48021,9 +48203,6 @@ models:
     status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
-- name: SIG SAUER 1911
-  status: pending
-  enabled: false
 - name: Sig Sauer 47/8
   aliases:
   - 47/8
@@ -57808,6 +57987,14 @@ models:
   - Heckler Koch
   capacity: 30
   status: approved
+- name: Spanish FR8
+  aliases:
+  - FR8
+  - FR-8
+  - FR 8
+  kind: rifle
+  country: Spain
+  status: approved
 - name: Spanish M1919
   aliases:
   - M1919
@@ -60267,6 +60454,7 @@ models:
 - name: Springfield Model 1795
   aliases:
   - Model 1795
+  - M1795
   kind: flintlock_rifle
   country: United States
   calibers:
@@ -70121,6 +70309,10 @@ models:
   status: approved
 - name: Winchester Model 290
   status: approved
+- name: Winchester Model 40
+  kind: shotgun
+  country: United States
+  status: approved
 - name: Winchester Model 42
   aliases:
   - Model 42
@@ -70130,6 +70322,12 @@ models:
   - .410 Gauge
   manufacturers:
   - Winchester
+  status: approved
+- name: Winchester Model 43
+  aliases:
+  - Model 43
+  kind: rifle
+  country: United States
   status: approved
 - name: Winchester Model 50
   kind: shotgun

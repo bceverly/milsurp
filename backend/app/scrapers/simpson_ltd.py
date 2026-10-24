@@ -7,8 +7,17 @@ too." Every word of that is true and it is the wrong door. The React bundle
 does not talk to Firestore directly -- it calls **Cloud Functions** on the same
 project, and those answer a plain unauthenticated GET::
 
-    https://us-central1-simpsonltd-bfd2b.cloudfunctions.net/fetchDataByCategory_v3
-    https://us-central1-simpsonltd-bfd2b.cloudfunctions.net/searchWebItems_v3
+    https://us-central1-simpsonltd-bfd2b.cloudfunctions.net/fetchDataByCategory_v6
+    https://us-central1-simpsonltd-bfd2b.cloudfunctions.net/searchWebItems_v6
+
+**The functions carry a version in their names, and Simpson retire the old
+ones.** On 2026-10-23 ``fetchDataByCategory_v3`` and ``fetchSKU_Inventory``
+began answering 404 to every shelf, and the scan failed with nothing read; the
+site's bundle (``/static/js/main.*.js``) had moved to
+``fetchDataByCategory_v6`` and ``fetchSKU_v2``, which take the same parameters
+and answer in the same shape. ``_v6`` adds a ``sold`` parameter; left out, it
+returns unsold stock only, as ``_v3`` did. When this scan next fails with 404s
+on every shelf, the bundle is the place to look.
 
 This is the seventh vendor filed as unreachable that had an endpoint, and the
 second one this month where the note in the roadmap was written from the shape
@@ -21,7 +30,7 @@ exception.
 the title, the full description, the asking price, the caliber, the action, the
 bore and stock condition and the FFL class -- everything except the gallery,
 where it gives two thumbnails (``D36066AT.webp``) out of the six to ten
-full-size photographs the listing actually has. ``fetchSKU_Inventory?sku=`` has
+full-size photographs the listing actually has. ``fetchSKU_v2?sku=`` has
 the rest, so there is a detail fetch, but it costs only pictures: a listing
 whose detail fails is complete in every other respect, and the two thumbnails
 are converted to their full-size names rather than stored as thumbnails.
@@ -46,11 +55,11 @@ from urllib.parse import quote, urlencode
 from .base import ScrapeContext, ScrapedItem, ScrapeError, SiteScraper
 
 SITE_BASE = "https://www.simpsonltd.com/"
-API = "https://us-central1-simpsonltd-bfd2b.cloudfunctions.net/fetchDataByCategory_v3"
+API = "https://us-central1-simpsonltd-bfd2b.cloudfunctions.net/fetchDataByCategory_v6"
 #: One listing's full gallery. Note the lower-case parameter: ``SKU=`` is
 #: answered with "SKU parameter is required", which reads as the endpoint being
 #: broken rather than as a spelling being wrong.
-SKU_API = "https://us-central1-simpsonltd-bfd2b.cloudfunctions.net/fetchSKU_Inventory"
+SKU_API = "https://us-central1-simpsonltd-bfd2b.cloudfunctions.net/fetchSKU_v2"
 
 #: Detail requests that may fail before the rest of the scan gives up on them.
 MAX_DETAIL_FAILURES = 5
@@ -125,7 +134,7 @@ NOT_READ = (
 #: hundred.
 #:
 #: **The parameters are ``page`` and ``limit``.** ``currentPage`` and
-#: ``itemsPerPage`` are what ``searchWebItems_v3`` beside it takes, and this
+#: ``itemsPerPage`` are what ``searchWebItems_v3`` beside it took, and this
 #: one accepts them, echoes ``currentPage`` back unchanged, and serves page one
 #: every time. The first version of this scraper used those names and read ten
 #: listings per shelf -- 190 in total, against 5,200 -- while making a hundred

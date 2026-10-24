@@ -38,6 +38,8 @@ def test_a_byte_order_mark_is_not_part_of_a_title():
         ("Exquisite Saxon Wheellock Rifle, ca. 1730", False),
         ("Stocking & Company Single Action Pepperbox Pistol. ca. 1850", False),
         ("Wheellock Pistol Holster, German, ca. 1630", True),
+        ("Pair of Large Early European Bronze Model Cannons, Dated 1671", True),
+        ("Professor Blomberg Vampire Killing Kit, 19th C and Later", True),
         ("Scarce US Model 1863 Lindsay Double Rifle Musket, with Bayonet", False),
         ("US M1861 Rifled Musket by Providence Tool Co.", False),
     ],

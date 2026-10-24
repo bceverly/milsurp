@@ -161,8 +161,8 @@ class VeteranArmsScraper(SiteScraper):
     page_gap_seconds: float = 5.0
 
     sources = (
-        {"category": "Muskets", "url": f"{SITE_BASE}shop/muskets"},
-        {"category": "Pistols", "url": f"{SITE_BASE}shop/pistols"},
+        {"category": "Muzzleloading Muskets", "url": f"{SITE_BASE}shop/muskets"},
+        {"category": "Muzzleloading Pistols", "url": f"{SITE_BASE}shop/pistols"},
     )
 
     def scrape(self, ctx: ScrapeContext) -> Iterable[ScrapedItem]:
