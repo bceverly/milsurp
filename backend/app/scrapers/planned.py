@@ -72,6 +72,20 @@ PLANNED: tuple[PlannedSite, ...] = (
         ),
     ),
     PlannedSite(
+        slug="military-heritage",
+        name="Military Heritage",
+        base_url="https://militaryheritage.com/",
+        platform="Hand-built HTML catalog; prices and stock from its own checkout API",
+        blocker=(
+            "About 60 reproduction muskets, blunderbusses and pistols, shipped "
+            "with the vent undrilled -- but the pages carry no price or stock "
+            '("Price available when connected"): both come from '
+            "api/checkout.php, and robots.txt disallows /api/ (checked "
+            "2026-10-24). The scanner honors robots.txt, so this waits on the "
+            "shop allowing it, or publishing prices in the pages."
+        ),
+    ),
+    PlannedSite(
         slug="shop-family-firearms",
         name="Family Firearms & Finishes",
         base_url="https://shopfamilyfirearms.com/",

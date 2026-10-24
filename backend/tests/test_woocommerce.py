@@ -274,15 +274,15 @@ class TestTheProductPage:
 
 
 class TestCollectorsFirearms:
-    def test_it_reads_only_military_and_antique_sections(self):
+    def test_it_reads_only_military_antique_and_black_powder_sections(self):
         """They are a general dealer with 207,000 products, so every source has
-        to name a section that is surplus or collector stock — never a parent
-        like `/rifles/`, which also holds sporting, tactical and rimfire."""
+        to name a section that is surplus, collector or black powder stock —
+        never a parent like `/rifles/`, which also holds sporting, tactical and
+        rimfire, nor `/colt-guns/` beside its black powder replicas."""
         urls = [source["url"] for source in CollectorsFirearmsScraper.sources]
-        assert all(
-            any(word in url for word in ("military", "martial", "antique", "luger", "mauser"))
-            for url in urls
-        )
+        words = ("military", "martial", "antique", "luger", "mauser", "blackpowder")
+        assert all(any(word in url for word in words) for url in urls)
+        assert not any(url.rstrip("/").endswith("/colt-guns") for url in urls)
 
     def test_it_reads_the_five_sections_it_used_to_claim_did_not_exist(self):
         """This file said "their military handguns are not separately

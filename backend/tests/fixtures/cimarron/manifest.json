@@ -1,0 +1,22 @@
+{
+  "slug": "cimarron",
+  "recorded_at": "2026-10-24T11:06:19+00:00",
+  "pages": [
+    {
+      "url": "https://www.cimarron-firearms.com/products/revolvers/percussion-revolvers-2.html",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://www.cimarron-firearms.com/catalog/product/view/id/11878/s/1861-navy-36-cal-75-fluted-cyl-cut-for-stock/category/472/",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://www.cimarron-firearms.com/catalog/product/view/id/6652/s/walker-s-walker-1847-a/category/472/",
+      "file": "0003.html.gz"
+    },
+    {
+      "url": "https://www.cimarron-firearms.com/catalog/product/view/id/6649/s/cimarron-62-pocket-navy-conversion-380-acp-6/category/472/",
+      "file": "0004.html.gz"
+    }
+  ]
+}

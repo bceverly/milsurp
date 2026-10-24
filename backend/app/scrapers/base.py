@@ -953,11 +953,15 @@ class SiteScraper(abc.ABC):
 # Parsing helpers shared by scrapers
 # ---------------------------------------------------------------------------
 _WS_RE = re.compile(r"\s+")
+#: Characters with no width that are not whitespace to Python: a byte-order
+#: mark Antique Weapon Store's titles begin with (2026-10-24), and the
+#: zero-width space and word joiner a pasted title can carry.
+_ZERO_WIDTH = re.compile("[\ufeff\u200b\u2060]")
 _PRICE_RE = re.compile(r"[\d][\d,]*(?:\.\d{1,2})?")
 
 
 def normalize_whitespace(text: str) -> str:
-    return _WS_RE.sub(" ", (text or "").replace("\xa0", " ")).strip()
+    return _WS_RE.sub(" ", _ZERO_WIDTH.sub("", (text or "").replace("\xa0", " "))).strip()
 
 
 #: Elements whose text is code, not prose. ``get_text()`` returns their

@@ -109,6 +109,10 @@ the whole catalog as JSON to the widget that draws the grid. See
 | [G4G Guns](https://g4gguns.com/) | `g4g-guns` | WooCommerce Store API (`woo_carry`) — a distributor's catalog; in-stock handguns in the carry calibers |
 | [Frisco Guns](https://friscoguns.com/) | `frisco-guns` | WooCommerce Store API (`woo_carry`) — as G4G; its "DEMO" guns read as used |
 | [James River Armory](https://www.jamesriverarmory.com/index.php?dispatch=categories.view&category_id=27) | `james-river-armory` | CS-Cart — "Available Firearms", 11: M14s, BM-59s and BM-62s, Yugoslav M72s, a Galil, Civil War reproductions; every product page read every scan |
+| [October Country](https://www.octobercountry.com/categories/Rifles-%252d-Muzzleloaders/) | `october-country` | BigCommerce — Idaho muzzleloading supplier: Traditions and Pedersoli sidelock rifles and muskets, Pietta percussion revolvers, a used section; ~30. Inlines, kits and loading stands left out |
+| [Antique Weapon Store](https://www.antiqueweaponstore.com/) | `antique-weapon-store` | WooCommerce Store API — North Carolina antique arms dealer's Firearms category: original flintlock, percussion, matchlock and wheellock guns, ~155 with the sold ones, ~30 in stock. A cannon barrel, spanners and a holster left out |
+| [Cimarron Firearms](https://www.cimarron-firearms.com/products/revolvers/percussion-revolvers-2.html) | `cimarron` | Magento — the importer's percussion revolvers, which it sells direct; 24, at its own prices |
+| [Veteran Arms](https://veteranarms.com/shop/muskets) | `veteran-arms` | Ecwid inside Joomla, drawn in headless Chrome — living-history reproduction muskets and pistols, matchlock to Civil War; 42, nearly all sold out on 2026-10-24 |
 
 ### Planned
 
@@ -1271,14 +1275,14 @@ the application's own HTTP client before it was built.
 | **Dixie Gun Works** | **Blocked**, on the coming-soon list: Cloudflare challenges this application on the home page itself |
 | **Lodgewood Mfg** | **Blocked**, on the coming-soon list: 85 guns, but Cloudflare challenges the application's HTTP client while letting a command-line fetch through, as at Family Firearms & Finishes |
 | Buffalo Arms | **Maybe.** About 160, but robots.txt disallows query strings, so only the first 16 of each section can be read |
-| Antique Weapon Store, October Country, Cimarron | **Maybe.** Small: 22 in stock, about 22, and an importer's 24 at list price |
+| Antique Weapon Store, October Country, Cimarron | **Maybe.** Small: 22 in stock, about 22, and an importer's 24 at list price. **Shipped 2026-10-24**, on request (see below) |
 | Taylor's & Co. | **Weak.** An importer's MSRP on 336 product pages at a ten-second crawl delay |
 | Middlesex Village Trading, C&C Sutlery, Jedediah Starr, Log Cabin Shop, Fall Creek Suttlery, Midwest Civil War Relics, Kibler's | **Weak.** Fixed catalogs that never move, stock only in prose, stale, tiny, or kits |
-| Chambers Flintlocks, Muzzleloader Builders Supply, Deercreek, Caywood, Atlanta Cutlery, Military Heritage, Henry Krank, Pedersoli's own shop | **Refused.** Kits and parts, made to order, non-firing, or not in the US |
+| Chambers Flintlocks, Muzzleloader Builders Supply, Deercreek, Caywood, Atlanta Cutlery, Military Heritage, Henry Krank, Pedersoli's own shop | **Refused.** Kits and parts, made to order, non-firing, or not in the US. Military Heritage re-measured 2026-10-24 and **blocked** by its robots.txt instead (see below) |
 
 **Shelves at shops already read, not added:** Collectors Firearms' flintlock and
 percussion sections (130 to 160 guns, but their thirty-second crawl delay makes
-it about an hour and a half more per pass); Simpson's "Modern Blackpowder",
+it about an hour and a half more per pass -- **added 2026-10-24** on request); Simpson's "Modern Blackpowder",
 deliberately not read; Kittery's black powder shelves, mostly inline; Greentop's
 used black powder sections, empty today. The black powder rule itself picks up
 what the existing antique dealers already list.
@@ -5638,6 +5642,42 @@ It also leaves out makers that made or sold originals too (Rossi, Navy Arms,
 Great Western, Miroku). Applied: 225 listings lost a year they should not
 have had. On the way, `curio.backfill(only_missing=False)` now clears a reading
 the rules no longer give instead of keeping it for want of a replacement.
+
+### More black powder shops, October 24 2026 — **five shipped, two not viable**
+
+Asked for: Pedersoli and Military Heritage, then "collectors black powder
+section - yes. the others: october country, antique weapon store and
+cimarron - yes. veteranarms.com is another one like military heritage. check
+them too. also, kiblerslongrifles.com too." Each was fetched with this
+application's user agent, robots.txt read, before anything was built, and the
+four plain-HTTP shops were then recorded and run in full with the
+application's own client.
+
+| Site | Verdict |
+| --- | --- |
+| Collectors Firearms | **Shipped** — six more sections on `collectors-firearms`: flintlock and percussion long guns, flintlock pistols, percussion pistols, percussion revolvers, derringers and pepperboxes, and Colt's black powder replicas. Fifteen sections now, at their thirty-second pace |
+| October Country | **Shipped** (`october-country`). BigCommerce; 30 on the first run -- Traditions sidelocks and muskets, two Pedersoli Hawkens, Pietta revolvers, one used gun. Its Buckstalker inline and two revolver loading stands are left out by name |
+| Antique Weapon Store | **Shipped** (`antique-weapon-store`). WooCommerce Store API; 154 originals from the Firearms category, 31 in stock and the rest kept as sold. A cannon barrel, two wheellock spanners, a holster and a line-throwing pistol are left out by name -- not a gun sold "with Bayonet", nor one made by the Providence Tool Co. |
+| Cimarron Firearms | **Shipped** (`cimarron`). Magento; the 24 percussion revolvers, which its How to Order page says it sells direct (its cartridge guns go through dealers). Its long guns held no percussion rifle. Its own product names are cut at thirty characters ("...CONV 6\" 380 AC") -- the product page says the same, so there is nothing longer to read |
+| Veteran Arms | **Shipped** (`veteran-arms`), the second scraper to need a browser. An Ecwid store inside Joomla: the page carries no products until Ecwid's script draws them, and Ecwid's API wants a token the page does not publish. 31 muskets and 11 pistols, all priced and described, two of them in stock on 2026-10-24 -- one an original on consignment, read as used |
+| Military Heritage | **Blocked** by its own robots.txt, on the coming-soon list. About 60 reproductions, shipped with the vent undrilled -- which is what makes them buildable rather than the "non-firing" the October 8 survey refused them as. But no page carries a price or stock ("Price available when connected"): both come from `api/checkout.php`, and robots.txt says `Disallow: /api/` |
+| Kibler's Longrifles | **Not viable.** Shopify behind Cloudflare, and everything for sale is a kit, including the "Quick Ship" rifles; the finished guns are a gallery. Its product feed answered 429 to every request (`retry-after: 60`, "local_rate_limited") and the collection pages after the first |
+| Pedersoli | Not re-measured: Italian, and it sells through dealers. Its guns arrive here through Muzzle-Loaders.com, Track of the Wolf and now October Country |
+
+**Two rule fixes these shops turned up.**
+
+- A byte-order mark is not part of a title. Antique Weapon Store's titles
+  begin with one, which Python does not count as whitespace, so every title
+  would have been stored with an invisible character in front of it.
+  `normalize_whitespace` now drops it, with the zero-width space and word
+  joiner.
+- A cartridge gun among the black powder: the black powder rule now reads
+  "CONV" as a conversion and a modern pistol cartridge (9mm, 10mm, ACP,
+  "380 AC") as a cartridge gun. Cimarron's "'62 Pocket Navy Conv 6\" 380 AC"
+  and the 9mm Colt Defender in Collectors Firearms' Colt replica section were
+  both about to be filed as black powder. On production it changes two
+  listings, both Cimarron 1862 Pocket .380 ACP conversions already filed as
+  black powder.
 
 ### A count on every Armory tab — **Changed** 2026-10-17
 

@@ -13,6 +13,7 @@ import os
 from .aim_surplus import AimSurplusScraper
 from .allegheny_arsenal import AlleghenyArsenalScraper
 from .ancestry_guns import AncestryGunsScraper
+from .antique_weapon_store import AntiqueWeaponStoreScraper
 from .apex_gun_parts import ApexGunPartsScraper
 from .arms_of_america import ArmsOfAmericaScraper
 from .arms_unlimited import ArmsUnlimitedScraper
@@ -33,6 +34,7 @@ from .bowman_arms import BowmanArmsScraper
 from .centerfire_systems import CenterfireSystemsScraper
 from .checkpoint_charlies import CheckpointCharliesScraper
 from .cherrys import CherrysScraper
+from .cimarron import CimarronScraper
 from .classic_firearms import ClassicFirearmsScraper
 from .clyde_armory import ClydeArmoryScraper
 from .cmp import CmpScraper
@@ -68,6 +70,7 @@ from .merz_antiques import MerzAntiquesScraper
 from .mokas_raifus import MokasRaifusScraper
 from .muzzle_loaders import MuzzleLoadersScraper
 from .nickerson_military import NickersonMilitaryScraper
+from .october_country import OctoberCountryScraper
 from .officer_store import OfficerStoreScraper
 from .old_steel_arsenal import OldSteelArsenalScraper
 from .oldguns import OldGunsScraper
@@ -83,6 +86,7 @@ from .target_sports_usa import TargetSportsUsaScraper
 from .the_gun_works import TheGunWorksScraper
 from .tortuga_trading import TortugaTradingScraper
 from .track_of_the_wolf import TrackOfTheWolfScraper
+from .veteran_arms import VeteranArmsScraper
 from .we_buy_guns import WeBuyGunsScraper
 from .what_a_country import WhatACountryScraper
 from .ww2_collectibles import Ww2CollectiblesScraper
@@ -173,6 +177,10 @@ SCRAPER_CLASSES: tuple[type[SiteScraper], ...] = (
     FriscoGunsScraper,
     DeleonRxScraper,
     JamesRiverArmoryScraper,
+    OctoberCountryScraper,
+    AntiqueWeaponStoreScraper,
+    CimarronScraper,
+    VeteranArmsScraper,
 )
 
 _REGISTRY: dict[str, type[SiteScraper]] = {cls.slug: cls for cls in SCRAPER_CLASSES}

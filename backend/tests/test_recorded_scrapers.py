@@ -128,6 +128,10 @@ class TestTheRecordingsThemselves:
 #: exercised. Removing a name from here means recording it.
 NOT_RECORDABLE = {
     "royal-tiger": "renders its catalog in JavaScript; its fixture is a rendered page, tested in test_royal_tiger.py",
+    "veteran-arms": (
+        "an Ecwid store drawn in the browser; its grid and product page are tested "
+        "in test_black_powder_shops.py"
+    ),
     "simpson-ltd": "catalog is in Firestore, which refuses an unauthenticated read",
     "hunters-lodge": "reads a PDF flyer through OCR, not HTML — see test_flyer.py",
     "target-sports-usa": (

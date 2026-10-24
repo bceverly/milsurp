@@ -65,6 +65,9 @@ class TestWhatIsBlackPowder:
             ("Shiloh Sharps 1874 Black Powder Cartridge Rifle", "rifle"),
             # Cartridge guns of the same age.
             ("Springfield Model 1884 Trapdoor .45-70", "rifle"),
+            # A conversion abbreviated, and a modern pistol beside the replicas.
+            ("'62 POCKET NAVY CONV 6\" 380 AC", "percussion_revolver"),
+            ("Colt LW Defender Pistol 9MM (D2025-03060) DTX", None),
         ],
     )
     def test_these_are_not(self, title, kind):
@@ -149,7 +152,11 @@ class TestTheShopsSections:
         )
 
     def test_but_not_over_a_cartridge_or_an_inline(self):
-        for title in ("CVA Wolf .50 Cal Inline Muzzleloader", "Sharps 1874 .45-70 Musket"):
+        for title in (
+            "CVA Wolf .50 Cal Inline Muzzleloader",
+            "Sharps 1874 .45-70 Musket",
+            "Colt LW Defender Pistol 9MM (D2025-03060) DTX",
+        ):
             assert not blackpowder.is_black_powder(
                 title, is_rifle=True, is_pistol=False, category="Muzzleloaders"
             )

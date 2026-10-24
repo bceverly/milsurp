@@ -1,0 +1,14 @@
+{
+  "slug": "antique-weapon-store",
+  "recorded_at": "2026-10-24T11:06:01+00:00",
+  "pages": [
+    {
+      "url": "https://www.antiqueweaponstore.com/wp-json/wc/store/v1/products?per_page=100&page=1&orderby=date&order=desc&category=15",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://www.antiqueweaponstore.com/wp-json/wc/store/v1/products?per_page=100&page=2&orderby=date&order=desc&category=15",
+      "file": "0002.html.gz"
+    }
+  ]
+}

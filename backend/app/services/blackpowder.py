@@ -72,6 +72,9 @@ _SAYS_SO = re.compile(
 _CARTRIDGE_GUN = re.compile(
     r"\b(?:altered|converted|conversion|alteration)\s+(?:to|for)\s+(?:\w+\s+)?cartridges?\b"
     r"|\bcartridge\s+conversion\b|\bconversion\s+revolver\b|\brichards[\s-]*mason\b"
+    # A conversion abbreviated, as an importer's thirty-character titles have
+    # it: Cimarron's "'62 POCKET NAVY CONV 6\" 380 AC" (2026-10-24).
+    r"|\bconv\b"
     r"|\bblack[\s-]?powder\s+cartridge\b|\bbpcr\b|\bsnider\b|\ballin\b|\btrapdoor\b"
     r"|\b(?:rim|center|centre)[\s-]?fire\b|\b\.?\d{2,3}\s*(?:rf|cf)\b"
     # "Black powder" describing a cartridge gun: a Colt's black-powder frame,
@@ -79,6 +82,10 @@ _CARTRIDGE_GUN = re.compile(
     r"|\bblack[\s-]?powder\s+(?:frame|loads?)\b"
     # And a cartridge named outright: ".32WCF", "357 MAG", "45 LC".
     r"|\.?\d{2,3}[\s-]?(?:wcf|s\s*&\s*w|long\s+colt|lc|special|spl|mag(?:num)?)\b"
+    # ...or a modern pistol cartridge: a Colt LW Defender 9MM filed among
+    # Collectors Firearms' "Colt Modern Blackpowder Replicas" (2026-10-24), and
+    # the same truncated "380 AC".
+    r"|\b(?:9|10)\s?mm\b|\b\.?(?:25|32|380|45)\s*(?:acp?|auto)\b|\bacp\b"
     # A modern inline muzzleloader is a hunting gun fired by a shotgun primer,
     # not the percussion or flintlock gun this category was asked for.
     r"|\bin[\s-]?line\b|\b209\b"

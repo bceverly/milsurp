@@ -1,5 +1,5 @@
 # Web framework and server
-fastapi>=0.143.2,<1.0
+fastapi>=0.143.3,<1.0
 uvicorn[standard]>=0.54.0,<1.0
 python-multipart>=0.0.32
 email-validator>=2.3.0
@@ -8,7 +8,7 @@ email-validator>=2.3.0
 # 2.1 at least: the code relies on its typed Row unpacking (Result.tuples() is
 # deprecated there, and the warnings-as-errors suite fails on it), and the
 # annotations are written for its stubs -- mypy on 2.0 reads them differently.
-SQLAlchemy>=2.1.4,<3.0
+SQLAlchemy>=2.1.5,<3.0
 alembic>=1.20.0,<2.0
 # Mako is alembic's template engine (it renders new migration files), not
 # imported here, and declared for the same reason as urllib3 below: alembic
