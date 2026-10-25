@@ -172,6 +172,9 @@ const KINDS = [
   //: Percussion and flintlock guns, originals and reproductions. Outranks the
   //: other gun Types, so each is counted once. See app/services/blackpowder.py.
   { value: "black_powder", label: "Black powder" },
+  //: Suppressors and silencers, not the parts that go on one -- those stay
+  //: under Other. Never a gun, so nothing to rank. See app/services/suppressors.py.
+  { value: "suppressor", label: "Suppressors" },
   //: Its own Type rather than scattered through Rifles and Handguns. A
   //: department trade-in is a different thing to be looking for, and the
   //: vendors sell them as their own named sections, so the catalog can say so.
@@ -432,7 +435,7 @@ function ItemCard({ item }) {
             <span
               className={`item-card__price ${dropped ? "item-card__price--drop" : ""}`}
             >
-              {formatMoney(item.current_price, item.currency)}
+              {formatMoney(item.current_price, item.currency, item.unpriced_label)}
             </span>
             {dropped && (
               <span className="item-card__was">
@@ -494,7 +497,7 @@ function ItemRow({ item }) {
           <div className="item-row__head">
             <span className="item-row__title">{item.title}</span>
             <span className={`item-row__price ${dropped ? "item-row__price--drop" : ""}`}>
-              {formatMoney(item.current_price, item.currency)}
+              {formatMoney(item.current_price, item.currency, item.unpriced_label)}
               {dropped && (
                 <span className="item-row__was">
                   {formatMoney(item.previous_price, item.currency)}

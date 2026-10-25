@@ -1,0 +1,22 @@
+{
+  "slug": "primary-arms",
+  "recorded_at": "2026-10-25T17:23:31+00:00",
+  "pages": [
+    {
+      "url": "https://www.primaryarms.com/api/items?fieldset=search&q=suppressor&limit=100&offset=0",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://www.primaryarms.com/api/items?fieldset=search&q=suppressor&limit=100&offset=100",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://www.primaryarms.com/api/items?fieldset=search&q=suppressor&limit=100&offset=200",
+      "file": "0003.html.gz"
+    },
+    {
+      "url": "https://www.primaryarms.com/api/items?fieldset=search&q=suppressor&limit=100&offset=300",
+      "file": "0004.html.gz"
+    }
+  ]
+}

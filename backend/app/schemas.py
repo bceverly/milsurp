@@ -1339,6 +1339,9 @@ class ItemOut(UTCModel):
     id: int
     site_id: int
     site_name: str | None = None
+    #: What to show for a listing with no price, when its shop has words of
+    #: its own ("View on site for price"); None means the page's default.
+    unpriced_label: str | None = None
     url: str
     title: str
     category: str | None = None
@@ -1358,6 +1361,7 @@ class ItemOut(UTCModel):
     is_police_surplus: bool = False
     is_concealed_carry: bool = False
     is_black_powder: bool = False
+    is_suppressor: bool = False
     is_sold: bool
     is_active: bool
     current_price: float | None = None

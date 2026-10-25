@@ -65,7 +65,7 @@ the whole catalog as JSON to the widget that draws the grid. See
 | [Recoil Gun Works](https://www.recoilgunworks.com/) | `recoil-gun-works` | BigCommerce — 229 police trade-ins across pistols, rifles and shotguns, every one priced |
 | [Officer Store](https://officerstore.com/) | `officer-store` | BigCommerce — 13 LE trade-in Glocks, graded by condition |
 | [Arms Unlimited](https://armsunlimited.com/) | `arms-unlimited` | BigCommerce — 20 used and collectible, twelve of them military; their gear and current-production sections are not read |
-| [AIM Surplus](https://aimsurplus.com/) | `aim-surplus` | Its own JSON API — 162 police trade-ins and 18 curio-and-relic, all priced; the largest *live* police catalog here |
+| [AIM Surplus](https://aimsurplus.com/) | `aim-surplus` | Its own JSON API — 162 police trade-ins and 18 curio-and-relic, all priced; the largest *live* police catalog here. Since 2026-10-25 also its NFA suppressors, ~210 |
 | [eBayonet](https://ebayonet.com/) | `ebayonet` | WordPress with a bespoke plugin, read through its public REST API. Was five Word-exported pages until September 2026 |
 | [Surplus Defense](https://www.surplusdefense.com/) | `surplus-defense` | **Wix Stores base class** — 45 listings and every one collector milsurp |
 | [Joe Salter](https://shop.joesalter.com/) | `joe-salter` | **OpenCart** — 320 collector listings, every one priced; **no photographs, because their robots.txt disallows `/image`** |
@@ -113,6 +113,13 @@ the whole catalog as JSON to the widget that draws the grid. See
 | [Antique Weapon Store](https://www.antiqueweaponstore.com/) | `antique-weapon-store` | WooCommerce Store API — North Carolina antique arms dealer's Firearms category: original flintlock, percussion, matchlock and wheellock guns, ~155 with the sold ones, ~30 in stock. A cannon barrel, spanners and a holster left out |
 | [Cimarron Firearms](https://www.cimarron-firearms.com/products/revolvers/percussion-revolvers-2.html) | `cimarron` | Magento — the importer's percussion revolvers, which it sells direct; 24, at its own prices |
 | [Veteran Arms](https://veteranarms.com/shop/muskets) | `veteran-arms` | Ecwid inside Joomla, drawn in headless Chrome — living-history reproduction muskets and pistols, matchlock to Civil War; 42, nearly all sold out on 2026-10-24 |
+| [Military Heritage](https://militaryheritage.com/muskets.htm) | `military-heritage` | Hand-built HTML catalog -- Access Heritage's reproduction muskets, carbines, blunderbusses and pistols, vent undrilled; 60. **No prices**: they load from an API robots.txt rules out, so every listing reads "View on site for price" and as available |
+| [Capitol Armory](https://www.capitolarmory.com/suppressor.html) | `capitol-armory` | Magento (`.product-item-info` cards) — Austin suppressor dealer; 334 cans, each card in or out of stock |
+| [Rainier Arms](https://www.rainierarms.com/suppressors/) | `rainier-arms` | Magento — the suppressor wall, ~210; robots.txt asks for eight seconds |
+| [Silencer Central](https://www.silencercentral.com/shop/silencers/) | `silencer-central` | Algolia from Magento — the Silencers tree less its Archive, ~315; a secured search key read from the page every scan |
+| [KY Gun Co](https://www.kygunco.com/category/shooting/guns/class-iii/suppressors) | `ky-gun-co` | Typesense (`search.keenesdepot.io`) — records the shop files as "Silencer" and in stock, ~260 of ~1,000 |
+| [Primary Arms](https://www.primaryarms.com/nfa/suppressors) | `primary-arms` | SuiteCommerce item API — searches for "suppressor" and "silencer", the shop's NFA-flagged records only, ~180 |
+| [Mile High Shooting](https://www.milehighshooting.com/suppressors/) | `mile-high-shooting` | BigCommerce — Thunder Beast, Abel and HUXWRX cans, ~90 |
 
 ### Planned
 
@@ -5660,7 +5667,7 @@ application's own client.
 | Antique Weapon Store | **Shipped** (`antique-weapon-store`). WooCommerce Store API; 154 originals from the Firearms category, 31 in stock and the rest kept as sold. A cannon barrel, two wheellock spanners, a holster and a line-throwing pistol are left out by name -- not a gun sold "with Bayonet", nor one made by the Providence Tool Co. |
 | Cimarron Firearms | **Shipped** (`cimarron`). Magento; the 24 percussion revolvers, which its How to Order page says it sells direct (its cartridge guns go through dealers). Its long guns held no percussion rifle. Its own product names are cut at thirty characters ("...CONV 6\" 380 AC") -- the product page says the same, so there is nothing longer to read |
 | Veteran Arms | **Shipped** (`veteran-arms`), the second scraper to need a browser. An Ecwid store inside Joomla: the page carries no products until Ecwid's script draws them, and Ecwid's API wants a token the page does not publish. 31 muskets and 11 pistols, all priced and described, two of them in stock on 2026-10-24 -- one an original on consignment, read as used |
-| Military Heritage | **Blocked** by its own robots.txt, on the coming-soon list. About 60 reproductions, shipped with the vent undrilled -- which is what makes them buildable rather than the "non-firing" the October 8 survey refused them as. But no page carries a price or stock ("Price available when connected"): both come from `api/checkout.php`, and robots.txt says `Disallow: /api/` |
+| Military Heritage | **Blocked** by its own robots.txt at first, then **shipped without prices** on 2026-10-25 (`military-heritage`, below). About 60 reproductions, shipped with the vent undrilled -- which is what makes them buildable rather than the "non-firing" the October 8 survey refused them as. No page carries a price or stock ("Price available when connected"): both come from `api/checkout.php`, and robots.txt says `Disallow: /api/` |
 | Kibler's Longrifles | **Not viable.** Shopify behind Cloudflare, and everything for sale is a kit, including the "Quick Ship" rifles; the finished guns are a gallery. Its product feed answered 429 to every request (`retry-after: 60`, "local_rate_limited") and the collection pages after the first |
 | Pedersoli | Not re-measured: Italian, and it sells through dealers. Its guns arrive here through Muzzle-Loaders.com, Track of the Wolf and now October Country |
 
@@ -5695,6 +5702,64 @@ and `fetchSKU_Inventory` began answering 404 on every shelf, and the scan
 failed with nothing read. The site's bundle now calls `fetchDataByCategory_v6`
 and `fetchSKU_v2`, with the same parameters and the same answers; `_v6` adds a
 `sold` parameter that, left out, returns unsold stock as before.
+
+### Suppressors, a Type of their own — **Shipped** 2026-10-25
+
+Asked for: "what would be some good sites to add for the purchase of
+suppressors and the addition of them to the application? try to find like the
+top 10 and add them" -- and, asked how they should appear, a Type of their own
+and the seven shops that fit the existing machinery first.
+
+**The Type** (`app/services/suppressors.py`, migration 0084
+`items.is_suppressor`): a listing that is not a gun, a parts kit or a bayonet,
+and either names a suppressor or silencer as the thing sold or sits in a
+shop's suppressor section without naming a part. A part is read by which noun
+is the head: a part word before "suppressor" describes the can ("Taper Mount
+Silencer"), one right after it is the thing sold ("Suppressor Cover"), and
+what follows "w/" is what comes in the box ("Suppressor w/ Key-Micro Mount").
+Where the shop itself says a record is an NFA item -- KY Gun Co's "Silencer",
+AIM Surplus's NFA Items, Silencer Central's Silencers tree, Primary Arms'
+`custitem_isnfa` -- the scraper files it under "NFA Suppressors" and that
+settles it: Griffin's "Optimus 7 Taper Mount" is their Optimus can, not a
+mount. A rifle sold with a can on it, or integrally suppressed, stays a rifle.
+Until now suppressors were accessories by design ("Edged weapons and
+suppressors stop being rifles", above); this takes the cans out of "Other
+parts & accessories" and leaves the mounts, caps and covers there. Browse
+Type "Suppressors"; the scan and `reclassify` make the same call, so the
+upgrade's catch-up files the ones already stored. No hot-deals tab yet.
+
+**The survey**, every candidate fetched with this application's user agent and
+robots.txt read:
+
+| Site | Verdict |
+| --- | --- |
+| Capitol Armory, Rainier Arms, Silencer Central, KY Gun Co, Primary Arms, Mile High Shooting | **Shipped** (above). KY Gun Co was refused twice before for empty shelves; its suppressor wall is the opposite |
+| AIM Surplus | **Shelf added**: NFA Items > Suppressors (id 740), ~210, on the existing `aim-surplus` |
+| Bereli, Silencer Shop, Suppressed Armament | **Next.** Bereli's grid is Algolia with the key in a bundle not yet found; Silencer Shop, the largest, draws its grid by Magento AJAX that robots.txt disallows (a browser or its sitemap and product pages); Suppressed Armament's storefront publishes no product links in its HTML |
+| Brownells, OpticsPlanet, MidwayUSA | **Blocked**: a Cloudflare challenge, a PerimeterX captcha and a 403 on the home page |
+| EuroOptic, SWFA, Ammo Brothers | **Refused**: 429 on the first request |
+| Rocky Mountain Guns and Ammo, KGM Arms | No answer from the domain |
+| Silencer Depot | Redirects elsewhere (409) |
+| Sportsman's Warehouse, SGAmmo | No suppressors for sale, only accessories |
+
+### Military Heritage, without prices — **Shipped** 2026-10-25
+
+Asked for: "go ahead and add the military heritage stuff without prices (mark
+them as 'view on site for price' or something along those lines)." The catalog
+page (`muskets.htm`) lists all 60 guns as cards -- model code, title, summary,
+a link -- and each product page adds the specifications, the history and six
+to ten photographs; all of it is static HTML robots.txt allows. The price and
+the stock are what it does not publish, so `military-heritage` stores no price
+and reads every gun as available. A card can appear twice (once per collection
+it is grouped under) and is read once; two pistols share a page; three cards
+link only to a photograph and are sold from the catalog page.
+
+**A shop's own words for "no price".** `SiteScraper.unpriced_label` -- here
+"View on site for price" -- is sent with each unpriced listing of that shop as
+`unpriced_label`, and the browse cards, list rows, item page, similar
+listings and watchlist show it in place of "Call for price", which stays the
+default: at a shop that publishes prices, a listing without one usually is a
+call.
 
 ### Guns the catalog does not carry — **Shipped** 2026-10-25
 

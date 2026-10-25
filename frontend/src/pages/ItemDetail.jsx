@@ -994,9 +994,7 @@ function SimilarListings({ rows }) {
                   </span>
                 </span>
                 <span className="similar__price">
-                  {item.current_price == null
-                    ? "Call for price"
-                    : formatMoney(item.current_price, item.currency)}
+                  {formatMoney(item.current_price, item.currency, item.unpriced_label)}
                 </span>
               </Link>
             </li>
@@ -1528,7 +1526,7 @@ export default function ItemDetail() {
                 overStreet != null ? "detail__price-now--over" : ""
               }`}
             >
-              {formatMoney(item.current_price, item.currency)}
+              {formatMoney(item.current_price, item.currency, item.unpriced_label)}
             </span>
             {dropped && (
               <span className="detail__price-was">

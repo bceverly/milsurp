@@ -15,6 +15,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy import Select, and_, case, func, or_, select, true
 from sqlalchemy.orm import selectinload
 
+from .. import scrapers
 from ..deps import AdminUser, AppConfig, CurrentUser, DbSession
 from ..logsafe import client_address
 from ..models import (
@@ -229,6 +230,8 @@ def _to_out(
     # what ManufacturerOut.models got wrong before it was taken out.
     data.model = item.firearm_model.name if item.firearm_model else None
     data.site_name = site_names.get(item.site_id)
+    if item.current_price is None:
+        data.unpriced_label = scrapers.unpriced_label(data.site_name)
     data.thumbnail_url = _thumbnail_url(item)
     data.price_drop = item.price_drop_amount
     # Derived here rather than read off the row: the boundary moves, and the

@@ -113,9 +113,11 @@ export default function Watchlist() {
                         {note && <span className="watchlist__note">{note}</span>}
                       </span>
                       <span className="watchlist__price">
-                        {item.current_price == null
-                          ? "Call for price"
-                          : formatMoney(item.current_price, item.currency)}
+                        {formatMoney(
+                          item.current_price,
+                          item.currency,
+                          item.unpriced_label,
+                        )}
                         {item.is_sold && <span className="watchlist__sold">Sold</span>}
                         {!item.is_active && !item.is_sold && (
                           <span className="watchlist__sold">Gone</span>

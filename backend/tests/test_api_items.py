@@ -263,6 +263,7 @@ class TestTheTypeCounts:
         "pistol",
         "concealed_carry",
         "black_powder",
+        "suppressor",
         "bayonet",
         "parts_kit",
         "police_surplus",

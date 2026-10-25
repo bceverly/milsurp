@@ -64,6 +64,7 @@ from app.services import (
     overrides,
     provenance,
     scan_service,
+    suppressors,
     twofactor,
     unwanted,
     variants,
@@ -926,6 +927,10 @@ def cmd_reclassify(  # noqa: PLR0912, PLR0915 - one pass over every derived fiel
             if item.is_black_powder != is_bp:
                 item.is_black_powder = is_bp
                 moved = True
+            is_can = suppressors.decide(session, item)
+            if item.is_suppressor != is_can:
+                item.is_suppressor = is_can
+                moved = True
             was = (item.barrel_inches, item.finish, item.variant_id)
             variants.settle(session, item)
             if (item.barrel_inches, item.finish, item.variant_id) != was:
@@ -952,7 +957,10 @@ def cmd_reclassify(  # noqa: PLR0912, PLR0915 - one pass over every derived fiel
         powder = session.execute(
             select(func.count(Item.id)).where(Item.is_black_powder.is_(True))
         ).scalar_one()
-        # "Other" as the browse page defines it: what none of the four claim.
+        cans = session.execute(
+            select(func.count(Item.id)).where(Item.is_suppressor.is_(True))
+        ).scalar_one()
+        # "Other" as the browse page defines it: what none of the five claim.
         #
         # Not "everything that is not a rifle or a handgun", which is what this
         # counted before and which quietly included the bayonets and parts kits
@@ -964,13 +972,14 @@ def cmd_reclassify(  # noqa: PLR0912, PLR0915 - one pass over every derived fiel
                 Item.is_pistol.is_(False),
                 Item.is_bayonet.is_(False),
                 Item.is_parts_kit.is_(False),
+                Item.is_suppressor.is_(False),
             )
         ).scalar_one()
 
     print(f"Reclassified {changed} of {len(items)} listing(s).")
     print(f"  rifles: {rifles}   handguns: {pistols}   other: {other}")
     print(f"  bayonets: {bayonets}   parts kits: {kits}")
-    print(f"  concealed carry: {carried}   black powder: {powder}")
+    print(f"  concealed carry: {carried}   black powder: {powder}   suppressors: {cans}")
     _report_protected(protected)
     return 0
 

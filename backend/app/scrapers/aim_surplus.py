@@ -39,7 +39,9 @@ one for a general dealer:
 
 Left alone: Handguns (392) and Long Guns (179) are a modern dealer's shelf --
 BCM RECCE-16s, Radical Firearms, Spike's Tactical -- with the occasional Yugo
-SKS among them; NFA Items (221) is suppressors and short-barreled rifles; and
+SKS among them; NFA Items (221) is suppressors and short-barreled rifles, and
+since 2026-10-25 its Suppressors subsection (id 740) is read, filed as "NFA
+Suppressors" because every record there is a registered can; and
 Receivers (69) and Frames (30) are components, which the standing rule keeps
 out. The trade-ins that appear in Long Guns are cross-listings of the section
 already read, and the ``seen`` set collapses them.
@@ -85,7 +87,8 @@ class AimSurplusScraper(SiteScraper):
     newsletter_note = "Mailing lists page"
     description = (
         "Ohio surplus dealer. Their police trade-ins and curio-and-relic "
-        "firearms are read; their modern, NFA and component sections are not."
+        "firearms are read, and their suppressors; their other modern, NFA and "
+        "component sections are not."
     )
     requires_browser = False
     default_interval_minutes = 1440
@@ -97,6 +100,10 @@ class AimSurplusScraper(SiteScraper):
     sources: tuple[dict[str, Any], ...] = (
         {"category": "Police Trade-Ins", "id": 744},
         {"category": "Curio and Relics", "id": 42},
+        # NFA Items > Suppressors, added 2026-10-25 with the Suppressors Type:
+        # 213 cans, many of them Griffin, Dead Air, Rugged and SureFire. The
+        # NFA section's SBRs and machine guns beside it are not read.
+        {"category": "NFA Suppressors", "id": 740},
     )
 
     #: JSON rather than markup, but a whole scan is a few dozen requests and

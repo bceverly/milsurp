@@ -253,6 +253,9 @@ def _search_terms(search: str) -> list[str]:
 #: Black powder outranks both (added the same day; see
 #: app/services/blackpowder.py): a percussion revolver is never a carry gun or
 #: a trade-in, so it is taken out of every other gun bucket.
+#:
+#: Suppressors (2026-10-25, app/services/suppressors.py) are never guns, so
+#: they need no ranking: they come out of "other", where they used to fall.
 KINDS: dict[str, Any] = {
     "rifle": (
         Item.is_rifle.is_(True)
@@ -270,6 +273,7 @@ KINDS: dict[str, Any] = {
     ),
     "concealed_carry": Item.is_concealed_carry.is_(True) & Item.is_black_powder.is_(False),
     "black_powder": Item.is_black_powder.is_(True),
+    "suppressor": Item.is_suppressor.is_(True),
     "bayonet": Item.is_bayonet.is_(True),
     "parts_kit": Item.is_parts_kit.is_(True),
     "police_surplus": (
@@ -284,6 +288,7 @@ KINDS: dict[str, Any] = {
         & Item.is_pistol.is_(False)
         & Item.is_bayonet.is_(False)
         & Item.is_parts_kit.is_(False)
+        & Item.is_suppressor.is_(False)
     ),
 }
 

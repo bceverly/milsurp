@@ -31,6 +31,7 @@ from .base import (
 )
 from .botach import BotachScraper
 from .bowman_arms import BowmanArmsScraper
+from .capitol_armory import CapitolArmoryScraper
 from .centerfire_systems import CenterfireSystemsScraper
 from .checkpoint_charlies import CheckpointCharliesScraper
 from .cherrys import CherrysScraper
@@ -61,12 +62,15 @@ from .jg_sales import JgSalesScraper
 from .jj_military import JjMilitaryScraper
 from .joe_salter import JoeSalterScraper
 from .kittery_trading_post import KitteryTradingPostScraper
+from .ky_gun_co import KyGunCoScraper
 from .langara_arms import LangaraArmsScraper
 from .legacy_collectibles import LegacyCollectiblesScraper
 from .locked_loaded import LockedLoadedScraper
 from .lugerman import LugerManScraper
 from .madison_guns import MadisonGunsScraper
 from .merz_antiques import MerzAntiquesScraper
+from .mile_high_shooting import MileHighShootingScraper
+from .military_heritage import MilitaryHeritageScraper
 from .mokas_raifus import MokasRaifusScraper
 from .muzzle_loaders import MuzzleLoadersScraper
 from .nickerson_military import NickersonMilitaryScraper
@@ -75,10 +79,13 @@ from .officer_store import OfficerStoreScraper
 from .old_steel_arsenal import OldSteelArsenalScraper
 from .oldguns import OldGunsScraper
 from .pre98 import Pre98Scraper
+from .primary_arms import PrimaryArmsScraper
+from .rainier_arms import RainierArmsScraper
 from .recoil_gun_works import RecoilGunWorksScraper
 from .royal_tiger import RoyalTigerScraper
 from .sarco import SarcoScraper
 from .shoot_it import ShootItScraper
+from .silencer_central import SilencerCentralScraper
 from .simpson_ltd import SimpsonLtdScraper
 from .sportsmans_outdoor import SportsmansOutdoorScraper
 from .surplus_defense import SurplusDefenseScraper
@@ -181,12 +188,29 @@ SCRAPER_CLASSES: tuple[type[SiteScraper], ...] = (
     AntiqueWeaponStoreScraper,
     CimarronScraper,
     VeteranArmsScraper,
+    MilitaryHeritageScraper,
+    MileHighShootingScraper,
+    RainierArmsScraper,
+    CapitolArmoryScraper,
+    SilencerCentralScraper,
+    KyGunCoScraper,
+    PrimaryArmsScraper,
 )
 
 _REGISTRY: dict[str, type[SiteScraper]] = {cls.slug: cls for cls in SCRAPER_CLASSES}
 
 if len(_REGISTRY) != len(SCRAPER_CLASSES):  # pragma: no cover - guards a typo
     raise RuntimeError("two scrapers share the same slug")
+
+
+#: Each shop's own words for a listing with no price, by the name its site
+#: row carries, for the shops that have them. See SiteScraper.unpriced_label.
+_UNPRICED_LABELS = {cls.name: cls.unpriced_label for cls in SCRAPER_CLASSES if cls.unpriced_label}
+
+
+def unpriced_label(site_name: str | None) -> str | None:
+    """What a listing with no price says, for a shop with words of its own."""
+    return _UNPRICED_LABELS.get(site_name or "")
 
 
 def available_slugs() -> list[str]:

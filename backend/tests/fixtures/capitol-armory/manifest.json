@@ -1,0 +1,22 @@
+{
+  "slug": "capitol-armory",
+  "recorded_at": "2026-10-25T17:23:07+00:00",
+  "pages": [
+    {
+      "url": "https://www.capitolarmory.com/suppressor.html",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://www.capitolarmory.com/aac-300-sd-suppressor.html",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://www.capitolarmory.com/advanced-armament-762-sdn-6-suppressor.html",
+      "file": "0003.html.gz"
+    },
+    {
+      "url": "https://www.capitolarmory.com/aac-hub2k-m42000-556-6mm-rifle-silencer.html",
+      "file": "0004.html.gz"
+    }
+  ]
+}

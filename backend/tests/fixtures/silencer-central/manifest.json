@@ -1,0 +1,22 @@
+{
+  "slug": "silencer-central",
+  "recorded_at": "2026-10-25T17:23:14+00:00",
+  "pages": [
+    {
+      "url": "https://www.silencercentral.com/shop/silencers/",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://28F06XMI7B-dsn.algolia.net/1/indexes/magento2_default_products?x-algolia-application-id=28F06XMI7B&x-algolia-api-key=Yjk1NTFjNzk5ZTIyNDljMzBjMmU4ZjI0Yzc1YTYyZTQ5NzIyZDBlOTJkM2FjNWYwY2E3OGQ2NjkxNjJmYThhN3RhZ0ZpbHRlcnM9JnZhbGlkVW50aWw9MTc5MzAzNTM4Nw%3D%3D&query=&page=0&hitsPerPage=100&facetFilters=%5B%22categories.level0%3ASilencers%22%2C+%22categories.level1%3A-Silencers+%2F%2F%2F+Archive%22%5D",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://28F06XMI7B-dsn.algolia.net/1/indexes/magento2_default_products?x-algolia-application-id=28F06XMI7B&x-algolia-api-key=Yjk1NTFjNzk5ZTIyNDljMzBjMmU4ZjI0Yzc1YTYyZTQ5NzIyZDBlOTJkM2FjNWYwY2E3OGQ2NjkxNjJmYThhN3RhZ0ZpbHRlcnM9JnZhbGlkVW50aWw9MTc5MzAzNTM4Nw%3D%3D&query=&page=1&hitsPerPage=100&facetFilters=%5B%22categories.level0%3ASilencers%22%2C+%22categories.level1%3A-Silencers+%2F%2F%2F+Archive%22%5D",
+      "file": "0003.html.gz"
+    },
+    {
+      "url": "https://28F06XMI7B-dsn.algolia.net/1/indexes/magento2_default_products?x-algolia-application-id=28F06XMI7B&x-algolia-api-key=Yjk1NTFjNzk5ZTIyNDljMzBjMmU4ZjI0Yzc1YTYyZTQ5NzIyZDBlOTJkM2FjNWYwY2E3OGQ2NjkxNjJmYThhN3RhZ0ZpbHRlcnM9JnZhbGlkVW50aWw9MTc5MzAzNTM4Nw%3D%3D&query=&page=2&hitsPerPage=100&facetFilters=%5B%22categories.level0%3ASilencers%22%2C+%22categories.level1%3A-Silencers+%2F%2F%2F+Archive%22%5D",
+      "file": "0004.html.gz"
+    }
+  ]
+}

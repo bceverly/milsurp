@@ -40,13 +40,18 @@ class TestItIsRegistered:
 
 
 class TestWhichSectionsAreRead:
-    """Two of their seven firearm sections, chosen by measuring all seven."""
+    """Two of their seven firearm sections, chosen by measuring all seven, and
+    since 2026-10-25 the suppressors under a third (NFA Items)."""
 
     def sections(self):
         return {source["category"]: source["id"] for source in AimSurplusScraper.sources}
 
-    def test_the_two_on_subject_sections(self):
-        assert self.sections() == {"Police Trade-Ins": 744, "Curio and Relics": 42}
+    def test_the_on_subject_sections(self):
+        assert self.sections() == {
+            "Police Trade-Ins": 744,
+            "Curio and Relics": 42,
+            "NFA Suppressors": 740,
+        }
 
     def test_the_police_section_reads_as_police_surplus(self):
         """Which is what puts these in their own browse bucket. The category

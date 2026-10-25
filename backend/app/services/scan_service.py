@@ -64,6 +64,7 @@ from . import (
     overrides,
     provenance,
     scanalerts,
+    suppressors,
     traits,
     unwanted,
     variants,
@@ -688,8 +689,8 @@ def _settle_last(session: Session, item: Item) -> None:
     A person's correction is the last word, after the vendor's fields, the
     heuristics and the armory: whoever corrected this listing did so knowing
     what the rules said, so anything the rules conclude is what was corrected.
-    And concealed carry and black powder are decided from what the listing
-    finally says --
+    And concealed carry, black powder and suppressors are decided from what the
+    listing finally says --
     including a corrected caliber -- by the same call ``reclassify`` makes. See
     app/services/carry.py.
     """
@@ -697,6 +698,7 @@ def _settle_last(session: Session, item: Item) -> None:
     overrides.apply_to(session, item)
     item.is_concealed_carry = carry.decide(session, item)
     item.is_black_powder = blackpowder.decide(session, item)
+    item.is_suppressor = suppressors.decide(session, item)
     # The barrel, the finish and the variant they narrow the model to, from
     # the model and caliber now settled. See app/services/variants.py.
     variants.settle(session, item)

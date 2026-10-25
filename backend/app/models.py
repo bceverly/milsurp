@@ -1053,6 +1053,9 @@ class Item(Base, TimestampMixin):
     is_black_powder: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False, index=True
     )
+    #: A suppressor or silencer, not a part for one. Never also a gun, so it
+    #: needs no ranking against the others. See app/services/suppressors.py.
+    is_suppressor: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     #: The barrel length (app.services.barrels) and the finish the title
     #: states -- '3" MATTE', "4in Stainless" (app.services.variants) -- and
     #: the variant of the listing's model they narrow it to, when they narrow

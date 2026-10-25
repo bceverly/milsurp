@@ -827,6 +827,11 @@ class SiteScraper(abc.ABC):
     #: where it was read, so a reader can check it.
     shipping_note: str = ""
     shipping_source: str | None = None
+    #: What a listing of this shop's with no price says in place of "Call for
+    #: price". For a shop that publishes no prices to this application at all
+    #: -- Military Heritage loads them from an API its robots.txt rules out --
+    #: "call" is the wrong advice: the price is on their site.
+    unpriced_label: str | None = None
     #: Whether this vendor's descriptions are prose about the listing they
     #: belong to. Nearly always true, and false for a source where the text
     #: bleeds: Hunter's Lodge derives its whole catalog from one scanned page,

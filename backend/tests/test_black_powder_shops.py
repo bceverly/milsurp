@@ -14,6 +14,8 @@ from bs4 import BeautifulSoup
 from app.scrapers.antique_weapon_store import AntiqueWeaponStoreScraper, is_not_a_gun
 from app.scrapers.base import normalize_whitespace
 from app.scrapers.collectors_firearms import CollectorsFirearmsScraper
+from app.scrapers.military_heritage import catalog_items
+from app.scrapers.military_heritage import detail_from as mh_detail_from
 from app.scrapers.october_country import OctoberCountryScraper
 from app.scrapers.veteran_arms import detail_from, ecwid_price, grid_items
 
@@ -203,3 +205,64 @@ def test_veteran_arms_product_page():
     description, photos = detail_from(page)
     assert description is not None and description.startswith("History Following the close")
     assert photos == ["https://d2j6dbq0eux0bg.cloudfront.net/a.jpg"]
+
+
+# -- Military Heritage ---------------------------------------------------------
+
+
+def _mh_card(sku, title, href, kind="musket"):
+    return (
+        f'<tr class="ah-product-card" data-product-kind="{kind}">'
+        f'<td class="ah-card-media"><a href="{href}"><picture>'
+        f'<source srcset="assets/images/catalogue-{sku}.webp" type="image/webp"/>'
+        f'<source srcset="images/{sku}1.JPG"/>'
+        f'<img src="images/{sku}1_small.JPG" alt="{title}"/></picture></a></td>'
+        f'<td class="ah-card-body"><p class="ah-card-sku">{sku}</p><h3>{title}</h3>'
+        f'<p class="ah-card-summary">A summary.</p>'
+        f'<p class="ah-card-price">Price available when connected.</p></td></tr>'
+    )
+
+
+def test_military_heritage_reads_each_gun_once_and_unpriced():
+    page = (
+        "<table>"
+        + _mh_card("MTS005", "Pattern 1809 Infantry Musket", "musket2.htm")
+        + _mh_card("MTS005", "Pattern 1809 Infantry Musket", "musket2.htm")
+        + _mh_card("MTS055", "1853 British Enfield Rifle", "images/1853_enfield_rifle1.jpg")
+        + _mh_card("MTS012", "Sea Service Pistol (12 inch barrel)", "pistol1.htm", "pistol")
+        + "</table>"
+    )
+    items = catalog_items(page)
+    assert [item.external_key for item in items] == ["mh-MTS005", "mh-MTS055", "mh-MTS012"]
+    musket, enfield, pistol = items
+    assert musket.url == "https://militaryheritage.com/musket2.htm"
+    assert musket.price is None and not musket.is_sold and musket.is_new
+    assert musket.image_urls == ["https://militaryheritage.com/images/MTS0051.JPG"]
+    # A card that links only to a photograph is sold from the catalog page.
+    assert enfield.url == "https://militaryheritage.com/muskets.htm"
+    assert pistol.category == "Muzzleloading Pistols"
+    assert musket.category == "Muzzleloading Muskets"
+
+
+def test_military_heritage_product_page():
+    page = (
+        '<main><p class="ah-product-description">A reproduction of the Prussian pattern.</p>'
+        '<p class="ah-product-state">Supplied in a non-firing state.</p>'
+        '<ul class="ah-spec-list"><li>Barrel 41 inches</li></ul>'
+        '<section class="ah-inspection"><a href="images/1809new1.JPG"></a>'
+        '<a href="images/1809new2.JPG"></a></section></main>'
+    )
+    description, photos = mh_detail_from(page, "https://militaryheritage.com/musket2.htm")
+    assert description.startswith("A reproduction of the Prussian pattern.")
+    assert "Barrel 41 inches" in description
+    assert photos == [
+        "https://militaryheritage.com/images/1809new1.JPG",
+        "https://militaryheritage.com/images/1809new2.JPG",
+    ]
+
+
+def test_a_shop_with_no_prices_says_where_they_are():
+    from app import scrapers
+
+    assert scrapers.unpriced_label("Military Heritage") == "View on site for price"
+    assert scrapers.unpriced_label("Collectors Firearms") is None

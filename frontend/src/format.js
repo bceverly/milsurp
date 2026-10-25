@@ -73,8 +73,13 @@ export function timeTitle(value) {
   return `${dateTimeFormat.format(date)} (${browserTimeZone})`;
 }
 
-export function formatMoney(value, currency = "USD") {
-  if (value === null || value === undefined) return "Call for price";
+/**
+ * A price, or what to say when there is none: "Call for price" unless the
+ * shop has words of its own (`item.unpriced_label`, e.g. "View on site for
+ * price" for a shop whose prices only appear on its own site).
+ */
+export function formatMoney(value, currency = "USD", unpricedLabel = null) {
+  if (value === null || value === undefined) return unpricedLabel || "Call for price";
   const formatter = new Intl.NumberFormat(undefined, {
     style: "currency",
     currency: currency || "USD",
