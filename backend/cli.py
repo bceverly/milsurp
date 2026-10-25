@@ -65,6 +65,7 @@ from app.services import (
     provenance,
     scan_service,
     twofactor,
+    unwanted,
     variants,
     webpush,
 )
@@ -1336,6 +1337,8 @@ def cmd_catch_up(args: argparse.Namespace) -> int:
     steps: list[tuple[str, Callable[[], int]]] = [
         ("armory names", lambda: _catch_up_qualify(args.dry_run)),
         ("listing facts", lambda: _catch_up_reclassify(args.dry_run)),
+        # After the facts, because the rules read the settled maker and kind.
+        ("unwanted listings", lambda: _catch_up_unwanted(args.dry_run)),
     ]
     failed = 0
     for label, run in steps:
@@ -1387,6 +1390,29 @@ def _catch_up_reclassify(dry_run: bool) -> int:
         return 0
     print("  listing facts:")
     return cmd_reclassify(argparse.Namespace(recompute=True, fields=""))
+
+
+def _catch_up_unwanted(dry_run: bool) -> int:
+    """Delete stored listings the catalog no longer carries (app/services/unwanted).
+
+    Idempotent like every step here: once they are gone, scans keep them out,
+    and a second run finds none.
+    """
+    with session_scope() as session:
+        found = unwanted.stored(session)
+        if not found:
+            print("  unwanted listings: none stored.")
+            return 0
+        counts: dict[str, int] = {}
+        for _id, why in found:
+            counts[why] = counts.get(why, 0) + 1
+        summary = ", ".join(f"{count} {why}" for why, count in sorted(counts.items()))
+        if dry_run:
+            print(f"  unwanted listings: {len(found)} would be deleted ({summary}).")
+            return 0
+        done = scan_service.delete_items(session, [item_id for item_id, _ in found], get_config())
+    print(f"  unwanted listings: deleted {done} ({summary}).")
+    return done
 
 
 def cmd_running_scans(args: argparse.Namespace) -> int:

@@ -65,6 +65,7 @@ from . import (
     provenance,
     scanalerts,
     traits,
+    unwanted,
     variants,
 )
 from .image_store import ImageStore, StoredImage, difference_hash, looks_like
@@ -981,6 +982,17 @@ def _retire_split_parents(
             select(Item.id).where(Item.site_id == site.id, Item.external_key.in_(retiring))
         ).scalars()
     )
+    return delete_items(session, ids, config)
+
+
+def delete_items(session: Session, ids: list[int], config: Config) -> int:
+    """Delete listings outright, and their photographs' files where nothing
+    else uses them. Commits. Returns how many were deleted.
+
+    By id, not by row: loading the listings into the session and deleting
+    underneath them would leave stale objects in its identity map, and a scan
+    goes on using that session.
+    """
     if not ids:
         return 0
     store = ImageStore(config)
@@ -1667,6 +1679,7 @@ def run_scan(  # noqa: PLR0912,PLR0915 - one linear scan lifecycle; see ROADMAP
                 created = updated = changes = 0
                 duplicates = 0
                 processed = 0
+                left_out: dict[str, int] = {}
 
                 for entry in scraped:
                     ctx.check_stop()
@@ -1674,6 +1687,19 @@ def run_scan(  # noqa: PLR0912,PLR0915 - one linear scan lifecycle; see ROADMAP
                         continue
                     already_seen = entry.external_key in seen_keys
                     _item, was_created, dropped = _upsert_item(session, site, entry, run, seen_at)
+                    # A gun the catalog does not carry, by the owner's choice
+                    # (app/services/unwanted.py): filed like any other so the
+                    # rule reads settled facts, then deleted before it is kept
+                    # -- and never counted as seen, so it cannot be de-listed,
+                    # alerted on or proposed to the armory.
+                    why = unwanted.reason(_item)
+                    if why:
+                        session.flush()
+                        doomed = _item.id
+                        session.expunge(_item)
+                        delete_items(session, [doomed], config)
+                        left_out[why] = left_out.get(why, 0) + 1
+                        continue
                     if already_seen:
                         duplicates += 1
                     elif was_created:
@@ -1704,6 +1730,12 @@ def run_scan(  # noqa: PLR0912,PLR0915 - one linear scan lifecycle; see ROADMAP
                         )
                 if duplicates:
                     log(f"Collapsed {duplicates} repeated key(s).")
+                if left_out:
+                    log(
+                        "Left out, as the catalog does not carry them: "
+                        + ", ".join(f"{count} {why}" for why, count in sorted(left_out.items()))
+                        + "."
+                    )
 
                 changes = (
                     session.query(PriceHistory).filter(PriceHistory.scan_run_id == run.id).count()

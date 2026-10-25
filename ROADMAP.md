@@ -5696,6 +5696,27 @@ failed with nothing read. The site's bundle now calls `fetchDataByCategory_v6`
 and `fetchSKU_v2`, with the same parameters and the same answers; `_v6` adds a
 `sold` parameter that, left out, returns unsold stock as before.
 
+### Guns the catalog does not carry — **Shipped** 2026-10-25
+
+Asked for: "please remove heritage rough rider revolvers and any hi-point
+pistol from the database and prevent them from coming in on future scans."
+`app/services/unwanted.py` names them, and a scan files every listing as usual
+and then deletes one it names before keeping it -- never counted as seen, so
+it is not de-listed, alerted on or proposed to the armory, and the run's log
+says how many were left out. `cli.py catch-up`, which the package runs on
+every upgrade, deletes any already stored, with their photographs' files
+where nothing else uses them.
+
+The rules read the settled listing, not the title alone. A Rough Rider is
+Heritage's by maker or by a title that opens with Heritage, HTG or HER, and
+either names the gun ("RR22", "RGH RDR", "Tac Cowboy", "Rancher", "Barkeep")
+or is a Heritage rimfire outside its other lines (the Roscoe, Ranch Hand,
+Settler and 92 stay). A Hi-Point pistol is Hi-Point's by maker or title, and a
+pistol by its kind, its armory model or a pistol model code ("JHP GEN2 45ACP"
+was filed as a rifle); the 995 and 4095 carbines stay, but a 995 sold with a
+brace is sold as a pistol and goes. Applied to production on 2026-10-25: 205
+Rough Riders and 204 Hi-Point pistols deleted, with 917 photo files.
+
 ### A count on every Armory tab — **Changed** 2026-10-17
 
 Asked for: "in the tab hypertext links ... always displayed any >0 counts
