@@ -9,12 +9,12 @@ pytest-xdist>=3.8.0      # one worker per core in scripts/test-backend.sh
 # project runs pytest with `filterwarnings = error`, so the fallback is a
 # hard failure. Both are listed because requirements.txt allows the whole
 # fastapi>=0.115,<1.0 range, which spans the change.
-httpx2>=2.13.1
+httpx2>=2.16.0
 httpx>=0.28.1            # fallback for pre-1.0 Starlette
 responses>=0.26.3          # stub HTTP for scraper tests
 
 # Linting and formatting
-ruff>=0.17.1
+ruff>=0.17.2
 black>=26.10.1
 mypy>=2.4.0
 bandit[toml]>=1.9.4      # security-focused static analysis
