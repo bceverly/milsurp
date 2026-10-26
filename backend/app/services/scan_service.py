@@ -696,9 +696,10 @@ def _settle_last(session: Session, item: Item) -> None:
     """
     modern_country(session, item)
     overrides.apply_to(session, item)
+    # First, so the gun Types after it see a can as a can.
+    item.is_suppressor = suppressors.settle(item)
     item.is_concealed_carry = carry.decide(session, item)
     item.is_black_powder = blackpowder.decide(session, item)
-    item.is_suppressor = suppressors.decide(session, item)
     # The barrel, the finish and the variant they narrow the model to, from
     # the model and caliber now settled. See app/services/variants.py.
     variants.settle(session, item)

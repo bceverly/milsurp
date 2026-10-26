@@ -98,6 +98,11 @@ manufacturers:
   - C. H. Ballard
   country: United States
   status: approved
+- name: Banish
+  aliases:
+  - BANISH SUPPRESSORS
+  country: United States
+  status: approved
 - name: BAYARD
   country: Belgium
   status: approved
@@ -749,6 +754,8 @@ manufacturers:
 - name: Israel Weapon Industries
   aliases:
   - IWI
+  - Weapon Industries
+  - Israeli Weapon Industries
   country: Israel
   status: approved
 - name: Ithaca
@@ -1641,6 +1648,9 @@ manufacturers:
 - name: WBP
   country: Poland
   status: approved
+- name: Weapon Industries
+  status: merged
+  enabled: false
 - name: Weapons Micro Galil
   status: approved
   enabled: false
@@ -1815,6 +1825,9 @@ calibers:
   rejected_wikipedia:
   - https://en.wikipedia.org/wiki/7.62%C3%9725mm_Tokarev
   - https://en.wikipedia.org/wiki/9%C3%9725mm_Dillon
+- name: 1.125x28
+  status: pending
+  enabled: false
 - name: 11.3x50mmR
   status: approved
   rejected_wikipedia:
@@ -1902,6 +1915,9 @@ calibers:
 - name: 12x50mm
   status: pending
   enabled: false
+- name: 1.375x24
+  status: pending
+  enabled: false
 - name: 13 Gauge
   aliases:
   - 13 Bore
@@ -1953,6 +1969,11 @@ calibers:
   - https://en.wikipedia.org/wiki/Shotgun_cartridge
   bullet_diameter_in: 0.662
 - name: 16x42
+  status: approved
+- name: '.17'
+  aliases:
+  - .17 Cal
+  - 17 Cal
   status: approved
 - name: '.177'
   status: approved
@@ -2055,6 +2076,11 @@ calibers:
   status: merged
 - name: 223 Wylde
   status: merged
+- name: '.224'
+  aliases:
+  - .224 Cal
+  - 224 Cal
+  status: approved
 - name: .224 Caliber
   aliases:
   - 224 Caliber
@@ -2597,6 +2623,16 @@ calibers:
 - name: '.33'
   status: pending
   enabled: false
+- name: '.338'
+  aliases:
+  - 338 Cal
+  - .338 Cal
+  - .338 Caliber
+  - 338 Caliber
+  - 33 Caliber
+  status: approved
+- name: 338 Caliber
+  status: merged
 - name: .338 Lapua
   aliases:
   - 338 Lapua
@@ -2614,6 +2650,8 @@ calibers:
   notes: Added 2026-10-11 for listings with no caliber.
   wikipedia: https://en.wikipedia.org/wiki/.338_Winchester_Magnum
   bullet_diameter_in: 0.338
+- name: 33 Caliber
+  status: merged
 - name: '.34'
   status: merged
 - name: .348 Winchester
@@ -2693,6 +2731,11 @@ calibers:
   rejected_wikipedia:
   - https://en.wikipedia.org/wiki/Cartridge_(firearms)
   - https://en.wikipedia.org/wiki/List_of_rimmed_cartridges
+- name: '.375'
+  aliases:
+  - .375 Cal
+  - 375 Cal
+  status: approved
 - name: .375 H&H Magnum
   aliases:
   - .375 H&H
@@ -2885,6 +2928,8 @@ calibers:
 - name: '.410'
   status: merged
   bullet_diameter_in: 0.41
+- name: '410'
+  status: merged
 - name: .410 bore
   status: merged
   bullet_diameter_in: 0.41
@@ -2893,6 +2938,7 @@ calibers:
   - .410 bore
   - 410 Gauge
   - '.410'
+  - '410'
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.410_bore
   bullet_diameter_in: 0.41
@@ -3168,6 +3214,12 @@ calibers:
   notes: Added 2026-10-11 for listings with no caliber.
   wikipedia: https://en.wikipedia.org/wiki/.458_SOCOM
   bullet_diameter_in: 0.4579
+- name: .458 Win Mag
+  aliases:
+  - 458 Win Mag
+  - .458 Winchester Magnum
+  - 458 WM
+  status: approved
 - name: .45 ACP
   aliases:
   - 11.43x23mm
@@ -4064,6 +4116,11 @@ calibers:
   rejected_wikipedia:
   - https://en.wikipedia.org/wiki/6.5mm_Creedmoor
   - https://en.wikipedia.org/wiki/6.5mm_Grendel
+- name: 8.6 Blackout
+  aliases:
+  - 8.6 BLK
+  - 8.6x43
+  status: approved
 - name: 8 Bore
   status: merged
 - name: 8 Gauge
@@ -4386,6 +4443,12 @@ calibers:
   notes: Not a cartridge -- a bolt marking. Read off an Inland M1 Carbine whose description says 'Blued
     flat bolt IO'. extract_caliber gets that listing right on its own (.30 Carbine); this row only ever
     overrode it. Disabled rather than deleted, as above.
+- name: Multi-caliber
+  aliases:
+  - MULTI
+  - Multi Caliber
+  - Multi-Cal
+  status: approved
 - name: SIG .277 Fury
   aliases:
   - '.277'
@@ -5474,6 +5537,14 @@ models:
   - Izhevsk
   status: approved
   notes: Approved 2026-10-12 from the pending queue.
+- name: Baker Rifle
+  aliases:
+  - Pattern 1806
+  - Baker Rifle Pattern 1806
+  - Pattern 1800 Baker
+  kind: flintlock_rifle
+  country: United Kingdom
+  status: approved
 - name: Ballard Rifle
   aliases:
   - Ballard Sporting Rifle
@@ -9032,6 +9103,9 @@ models:
 - name: BM 250
   status: pending
   enabled: false
+- name: BM556
+  status: pending
+  enabled: false
 - name: BM-59
   aliases:
   - BM59
@@ -9222,6 +9296,12 @@ models:
   aliases:
   - Pattern 1796
   kind: flintlock_pistol
+  country: United Kingdom
+  status: approved
+- name: British Pattern 1816
+  aliases:
+  - Pattern 1816
+  kind: flintlock_carbine
   country: United Kingdom
   status: approved
 - name: British Pattern 1843
@@ -12002,6 +12082,9 @@ models:
   enabled: false
 - name: CASED PRE-WAR WINCHESTER MODEL 21
   status: merged
+  enabled: false
+- name: CB - 30
+  status: pending
   enabled: false
 - name: CC 380
   status: merged
@@ -16818,6 +16901,9 @@ models:
 - name: CT 45
   status: pending
   enabled: false
+- name: CT5P
+  status: pending
+  enabled: false
 - name: CT9
   status: merged
   enabled: false
@@ -18023,6 +18109,7 @@ models:
 - name: CZ-83
   aliases:
   - CZ 83
+  - MOD 83
   kind: pistol
   country: Czech Republic
   calibers:
@@ -18678,6 +18765,9 @@ models:
   status: approved
   enabled: false
   notes: 'Disabled: identifies nothing on its own -- a Glock option code, not a model.'
+- name: DCBL 556
+  status: pending
+  enabled: false
 - name: DDH9
   status: pending
   enabled: false
@@ -20619,6 +20709,9 @@ models:
   status: approved
   position: 100
 - name: Flare Signal Co. Model 52
+  status: pending
+  enabled: false
+- name: FLOW 556K
   status: pending
   enabled: false
 - name: FMK-3
@@ -23924,6 +24017,9 @@ models:
 - name: GNS 17R
   status: pending
   enabled: false
+- name: Government Model 1911
+  status: merged
+  enabled: false
 - name: GOVT 45
   status: merged
   enabled: false
@@ -25044,6 +25140,9 @@ models:
   status: approved
 - name: HD-18
   status: approved
+- name: HD 556
+  status: pending
+  enabled: false
 - name: HEAT 45
   status: pending
   enabled: false
@@ -26339,6 +26438,9 @@ models:
   calibers:
   - 12 gauge
   status: approved
+- name: HNT 46
+  status: pending
+  enabled: false
 - name: Howa 1500
   aliases:
   - HCBN65C
@@ -28736,6 +28838,15 @@ models:
   manufacturers:
   - Israel Weapon Industries
   status: approved
+- name: IWS6
+  status: pending
+  enabled: false
+- name: IWS6K
+  status: pending
+  enabled: false
+- name: IWS7
+  status: pending
+  enabled: false
 - name: JAN 21
   status: pending
   enabled: false
@@ -32778,6 +32889,7 @@ models:
   - Model 1911-A1
   - Colt 1911A1
   - Colt 1911-A1
+  - Government Model 1911
   kind: pistol
   country: United States
   calibers:
@@ -35797,6 +35909,9 @@ models:
 - name: MOD 795
   status: pending
   enabled: false
+- name: MOD 83
+  status: merged
+  enabled: false
 - name: MODEL 02
   status: pending
   enabled: false
@@ -36940,6 +37055,12 @@ models:
   enabled: false
 - name: MODEL OF 1941
   status: merged
+  enabled: false
+- name: MODX-45
+  status: pending
+  enabled: false
+- name: MODX-9
+  status: pending
   enabled: false
 - name: MOS 17R
   status: pending
@@ -39453,6 +39574,9 @@ models:
 - name: ORS 10
   status: pending
   enabled: false
+- name: OSP 380
+  status: merged
+  enabled: false
 - name: OSP 45
   status: pending
   enabled: false
@@ -41393,7 +41517,13 @@ models:
 - name: PST 6B
   status: pending
   enabled: false
+- name: PST-7
+  status: pending
+  enabled: false
 - name: PSTL 10
+  status: pending
+  enabled: false
+- name: PSTL 45
   status: pending
   enabled: false
 - name: PT 111
@@ -41722,6 +41852,12 @@ models:
 - name: R13
   status: pending
   enabled: false
+- name: R45
+  status: pending
+  enabled: false
+- name: R50T
+  status: pending
+  enabled: false
 - name: R61
   status: approved
 - name: R73
@@ -41866,6 +42002,12 @@ models:
   status: pending
   enabled: false
 - name: RB 28
+  status: pending
+  enabled: false
+- name: RBS 762
+  status: pending
+  enabled: false
+- name: RC2
   status: pending
   enabled: false
 - name: REB44
@@ -42347,6 +42489,9 @@ models:
 - name: REV 8B
   status: pending
   enabled: false
+- name: RF 22
+  status: pending
+  enabled: false
 - name: RFG223
   calibers:
   - 5.56x45mm NATO
@@ -42371,6 +42516,13 @@ models:
 - name: RGBT44
   status: pending
   enabled: false
+- name: RG Industries RG 66
+  aliases:
+  - RG 66
+  - RG66
+  kind: revolver
+  country: United States
+  status: approved
 - name: RGTB44
   status: pending
   enabled: false
@@ -47790,6 +47942,15 @@ models:
   manufacturers:
   - Sig Sauer
   status: approved
+- name: SGN 12
+  status: pending
+  enabled: false
+- name: SGN 20
+  status: pending
+  enabled: false
+- name: SGN 410
+  status: pending
+  enabled: false
 - name: Shadow Systems E526
   aliases:
   - E526
@@ -47997,9 +48158,6 @@ models:
   manufacturers:
   - Sig Sauer
   status: approved
-- name: SIG SAUER 1911
-  status: pending
-  enabled: false
 - name: Sig Sauer 1911
   aliases:
   - Sig 1911
@@ -48203,6 +48361,9 @@ models:
     status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: SIG SAUER 1911
+  status: pending
+  enabled: false
 - name: Sig Sauer 47/8
   aliases:
   - 47/8
@@ -55040,6 +55201,14 @@ models:
   manufacturers:
   - Smith & Wesson
   status: approved
+- name: Smith & Wesson Model 745
+  aliases:
+  - Smith Wesson Model 745
+  - S&W 745
+  - Model 745
+  kind: pistol
+  country: United States
+  status: approved
 - name: Smith & Wesson Model 910
   aliases:
   - Smith & Wesson 910
@@ -59175,6 +59344,7 @@ models:
   aliases:
   - HC 9M
   - HC 380
+  - OSP 380
   kind: pistol
   country: United States
   manufacturers:
@@ -61339,6 +61509,12 @@ models:
   enabled: false
 - name: SR-25
   status: approved
+- name: SR - 30
+  status: pending
+  enabled: false
+- name: SR-33
+  status: pending
+  enabled: false
 - name: SR-38
   status: merged
   enabled: false
@@ -61366,6 +61542,9 @@ models:
   manufacturers:
   - Ruger
   status: approved
+- name: SRD22X
+  status: pending
+  enabled: false
 - name: SS 10
   status: pending
   enabled: false
@@ -65639,6 +65818,9 @@ models:
   - Auto-Ordnance
   - Thompson
   status: approved
+- name: TI 30
+  status: pending
+  enabled: false
 - name: Tisas Arms 1911
   aliases:
   - Tisas 1911
@@ -67553,6 +67735,15 @@ models:
   calibers:
   - 8mm Mauser
   status: approved
+- name: VOID-556
+  status: pending
+  enabled: false
+- name: VOID-762
+  status: pending
+  enabled: false
+- name: VOID-9
+  status: pending
+  enabled: false
 - name: VP9
   aliases:
   - VP9B
@@ -67599,6 +67790,9 @@ models:
   - Rock Island Armory
   modern_production: true
   status: approved
+- name: VRMT 223
+  status: pending
+  enabled: false
 - name: VT2
   status: pending
   enabled: false

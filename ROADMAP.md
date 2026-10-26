@@ -5742,6 +5742,23 @@ robots.txt read:
 | Silencer Depot | Redirects elsewhere (409) |
 | Sportsman's Warehouse, SGAmmo | No suppressors for sale, only accessories |
 
+**After the first production scans (2026-10-26).** The classifier had read a
+third of the cans as rifles -- "Rifle Suppressor", ".30 Cal", "Flow 762", or a
+bare model name -- and the first rule deferred to it: 96 of Silencer Central's
+326 and most of Capitol Armory's first page were filed as rifles, and their
+names went to the armory as proposed *gun* models. The rule now overrules that
+reading unless the title itself names a gun ("Suppressed Pistol", "Integrally
+Suppressed Rifle", a round count such as "30rd"), and is decided before the gun
+Types; a can's model link, finer kind and the barrel, frame and capacity read
+from its length are cleared. Measured against production before shipping: 251
+listings become suppressors, and a handful of Glocks sold with "suppressor
+height sights" stop being. A suppressor's thread pitch ("1.375x24",
+"1.125x28") is no longer read as a caliber. The armory took the bore ratings
+the cans state (.224, .338, .375, .17, 8.6 Blackout, .458 Win Mag,
+"Multi-caliber"), the Banish maker, and switched off 30 proposed models that
+were suppressor names.
+
+
 ### Military Heritage, without prices — **Shipped** 2026-10-25
 
 Asked for: "go ahead and add the military heritage stuff without prices (mark

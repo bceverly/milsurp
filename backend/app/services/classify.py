@@ -537,9 +537,16 @@ def _metric_caliber(haystack: str) -> str | None:
     **The window is 12 characters and deliberately not wider.** At 20 it would
     catch two more scopes and also throw away the Siamese Mauser's 8x52mm,
     whose description reads "cartridge, rear *sight* base".
+
+    A suppressor's thread pitch in inches -- "1.375x24" -- is not one either.
     """
     for match in _METRIC_CALIBER.finditer(haystack):
         if _SCOPE_WORD.search(haystack[match.end() : match.end() + 12]):
+            continue
+        # A thread pitch in inches, not a cartridge: a suppressor's mount is
+        # "1.375x24" or "1.125x28" (2026-10-26), and no cartridge's bore is
+        # under two millimeters.
+        if float(re.split(r"\s*[x×]", match.group(0).strip())[0]) < 2:
             continue
         # Upper-cased for the "R" of a rimmed cartridge (7.62x54R), then the
         # two letters that are conventionally lower put back: "10.35x22MM" is

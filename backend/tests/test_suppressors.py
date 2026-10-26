@@ -31,6 +31,11 @@ from app.services import search, suppressors
         ("PTR VENT Spiritus Inconel Suppressor 5.56 K Hard Case", "Suppressors"),
         ("GRIFFIN ARMAMENT Optimus 7 Taper Mount", "NFA Suppressors"),
         ("Banish 30 Multi Caliber Silencer", None),
+        (
+            "DIAMONDBACK FIREARMS DBS-30I 30 Cal/7.62 FDE Direct Thread HUB Adapter",
+            "NFA Suppressors",
+        ),
+        ("Faxon Firearms Twenty-Toucan", "NFA Suppressors"),
     ],
 )
 def test_a_suppressor(title, category):
@@ -38,21 +43,41 @@ def test_a_suppressor(title, category):
 
 
 @pytest.mark.parametrize(
-    ("title", "category", "is_firearm"),
+    ("title", "category"),
     [
-        ("Thunder Beast Ultra 7 Suppressor Cover", "Suppressors", False),
-        ("Dead Air Key Mount 1/2x28", "Suppressors", False),
-        ("SilencerCo ASR Muzzle Brake 5/8x24", "Suppressors", False),
-        ("GRIFFIN ARMAMENT Optimus 7 Taper Mount", "Suppressors", False),
-        ("Front Cap for Omega 300", "Suppressors", False),
-        ("Glock 19 Suppressor Height Sights", "Sights", False),
-        ("Ruger 10/22 Integrally Suppressed Rifle .22LR", "Rifles", True),
-        ("CMMG FOB 5.56 NATO 16in w/ ZEROED 556K Suppressor", "NFA Suppressors", True),
-        ("Glock 19 Gen 5 9mm Threaded Barrel Suppressor Ready", "Handguns", True),
+        ("Thunder Beast Ultra 7 Suppressor Cover", "Suppressors"),
+        ("Dead Air Key Mount 1/2x28", "Suppressors"),
+        ("SilencerCo ASR Muzzle Brake 5/8x24", "Suppressors"),
+        ("GRIFFIN ARMAMENT Optimus 7 Taper Mount", "Suppressors"),
+        ("Front Cap for Omega 300", "Suppressors"),
+        ("Glock 19 Suppressor Height Sights", "Sights"),
+        ("Ruger 10/22 Integrally Suppressed Rifle .22LR", "Rifles"),
+        ('CMMG FOB 5.56 NATO 16" 30rd w/ ZEROED 556K Suppressor - Black', "NFA Suppressors"),
+        ("B&T Station Six-9 Suppressed Pistol - USED", "Suppressors"),
+        ("B&T: GHM9 SD2 Pistol, 9mm, Kit", "Suppressors"),
+        ("Glock 19 Gen 5 9mm Threaded Barrel Suppressor Ready", "Handguns"),
+        ("Sig MCX Rattler .300 BLK w/ Suppressor", "Rifles"),
     ],
 )
-def test_not_a_suppressor(title, category, is_firearm):
-    assert not suppressors.is_suppressor(title, category=category, is_firearm=is_firearm)
+def test_not_a_suppressor(title, category):
+    assert not suppressors.is_suppressor(title, category=category)
+
+
+def test_it_overrules_a_can_read_as_a_rifle():
+    """On production on 2026-10-26, 96 of Silencer Central's first 326 cans had
+    been read as rifles -- "Rifle Suppressor", ".30 Cal", or a bare model."""
+    item = Item(
+        title="HUXWRX: Flow 762 TI, FDE",
+        category="Suppressors",
+        is_rifle=True,
+        is_pistol=False,
+        kind="rifle",
+        firearm_model_id=12,
+        barrel_inches=7.0,
+    )
+    assert suppressors.settle(item)
+    assert not item.is_rifle and item.kind is None and item.firearm_model_id is None
+    assert item.barrel_inches is None
 
 
 def test_the_type_partitions_out_of_other():
@@ -61,11 +86,10 @@ def test_the_type_partitions_out_of_other():
     assert "is_suppressor" in other
 
 
-def test_decide_reads_the_stored_listing():
-    item = Item(title="Dead Air Sandman-S", category="Suppressors", is_rifle=False, is_pistol=False)
+def test_decide_reads_the_stored_listing_and_changes_nothing():
+    item = Item(title="Dead Air Sandman-S", category="Suppressors", is_rifle=True, is_pistol=False)
     assert suppressors.decide(None, item)
-    item.is_rifle = True
-    assert not suppressors.decide(None, item)
+    assert item.is_rifle
 
 
 # -- Silencer Central ----------------------------------------------------------

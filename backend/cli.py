@@ -917,6 +917,15 @@ def cmd_reclassify(  # noqa: PLR0912, PLR0915 - one pass over every derived fiel
             # until the next scan of that shop put it back (2026-10-13).
             if overrides.apply_to(session, item):
                 moved = True
+            # Suppressors first, as a scan does, so a can read as a rifle stops
+            # being one before the gun Types see it. See app/services/suppressors.py.
+            was_gun = (item.is_rifle, item.is_pistol, item.firearm_model_id, item.kind)
+            is_can = suppressors.settle(item)
+            if item.is_suppressor != is_can:
+                item.is_suppressor = is_can
+                moved = True
+            if (item.is_rifle, item.is_pistol, item.firearm_model_id, item.kind) != was_gun:
+                moved = True
             # Last, from the fields just settled -- the same call a scan makes,
             # so the two paths cannot disagree. See app/services/carry.py.
             is_carry = carry.decide(session, item)
@@ -926,10 +935,6 @@ def cmd_reclassify(  # noqa: PLR0912, PLR0915 - one pass over every derived fiel
             is_bp = blackpowder.decide(session, item)
             if item.is_black_powder != is_bp:
                 item.is_black_powder = is_bp
-                moved = True
-            is_can = suppressors.decide(session, item)
-            if item.is_suppressor != is_can:
-                item.is_suppressor = is_can
                 moved = True
             was = (item.barrel_inches, item.finish, item.variant_id)
             variants.settle(session, item)

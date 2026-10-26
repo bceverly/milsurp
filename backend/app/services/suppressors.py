@@ -8,10 +8,11 @@ into "Other parts & accessories" with the slings and the scope rings. This
 takes the suppressors themselves out of that bucket and leaves everything
 that goes on one (a mount, a front cap, a cover) where it was.
 
-**How a listing qualifies**: not a gun -- a rifle sold with a can on it, or
-integrally suppressed, is a rifle -- nor a parts kit or a bayonet; and either
-its title names a suppressor or silencer as the thing sold, or the shop filed
-it in a suppressor section and the title does not name a part. A distributor's
+**How a listing qualifies**: not a gun by its own title -- a rifle sold with a
+can on it, or integrally suppressed, is a rifle -- nor a parts kit or a
+bayonet; and either its title names a suppressor or silencer as the thing
+sold, or the shop filed it in a suppressor section and the title does not name
+a part. It overrules the classifier's guess that a can is a rifle. A distributor's
 title often names only the model ("SilencerCo Omega 36M", "Dead Air Sandman-S
 Stainless"), so the section carries those.
 
@@ -84,38 +85,104 @@ def names_a_part(title: str) -> bool:
     return bool(re.match(r"\s*[-:]?\s*" + _PART_WORD.pattern, after, re.I))
 
 
+#: A gun named in a title: the noun, not as a word describing a can ("Rifle
+#: Suppressor", "Shotgun Silencer"), and not inside what the can comes with.
+#: Not "firearms", which is in makers' names: "Diamondback Firearms DBS-30i",
+#: "Faxon Firearms Twenty-Toucan".
+_GUN_NOUN = re.compile(
+    r"\b(?:rifles?|carbines?|pistols?|handguns?|revolvers?|shotguns?|sbrs?|sbs|uppers?)\b"
+    r"(?!\s*[-:]?\s*(?:suppressors?|silencers?|cans?|mounts?|adapters?))",
+    re.I,
+)
+#: A magazine count is a gun's: no can has rounds ("16in 30rd w/ ZEROED 556K
+#: Suppressor" is a CMMG rifle, KY Gun Co, 2026-10-25).
+_ROUNDS = re.compile(r"\b\d+\s*(?:rd|rds|rnd|rnds|rounds?)\b|\b\d+\+1\b", re.I)
+
+
+def names_a_gun(title: str) -> bool:
+    """Whether the title, before anything it is sold *with*, names a gun:
+    "B&T Station Six-9 Suppressed Pistol", "GHM9 SD2 Pistol, 9mm, Kit",
+    "Ruger 10/22 Integrally Suppressed Rifle"."""
+    title = _SOLD_WITH.sub("", title or "")
+    return bool(_GUN_NOUN.search(title) or _ROUNDS.search(title))
+
+
 def is_suppressor(
     title: str,
     *,
     category: str | None = None,
-    is_firearm: bool = False,
     is_parts_kit: bool = False,
     is_bayonet: bool = False,
 ) -> bool:
-    """Whether a listing is a suppressor. See the module docstring."""
-    if is_firearm or is_parts_kit or is_bayonet:
+    """Whether a listing is a suppressor. See the module docstring.
+
+    **It overrules the classifier's rifle-or-handgun reading**, which a can's
+    title often provokes -- "Rifle Suppressor", ".30 Cal", "Flow 762", or a
+    model name and nothing else -- so only the title itself naming a gun
+    (:func:`names_a_gun`) keeps a listing out. On production's first scans of
+    the suppressor shops on 2026-10-26, 96 of Silencer Central's 326 cans and
+    87 of Capitol Armory's first 109 had been read as rifles.
+    """
+    if is_parts_kit or is_bayonet:
         return False
     title = title or ""
+    if names_a_gun(title):
+        return False
     # The shop's own word that this is a registered NFA item settles it: a
     # mount or a cap is not one. KY Gun Co files these as "Silencer", AIM
-    # Surplus under NFA Items, Silencer Central in its Silencers tree, and
-    # their scrapers say so in the section ("NFA Suppressors").
+    # Surplus under NFA Items, Silencer Central in its Silencers tree, Primary
+    # Arms by its own flag, and their scrapers say so in the section ("NFA
+    # Suppressors").
     if _NFA_SECTION.search(category or ""):
         return True
     if names_a_part(title):
         return False
-    if _NAMED.search(title):
+    if _NAMED.search(_SOLD_WITH.sub("", title)):
         return True
     return bool(_SECTION.search(category or ""))
 
 
+#: What a gun has and a can does not, cleared when a listing turns out to be
+#: one: the armory's model and variant, the finer kind, and the readings the
+#: barrel, frame and capacity rules took from a can's length and caliber.
+_GUN_FIELDS = (
+    ("is_rifle", False),
+    ("is_pistol", False),
+    ("is_police_surplus", False),
+    ("kind", None),
+    ("firearm_model_id", None),
+    ("variant_id", None),
+    ("barrel_inches", None),
+    ("barrel_threaded", None),
+    ("frame_size", None),
+    ("capacity", None),
+)
+
+
+def settle(item: Item) -> bool:
+    """Decide a stored listing, and make a suppressor stop being a gun.
+
+    Called before the gun Types (carry, black powder) by the scan and by
+    ``reclassify``, so they see a can as what it is. Returns the answer.
+    """
+    can = is_suppressor(
+        item.title,
+        category=item.category,
+        is_parts_kit=bool(item.is_parts_kit),
+        is_bayonet=bool(item.is_bayonet),
+    )
+    if can:
+        for name, value in _GUN_FIELDS:
+            if getattr(item, name, value) != value:
+                setattr(item, name, value)
+    return can
+
+
 def decide(session: Session, item: Item) -> bool:  # noqa: ARG001 - the Types' signature
-    """The answer for a stored listing, from the fields already settled. The
-    scan and ``reclassify`` both call this last, as they do blackpowder.decide."""
+    """The answer for a stored listing, without changing it."""
     return is_suppressor(
         item.title,
         category=item.category,
-        is_firearm=bool(item.is_rifle or item.is_pistol),
         is_parts_kit=bool(item.is_parts_kit),
         is_bayonet=bool(item.is_bayonet),
     )
