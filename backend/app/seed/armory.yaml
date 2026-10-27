@@ -251,6 +251,9 @@ manufacturers:
 - name: CASED GRULLA ARMAS
   status: pending
   enabled: false
+- name: CAT
+  status: pending
+  enabled: false
 - name: CENT
   status: pending
   enabled: false
@@ -391,6 +394,11 @@ manufacturers:
 - name: Dickinson
   aliases:
   - Dickinson Arms
+  status: approved
+- name: Dillon Aero
+  aliases:
+  - Dillon
+  country: United States
   status: approved
 - name: DPMS
   country: United States
@@ -591,6 +599,9 @@ manufacturers:
   status: approved
   enabled: false
   notes: Not a firm. Read off 'GREEN HEART DSM 34'.
+- name: Griffin Armament
+  country: United States
+  status: approved
 - name: GSG
   aliases:
   - German Sport Guns
@@ -692,6 +703,9 @@ manufacturers:
   country: Sweden
   status: approved
   position: 230
+- name: HUXWRX
+  country: United States
+  status: approved
 - name: HZW
   country: Germany
   status: approved
@@ -778,6 +792,9 @@ manufacturers:
 - name: Izhmash
   country: Russia
   status: merged
+- name: Jaguar
+  status: pending
+  enabled: false
 - name: James River Armory
   aliases:
   - JRA
@@ -921,6 +938,9 @@ manufacturers:
 - name: MACH HGA IN
   status: pending
   enabled: false
+- name: Magco
+  country: United States
+  status: approved
 - name: Magnum Research
   country: United States
   status: approved
@@ -1118,6 +1138,11 @@ manufacturers:
 - name: ONE HGA IN
   status: pending
   enabled: false
+- name: One Horse Industries
+  aliases:
+  - One Horse
+  country: United States
+  status: approved
 - name: Ordnance
   status: pending
   enabled: false
@@ -1181,6 +1206,9 @@ manufacturers:
   - Quality Hardware & Machine
   marks:
   - QHMC
+  country: United States
+  status: approved
+- name: Radical Defense
   country: United States
   status: approved
 - name: Radom
@@ -1392,6 +1420,12 @@ manufacturers:
   country: Switzerland
   website: https://www.sigsauer.com
   status: approved
+- name: SilencerCo
+  aliases:
+  - Silencer Co
+  - SilencerCo Velos
+  country: United States
+  status: approved
 - name: SIMSON
   country: Germany
   status: approved
@@ -1431,6 +1465,9 @@ manufacturers:
 - name: Spencer
   country: United States
   status: approved
+- name: Sportsman Ultra Light
+  status: pending
+  enabled: false
 - name: Spreewerk
   aliases:
   - Spreewerke
@@ -2334,6 +2371,8 @@ calibers:
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.300_AAC_Blackout
   bullet_diameter_in: 0.308
+- name: .300 Cal
+  status: merged
 - name: .300 Weatherby Magnum
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.300_Weatherby_Magnum
@@ -2390,6 +2429,7 @@ calibers:
   aliases:
   - 30 Caliber
   - '.30'
+  - .300 Cal
   status: approved
   notes: 'Emptied 11 Sep 2026: every listing was a .30 Luger, a C96, an M1 Carbine or a 7x57 Mauser. A
     bore size, not a cartridge.'
@@ -2930,6 +2970,7 @@ calibers:
   bullet_diameter_in: 0.41
 - name: '410'
   status: merged
+  bullet_diameter_in: 0.41
 - name: .410 bore
   status: merged
   bullet_diameter_in: 0.41
@@ -3497,9 +3538,12 @@ calibers:
   bullet_diameter_in: 0.455
 - name: 577 Caliber
   status: merged
+- name: 5.7mm
+  status: merged
 - name: 5.7x28mm
   aliases:
   - 5.7x28
+  - 5.7mm
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/FN_5.7%C3%9728mm
   bullet_diameter_in: 0.2244
@@ -4457,6 +4501,9 @@ calibers:
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.277_Fury
   bullet_diameter_in: 0.278
+- name: Universal
+  status: pending
+  enabled: false
 models:
 - name: 04/43
   status: approved
@@ -4836,6 +4883,9 @@ models:
   status: approved
 - name: ADC MODEL 1
   status: approved
+- name: AEM5
+  status: pending
+  enabled: false
 - name: AF 409
   status: approved
 - name: AG42
@@ -5256,6 +5306,7 @@ models:
   - Argentine Mauser 1891
   - Mauser Model 1891
   - Argentine Model 1891 Mauser
+  - DWM Model 1891
   kind: rifle
   country: Argentina
   calibers:
@@ -11830,6 +11881,12 @@ models:
 - name: CALI 45
   status: pending
   enabled: false
+- name: CAM556
+  status: pending
+  enabled: false
+- name: CAM762
+  status: pending
+  enabled: false
 - name: Canadian MODEL 171
   aliases:
   - MODEL 171
@@ -12079,6 +12136,15 @@ models:
   enabled: false
 - name: CARL GUSTAV AB 1896
   status: merged
+  enabled: false
+- name: CAS22T
+  status: pending
+  enabled: false
+- name: CAS556
+  status: pending
+  enabled: false
+- name: CAS762T
+  status: pending
   enabled: false
 - name: CASED PRE-WAR WINCHESTER MODEL 21
   status: merged
@@ -16886,6 +16952,9 @@ models:
 - name: CS 45
   status: merged
   enabled: false
+- name: CS5
+  status: pending
+  enabled: false
 - name: CT380
   kind: pistol
   country: United States
@@ -18598,6 +18667,14 @@ models:
 - name: DAN44
   status: pending
   enabled: false
+- name: Daniel Defense DDM4
+  aliases:
+  - DDM4
+  kind: rifle
+  country: United States
+  manufacturers:
+  - Daniel Defense
+  status: approved
 - name: Dan Wesson DWX
   aliases:
   - DWX
@@ -20137,6 +20214,12 @@ models:
 - name: DR920P
   status: merged
   enabled: false
+- name: DRC308
+  status: pending
+  enabled: false
+- name: DRC556
+  status: pending
+  enabled: false
 - name: DS9
   kind: pistol
   country: Germany
@@ -20366,6 +20449,9 @@ models:
 - name: DWM LUGER 1920
   status: merged
   enabled: false
+- name: DWM Model 1891
+  status: merged
+  enabled: false
 - name: DWM Model 1908
   status: merged
   enabled: false
@@ -20447,6 +20533,15 @@ models:
   - Ed Brown
   capacity: 7
   status: approved
+- name: EDS-30K
+  status: pending
+  enabled: false
+- name: EDS-30L
+  status: pending
+  enabled: false
+- name: EDS-30S
+  status: pending
+  enabled: false
 - name: EDTN 7R
   status: pending
   enabled: false
@@ -20612,6 +20707,9 @@ models:
 - name: F22
   status: pending
   enabled: false
+- name: F556H
+  status: pending
+  enabled: false
 - name: FA-1
   status: pending
   enabled: false
@@ -20711,7 +20809,28 @@ models:
 - name: Flare Signal Co. Model 52
   status: pending
   enabled: false
+- name: FLOW 22
+  status: pending
+  enabled: false
+- name: FLOW 45M
+  status: pending
+  enabled: false
+- name: FLOW 556
+  status: pending
+  enabled: false
 - name: FLOW 556K
+  status: pending
+  enabled: false
+- name: FLOW 6K
+  status: pending
+  enabled: false
+- name: FLOW 762
+  status: pending
+  enabled: false
+- name: FLOW 9K
+  status: pending
+  enabled: false
+- name: FLOW 9M
   status: pending
   enabled: false
 - name: FMK-3
@@ -24045,6 +24164,9 @@ models:
 - name: GP 15R
   status: pending
   enabled: false
+- name: GP5
+  status: pending
+  enabled: false
 - name: GP90
   status: pending
   enabled: false
@@ -25140,6 +25262,9 @@ models:
   status: approved
 - name: HD-18
   status: approved
+- name: HD 300
+  status: pending
+  enabled: false
 - name: HD 556
   status: pending
   enabled: false
@@ -28384,7 +28509,16 @@ models:
   - INGLIS
   capacity: 13
   status: approved
+- name: HRT-556
+  status: pending
+  enabled: false
+- name: HRT-5K
+  status: pending
+  enabled: false
 - name: HS 407C
+  status: pending
+  enabled: false
+- name: HUB2K
   status: pending
   enabled: false
 - name: Husqvarna 1867
@@ -31836,6 +31970,9 @@ models:
 - name: KSA796
   status: pending
   enabled: false
+- name: KX3
+  status: pending
+  enabled: false
 - name: L35
   kind: pistol
   country: Finland
@@ -31887,6 +32024,15 @@ models:
   status: pending
   enabled: false
 - name: LBL 3
+  status: pending
+  enabled: false
+- name: LBP 556
+  status: pending
+  enabled: false
+- name: LBP 556K
+  status: pending
+  enabled: false
+- name: LBP 762
   status: pending
   enabled: false
 - name: LC 10R
@@ -32076,6 +32222,9 @@ models:
   enabled: false
 - name: LRP-07
   status: merged
+  enabled: false
+- name: LS3
+  status: pending
   enabled: false
 - name: LSA-55
   status: pending
@@ -35130,6 +35279,12 @@ models:
   - Mauser
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: MAX 556
+  status: pending
+  enabled: false
+- name: MAX 762
+  status: pending
+  enabled: false
 - name: MAX 9
   status: merged
   enabled: false
@@ -39553,9 +39708,20 @@ models:
 - name: ODG 7R
   status: pending
   enabled: false
+- name: OG 30
+  status: pending
+  enabled: false
 - name: OLD 8
   status: pending
   enabled: false
+- name: One Horse OH-15
+  aliases:
+  - OH-15
+  kind: rifle
+  country: United States
+  manufacturers:
+  - One Horse Industries
+  status: approved
 - name: ONLY 1
   status: pending
   enabled: false
@@ -41038,6 +41204,9 @@ models:
   kind: rifle
   country: United Kingdom
   status: approved
+- name: PBS-1
+  status: pending
+  enabled: false
 - name: PC 327
   status: merged
   enabled: false
@@ -44883,6 +45052,9 @@ models:
 - name: RS22P
   status: merged
   enabled: false
+- name: RS9
+  status: pending
+  enabled: false
 - name: RTS MODEL1966
   status: pending
   enabled: false
@@ -47021,6 +47193,9 @@ models:
   calibers:
   - .22 LR
   status: approved
+- name: RXD 910
+  status: pending
+  enabled: false
 - name: RXP 22
   status: merged
   enabled: false
@@ -57856,6 +58031,18 @@ models:
 - name: SOB 47
   status: pending
   enabled: false
+- name: SOF 556
+  status: pending
+  enabled: false
+- name: SOF 556K
+  status: pending
+  enabled: false
+- name: SOF 762
+  status: pending
+  enabled: false
+- name: SOF 86K
+  status: pending
+  enabled: false
 - name: SOHN 38H
   calibers:
   - .32 ACP
@@ -61542,6 +61729,9 @@ models:
   manufacturers:
   - Ruger
   status: approved
+- name: SRBS 762
+  status: pending
+  enabled: false
 - name: SRD22X
   status: pending
   enabled: false
@@ -66855,6 +67045,9 @@ models:
   enabled: false
 - name: TSR-15
   status: approved
+- name: TT 18
+  status: pending
+  enabled: false
 - name: TT 33
   status: merged
   enabled: false
@@ -67710,6 +67903,12 @@ models:
   enabled: false
 - name: V10
   status: approved
+- name: VB6
+  status: pending
+  enabled: false
+- name: VERS36
+  status: pending
+  enabled: false
 - name: Vetterli Model 1878
   aliases:
   - M1878 Vetterli
@@ -70459,6 +70658,12 @@ models:
   country: United States
   manufacturers:
   - Winchester
+  status: approved
+- name: Winchester Model 1900
+  aliases:
+  - Model 1900 Winchester
+  kind: rifle
+  country: United States
   status: approved
 - name: Winchester Model 1902
   aliases:

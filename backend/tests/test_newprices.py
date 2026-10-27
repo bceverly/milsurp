@@ -14,6 +14,7 @@ from datetime import timedelta
 from pathlib import Path
 
 from app.models import ArmoryStatus, FirearmModel, Item, ModelVariant, Site, utcnow
+from app.scrapers.base import ScrapeError
 from app.services import newprices
 
 PAGES = Path(__file__).parent / "fixtures" / "gundeals"
@@ -159,3 +160,49 @@ class TestAsking:
         )
         clean_db.commit()
         assert newprices.run(clean_db, FakeGunDeals(), log=lambda _m: None)["asked"] == 1
+
+
+class Silent(FakeGunDeals):
+    """gun.deals, or the connection to it, not answering."""
+
+    def get_text(self, url, **_kwargs):
+        self.asked.append(url)
+        raise ScrapeError("timed out")
+
+
+def test_a_run_stops_after_three_failures_in_a_row(clean_db):
+    """An outage costs three lookups, not one per variant (2026-10-27)."""
+    for n in range(6):
+        model = FirearmModel(name=f"Gun {n}", status=ArmoryStatus.APPROVED, modern_production=True)
+        clean_db.add(model)
+        clean_db.flush()
+        clean_db.add(
+            ModelVariant(
+                model_id=model.id,
+                label=f"Gun {n}",
+                upc=f"72532735123{n}",
+                status=ArmoryStatus.APPROVED,
+                new_price=100.0 + n,
+            )
+        )
+        site = Site(slug=f"np{n}", name=f"Shop {n}", base_url=f"https://np{n}.test/")
+        clean_db.add(site)
+        clean_db.flush()
+        clean_db.add(
+            Item(
+                site_id=site.id,
+                external_key=f"g{n}",
+                url=f"https://np{n}.test/g",
+                title=f"Gun {n}",
+                is_pistol=True,
+                firearm_model_id=model.id,
+                is_active=True,
+                is_sold=False,
+            )
+        )
+    clean_db.commit()
+    site = Silent()
+    counts = newprices.run(clean_db, site, log=lambda _m: None)
+    assert counts["failed"] == 3 and len(site.asked) == 3
+    # Nothing stored was cleared.
+    assert all(v.new_price is not None for v in clean_db.query(ModelVariant))

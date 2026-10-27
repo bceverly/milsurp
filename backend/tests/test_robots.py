@@ -228,12 +228,29 @@ class TestAFailedFetchIsNotAnAnswer:
         cache, _ = self.cache(OSError("connection reset"))
         assert not cache.for_url("https://shop.test/a").allows("/anything", UA)
 
-    def test_but_the_next_request_asks_again(self):
+    def test_but_only_for_a_minute(self, monkeypatch):
+        """Remembered long enough that an outage costs one timeout a minute
+        rather than one per page (2026-10-27), and no longer."""
+        clock = [1000.0]
+        monkeypatch.setattr("app.robots.time.monotonic", lambda: clock[0])
         cache, calls = self.cache(
             OSError("connection reset"), self.Response(200, "User-agent: *\nDisallow:\n")
         )
         assert not cache.for_url("https://shop.test/a").allows("/anything", UA)
-        assert cache.for_url("https://shop.test/b").allows("/anything", UA)
+        clock[0] += 30
+        assert not cache.for_url("https://shop.test/b").allows("/anything", UA)
+        assert len(calls) == 1
+        clock[0] += 31
+        assert cache.for_url("https://shop.test/c").allows("/anything", UA)
+        assert len(calls) == 2
+
+    def test_another_host_is_still_asked(self, monkeypatch):
+        monkeypatch.setattr("app.robots.time.monotonic", lambda: 1000.0)
+        cache, calls = self.cache(
+            OSError("connection reset"), self.Response(200, "User-agent: *\nDisallow:\n")
+        )
+        assert not cache.for_url("https://shop.test/a").allows("/anything", UA)
+        assert cache.for_url("https://other.test/a").allows("/anything", UA)
         assert len(calls) == 2
 
     #: The statuses that mean "not now": RFC 9309 calls 5xx unreachable, and a
@@ -250,12 +267,15 @@ class TestAFailedFetchIsNotAnAnswer:
         assert not cache.for_url("https://shop.test/a").allows("/anything", UA)
 
     @pytest.mark.parametrize("status", NOT_NOW)
-    def test_but_it_is_not_remembered_either(self, status):
+    def test_but_it_is_not_remembered_either(self, status, monkeypatch):
         """One bad minute must not be this host's rules for the next hour."""
+        clock = [1000.0]
+        monkeypatch.setattr("app.robots.time.monotonic", lambda: clock[0])
         cache, calls = self.cache(
             self.Response(status), self.Response(200, "User-agent: *\nDisallow:\n")
         )
         assert not cache.for_url("https://shop.test/a").allows("/anything", UA)
+        clock[0] += 61
         assert cache.for_url("https://shop.test/b").allows("/anything", UA)
         assert len(calls) == 2
 

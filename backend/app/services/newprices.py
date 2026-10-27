@@ -154,6 +154,13 @@ def due(session: Session, now: datetime) -> list[ModelVariant]:
     )
 
 
+#: Lookups that may fail one after another before a run stops. On 2026-10-27
+#: the house's connection was down for four hours, and the run asked about
+#: one variant after another the whole time, each failure costing a
+#: twenty-second timeout: about 570 of them, all for nothing.
+MAX_FAILURES_IN_A_ROW = 3
+
+
 def run(
     session: Session,
     ctx: ScrapeContext,
@@ -162,16 +169,29 @@ def run(
     log: Callable[[str], None] = print,
 ) -> dict[str, int]:
     """Ask about every variant that is due. Returns counts."""
-    counts = {"asked": 0, "priced": 0, "none_in_stock": 0, "unknown": 0}
+    counts = {"asked": 0, "priced": 0, "none_in_stock": 0, "unknown": 0, "failed": 0}
     ctx.keep_at_least(BASE, 4.0)
     now = utcnow()
+    in_a_row = 0
     for variant in due(session, now)[: limit if limit is not None else None]:
         counts["asked"] += 1
         try:
             found = lookup(ctx, variant)
         except (Disallowed, ScrapeError) as exc:
             log(f"  {variant.label}: gun.deals did not answer ({exc}).")
+            counts["failed"] += 1
+            in_a_row += 1
+            if in_a_row >= MAX_FAILURES_IN_A_ROW:
+                # Not this variant's problem: gun.deals, or the connection to
+                # it, is not answering. The rest wait for the next run, with
+                # their stored prices untouched.
+                log(
+                    f"  {in_a_row} in a row did not answer; stopping until the next run "
+                    "rather than asking about every other variant."
+                )
+                break
             continue
+        in_a_row = 0
         variant.new_price_checked_at = now
         if found is None:
             counts["unknown"] += 1

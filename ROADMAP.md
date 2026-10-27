@@ -5703,6 +5703,26 @@ failed with nothing read. The site's bundle now calls `fetchDataByCategory_v6`
 and `fetchSKU_v2`, with the same parameters and the same answers; `_v6` adds a
 `sold` parameter that, left out, returns unsold stock as before.
 
+### An outage costs a minute, not a night — **Changed** 2026-10-27
+
+From about midnight to 3:55 AM EDT on 2026-10-27 the house's Internet
+connection was down -- the host's own logs show DNS timing out and every
+outbound service failing, not just this application. Two scans read nothing
+(Officer Store, Muzzle-Loaders.com; nothing was de-listed, the empty-run guard
+held), and the new-gun price job asked gun.deals about one variant after
+another for the whole four hours, about 570 attempts at a twenty-second
+timeout each, changing nothing.
+
+Two changes so that costs less next time. **A robots.txt that could not be
+fetched is now remembered for a minute** (`robots.FAILURE_SECONDS`): the
+request that met it is still refused, and the next requests to that host
+within the minute are refused without waiting out another timeout, rather
+than one per page; after the minute it is asked again. Still not the hour a
+real answer is kept for -- that was how one dropped connection once cost a
+whole SARCO scan. **The new-gun price job stops after three lookups in a row
+go unanswered** (`newprices.MAX_FAILURES_IN_A_ROW`), leaving the rest, and
+every stored price, for its next run.
+
 ### Suppressors, a Type of their own — **Shipped** 2026-10-25
 
 Asked for: "what would be some good sites to add for the purchase of

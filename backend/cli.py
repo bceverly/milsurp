@@ -1108,7 +1108,8 @@ def _armory_new_prices(args: argparse.Namespace) -> int:
         ctx.close()
     print(
         f"Asked about {counts['asked']} variant(s): {counts['priced']} priced, "
-        f"{counts['none_in_stock']} with none in stock, {counts['unknown']} not found."
+        f"{counts['none_in_stock']} with none in stock, {counts['unknown']} not found"
+        + (f", {counts['failed']} unanswered." if counts.get("failed") else ".")
     )
     return 0
 

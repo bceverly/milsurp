@@ -33,6 +33,12 @@ log = logging.getLogger("milsurp.robots")
 #: enough that a scan of one site reads it once, short enough that a change
 #: takes effect the same day.
 CACHE_SECONDS = 3600.0
+#: How long a robots.txt that could not be fetched is remembered as such. Long
+#: enough that an outage costs each host one timeout a minute rather than one
+#: per page -- on 2026-10-27 the house's connection was down for four hours
+#: and every page asked, waited twenty seconds and gave up -- and short enough
+#: that one dropped connection does not stand as a host's rules for long.
+FAILURE_SECONDS = 60.0
 
 #: Cap on the file we will read. A robots.txt is a few kilobytes; anything
 #: past this is either a mistake or an attempt to make us hold it in memory.
@@ -223,10 +229,16 @@ class RobotsCache:
     be applied to would be pointless.
     """
 
-    def __init__(self, fetch, *, ttl: float = CACHE_SECONDS) -> None:
+    def __init__(
+        self, fetch, *, ttl: float = CACHE_SECONDS, failure_ttl: float = FAILURE_SECONDS
+    ) -> None:
         self._fetch = fetch
         self._ttl = ttl
+        self._failure_ttl = failure_ttl
         self._cache: dict[str, tuple[float, Robots]] = {}
+        #: Hosts whose robots.txt could not be fetched, and when: the request
+        #: is refused without asking again until FAILURE_SECONDS have passed.
+        self._failed: dict[str, tuple[float, Robots]] = {}
 
     def for_url(self, url: str) -> Robots:
         parts = urlparse(url)
@@ -235,6 +247,9 @@ class RobotsCache:
         now = time.monotonic()
         if cached is not None and now - cached[0] < self._ttl:
             return cached[1]
+        failed = self._failed.get(origin)
+        if failed is not None and now - failed[0] < self._failure_ttl:
+            return failed[1]
 
         robots = self._load(f"{origin}/robots.txt")
         # A file we could not fetch is not an answer, so it is not remembered
@@ -246,10 +261,17 @@ class RobotsCache:
         # "robots.txt disallows", which it did not.
         #
         # The request that provoked it is still refused. Failing closed on the
-        # attempt is the safety property; remembering the failure is not part
-        # of it, and the next request asks again.
+        # attempt is the safety property; remembering the failure for an hour
+        # is not part of it.
+        #
+        # Remembered for a minute, though (FAILURE_SECONDS): long enough that a
+        # house without a connection is not asked again for every page, at a
+        # twenty-second timeout each, and short enough that a blip is not.
         if robots.reachable:
             self._cache[origin] = (now, robots)
+            self._failed.pop(origin, None)
+        else:
+            self._failed[origin] = (now, robots)
         return robots
 
     def _load(self, url: str) -> Robots:
