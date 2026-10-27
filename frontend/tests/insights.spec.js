@@ -62,6 +62,22 @@ test.describe("for your guns", () => {
             ammo_total: 6,
             accessories: [listing(13, "Moschetto 91 bayonet")],
             accessories_total: 1,
+            shop_links: [
+              {
+                label: "Magazines",
+                query: "Carcano M91 Cavalry Carbine magazine",
+                links: [
+                  {
+                    store: "GunMag Warehouse",
+                    url: "https://gunmagwarehouse.com/catalogsearch/result/?q=Carcano+M91+Cavalry+Carbine+magazine",
+                  },
+                  {
+                    store: "Brownells",
+                    url: "https://www.brownells.com/search/?search=Carcano+M91+Cavalry+Carbine+magazine",
+                  },
+                ],
+              },
+            ],
           },
           {
             row_id: 2,
@@ -108,8 +124,78 @@ test.describe("for your guns", () => {
     await expect(fits).toContainText("Ammunition and clips (6)");
     await expect(fits).toContainText("Showing 2 of 6");
     await expect(fits).toContainText("Moschetto 91 bayonet");
-    await expect(fits).toContainText("Nothing for sale right now for Something odd");
+    await expect(fits).toContainText("Something odd");
+    await expect(fits).toContainText(
+      "Nothing for sale at the shops this site reads right now",
+    );
     await expect(fits).toContainText("A gun with no model only matches ammunition");
+  });
+
+  test("one-click searches at the stores, shelf by shelf", async ({ signedIn }) => {
+    await signedIn.route("**/api/collection/for-your-guns", (route) =>
+      route.fulfill({
+        json: [
+          {
+            row_id: 1,
+            title: "My Glock",
+            model: "Glock 19",
+            calibers: ["9mm"],
+            ammo: [],
+            ammo_total: 0,
+            accessories: [],
+            accessories_total: 0,
+            shop_links: [
+              {
+                label: "Magazines",
+                query: "Glock 19 magazine",
+                links: [
+                  {
+                    store: "GunMag Warehouse",
+                    url: "https://gunmagwarehouse.com/catalogsearch/result/?q=Glock+19+magazine",
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    await signedIn.route("**/api/collection", (route) =>
+      route.request().method() === "GET"
+        ? route.fulfill({
+            json: {
+              items: [
+                {
+                  id: 1,
+                  title: "My Glock",
+                  created_at: "2026-09-01T00:00:00Z",
+                  updated_at: "2026-09-01T00:00:00Z",
+                },
+              ],
+              totals: {
+                count: 1,
+                paid: 0,
+                paid_count: 0,
+                value: 0,
+                valued_count: 0,
+                compared_count: 0,
+                compared_paid: 0,
+                compared_value: 0,
+              },
+              history: [],
+            },
+          })
+        : route.fallback(),
+    );
+    await signedIn.goto("/collection#for-your-guns");
+    const shop = signedIn.getByTestId("shop-links");
+    await expect(shop).toContainText("Magazines:");
+    const link = shop.getByRole("link", { name: "GunMag Warehouse" });
+    await expect(link).toHaveAttribute(
+      "href",
+      "https://gunmagwarehouse.com/catalogsearch/result/?q=Glock+19+magazine",
+    );
+    await expect(link).toHaveAttribute("target", "_blank");
   });
 });
 

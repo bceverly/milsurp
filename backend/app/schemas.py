@@ -2275,6 +2275,20 @@ class CollectionHistoryPoint(BaseModel):
     guns: int
 
 
+class ShopLinkOut(BaseModel):
+    store: str
+    url: str
+
+
+class ShopShelfOut(BaseModel):
+    """One kind of accessory for an owned gun, and the stores' own searches for
+    it. See services/shoplinks.py."""
+
+    label: str
+    query: str
+    links: list[ShopLinkOut] = Field(default_factory=list)
+
+
 class FitsOut(BaseModel):
     """What is for sale that fits one owned gun. See services/foryourguns.py."""
 
@@ -2286,6 +2300,8 @@ class FitsOut(BaseModel):
     ammo_total: int = 0
     accessories: list[ItemOut] = Field(default_factory=list)
     accessories_total: int = 0
+    #: Links to the stores' own search for what this gun takes, shelf by shelf.
+    shop_links: list[ShopShelfOut] = Field(default_factory=list)
 
 
 class HabitOut(BaseModel):

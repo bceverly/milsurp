@@ -1,0 +1,22 @@
+{
+  "slug": "buds-gun-shop",
+  "recorded_at": "2026-10-27T20:31:37+00:00",
+  "pages": [
+    {
+      "url": "https://www.budsgunshop.com/categories/firearms/used",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://www.budsgunshop.com/products/pistols/used-bersa-thunder-380-acp-1-magazine-no-box-752021273",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://www.budsgunshop.com/products/pistols/used-kimber-solo-carry-9mm-8-magazines-factory-box-752021262",
+      "file": "0003.html.gz"
+    },
+    {
+      "url": "https://www.budsgunshop.com/products/pistols/used-springfield-armory-xd9-9mm-3-barrel-2-magazines-factory-box-752021152",
+      "file": "0004.html.gz"
+    }
+  ]
+}

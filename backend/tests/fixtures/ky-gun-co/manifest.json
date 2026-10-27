@@ -1,6 +1,6 @@
 {
   "slug": "ky-gun-co",
-  "recorded_at": "2026-10-25T17:23:19+00:00",
+  "recorded_at": "2026-10-27T20:28:53+00:00",
   "pages": [
     {
       "url": "https://www.kygunco.com/category/shooting/guns/class-iii/suppressors",
@@ -13,6 +13,10 @@
     {
       "url": "https://search.keenesdepot.io/collections/kygunco_products_1773666625/documents/search?q=%2A&filter_by=action%3A%3DSilencer+%26%26+isInStock%3A%3Dtrue&per_page=250&page=2&x-typesense-api-key=2axyIHXRqDa7a0t2nmSiNoUBSjZzvmLW",
       "file": "0003.html.gz"
+    },
+    {
+      "url": "https://search.keenesdepot.io/collections/kygunco_products_1773666625/documents/search?q=%2A&filter_by=condition%3A%3DUsed+%26%26+isFirearm%3A%3Dtrue+%26%26+isInStock%3A%3Dtrue&per_page=250&page=1&x-typesense-api-key=2axyIHXRqDa7a0t2nmSiNoUBSjZzvmLW",
+      "file": "0004.html.gz"
     }
   ]
 }

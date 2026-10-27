@@ -174,3 +174,21 @@ def test_primary_arms_keeps_only_what_the_shop_flags_as_nfa():
     assert item.url == "https://www.primaryarms.com/rugged-alaskan360"
     assert item.image_urls == ["https://www.primaryarms.com/SSP%20Applications/img/AK360_01.jpg"]
     assert item_from_record({**record, "custitem_isnfa": False}) is None
+
+
+def test_ky_gun_co_reads_its_used_guns_too():
+    from app.scrapers.ky_gun_co import SOURCES
+
+    assert ("condition:=Used && isFirearm:=true && isInStock:=true", "Used Guns") in SOURCES
+    item = item_from_document(
+        {
+            "id": "1",
+            "slug": "polish-p-83",
+            "name": "POLISH P-83 Wanad 9x18mm Makarov w/ 2 8rd mags",
+            "price": 333.37,
+            "condition": "Used",
+            "isInStock": True,
+        },
+        "Used Guns",
+    )
+    assert item.category == "Used Guns" and item.is_new is False

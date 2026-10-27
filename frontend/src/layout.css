@@ -1258,7 +1258,8 @@
   overflow-wrap: anywhere;
 }
 
-/* A value that means nothing broken across lines: an address, a date. */
+/* A value that means nothing broken across lines: an address, a date, a price. */
+.table th.table__nowrap,
 .table td.table__nowrap {
   white-space: nowrap;
   overflow-wrap: normal;
@@ -3638,6 +3639,17 @@
 }
 .fits__group li {
   margin: 3px 0;
+}
+/* One-click searches at the stores, shelf by shelf. */
+.fits__shop {
+  margin-top: 14px;
+}
+.fits__shop ul {
+  list-style: none;
+  padding-left: 0;
+}
+.fits__shelf {
+  font-weight: 600;
 }
 
 /* A shop's arrivals by weekday, as seven small bars. */

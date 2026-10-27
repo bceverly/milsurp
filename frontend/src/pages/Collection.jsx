@@ -655,6 +655,40 @@ function FitList({ title, items, total }) {
 }
 
 /**
+ * One-click searches at the stores that sell what this gun takes: magazines
+ * for a pistol, speedloaders for a revolver, and so on. Nothing is scraped;
+ * each link is the store's own search. See services/shoplinks.py.
+ */
+function ShopLinks({ shelves }) {
+  if (!shelves || !shelves.length) return null;
+  return (
+    <div className="fits__group fits__shop" data-testid="shop-links">
+      <h4>Shop for it</h4>
+      <ul>
+        {shelves.map((shelf) => (
+          <li key={shelf.label}>
+            <span className="fits__shelf">{shelf.label}:</span>{" "}
+            {shelf.links.map((link, index) => (
+              <span key={link.store}>
+                {index > 0 && " · "}
+                <a
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={`Search ${link.store} for “${shelf.query}”`}
+                >
+                  {link.store}
+                </a>
+              </span>
+            ))}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/**
  * What is for sale that fits the guns in the collection.
  *
  * Ammunition and clips by caliber, and accessories and parts that name the
@@ -682,43 +716,47 @@ function ForYourGuns() {
   if (!fits.length) {
     return <p className="muted">Add a gun and what fits it shows up here.</p>;
   }
-  const found = fits.filter((fit) => fit.ammo.length || fit.accessories.length);
-  const quiet = fits.filter((fit) => !fit.ammo.length && !fit.accessories.length);
   return (
     <div className="fits" data-testid="for-your-guns">
       <p className="muted" style={{ marginTop: 0 }}>
         Ammunition and clips in your guns&rsquo; calibers, and parts and accessories that
-        name their models, for sale now. New ones are in your digest too.
+        name their models, for sale now at the shops this site reads -- and one-click
+        searches at the stores that sell magazines, holsters and the rest. New finds are
+        in your digest too.
       </p>
-      {found.map((fit) => (
-        <div className="panel fits__gun" key={fit.row_id}>
-          <div className="panel__head">
-            <h3>{fit.title}</h3>
-            <span className="muted collection-sub">
-              {[fit.model, ...fit.calibers].filter(Boolean).join(" · ")}
-            </span>
+      {fits.map((fit) => {
+        const nothing = !fit.ammo.length && !fit.accessories.length;
+        return (
+          <div className="panel fits__gun" key={fit.row_id}>
+            <div className="panel__head">
+              <h3>{fit.title}</h3>
+              <span className="muted collection-sub">
+                {[fit.model, ...fit.calibers].filter(Boolean).join(" · ")}
+              </span>
+            </div>
+            <div className="panel__body">
+              <FitList
+                title="Ammunition and clips"
+                items={fit.ammo}
+                total={fit.ammo_total}
+              />
+              <FitList
+                title="Parts and accessories"
+                items={fit.accessories}
+                total={fit.accessories_total}
+              />
+              {nothing && (
+                <p className="muted collection-sub">
+                  Nothing for sale at the shops this site reads right now.
+                  {!fit.model &&
+                    " A gun with no model only matches ammunition, by its caliber."}
+                </p>
+              )}
+              <ShopLinks shelves={fit.shop_links} />
+            </div>
           </div>
-          <div className="panel__body">
-            <FitList
-              title="Ammunition and clips"
-              items={fit.ammo}
-              total={fit.ammo_total}
-            />
-            <FitList
-              title="Parts and accessories"
-              items={fit.accessories}
-              total={fit.accessories_total}
-            />
-          </div>
-        </div>
-      ))}
-      {quiet.length > 0 && (
-        <p className="muted">
-          Nothing for sale right now for {quiet.map((fit) => fit.title).join(", ")}.
-          {quiet.some((fit) => !fit.model) &&
-            " A gun with no model only matches ammunition, by its caliber."}
-        </p>
-      )}
+        );
+      })}
     </div>
   );
 }
@@ -832,7 +870,7 @@ export default function Collection() {
                     <th>Gun</th>
                     <th>Condition</th>
                     <th>Acquired</th>
-                    <th>Paid</th>
+                    <th className="table__nowrap">Paid</th>
                     <th>Worth about</th>
                     <th aria-label="Actions" />
                   </tr>
@@ -861,7 +899,9 @@ export default function Collection() {
                           <div className="muted collection-sub">{row.acquired_from}</div>
                         )}
                       </td>
-                      <td>{row.paid != null ? formatMoney(row.paid) : "—"}</td>
+                      <td className="table__nowrap">
+                        {row.paid != null ? formatMoney(row.paid) : "—"}
+                      </td>
                       <td>
                         {row.valuation ? (
                           <Worth row={row} />

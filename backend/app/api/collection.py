@@ -38,8 +38,10 @@ from ..schemas import (
     FitsOut,
     ModelChoiceOut,
     NameChoiceOut,
+    ShopLinkOut,
+    ShopShelfOut,
 )
-from ..services import collection, foryourguns, traits
+from ..services import collection, foryourguns, shoplinks, traits
 from .market import band_out
 
 router = APIRouter(prefix="/collection", tags=["collection"])
@@ -205,6 +207,14 @@ def for_your_guns(user: CurrentUser, session: DbSession) -> list[FitsOut]:
             ammo_total=fit.ammo_total,
             accessories=[_to_out(item, site_names) for item in fit.accessories],
             accessories_total=fit.accessories_total,
+            shop_links=[
+                ShopShelfOut(
+                    label=shelf.label,
+                    query=shelf.query,
+                    links=[ShopLinkOut(store=link.store, url=link.url) for link in shelf.links],
+                )
+                for shelf in shoplinks.shelves(fit.row)
+            ],
         )
         for fit in fits
     ]

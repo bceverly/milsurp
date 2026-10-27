@@ -117,9 +117,10 @@ the whole catalog as JSON to the widget that draws the grid. See
 | [Capitol Armory](https://www.capitolarmory.com/suppressor.html) | `capitol-armory` | Magento (`.product-item-info` cards) — Austin suppressor dealer; 334 cans, each card in or out of stock |
 | [Rainier Arms](https://www.rainierarms.com/suppressors/) | `rainier-arms` | Magento — the suppressor wall, ~210; robots.txt asks for eight seconds |
 | [Silencer Central](https://www.silencercentral.com/shop/silencers/) | `silencer-central` | Algolia from Magento — the Silencers tree less its Archive, ~315; a secured search key read from the page every scan |
-| [KY Gun Co](https://www.kygunco.com/category/shooting/guns/class-iii/suppressors) | `ky-gun-co` | Typesense (`search.keenesdepot.io`) — records the shop files as "Silencer" and in stock, ~260 of ~1,000 |
+| [KY Gun Co](https://www.kygunco.com/category/shooting/guns/class-iii/suppressors) | `ky-gun-co` | Typesense (`search.keenesdepot.io`) — records the shop files as "Silencer" and in stock, ~260 of ~1,000; and since 2026-10-27 its in-stock used guns, ~110 |
 | [Primary Arms](https://www.primaryarms.com/nfa/suppressors) | `primary-arms` | SuiteCommerce item API — searches for "suppressor" and "silencer", the shop's NFA-flagged records only, ~180 |
 | [Mile High Shooting](https://www.milehighshooting.com/suppressors/) | `mile-high-shooting` | BigCommerce — Thunder Beast, Abel and HUXWRX cans, ~90 |
+| [Bud's Gun Shop](https://www.budsgunshop.com/categories/firearms/used) | `buds-gun-shop` | Laravel + htmx, plain HTML -- the used section, ~160 (pistols, rifles, shotguns), each card's price in cents in `data-product-price`; the product page adds the condition rating and maker |
 
 ### Planned
 
@@ -771,7 +772,7 @@ waited 1.5 seconds between pages.
 | [Sportsman's Outdoor Superstore](https://www.sportsmansoutdoorsuperstore.com/category.cfm/sportsman/used-firearms) | `/category.cfm/sportsman/police-trade-in-glocks` and `/used-firearms`, paged by `/currentpage/N` | ColdFusion, custom | **Mostly an archive, it turned out.** The survey walk stopped at 40 pages and read 631 and 695 listings. Walked to the end, the two sections hold **1,895 products over 116 pages, and about 20 are in stock.** The rest are "No Longer Available" pages kept up with their last price and no date. Each card has schema.org `Product` microdata, and its "In Stock" label agreed with the product page's structured data 12 times out of 12. Glocks, 870 Police Magnums, Mossberg 590s, Sig P227s, and a Bulgarian Makarov in the used section. robots.txt disallows the `/make/`, `/model/`, `/under/` and `/order_by/` filters, not the categories or `/currentpage/` | **Shipped 2026-09-26: 18 listings on the first dry run.** Only in-stock cards are read. The archive (1,877 listings) is left out, since its prices cannot be dated. A listing we hold whose card goes silent is marked sold rather than de-listed. Police surplus comes from the Glock section's name, and in "Used Guns" from a title saying "Police Trade-In" or "Police Trades"; the Makarov stays plain used. The survey's prices were also slightly high: it read the struck-through "suggested" price instead of `itemprop="price"` |
 | [Target Sports USA](https://www.targetsportsusa.com/used-gunspolice-trade-c-998.aspx) | `/used-gunspolice-trade-c-998.aspx` | AspDotNetStorefront | 17 police trade-ins (Glocks, Sig P226/P229s, M&Ps, an XD). The category page shows no price, and every card has the same "Add To Cart" button whatever the stock, so each product page's schema.org microdata is read on every scan: name, price, maker, image, `availability`. **Measured when built: all 17 `SoldOut`.** robots.txt allows both pages | **Shipped 2026-09-26, reading nothing until they restock.** Only in-stock listings are imported, as at Sportsman's. A held listing that sells out is reported sold. It is 17 requests a day to catch a restock the day it lands. It has no recorded fixture yet, since a recording of an all-sold-out section parses nothing (listed in `NOT_RECORDABLE` with that reason) |
 | [KY Gun Co](https://www.kygunco.com/group/police-trade-in) | `/group/police-trade-in` | Nuxt, over a public **Typesense** search (`search.keenesdepot.io`, collection `kygunco_products`) | The endpoint works with the search-only key the page itself uses. It is the cleanest data source in the survey, and the section is empty: `groups.id:=178` returns one listing, out of stock and marked "New". The 160 used guns are general stock with 6 trade-ins | **Refused: empty today.** Worth a recheck. If the group fills, the build is a few lines on the endpoint |
-| [Bud's Gun Shop](https://www.budsgunshop.com/categories/firearms/used) | Police Trade-Ins, category 910 | Laravel + htmx | The old police category now redirects to `/products`. The used section holds 127 guns over six pages, 8 of them police trade-ins (6%) and 3 milsurp. The data is clean (`data-product-name` and `data-product-price` in cents on every card), but there is no section to read | **Refused**, on the same grounds as Impact Guns' 8% |
+| [Bud's Gun Shop](https://www.budsgunshop.com/categories/firearms/used) | Police Trade-Ins, category 910 | Laravel + htmx | The old police category now redirects to `/products`. The used section holds 127 guns over six pages, 8 of them police trade-ins (6%) and 3 milsurp. The data is clean (`data-product-name` and `data-product-price` in cents on every card), but there is no section to read | **Refused**, on the same grounds as Impact Guns' 8%. **Its used section shipped 2026-10-27** (`buds-gun-shop`) |
 | [Birmingham Pistol Wholesale](https://birminghampistol.com/tags/police-trade-in) | `/tags/police-trade-in` | Spree on Rails | **It is GunPrime.** robots.txt is byte-for-byte GunPrime's, down to GunPrime's own sitemap address. All 12 product ids on the police page match GunPrime's. Pages take about 40 seconds to answer | **Refused**, as Gideon Tactical was: a second copy of a catalog already read would forge the two-shop agreement hot deals relies on |
 | [Guns.com](https://www.guns.com/firearms/police-trade-ins) | `/firearms/police-trade-ins` | Cloudflare | **403**, `cf-mitigated: challenge`, to our agent | **Blocked** |
 | [CDNN Sports](https://www.cdnnsports.com/firearms/collectible-used.html) | `/firearms/collectible-used.html` | Magento behind Cloudflare | **403**, `cf-mitigated: challenge` | **Blocked**. A pity: it is a known liquidator of trade-in lots |
@@ -2202,6 +2203,65 @@ before they got nothing.
   Accessories are excluded wholesale rather than band by band — a bayonet that
   fits an 8mm Mauser is not an alternative to the rifle, and the cartridge on
   it is the rifle's anyway.
+
+### Upgrades and accessories for the guns you own — **Slice 1 shipped** 2026-10-27
+
+Asked for on 2026-10-27: "if i put my firearms in the system, it sure would be
+cool to have the system provide me a single click link to upgrades and
+accessories (magazines for pistols, speedloaders for revolvers, etc.) ... it
+wouldn't have to be perfect but if it was say 80% close and had some
+additional false positives, i still think it would be useful."
+
+**Where it starts.** The collection's "For your guns" view
+(`app/services/foryourguns.py`) already matches what is for sale to each owned
+gun -- ammunition and clips by caliber, parts and accessories by the armory's
+spellings of its model. The matching works; the supply does not. The shops
+read are gun shops, and the accessory sections read are surplus parts and
+bayonets, so magazines, speedloaders, holsters and grips almost never appear.
+
+**Three layers, cheapest first.**
+
+1. **Search links -- Shipped (slice 1).** Under each owned gun, one-click
+   links to the stores' own search for that gun and the kind of accessory its
+   kind of gun takes: magazines, holsters, grips and sights, and parts for a
+   pistol; speedloaders and moon clips for a revolver; magazines, slings and
+   scope mounts for a rifle; chokes for a shotgun. Nothing is scraped -- it is
+   a link the reader follows -- so a store that blocks the scanner (Brownells
+   at times, MidwayUSA) can still be linked, and the results are the store's
+   own and current. Stores: GunMag Warehouse (asked for by name: "typically
+   where i find magazines at the lowest prices"), Brownells, MidwayUSA,
+   Primary Arms and Numrich Gun Parts. See `app/services/shoplinks.py`.
+2. **Accessory sections at shops already read -- Planned.** The scrapers
+   already work there: Primary Arms (its item API carries structured fields),
+   KY Gun Co (its Typesense records carry brand and caliber), Botach, and the
+   surplus magazines and parts at Sarco and AIM Surplus.
+3. **Specialists whose catalogs are organized by fit -- Planned, not yet
+   measured.** Their products are already filed by the gun they fit, which is
+   worth far more than reading titles. Revolvers: HKS and 5-Star / Speed Beez
+   speedloaders, by frame and caliber. Magazines: GunMag Warehouse (Magento
+   with an Algolia index, as at Silencer Central -- readable the same way),
+   Mec-Gar, ProMag, Check-Mate, KCI. Surplus parts: Numrich Gun Parts, filed
+   by model and schematic, Mosins and Mausers and M1s included -- probably the
+   best fit for this application. Grips, lasers, triggers: Hogue, Crimson
+   Trace, Apex Tactical. Holsters: Galco, DeSantis (fit per model, but
+   enormous catalogs). Brownells, MidwayUSA and OpticsPlanet were blocked when
+   the suppressor survey measured them.
+
+**Design points for layers 2 and 3.**
+
+* **Families, not models.** The 80% depends on knowing that a Glock 17
+  magazine fits a 19 and a 26, that a K-frame speedloader fits a Model 10 and
+  a Model 64, that any single-stack .45 magazine fits a Government Model. A
+  small table of fit families in the armory -- keyed by model and caliber --
+  does most of it; matching the exact model in a title alone misses most.
+* **Accessories are not the browse catalog.** These catalogs run to tens of
+  thousands of products; filed as listings they would swamp the gun Types and
+  the counts. A separate accessory table with its fit, or keeping only what
+  fits a model somebody owns.
+* **A revolver needs caliber and cylinder count, not just frame.** A
+  six-shot K-frame .38 loader does not fit a seven-shot 686+.
+* **A shop's own fit field beats its title** wherever one exists (Shopify
+  tags, a search facet for "compatible model").
 
 ### Watchlists and notifications
 
@@ -5702,6 +5762,26 @@ and `fetchSKU_Inventory` began answering 404 on every shelf, and the scan
 failed with nothing read. The site's bundle now calls `fetchDataByCategory_v6`
 and `fetchSKU_v2`, with the same parameters and the same answers; `_v6` adds a
 `sold` parameter that, left out, returns unsold stock as before.
+
+### Used guns from KY Gun Co and Bud's — **Shipped** 2026-10-27
+
+Asked for after "i'm not seeing any raven arms mp-25 which is a really common
+used pocket pistol": production had seen three in its life, all from one lot of
+Sportsman's Outdoor trade-ins. .25 ACP was already a carry caliber; the gap is
+supply. Raven Arms closed in 1991, so an MP-25 only ever sells used, and the
+shops read are surplus dealers and new-gun catalogs with small used racks.
+GunBroker, where most of them sell, is deliberately not read (the owner's
+decision, 2026-10-27).
+
+* **KY Gun Co's used guns** (`ky-gun-co`): a second filter on the Typesense
+  collection the suppressor scraper already reads -- `condition:=Used`, a
+  firearm, in stock: 113 on the first run (trade-in Glocks, a Polish P-83, a
+  German P08, a 1979 Python, Parker and Ithaca doubles). Not "Blemished",
+  which is new guns with a factory cosmetic flaw.
+* **Bud's Gun Shop's used section** (`buds-gun-shop`), refused twice before
+  for want of a trade-in section: 160 on the first run, 117 pistols. The
+  cards carry the price; the product page the condition rating ("rated at
+  80-90%"), the maker and the stock state, once per listing.
 
 ### An outage costs a minute, not a night — **Changed** 2026-10-27
 

@@ -31,6 +31,7 @@ from .base import (
 )
 from .botach import BotachScraper
 from .bowman_arms import BowmanArmsScraper
+from .buds_gun_shop import BudsGunShopScraper
 from .capitol_armory import CapitolArmoryScraper
 from .centerfire_systems import CenterfireSystemsScraper
 from .checkpoint_charlies import CheckpointCharliesScraper
@@ -195,6 +196,7 @@ SCRAPER_CLASSES: tuple[type[SiteScraper], ...] = (
     SilencerCentralScraper,
     KyGunCoScraper,
     PrimaryArmsScraper,
+    BudsGunShopScraper,
 )
 
 _REGISTRY: dict[str, type[SiteScraper]] = {cls.slug: cls for cls in SCRAPER_CLASSES}
