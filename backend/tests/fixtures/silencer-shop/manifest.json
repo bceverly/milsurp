@@ -1,0 +1,22 @@
+{
+  "slug": "silencer-shop",
+  "recorded_at": "2026-10-28T13:27:43+00:00",
+  "pages": [
+    {
+      "url": "https://www.silencershop.com/silencers.html",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://T6H84M807U-dsn.algolia.net/1/indexes/prd_magento2_default_products?x-algolia-application-id=T6H84M807U&x-algolia-api-key=YzE1ZmM2ODMwMWU1NjlhYzA2MDU1ZTJlODA5NWIwNmZjZWQ5YTZkNzY3NzIxMzAzMjFlYjNmNjRjYjg1NTVjYXRhZ0ZpbHRlcnM9JnZhbGlkVW50aWw9MTc5Mzg4MzYzNA%3D%3D&query=&page=0&hitsPerPage=100&facetFilters=%5B%22categories.level0%3ASilencers%22%5D",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://T6H84M807U-dsn.algolia.net/1/indexes/prd_magento2_default_products?x-algolia-application-id=T6H84M807U&x-algolia-api-key=YzE1ZmM2ODMwMWU1NjlhYzA2MDU1ZTJlODA5NWIwNmZjZWQ5YTZkNzY3NzIxMzAzMjFlYjNmNjRjYjg1NTVjYXRhZ0ZpbHRlcnM9JnZhbGlkVW50aWw9MTc5Mzg4MzYzNA%3D%3D&query=&page=1&hitsPerPage=100&facetFilters=%5B%22categories.level0%3ASilencers%22%5D",
+      "file": "0003.html.gz"
+    },
+    {
+      "url": "https://T6H84M807U-dsn.algolia.net/1/indexes/prd_magento2_default_products?x-algolia-application-id=T6H84M807U&x-algolia-api-key=YzE1ZmM2ODMwMWU1NjlhYzA2MDU1ZTJlODA5NWIwNmZjZWQ5YTZkNzY3NzIxMzAzMjFlYjNmNjRjYjg1NTVjYXRhZ0ZpbHRlcnM9JnZhbGlkVW50aWw9MTc5Mzg4MzYzNA%3D%3D&query=&page=2&hitsPerPage=100&facetFilters=%5B%22categories.level0%3ASilencers%22%5D",
+      "file": "0004.html.gz"
+    }
+  ]
+}

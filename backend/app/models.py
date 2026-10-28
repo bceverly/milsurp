@@ -606,6 +606,39 @@ class Caliber(Base, TimestampMixin):
         return _spellings(self.name, self.aliases)
 
 
+class AccessoryOffer(Base):
+    """A magazine or speedloader for sale, and the guns its store says it fits.
+
+    Kept apart from ``items`` on purpose: an accessory store's catalog runs to
+    tens of thousands of products, which as listings would swamp the browse
+    page's Types and counts. Only what fits a gun somebody owns is kept, and
+    it is shown on the collection's "For your guns" page. ``fits`` is the
+    store's own list, one gun per line, as it wrote them; the armory's matcher
+    decides which owned guns each line names. See app.services.fitting;
+    migration 0086.
+    """
+
+    __tablename__ = "accessory_offers"
+    __table_args__ = (
+        UniqueConstraint("source", "external_key", name="uq_accessory_offers_source_key"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    #: The store it came from, as app.services.fitting names them.
+    source: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    external_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    #: "magazine" or "speedloader": what shelf it goes on.
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    title: Mapped[str] = mapped_column(String(300), nullable=False)
+    url: Mapped[str] = mapped_column(String(1000), nullable=False)
+    price: Mapped[float | None] = mapped_column(Float)
+    in_stock: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    image_url: Mapped[str | None] = mapped_column(String(1000))
+    maker: Mapped[str | None] = mapped_column(String(128))
+    fits: Mapped[str | None] = mapped_column(Text)
+    refreshed_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
+
+
 class ReloadingSupply(Base):
     """A powder or a kind of primer, and its cheapest price at Graf & Sons.
 
@@ -2369,6 +2402,7 @@ class HotDealPreference(Base, TimestampMixin):
     include_police_surplus: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     include_concealed_carry: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     include_black_powder: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    include_suppressors: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     #: Only deals that match at least one of this reader's saved searches.
     #: Off by default, so turning the feature on changes nothing for anybody
     #: until they ask. The categories above still apply on top of it.

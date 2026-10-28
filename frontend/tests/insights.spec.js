@@ -144,6 +144,17 @@ test.describe("for your guns", () => {
             ammo_total: 0,
             accessories: [],
             accessories_total: 0,
+            offers: [
+              {
+                source: "GunMag Warehouse",
+                kind: "magazine",
+                title: "Magpul PMAG GL9 9mm 15-Round Magazine for Glock 19",
+                url: "https://gunmagwarehouse.com/pmag-gl9-15.html",
+                price: 12.99,
+                in_stock: true,
+              },
+            ],
+            offers_total: 1,
             shop_links: [
               {
                 label: "Magazines",
@@ -196,6 +207,9 @@ test.describe("for your guns", () => {
       "https://gunmagwarehouse.com/catalogsearch/result/?q=Glock+19+magazine",
     );
     await expect(link).toHaveAttribute("target", "_blank");
+    const offers = signedIn.getByTestId("fit-offers");
+    await expect(offers).toContainText("Magazines and speedloaders that fit (1)");
+    await expect(offers).toContainText("$12.99 · GunMag Warehouse");
   });
 });
 

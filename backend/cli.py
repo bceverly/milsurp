@@ -583,6 +583,24 @@ def cmd_digest(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_fitting_refresh(_args: argparse.Namespace) -> int:
+    """Ask the accessory stores what fits the guns in readers' collections.
+
+    What the scheduler does once a day (services/fitting.py), on demand.
+    """
+    from app.scrapers.base import ScrapeContext
+    from app.services import fitting
+
+    ctx = ScrapeContext(get_config())
+    try:
+        with session_scope() as session:
+            result = fitting.refresh(session, ctx, log_line=lambda line: print(f"  {line}"))
+    finally:
+        ctx.close()
+    print(f"Asked about {result.asked} owned model(s); kept {sum(result.kept.values())} offer(s).")
+    return 0
+
+
 def cmd_fetch_photos(args: argparse.Namespace) -> int:
     """Drain the photo download queue without re-scraping anything."""
     downloaded = scan_service.download_pending_photos(
@@ -2270,6 +2288,11 @@ def build_parser() -> argparse.ArgumentParser:  # noqa: PLR0915 - a statement pe
         help="Also try photos that have been given up on after repeated failures.",
     )
     photos.set_defaults(func=cmd_fetch_photos)
+
+    sub.add_parser(
+        "fitting-refresh",
+        help="Ask the accessory stores what fits the guns in readers' collections.",
+    ).set_defaults(func=cmd_fitting_refresh)
 
     resting = sub.add_parser("resting", help="Show hosts being left alone after refusing requests.")
     resting.add_argument(

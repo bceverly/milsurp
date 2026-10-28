@@ -306,6 +306,7 @@ export const api = {
 
   // --- what a kind of gun goes for, across every dealer at once ---
   market: (params = {}) => request(`/api/market${qs(params)}`),
+  marketHistory: (params = {}) => request(`/api/market/history${qs(params)}`),
   timeToSell: (params = {}) => request(`/api/market/time-to-sell${qs(params)}`),
   // How each shop behaves -- see services/scorecards.py.
   shopScorecards: () => request("/api/market/shops"),

@@ -702,6 +702,23 @@ class MarketBandOut(BaseModel):
     concentrated: bool
 
 
+class MarketHistoryPointOut(BaseModel):
+    """One week of one band: the spread of what was being asked at its end."""
+
+    week: datetime
+    listings: int
+    low: float
+    median: float
+    high: float
+
+
+class MarketHistoryOut(BaseModel):
+    dimension: str
+    value: str
+    min_sample: int
+    points: list[MarketHistoryPointOut] = Field(default_factory=list)
+
+
 class MarketOut(BaseModel):
     """What a kind of gun goes for across every dealer at once.
 
@@ -1981,6 +1998,7 @@ class HotDealPreferenceOut(BaseModel):
     include_police_surplus: bool
     include_concealed_carry: bool = True
     include_black_powder: bool = True
+    include_suppressors: bool = True
     match_saved_searches: bool = False
     #: How many saved searches this reader has, so the page can say what the
     #: switch above would narrow to -- and warn when the answer is nothing.
@@ -1995,6 +2013,7 @@ class HotDealPreferenceUpdate(BaseModel):
     include_police_surplus: bool | None = None
     include_concealed_carry: bool | None = None
     include_black_powder: bool | None = None
+    include_suppressors: bool | None = None
     match_saved_searches: bool | None = None
 
 
@@ -2275,6 +2294,19 @@ class CollectionHistoryPoint(BaseModel):
     guns: int
 
 
+class AccessoryOfferOut(BaseModel):
+    """A magazine or speedloader its store says fits an owned gun.
+    See services/fitting.py."""
+
+    source: str
+    kind: str
+    title: str
+    url: str
+    price: float | None = None
+    in_stock: bool = True
+    image_url: str | None = None
+
+
 class ShopLinkOut(BaseModel):
     store: str
     url: str
@@ -2302,6 +2334,9 @@ class FitsOut(BaseModel):
     accessories_total: int = 0
     #: Links to the stores' own search for what this gun takes, shelf by shelf.
     shop_links: list[ShopShelfOut] = Field(default_factory=list)
+    #: Magazines and speedloaders whose stores say they fit this gun.
+    offers: list[AccessoryOfferOut] = Field(default_factory=list)
+    offers_total: int = 0
 
 
 class HabitOut(BaseModel):

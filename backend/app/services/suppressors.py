@@ -186,3 +186,111 @@ def decide(session: Session, item: Item) -> bool:  # noqa: ARG001 - the Types' s
         is_parts_kit=bool(item.is_parts_kit),
         is_bayonet=bool(item.is_bayonet),
     )
+
+
+#: Words that say nothing about which can it is: the noun, the finish, the
+#: maker's corporate tail, and what a can is sold with or rated for.
+_KEY_NOISE = re.compile(
+    r"\b(?:suppressors?|silencers?|moderators?|armament|arms|industries|defense|usa|inc|llc|co|"
+    r"black|blk|fde|flat\s+dark\s+earth|od\s+green|odg|green|tan|gray|grey|graphite|bronze|"
+    r"cerakote|raw|patina|nitride|gold|silver|tungsten|camo|"
+    r"direct\s+thread|thread(?:ed)?|dt|qd|hub|taper|mount|cal(?:iber)?|multi|"
+    r"rifle|pistol|rimfire|shotgun|new|used)\b",
+    re.I,
+)
+#: A thread pitch, a length, a caliber: "1/2x28", "5/8-24", "1.375x24", '7.6"',
+#: "9mm", ".30", "5.56", "7.62x39", "300blk".
+_KEY_MEASURE = re.compile(
+    r"\d+/\d+\s*[-x]\s*\d+|\d+\.\d+\s*x\s*\d+|\d+(?:\.\d+)?\s*(?:\"|in\b|inch(?:es)?\b|″)"
+    r"|\b\d+(?:\.\d+)?\s*mm\b|(?<![\w])\.\d{2,3}\b|\b\d\.\d{2}\b|\b\d+(?:\.\d+)?x\d+\b"
+    r"|\b\d{3}\s*(?:blk|blackout|win|wm|rem|nato|acp|auto)\b",
+    re.I,
+)
+
+
+#: The can makers, by the spellings their titles use, for a listing whose own
+#: maker was not read: the key needs to know whose can it is.
+_CAN_MAKERS = (
+    ("silencerco", r"silencer\s*co"),
+    ("deadair", r"dead\s*air"),
+    ("griffin", r"griffin(?:\s+armament)?"),
+    ("rugged", r"rugged(?:\s+suppressors)?"),
+    ("surefire", r"sure\s*fire"),
+    ("huxwrx", r"huxwrx|hux\s*wrx"),
+    ("thunderbeast", r"thunder\s*beast|tbac"),
+    ("banish", r"banish"),
+    ("cgs", r"cgs(?:\s+suppressors)?|cgs\s+group"),
+    ("aac", r"aac|advanced\s+armament"),
+    ("otter", r"otter\s+creek(?:\s+labs)?|ocl"),
+    ("sig", r"sig\s*sauer|sig"),
+    ("bt", r"b\s*&\s*t|brugger\s*(?:&|and)?\s*thomet"),
+    ("q", r"q\s*llc|q"),
+    ("yhm", r"yhm|yankee\s+hill(?:\s+machine)?"),
+    ("gemtech", r"gemtech"),
+    ("sonicore", r"sonicore"),
+    ("kgm", r"kgm"),
+    ("jk", r"jk\s+armament"),
+    ("maxim", r"maxim\s+defense"),
+    ("pws", r"primary\s+weapons(?:\s+systems)?|pws"),
+    ("diligent", r"diligent\s+defense(?:\s+co)?"),
+    ("knights", r"knight'?s(?:\s+armament)?"),
+    ("danieldefense", r"daniel\s+defense"),
+    ("faxon", r"faxon(?:\s+firearms)?"),
+    ("diamondback", r"diamondback(?:\s+firearms)?"),
+    ("abel", r"abel"),
+    ("hausken", r"hausken"),
+    ("ase", r"ase\s+utra"),
+    ("nosler", r"nosler"),
+    ("barrett", r"barrett"),
+    ("magco", r"magco"),
+    ("anechoic", r"anechoic"),
+    ("tacsol", r"tactical\s+solutions"),
+    ("bowers", r"bowers(?:\s+group)?"),
+    ("liberty", r"liberty(?:\s+suppressors)?"),
+    ("ambient", r"ambient\s+arms"),
+    ("allen", r"allen\s+engineering"),
+    ("angledspade", r"angled\s+spade"),
+    ("eotech", r"eotech"),
+    ("hk", r"heckler\s*(?:&|and)\s*koch|h&k|hk"),
+)
+_CAN_MAKER = re.compile(
+    r"^\W*(?:" + "|".join(f"(?P<{slug}>{pattern})" for slug, pattern in _CAN_MAKERS) + r")\b",
+    re.I,
+)
+
+
+def _maker_of(title: str, manufacturer: str | None) -> tuple[str | None, str]:
+    """Whose can, as a short slug, and the title with the maker's name off."""
+    found = _CAN_MAKER.match(title)
+    if found:
+        return found.lastgroup, title[found.end() :]
+    if manufacturer:
+        slug = re.sub(r"[^a-z0-9]", "", manufacturer.lower())
+        for word in re.findall(r"[a-z0-9]+", manufacturer.lower()):
+            title = re.sub(rf"\b{re.escape(word)}\b", " ", title, flags=re.I)
+        return slug or None, title
+    return None, title
+
+
+def can_key(title: str | None, manufacturer: str | None = None) -> str | None:
+    """Which can a listing is, as a key two shops' listings of it share.
+
+    A suppressor has no armory model -- the armory is for guns -- so the hot
+    deals pass groups cans by this instead: the maker, then the first two
+    words left once everything that describes rather than names is taken off.
+    "SILENCERCO Omega 36M 7.6in Silencer / Suppressor - Black" and "SilencerCo
+    Omega 36M" are both ``silencerco:omega36m``; "Rugged Obsidian 9 9mm" and
+    "Rugged Suppressors Obsidian9" are both ``rugged:obsidian9``. Close enough
+    to compare a can's price across shops, and None when whose can it is, or
+    which, cannot be told.
+    """
+    text = _SOLD_WITH.sub("", title or "")
+    text = re.split(r"\s[-\u2013|]\s|\s/\s", text)[0]
+    maker, text = _maker_of(text, manufacturer)
+    if not maker:
+        return None
+    text = _KEY_MEASURE.sub(" ", text.lower())
+    text = _KEY_NOISE.sub(" ", text)
+    words = re.findall(r"[a-z0-9]+", text)
+    model = "".join(words[:2])
+    return f"{maker}:{model}" if model else None

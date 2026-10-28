@@ -29,9 +29,11 @@ from .base import (
     ScrapeError,
     SiteScraper,
 )
+from .bereli import BereliScraper
 from .botach import BotachScraper
 from .bowman_arms import BowmanArmsScraper
 from .buds_gun_shop import BudsGunShopScraper
+from .buffalo_arms import BuffaloArmsScraper
 from .capitol_armory import CapitolArmoryScraper
 from .centerfire_systems import CenterfireSystemsScraper
 from .checkpoint_charlies import CheckpointCharliesScraper
@@ -58,8 +60,10 @@ from .gunprime import GunPrimeScraper
 from .horse_soldier import HorseSoldierScraper
 from .hunters_lodge import HuntersLodgeScraper
 from .ima_usa import ImaUsaScraper
+from .impact_guns import ImpactGunsScraper
 from .james_river_armory import JamesRiverArmoryScraper
 from .jg_sales import JgSalesScraper
+from .jims_firearms import JimsFirearmsScraper
 from .jj_military import JjMilitaryScraper
 from .joe_salter import JoeSalterScraper
 from .kittery_trading_post import KitteryTradingPostScraper
@@ -82,11 +86,13 @@ from .oldguns import OldGunsScraper
 from .pre98 import Pre98Scraper
 from .primary_arms import PrimaryArmsScraper
 from .rainier_arms import RainierArmsScraper
+from .rcf_guns import RcfGunsScraper
 from .recoil_gun_works import RecoilGunWorksScraper
 from .royal_tiger import RoyalTigerScraper
 from .sarco import SarcoScraper
 from .shoot_it import ShootItScraper
 from .silencer_central import SilencerCentralScraper
+from .silencer_shop import SilencerShopScraper
 from .simpson_ltd import SimpsonLtdScraper
 from .sportsmans_outdoor import SportsmansOutdoorScraper
 from .surplus_defense import SurplusDefenseScraper
@@ -94,6 +100,7 @@ from .target_sports_usa import TargetSportsUsaScraper
 from .the_gun_works import TheGunWorksScraper
 from .tortuga_trading import TortugaTradingScraper
 from .track_of_the_wolf import TrackOfTheWolfScraper
+from .vance_outdoors import VanceOutdoorsScraper
 from .veteran_arms import VeteranArmsScraper
 from .we_buy_guns import WeBuyGunsScraper
 from .what_a_country import WhatACountryScraper
@@ -197,6 +204,13 @@ SCRAPER_CLASSES: tuple[type[SiteScraper], ...] = (
     KyGunCoScraper,
     PrimaryArmsScraper,
     BudsGunShopScraper,
+    SilencerShopScraper,
+    BereliScraper,
+    VanceOutdoorsScraper,
+    ImpactGunsScraper,
+    JimsFirearmsScraper,
+    RcfGunsScraper,
+    BuffaloArmsScraper,
 )
 
 _REGISTRY: dict[str, type[SiteScraper]] = {cls.slug: cls for cls in SCRAPER_CLASSES}

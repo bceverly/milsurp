@@ -4097,3 +4097,21 @@
   display: block;
   margin-top: 4px;
 }
+
+/* A Market band week by week. */
+.market-trend {
+  margin: 4px 0 8px;
+}
+.market-trend figcaption {
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+.market-trend svg {
+  width: 100%;
+  height: 140px;
+  color: var(--navy-600);
+}
+.market-trend__band {
+  fill: currentColor;
+  opacity: 0.15;
+}

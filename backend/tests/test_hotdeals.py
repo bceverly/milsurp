@@ -291,6 +291,7 @@ class TestTheThreeFilters:
             "concealed_carry": 0,
             "black_powder": 0,
             "police_surplus": 0,
+            "suppressor": 0,
         }
 
 
@@ -780,3 +781,40 @@ class TestUnderNew:
         [deal] = client.get("/api/hot-deals", headers=admin_headers).json()["deals"]
         assert deal["headline"] == "12% under the price new"
         assert deal["median_price"] is None
+
+
+class TestSuppressors:
+    """A can has no armory model, so it is compared with the same can at other
+    shops by the key its title gives (suppressors.can_key), 2026-10-28."""
+
+    def _can(self, session, site, price, title):
+        item = Item(
+            site_id=site.id,
+            external_key=f"{site.slug}-{price}-{session.query(Item).count()}",
+            url=f"{site.base_url}can",
+            title=title,
+            current_price=price,
+            is_suppressor=True,
+            is_active=True,
+            is_sold=False,
+        )
+        session.add(item)
+        session.flush()
+        return item
+
+    def test_a_cheap_can_is_a_deal_against_the_same_can_elsewhere(self, clean_db, shop):
+        _model, a, b = shop
+        cheap = self._can(clean_db, a, 600.0, "SilencerCo Omega 36M Suppressor - Black")
+        for index, site in enumerate((a, b, b, a)):
+            self._can(
+                clean_db, site, 990.0 + index, 'SILENCERCO Omega 36M 7.6" Silencer / Suppressor'
+            )
+        # A different can, however cheap, is not a peer.
+        self._can(clean_db, b, 100.0, "Dead Air Mask .22LR Suppressor")
+        clean_db.commit()
+        hotdeals.refresh(clean_db)
+
+        found = hotdeals.deals(clean_db, "suppressor")
+        assert [deal.item_id for deal in found] == [cheap.id]
+        assert hotdeals.bucket_of(cheap) == "suppressor"
+        assert hotdeals.BUCKET_LABELS["suppressor"] == "Suppressors"

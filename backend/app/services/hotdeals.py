@@ -90,11 +90,11 @@ from ..models import (
     as_utc,
     utcnow,
 )
-from . import carry, pricing, renotify
+from . import carry, pricing, renotify, suppressors
 
 log = logging.getLogger("milsurp.hotdeals")
 
-#: The five filters, which are the browse page's own buckets under its own
+#: The six filters, which are the browse page's own buckets under its own
 #: names. Ordered as the page offers them.
 #:
 #: Black powder, concealed carry and then police surplus come first in
@@ -108,6 +108,7 @@ BUCKETS: tuple[str, ...] = (
     "concealed_carry",
     "black_powder",
     "police_surplus",
+    "suppressor",
 )
 
 #: What each is called where a person reads it. Server-side so the page, the
@@ -118,6 +119,7 @@ BUCKET_LABELS = {
     "concealed_carry": "Concealed carry",
     "black_powder": "Black powder",
     "police_surplus": "Police surplus",
+    "suppressor": "Suppressors",
 }
 
 #: The orders the page may be read in. The key is what a query string carries,
@@ -177,6 +179,7 @@ BUCKET_PREFERENCE = {
     "concealed_carry": "include_concealed_carry",
     "black_powder": "include_black_powder",
     "police_surplus": "include_police_surplus",
+    "suppressor": "include_suppressors",
 }
 
 #: Most deals one email will carry. A pass that has just been switched on finds
@@ -263,7 +266,7 @@ def is_due(session: Session, *, now: datetime | None = None) -> bool:
 
 # -- the pass ---------------------------------------------------------------
 def bucket_of(item: Item) -> str | None:
-    """Which of the five filters a listing belongs to, or None for none.
+    """Which of the six filters a listing belongs to, or None for none.
 
     The browse page's partition, applied to a loaded row rather than in SQL --
     see ``search.KINDS``, which is the same rule and the authority on it.
@@ -275,17 +278,24 @@ def bucket_of(item: Item) -> str | None:
     handful of listings that read as both, which are nearly always a rifle
     sold with a pistol or a title the classifier read twice.
     """
-    if item.is_black_powder:
-        return "black_powder"
-    if item.is_concealed_carry:
-        return "concealed_carry"
-    if item.is_police_surplus:
-        return "police_surplus"
-    if item.is_rifle:
-        return "rifle"
-    if item.is_pistol:
-        return "pistol"
+    for flag, bucket in _PRECEDENCE:
+        if getattr(item, flag):
+            return bucket
     return None
+
+
+#: :func:`bucket_of`'s order. A suppressor first -- never also a gun
+#: (app/services/suppressors.py), so first or last is the same, and first means
+#: a can mislabeled as a rifle cannot be filed as one; then the gun Types in the
+#: order search.KINDS subtracts them.
+_PRECEDENCE = (
+    ("is_suppressor", "suppressor"),
+    ("is_black_powder", "black_powder"),
+    ("is_concealed_carry", "concealed_carry"),
+    ("is_police_surplus", "police_surplus"),
+    ("is_rifle", "rifle"),
+    ("is_pistol", "pistol"),
+)
 
 
 def _group_key(item: Item) -> tuple[int, str, str | None] | None:
@@ -330,15 +340,32 @@ def _place_everything(session: Session) -> tuple[list[Placed], int]:
         .all()
     )
 
-    groups: dict[tuple[int, str, str | None], list[Item]] = {}
+    groups: dict[tuple[object, ...], list[Item]] = {}
     for item in pool:
         key = _group_key(item)
         if key is not None:
             groups.setdefault(key, []).append(item)
+    # Suppressors have no armory model -- the armory is for guns -- so a can
+    # is grouped with the same can at other shops by the key its title gives
+    # (suppressors.can_key): the same rule after that, peers and shops and all.
+    cans = session.execute(
+        select(Item).where(
+            Item.is_active.is_(True),
+            Item.current_price.is_not(None),
+            Item.is_suppressor.is_(True),
+        )
+    ).scalars()
+    for item in cans:
+        can = suppressors.can_key(item.title, item.manufacturer)
+        if can is not None:
+            groups.setdefault(("can", can), []).append(item)
 
     placed: list[Placed] = []
     considered = 0
-    for members in groups.values():
+    # By key as well as members: the key is half of what makes two listings
+    # one offer (see _collapse_duplicates). It used to be read from the loop
+    # above, so every offer carried whichever key came last.
+    for key, members in groups.items():
         if len(members) < pricing.MIN_PEERS:
             continue
         prices = sorted(float(other.current_price or 0) for other in members)
@@ -656,7 +683,7 @@ def preference(session: Session, user: User) -> HotDealPreference:
     """This reader's subscription, created on first sight with the defaults.
 
     Only called where a row is about to be *written*. Readers go through
-    :func:`wants`, which treats a missing row as "subscribed to all five" --
+    :func:`wants`, which treats a missing row as "subscribed to all six" --
     that absence is what gives every existing account the feature without a
     backfill, and creating rows just to read them would throw it away.
     """
@@ -671,7 +698,7 @@ def preference(session: Session, user: User) -> HotDealPreference:
 
 
 def wants(row: HotDealPreference | None, bucket: str) -> bool:
-    """Whether this subscription covers a bucket. None means all five."""
+    """Whether this subscription covers a bucket. None means all six."""
     if row is None:
         return True
     if not row.enabled:

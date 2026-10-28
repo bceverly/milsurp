@@ -65,6 +65,7 @@ class TestReadingThePage:
             "concealed_carry": 0,
             "black_powder": 0,
             "police_surplus": 0,
+            "suppressor": 0,
         }
         assert body["buckets"] == [
             "rifle",
@@ -72,6 +73,7 @@ class TestReadingThePage:
             "concealed_carry",
             "black_powder",
             "police_surplus",
+            "suppressor",
         ]
         assert body["labels"]["police_surplus"] == "Police surplus"
         assert body["preference"]["enabled"] is True
@@ -262,6 +264,7 @@ class TestTheSubscription:
             "include_police_surplus": True,
             "include_concealed_carry": True,
             "include_black_powder": True,
+            "include_suppressors": True,
             "match_saved_searches": False,
             "saved_searches": 0,
             "last_sent_at": None,

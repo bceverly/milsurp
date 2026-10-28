@@ -26,6 +26,7 @@ from ..models import (
     User,
 )
 from ..schemas import (
+    AccessoryOfferOut,
     CollectionHistoryPoint,
     CollectionItemIn,
     CollectionItemOut,
@@ -41,7 +42,7 @@ from ..schemas import (
     ShopLinkOut,
     ShopShelfOut,
 )
-from ..services import collection, foryourguns, shoplinks, traits
+from ..services import collection, fitting, foryourguns, shoplinks, traits
 from .market import band_out
 
 router = APIRouter(prefix="/collection", tags=["collection"])
@@ -197,6 +198,12 @@ def for_your_guns(user: CurrentUser, session: DbSession) -> list[FitsOut]:
 
     fits = foryourguns.for_user(session, user)
     site_names = dict(session.execute(select(Site.id, Site.name)).all())
+    stocked = fitting.all_offers(session)
+    offers = {
+        fit.row.id: fitting.for_model(session, fit.row.firearm_model_id, stocked)
+        for fit in fits
+        if fit.row.firearm_model_id
+    }
     return [
         FitsOut(
             row_id=fit.row.id,
@@ -215,6 +222,11 @@ def for_your_guns(user: CurrentUser, session: DbSession) -> list[FitsOut]:
                 )
                 for shelf in shoplinks.shelves(fit.row)
             ],
+            offers=[
+                AccessoryOfferOut(**fitting.as_dict(offer))
+                for offer in offers.get(fit.row.id, [])[: fitting.PER_GUN]
+            ],
+            offers_total=len(offers.get(fit.row.id, [])),
         )
         for fit in fits
     ]

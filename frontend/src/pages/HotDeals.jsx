@@ -106,6 +106,7 @@ function Subscription({ preference, labels, buckets, onChange, busy }) {
     concealed_carry: "include_concealed_carry",
     black_powder: "include_black_powder",
     police_surplus: "include_police_surplus",
+    suppressor: "include_suppressors",
   };
   return (
     <div className="panel deal-panel">

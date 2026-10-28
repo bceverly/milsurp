@@ -13,11 +13,11 @@
  * shops it came from, because most of them are one: 7.5x55 Swiss is 94% a
  * single dealer, and a median from one shelf is that dealer's pricing.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api.js";
 import { useTitle } from "../hooks.js";
-import { formatMoney } from "../format.js";
+import { formatDate, formatMoney } from "../format.js";
 import { Refresh, Warning } from "../components/Icons.jsx";
 import SortHeader from "../components/SortHeader.jsx";
 import { COLLATOR, compareCalibers } from "../sorting.js";
@@ -371,6 +371,85 @@ function Spread({ band, ceiling }) {
   );
 }
 
+/**
+ * One band week by week: the median as a line over the tenth-to-ninetieth
+ * band, reconstructed from price history. A week with too few listings is
+ * left out rather than drawn from an anecdote. See market.history.
+ */
+function Trend({ dimension, value, includeAccessories }) {
+  const [points, setPoints] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let live = true;
+    api
+      .marketHistory({ by: dimension, value, include_accessories: includeAccessories })
+      .then((result) => live && setPoints(result.points))
+      .catch((err) => live && setError(err.message));
+    return () => {
+      live = false;
+    };
+  }, [dimension, value, includeAccessories]);
+
+  if (error) return <p className="alert alert--error">{error}</p>;
+  if (!points) return <p className="muted">Working out the weeks…</p>;
+  if (points.length < 2) {
+    return (
+      <p className="muted" data-testid="market-trend">
+        Not enough weeks with five or more listings to draw a trend yet.
+      </p>
+    );
+  }
+  const width = 640;
+  const height = 140;
+  const pad = 8;
+  const top = Math.max(...points.map((point) => point.high));
+  const bottom = Math.min(...points.map((point) => point.low));
+  const span = top - bottom || 1;
+  const x = (index) => pad + (index * (width - 2 * pad)) / (points.length - 1);
+  const y = (price) => pad + ((top - price) * (height - 2 * pad)) / span;
+  const area = [
+    ...points.map((point, index) => `${x(index)},${y(point.high)}`),
+    ...points.map((point, index) => `${x(index)},${y(point.low)}`).reverse(),
+  ].join(" ");
+  const line = points.map((point, index) => `${x(index)},${y(point.median)}`).join(" ");
+  const first = points[0];
+  const last = points[points.length - 1];
+  return (
+    <figure className="market-trend" data-testid="market-trend">
+      <figcaption>
+        Typical asking price, week by week: {formatMoney(first.median)} on{" "}
+        {formatDate(first.week)} to <strong>{formatMoney(last.median)}</strong> on{" "}
+        {formatDate(last.week)}. The shaded band runs from the tenth to the ninetieth
+        percentile.
+      </figcaption>
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="none"
+        role="img"
+        aria-label={`${value}: median from ${formatMoney(first.median)} to ${formatMoney(last.median)}`}
+      >
+        <polygon points={area} className="market-trend__band" />
+        <polyline points={line} fill="none" stroke="currentColor" strokeWidth="2.5" />
+        {points.map((point, index) => (
+          <circle
+            key={point.week}
+            cx={x(index)}
+            cy={y(point.median)}
+            r="3.5"
+            fill="currentColor"
+          >
+            <title>
+              {formatDate(point.week)}: {formatMoney(point.median)} median,{" "}
+              {point.listings} listings
+            </title>
+          </circle>
+        ))}
+      </svg>
+    </figure>
+  );
+}
+
 export default function Market() {
   useTitle("Market");
   const [dimension, setDimension] = useState("caliber");
@@ -378,6 +457,7 @@ export default function Market() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [sort, setSort] = useState(DEFAULT_SORT);
+  const [open, setOpen] = useState(null);
   const sortBy = (key) => setSort((current) => nextSort(current, key));
 
   const bands = useMemo(() => {
@@ -518,39 +598,67 @@ export default function Market() {
                     />
                     <th>Spread</th>
                     <th>Shops</th>
+                    <th aria-label="Trend" />
                   </tr>
                 </thead>
                 <tbody>
                   {bands.map((band) => (
-                    <tr key={band.value}>
-                      <td>
-                        <Link to={`/?${dimension}=${encodeURIComponent(band.value)}`}>
-                          {band.value}
-                        </Link>
-                        {band.concentrated && (
-                          <span className="chip chip--warning market-chip">one shop</span>
-                        )}
-                      </td>
-                      <td>{band.listings.toLocaleString()}</td>
-                      <td>
-                        <strong>{formatMoney(band.median, band.currency)}</strong>
-                      </td>
-                      <td className="market-spread">
-                        <span className="market-spread__low">
-                          {formatMoney(band.low, band.currency)}
-                        </span>
-                        <Spread band={band} ceiling={ceiling} />
-                        <span className="market-spread__high">
-                          {formatMoney(band.high, band.currency)}
-                        </span>
-                      </td>
-                      <td>
-                        {band.sites}
-                        <span className="market-share">
-                          {Math.round(band.top_site_share * 100)}% largest
-                        </span>
-                      </td>
-                    </tr>
+                    <Fragment key={band.value}>
+                      <tr>
+                        <td>
+                          <Link to={`/?${dimension}=${encodeURIComponent(band.value)}`}>
+                            {band.value}
+                          </Link>
+                          {band.concentrated && (
+                            <span className="chip chip--warning market-chip">
+                              one shop
+                            </span>
+                          )}
+                        </td>
+                        <td>{band.listings.toLocaleString()}</td>
+                        <td>
+                          <strong>{formatMoney(band.median, band.currency)}</strong>
+                        </td>
+                        <td className="market-spread">
+                          <span className="market-spread__low">
+                            {formatMoney(band.low, band.currency)}
+                          </span>
+                          <Spread band={band} ceiling={ceiling} />
+                          <span className="market-spread__high">
+                            {formatMoney(band.high, band.currency)}
+                          </span>
+                        </td>
+                        <td>
+                          {band.sites}
+                          <span className="market-share">
+                            {Math.round(band.top_site_share * 100)}% largest
+                          </span>
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            className="btn btn--ghost btn--sm"
+                            aria-expanded={open === band.value}
+                            onClick={() =>
+                              setOpen(open === band.value ? null : band.value)
+                            }
+                          >
+                            {open === band.value ? "Hide trend" : "Trend"}
+                          </button>
+                        </td>
+                      </tr>
+                      {open === band.value && (
+                        <tr className="market-trend-row">
+                          <td colSpan={6}>
+                            <Trend
+                              dimension={dimension}
+                              value={band.value}
+                              includeAccessories={!firearmsOnly}
+                            />
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>

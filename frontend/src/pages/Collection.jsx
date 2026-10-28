@@ -655,6 +655,41 @@ function FitList({ title, items, total }) {
 }
 
 /**
+ * Magazines and speedloaders whose stores say they fit this gun -- GunMag
+ * Warehouse's compatibility list, Speed Beez's gun models -- cheapest in
+ * stock first. Links go to the store. See services/fitting.py.
+ */
+function OfferList({ offers, total }) {
+  if (!offers || !offers.length) return null;
+  return (
+    <div className="fits__group" data-testid="fit-offers">
+      <h4>
+        Magazines and speedloaders that fit <span className="muted">({total})</span>
+      </h4>
+      <ul>
+        {offers.map((offer) => (
+          <li key={offer.url}>
+            <a href={offer.url} target="_blank" rel="noopener noreferrer">
+              {offer.title}
+            </a>{" "}
+            <span className="muted">
+              {offer.price != null ? formatMoney(offer.price) : "No price"} ·{" "}
+              {offer.source}
+              {!offer.in_stock && " · out of stock"}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {total > offers.length && (
+        <p className="muted collection-sub">
+          Showing {offers.length} of {total}, cheapest in stock first.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
  * One-click searches at the stores that sell what this gun takes: magazines
  * for a pistol, speedloaders for a revolver, and so on. Nothing is scraped;
  * each link is the store's own search. See services/shoplinks.py.
@@ -745,6 +780,7 @@ function ForYourGuns() {
                 items={fit.accessories}
                 total={fit.accessories_total}
               />
+              <OfferList offers={fit.offers} total={fit.offers_total} />
               {nothing && (
                 <p className="muted collection-sub">
                   Nothing for sale at the shops this site reads right now.

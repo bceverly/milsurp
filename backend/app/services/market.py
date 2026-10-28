@@ -47,12 +47,12 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from ..models import FirearmModel, Item, ScanRun, ScanStatus
+from ..models import FirearmModel, Item, PriceHistory, ScanRun, ScanStatus, utcnow
 
 #: What a group can be cut by. Each is a column on the listing, so a group is
 #: exactly what the browse filter of the same name would return.
@@ -190,6 +190,115 @@ def summarize(
         thin_listings=sum(len(prices) for prices in thin.values()),
         bands=bands[:limit],
     )
+
+
+# ---------------------------------------------------------------------------
+# A band over time
+# ---------------------------------------------------------------------------
+#: How far back the series goes. Production has kept price history since
+#: 2026-09-05; this asks for no more than it has.
+HISTORY_WEEKS = 12
+
+
+@dataclass
+class HistoryPoint:
+    """One week's spread for one band: what was being asked at its end."""
+
+    week: datetime
+    listings: int
+    low: float
+    median: float
+    high: float
+
+
+def _for_sale_at(item: Item, moment: datetime) -> bool:
+    """Whether the listing was on the shelf at ``moment``.
+
+    From when it was first seen to when it sold or was taken down. A listing
+    gone before ``delisted_at`` existed is held to its last sighting instead.
+    """
+    if item.first_seen_at is None or item.first_seen_at > moment:
+        return False
+    if item.sold_at is not None and item.sold_at <= moment:
+        return False
+    if item.delisted_at is not None and item.delisted_at <= moment:
+        return False
+    if not item.is_active and item.delisted_at is None:
+        return item.last_seen_at is not None and item.last_seen_at > moment
+    return not (item.is_sold and item.sold_at is None)
+
+
+def history(
+    session: Session,
+    dimension: str,
+    value: str,
+    *,
+    firearms_only: bool = True,
+    weeks: int = HISTORY_WEEKS,
+    min_sample: int = MIN_SAMPLE,
+    now: datetime | None = None,
+) -> list[HistoryPoint]:
+    """One band's spread week by week, reconstructed from ``price_history``.
+
+    The axis the shelf bands deliberately do not draw, planned until there was
+    enough history to say anything (shipped 2026-10-28, eight weeks in). A
+    ``price_history`` row is written only when a price *changes*, so a listing's
+    asking price at the end of a week is its last recorded price before then,
+    and it counts in that week only if it was for sale then -- first seen
+    before, not yet sold or taken down. Each week is the same tenth, median
+    and ninetieth percentile the shelf band uses, and a week with fewer than
+    ``min_sample`` listings is left out rather than drawn from an anecdote.
+    """
+    if dimension not in DIMENSIONS:
+        raise ValueError(f"Unknown dimension: {dimension}")
+    column = getattr(Item, dimension)
+    stmt = select(Item).where(column == value)
+    if firearms_only:
+        stmt = stmt.where(Item.is_rifle.is_(True) | Item.is_pistol.is_(True))
+    items = {item.id: item for item in session.execute(stmt).scalars()}
+    if not items:
+        return []
+
+    changes: dict[int, list[tuple[datetime, float]]] = {}
+    ids = list(items)
+    for start in range(0, len(ids), 900):
+        for item_id, observed, price in session.execute(
+            select(PriceHistory.item_id, PriceHistory.observed_at, PriceHistory.price)
+            .where(PriceHistory.item_id.in_(ids[start : start + 900]))
+            .order_by(PriceHistory.observed_at)
+        ).all():
+            changes.setdefault(item_id, []).append((observed, float(price)))
+    if not changes:
+        return []
+
+    end = (now or utcnow()).replace(tzinfo=None)
+    earliest = min(series[0][0] for series in changes.values())
+    points: list[HistoryPoint] = []
+    for back in range(weeks - 1, -1, -1):
+        moment = end - timedelta(days=7 * back)
+        if moment < earliest:
+            continue
+        prices = []
+        for item_id, series in changes.items():
+            item = items[item_id]
+            if not _for_sale_at(item, moment):
+                continue
+            asked = [price for observed, price in series if observed <= moment]
+            if asked:
+                prices.append(asked[-1])
+        if len(prices) < min_sample:
+            continue
+        prices.sort()
+        points.append(
+            HistoryPoint(
+                week=moment,
+                listings=len(prices),
+                low=_percentile(prices, 0.10),
+                median=_percentile(prices, 0.50),
+                high=_percentile(prices, 0.90),
+            )
+        )
+    return points
 
 
 # ---------------------------------------------------------------------------

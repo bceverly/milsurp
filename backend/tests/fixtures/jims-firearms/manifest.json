@@ -1,0 +1,22 @@
+{
+  "slug": "jims-firearms",
+  "recorded_at": "2026-10-28T13:28:05+00:00",
+  "pages": [
+    {
+      "url": "https://www.jimsfirearms.net/firearms-used_guns",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://www.jimsfirearms.net/rock-island/used-m1911-a2-45-acp-5-wide-body-pistol-100061",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://www.jimsfirearms.net/springfield-armory/used-xds-9-9mm-3-3-pistol-100145",
+      "file": "0003.html.gz"
+    },
+    {
+      "url": "https://www.jimsfirearms.net/smith-and-wesson/used-m-p9-shield-m2-0-9mm-3-1-pistol-with-ctc-laser-100146",
+      "file": "0004.html.gz"
+    }
+  ]
+}

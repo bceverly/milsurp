@@ -3788,9 +3788,9 @@ backend/cli.py backup           # snapshot the database now, and prune old ones
 
 ## Roadmap
 
-[ROADMAP.md](ROADMAP.md) tracks planned work, including the fifteen vendor
-sites queued for support, Debian packages and a Launchpad PPA driven by
-`v1.2.3.4` git tags, and an Electron desktop app published to the Snap Store.
+[ROADMAP.md](ROADMAP.md) tracks planned and shipped work: the vendor sites
+measured, built, blocked or refused, the Debian packages and Launchpad PPA
+driven by `v1.2.3.4` git tags, and the application's features.
 
 [TODO.md](TODO.md) is the working checklist for the current build.
 

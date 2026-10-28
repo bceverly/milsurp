@@ -152,10 +152,17 @@ class SportsmansOutdoorScraper(SiteScraper):
     )
     requires_browser = False
     default_interval_minutes = 1440
+    #: What is read, in order. A class attribute so a shop on the same
+    #: ColdFusion storefront (Vance Outdoors) is a subclass of a few lines.
+    sources: tuple[dict[str, str], ...] = SOURCES
 
     def __init__(self) -> None:
         self._detail_failures = 0
         self._gave_up_on_details = False
+
+    def card_in_stock(self, card: Tag) -> bool:
+        """Whether a card says it is for sale. This shop's own label; see in_stock."""
+        return in_stock(card)
 
     def scrape(self, ctx: ScrapeContext) -> Iterator[ScrapedItem]:
         """Each listing as it is read, product page included.
@@ -165,14 +172,14 @@ class SportsmansOutdoorScraper(SiteScraper):
         """
         seen: set[str] = set()
         read = silent_unknown = 0
-        for source in SOURCES:
+        for source in self.sources:
             ctx.check_stop()
             ctx.log(f"Reading {source['category']}…")
             for product_id, card, page_url in self._walk(ctx, source["url"]):
                 if product_id in seen:
                     continue
                 seen.add(product_id)
-                available = in_stock(card)
+                available = self.card_in_stock(card)
                 # A listing we hold has had its product page read, so this is
                 # also "do we hold it". One we hold that has gone silent has
                 # sold; one we never held that is silent is archive.

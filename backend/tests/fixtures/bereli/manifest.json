@@ -1,0 +1,22 @@
+{
+  "slug": "bereli",
+  "recorded_at": "2026-10-28T13:27:41+00:00",
+  "pages": [
+    {
+      "url": "https://www.bereli.com/rifle-suppressors/",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://cdn11.bigcommerce.com/s-yqqkx/stencil/53cd4f30-a45d-013f-e406-2ec98cc9ce73/e/999e04b0-8360-013f-0df9-76410bc55f17/dist/theme-bundle.main.js",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://bereli-instantsearch.opt7dev.com/indexes/product_index/search?q=&limit=100&offset=0&filter=categories.lvl0+%3D+%22Suppressors%22+AND+NOT+categories.lvl1+%3D+%22Suppressors+%3E+Accessories%22",
+      "file": "0003.html.gz"
+    },
+    {
+      "url": "https://bereli-instantsearch.opt7dev.com/indexes/product_index/search?q=&limit=100&offset=100&filter=categories.lvl0+%3D+%22Suppressors%22+AND+NOT+categories.lvl1+%3D+%22Suppressors+%3E+Accessories%22",
+      "file": "0004.html.gz"
+    }
+  ]
+}

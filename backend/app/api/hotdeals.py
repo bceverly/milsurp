@@ -61,7 +61,7 @@ LIMITS = {
 def _preference_out(session: DbSession, user: CurrentUser) -> HotDealPreferenceOut:
     """This reader's subscription, with a missing row read as the default.
 
-    No row means all five categories and switched on. Creating one here just
+    No row means all six categories and switched on. Creating one here just
     to read it would throw that away -- the absence is what gives every
     existing account the feature without a backfill.
     """
@@ -77,6 +77,7 @@ def _preference_out(session: DbSession, user: CurrentUser) -> HotDealPreferenceO
             include_police_surplus=True,
             include_concealed_carry=True,
             include_black_powder=True,
+            include_suppressors=True,
             saved_searches=saved,
         )
     out = HotDealPreferenceOut.model_validate(row, from_attributes=True)

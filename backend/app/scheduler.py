@@ -75,6 +75,10 @@ class Scheduler:
         self._newprice_future: Future | None = None
         #: An hour after start, not at it: a restart is not a reason to ask.
         self._last_new_prices: float = time.monotonic()
+        #: Magazines and speedloaders that fit readers' guns (services/fitting):
+        #: daily, on the reference worker, the first an hour after start.
+        self._fitting_future: Future | None = None
+        self._last_fitting: float = time.monotonic() - self.FITTING_EVERY + 3600
         #: Caliber data (services/ammunition): looked at once a minute, so
         #: "Refresh now" starts within one; run on the reference worker.
         self._ammo_future: Future | None = None
@@ -219,6 +223,7 @@ class Scheduler:
         self._dispatch_inbox()
         self._dispatch_offer_endings()
         self._dispatch_new_prices()
+        self._dispatch_fitting()
         self._dispatch_ammunition()
         self._dispatch_maker_jobs()
 
@@ -260,6 +265,35 @@ class Scheduler:
                 log.info("New-gun prices: %s", counts)
         except Exception:
             log.exception("New-gun price run raised")
+        finally:
+            ctx.close()
+
+    # -- accessories that fit --------------------------------------------------
+    FITTING_EVERY = 86400
+
+    def _dispatch_fitting(self) -> None:
+        """Refresh the offers that fit readers' guns. See services/fitting."""
+        now = time.monotonic()
+        if now - self._last_fitting < self.FITTING_EVERY:
+            return
+        with self._lock:
+            if self._fitting_future is not None and not self._fitting_future.done():
+                return
+            if self._background_pool is None:
+                return
+            self._last_fitting = now
+            self._fitting_future = self._background_pool.submit(self._refresh_fitting)
+
+    def _refresh_fitting(self) -> None:
+        from .scrapers.base import ScrapeContext
+        from .services import fitting
+
+        ctx = ScrapeContext(self.config)
+        try:
+            with session_scope() as session:
+                fitting.refresh(session, ctx)
+        except Exception:
+            log.exception("Fitting refresh raised")
         finally:
             ctx.close()
 

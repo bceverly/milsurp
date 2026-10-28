@@ -165,3 +165,86 @@ class TestTheEndpoint:
     def test_the_sample_floor_is_bounded(self, client, admin_headers):
         assert client.get("/api/market?min_sample=1", headers=admin_headers).status_code == 422
         assert client.get("/api/market?min_sample=2", headers=admin_headers).status_code == 200
+
+
+class TestABandOverTime:
+    """market.history: a band week by week, reconstructed from price history
+    (planned until there was enough of it; shipped 2026-10-28)."""
+
+    def _gun(self, session, site, n, first_seen, prices, *, sold_at=None):
+        from app.models import PriceHistory
+
+        item = Item(
+            site_id=site.id,
+            external_key=f"k31-{n}",
+            url=f"{site.base_url}{n}",
+            title=f"K31 {n}",
+            caliber="7.5x55mm Swiss",
+            current_price=prices[-1][1],
+            is_active=sold_at is None,
+            is_sold=sold_at is not None,
+            sold_at=sold_at,
+            is_rifle=True,
+            is_pistol=False,
+            first_seen_at=first_seen,
+        )
+        session.add(item)
+        session.flush()
+        for observed, price in prices:
+            session.add(PriceHistory(item_id=item.id, price=price, observed_at=observed))
+        return item
+
+    def test_each_week_is_what_was_asked_then_by_what_was_for_sale(self, clean_db, shops):
+        from datetime import UTC, datetime, timedelta
+
+        # Naive, as the columns store them.
+        now = datetime(2026, 10, 28, 12, 0, tzinfo=UTC).replace(tzinfo=None)
+        week = timedelta(days=7)
+        start = now - 3 * week - timedelta(days=1)
+        # Five rifles at $400 from the start; one is cut to $300 two weeks in,
+        # and one sells a week before the end.
+        for n in range(5):
+            prices = [(start, 400.0)]
+            if n == 0:
+                prices.append((now - week - timedelta(days=1), 300.0))
+            self._gun(
+                clean_db,
+                shops[n % 3],
+                n,
+                start,
+                prices,
+                sold_at=(now - week + timedelta(hours=1)) if n == 4 else None,
+            )
+        clean_db.commit()
+
+        points = market.history(
+            clean_db, "caliber", "7.5x55mm Swiss", now=now, weeks=4, min_sample=4
+        )
+        assert [point.listings for point in points] == [5, 5, 5, 4]
+        assert [point.median for point in points] == [400.0, 400.0, 400.0, 400.0]
+        assert points[-1].low == 300.0
+        assert points[0].low == 400.0
+
+    def test_a_thin_week_is_left_out(self, clean_db, shops):
+        from datetime import UTC, datetime, timedelta
+
+        # Naive, as the columns store them.
+        now = datetime(2026, 10, 28, 12, 0, tzinfo=UTC).replace(tzinfo=None)
+        self._gun(
+            clean_db, shops[0], 1, now - timedelta(days=20), [(now - timedelta(days=20), 400.0)]
+        )
+        clean_db.commit()
+        assert market.history(clean_db, "caliber", "7.5x55mm Swiss", now=now) == []
+
+    def test_the_endpoint(self, client, admin_headers):
+        response = client.get(
+            "/api/market/history",
+            params={"by": "caliber", "value": "7.5x55mm Swiss"},
+            headers=admin_headers,
+        )
+        assert response.status_code == 200
+        assert response.json()["points"] == []
+        bad = client.get(
+            "/api/market/history", params={"by": "nope", "value": "x"}, headers=admin_headers
+        )
+        assert bad.status_code == 422

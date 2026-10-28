@@ -240,6 +240,8 @@ def clean_db(_database):
             "manufacturer_jobs",
             # Graf & Sons' powders and primers, read by one refresh.
             "reloading_supplies",
+            # The accessory stores' offers, read by one refresh (services/fitting).
+            "accessory_offers",
             "caliber_bullet_weights",
             "vendor_emails",
             "inbox_settings",

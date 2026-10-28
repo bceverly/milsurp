@@ -121,6 +121,13 @@ the whole catalog as JSON to the widget that draws the grid. See
 | [Primary Arms](https://www.primaryarms.com/nfa/suppressors) | `primary-arms` | SuiteCommerce item API — searches for "suppressor" and "silencer", the shop's NFA-flagged records only, ~180 |
 | [Mile High Shooting](https://www.milehighshooting.com/suppressors/) | `mile-high-shooting` | BigCommerce — Thunder Beast, Abel and HUXWRX cans, ~90 |
 | [Bud's Gun Shop](https://www.budsgunshop.com/categories/firearms/used) | `buds-gun-shop` | Laravel + htmx, plain HTML -- the used section, ~160 (pistols, rifles, shotguns), each card's price in cents in `data-product-price`; the product page adds the condition rating and maker |
+| [Silencer Shop](https://www.silencershop.com/silencers.html) | `silencer-shop` | Algolia from Magento, as Silencer Central -- the Silencers tree, 836 cans; backorder counts as for sale, "is_resale" as used |
+| [Bereli](https://www.bereli.com/rifle-suppressors/) | `bereli` | Meilisearch behind a BigCommerce theme; the key read from the theme bundle each scan -- ~150 suppressors |
+| [Vance Outdoors](https://www.vanceoutdoors.com/category.cfm/outdoors/used-guns) | `vance-outdoors` | Sportsman's ColdFusion storefront (a subclass) -- used guns, mostly Ohio Highway Patrol trade-ins; in-stock only |
+| [Impact Guns](https://www.impactguns.com/used-guns/) | `impact-guns` | BigCommerce -- used guns, ~90, rebuilt, demo, blemished and rental guns left out by name |
+| [Jim's Firearms](https://www.jimsfirearms.net/firearms-used_guns) | `jims-firearms` | ColdFusion, a newer template -- used guns, ~80, a ten-second crawl delay |
+| [RCF Guns](https://www.rcfguns.com/used-guns) | `rcf-guns` | A Duda photo gallery -- ~370 used guns, in-store only, keyed by photograph |
+| [Buffalo Arms](https://www.buffaloarms.com/) | `buffalo-arms` | Magento -- eleven black powder sections, the first page of each only (robots.txt disallows query strings) |
 
 ### Planned
 
@@ -1282,7 +1289,7 @@ the application's own HTTP client before it was built.
 | [Comer's Gunworks](https://www.comersgunworks.com/) | **Shipped** (`comers-gunworks`). Reenactors' reproductions; the maker leads each title because the shop sets it apart |
 | **Dixie Gun Works** | **Blocked**, on the coming-soon list: Cloudflare challenges this application on the home page itself |
 | **Lodgewood Mfg** | **Blocked**, on the coming-soon list: 85 guns, but Cloudflare challenges the application's HTTP client while letting a command-line fetch through, as at Family Firearms & Finishes |
-| Buffalo Arms | **Maybe.** About 160, but robots.txt disallows query strings, so only the first 16 of each section can be read |
+| Buffalo Arms | **Maybe.** About 160, but robots.txt disallows query strings, so only the first 16 of each section can be read. **Shipped 2026-10-28** on that footing (`buffalo-arms`) |
 | Antique Weapon Store, October Country, Cimarron | **Maybe.** Small: 22 in stock, about 22, and an importer's 24 at list price. **Shipped 2026-10-24**, on request (see below) |
 | Taylor's & Co. | **Weak.** An importer's MSRP on 336 product pages at a ten-second crawl delay |
 | Middlesex Village Trading, C&C Sutlery, Jedediah Starr, Log Cabin Shop, Fall Creek Suttlery, Midwest Civil War Relics, Kibler's | **Weak.** Fixed catalogs that never move, stock only in prose, stale, tiny, or kits |
@@ -2000,23 +2007,6 @@ home VM since September 2026.
   Python ABI, so each further series needs a build per series rather than a
   second changelog line.
 
-### Electron desktop app + Snap Store — **Planned** (after production launch)
-
-Once the service is running in production, wrap the web UI in an Electron
-application and publish it as a snap.
-
-- Electron shell pointing at the production instance, with a native window,
-  menu bar, and OS notifications for new listings and price drops.
-- Package as a strictly-confined snap.
-- **Release trigger:** the same `v1.2.3.4` tag that builds the debs also builds
-  the snap and pushes it to the Snap Store, so the deb, the PPA and the snap
-  never disagree about the version number.
-- Secrets needed: a Snapcraft store login macaroon.
-- Open question: whether the Electron app talks to the hosted instance only, or
-  can also run fully local against its own database.
-
----
-
 ## 3. Application features
 
 ### Search and discovery
@@ -2204,7 +2194,7 @@ before they got nothing.
   fits an 8mm Mauser is not an alternative to the rifle, and the cartridge on
   it is the rifle's anyway.
 
-### Upgrades and accessories for the guns you own — **Slice 1 shipped** 2026-10-27
+### Upgrades and accessories for the guns you own — **Slices 1 and 2 shipped** 2026-10-27 and 2026-10-28
 
 Asked for on 2026-10-27: "if i put my firearms in the system, it sure would be
 cool to have the system provide me a single click link to upgrades and
@@ -2231,12 +2221,37 @@ bayonets, so magazines, speedloaders, holsters and grips almost never appear.
    own and current. Stores: GunMag Warehouse (asked for by name: "typically
    where i find magazines at the lowest prices"), Brownells, MidwayUSA,
    Primary Arms and Numrich Gun Parts. See `app/services/shoplinks.py`.
-2. **Accessory sections at shops already read -- Planned.** The scrapers
+2. **What fits, from the stores that say so -- Shipped 2026-10-28
+   (`app/services/fitting.py`, migration 0086).** The plan here was to read the
+   accessory sections of shops already scanned and match their titles; the
+   layer-3 survey found better: stores whose records name the guns a product
+   fits. **GunMag Warehouse**'s Algolia records carry `compatible_firearm`
+   ("Glock 17, Glock 19, Glock 26, ... Shadow Systems CR920"), so it is asked
+   about each model in readers' collections, one query each; **Speed Beez**'s
+   WooCommerce "Gun Model" attribute names revolvers ("GP100 -- .357, 6
+   Shot"). Each store line goes through the armory's own matcher, so "S&W M&P
+   9" is our M&P9. Kept in `accessory_offers`, apart from the browse catalog;
+   refreshed daily by the scheduler (and `cli.py fitting-refresh`); shown on
+   "For your guns" as "Magazines and speedloaders that fit". Measured on
+   production: 54 GunMag offers for the guns in its collections, the Beretta
+   92FS alone with Mec-Gar, KCI and factory magazines. The gun-family table
+   below stays planned: a store's own fit list makes it unnecessary for these.
+   *Earlier plan, superseded:* The scrapers
    already work there: Primary Arms (its item API carries structured fields),
    KY Gun Co (its Typesense records carry brand and caliber), Botach, and the
    surplus magazines and parts at Sarco and AIM Surplus.
-3. **Specialists whose catalogs are organized by fit -- Planned, not yet
-   measured.** Their products are already filed by the gun they fit, which is
+3. **Specialists whose catalogs are organized by fit -- measured 2026-10-28.**
+   GunMag Warehouse and Speed Beez are now read (above). The rest, by how
+   fit is stated: **Mec-Gar** (WooCommerce, 177; "Firearm Make" attribute, the
+   model only in the title), **5-Star Firearms** (BigCommerce, ~30 speedloaders;
+   a "Compatibility:" list by maker on each product page), **Apex Tactical**
+   (Magento; categories are the gun), **ProMag** (BigCommerce; categories by
+   maker), **Numrich Gun Parts** (Miva, ~300,000 parts filed under model pages,
+   no prices in the listing HTML), **Hogue** (Magento, title only, ten-second
+   delay), **Crimson Trace** (its fit filter is a robots-disallowed `prefn`
+   URL). Not viable: HKS (a fit chart, no store), Check-Mate (no retail
+   catalog), KCI USA (no answer). Next in line: Mec-Gar and 5-Star. Earlier
+   note: Their products are already filed by the gun they fit, which is
    worth far more than reading titles. Revolvers: HKS and 5-Star / Speed Beez
    speedloaders, by frame and caliber. Magazines: GunMag Warehouse (Magento
    with an Algolia index, as at Silencer Central -- readable the same way),
@@ -5128,44 +5143,6 @@ Armory and on every listing's page.
   slice 1) and weight: the average price per projectile of the cheapest
   in-stock offers, under the same gentle rules as slice 3.
 
-### Reloading recipes per caliber, from Hodgdon — **Planned**, waits on Hodgdon's written consent
-
-Asked for on 2026-10-11, to follow the ammunition work above: for each caliber,
-Hodgdon's published loads -- **bullet weight, powder, starting (low) charge and
-maximum (high) charge** -- as rows under the caliber, one per bullet weight and
-powder: a .308 Winchester with six powders listed for 150 gr and seven for
-180 gr is thirteen rows. Read once, when a caliber is added or edited, like
-its Wikipedia facts. Most valuable exactly where factory ammunition is
-expensive or not made at all, which is much of this catalog.
-
-**Measured 2026-10-11: readable, and explicitly refused.** The Reloading Data
-Center (`hodgdonreloading.com/rldc/`) answers 200 behind Cloudflare with no
-challenge; robots.txt allows everything but `/wp-admin/` and asks for **10
-seconds between requests**; and the loads come as JSON from one endpoint
-(`wp-content/plugins/rldc/retrieve_data.php`, actions `get_filters` and
-`get_loads`, the selected cartridge, bullet weights and powders POSTed as
-JSON in a session). But every page's footer says: "All Reloading Data Center
-information is proprietary to Hodgdon Powder Co. Use of this data is strictly
-limited to personal, non-commercial purposes. Any automated scraping,
-redistribution, or incorporation into third-party platforms, software, or
-apps without written consent is prohibited and may result in legal action."
-
-Two things set it apart from the AmmoSeek decision. What would be stored is
-Hodgdon's published data itself, not a figure derived from it -- the
-"redistribution" the notice names. And **load data is safety data**: a charge
-weight misread by a parser and shown as Hodgdon's is an overpressure waiting
-to happen, with Hodgdon's name on it. So this **waits on Hodgdon's written
-consent**, and when it comes:
-
-* `caliber_loads`: caliber, bullet weight (gr), bullet description, powder,
-  start charge, maximum charge (gr), velocities and pressure where given, and
-  Hodgdon's own page for the cartridge. One caliber, many rows.
-* Shown in the Ammunition information panel with Hodgdon's warning text, a
-  link to their page for the cartridge, and "always confirm against the
-  current published data" -- never as the last word.
-* Matched to armory calibers through their names and aliases; a cartridge
-  Hodgdon does not list is "none published", dated.
-
 ### The user agent is a Windows Chrome — **Changed** 2026-10-11
 
 The nightly canary flagged Checkpoint Charlie's, and it had not scanned since
@@ -5763,6 +5740,37 @@ failed with nothing read. The site's bundle now calls `fetchDataByCategory_v6`
 and `fetchSKU_v2`, with the same parameters and the same answers; `_v6` adds a
 `sold` parameter that, left out, returns unsold stock as before.
 
+### The backlog, worked through — **Shipped** 2026-10-28
+
+Asked for: "go ahead and do 1-7 now please", the backlog items as listed that
+day, with the Electron desktop app and Hodgdon reloading data taken off the
+roadmap at the owner's request (the reloading data is to be done by hand).
+
+1. **More used-gun shops**, for the used carry pistols only sold secondhand:
+   Vance Outdoors (Sportsman's storefront; 3 of 36 in stock that day), Impact
+   Guns (BigCommerce; rebuilt, demo, blemished and rental guns left out; 6 of
+   73 in stock), Jim's Firearms (moved to jimsfirearms.net; ~80, every title
+   "Used"), RCF Guns (a photo gallery of ~370 used guns, in-store only, keyed by
+   each photograph's file name). See the table at the top.
+2. **Accessories that fit, from the stores that say so** -- GunMag Warehouse
+   and Speed Beez; see "Upgrades and accessories for the guns you own".
+3. **The accessory specialists measured** -- same section.
+4. **Two more suppressor shops**: Silencer Shop (836 cans, Algolia) and
+   Bereli (~150, Meilisearch). Suppressed Armament is nine cans of its own
+   make with no stock state, and is left.
+5. **A Suppressors tab in Hot deals**, with its switch in the email
+   (migration 0085). A can has no armory model, so it is compared with the
+   same can at other shops by a key its title gives (`suppressors.can_key`:
+   the maker, then the first two words left once finish, thread pitch,
+   length and caliber are taken off -- "SILENCERCO Omega 36M 7.6in ... Black"
+   and "SilencerCo Omega 36M" are both `silencerco:omega36m`). On the way: the
+   pass's duplicate collapsing had been keyed on whichever group came last in
+   an earlier loop, so two guns at one shop at one price could fold into one
+   deal; it is keyed on each listing's own group now.
+6. **Price bands over time** on the Market page -- see the Market pricing
+   entries.
+7. **Buffalo Arms**, black powder, the first page of each section only.
+
 ### Used guns from KY Gun Co and Bud's — **Shipped** 2026-10-27
 
 Asked for after "i'm not seeing any raven arms mp-25 which is a really common
@@ -5835,7 +5843,7 @@ robots.txt read:
 | --- | --- |
 | Capitol Armory, Rainier Arms, Silencer Central, KY Gun Co, Primary Arms, Mile High Shooting | **Shipped** (above). KY Gun Co was refused twice before for empty shelves; its suppressor wall is the opposite |
 | AIM Surplus | **Shelf added**: NFA Items > Suppressors (id 740), ~210, on the existing `aim-surplus` |
-| Bereli, Silencer Shop, Suppressed Armament | **Next.** Bereli's grid is Algolia with the key in a bundle not yet found; Silencer Shop, the largest, draws its grid by Magento AJAX that robots.txt disallows (a browser or its sitemap and product pages); Suppressed Armament's storefront publishes no product links in its HTML |
+| Bereli, Silencer Shop, Suppressed Armament | **Bereli and Silencer Shop shipped 2026-10-28; Suppressed Armament not viable** (nine cans of its own make and no stock state). Earlier note: Bereli's grid is Algolia with the key in a bundle not yet found; Silencer Shop, the largest, draws its grid by Magento AJAX that robots.txt disallows (a browser or its sitemap and product pages); Suppressed Armament's storefront publishes no product links in its HTML |
 | Brownells, OpticsPlanet, MidwayUSA | **Blocked**: a Cloudflare challenge, a PerimeterX captcha and a 403 on the home page |
 | EuroOptic, SWFA, Ammo Brothers | **Refused**: 429 on the first request |
 | Rocky Mountain Guns and Ammo, KGM Arms | No answer from the domain |
@@ -7584,10 +7592,14 @@ screen. Five things, each now held by a test:
   run with `TZPATH` pointed at an empty directory: without that they pass on
   any developer's machine whatever the fix is, which is what let this reach
   production in the first place.
-- **Planned** — Price bands over time, once there is enough history to
-  reconstruct a series. The page above is the snapshot; this is the axis it
-  deliberately does not draw, and it wants a few months of `price_history`
-  before it can say anything a reader should act on.
+- **Shipped** 2026-10-28 — Price bands over time. Each band on the Market page
+  has a Trend: its median week by week over the tenth-to-ninetieth band,
+  reconstructed from `price_history` (`market.history`, `GET
+  /api/market/history`). A row there is written only when a price changes,
+  so a listing's price at a week's end is its last recorded price before it,
+  counted only while it was for sale; a week under five listings is left out.
+  Eight weeks of history when it shipped; on production, Mauser's median went
+  from $2,395 to $1,995 over them.
 - **Shipped** — CSV / JSON export of a filtered result set. `GET
   /api/items/export` takes the same query parameters as the list endpoint, so a
   browse URL becomes an export by changing the path — which is the only way the

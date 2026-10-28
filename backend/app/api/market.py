@@ -16,6 +16,8 @@ from ..schemas import (
     DeparturesOut,
     HabitOut,
     MarketBandOut,
+    MarketHistoryOut,
+    MarketHistoryPointOut,
     MarketOut,
     ScorecardOut,
     TurnoverOut,
@@ -59,6 +61,38 @@ def price_bands(
         thin_groups=result.thin_groups,
         thin_listings=result.thin_listings,
         bands=[band_out(band) for band in result.bands],
+    )
+
+
+@router.get("/history", response_model=MarketHistoryOut)
+def price_history(
+    _user: CurrentUser,
+    session: DbSession,
+    by: str = Query(default="caliber"),
+    value: str = Query(min_length=1, max_length=200),
+    include_accessories: bool = Query(default=False),
+) -> MarketHistoryOut:
+    """One band's spread week by week. See market.history."""
+    if by not in market.DIMENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Unknown dimension. Valid: {', '.join(market.DIMENSIONS)}.",
+        )
+    points = market.history(session, by, value, firearms_only=not include_accessories)
+    return MarketHistoryOut(
+        dimension=by,
+        value=value,
+        min_sample=market.MIN_SAMPLE,
+        points=[
+            MarketHistoryPointOut(
+                week=point.week,
+                listings=point.listings,
+                low=point.low,
+                median=point.median,
+                high=point.high,
+            )
+            for point in points
+        ],
     )
 
 
