@@ -62,9 +62,9 @@ def item_from_hit(hit: dict[str, Any]) -> ScrapedItem | None:
     if hit.get("is_visible") is False or suppressors.names_a_part(title):
         return None
     sale = hit.get("sale_price") or 0
-    price = sale or hit.get("calculated_price") or hit.get("price")
+    raw = sale or hit.get("calculated_price") or hit.get("price")
     try:
-        price = float(price) or None
+        price = float(raw or 0) or None
     except (TypeError, ValueError):
         price = None
     image = hit.get("primary_image_thumbnail")

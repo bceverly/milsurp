@@ -365,7 +365,7 @@ def _place_everything(session: Session) -> tuple[list[Placed], int]:
     # By key as well as members: the key is half of what makes two listings
     # one offer (see _collapse_duplicates). It used to be read from the loop
     # above, so every offer carried whichever key came last.
-    for key, members in groups.items():
+    for group_key, members in groups.items():
         if len(members) < pricing.MIN_PEERS:
             continue
         prices = sorted(float(other.current_price or 0) for other in members)
@@ -397,7 +397,7 @@ def _place_everything(session: Session) -> tuple[list[Placed], int]:
                     cheaper_than=round(100 * dearer / len(prices)),
                     peers=len(prices),
                     vendors=vendors,
-                    offer=(key, item.site_id, round(price, 2)),
+                    offer=(group_key, item.site_id, round(price, 2)),
                 )
             )
     return placed, considered
