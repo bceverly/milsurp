@@ -1,15 +1,12 @@
 """The shops added on 2026-10-28: Silencer Shop and Bereli (suppressors);
-Vance Outdoors, Impact Guns, Jim's Firearms and RCF Guns (used guns); Buffalo
-Arms (black powder). Each is also replayed from its recording
+Impact Guns, Jim's Firearms and RCF Guns (used guns); Buffalo Arms (black
+powder). Vance Outdoors was added with them and retired on 2026-11-02. Each is also replayed from its recording
 (test_recorded_scrapers); these pin the parsing rules worth naming."""
 
 from __future__ import annotations
 
-from bs4 import BeautifulSoup
-
 from app.scrapers import bereli, impact_guns, jims_firearms, rcf_guns, silencer_shop
 from app.scrapers.buffalo_arms import BuffaloArmsScraper
-from app.scrapers.vance_outdoors import VanceOutdoorsScraper
 
 
 def test_silencer_shop_settings_are_escaped_twice():
@@ -65,15 +62,6 @@ def test_bereli_reads_its_key_from_the_bundle_and_leaves_parts_out():
     assert item.external_key == "bc-541391" and item.price == 1099.0 and not item.is_sold
     assert bereli.item_from_hit({**can, "product_name": "Dead Air Key Mount"}) is None
     assert bereli.item_from_hit({**can, "inventory_level": 0}).is_sold
-
-
-def test_vance_reads_stock_in_words():
-    scraper = VanceOutdoorsScraper()
-    card = BeautifulSoup('<div><span class="product-status">In Stock</span></div>', "html.parser")
-    gone = BeautifulSoup(
-        '<div><span class="product-status">Notify Me When Available</span></div>', "html.parser"
-    )
-    assert scraper.card_in_stock(card.div) and not scraper.card_in_stock(gone.div)
 
 
 def test_impact_keeps_only_what_is_used():

@@ -96,11 +96,9 @@ from .silencer_shop import SilencerShopScraper
 from .simpson_ltd import SimpsonLtdScraper
 from .sportsmans_outdoor import SportsmansOutdoorScraper
 from .surplus_defense import SurplusDefenseScraper
-from .target_sports_usa import TargetSportsUsaScraper
 from .the_gun_works import TheGunWorksScraper
 from .tortuga_trading import TortugaTradingScraper
 from .track_of_the_wolf import TrackOfTheWolfScraper
-from .vance_outdoors import VanceOutdoorsScraper
 from .veteran_arms import VeteranArmsScraper
 from .we_buy_guns import WeBuyGunsScraper
 from .what_a_country import WhatACountryScraper
@@ -160,7 +158,6 @@ SCRAPER_CLASSES: tuple[type[SiteScraper], ...] = (
     WhatACountryScraper,
     ClydeArmoryScraper,
     SportsmansOutdoorScraper,
-    TargetSportsUsaScraper,
     CmpScraper,
     AlleghenyArsenalScraper,
     Ww2CollectiblesScraper,
@@ -206,7 +203,6 @@ SCRAPER_CLASSES: tuple[type[SiteScraper], ...] = (
     BudsGunShopScraper,
     SilencerShopScraper,
     BereliScraper,
-    VanceOutdoorsScraper,
     ImpactGunsScraper,
     JimsFirearmsScraper,
     RcfGunsScraper,

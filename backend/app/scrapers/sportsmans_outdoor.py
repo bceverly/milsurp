@@ -153,7 +153,7 @@ class SportsmansOutdoorScraper(SiteScraper):
     requires_browser = False
     default_interval_minutes = 1440
     #: What is read, in order. A class attribute so a shop on the same
-    #: ColdFusion storefront (Vance Outdoors) is a subclass of a few lines.
+    #: ColdFusion storefront can be a subclass of a few lines.
     sources: tuple[dict[str, str], ...] = SOURCES
 
     def __init__(self) -> None:
