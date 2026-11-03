@@ -94,7 +94,6 @@ from .shoot_it import ShootItScraper
 from .silencer_central import SilencerCentralScraper
 from .silencer_shop import SilencerShopScraper
 from .simpson_ltd import SimpsonLtdScraper
-from .sportsmans_outdoor import SportsmansOutdoorScraper
 from .surplus_defense import SurplusDefenseScraper
 from .the_gun_works import TheGunWorksScraper
 from .tortuga_trading import TortugaTradingScraper
@@ -157,7 +156,6 @@ SCRAPER_CLASSES: tuple[type[SiteScraper], ...] = (
     BotachScraper,
     WhatACountryScraper,
     ClydeArmoryScraper,
-    SportsmansOutdoorScraper,
     CmpScraper,
     AlleghenyArsenalScraper,
     Ww2CollectiblesScraper,

@@ -307,15 +307,20 @@ test.describe("armory tables", () => {
       .first()
       .innerText();
     const needle = firstName.slice(0, 3);
+    // As the page writes it (URLSearchParams): a space is "+", not "%20",
+    // which matters when the needle is "Up " from "Up to .300 Norma Mag".
+    const query = new URLSearchParams({ q: needle }).toString();
     await signedIn.getByRole("searchbox").fill(needle);
     // The search is applied a moment after typing stops, so wait for it to
     // reach the URL before reading it.
-    await expect(signedIn).toHaveURL(new RegExp(`q=${encodeURIComponent(needle)}`));
+    await expect(signedIn).toHaveURL(
+      new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
     await expect(signedIn.locator("tbody tr").first()).toBeVisible();
 
     const before = signedIn.url();
     expect(before).toContain("sort=-name");
-    expect(before).toContain(`q=${encodeURIComponent(needle)}`);
+    expect(before).toContain(query);
     expect(before).toContain("status=");
 
     // Out to the listings and straight back.

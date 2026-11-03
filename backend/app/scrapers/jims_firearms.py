@@ -4,7 +4,7 @@ A Baton Rouge and Pensacola dealer, added on 2026-10-28 with the used-gun
 shops asked for to catch used carry pistols. Its old address,
 jimsfirearms.com, is now a parked domain; the shop is at .net.
 
-A newer template on the ColdFusion storefront Sportsman's Outdoor runs, with
+A newer template on the ColdFusion storefront Sportsman's Outdoor ran, with
 markup of its own: the used section is 40 cards a page (about 80 on
 2026-10-28, two thirds pistols and revolvers, every title "Used ..."), paged
 by ``/browse/page/N``. A card carries the shop's style id, the maker, the

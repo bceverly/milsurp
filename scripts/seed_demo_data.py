@@ -92,7 +92,6 @@ DEMO_SHOPS = (
     "botach",
     "what-a-country",
     "clyde-armory",
-    "sportsmans-outdoor",
 )
 
 # (title, price, category, age_days, sold, previous_price)
