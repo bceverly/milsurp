@@ -49,7 +49,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..models import ScanRun, ScanStatus, Site, User, UserRole, as_utc, utcnow
-from . import mailer
+from . import cooldown, mailer, platform_rest
 
 log = logging.getLogger("milsurp.scanalerts")
 
@@ -64,7 +64,7 @@ HEALTHY = (ScanStatus.SUCCESS, ScanStatus.PARTIAL)
 IGNORED = (ScanStatus.CANCELED, ScanStatus.RUNNING)
 
 
-def _admin_addresses(session: Session) -> list[str]:
+def admin_addresses(session: Session) -> list[str]:
     users = (
         session.execute(select(User).where(User.role == UserRole.ADMIN, User.is_active.is_(True)))
         .scalars()
@@ -103,7 +103,7 @@ def _recovered_message(site: Site, run: ScanRun) -> tuple[str, str]:
     return subject, html
 
 
-def _send(addresses: list[str], subject: str, html: str, slug: str) -> None:
+def send(addresses: list[str], subject: str, html: str, slug: str) -> None:
     """One message each.
 
     A mail that will not go is logged and not retried: the next state change
@@ -148,11 +148,11 @@ def consider(session: Session, site: Site, run: ScanRun) -> str | None:
             # told it stopped, so nobody is owed the news that it started.
             return None
         subject, html = _recovered_message(site, run)
-        addresses = _admin_addresses(session)
+        addresses = admin_addresses(session)
         if not addresses:
             log.warning("No active administrator has an email address; %s not reported.", site.slug)
             return None
-        _send(addresses, subject, html, site.slug)
+        send(addresses, subject, html, site.slug)
     except Exception:
         # See the module docstring: alerting that can break a scan turns a mail
         # outage into a scraping outage.
@@ -184,7 +184,12 @@ def report_overdue(session: Session, grace: timedelta, now: datetime | None = No
             .scalars()
             .all()
         )
+        resting = platform_rest.resting_hosts(session)
         for site in overdue:
+            if cooldown.host_of(site.base_url) in resting:
+                # Its platform is resting a week, which was announced when it
+                # began. Reported, if it still fails, after the rest is over.
+                continue
             since = as_utc(site.scan_failing_since)
             if since is None or since > cutoff:
                 continue
@@ -208,14 +213,14 @@ def report_overdue(session: Session, grace: timedelta, now: datetime | None = No
             session.commit()
             if last is None:
                 continue
-            addresses = _admin_addresses(session)
+            addresses = admin_addresses(session)
             if not addresses:
                 log.warning(
                     "No active administrator has an email address; %s not reported.", site.slug
                 )
                 continue
             subject, html = _broken_message(site, last, max(1, failed), since)
-            _send(addresses, subject, html, site.slug)
+            send(addresses, subject, html, site.slug)
             told.append(site.slug)
     except Exception:
         log.warning("Reporting failing shops failed", exc_info=True)

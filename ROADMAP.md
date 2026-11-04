@@ -5755,6 +5755,37 @@ failed with nothing read. The site's bundle now calls `fetchDataByCategory_v6`
 and `fetchSKU_v2`, with the same parameters and the same answers; `_v6` adds a
 `sold` parameter that, left out, returns unsold stock as before.
 
+### A platform rests as a whole — **Shipped** 2026-11-04
+
+Asked for after the canary of 2026-11-04 reported Centerfire Systems, IMA-USA,
+Muzzle-Loaders.com and Tortuga Trading: "if we hit a 429 on two or more sites
+that share a common platform (like shopify) … cool them off by pausing them for
+a week and then automatically re-enabling them." All four are Shopify shops,
+and Shopify was answering 429 (`Retry-After: 60`) to this address for every
+store it hosts, including ones never read here; the shops had been PARTIAL with
+429s since 2026-10-31 and FAILED on the first request since 2026-11-03. They
+were switched off by hand that day, with a one-off reminder timer on the VM for
+2026-11-07.
+
+- `SiteScraper.platform`: "Shopify", "BigCommerce" and "Wix" on those base
+  classes. Not WooCommerce, which every shop hosts itself.
+- `app/services/platform_rest.py`: each 429 from a shop on a platform is
+  recorded (`platform_refusals`, one row per host); the second shop within 24
+  hours rests every shop on the platform for seven days, as `host_cooldowns`
+  rows with the new `platform` column (migration 0087), and mails the
+  administrators once. The evidence is spent on the rest.
+- A platform rest is not lifted by a success, is skipped by the scheduler
+  (`due_site_ids`), is excused by the canary without asking the shop, and holds
+  back the "stopped scraping" mail. "Stop resting" and `cli.py resting --clear`
+  lift it per shop. When the week is up the shops are fetched again on their
+  own, gently, at the pace one refusal earns.
+- Countdowns read in days ("6d 23h") on the Sites page and in `cli.py resting`.
+
+Measured against production's history first: 2,988 scans since 2026-09-05, 42
+told 429, none on BigCommerce or Wix, and the only time two shops on one
+platform were refused within a day was this one, first on 2026-10-31 22:06
+UTC. Pinned in `tests/test_platform_rest.py`.
+
 ### Reading the wholesale feeds' titles — **Shipped** 2026-11-03
 
 Asked for after "how well is the armory working in terms of identifying things

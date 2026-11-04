@@ -32,7 +32,7 @@ from bs4 import BeautifulSoup, Tag
 
 from ..config import Config, ScrapingConfig
 from ..robots import RobotsCache
-from ..services import cooldown
+from ..services import cooldown, platform_rest
 
 log = logging.getLogger("milsurp.scrapers")
 
@@ -646,6 +646,12 @@ class ScrapeContext:
             self._refusing.add(host)
         slower = min(max(current * 2, stated or 0.0, MIN_BACKOFF_AFTER_429), MAX_REQUEST_DELAY)
         self._slowed[host] = slower
+        # Every 429, not only the last straw: a shop on a hosted platform
+        # refusing at all is the evidence platform_rest counts, and when the
+        # platform is the one limiting this address, the first request of a
+        # scan is already refused (Shopify, 2026-11-03).
+        if platform_rest.saw_429(url):
+            self.warn(f"{host} is on a platform now resting for a week; see the Sites page")
         self.warn(
             f"{host} returned 429; slowing to one request every {slower:.0f}s"
             + (f" (it asked for {stated:.0f}s)" if stated else "")
@@ -779,6 +785,11 @@ class SiteScraper(abc.ABC):
     description: str = ""
     #: True when a headless browser is required (Selenium + Chrome).
     requires_browser: bool = False
+    #: The hosted platform that answers for this shop ("Shopify"), or None for
+    #: a shop on its own server. Two shops on one platform refused inside a
+    #: day rest the whole platform for a week; see
+    #: :mod:`app.services.platform_rest`. Set on the platform's base class.
+    platform: str | None = None
     #: Seconds the canary (:mod:`app.services.canary`) gives this shop before
     #: calling it a timeout, for a shop whose first listing cannot arrive
     #: inside the default. None takes the default. A shop that is merely slow

@@ -1323,6 +1323,29 @@ class HostCooldown(Base):
     reason: Mapped[str | None] = mapped_column(String(255))
     first_refused_at: Mapped[datetime | None] = mapped_column(DateTime)
     last_refused_at: Mapped[datetime | None] = mapped_column(DateTime)
+    #: Set when this pause is a whole platform resting rather than this host
+    #: refusing on its own account: "Shopify" when two Shopify shops answered
+    #: 429 within a day. See :mod:`app.services.platform_rest`. A success does
+    #: not lift such a pause early, the scheduler does not start scans into
+    #: it, and the canary does not report the shop.
+    platform: Mapped[str | None] = mapped_column(String(32))
+
+
+class PlatformRefusal(Base):
+    """The last time a shop on a hosted platform answered 429.
+
+    One row per host, overwritten by each refusal. This is the evidence
+    :mod:`app.services.platform_rest` counts: two hosts on the same platform
+    inside a day is the platform limiting this address, not one shop limiting
+    us, and that is when every shop on it rests for a week.
+    """
+
+    __tablename__ = "platform_refusals"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    host: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    platform: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    refused_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
 
 class BackupSetting(Base, TimestampMixin):

@@ -141,6 +141,12 @@ export function formatCountdown(seconds) {
   const minutes = Math.round(total / 60);
   if (minutes < 60) return `${minutes} min`;
   const hours = Math.floor(minutes / 60);
+  if (hours >= 24) {
+    // A platform resting a week reads "6d 23h", not "167h 59m".
+    const days = Math.floor(hours / 24);
+    const left = hours % 24;
+    return left ? `${days}d ${left}h` : `${days}d`;
+  }
   const rest = minutes % 60;
   return rest ? `${hours}h ${rest}m` : `${hours}h`;
 }

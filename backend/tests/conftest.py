@@ -149,6 +149,18 @@ def _forget_host_cooldowns():
     cooldown._cache.clear()
     with contextlib.suppress(Exception):
         cooldown.clear()
+    # And the platform's evidence (services/platform_rest), for the same
+    # reason: a Shopify 429 in one test would be half a platform rest in the
+    # next.
+    with contextlib.suppress(Exception):
+        from sqlalchemy import delete
+
+        from app.database import session_scope
+        from app.models import PlatformRefusal
+
+        with session_scope() as session:
+            session.execute(delete(PlatformRefusal))
+            session.commit()
 
 
 @pytest.fixture(autouse=True)

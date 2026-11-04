@@ -158,6 +158,10 @@ def variant_choices(product: dict[str, Any], url: str) -> list[Choice]:
 class ShopifyScraper(SiteScraper):
     """One Shopify shop. Subclasses supply the slug, name and collections."""
 
+    #: Every Shopify store answers from Shopify's edge, which counts this
+    #: address across all of them (November 2026). See SiteScraper.
+    platform = "Shopify"
+
     def check_price(
         self, ctx: ScrapeContext, url: str, *, key: str | None = None  # noqa: ARG002
     ) -> PriceCheck | None:

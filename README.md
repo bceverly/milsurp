@@ -3003,6 +3003,25 @@ same from a terminal. Lifting it is deliberately a separate button rather than
 a confirmation on Scan now: the pause exists because the vendor's server
 refused us, so going back before they asked is a decision about them.
 
+**A hosted platform can rest as a whole.** A Shopify store is not its own web
+server: every one answers from Shopify's edge, and that edge counts this
+address across all of them. In November 2026 it began answering 429 to the
+first request of every Shopify scan, and to Shopify stores this application has
+never read, while each shop's own hour-long pause kept walking back into it.
+So a scraper names the hosted platform it is on (`platform` on the Shopify,
+BigCommerce and Wix base classes; a WooCommerce shop runs on its own server and
+names none), every 429 from such a shop is written to `platform_refusals`, and
+when **two different shops on one platform answer 429 within a day**, every
+shop on that platform rests for **a week** (`app/services/platform_rest.py`).
+The rest is ordinary `host_cooldowns` rows marked with the platform, so
+everything above applies to it, plus three things of its own: a stray success
+does not end it early, the scheduler starts no scan into it (they are due the
+moment it ends), and neither the canary nor the "stopped scraping" mail reports
+a shop for it. The administrators get one mail when it starts and none when it
+ends, because nothing needs doing then: the shops are simply fetched again. On
+production's two months of scans before this existed, the rule would have fired
+only once, on 2026-10-31, three days before the Shopify scans failed outright.
+
 **When a photograph will not arrive.** The photo queue is rows with no file
 yet, so a URL that can never work looks exactly like one not reached — and used
 to be retried on every scan for the life of the listing, silently. Each row now

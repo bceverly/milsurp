@@ -209,7 +209,7 @@ class TestItCannotBreakAScan:
 
     def test_an_unexpected_error_is_swallowed_too(self, clean_db, site, admin, monkeypatch):
         monkeypatch.setattr(
-            scanalerts, "_admin_addresses", lambda _: (_ for _ in ()).throw(RuntimeError("boom"))
+            scanalerts, "admin_addresses", lambda _: (_ for _ in ()).throw(RuntimeError("boom"))
         )
         fail(clean_db, site)
         assert scanalerts.report_overdue(clean_db, GRACE, now=later(4)) == []

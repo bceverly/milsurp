@@ -317,6 +317,9 @@ def _ruled_out(options: PageOptions) -> bool:
 class BigCommerceScraper(SiteScraper):
     """One BigCommerce shop. Subclasses supply the slug, name and sources."""
 
+    #: Hosted: every store answers from BigCommerce's own servers. See SiteScraper.
+    platform = "BigCommerce"
+
     #: Hands over the vendor's own caliber, country or maker. See SiteScraper.
     states_facts = True
 

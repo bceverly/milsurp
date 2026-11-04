@@ -39,6 +39,7 @@ from pathlib import Path
 import requests
 
 from ..config import Config
+from ..models import as_utc
 from ..scrapers import get_scraper
 from ..scrapers.base import (
     Disallowed,
@@ -49,7 +50,7 @@ from ..scrapers.base import (
     SiteScraper,
     vendors_answer,
 )
-from . import backup, cooldown
+from . import backup, cooldown, platform_rest
 from .image_store import GIB
 
 #: Listings to see before calling a shop healthy. One would do -- the question
@@ -156,6 +157,21 @@ def probe(  # noqa: PLR0911 - one return per verdict, which is the whole shape
     would report a partial picture as if it were the whole one.
     """
     started = time.monotonic()
+    # A shop whose platform is resting a week is not asked, and is not news:
+    # the rest was announced when it began (platform_rest).
+    rest = platform_rest.rest_for(scraper.base_url)
+    if rest is not None:
+        until = as_utc(rest.until)
+        return replace(
+            _probe(
+                scraper,
+                Verdict.RESTING,
+                0,
+                started,
+                detail=f"{rest.platform} is resting until {until:%Y-%m-%d %H:%M} UTC",
+            ),
+            excused=True,
+        )
     deadline = started + budget
     # needs_detail=False keeps the probe on the catalog page. A scraper is free
     # to skip its per-listing detail fetches when nobody needs them, which is
@@ -692,7 +708,7 @@ def excuse_resting(
     """
     judged: list[Probe] = []
     for result in results:
-        if result.verdict is not Verdict.RESTING:
+        if result.verdict is not Verdict.RESTING or result.excused:
             judged.append(result)
             continue
         last = last_success.get(result.slug)

@@ -133,7 +133,7 @@ def _key(url: str, photos: bool) -> str:
     return f"{host}{PHOTOS_SUFFIX}" if host and photos else host
 
 
-def _forget(host: str) -> None:
+def forget(host: str) -> None:
     with _lock:
         _cache.pop(host, None)
 
@@ -259,7 +259,7 @@ def refused(
         _unavailable(exc, "recording a refusal")
         return 0.0
 
-    _forget(host)
+    forget(host)
     log.warning(
         "%s refused a request (%s); pausing %s for %.0fs (refusal %d).",
         host_of(url),
@@ -301,6 +301,11 @@ def succeeded(url: str, *, photos: bool = False) -> None:
             ).scalar_one_or_none()
             if row is None:
                 cleared, remaining = False, 0
+            elif row.platform and (as_utc(row.until) or utcnow()) > utcnow():
+                # A platform rest (platform_rest) is a week the platform asked
+                # for, not this host's own count. One request that slipped
+                # through answering is not the platform changing its mind.
+                return
             elif row.refusals > 1:
                 row.refusals -= 1
                 # The pause is over -- it answered -- but the pace is not.
@@ -324,7 +329,7 @@ def succeeded(url: str, *, photos: bool = False) -> None:
             pace_after(remaining),
             remaining,
         )
-    _forget(host)
+    forget(host)
 
 
 def active() -> list[HostCooldown]:

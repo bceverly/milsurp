@@ -56,12 +56,14 @@ from . import (
     boilerplate,
     carry,
     classify,
+    cooldown,
     curio,
     discovery,
     flyer_alert,
     manufacturers,
     newness,
     overrides,
+    platform_rest,
     provenance,
     scanalerts,
     suppressors,
@@ -1927,13 +1929,21 @@ def _propose_armory_rows(session: Session, site: Site, keys: set[str], log: "_Ru
 
 
 def due_site_ids(session: Session) -> list[int]:
-    """Enabled, available sites whose next scan time has arrived."""
+    """Enabled, available sites whose next scan time has arrived.
+
+    Not a shop whose platform is resting (:mod:`.platform_rest`). A scan
+    started into a week-long rest asks nothing, fails, and does it again every
+    interval for the week, which would report a shop that is being left alone
+    on purpose as broken. Left out instead, it is due the moment the rest ends.
+    """
     now = utcnow()
     sites = (
         session.execute(select(Site).where(Site.enabled.is_(True), Site.is_available.is_(True)))
         .scalars()
         .all()
     )
+    resting = platform_rest.resting_hosts(session)
+    sites = [site for site in sites if cooldown.host_of(site.base_url) not in resting]
     # as_utc, because next_scan_at comes back from SQLite naive while now is
     # aware. Comparing them directly raises TypeError, and the scheduler
     # isolates each tick, so the whole schedule stopped with nothing in the log

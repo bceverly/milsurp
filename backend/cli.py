@@ -652,6 +652,11 @@ def _duration(seconds: float) -> str:
     seconds = max(0, int(seconds))
     if seconds < 60:
         return f"{seconds}s"
+    if seconds >= 86400:
+        # A platform resting a week (platform_rest).
+        return f"{seconds // 86400}d{seconds % 86400 // 3600:02d}h"
+    if seconds >= 3600:
+        return f"{seconds // 3600}h{seconds % 3600 // 60:02d}m"
     return f"{seconds // 60}m{seconds % 60:02d}s"
 
 

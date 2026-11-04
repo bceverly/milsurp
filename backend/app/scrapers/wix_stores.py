@@ -103,6 +103,9 @@ def _card_slug(card: Tag) -> str | None:
 class WixStoresScraper(SiteScraper):
     """One Wix Stores shop. Subclasses supply the slug, name and sources."""
 
+    #: Hosted: every store answers from Wix's own servers. See SiteScraper.
+    platform = "Wix"
+
     #: One entry per category: ``{"category": "Surplus Rifles", "path": "surplus-rifles"}``.
     #: The path is the shop's own page; the category is what listings are filed
     #: under here and what the classifier reads.
