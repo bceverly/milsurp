@@ -897,6 +897,12 @@ def cmd_reclassify(  # noqa: PLR0912, PLR0915 - one pass over every derived fiel
                         is_rifle=bool(flags["is_rifle"]),
                         is_pistol=bool(flags["is_pistol"]),
                     ),
+                    classify.form_in_section(
+                        item.category,
+                        item.title,
+                        is_rifle=bool(flags["is_rifle"]),
+                        is_pistol=bool(flags["is_pistol"]),
+                    ),
                 )
                 if (flags["is_rifle"] or flags["is_pistol"])
                 else None

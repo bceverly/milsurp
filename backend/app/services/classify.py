@@ -1370,7 +1370,10 @@ RIFLE_PATTERNS = (
     r"\bsp1\b",
     r"\bhbar\b",
     r"\bakm\b",
-    r"\bsar-?\d\b",
+    # The Romanian SAR-1, -2 and -3, and only those: "sar-?\d" also took
+    # Sarsilmaz's SAR9, a pistol, and every SAR9 listing then contradicted its
+    # own model and matched nothing (2026-11-03).
+    r"\bsar-?[1-3]\b",
     r"\bfalo?\b|\bsa\s?58\b",
     r"\bdraco\b",
     r"\bbren\b",
@@ -2884,8 +2887,9 @@ def finer_kind(
     model_kind: object | None,
     stated_kind: str | None,
     title_form: str | None = None,
+    section_form: str | None = None,
 ) -> str | None:
-    """The finer kind of a firearm, from the three sources that can say.
+    """The finer kind of a firearm, from the four sources that can say.
 
     The armory model first: it is curated, and it is the finest of the three --
     it knows ``percussion_revolver`` where a vendor writing per listing says
@@ -2900,13 +2904,20 @@ def finer_kind(
     usually the loose one -- "German K98 8mm Rifle" is a Karabiner, and the
     model row knows that -- so this fills blanks and never overrules.
 
+    The shop's section name comes after all three, from :func:`form_in_section`.
+    The wholesale-feed dealers file every handgun under "Pistols" or
+    "Revolvers" with titles that say neither ("CHIAPPA RHINO 60SAR 9MM 6\" 6RD
+    BLK"), and 5,500 of their handguns had no kind (2026-11-03). It ranks last
+    because a section is about the shelf rather than the listing: a revolver
+    whose title says so is a revolver whatever shelf it sits on.
+
     Returns one of :class:`FirearmKind`'s values, or None when no source had an
     answer. See Item.kind.
     """
     if model_kind is not None:
         return getattr(model_kind, "value", str(model_kind))
     word = (stated_kind or "").strip().lower().replace("-", " ")
-    return _STATED_TO_KIND.get(word) or title_form
+    return _STATED_TO_KIND.get(word) or title_form or section_form
 
 
 #: What a vendor's own word maps to. Deliberately small: a word that names no
@@ -2978,6 +2989,53 @@ _COMBINED_KINDS = frozenset(
         "percussion_revolver",
     }
 )
+
+
+#: Section names that say the form, as the shops write them: DeLeon's
+#: "Pistols" and "Revolvers", Frisco's "Semi-Auto Handguns" and "Derringers".
+#: "Handguns" says neither and is not here; nor is "Rifles", which the coarse
+#: flags already cover and which shops use for carbines as well.
+_SECTION_FORMS: tuple[tuple[re.Pattern[str], str, str], ...] = (
+    (re.compile(r"\brevolvers?\b", re.I), "revolver", _HAND),
+    (
+        re.compile(r"\bpistols?\b|\bderringers?\b|\bsemi[\s-]?auto(?:matic)?\s+handguns?\b", re.I),
+        "pistol",
+        _HAND,
+    ),
+    (re.compile(r"\bshot\s?guns?\b", re.I), "shotgun", _LONG),
+)
+
+
+def form_in_section(
+    category: str | None,
+    title: str | None = None,
+    *,
+    is_rifle: bool = False,
+    is_pistol: bool = False,
+) -> str | None:
+    """What the shop's section says this firearm is, or None.
+
+    The fourth source :func:`finer_kind` consults. Answers only when the
+    section names exactly one form, "Pistols & Revolvers" naming two, and only
+    when the coarse flags agree with its family: a rifle filed under
+    "Pistols" is a mistake on the shelf, not a pistol. The title's ignition
+    words still apply, so a "Black Powder Pistols" flintlock reads as a
+    flintlock pistol.
+    """
+    found = [
+        (kind, family) for pattern, kind, family in _SECTION_FORMS if pattern.search(category or "")
+    ]
+    if len(found) != 1:
+        return None
+    form, family = found[0]
+    agrees = (is_pistol and not is_rifle) if family == _HAND else (is_rifle and not is_pistol)
+    if not agrees:
+        return None
+    for pattern, ignition in _TITLE_IGNITION:
+        if pattern.search(title or ""):
+            combined = f"{ignition}_{form}"
+            return combined if combined in _COMBINED_KINDS else form
+    return form
 
 
 def form_in_title(
@@ -3076,6 +3134,8 @@ COUNTRY_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"\bPhilippines?\b|\bPhilippine\b|\bFilipino\b", "Philippines"),
     # Grand Power builds the Stribog in Slovakia (2026-10-21).
     (r"\bSlovakia\b|\bSlovak(?:ian)?\b", "Slovakia"),
+    # Arex builds the Delta in Slovenia (2026-11-03).
+    (r"\bSlovenia\b|\bSlovenian\b", "Slovenia"),
     (r"\bEthiopian?\b", "Ethiopia"),
     (r"\bBulgarian?\b", "Bulgaria"),
     # Added with the modern shelf: 27 active listings say Israel or Israeli

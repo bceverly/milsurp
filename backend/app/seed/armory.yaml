@@ -120,6 +120,9 @@ manufacturers:
   website: https://www.beretta.com/en-us
   status: approved
   position: 150
+- name: Bergara
+  country: Spain
+  status: approved
 - name: Berlin-Lübecker
   aliases:
   - Berlin-Lubecker
@@ -584,6 +587,9 @@ manufacturers:
   - EAA Girsan
   country: Turkey
   status: approved
+- name: Glenfield
+  country: United States
+  status: approved
 - name: Glock
   country: Austria
   website: https://us.glock.com
@@ -643,6 +649,11 @@ manufacturers:
   aliases:
   - H&R
   - Harrington and Richardson
+  country: United States
+  status: approved
+- name: Hatfield
+  aliases:
+  - Hatfield Gun Company
   country: United States
   status: approved
 - name: HC PRO UDT
@@ -1181,6 +1192,9 @@ manufacturers:
   - Davide Pedersoli
   - D. Pedersoli
   country: Italy
+  status: approved
+- name: Phoenix Arms
+  country: United States
   status: approved
 - name: Pietta
   aliases:
@@ -2103,6 +2117,7 @@ calibers:
   - .218 Winchester Bee
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.218_Bee
+  bullet_diameter_in: 0.224
 - name: '.22'
   status: merged
 - name: .220 Swift
@@ -2328,6 +2343,7 @@ calibers:
   - 264 Win Mag
   - 264 Winchester Magnum
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.264_Winchester_Magnum
 - name: 26.5mm
   status: approved
   rejected_wikipedia:
@@ -2739,6 +2755,7 @@ calibers:
   - .338 Norma
   - 338 Norma Mag
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.338_Norma_Magnum
 - name: .338 Winchester Magnum
   aliases:
   - .338 Win Mag
@@ -2779,6 +2796,7 @@ calibers:
   - 350 Legend
   - 350 Leg
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.350_Legend
 - name: '.357'
   status: merged
 - name: .357 Magnum
@@ -3008,6 +3026,7 @@ calibers:
   aliases:
   - 400 Legend
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.400_Legend
 - name: .405 Winchester
   aliases:
   - '.405'
@@ -3261,6 +3280,7 @@ calibers:
   - 450 Bushmaster
   - 450 BM
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/.450_Bushmaster
 - name: 450 CAL
   status: merged
 - name: 450 Caliber
@@ -3338,6 +3358,7 @@ calibers:
   - 458 WM
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.458_Winchester_Magnum
+  bullet_diameter_in: 0.458
 - name: .45 ACP
   aliases:
   - 11.43x23mm
@@ -3398,6 +3419,7 @@ calibers:
   - 4.6x30
   - 4.6x30MM HK
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/HK_4.6%C3%9730mm
 - name: '.47'
   status: approved
   rejected_wikipedia:
@@ -3741,6 +3763,8 @@ calibers:
   - 6.5 Precision Rifle Cartridge
   - 6.5mm PRC
   status: approved
+  rejected_wikipedia:
+  - https://en.wikipedia.org/wiki/Hornady
 - name: 6.5x50
   status: merged
 - name: 6.5x50mm Arisaka
@@ -3862,6 +3886,7 @@ calibers:
   - 6 ARC
   - 6mm Advanced Rifle Cartridge
   status: approved
+  wikipedia: https://en.wikipedia.org/wiki/6mm_ARC
 - name: 6mm Flobert
   aliases:
   - 6 FLOBERT
@@ -4698,6 +4723,9 @@ models:
 - name: 22/45
   status: pending
   enabled: false
+- name: 24/7
+  status: merged
+  enabled: false
 - name: 28/26
   status: pending
   enabled: false
@@ -5428,6 +5456,15 @@ models:
   - GMR-15
   status: approved
   enabled: false
+- name: Arex Delta
+  aliases:
+  - Delta L
+  - Delta M
+  - Delta X
+  - Arex Delta Gen 2
+  kind: pistol
+  country: Slovenia
+  status: approved
 - name: Argentine Model 1879
   aliases:
   - Model 1879
@@ -5441,6 +5478,7 @@ models:
   - Mauser Model 1891
   - Argentine Model 1891 Mauser
   - DWM Model 1891
+  - Loewe Model 1891
   kind: rifle
   country: Argentina
   calibers:
@@ -8350,6 +8388,13 @@ models:
     source: budsgunshop
     status: approved
   status: approved
+- name: Beretta CX4 Storm
+  aliases:
+  - CX4
+  - CX4 Storm
+  kind: rifle
+  country: Italy
+  status: approved
 - name: Beretta DT11
   aliases:
   - DT11
@@ -8611,6 +8656,13 @@ models:
     maker_url: https://www.budsgunshop.com/products/pistols/beretta-px4-storm-type-f-california-compliant-9mm-10-plus-1-4-inch-blue-black-pistol-41943
     source: budsgunshop
     status: approved
+  status: approved
+- name: Bergara B-14R
+  aliases:
+  - B14R
+  - B-14R
+  kind: rifle
+  country: Spain
   status: approved
 - name: Bern 1911
   status: merged
@@ -9296,6 +9348,19 @@ models:
 - name: BL4
   status: pending
   enabled: false
+- name: BL 6
+  status: pending
+  enabled: false
+- name: BL 8
+  status: pending
+  enabled: false
+- name: Black Rain Ordnance Frontline
+  aliases:
+  - Frontline+
+  - Black Rain Frontline
+  kind: pistol
+  country: United States
+  status: approved
 - name: BLG Mauser 1911
   status: merged
   enabled: false
@@ -12078,6 +12143,9 @@ models:
 - name: CAI 460
   status: pending
   enabled: false
+- name: CALI 357
+  status: pending
+  enabled: false
 - name: CALI-365
   status: pending
   enabled: false
@@ -12133,6 +12201,33 @@ models:
     maker_url: https://www.budsgunshop.com/products/pistols/canik-55-sfx-rival-s-9mm-mchr-18r-752020876
     source: budsgunshop
     status: approved
+  status: approved
+- name: Canik METE SF
+  aliases:
+  - METE SF
+  kind: pistol
+  country: Turkey
+  status: approved
+- name: Canik METE SFT
+  aliases:
+  - METE SFT
+  kind: pistol
+  country: Turkey
+  status: approved
+- name: Canik METE SFX
+  aliases:
+  - METE SFX
+  kind: pistol
+  country: Turkey
+  status: approved
+- name: Canik SFX Rival
+  aliases:
+  - SFX Rival
+  - Rival SFX
+  - SFX Rival-S
+  - Rival-S
+  kind: pistol
+  country: Turkey
   status: approved
 - name: Canik TTI Combat
   aliases:
@@ -12526,6 +12621,12 @@ models:
   country: Philippines
   capacity: 8
   status: approved
+- name: Charter Arms Boomer
+  aliases:
+  - Boomer
+  kind: revolver
+  country: United States
+  status: approved
 - name: Charter Arms Bulldog
   aliases:
   - Charter Bulldog
@@ -12654,6 +12755,58 @@ models:
     status: approved
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
+- name: Charter Arms Chic Lady
+  aliases:
+  - Chic Lady
+  kind: revolver
+  country: United States
+  status: approved
+- name: Charter Arms Coyote
+  aliases:
+  - Off Duty Coyote
+  kind: revolver
+  country: United States
+  status: approved
+- name: Charter Arms Mag Pug
+  aliases:
+  - Mag Pug
+  kind: revolver
+  country: United States
+  status: approved
+- name: Charter Arms Off Duty
+  aliases:
+  - Off Duty
+  kind: revolver
+  country: United States
+  status: approved
+- name: Charter Arms Pathfinder
+  aliases:
+  - Pathfinder II
+  - Pathfinder Lite
+  - Charter Pathfinder
+  kind: revolver
+  country: United States
+  status: approved
+- name: Charter Arms Pink Lady
+  aliases:
+  - Pink Lady
+  kind: revolver
+  country: United States
+  status: approved
+- name: Charter Arms Pitbull
+  aliases:
+  - Pitbull
+  - Pit Bull
+  kind: revolver
+  country: United States
+  status: approved
+- name: Charter Arms Professional
+  aliases:
+  - Professional V
+  - Professional IV
+  kind: revolver
+  country: United States
+  status: approved
 - name: Charter Arms Undercover
   aliases:
   - Undercover
@@ -13054,6 +13207,10 @@ models:
     status: approved
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
+- name: Charter Arms Walker
+  kind: revolver
+  country: United States
+  status: approved
 - name: CHFR895
   status: pending
   enabled: false
@@ -13093,6 +13250,19 @@ models:
 - name: CHIAPPA FIREARMS 1911
   status: merged
   enabled: false
+- name: Chiappa Rhino
+  aliases:
+  - Rhino 20
+  - Rhino 30
+  - Rhino 40
+  - Rhino 50
+  - Rhino 60
+  - Rhino 120
+  - Rhino 200
+  - Rhino SAO
+  kind: revolver
+  country: Italy
+  status: approved
 - name: Chilean Model 1895
   aliases:
   - Chilean Mauser
@@ -13229,6 +13399,12 @@ models:
   manufacturers:
   - Cimarron
   capacity: 6
+  status: approved
+- name: Cimarron Holy Smoker
+  aliases:
+  - Holy Smoker
+  kind: revolver
+  country: Italy
   status: approved
 - name: Cimarron Lightning
   aliases:
@@ -13384,6 +13560,13 @@ models:
 - name: Co. 1873
   status: merged
   enabled: false
+- name: Cobra CA380
+  aliases:
+  - CA380
+  - CA-380
+  kind: pistol
+  country: United States
+  status: approved
 - name: Cobra CB38
   aliases:
   - CB38
@@ -13616,6 +13799,12 @@ models:
     status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Colt Combat Elite
+  aliases:
+  - Combat Elite
+  kind: pistol
+  country: United States
+  status: approved
 - name: Colt Commander
   aliases:
   - Colt Combat Commander
@@ -15512,6 +15701,8 @@ models:
   - Colt
   status: approved
 - name: Colt Python
+  aliases:
+  - Python
   kind: revolver
   country: United States
   calibers:
@@ -18037,6 +18228,8 @@ models:
     status: approved
   status: approved
 - name: CZ 70
+  aliases:
+  - VZOR 70
   kind: pistol
   country: Czech Republic
   calibers:
@@ -18873,6 +19066,14 @@ models:
     source: budsgunshop
     status: approved
   status: approved
+- name: CZ Shadow 2
+  aliases:
+  - Shadow 2
+  - Shadow II
+  - CZ Shadow II
+  kind: pistol
+  country: Czech Republic
+  status: approved
 - name: CZ TS 2
   aliases:
   - CZ TS2
@@ -18980,6 +19181,14 @@ models:
   - GEWEHRFABRIK DANZIG MODEL 2
   kind: rifle
   country: Germany
+  status: approved
+- name: Davis D-32
+  aliases:
+  - D32
+  - D-32
+  - Davis D32
+  kind: pistol
+  country: United States
   status: approved
 - name: DB15
   status: merged
@@ -20751,6 +20960,19 @@ models:
   calibers:
   - 5.56x45mm NATO
   status: approved
+- name: EAA Bounty Hunter
+  aliases:
+  - Bounty Hunter
+  - BNTY HNTR
+  kind: revolver
+  country: Germany
+  status: approved
+- name: EAA Windicator
+  aliases:
+  - Windicator
+  kind: revolver
+  country: Germany
+  status: approved
 - name: Eagle Noble WP 1911
   status: merged
   enabled: false
@@ -21112,6 +21334,12 @@ models:
   enabled: false
 - name: FMK-3
   status: approved
+- name: FMK 9C1
+  aliases:
+  - 9C1
+  kind: pistol
+  country: United States
+  status: approved
 - name: FMK Mach 9
   aliases:
   - MACH 9
@@ -21127,6 +21355,8 @@ models:
   country: United States
   status: approved
 - name: FN 15
+  aliases:
+  - FN-15
   kind: rifle
   country: United States
   calibers:
@@ -21135,6 +21365,9 @@ models:
   - FN
   capacity: 30
   status: approved
+- name: FN-15
+  status: merged
+  enabled: false
 - name: FN 150
   kind: pistol
   country: Belgium
@@ -21325,6 +21558,9 @@ models:
   manufacturers:
   - FN
   status: approved
+- name: FN - 509
+  status: merged
+  enabled: false
 - name: FN 509
   aliases:
   - FN 509C
@@ -21334,6 +21570,7 @@ models:
   - FN509T
   - FNH 509
   - FN509
+  - FN - 509
   kind: pistol
   country: Belgium
   calibers:
@@ -22451,6 +22688,13 @@ models:
   - Fusion Firearms
   capacity: 8
   status: approved
+- name: Fusion XF
+  aliases:
+  - XF Pro
+  - XF Comp
+  kind: pistol
+  country: United States
+  status: approved
 - name: Fusion XF-9
   aliases:
   - XF-9
@@ -22459,6 +22703,14 @@ models:
   manufacturers:
   - Fusion Firearms
   capacity: 15
+  status: approved
+- name: Fusion XP
+  aliases:
+  - XP Pro
+  - XP Comp
+  - XP Pro Comp
+  kind: pistol
+  country: United States
   status: approved
 - name: Fusion XP 3C
   aliases:
@@ -22519,6 +22771,9 @@ models:
   enabled: false
 - name: G21
   status: merged
+  enabled: false
+- name: G22
+  status: pending
   enabled: false
 - name: G223
   kind: rifle
@@ -22996,6 +23251,13 @@ models:
   - GForce Arms
   capacity: 12
   status: approved
+- name: GForce Arms Rapture
+  aliases:
+  - Gforce Rapture
+  - Rapture
+  kind: pistol
+  country: Turkey
+  status: approved
 - name: GHM9
   status: approved
 - name: GI 45
@@ -23022,6 +23284,13 @@ models:
   kind: shotgun
   country: Turkey
   status: approved
+- name: Girsan Witness 2311
+  aliases:
+  - Witness 2311
+  - Witness2311
+  kind: pistol
+  country: Turkey
+  status: approved
 - name: GL-1
   status: pending
   enabled: false
@@ -23030,6 +23299,15 @@ models:
   enabled: false
 - name: GLD 380
   status: pending
+  enabled: false
+- name: Glenfield Model 25
+  aliases:
+  - Glenfield 25
+  kind: rifle
+  country: United States
+  status: approved
+- name: Glenfield Model 60
+  status: merged
   enabled: false
 - name: GLFA 1911
   status: merged
@@ -24598,6 +24876,12 @@ models:
   - GSG
   capacity: 10
   status: approved
+- name: GSG Firefly
+  aliases:
+  - Firefly
+  kind: pistol
+  country: Germany
+  status: approved
 - name: GSG MP40
   aliases:
   - MP40
@@ -25595,6 +25879,15 @@ models:
   manufacturers:
   - Harrington & Richardson
   status: approved
+- name: Hatfield SAS
+  aliases:
+  - SAS 12
+  - SAS 20
+  - Hatfield SAS 12
+  - Hatfield SAS 20
+  kind: shotgun
+  country: Turkey
+  status: approved
 - name: HAWK 12
   status: pending
   enabled: false
@@ -26103,6 +26396,14 @@ models:
   - Heckler Koch
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Heckler & Koch SL8
+  aliases:
+  - SL8
+  - SL-8
+  - HK SL8
+  kind: rifle
+  country: Germany
+  status: approved
 - name: Heckler & Koch SP5L
   aliases:
   - SP5L
@@ -26110,6 +26411,14 @@ models:
   country: Germany
   manufacturers:
   - Heckler Koch
+  status: approved
+- name: Heckler & Koch SP89
+  aliases:
+  - SP89
+  - SP-89
+  - HK SP89
+  kind: pistol
+  country: Germany
   status: approved
 - name: Heckler & Koch USP
   aliases:
@@ -26766,6 +27075,12 @@ models:
   aliases:
   - H004
   - Henry Golden Boy
+  kind: rifle
+  country: United States
+  status: approved
+- name: Henry H009
+  aliases:
+  - H009
   kind: rifle
   country: United States
   status: approved
@@ -29234,6 +29549,19 @@ models:
   kind: pistol
   country: United States
   status: approved
+- name: IWI Jericho 941
+  aliases:
+  - Jericho 941
+  - Jericho
+  kind: pistol
+  country: Israel
+  status: approved
+- name: IWI Masada
+  aliases:
+  - Masada
+  kind: pistol
+  country: Israel
+  status: approved
 - name: IWI Tavor X95
   aliases:
   - Tavor X95
@@ -29454,6 +29782,9 @@ models:
   status: approved
 - name: K12
   status: merged
+  enabled: false
+- name: K15
+  status: pending
   enabled: false
 - name: K22
   status: pending
@@ -30531,6 +30862,14 @@ models:
     source: budsgunshop
     status: approved
   status: approved
+- name: Kel-Tec RFB
+  aliases:
+  - RFB 308
+  - Keltec RFB
+  - Kel-Tec RFB 308
+  kind: rifle
+  country: United States
+  status: approved
 - name: Kel-Tec RFB18
   aliases:
   - RFB18
@@ -30799,7 +31138,6 @@ models:
   aliases:
   - SUB2000
   - Kel-Tec GEN3
-  - GEN3
   kind: rifle
   country: United States
   manufacturers:
@@ -31185,6 +31523,10 @@ models:
 - name: Kimber Custom II
   aliases:
   - Custom II
+  - Custom LW
+  - Custom TLE
+  - CST TLE
+  - Kimber Custom
   kind: pistol
   country: United States
   calibers:
@@ -32637,8 +32979,19 @@ models:
 - name: LION 12
   status: pending
   enabled: false
+- name: Live Free Armory Apollo 11
+  aliases:
+  - Apollo 11
+  - Apolla 11
+  - LFA Apollo 11
+  kind: pistol
+  country: United States
+  status: approved
 - name: Llama 1911
   status: approved
+- name: LLV-4
+  status: pending
+  enabled: false
 - name: LM-4
   kind: pistol
   country: United States
@@ -32649,6 +33002,12 @@ models:
   status: pending
   enabled: false
 - name: LMWS308
+  status: merged
+  enabled: false
+- name: LNIB MODEL 47
+  status: pending
+  enabled: false
+- name: Loewe Model 1891
   status: merged
   enabled: false
 - name: Lone Wolf Dusk 19
@@ -35291,6 +35650,15 @@ models:
   manufacturers:
   - Marlin
   status: approved
+- name: Marlin Model 60
+  aliases:
+  - Marlin 60
+  - Glenfield Model 60
+  - Model 60SB
+  - Marlin Model 60SB
+  kind: rifle
+  country: United States
+  status: approved
 - name: Marlin Model 80
   kind: rifle
   country: United States
@@ -35867,6 +36235,9 @@ models:
 - name: MC14T
   status: merged
   enabled: false
+- name: MC2
+  status: pending
+  enabled: false
 - name: MC2C
   kind: pistol
   country: United States
@@ -36425,6 +36796,9 @@ models:
   status: approved
   enabled: false
   notes: 'Disabled: identifies nothing on its own -- every Mk I ever made.'
+- name: MK12
+  status: pending
+  enabled: false
 - name: MK19
   status: merged
   enabled: false
@@ -40167,10 +40541,27 @@ models:
 - name: North American Arms 1860
   aliases:
   - NAA 1860
+  - The Earl
+  - 1860 Earl
   kind: revolver
   country: United States
   manufacturers:
   - North American Arms
+  status: approved
+- name: North American Arms Black Widow
+  aliases:
+  - Black Widow
+  - BLK Widow
+  - NAA Black Widow
+  kind: revolver
+  country: United States
+  status: approved
+- name: North American Arms Mini-Master
+  aliases:
+  - Mini-Master
+  - Mini Master
+  kind: revolver
+  country: United States
   status: approved
 - name: North American Arms Mini-Revolver
   aliases:
@@ -40178,22 +40569,54 @@ models:
   - NAA Mini-Revolver
   - LDLX 22
   - NAA 22
+  - Mini-Revolver
+  - Mini Revolver
+  - Mini Rev
   kind: revolver
   country: United States
   manufacturers:
   - North American Arms
   capacity: 5
   status: approved
+- name: North American Arms Pug
+  aliases:
+  - NAA Pug
+  - The Pug
+  kind: revolver
+  country: United States
+  status: approved
+- name: North American Arms Ranger II
+  aliases:
+  - Ranger II
+  - NAA Ranger II
+  kind: revolver
+  country: United States
+  status: approved
+- name: North American Arms Sentinel
+  aliases:
+  - NAA Sentinel
+  kind: revolver
+  country: United States
+  status: approved
 - name: North American Arms Sidewinder
   aliases:
   - SW250
   - NAA Sidewinder
   - SWC250
+  - Sidewinder
+  - SWC Sidewinder
   kind: revolver
   country: United States
   manufacturers:
   - North American Arms
   capacity: 5
+  status: approved
+- name: North American Arms Wasp
+  aliases:
+  - The Wasp
+  - NAA Wasp
+  kind: revolver
+  country: United States
   status: approved
 - name: NOV 19
   status: pending
@@ -40210,6 +40633,12 @@ models:
 - name: NTB 10R
   status: pending
   enabled: false
+- name: OA Defense 2311
+  aliases:
+  - OA 2311
+  kind: pistol
+  country: United States
+  status: approved
 - name: OD 15
   status: pending
   enabled: false
@@ -41621,9 +42050,14 @@ models:
 - name: PA-08
   status: approved
 - name: PA-15
+  aliases:
+  - PA15
   calibers:
   - .224 Caliber
   status: approved
+- name: PA15
+  status: merged
+  enabled: false
 - name: PA63
   status: merged
   enabled: false
@@ -41719,6 +42153,14 @@ models:
   modern_production: true
   status: approved
   notes: Approved 2026-10-12 from the pending queue.
+- name: Para Ordnance P13
+  aliases:
+  - P13
+  - P13-45
+  - Para P13
+  kind: pistol
+  country: Canada
+  status: approved
 - name: Pattern 1780
   status: pending
   enabled: false
@@ -41792,6 +42234,9 @@ models:
   calibers:
   - 8mm Mauser
   status: approved
+- name: PF-15
+  status: pending
+  enabled: false
 - name: PF-9
   kind: pistol
   country: United States
@@ -41839,6 +42284,13 @@ models:
   - GW2
   status: pending
   enabled: false
+- name: Pietta Great Western II
+  aliases:
+  - Great Western II
+  - GW2
+  kind: revolver
+  country: Italy
+  status: approved
 - name: PINK 13
   status: pending
   enabled: false
@@ -47857,6 +48309,8 @@ models:
   status: pending
   enabled: false
 - name: SA-35
+  aliases:
+  - SA35
   kind: pistol
   country: United States
   calibers:
@@ -47897,6 +48351,9 @@ models:
     source: budsgunshop
     status: approved
   status: approved
+- name: SA35
+  status: merged
+  enabled: false
 - name: SA-459
   kind: rifle
   country: Turkey
@@ -47971,6 +48428,7 @@ models:
   - SAR9 Gen 3
   - SAR9X
   - Sarsilmaz SAR9
+  - SAR 9C
   kind: pistol
   country: Turkey
   calibers:
@@ -48291,6 +48749,9 @@ models:
     source: budsgunshop
     status: approved
   status: approved
+- name: SAR 9C
+  status: merged
+  enabled: false
 - name: SAR9C
   status: merged
   enabled: false
@@ -48404,6 +48865,9 @@ models:
     source: budsgunshop
     status: approved
   status: approved
+- name: SAS 20
+  status: merged
+  enabled: false
 - name: Sauer Model 202
   kind: rifle
   country: Germany
@@ -48441,6 +48905,12 @@ models:
   - Model 110 Savage
   - Savage Axis 110
   - Prewowned Savage Model 110
+  kind: rifle
+  country: United States
+  status: approved
+- name: Savage Model 12
+  aliases:
+  - Savage 12
   kind: rifle
   country: United States
   status: approved
@@ -48506,6 +48976,12 @@ models:
   country: United States
   manufacturers:
   - Savage
+  status: approved
+- name: Savage Stance
+  aliases:
+  - Stance
+  kind: pistol
+  country: United States
   status: approved
 - name: SB1
   status: pending
@@ -48998,6 +49474,9 @@ models:
   manufacturers:
   - Sig Sauer
   status: approved
+- name: SIG SAUER 1911
+  status: pending
+  enabled: false
 - name: Sig Sauer 1911
   aliases:
   - Sig 1911
@@ -49201,9 +49680,6 @@ models:
     status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
-- name: SIG SAUER 1911
-  status: pending
-  enabled: false
 - name: Sig Sauer 47/8
   aliases:
   - 47/8
@@ -53067,6 +53543,9 @@ models:
   - Bodyguard 38
   - Bodyguard380
   - CC 380
+  - BDYGD
+  - Bodyguard 2.0
+  - PC Bodyguard
   kind: pistol
   country: United States
   calibers:
@@ -53858,6 +54337,7 @@ models:
   - S&W 10
   - Smith & Wesson 10
   - Smith and Wesson Model 10
+  - Smith and Wesson 10
   kind: revolver
   country: United States
   calibers:
@@ -53873,6 +54353,8 @@ models:
   - Used S&W 12
   - Smith & Wesson 12
   - Model 12 Airweight
+  - S&W 12
+  - Smith and Wesson 12
   kind: revolver
   country: United States
   calibers:
@@ -53887,6 +54369,7 @@ models:
   - S&W Model 13
   - S&W 13
   - Smith and Wesson Model 13
+  - Smith and Wesson 13
   kind: revolver
   country: United States
   calibers:
@@ -53901,6 +54384,8 @@ models:
   - Smith and Wesson Model 14
   - Used S&W 14
   - Smith & Wesson 14
+  - S&W 14
+  - Smith and Wesson 14
   kind: revolver
   country: United States
   calibers:
@@ -53912,6 +54397,9 @@ models:
 - name: Smith & Wesson Model 1854
   aliases:
   - Model 1854
+  - Smith & Wesson 1854
+  - S&W 1854
+  - Smith and Wesson 1854
   kind: rifle
   country: United States
   manufacturers:
@@ -54112,6 +54600,7 @@ models:
   - SW 19
   - Smith Wesson Model 19
   - Smith Wesson PC Model 19
+  - Smith and Wesson 19
   kind: revolver
   country: United States
   calibers:
@@ -54181,6 +54670,7 @@ models:
   - S & W Model 1917
   - S & W 1917
   - S&W M 1917
+  - Smith and Wesson 1917
   kind: revolver
   country: United States
   calibers:
@@ -54196,6 +54686,9 @@ models:
   - Smith & Wesson 1955 Target
   - S&W 1955 Target
   - Model 1955 Target
+  - Smith & Wesson 1955
+  - S&W 1955
+  - Smith and Wesson 1955
   kind: revolver
   country: United States
   calibers:
@@ -54209,6 +54702,9 @@ models:
   - S&W Model 20
   - Smith and Wesson Model 20
   - Used S&W 20
+  - Smith & Wesson 20
+  - S&W 20
+  - Smith and Wesson 20
   kind: revolver
   country: United States
   calibers:
@@ -54233,6 +54729,9 @@ models:
   - S&W Model 25
   - Smith and Wesson Model 25
   - Used S&W 25
+  - Smith & Wesson 25
+  - S&W 25
+  - Smith and Wesson 25
   kind: revolver
   country: United States
   calibers:
@@ -54262,6 +54761,7 @@ models:
   - S&W 27
   - Smith and Wesson Model 27
   - Smith Wesson Classics Model 27
+  - Smith and Wesson 27
   kind: revolver
   country: United States
   calibers:
@@ -54298,6 +54798,8 @@ models:
   - Used S&W 28
   - Smith & Wesson 28
   - Highway Patrolman
+  - S&W 28
+  - Smith and Wesson 28
   kind: revolver
   country: United States
   calibers:
@@ -54314,6 +54816,7 @@ models:
   - S&W 29
   - Smith and Wesson Model 29
   - M29
+  - Smith and Wesson 29
   kind: revolver
   country: United States
   calibers:
@@ -54379,6 +54882,9 @@ models:
 - name: Smith & Wesson Model 31
   aliases:
   - Model 31
+  - Smith & Wesson 31
+  - S&W 31
+  - Smith and Wesson 31
   kind: revolver
   country: United States
   calibers:
@@ -54391,6 +54897,8 @@ models:
   aliases:
   - S&W 317
   - Model 317
+  - Smith & Wesson 317
+  - Smith and Wesson 317
   kind: revolver
   country: United States
   calibers:
@@ -54417,6 +54925,9 @@ models:
   - Smith and Wesson Model 32
   - Used S&W 32
   - Terrier
+  - Smith & Wesson 32
+  - S&W 32
+  - Smith and Wesson 32
   kind: revolver
   country: United States
   calibers:
@@ -54431,6 +54942,7 @@ models:
   - S&W 325
   - Model 325
   - Smith & Wesson 325
+  - Smith and Wesson 325
   kind: revolver
   country: United States
   status: approved
@@ -54442,6 +54954,9 @@ models:
   - Model 327 Performance Center
   - TRR8
   - PC 327
+  - Smith & Wesson 327
+  - S&W 327
+  - Smith and Wesson 327
   kind: revolver
   country: United States
   calibers:
@@ -54518,6 +55033,7 @@ models:
   - 329PD
   - S&W 329PD
   - Smith & Wesson 329PD
+  - Smith and Wesson 329
   kind: revolver
   country: United States
   calibers:
@@ -54542,6 +55058,9 @@ models:
   - S&W Model 33
   - Smith and Wesson Model 33
   - Used S&W 33
+  - Smith & Wesson 33
+  - S&W 33
+  - Smith and Wesson 33
   kind: revolver
   country: United States
   calibers:
@@ -54557,6 +55076,7 @@ models:
   - S&W Model 332
   - Smith and Wesson Model 332
   - 332 Airlite
+  - Smith and Wesson 332
   kind: revolver
   country: United States
   calibers:
@@ -54571,6 +55091,9 @@ models:
   - Smith and Wesson Model 34
   - Used S&W 34
   - Kit Gun
+  - Smith & Wesson 34
+  - S&W 34
+  - Smith and Wesson 34
   kind: revolver
   country: United States
   calibers:
@@ -54589,6 +55112,7 @@ models:
   - 340PD
   - S&W 340PD
   - Smith & Wesson 340PD
+  - Smith and Wesson 340
   kind: revolver
   country: United States
   calibers:
@@ -54621,6 +55145,9 @@ models:
 - name: Smith & Wesson Model 350
   aliases:
   - Model 350
+  - Smith & Wesson 350
+  - S&W 350
+  - Smith and Wesson 350
   kind: revolver
   country: United States
   manufacturers:
@@ -54641,6 +55168,7 @@ models:
   - S&W 351
   - S&W 351C
   - 351PD
+  - Smith and Wesson 351
   kind: revolver
   country: United States
   calibers:
@@ -54675,6 +55203,7 @@ models:
   - Smith & Wesson 36
   - S&W 36
   - Smith and Wesson Model 36
+  - Smith and Wesson 36
   kind: revolver
   country: United States
   calibers:
@@ -54712,6 +55241,7 @@ models:
   - 360PD
   - S&W 360PD
   - Smith & Wesson 360PD
+  - Smith and Wesson 360
   kind: revolver
   country: United States
   calibers:
@@ -54737,6 +55267,9 @@ models:
   - Smith & Wesson 37 Airweight
   - S&W 37 Airweight
   - Model 37 Airweight
+  - Smith & Wesson 37
+  - S&W 37
+  - Smith and Wesson 37
   kind: revolver
   country: United States
   calibers:
@@ -54752,6 +55285,7 @@ models:
   - S&W 386
   - S&W Model 386
   - Smith and Wesson Model 386
+  - Smith and Wesson 386
   kind: revolver
   country: United States
   calibers:
@@ -54774,6 +55308,9 @@ models:
   aliases:
   - SMITH WESSON MODEL 39
   - S&W Model 39
+  - Smith & Wesson 39
+  - S&W 39
+  - Smith and Wesson 39
   kind: pistol
   country: United States
   manufacturers:
@@ -54783,6 +55320,9 @@ models:
   aliases:
   - Model 396
   - Model 396 Night Guard
+  - Smith & Wesson 396
+  - S&W 396
+  - Smith and Wesson 396
   kind: revolver
   country: United States
   manufacturers:
@@ -54805,6 +55345,7 @@ models:
   - S&W Model 4006
   - Smith and Wesson Model 4006
   - Shorty Forty
+  - Smith and Wesson 4006
   kind: pistol
   country: United States
   calibers:
@@ -54813,12 +55354,23 @@ models:
   - Smith & Wesson
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Smith & Wesson Model 4043
+  aliases:
+  - S&W 4043
+  - S&W Model 4043
+  - Smith Wesson Model 4043
+  - Smith & Wesson 4043
+  - Smith and Wesson 4043
+  kind: pistol
+  country: United States
+  status: approved
 - name: Smith & Wesson Model 41
   aliases:
   - S&W Model 41
   - S&W 41
   - Smith & Wesson 41
   - Performance Center Model 41
+  - Smith and Wesson 41
   kind: pistol
   country: United States
   calibers:
@@ -54844,6 +55396,7 @@ models:
   - S&W 410
   - S&W Model 410
   - Smith and Wesson Model 410
+  - Smith and Wesson 410
   kind: pistol
   country: United States
   calibers:
@@ -54855,6 +55408,9 @@ models:
 - name: Smith & Wesson Model 432
   aliases:
   - Model 432
+  - Smith & Wesson 432
+  - S&W 432
+  - Smith and Wesson 432
   kind: revolver
   country: United States
   manufacturers:
@@ -54900,6 +55456,9 @@ models:
   - Model 43C
   - Model 43 C
   - SW 43C
+  - Smith & Wesson 43C
+  - S&W 43C
+  - Smith and Wesson 43C
   kind: revolver
   country: United States
   manufacturers:
@@ -54922,6 +55481,7 @@ models:
   - 442 Airweight
   - Model 442
   - SW 442
+  - Smith and Wesson 442
   kind: revolver
   country: United States
   calibers:
@@ -54982,6 +55542,7 @@ models:
   - S&W 460
   - 460 XVR
   - 460XVR
+  - Smith and Wesson 460
   kind: revolver
   country: United States
   calibers:
@@ -55048,6 +55609,7 @@ models:
   - Smith & Wesson 49
   - S&W 49
   - Model 49 Bodyguard
+  - Smith and Wesson 49
   kind: revolver
   country: United States
   calibers:
@@ -55063,6 +55625,7 @@ models:
   - S&W 500
   - SW 500
   - Model 500 X-Frame
+  - Smith and Wesson 500
   kind: revolver
   country: United States
   calibers:
@@ -55130,6 +55693,9 @@ models:
   - S&W Model 57
   - Smith and Wesson Model 57
   - Used S&W 57
+  - Smith & Wesson 57
+  - S&W 57
+  - Smith and Wesson 57
   kind: revolver
   country: United States
   calibers:
@@ -55156,6 +55722,7 @@ models:
   - S&W 581
   - S&W Model 581
   - Smith and Wesson Model 581
+  - Smith and Wesson 581
   kind: revolver
   country: United States
   calibers:
@@ -55171,6 +55738,7 @@ models:
   - S&W Model 586
   - Smith and Wesson Model 586
   - PC 586
+  - Smith and Wesson 586
   kind: revolver
   country: United States
   calibers:
@@ -55216,6 +55784,8 @@ models:
   - Smith and Wesson Model 60
   - Used S&W 60
   - Smith & Wesson 60
+  - S&W 60
+  - Smith and Wesson 60
   kind: revolver
   country: United States
   calibers:
@@ -55257,6 +55827,9 @@ models:
 - name: Smith & Wesson Model 610
   aliases:
   - Model 610
+  - Smith & Wesson 610
+  - S&W 610
+  - Smith and Wesson 610
   kind: revolver
   country: United States
   manufacturers:
@@ -55294,6 +55867,9 @@ models:
 - name: Smith & Wesson Model 617
   aliases:
   - Model 617
+  - Smith & Wesson 617
+  - S&W 617
+  - Smith and Wesson 617
   kind: revolver
   country: United States
   manufacturers:
@@ -55334,6 +55910,7 @@ models:
   - S&W 619
   - S&W Model 619
   - Smith and Wesson Model 619
+  - Smith and Wesson 619
   kind: revolver
   country: United States
   calibers:
@@ -55348,6 +55925,7 @@ models:
   - S&W 625
   - S&W Model 625
   - Smith and Wesson Model 625
+  - Smith and Wesson 625
   kind: revolver
   country: United States
   calibers:
@@ -55360,6 +55938,9 @@ models:
 - name: Smith & Wesson Model 627
   aliases:
   - Model 627
+  - Smith & Wesson 627
+  - S&W 627
+  - Smith and Wesson 627
   kind: revolver
   country: United States
   manufacturers:
@@ -55400,6 +55981,7 @@ models:
   - S&W 629
   - Smith and Wesson Model 629
   - Smith Wesson PC Model 629
+  - Smith and Wesson 629
   kind: revolver
   country: United States
   calibers:
@@ -55506,6 +56088,9 @@ models:
 - name: Smith & Wesson Model 63
   aliases:
   - Model 63
+  - Smith & Wesson 63
+  - S&W 63
+  - Smith and Wesson 63
   kind: revolver
   country: United States
   manufacturers:
@@ -55524,6 +56109,9 @@ models:
 - name: Smith & Wesson Model 632
   aliases:
   - Model 632
+  - Smith & Wesson 632
+  - S&W 632
+  - Smith and Wesson 632
   kind: revolver
   country: United States
   manufacturers:
@@ -55569,6 +56157,7 @@ models:
   - S&W 637
   - 637 Airweight
   - Model 637
+  - Smith and Wesson 637
   kind: revolver
   country: United States
   calibers:
@@ -55609,6 +56198,9 @@ models:
 - name: Smith & Wesson Model 638
   aliases:
   - Model 638
+  - Smith & Wesson 638
+  - S&W 638
+  - Smith and Wesson 638
   kind: revolver
   country: United States
   manufacturers:
@@ -55628,6 +56220,9 @@ models:
   aliases:
   - SMITH WESSON MODEL 639
   - S&W Model 639
+  - Smith & Wesson 639
+  - S&W 639
+  - Smith and Wesson 639
   kind: pistol
   country: United States
   manufacturers:
@@ -55639,6 +56234,7 @@ models:
   - Smith & Wesson 64
   - S&W 64
   - Smith and Wesson Model 64
+  - Smith and Wesson 64
   kind: revolver
   country: United States
   calibers:
@@ -55655,6 +56251,7 @@ models:
   - S&W Model 640
   - Smith and Wesson Model 640
   - M640
+  - Smith and Wesson 640
   kind: revolver
   country: United States
   calibers:
@@ -55701,6 +56298,7 @@ models:
   - Model 642
   - SW 642
   - PC 642
+  - Smith and Wesson 642
   kind: revolver
   country: United States
   calibers:
@@ -55801,6 +56399,7 @@ models:
   - S&W Model 648
   - Smith and Wesson Model 648
   - Smith Wesson Model 648
+  - Smith and Wesson 648
   kind: revolver
   country: United States
   calibers:
@@ -55829,6 +56428,8 @@ models:
   - Smith and Wesson Model 65
   - Used S&W 65
   - Smith & Wesson 65
+  - S&W 65
+  - Smith and Wesson 65
   kind: revolver
   country: United States
   calibers:
@@ -55845,6 +56446,7 @@ models:
   - S&W 66
   - Smith and Wesson Model 66
   - SW 66
+  - Smith and Wesson 66
   kind: revolver
   country: United States
   calibers:
@@ -55878,6 +56480,7 @@ models:
   - S&W Model 67
   - S&W 67
   - Smith and Wesson Model 67
+  - Smith and Wesson 67
   kind: revolver
   country: United States
   calibers:
@@ -55895,6 +56498,7 @@ models:
   - Smith and Wesson Model 686
   - SW 686
   - Wesson Performance Center Model 686
+  - Smith and Wesson 686
   kind: revolver
   country: United States
   calibers:
@@ -56033,6 +56637,8 @@ models:
   - Used S&W 69
   - Smith & Wesson 69
   - 69 Combat Magnum
+  - S&W 69
+  - Smith and Wesson 69
   kind: revolver
   country: United States
   calibers:
@@ -56064,6 +56670,9 @@ models:
 - name: Smith & Wesson Model 6906
   aliases:
   - Model 6906
+  - Smith & Wesson 6906
+  - S&W 6906
+  - Smith and Wesson 6906
   kind: pistol
   country: United States
   calibers:
@@ -56076,6 +56685,8 @@ models:
   - Smith Wesson Model 745
   - S&W 745
   - Model 745
+  - Smith & Wesson 745
+  - Smith and Wesson 745
   kind: pistol
   country: United States
   status: approved
@@ -56085,6 +56696,7 @@ models:
   - S&W 910
   - S&W Model 910
   - Smith and Wesson Model 910
+  - Smith and Wesson 910
   kind: pistol
   country: United States
   calibers:
@@ -56096,6 +56708,9 @@ models:
 - name: Smith & Wesson Model 940
   aliases:
   - Model 940
+  - Smith & Wesson 940
+  - S&W 940
+  - Smith and Wesson 940
   kind: revolver
   country: United States
   manufacturers:
@@ -56127,6 +56742,7 @@ models:
   - S&W Model 986
   - Smith and Wesson Model 986
   - Smith Wesson PC Model 986
+  - Smith and Wesson 986
   kind: revolver
   country: United States
   calibers:
@@ -58763,6 +59379,8 @@ models:
   status: pending
   enabled: false
 - name: SP-01
+  aliases:
+  - SP01
   kind: pistol
   country: Czech Republic
   calibers:
@@ -58814,6 +59432,9 @@ models:
     source: budsgunshop
     status: approved
   status: approved
+- name: SP01
+  status: merged
+  enabled: false
 - name: SP-1
   status: approved
   enabled: false
@@ -60246,14 +60867,18 @@ models:
   - OSP 380
   kind: pistol
   country: United States
-  manufacturers:
-  - Springfield
-  status: approved
+  status: merged
+  enabled: false
 - name: Springfield Armory Ronin
   aliases:
   - RONIN 1911
+  - Springfield Ronin
+  - 1911 RONIN
   kind: pistol
   country: United States
+  calibers:
+  - .45 ACP
+  - 9mm Luger
   manufacturers:
   - Springfield
   capacity: 8
@@ -60262,6 +60887,8 @@ models:
   aliases:
   - Echelon
   - Echelon Compact
+  - ECHLN
+  - ECHEL
   kind: pistol
   country: United States
   calibers:
@@ -60968,6 +61595,13 @@ models:
   - Hellcat
   - Hellcat OSP
   - Hellcat Pro
+  - Springfield Armory Hellcat
+  - HC 9M
+  - HC 380
+  - OSP 380
+  - HC 9MM
+  - HC PRO
+  - HELL PRO
   kind: pistol
   country: United States
   calibers:
@@ -61937,6 +62571,9 @@ models:
   - Loaded Operator
   - Springfield Armory Operator
   - TRP Operator
+  - Operator 1911
+  - 1911 OPER
+  - 1911 Operator
   kind: pistol
   country: United States
   calibers:
@@ -61995,6 +62632,8 @@ models:
   aliases:
   - Prodigy
   - Prodigy DS
+  - PRDGY
+  - PRODGY
   kind: pistol
   country: United States
   calibers:
@@ -62041,14 +62680,10 @@ models:
 - name: Springfield Ronin
   kind: pistol
   country: United States
-  calibers:
-  - .45 ACP
-  - 9mm Luger
-  manufacturers:
-  - Springfield
   modern_production: true
   maker_url: https://www.springfield-armory.com/1911-series-handguns/1911-ronin-handguns/
-  status: approved
+  status: merged
+  enabled: false
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
 - name: Springfield SA-16
   aliases:
@@ -62400,6 +63035,9 @@ models:
 - name: SPX 12
   status: pending
   enabled: false
+- name: SPX-2
+  status: pending
+  enabled: false
 - name: SR1
   status: merged
   enabled: false
@@ -62506,6 +63144,13 @@ models:
   manufacturers:
   - Standard Manufacturing
   capacity: 7
+  status: approved
+- name: Standard Manufacturing DP-12
+  aliases:
+  - DP12
+  - DP-12
+  kind: shotgun
+  country: United States
   status: approved
 - name: Standard Manufacturing S333 Thunderstruck
   aliases:
@@ -63371,6 +64016,9 @@ models:
   manufacturers:
   - Mauser
   status: approved
+- name: T100
+  status: pending
+  enabled: false
 - name: T38
   kind: rifle
   country: Japan
@@ -65726,6 +66374,7 @@ models:
   - PT 24/7
   - PT24/7
   - Taurus 24/7
+  - 24/7
   kind: pistol
   country: Brazil
   manufacturers:
@@ -66643,6 +67292,39 @@ models:
 - name: Taylor's Company 1860
   status: approved
   enabled: false
+- name: Taylor's Devil Anse
+  aliases:
+  - Devil Anse
+  kind: revolver
+  country: Italy
+  status: approved
+- name: Taylor's Gunfighter
+  aliases:
+  - Company Gunfighter
+  kind: revolver
+  country: Italy
+  status: approved
+- name: Taylor's Runnin Iron
+  aliases:
+  - Runnin Iron
+  - Runnin' Iron
+  - Running Iron
+  kind: revolver
+  country: Italy
+  status: approved
+- name: Taylor's Short Stroke
+  aliases:
+  - Short Stroke
+  kind: revolver
+  country: Italy
+  status: approved
+- name: Taylor's Smoke Wagon
+  aliases:
+  - Smoke Wagon
+  - Smokewagon
+  kind: revolver
+  country: Italy
+  status: approved
 - name: TAY W00L02 1875
   status: merged
   enabled: false
@@ -67775,6 +68457,13 @@ models:
   country: Italy
   capacity: 6
   status: approved
+- name: Trailblazer LifeCard
+  aliases:
+  - LifeCard
+  - Life Card
+  kind: pistol
+  country: United States
+  status: approved
 - name: TRAP 12
   status: pending
   enabled: false
@@ -67786,6 +68475,19 @@ models:
   country: United States
   manufacturers:
   - Triplett & Scott
+  status: approved
+- name: TriStar Apoc
+  aliases:
+  - Apoc Pro
+  - TSA Apoc
+  kind: pistol
+  country: Turkey
+  status: approved
+- name: TriStar Protege
+  aliases:
+  - Protege X
+  kind: pistol
+  country: Turkey
   status: approved
 - name: TRP 1911
   status: merged
@@ -68007,7 +68709,12 @@ models:
   - Remington
   status: approved
 - name: USAS-12
+  aliases:
+  - USAS12
   status: approved
+- name: USAS12
+  status: merged
+  enabled: false
 - name: USF2
   status: pending
   enabled: false
@@ -68913,6 +69620,9 @@ models:
   manufacturers:
   - CZ
   status: approved
+- name: VZOR 70
+  status: merged
+  enabled: false
 - name: W625
   kind: rifle
   country: Germany
@@ -69682,6 +70392,10 @@ models:
   status: approved
   enabled: false
 - name: WILKINSON WEBLEY MODEL 1911
+  status: approved
+- name: Wilson Combat ACP
+  kind: pistol
+  country: United States
   status: approved
 - name: Wilson Combat AR9
   kind: rifle
@@ -72248,6 +72962,9 @@ models:
   calibers:
   - 12 gauge
   status: approved
+- name: Wz. 1898A
+  status: merged
+  enabled: false
 - name: wz 1960
   status: merged
   enabled: false
@@ -72291,6 +73008,8 @@ models:
   status: approved
   enabled: false
 - name: Wz.98a
+  aliases:
+  - Wz. 1898A
   status: approved
 - name: X12
   kind: shotgun
@@ -72879,6 +73598,9 @@ models:
   kind: rifle
   country: Germany
   status: approved
+- name: Zastava Arms Model 70
+  status: merged
+  enabled: false
 - name: Zastava CZ999
   aliases:
   - CZ999
@@ -72946,6 +73668,7 @@ models:
   aliases:
   - Zastava 70-1
   - Crvena Zastava 70
+  - Zastava Arms Model 70
   kind: pistol
   country: Yugoslavia
   calibers:

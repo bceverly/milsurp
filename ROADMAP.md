@@ -5755,6 +5755,52 @@ failed with nothing read. The site's bundle now calls `fetchDataByCategory_v6`
 and `fetchSKU_v2`, with the same parameters and the same answers; `_v6` adds a
 `sold` parameter that, left out, returns unsold stock as before.
 
+### Reading the wholesale feeds' titles — **Shipped** 2026-11-03
+
+Asked for after "how well is the armory working in terms of identifying things
+these days?" **Measured that day:** 66.7% of the 35,698 active guns were
+matched to a model, down from about 83% in September. The fall was the
+wholesale-feed dealers added in mid-October (DeLeon, Locked & Loaded, Florida
+Guns, Frisco, G4G; 19,500 listings in a week), which title a gun as their
+distributors' catalogs spell it: "GLK 17CG5V 9MM PST 17RD FS TL", "Chiappa
+Firearms 340285 Rhino 30DS", "Smith & Wesson 150712 686 Plus Deluxe". The
+armory knew most of those guns and matched none of the titles. Four changes:
+
+1. **A fallback reading of the title** (`armory.loosened`): a maker the feeds
+   abbreviate as a title's first word is spelled out (GLK, CLT, SPG, NAA, CA,
+   BRN and others), the company word after it is dropped ("Colt Mfg",
+   "Chiappa Firearms"), and so is a stock number in the first four words (five
+   or more characters with four digits, so "P365XL" and "1911" never qualify).
+2. **Letters run onto a model number** ("AP5SD", "TP9SC", "VP9A1X") are
+   allowed after a closing digit, except a unit or cartridge ("Duty 9mm" is
+   not the Tisas "DUTY 9", "45ACP" not "GOVT 45"). Both fallbacks run only
+   when the plain reading matched nothing, so no working match can change.
+3. **The SAR9 was being read as a rifle.** A pattern written for the Romanian
+   SAR-1/2/3 (`sar-?\d`) took Sarsilmaz's pistol too, so every SAR9 title
+   contradicted its own model; 16 of them had instead taken the Kel-Tec
+   SUB2000 through a bare "GEN3" alias, which was removed, along with a used
+   Glock 45 it had also caught.
+4. **The shop's section says pistol or revolver** when nothing else does
+   (`classify.form_in_section`): "Pistols", "Revolvers", "Semi-Auto Handguns",
+   "Derringers", "Shotguns". Last of the four sources, after the model, the
+   shop's word and the title, and only when the coarse flags agree. 5,500 of
+   the feeds' handguns had no finer kind.
+
+The armory was curated the same day from the titles still unmatched: 49 models
+(the Chiappa Rhino, the NAA, Charter Arms and Taylor's lines, Canik METE and
+Rival, CZ Shadow 2, IWI Masada and Jericho 941, among others), the feeds'
+spellings of existing ones ("ECHLN", "PRDGY", "HC 9MM", "BDYGD"), and every
+Smith & Wesson "Model N" row given "Smith & Wesson N" and "S&W N" (129
+aliases). Measured on production's data before release, with that curation in
+place: models 73.0% to 77.2% (DeLeon 69% to 78%, Florida Guns 67% to 80%,
+Locked & Loaded 64% to 79%), and the finer kind 79.9% to 93.3%. Pinned in
+`tests/test_feed_titles.py`.
+
+Not changed: the Raven MP-25 asked about the same day. The armory has it, and
+no shop read here has ever listed one; Raven closed in 1991, and the used-gun
+marketplaces where they sell (Guns.com, GunsAmerica, Guns International) all
+answer with a Cloudflare challenge.
+
 ### The backlog, worked through — **Shipped** 2026-10-28
 
 Asked for: "go ahead and do 1-7 now please", the backlog items as listed that

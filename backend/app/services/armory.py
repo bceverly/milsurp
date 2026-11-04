@@ -219,6 +219,9 @@ class _Rule:
     rivals: re.Pattern[str] | None = None
     #: Makers on this row. None when it lists none.
     own: re.Pattern[str] | None = None
+    #: ``pattern`` with letters allowed after a closing digit, for the last
+    #: pass of :meth:`ModelRegistry.match`. See :func:`_with_suffix`.
+    suffixed: re.Pattern[str] | None = None
 
 
 class ModelRegistry:
@@ -254,15 +257,132 @@ class ModelRegistry:
         The ``description`` argument is kept so callers need not care, and so
         that the reason it is ignored has somewhere to live.
         """
+        found = self._first(title, stated_kind)
+        if found:
+            return found
+        # The two fallbacks below only ever fill a blank: a title the plain
+        # reading matched never reaches them, so no match that works today
+        # can change. See loosened and _with_suffix for what each forgives.
+        plain = loosened(title)
+        if plain != title:
+            found = self._first(plain, stated_kind)
+            if found:
+                return found
+        return self._first(plain, stated_kind, suffixed=True)
+
+    def _first(self, title: str, stated_kind: str | None, *, suffixed: bool = False) -> Match:
         for rule in self.rules:
-            if not rule.pattern.search(title or ""):
+            pattern = rule.suffixed if suffixed else rule.pattern
+            if pattern is None or not pattern.search(title or ""):
                 continue
             if _contradicted(title, rule.found, stated_kind):
                 continue
-            if _outvoted_by_maker(title, rule):
+            if _outvoted_by_maker(title, rule, pattern):
                 continue
             return rule.found
         return Match()
+
+
+# ---------------------------------------------------------------------------
+# The wholesale feeds' spelling
+# ---------------------------------------------------------------------------
+# DeLeon, Locked & Loaded, Florida Guns, Frisco and G4G title their new guns
+# from their distributors' catalogs, which spell a gun as a buyer's code would:
+# "GLK 17CG5V 9MM PST 17RD FS TL", "Chiappa Firearms 340285 Rhino 30DS",
+# "Smith & Wesson 150712 686 Plus Deluxe". The armory knows a Glock 17 and a
+# Smith & Wesson 686, and matched neither, because the maker was abbreviated, a
+# stock number sat between maker and model, or letters were run onto the
+# model number. Their 19,500 listings arrived in October 2026 and took the
+# share of guns matched to a model from 83% to 61%.
+
+#: A maker as the wholesale feeds abbreviate it, when it is a title's first
+#: word. First word only, because that is where the feeds put the maker, and a
+#: bare "CA" or "BRN" anywhere else is as likely to be something else.
+_FEED_MAKERS = {
+    "BER": "Beretta",
+    "BRN": "Browning",
+    "CA": "Charter Arms",
+    "CENT": "Century Arms",
+    "CIM": "Cimarron",
+    "CLT": "Colt",
+    "GLK": "Glock",
+    "HK": "Heckler & Koch",
+    "H&K": "Heckler & Koch",
+    "KIM": "Kimber",
+    "NAA": "North American Arms",
+    "RMARTIN": "Rost Martin",
+    "RUG": "Ruger",
+    "S&W": "Smith & Wesson",
+    "SPG": "Springfield Armory",
+    "SPGFLD": "Springfield Armory",
+    "TAU": "Taurus",
+    "WAL": "Walther",
+}
+_FIRST_WORD = re.compile(r"^\s*([A-Za-z][A-Za-z&]*)(?=\s)")
+#: The company words a feed puts after the maker -- "Colt Mfg", "Chiappa
+#: Firearms", "Kimber Mfg.,inc" -- which keep the maker from standing next to
+#: the model, as every "Colt Python" spelling expects. Within the first three
+#: words only.
+_COMPANY_WORD = re.compile(
+    r"^((?:\S+\s+){0,2}?\S+?)\s+"
+    r"(?:Firearms|Mfg\.?,?\s*inc\.?|Mfg\.?|Manufacturing|Repeating\s+Arms|Inc\.?)(?=\s)",
+    re.I,
+)
+
+
+def _is_stock_number(word: str) -> bool:
+    """A distributor's code: "150712", "O1082RGCCU", "2942031UL". Five or more
+    characters with at least four digits -- so a model number such as
+    "P365XL", "M&P9" or "1911" is never mistaken for one."""
+    word = word.strip(",")
+    return len(word) >= 5 and sum(ch.isdigit() for ch in word) >= 4
+
+
+def loosened(title: str | None) -> str:
+    """A title as the armory's spellings expect it, for the fallback pass.
+
+    Expands a feed's abbreviated maker, drops the company word after it, and
+    drops the first stock number among the first four words. Returns the
+    title unchanged when there was nothing to forgive.
+    """
+    text = title or ""
+    lead = _FIRST_WORD.match(text)
+    if lead and lead.group(1).upper() in _FEED_MAKERS:
+        text = _FEED_MAKERS[lead.group(1).upper()] + text[lead.end() :]
+    text = _COMPANY_WORD.sub(r"\1", text, count=1)
+    words = text.split()
+    for position, word in enumerate(words[:4]):
+        if position and _is_stock_number(word):
+            del words[position]
+            return " ".join(words)
+    return text
+
+
+#: What may *not* follow a model number in the suffix pass: units and
+#: cartridges written against the number, so "DUTY 9" does not take "Duty
+#: 9mm" and "GOVT 45" does not take "45ACP".
+_NOT_A_SUFFIX = (
+    r"(?:mm|rds?|rnds?|r|ga|gauge|in|cal|x|lr|acp|mag|spl|wmr|hmr|auto|sw|s&w|"
+    r"win|rem|lc|nato|luger)(?!\w)"
+)
+
+
+def _with_suffix(pattern: re.Pattern[str]) -> re.Pattern[str] | None:
+    """``pattern`` with letters let in after a closing digit.
+
+    "AP5SD", "TP9SC", "VP9A1X" and "GLK 17CG5V" are the AP5, the TP9, the VP9
+    and the Glock 17 with a variant code run onto the number. Used only after
+    the exact pass has failed, which is what makes it safe: "Glock 19X" is a
+    model of its own and, where the armory has it, matches exactly first.
+    """
+    source = pattern.pattern
+    tail = r"(?!\w)"
+    if not source.endswith(tail):  # pragma: no cover - every rule comes from pattern_for
+        return None
+    return re.compile(
+        source[: -len(tail)] + rf"(?:(?<=\d)(?!{_NOT_A_SUFFIX})[A-Za-z][A-Za-z0-9]*)?" + tail,
+        pattern.flags,
+    )
 
 
 def _contradicted(title: str, found: Match, stated_kind: str | None = None) -> bool:
@@ -295,7 +415,7 @@ def _contradicted(title: str, found: Match, stated_kind: str | None = None) -> b
     return stated is not None and stated == wanted
 
 
-def _outvoted_by_maker(title: str, rule: _Rule) -> bool:
+def _outvoted_by_maker(title: str, rule: _Rule, pattern: re.Pattern[str] | None = None) -> bool:
     """Whether another row claiming this same designation fits the title better.
 
     The second discriminator, and the companion to :func:`_contradicted`. That
@@ -331,7 +451,7 @@ def _outvoted_by_maker(title: str, rule: _Rule) -> bool:
     """
     if rule.rivals is None:
         return False
-    designation = rule.pattern.search(title or "")
+    designation = (pattern or rule.pattern).search(title or "")
     if designation is None:  # pragma: no cover - the caller has just matched it
         return False
     theirs = _nearest(rule.rivals, title, designation.span())
@@ -403,29 +523,34 @@ def _model_rules(session: Session) -> list[_Rule]:
     # decides first, so an admin who wants a particular order still gets it.
     rows = sorted(rows, key=lambda row: (row.position, -_facts_known(row), row.id))
     contested = _contested_designations(rows)
-    return [
-        _Rule(
-            manufacturers.pattern_for(row.spellings),
-            Match(
-                model=row.name,
-                model_id=row.id,
-                kind=row.kind,
-                # Only when there is exactly one and so no choice to make. An
-                # M95 may be 8x50mmR or 8x56mmR, and the model does not say
-                # which this one is -- see FirearmModel.only_caliber.
-                caliber=row.only_caliber,
-                # Only when the answer is not a choice. Nine firms built the
-                # M1 Carbine, and a title naming none of them does not tell us
-                # which -- so the model says nothing about the maker rather
-                # than picking one. With a single maker on the row there is
-                # nothing to pick and the fact is simply true.
-                manufacturer=(row.manufacturers[0].name if len(row.manufacturers) == 1 else None),
-                country=row.country,
-            ),
-            *_maker_guard(row, contested),
-        )
-        for row in rows
-    ]
+    return [_rule_for(row, contested) for row in rows]
+
+
+def _rule_for(row: FirearmModel, contested: dict[str, list[FirearmModel]]) -> _Rule:
+    pattern = manufacturers.pattern_for(row.spellings)
+    rivals, own = _maker_guard(row, contested)
+    return _Rule(
+        pattern,
+        Match(
+            model=row.name,
+            model_id=row.id,
+            kind=row.kind,
+            # Only when there is exactly one and so no choice to make. An
+            # M95 may be 8x50mmR or 8x56mmR, and the model does not say
+            # which this one is -- see FirearmModel.only_caliber.
+            caliber=row.only_caliber,
+            # Only when the answer is not a choice. Nine firms built the
+            # M1 Carbine, and a title naming none of them does not tell us
+            # which -- so the model says nothing about the maker rather
+            # than picking one. With a single maker on the row there is
+            # nothing to pick and the fact is simply true.
+            manufacturer=(row.manufacturers[0].name if len(row.manufacturers) == 1 else None),
+            country=row.country,
+        ),
+        rivals,
+        own,
+        _with_suffix(pattern),
+    )
 
 
 def _contested_designations(rows: list[FirearmModel]) -> dict[str, list[FirearmModel]]:

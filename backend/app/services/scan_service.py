@@ -752,6 +752,9 @@ def _apply_catalog(session: Session, item: Item, trusted: bool, *, adopt: bool =
             found.kind,
             item.stated_kind,
             classify.form_in_title(item.title, is_rifle=item.is_rifle, is_pistol=item.is_pistol),
+            classify.form_in_section(
+                item.category, item.title, is_rifle=item.is_rifle, is_pistol=item.is_pistol
+            ),
         )
         if (item.is_rifle or item.is_pistol)
         else None
