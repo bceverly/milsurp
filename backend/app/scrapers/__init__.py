@@ -40,6 +40,7 @@ from .checkpoint_charlies import CheckpointCharliesScraper
 from .cherrys import CherrysScraper
 from .cimarron import CimarronScraper
 from .classic_firearms import ClassicFirearmsScraper
+from .click_click_boom import ClickClickBoomScraper
 from .clyde_armory import ClydeArmoryScraper
 from .cmp import CmpScraper
 from .co_gun_sales import CoGunSalesScraper
@@ -205,6 +206,7 @@ SCRAPER_CLASSES: tuple[type[SiteScraper], ...] = (
     JimsFirearmsScraper,
     RcfGunsScraper,
     BuffaloArmsScraper,
+    ClickClickBoomScraper,
 )
 
 _REGISTRY: dict[str, type[SiteScraper]] = {cls.slug: cls for cls in SCRAPER_CLASSES}

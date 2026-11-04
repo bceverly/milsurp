@@ -1,0 +1,22 @@
+{
+  "slug": "click-click-boom",
+  "recorded_at": "2026-11-04T16:52:29+00:00",
+  "pages": [
+    {
+      "url": "https://click-click-boom.com/wp-json/wc/store/v1/products?per_page=100&page=1&category=22039",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://click-click-boom.com/wp-json/wc/store/v1/products?per_page=100&page=2&category=22039",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://click-click-boom.com/wp-json/wc/store/v1/products?per_page=100&page=3&category=22039",
+      "file": "0003.html.gz"
+    },
+    {
+      "url": "https://click-click-boom.com/wp-json/wc/store/v1/products?per_page=100&page=4&category=22039",
+      "file": "0004.html.gz"
+    }
+  ]
+}

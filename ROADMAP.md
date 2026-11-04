@@ -125,6 +125,7 @@ the whole catalog as JSON to the widget that draws the grid. See
 | [Jim's Firearms](https://www.jimsfirearms.net/firearms-used_guns) | `jims-firearms` | ColdFusion, a newer template -- used guns, ~80, a ten-second crawl delay |
 | [RCF Guns](https://www.rcfguns.com/used-guns) | `rcf-guns` | A Duda photo gallery -- ~370 used guns, in-store only, keyed by photograph |
 | [Buffalo Arms](https://www.buffaloarms.com/) | `buffalo-arms` | Magento -- eleven black powder sections, the first page of each only (robots.txt disallows query strings) |
+| [Click-Click-Boom](https://click-click-boom.com/shop/firearms/) | `click-click-boom` | WooCommerce Store API -- a Minnesota shop's used guns, ~200 of its 512 firearms, by its own condition attribute; no `orderby` (robots.txt disallows it) |
 
 **Retired 2026-11-02: Target Sports USA and Vance Outdoors**, scrapers and
 database rows both removed. Target Sports moved from AspDotNetStorefront to
@@ -5754,6 +5755,33 @@ and `fetchSKU_Inventory` began answering 404 on every shelf, and the scan
 failed with nothing read. The site's bundle now calls `fetchDataByCategory_v6`
 and `fetchSKU_v2`, with the same parameters and the same answers; `_v6` adds a
 `sold` parameter that, left out, returns unsold stock as before.
+
+### Click-Click-Boom's used guns — **Shipped** 2026-11-04
+
+Asked for while looking for more shops that might carry the Raven MP-25:
+"did you find any other sites that might have raven mp-25 .25 ACP pistols on
+them that we can add to the mix?" None of the shops measured had one in stock
+that day; the two worth reading were the used racks of shops that buy guns
+over the counter, which is where an MP-25 turns up.
+
+* **Click-Click-Boom** (`click-click-boom`), Waverly, Minnesota. WooCommerce
+  with the Store API answering. 512 guns in its Firearms category, all in
+  stock (a sold gun leaves the catalog), with no used category: condition is
+  the product's own "Condtion" attribute (the shop's spelling, matched by its
+  start in case it is corrected), 184 Used and 301 New, and the title
+  ("Used ...") where the attribute is missing. 202 kept on 2026-11-04, 79
+  handguns among them, including a used Beretta 950B .25 ACP. Left out: new
+  guns, a gun marked both new and used (a boxed, unfired collectible), and
+  "Special Order" listings. Its robots.txt disallows `&orderby=`, which the
+  shared Store API walk sends, so this shop's requests leave it out; the
+  endpoint's default order is the same newest-first.
+* **D4Guns** -- **Refused.** Its "Used" category claims 10,337 products and
+  shows "No products were found"; the Store API publishes 40 products, none
+  used. Its used guns are sold as GunBroker auctions, mirrored into the site
+  as `gb-listing` pages that link to its GunBroker seller pages, and GunBroker
+  is not read here.
+* **Sportsman's Outdoor Superstore**, which had the most MP-25s, stays
+  retired behind its Cloudflare challenge.
 
 ### A platform rests as a whole — **Shipped** 2026-11-04
 

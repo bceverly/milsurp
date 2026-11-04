@@ -40,6 +40,8 @@ permissions:
 
 env:
   NODE_VERSION: "22"
+  # The npm that wrote frontend/package-lock.json; see the "Use npm" steps.
+  NPM_VERSION: "11.18.0"
 
 jobs:
   # ==========================================================================
@@ -241,6 +243,13 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
+
+      # Node 22 ships npm 10, whose `npm ci` checks the lock against each
+      # package's own ranges and ignores package.json "overrides" -- so it
+      # refuses the lock that lifts nyc's minimatch out of a DoS advisory, which
+      # npm 11 wrote and reads correctly. Use the npm the lock was made with.
+      - name: Use npm ${{ env.NPM_VERSION }}
+        run: npm install -g npm@${{ env.NPM_VERSION }} --no-audit --no-fund
 
       # The tag and the version in the tree must agree. release.sh writes the
       # version, commits and then tags, so they always should -- but a tag

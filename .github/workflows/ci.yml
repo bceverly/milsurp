@@ -40,6 +40,8 @@ env:
   # on the version everyone runs should not need a matrix leg to be noticed.
   PYTHON_VERSION: "3.14"
   NODE_VERSION: "22"
+  # The npm that wrote frontend/package-lock.json; see the "Use npm" steps.
+  NPM_VERSION: "11.18.0"
   MILSURP_ENV: dev
 
 jobs:
@@ -61,6 +63,13 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: frontend/package-lock.json
+
+      # Node 22 ships npm 10, whose `npm ci` checks the lock against each
+      # package's own ranges and ignores package.json "overrides" -- so it
+      # refuses the lock that lifts nyc's minimatch out of a DoS advisory, which
+      # npm 11 wrote and reads correctly. Use the npm the lock was made with.
+      - name: Use npm ${{ env.NPM_VERSION }}
+        run: npm install -g npm@${{ env.NPM_VERSION }} --no-audit --no-fund
 
       - name: Install dependencies
         run: |
@@ -127,6 +136,13 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
+      # Node 22 ships npm 10, whose `npm ci` checks the lock against each
+      # package's own ranges and ignores package.json "overrides" -- so it
+      # refuses the lock that lifts nyc's minimatch out of a DoS advisory, which
+      # npm 11 wrote and reads correctly. Use the npm the lock was made with.
+      - name: Use npm ${{ env.NPM_VERSION }}
+        run: npm install -g npm@${{ env.NPM_VERSION }} --no-audit --no-fund
+
       - name: Install dependencies
         run: |
           python -m venv .venv
@@ -189,6 +205,13 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: frontend/package-lock.json
+
+      # Node 22 ships npm 10, whose `npm ci` checks the lock against each
+      # package's own ranges and ignores package.json "overrides" -- so it
+      # refuses the lock that lifts nyc's minimatch out of a DoS advisory, which
+      # npm 11 wrote and reads correctly. Use the npm the lock was made with.
+      - name: Use npm ${{ env.NPM_VERSION }}
+        run: npm install -g npm@${{ env.NPM_VERSION }} --no-audit --no-fund
 
       - name: Install dependencies
         run: |
@@ -355,6 +378,13 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: frontend/package-lock.json
+
+      # Node 22 ships npm 10, whose `npm ci` checks the lock against each
+      # package's own ranges and ignores package.json "overrides" -- so it
+      # refuses the lock that lifts nyc's minimatch out of a DoS advisory, which
+      # npm 11 wrote and reads correctly. Use the npm the lock was made with.
+      - name: Use npm ${{ env.NPM_VERSION }}
+        run: npm install -g npm@${{ env.NPM_VERSION }} --no-audit --no-fund
 
       - name: Build the frontend bundle
         run: cd frontend && npm ci --no-audit --no-fund && npm run build
