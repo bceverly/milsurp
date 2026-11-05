@@ -761,6 +761,57 @@ class TestTheRoundTripToAFlatFile:
         assert seeded.query(Caliber).filter_by(name="Something Local").count() == 0
 
 
+class TestNamesThatDifferOnlyInCase:
+    """Production, 2026-11-05: an approved "Sig Sauer 1911" and a disabled
+    "SIG SAUER 1911" proposal, both in the database and both in the file.
+    Paired ignoring case, they collapsed into one: the plan offered to write
+    the approved model onto the proposal, approve and enable it, and reported
+    the real model as missing from the file, for --prune to delete."""
+
+    @pytest.fixture
+    def twins(self, clean_db, tmp_path):
+        clean_db.add_all(
+            [
+                FirearmModel(
+                    name="Sig Sauer 1911", aliases="Sig 1911", status=ArmoryStatus.APPROVED
+                ),
+                FirearmModel(name="SIG SAUER 1911", status=ArmoryStatus.PENDING, enabled=False),
+            ]
+        )
+        clean_db.commit()
+        path = tmp_path / "catalog.yaml"
+        armory.write_export(clean_db, path)
+        return path
+
+    def test_an_export_of_both_plans_nothing(self, clean_db, twins):
+        assert not armory.plan_sync(clean_db, twins)
+
+    def test_and_syncs_nothing_even_with_prune(self, clean_db, twins):
+        done = armory.apply_sync(clean_db, twins, prune=True)
+        clean_db.commit()
+        assert done == {"added": 0, "updated": 0, "deleted": 0}
+        rows = {row.name: row for row in clean_db.query(FirearmModel)}
+        assert rows["Sig Sauer 1911"].status is ArmoryStatus.APPROVED
+        assert rows["SIG SAUER 1911"].enabled is False
+
+    def test_a_case_only_rename_is_still_recognized(self, clean_db, tmp_path):
+        clean_db.add(FirearmModel(name="Mauser k98", status=ArmoryStatus.APPROVED))
+        clean_db.commit()
+        path = tmp_path / "catalog.yaml"
+        path.write_text(yaml.safe_dump({"models": [{"name": "Mauser K98", "status": "approved"}]}))
+        plan = armory.plan_sync(clean_db, path)
+        assert [c.action for c in plan.models] == []
+        assert armory.apply_sync(clean_db, path, prune=True)["deleted"] == 0
+
+    def test_a_name_listed_twice_is_added_once(self, clean_db, tmp_path):
+        path = tmp_path / "catalog.yaml"
+        entry = {"name": "Trapdoor", "status": "approved"}
+        path.write_text(yaml.safe_dump({"models": [entry, dict(entry, notes="Again.")]}))
+        armory.apply_sync(clean_db, path)
+        clean_db.commit()
+        assert clean_db.query(FirearmModel).filter_by(name="Trapdoor").count() == 1
+
+
 class TestTheTwoCachesStayInStep:
     """The maker rules are built partly from the armory now.
 

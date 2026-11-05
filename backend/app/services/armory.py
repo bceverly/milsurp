@@ -1933,41 +1933,70 @@ class SyncPlan:
         }
 
 
+def _pair(rows: Iterable[Any], entries: list[dict[str, Any]]) -> list[Any | None]:
+    """The database row each file entry stands for, or None for a new one.
+
+    By exact name first and only then ignoring case. Case-insensitively alone,
+    two rows whose names differ only in case -- production's approved "Sig
+    Sauer 1911" and a disabled "SIG SAUER 1911" proposal, both in the file --
+    collapsed into one: the sync then wrote the approved model's aliases onto
+    the proposal, approved and enabled it, and reported the real model as
+    missing from the file, for ``--prune`` to delete. Ignoring case is still
+    how a case-only rename is recognized, so it stays, as the fallback, and
+    only for a row the file does not name exactly.
+    """
+    rows = list(rows)
+    named = {str(entry["name"]).strip() for entry in entries}
+    exact = {row.name.strip(): row for row in rows}
+    folded: dict[str, Any] = {}
+    for row in rows:
+        if row.name.strip() not in named:
+            folded.setdefault(row.name.strip().lower(), row)
+    paired: list[Any | None] = []
+    for entry in entries:
+        name = str(entry["name"]).strip()
+        paired.append(exact.get(name) or folded.get(name.lower()))
+    return paired
+
+
 def plan_sync(session: Session, path: Path) -> SyncPlan:
     """What :func:`apply_sync` would do, without doing any of it."""
     data = _read_yaml(path.read_text(encoding="utf-8")) or {}
     plan = SyncPlan()
 
-    firms = {str(e["name"]).strip().lower(): e for e in data.get("manufacturers") or []}
-    for firm in session.execute(select(Manufacturer)).scalars():
-        entry = firms.pop(firm.name.strip().lower(), None)
-        if entry is None:
-            plan.manufacturers.append(Change(firm.name, "delete"))
-        elif differing := _maker_differences(firm, entry):
-            plan.manufacturers.append(Change(firm.name, "update", differing))
-    plan.manufacturers.extend(Change(str(e["name"]), "add") for e in firms.values())
+    def compare(rows, entries, differences, changes):
+        rows = list(rows)
+        paired = _pair(rows, entries)
+        for entry, row in zip(entries, paired, strict=True):
+            if row is None:
+                changes.append(Change(str(entry["name"]), "add"))
+            elif differing := differences(row, entry):
+                changes.append(Change(row.name, "update", differing))
+        matched = {id(row) for row in paired if row is not None}
+        changes.extend(Change(row.name, "delete") for row in rows if id(row) not in matched)
 
-    cartridges = {str(e["name"]).strip().lower(): e for e in data.get("calibers") or []}
-    for cartridge in session.execute(select(Caliber)).scalars():
-        entry = cartridges.pop(cartridge.name.strip().lower(), None)
-        if entry is None:
-            plan.calibers.append(Change(cartridge.name, "delete"))
-        elif differing := _caliber_differences(cartridge, entry):
-            plan.calibers.append(Change(cartridge.name, "update", differing))
-    plan.calibers.extend(Change(str(e["name"]), "add") for e in cartridges.values())
-
-    guns = {str(e["name"]).strip().lower(): e for e in data.get("models") or []}
-    for gun in session.execute(
-        select(FirearmModel).options(
-            selectinload(FirearmModel.manufacturers), selectinload(FirearmModel.calibers)
-        )
-    ).scalars():
-        entry = guns.pop(gun.name.strip().lower(), None)
-        if entry is None:
-            plan.models.append(Change(gun.name, "delete"))
-        elif differing := _model_differences(gun, entry):
-            plan.models.append(Change(gun.name, "update", differing))
-    plan.models.extend(Change(str(e["name"]), "add") for e in guns.values())
+    compare(
+        session.execute(select(Manufacturer)).scalars(),
+        data.get("manufacturers") or [],
+        _maker_differences,
+        plan.manufacturers,
+    )
+    compare(
+        session.execute(select(Caliber)).scalars(),
+        data.get("calibers") or [],
+        _caliber_differences,
+        plan.calibers,
+    )
+    compare(
+        session.execute(
+            select(FirearmModel).options(
+                selectinload(FirearmModel.manufacturers), selectinload(FirearmModel.calibers)
+            )
+        ).scalars(),
+        data.get("models") or [],
+        _model_differences,
+        plan.models,
+    )
 
     plan.manufacturers.sort(key=lambda c: (c.action, c.name.lower()))
     plan.calibers.sort(key=lambda c: (c.action, c.name.lower()))
@@ -2202,18 +2231,17 @@ def _sync_makers(
     prune: bool,
     events: list[LoadEvent],
 ) -> None:
-    known = {
-        row.name.strip().lower(): row for row in session.execute(select(Manufacturer)).scalars()
-    }
-    listed: set[str] = set()
-    for entry in entries:
+    rows = list(session.execute(select(Manufacturer)).scalars())
+    paired = _pair(rows, entries)
+    listed = {id(row) for row in paired if row is not None}
+    # A name the file lists twice is one new row, not two.
+    created: dict[str, Manufacturer] = {}
+    for entry, existing in zip(entries, paired, strict=True):
         name = str(entry["name"]).strip()
-        listed.add(name.lower())
-        row = known.get(name.lower())
+        row = existing or created.get(name)
         if row is None:
-            row = Manufacturer(name=name)
+            row = created[name] = Manufacturer(name=name)
             session.add(row)
-            known[name.lower()] = row
             done["added"] += 1
             events.append(LoadEvent("added", "manufacturer", row, name))
         elif differing := _maker_differences(row, entry):
@@ -2234,8 +2262,8 @@ def _sync_makers(
         row.notes = entry.get("notes")
 
     if prune:
-        for key, row in list(known.items()):
-            if key not in listed:
+        for row in rows:
+            if id(row) not in listed:
                 events.append(_deleted("manufacturer", row))
                 session.delete(row)
                 done["deleted"] += 1
@@ -2252,16 +2280,19 @@ def _sync_calibers(
     prune: bool,
     events: list[LoadEvent],
 ) -> dict[str, Caliber]:
-    known = {row.name.strip().lower(): row for row in session.execute(select(Caliber)).scalars()}
-    listed: set[str] = set()
-    for entry in entries:
+    rows = list(session.execute(select(Caliber)).scalars())
+    paired = _pair(rows, entries)
+    listed = {id(row) for row in paired if row is not None}
+    kept = list(rows)
+    # A name the file lists twice is one new row, not two.
+    created: dict[str, Caliber] = {}
+    for entry, existing in zip(entries, paired, strict=True):
         name = str(entry["name"]).strip()
-        listed.add(name.lower())
-        row = known.get(name.lower())
+        row = existing or created.get(name)
         if row is None:
-            row = Caliber(name=name)
+            row = created[name] = Caliber(name=name)
             session.add(row)
-            known[name.lower()] = row
+            kept.append(row)
             done["added"] += 1
             events.append(LoadEvent("added", "caliber", row, name))
         elif differing := _caliber_differences(row, entry):
@@ -2280,13 +2311,13 @@ def _sync_calibers(
         write_reloading(row, entry.get("reloading"))
 
     if prune:
-        for key, row in list(known.items()):
-            if key not in listed:
+        for row in rows:
+            if id(row) not in listed:
                 events.append(_deleted("caliber", row))
                 session.delete(row)
-                known.pop(key)
+                kept.remove(row)
                 done["deleted"] += 1
-    return known
+    return {row.name.strip().lower(): row for row in kept}
 
 
 def _sync_models(
@@ -2305,23 +2336,23 @@ def _sync_models(
     makers = {
         row.name.strip().lower(): row for row in session.execute(select(Manufacturer)).scalars()
     }
-    known = {
-        row.name.strip().lower(): row
-        for row in session.execute(
+    rows = list(
+        session.execute(
             select(FirearmModel).options(
                 selectinload(FirearmModel.manufacturers), selectinload(FirearmModel.calibers)
             )
         ).scalars()
-    }
-    listed: set[str] = set()
-    for entry in entries:
+    )
+    paired = _pair(rows, entries)
+    listed = {id(row) for row in paired if row is not None}
+    # A name the file lists twice is one new row, not two.
+    created: dict[str, FirearmModel] = {}
+    for entry, existing in zip(entries, paired, strict=True):
         name = str(entry["name"]).strip()
-        listed.add(name.lower())
-        row = known.get(name.lower())
+        row = existing or created.get(name)
         if row is None:
-            row = FirearmModel(name=name)
+            row = created[name] = FirearmModel(name=name)
             session.add(row)
-            known[name.lower()] = row
             done["added"] += 1
             events.append(LoadEvent("added", "model", row, name))
         elif differing := _model_differences(row, entry):
@@ -2332,8 +2363,8 @@ def _sync_models(
         _write_model(row, entry, calibers, makers)
 
     if prune:
-        for key, row in list(known.items()):
-            if key not in listed:
+        for row in rows:
+            if id(row) not in listed:
                 events.append(_deleted("model", row))
                 session.delete(row)
                 done["deleted"] += 1

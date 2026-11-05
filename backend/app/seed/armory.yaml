@@ -415,6 +415,8 @@ manufacturers:
 - name: DS PRDGY UNT
   status: pending
   enabled: false
+- name: DW
+  status: pending
 - name: DWM
   aliases:
   - Deutsche Waffen und Munitionsfabriken
@@ -1255,6 +1257,8 @@ manufacturers:
   country: Poland
   status: approved
   position: 270
+- name: REAR AMBI SAFETY
+  status: pending
 - name: Remington
   country: United States
   website: https://www.remarms.com
@@ -2344,6 +2348,7 @@ calibers:
   - 264 Winchester Magnum
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.264_Winchester_Magnum
+  bullet_diameter_in: 0.264
 - name: 26.5mm
   status: approved
   rejected_wikipedia:
@@ -2756,6 +2761,7 @@ calibers:
   - 338 Norma Mag
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.338_Norma_Magnum
+  bullet_diameter_in: 0.3386
 - name: .338 Winchester Magnum
   aliases:
   - .338 Win Mag
@@ -2797,6 +2803,7 @@ calibers:
   - 350 Leg
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.350_Legend
+  bullet_diameter_in: 0.357
 - name: '.357'
   status: merged
 - name: .357 Magnum
@@ -3027,6 +3034,7 @@ calibers:
   - 400 Legend
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.400_Legend
+  bullet_diameter_in: 0.4005
 - name: .405 Winchester
   aliases:
   - '.405'
@@ -3281,6 +3289,7 @@ calibers:
   - 450 BM
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.450_Bushmaster
+  bullet_diameter_in: 0.452
 - name: 450 CAL
   status: merged
 - name: 450 Caliber
@@ -3344,6 +3353,8 @@ calibers:
   rejected_wikipedia:
   - https://en.wikipedia.org/wiki/.458_Lott
   - https://en.wikipedia.org/wiki/.458_Winchester_Magnum
+- name: 458 Caliber
+  status: pending
 - name: .458 SOCOM
   aliases:
   - 458 SOCOM
@@ -3420,6 +3431,7 @@ calibers:
   - 4.6x30MM HK
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/HK_4.6%C3%9730mm
+  bullet_diameter_in: 0.1831
 - name: '.47'
   status: approved
   rejected_wikipedia:
@@ -3887,6 +3899,7 @@ calibers:
   - 6mm Advanced Rifle Cartridge
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/6mm_ARC
+  bullet_diameter_in: 0.2433
 - name: 6mm Flobert
   aliases:
   - 6 FLOBERT
@@ -11889,6 +11902,8 @@ models:
 - name: BRZ 18
   status: pending
   enabled: false
+- name: BRZ 4
+  status: pending
 - name: BRZ 6R
   status: pending
   enabled: false
@@ -17457,6 +17472,8 @@ models:
     source: budsgunshop
     status: approved
   status: approved
+- name: CW45
+  status: pending
 - name: CW9
   kind: pistol
   country: United States
@@ -22888,6 +22905,8 @@ models:
   calibers:
   - 8mm Mauser
   status: approved
+- name: Galil Model 386
+  status: pending
 - name: Gallager Carbine
   aliases:
   - Gallager Breechloading Carbine
@@ -22913,6 +22932,8 @@ models:
 - name: GEN2
   status: pending
   enabled: false
+- name: GEN3
+  status: pending
 - name: GEN4
   status: pending
   enabled: false
@@ -24732,6 +24753,8 @@ models:
 - name: GMR-15
   status: merged
   enabled: false
+- name: GNS 1
+  status: pending
 - name: GNS 17
   status: pending
   enabled: false
@@ -24772,6 +24795,8 @@ models:
 - name: GP5
   status: pending
   enabled: false
+- name: GP75
+  status: pending
 - name: GP90
   status: pending
   enabled: false
@@ -40380,6 +40405,8 @@ models:
 - name: NHM-91
   status: merged
   enabled: false
+- name: NHM91
+  status: pending
 - name: NME 357
   status: pending
   enabled: false
@@ -48865,6 +48892,8 @@ models:
     source: budsgunshop
     status: approved
   status: approved
+- name: SARB6P
+  status: pending
 - name: SAS 20
   status: merged
   enabled: false
@@ -49474,9 +49503,6 @@ models:
   manufacturers:
   - Sig Sauer
   status: approved
-- name: SIG SAUER 1911
-  status: pending
-  enabled: false
 - name: Sig Sauer 1911
   aliases:
   - Sig 1911
@@ -49680,6 +49706,9 @@ models:
     status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: SIG SAUER 1911
+  status: pending
+  enabled: false
 - name: Sig Sauer 47/8
   aliases:
   - 47/8
@@ -68321,6 +68350,8 @@ models:
   country: United Kingdom
   wikipedia: https://en.wikipedia.org/wiki/Pattern_1853_Enfield
   status: approved
+- name: TOZ-63
+  status: pending
 - name: TOZ-8
   aliases:
   - TOZ8
@@ -68715,6 +68746,8 @@ models:
 - name: USAS12
   status: merged
   enabled: false
+- name: USED 940
+  status: pending
 - name: USF2
   status: pending
   enabled: false
@@ -72962,6 +72995,8 @@ models:
   calibers:
   - 12 gauge
   status: approved
+- name: WW11
+  status: pending
 - name: Wz. 1898A
   status: merged
   enabled: false

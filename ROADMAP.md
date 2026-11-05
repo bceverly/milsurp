@@ -5756,6 +5756,27 @@ failed with nothing read. The site's bundle now calls `fetchDataByCategory_v6`
 and `fetchSKU_v2`, with the same parameters and the same answers; `_v6` adds a
 `sold` parameter that, left out, returns unsold stock as before.
 
+### Armory sync pairs names exactly first — **Shipped** 2026-11-05
+
+Found processing the armory on production after the 2026-11-05 install.
+`armory sync` paired file entries with rows ignoring case, and production
+holds an approved "Sig Sauer 1911" (25 active listings) beside a disabled
+"SIG SAUER 1911" proposal, both in the file. They collapsed into one entry:
+the plan offered to write the approved model's aliases onto the proposal,
+approve and enable it, and listed the real model as missing from the file,
+for `--prune` to delete. Pairing is now by exact name first, and ignoring
+case only for a row the file does not name exactly, so a case-only rename is
+still recognized (`armory._pair`; `TestNamesThatDifferOnlyInCase`).
+
+The same plan would have blanked seven bullet diameters production filled
+in on 2026-11-03 (.264 Win Mag, .338 Norma, .350 and .400 Legend, .450
+Bushmaster, 4.6x30mm, 6mm ARC), because the file was behind the database.
+It was not applied. The shipped file was re-exported from production
+instead, so a sync against it now plans nothing. A plain `reclassify` over
+production's 46,398 listings changed 447 and left the rates where the
+curation had put them: 77.8% of 35,067 active guns matched to a model,
+93.0% with a finer kind.
+
 ### Click-Click-Boom's used guns — **Shipped** 2026-11-04
 
 Asked for while looking for more shops that might carry the Raven MP-25:
