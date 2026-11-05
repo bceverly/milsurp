@@ -222,6 +222,11 @@ class _Rule:
     #: ``pattern`` with letters allowed after a closing digit, for the last
     #: pass of :meth:`ModelRegistry.match`. See :func:`_with_suffix`.
     suffixed: re.Pattern[str] | None = None
+    #: ``pattern`` with the gap between a designation's letters and its
+    #: number made optional, and the same with the suffix allowed, for the
+    #: passes after those. See :func:`_spaced_pattern`.
+    spaced: re.Pattern[str] | None = None
+    spaced_suffixed: re.Pattern[str] | None = None
 
 
 class ModelRegistry:
@@ -268,11 +273,30 @@ class ModelRegistry:
             found = self._first(plain, stated_kind)
             if found:
                 return found
-        return self._first(plain, stated_kind, suffixed=True)
+        found = self._first(plain, stated_kind, suffixed=True)
+        if found:
+            return found
+        # Last, the gap between letters and number: "KEL P15" for the P-15,
+        # "Security9" for the Security-9. See _spaced_pattern.
+        for text in dict.fromkeys((title, plain)):
+            found = self._first(text, stated_kind, spaced=True)
+            if found:
+                return found
+        return self._first(plain, stated_kind, suffixed=True, spaced=True)
 
-    def _first(self, title: str, stated_kind: str | None, *, suffixed: bool = False) -> Match:
+    def _first(
+        self,
+        title: str,
+        stated_kind: str | None,
+        *,
+        suffixed: bool = False,
+        spaced: bool = False,
+    ) -> Match:
         for rule in self.rules:
-            pattern = rule.suffixed if suffixed else rule.pattern
+            if spaced:
+                pattern = rule.spaced_suffixed if suffixed else rule.spaced
+            else:
+                pattern = rule.suffixed if suffixed else rule.pattern
             if pattern is None or not pattern.search(title or ""):
                 continue
             if _contradicted(title, rule.found, stated_kind):
@@ -383,6 +407,58 @@ def _with_suffix(pattern: re.Pattern[str]) -> re.Pattern[str] | None:
         source[: -len(tail)] + rf"(?:(?<=\d)(?!{_NOT_A_SUFFIX})[A-Za-z][A-Za-z0-9]*)?" + tail,
         pattern.flags,
     )
+
+
+#: Where a designation's letters meet its number, with the hyphen or space
+#: between them if there is one: "XD|-|40", "P|15", "Security|9".
+_LETTER_NUMBER = re.compile(r"(?<=[A-Za-z])[-\s]?(?=\d)|(?<=\d)[-\s]?(?=[A-Za-z])")
+
+#: Letters too generic to loosen. Each was caught on production's titles
+#: (2026-11-05): "XD-S MOD2" took "U.S. MOD 2", "Colt GRIZZLY-SP4RTS" took
+#: "SP 4", "S&W MP 5.7" took the MP5, "Mauser Mod98" a Zastava, "Girsan MC
+#: 9X19" the MC9, "Grand Power K22" the S&W K-22. A spelling that starts with
+#: one of these keeps its exact spacing.
+_GENERIC_LETTERS = frozenset({"k", "mc", "mk", "mod", "mp", "no", "sp", "vz"})
+
+
+#: A lone letter and a year -- "M1867", "M-1849" -- is a pattern year that
+#: several nations' rifles share: "DANISH M-1867 ROLLING BLOCK" is not the
+#: Remington M1867 (pinned in test_armory). Those keep their exact spacing.
+_LETTER_AND_YEAR = re.compile(r"[A-Za-z][-\s]?\d{4}")
+
+
+def _spaced_pattern(spellings: list[str]) -> re.Pattern[str] | None:
+    """The spellings with the gap between letters and number made optional.
+
+    "XD-40", "XD40" and "XD 40" are one pistol, and the armory's spelling is
+    whichever an admin happened to type. Measured on production's 7,894
+    unmatched guns (2026-11-05): 152 matched this way, 44 of them the feeds'
+    "KEL P15", against about five doubtful. It runs after every other pass,
+    so a title that matches today cannot change.
+
+    Three guards. A spelling whose letters are generic (:data:`_GENERIC_LETTERS`)
+    is left as it is, and so is a lone letter and a year
+    (:data:`_LETTER_AND_YEAR`). And the number may not run on into a cartridge: "MP5"
+    must not take "MP 5.7", nor "MC9" "MC 9X19".
+
+    None when no spelling has a letter-number boundary to loosen.
+    """
+    alternatives = sorted((s.strip() for s in spellings if s.strip()), key=len, reverse=True)
+    loose = []
+    for text in alternatives:
+        letters = re.match(r"[A-Za-z]+", text)
+        if letters and letters.group().lower() in _GENERIC_LETTERS:
+            continue
+        if _LETTER_AND_YEAR.fullmatch(text):
+            continue
+        chunks = _LETTER_NUMBER.split(text)
+        if len(chunks) == 1:
+            continue
+        joined = r"[-\s]?".join(manufacturers.spelling_body(c) for c in chunks)
+        loose.append(joined + r"(?![.,x\u00d7]\d)")
+    if not loose:
+        return None
+    return re.compile(rf"(?<!\w)(?:{'|'.join(loose)})(?!\w)", re.IGNORECASE)
 
 
 def _contradicted(title: str, found: Match, stated_kind: str | None = None) -> bool:
@@ -528,6 +604,7 @@ def _model_rules(session: Session) -> list[_Rule]:
 
 def _rule_for(row: FirearmModel, contested: dict[str, list[FirearmModel]]) -> _Rule:
     pattern = manufacturers.pattern_for(row.spellings)
+    spaced = _spaced_pattern(row.spellings)
     rivals, own = _maker_guard(row, contested)
     return _Rule(
         pattern,
@@ -550,6 +627,8 @@ def _rule_for(row: FirearmModel, contested: dict[str, list[FirearmModel]]) -> _R
         rivals,
         own,
         _with_suffix(pattern),
+        spaced,
+        _with_suffix(spaced) if spaced else None,
     )
 
 

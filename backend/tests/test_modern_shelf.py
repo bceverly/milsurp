@@ -53,6 +53,38 @@ class TestTheDesignationsDoNotCollide:
                     f"catalog -- qualify it as 'Glock {text}'."
                 )
 
+    def test_no_alias_is_the_bare_name_of_a_maker_the_row_does_not_list(self, armory_file, models):
+        """A one-word alias that is another firm's name takes that firm's guns.
+
+        The Colt Diamondback carried a bare "Diamondback" (2026-10-11), and by
+        2026-11-05 it had matched 124 Diamondback Firearms guns -- DB380 and
+        DB9 pistols filed as Colt revolvers, stamped with Colt as their maker
+        -- against 5 real Colts. Qualified ("Colt Diamondback"), it matches
+        only those.
+        """
+        designers = {"Berthier"}  # the rifle's name; its maker rows are the arsenals
+        firms: dict[str, set[str]] = {}
+        for maker in armory_file["manufacturers"]:
+            if maker.get("status", "approved") != "approved" or maker.get("enabled") is False:
+                continue
+            for spelling in [maker["name"], *(maker.get("aliases") or [])]:
+                word = str(spelling).split()[0].lower()
+                if len(word) > 3:
+                    firms.setdefault(word, set()).add(maker["name"])
+        for row in models:
+            if row.get("status", "approved") != "approved" or row.get("enabled") is False:
+                continue
+            own = set(row.get("manufacturers") or [])
+            for alias in row.get("aliases") or []:
+                text = str(alias).strip()
+                theirs = firms.get(text.lower())
+                if " " in text or text in designers or not theirs or theirs & own:
+                    continue
+                pytest.fail(
+                    f"{row['name']} carries the bare alias {text!r}, which is the name of "
+                    f"{sorted(theirs)}; qualify it with the row's own maker."
+                )
+
     def test_a_shared_spelling_is_only_allowed_where_the_makers_settle_it(self, models):
         """Two rows answering to one string used to be a coin toss decided by
         position, with the loser's caliber and kind silently the answer.

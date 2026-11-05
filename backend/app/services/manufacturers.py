@@ -40,6 +40,16 @@ log = logging.getLogger("milsurp.manufacturers")
 Rule = tuple[str, re.Pattern[str]]
 
 
+def spelling_body(text: str) -> str:
+    """One spelling as a regular expression, without the word boundaries
+    :func:`pattern_for` puts round the whole: escaped, its spaces allowed to
+    stretch, and an ampersand forgiving the spaces dealers put round it."""
+    return r"\s+".join(
+        r"\s*&\s*".join(re.escape(piece) for piece in part.split("&"))
+        for part in re.sub(r"\s*&\s*", "&", text).split()
+    )
+
+
 def pattern_for(spellings: list[str]) -> re.Pattern[str]:
     """One case-insensitive pattern matching any of these spellings.
 
@@ -58,13 +68,7 @@ def pattern_for(spellings: list[str]) -> re.Pattern[str]:
     # And an ampersand forgives the spaces dealers put round it: "S & W M1917",
     # "H & K USP" and "M & P" were matching nothing (2026-10-12), because a
     # spelling written "S&W" is one word and the title's "S & W" is three.
-    body = "|".join(
-        r"\s+".join(
-            r"\s*&\s*".join(re.escape(piece) for piece in part.split("&"))
-            for part in re.sub(r"\s*&\s*", "&", text).split()
-        )
-        for text in alternatives
-    )
+    body = "|".join(spelling_body(text) for text in alternatives)
     # \b does not do anything useful next to "&" or ".", so the boundary is
     # asserted only where the spelling actually starts or ends with a word
     # character -- otherwise "S&W" would never match at all.

@@ -139,3 +139,58 @@ class TestTheShelfSaysTheForm:
         assert finer_kind(FirearmKind.PERCUSSION_REVOLVER, None, None, "pistol") == (
             "percussion_revolver"
         )
+
+
+@pytest.fixture
+def spaced(clean_db):
+    rows = {
+        "p15": _model("Kel-Tec P-15", "P-15", FirearmKind.PISTOL),
+        "security9": _model("Ruger Security-9", "Security-9", FirearmKind.PISTOL),
+        "xd40": _model("XD-40", "XD 40", FirearmKind.PISTOL),
+        "tpr9": _model("Bersa TPR9", "TPR9", FirearmKind.PISTOL),
+        "tactical": _model("XD40 Tactical", None, FirearmKind.PISTOL),
+        "mod2": _model("U.S. MOD 2", "MOD 2", FirearmKind.PISTOL),
+        "mp5": _model("MP5", None, FirearmKind.PISTOL),
+        "mc9": _model("MC9", None, FirearmKind.PISTOL),
+    }
+    rows["tactical"].position = 1  # tried before the XD-40
+    clean_db.add_all(rows.values())
+    clean_db.commit()
+    armory.invalidate()
+    yield rows
+    armory.invalidate()
+
+
+class TestTheGapBetweenLettersAndNumber:
+    """ "XD-40", "XD40" and "XD 40" are one pistol (2026-11-05): 152 of
+    production's unmatched guns matched once the gap was optional."""
+
+    def test_a_hyphen_or_space_may_be_missing(self, clean_db, spaced):
+        assert _matched(clean_db, "KEL P15 9MM 4 TAN/BLK POLY 15RD OPTIC") == "Kel-Tec P-15"
+        assert _matched(clean_db, "Ruger 3819 Security9 9mm Luger DAO") == "Ruger Security-9"
+        assert _matched(clean_db, "Used Springfield XD40 .40 S&W") == "XD-40"
+
+    def test_or_present_where_the_spelling_has_none(self, clean_db, spaced):
+        assert _matched(clean_db, "Bersa TPR-9 9mm 17rd") == "Bersa TPR9"
+
+    def test_with_the_suffix_pass_too(self, clean_db, spaced):
+        assert _matched(clean_db, "Kel-Tec P15BLKOPTIC Compact 9mm") == "Kel-Tec P-15"
+
+    def test_generic_letters_keep_their_spacing(self, clean_db, spaced):
+        assert _matched(clean_db, "XD-S MOD2 45ACP 3.3in 5+1 OSP") is None
+
+    def test_the_number_does_not_run_into_a_cartridge(self, clean_db, spaced):
+        assert _matched(clean_db, "S&W MP 5.7 5 22R FDE OR NTS TB") is None
+        assert _matched(clean_db, "Used GIRSAN REGARD MC 9X19 4.7in GOLD") is None
+
+    def test_an_exact_match_still_wins(self, clean_db, spaced):
+        """The spaced pass runs last. "XD40 Tactical" is tried first and would
+        take this title spaced, but the XD-40 matches it exactly."""
+        assert _matched(clean_db, "XD-40 Tactical .40 S&W") == "XD-40"
+        assert _matched(clean_db, "XD40 Tactical .40 S&W") == "XD40 Tactical"
+
+    def test_a_row_with_nothing_to_loosen_has_no_spaced_pattern(self):
+        assert armory._spaced_pattern(["Garand", "M1 Garand"]).pattern  # M|1 loosens
+        assert armory._spaced_pattern(["Garand"]) is None
+        assert armory._spaced_pattern(["MOD 2"]) is None
+        assert armory._spaced_pattern(["M1867", "M-1849"]) is None

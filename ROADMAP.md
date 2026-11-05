@@ -5756,6 +5756,50 @@ failed with nothing read. The site's bundle now calls `fetchDataByCategory_v6`
 and `fetchSKU_v2`, with the same parameters and the same answers; `_v6` adds a
 `sold` parameter that, left out, returns unsold stock as before.
 
+### "XD-40", "XD40" and "XD 40" are one pistol — **Shipped** 2026-11-05
+
+A model's spelling is whatever an admin typed, and a title is whatever the
+dealer typed: the armory had "XD-40" and "NHM 91" and scans kept proposing
+"XD40" and "NHM91" as new models. A last fallback pass
+(`armory._spaced_pattern`) makes the gap between a designation's letters and
+its number optional, either way round, after the plain, loosened and suffix
+passes have all failed, so no match that works today can change.
+
+Measured on production's 35,405 active guns before release, with the real code:
+144 of the 7,894 unmatched gained a model (+0.41 points), most from the
+wholesale feeds. The largest were 44 "KEL P15" (Kel-Tec P-15), 12 1911 A1,
+9 Ruger "Security9" and 8 Radom P-83. No existing match changed. The first
+unguarded version gained 174, about 18 of them wrong. Three guards brought
+that to about five doubtful:
+
+- **Generic letters keep their spacing:** K, MC, MK, MOD, MP, NO, SP, VZ.
+  "XD-S MOD2" had taken "U.S. MOD 2", "Colt GRIZZLY-SP4RTS" "SP 4", and
+  "Grand Power K22" the S&W K-22.
+- **The number may not run into a cartridge:** "S&W MP 5.7" is not an MP5,
+  and "Girsan MC 9X19" is not an MC9.
+- **A lone letter and a year keep their spacing:** "M1867" and "M-1849" are
+  pattern years several nations share. The full suite caught "DANISH M-1867
+  ROLLING BLOCK" taking the Remington M1867, which an earlier fix had ruled
+  out.
+
+The ones still doubtful are two Erfurt Kar98a taken by the Karabiner 98k, an
+M&P10 M2.0, and a "RUG ... CT 45" taken by the Kahr CT45. Pinned in
+`tests/test_feed_titles.py`.
+
+### Diamondback Firearms pistols filed as Colt revolvers — **Fixed** 2026-11-05
+
+Reported: Frisco Guns' "Diamondback Firearms DB380 Gen IV .380 ACP Pistol"
+showing as a revolver. The Colt Diamondback had carried a bare "Diamondback"
+alias since 2026-10-11 and was matching 129 active guns, of which 5 were Colts;
+the rest were Diamondback Firearms DB380s, DB9s, AM2s and SDRs, each filed as
+a Colt revolver. A listing keeps a maker the armory filled in, so 160 of them
+also said Colt. Fixed on production: the alias removed (the row still matches
+"Colt Diamondback"), those makers set to Diamondback Firearms (the one
+Browning with a Vortex Diamondback scope cleared and re-read as Browning),
+and the SDR given "S.D.R." and the AM2 "Diamondback AM2". The shipped armory
+file was re-exported from production. `tests/test_modern_shelf.py` now fails
+on any one-word alias that is the name of a maker the row does not list.
+
 ### Armory sync pairs names exactly first — **Shipped** 2026-11-05
 
 Found processing the armory on production after the 2026-11-05 install.

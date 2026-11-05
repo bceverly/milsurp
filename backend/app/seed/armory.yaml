@@ -313,6 +313,8 @@ manufacturers:
   enabled: false
   notes: A fragment. Matched '& Co.', 'Cugir Factory', 'Weapons Co' and 'Canik METE MC9' alike -- 125
     listings under two letters.
+- name: Cobra
+  status: pending
 - name: Colt
   country: United States
   website: https://www.colt.com
@@ -369,6 +371,8 @@ manufacturers:
 - name: Daniel Defense
   country: United States
   status: approved
+- name: Dan Wesson
+  status: approved
 - name: DE
   status: pending
   enabled: false
@@ -415,8 +419,6 @@ manufacturers:
 - name: DS PRDGY UNT
   status: pending
   enabled: false
-- name: DW
-  status: pending
 - name: DWM
   aliases:
   - Deutsche Waffen und Munitionsfabriken
@@ -941,6 +943,8 @@ manufacturers:
   - Small Arms Ltd
   country: Canada
   status: approved
+- name: Lorcin
+  status: approved
 - name: LR
   status: pending
   enabled: false
@@ -1259,6 +1263,7 @@ manufacturers:
   position: 270
 - name: REAR AMBI SAFETY
   status: pending
+  enabled: false
 - name: Remington
   country: United States
   website: https://www.remarms.com
@@ -3355,6 +3360,7 @@ calibers:
   - https://en.wikipedia.org/wiki/.458_Winchester_Magnum
 - name: 458 Caliber
   status: pending
+  enabled: false
 - name: .458 SOCOM
   aliases:
   - 458 SOCOM
@@ -5207,6 +5213,8 @@ models:
 - name: AL 12
   status: approved
   enabled: false
+- name: AL-2
+  status: approved
 - name: AL22M
   status: merged
   enabled: false
@@ -6749,6 +6757,7 @@ models:
   - 80X Cheetah
   - Beretta 85
   - Beretta 86
+  - Beretta Model 84
   kind: pistol
   country: Italy
   calibers:
@@ -8564,6 +8573,9 @@ models:
   - Beretta
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
+- name: Beretta Model 84
+  status: merged
+  enabled: false
 - name: Beretta Nano
   aliases:
   - BU9 Nano
@@ -11904,6 +11916,7 @@ models:
   enabled: false
 - name: BRZ 4
   status: pending
+  enabled: false
 - name: BRZ 6R
   status: pending
   enabled: false
@@ -12475,6 +12488,8 @@ models:
 - name: CC 380
   status: merged
   enabled: false
+- name: CC880
+  status: approved
 - name: CC9
   aliases:
   - H&K CC9
@@ -14204,8 +14219,6 @@ models:
   capacity: 6
   status: approved
 - name: Colt Diamondback
-  aliases:
-  - Diamondback
   kind: revolver
   country: United States
   calibers:
@@ -17473,7 +17486,7 @@ models:
     status: approved
   status: approved
 - name: CW45
-  status: pending
+  status: approved
 - name: CW9
   kind: pistol
   country: United States
@@ -19387,6 +19400,7 @@ models:
   aliases:
   - Diamondback Firearms DBAM29
   - DBAM29
+  - Diamondback AM2
   kind: pistol
   country: United States
   manufacturers:
@@ -20447,6 +20461,8 @@ models:
   - SDR 357
   - SDR 3
   - SDR 2
+  - S.D.R.
+  - S.D.R
   kind: revolver
   country: United States
   manufacturers:
@@ -21219,6 +21235,8 @@ models:
   - 9mm Luger
   manufacturers:
   - CZ
+  status: approved
+- name: F12
   status: approved
 - name: F22
   status: pending
@@ -22675,6 +22693,8 @@ models:
 - name: FS 10R
   status: pending
   enabled: false
+- name: FS380
+  status: approved
 - name: FS 5B
   status: pending
   enabled: false
@@ -22906,7 +22926,7 @@ models:
   - 8mm Mauser
   status: approved
 - name: Galil Model 386
-  status: pending
+  status: approved
 - name: Gallager Carbine
   aliases:
   - Gallager Breechloading Carbine
@@ -22934,6 +22954,7 @@ models:
   enabled: false
 - name: GEN3
   status: pending
+  enabled: false
 - name: GEN4
   status: pending
   enabled: false
@@ -23259,6 +23280,8 @@ models:
   country: Germany
   manufacturers:
   - Mauser
+  status: approved
+- name: GF25
   status: approved
 - name: GF9
   status: merged
@@ -24755,6 +24778,7 @@ models:
   enabled: false
 - name: GNS 1
   status: pending
+  enabled: false
 - name: GNS 17
   status: pending
   enabled: false
@@ -24796,7 +24820,7 @@ models:
   status: pending
   enabled: false
 - name: GP75
-  status: pending
+  status: approved
 - name: GP90
   status: pending
   enabled: false
@@ -25824,6 +25848,8 @@ models:
     maker_url: https://www.budsgunshop.com/products/pistols/taurus-gx4xl-9mm-13-1-3-7-inch-black-pistol-148719
     source: budsgunshop
     status: approved
+  status: approved
+- name: H006M
   status: approved
 - name: H011
   kind: rifle
@@ -29723,6 +29749,8 @@ models:
 - name: IWS7
   status: pending
   enabled: false
+- name: JA380
+  status: approved
 - name: James River Armory BM52
   aliases:
   - BM52
@@ -29755,6 +29783,8 @@ models:
   - 6.5x50mm Arisaka
   manufacturers:
   - Koishikawa
+  status: approved
+- name: J.C. Higgins Model 20
   status: approved
 - name: JJ 9R
   status: pending
@@ -32780,6 +32810,8 @@ models:
 - name: KX3
   status: pending
   enabled: false
+- name: L22
+  status: approved
 - name: L35
   kind: pistol
   country: Finland
@@ -32787,6 +32819,8 @@ models:
   - 9mm Luger
   manufacturers:
   - VKT
+  status: approved
+- name: L380
   status: approved
 - name: L57
   status: pending
@@ -35188,6 +35222,8 @@ models:
   status: merged
   enabled: false
 - name: M62
+  status: approved
+- name: M627
   status: approved
 - name: M64
   status: approved
@@ -40397,6 +40433,7 @@ models:
 - name: NHM 91
   aliases:
   - NHM-91
+  - NHM91
   kind: rifle
   country: Russia
   calibers:
@@ -40406,7 +40443,8 @@ models:
   status: merged
   enabled: false
 - name: NHM91
-  status: pending
+  status: merged
+  enabled: false
 - name: NME 357
   status: pending
   enabled: false
@@ -40666,6 +40704,9 @@ models:
   kind: pistol
   country: United States
   status: approved
+- name: OCCUPATION 1941
+  status: pending
+  enabled: false
 - name: OD 15
   status: pending
   enabled: false
@@ -41929,6 +41970,8 @@ models:
   calibers:
   - '.577'
   status: approved
+- name: P556
+  status: approved
 - name: P64
   aliases:
   - P-64
@@ -42091,6 +42134,10 @@ models:
 - name: PA7
   status: pending
   enabled: false
+- name: Page Lewis Challenge Model 49
+  aliases:
+  - Page/Lewis Challenge Model 49
+  status: approved
 - name: PAK-9
   kind: pistol
   country: Germany
@@ -45417,10 +45464,14 @@ models:
   manufacturers:
   - Rossi
   status: approved
+- name: Rossi Model 92
+  status: merged
+  enabled: false
 - name: Rossi R92
   aliases:
   - Rossi 44
   - R92
+  - Rossi Model 92
   kind: rifle
   country: Brazil
   manufacturers:
@@ -46148,6 +46199,8 @@ models:
 - name: RS22P
   status: merged
   enabled: false
+- name: RS300
+  status: approved
 - name: RS9
   status: pending
   enabled: false
@@ -48893,7 +48946,7 @@ models:
     status: approved
   status: approved
 - name: SARB6P
-  status: pending
+  status: approved
 - name: SAS 20
   status: merged
   enabled: false
@@ -48961,6 +49014,8 @@ models:
   - Savage
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
+- name: Savage Model 1917
+  status: approved
 - name: Savage Model 1919
   aliases:
   - Savage Model 1919 NRA Match
@@ -48975,6 +49030,8 @@ models:
   country: United States
   manufacturers:
   - Savage
+  status: approved
+- name: Savage Model 25
   status: approved
 - name: Savage Model 29
   aliases:
@@ -49503,6 +49560,9 @@ models:
   manufacturers:
   - Sig Sauer
   status: approved
+- name: SIG SAUER 1911
+  status: pending
+  enabled: false
 - name: Sig Sauer 1911
   aliases:
   - Sig 1911
@@ -49706,9 +49766,6 @@ models:
     status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
-- name: SIG SAUER 1911
-  status: pending
-  enabled: false
 - name: Sig Sauer 47/8
   aliases:
   - 47/8
@@ -62183,6 +62240,8 @@ models:
     source: budsgunshop
     status: approved
   status: approved
+- name: Springfield Model 120
+  status: approved
 - name: Springfield Model 1795
   aliases:
   - Model 1795
@@ -63531,6 +63590,8 @@ models:
 - name: STG 57
   aliases:
   - STGW57
+  status: approved
+- name: STG-58
   status: approved
 - name: STGW57
   status: merged
@@ -67489,6 +67550,8 @@ models:
   kind: rifle
   country: Finland
   status: approved
+- name: Tisas ACP 1911
+  status: pending
 - name: Tisas Arms 1911
   aliases:
   - Tisas 1911
@@ -68351,7 +68414,7 @@ models:
   wikipedia: https://en.wikipedia.org/wiki/Pattern_1853_Enfield
   status: approved
 - name: TOZ-63
-  status: pending
+  status: approved
 - name: TOZ-8
   aliases:
   - TOZ8
@@ -68660,6 +68723,8 @@ models:
 - name: Type 99
   status: merged
   enabled: false
+- name: TZ75
+  status: approved
 - name: U22
   kind: pistol
   country: Italy
@@ -68748,6 +68813,7 @@ models:
   enabled: false
 - name: USED 940
   status: pending
+  enabled: false
 - name: USF2
   status: pending
   enabled: false
@@ -72965,6 +73031,11 @@ models:
 - name: WINCHESTER MODEL 95
   status: merged
   enabled: false
+- name: Winchester Super X1
+  aliases:
+  - Super X1
+  - Super X-1
+  status: approved
 - name: Winch Model 70
   status: merged
   enabled: false
@@ -72997,6 +73068,9 @@ models:
   status: approved
 - name: WW11
   status: pending
+- name: Wz. 1898
+  status: merged
+  enabled: false
 - name: Wz. 1898A
   status: merged
   enabled: false
@@ -73045,6 +73119,7 @@ models:
 - name: Wz.98a
   aliases:
   - Wz. 1898A
+  - Wz. 1898
   status: approved
 - name: X12
   kind: shotgun
@@ -73078,6 +73153,7 @@ models:
 - name: XD-40
   aliases:
   - XD 40
+  - XD40
   kind: pistol
   country: United States
   calibers:
@@ -73085,6 +73161,9 @@ models:
   manufacturers:
   - Springfield
   status: approved
+- name: XD40
+  status: merged
+  enabled: false
 - name: XD-45
   aliases:
   - XD45
@@ -73574,6 +73653,8 @@ models:
     source: budsgunshop
     status: approved
   status: approved
+- name: XT-17
+  status: approved
 - name: XT 22
   status: pending
   enabled: false
@@ -73587,6 +73668,8 @@ models:
 - name: XVR 460
   status: pending
   enabled: false
+- name: XX3T
+  status: approved
 - name: YC-9
   status: merged
   enabled: false
