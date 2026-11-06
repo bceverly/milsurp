@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from sqlalchemy import select
 
 from ..models import ClassifierKeyword
+from . import refgen
 
 log = logging.getLogger("milsurp.accessories")
 
@@ -127,6 +128,7 @@ def _load() -> Lists | None:
 def lists() -> Lists | None:
     """The compiled lists, or None when the caller should use the built-ins."""
     global _lists
+    refgen.check()
     with _lock:
         if _lists is None:
             _lists = _load()

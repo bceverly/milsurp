@@ -77,6 +77,15 @@ class TestTheArmoryPage:
         """It has real links to count, and mixing the two would mislead."""
         assert self.rows(client, admin_headers, "approved")["Astra 600"]["mention_count"] is None
 
+    def test_nor_a_pending_row_switched_off(self, client, admin_headers, catalog):
+        """Decided, so not worth the search: 702 of these were nine seconds of
+        every page load on production (2026-11-06)."""
+        row = catalog.query(FirearmModel).filter(FirearmModel.name == "600/43").one()
+        row.enabled = False
+        catalog.commit()
+        assert self.rows(client, admin_headers, "disabled")["600/43"]["mention_count"] is None
+        assert self.rows(client, admin_headers, "pending")["Model 1808"]["mention_count"] == 1
+
 
 class TestTheCountsAreCachedAgainstTheCatalog:
     """The armory page asks on every load, and reading every description into

@@ -33,6 +33,7 @@ import threading
 from sqlalchemy import select
 
 from ..models import CaliberDesignation
+from . import refgen
 
 log = logging.getLogger("milsurp.designations")
 
@@ -125,6 +126,7 @@ def _load() -> list[tuple[str, re.Pattern[str], re.Pattern[str] | None]] | None:
 def rules() -> list[tuple[str, re.Pattern[str], re.Pattern[str] | None]] | None:
     """The compiled rules, or None when the caller should use the built-ins."""
     global _rules
+    refgen.check()
     with _lock:
         if _rules is None:
             _rules = _load()

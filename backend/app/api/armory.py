@@ -299,17 +299,23 @@ def list_models(
         )
     counts = _listings_per_model(session)
     rows = list(session.execute(stmt).scalars())
+
     # A pending row links nothing, so its link count is always 0 and useless
     # for deciding whether to approve it. What it would explain is how many
-    # listings name it -- counted for every pending row in one read.
-    pending = [row.name for row in rows if row.status == ArmoryStatus.PENDING]
-    mentions = search_service.count_mentions_many(session, pending)
+    # listings name it -- counted for every row awaiting approval in one read.
+    #
+    # Awaiting approval means enabled too. A pending row switched off has been
+    # decided, and counting those was nine seconds of every page load on
+    # production (2026-11-06): 702 switched-off proposals, each searched for in
+    # 47,000 listings' text, on a cache the scans empty all day.
+    def waiting(row: FirearmModel) -> bool:
+        return row.status == ArmoryStatus.PENDING and bool(row.enabled)
+
+    mentions = search_service.count_mentions_many(
+        session, [row.name for row in rows if waiting(row)]
+    )
     return [
-        _model_out(
-            row,
-            counts.get(row.id, 0),
-            mentions.get(row.name) if row.status == ArmoryStatus.PENDING else None,
-        )
+        _model_out(row, counts.get(row.id, 0), mentions.get(row.name) if waiting(row) else None)
         for row in rows
     ]
 

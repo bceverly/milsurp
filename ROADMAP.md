@@ -5756,6 +5756,36 @@ failed with nothing read. The site's bundle now calls `fetchDataByCategory_v6`
 and `fetchSKU_v2`, with the same parameters and the same answers; `_v6` adds a
 `sold` parameter that, left out, returns unsold stock as before.
 
+### A command-line armory edit reaches the running app — **Shipped** 2026-11-06
+
+The armory, makers, arsenals, countries, caliber designations and classifier
+words are compiled into memory, and each `invalidate()` only reached its own
+process. A change made with `cli.py armory sync` or a script therefore never
+reached the running app until it restarted, and its scans wrote the old
+answers back. On 2026-11-06, 53 Diamondback Firearms revolvers had been
+re-filed overnight as Colt Diamondbacks after the alias that caused it was
+removed from the command line the evening before.
+
+Now `reference_generation` (migration 0088) holds a counter that every write
+to those tables moves on, in the writer's own transaction: ORM edits,
+many-to-many link changes and bulk statements alike (`app/services/refgen.py`).
+Every process compares it with the value it last saw, at most every 10
+seconds, and recompiles when it has moved. A new proposal does not move it,
+since no cache reads pending rows and scans propose them all day; approving
+one, sending one back, or deleting one does. Pinned in `tests/test_refgen.py`.
+
+### The Armory page loads in under a second — **Fixed** 2026-11-06
+
+Reported: 15–20 seconds every time the Armory page opened in production. It
+wasn't the database. Every count query on the page took under a tenth of a
+second. The unfiltered models list took 10.8 seconds because it counted
+mentions in the listings' text for every pending row, including 702 proposals
+already switched off. That was 702 phrases searched across 47,000 titles and
+descriptions in Python, on a cache that every scan empties. Mentions are now
+counted only for rows actually awaiting approval: pending and enabled, 4 that
+day. A switched-off row shows its listing count like any other. Measured on
+production with the change: 0.5s, and 0.17s on a second load.
+
 ### "XD-40", "XD40" and "XD 40" are one pistol — **Shipped** 2026-11-05
 
 A model's spelling is whatever an admin typed, and a title is whatever the
@@ -5785,6 +5815,14 @@ that to about five doubtful:
 The ones still doubtful are two Erfurt Kar98a taken by the Karabiner 98k, an
 M&P10 M2.0, and a "RUG ... CT 45" taken by the Kahr CT45. Pinned in
 `tests/test_feed_titles.py`.
+
+**Its patterns are compiled lazily.** Built eagerly with every rule, they
+doubled the cost of rebuilding the registry, which every armory edit does.
+Approving the shipped file's pending queue is 17 batches, and the Playwright
+test for it went from 24s to 37s and timed out on CI under Python 3.12 and
+3.13 (2026-11-06). Now a rule's spaced pattern is compiled only when a title
+contains its letters and digits run together, and it is cached across
+rebuilds. The test is back to 27s on 3.12.
 
 ### Diamondback Firearms pistols filed as Colt revolvers — **Fixed** 2026-11-05
 

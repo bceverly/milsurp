@@ -1331,6 +1331,22 @@ class HostCooldown(Base):
     platform: Mapped[str | None] = mapped_column(String(32))
 
 
+class ReferenceGeneration(Base):
+    """One counter, moved on by every change to the reference tables.
+
+    How a process learns that another one -- a command-line edit, a script --
+    changed the armory, makers, countries, designations or classifier words
+    it holds compiled in memory. See :mod:`app.services.refgen`. Migration
+    0088; always the one row, id 1.
+    """
+
+    __tablename__ = "reference_generation"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    generation: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    changed_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
 class PlatformRefusal(Base):
     """The last time a shop on a hosted platform answered 429.
 

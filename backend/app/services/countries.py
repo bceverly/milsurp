@@ -36,6 +36,7 @@ import threading
 from sqlalchemy import select
 
 from ..models import Country
+from . import refgen
 
 log = logging.getLogger("milsurp.countries")
 
@@ -131,6 +132,7 @@ def _load() -> list[tuple[str, re.Pattern[str]]] | None:
 def rules() -> list[tuple[str, re.Pattern[str]]] | None:
     """The compiled rules, or None when the caller should use the built-ins."""
     global _rules
+    refgen.check()
     with _lock:
         if _rules is None:
             _rules = _load()

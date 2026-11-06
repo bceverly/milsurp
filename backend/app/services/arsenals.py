@@ -65,7 +65,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from ..models import ArmoryStatus, FirearmModel, Item
-from . import provenance
+from . import provenance, refgen
 
 
 @dataclass(frozen=True)
@@ -115,6 +115,7 @@ def _lines(text: str | None) -> list[str]:
 
 def _table(session: Session) -> dict[int, list[_Firm]]:
     global _cached
+    refgen.check(session)
     with _lock:
         if _cached is not None:
             return _cached

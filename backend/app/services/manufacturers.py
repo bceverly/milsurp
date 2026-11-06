@@ -32,7 +32,7 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from ..models import ArmoryStatus, FirearmModel, Item, Manufacturer
-from . import arsenals, classify, provenance
+from . import arsenals, classify, provenance, refgen
 
 log = logging.getLogger("milsurp.manufacturers")
 
@@ -290,6 +290,7 @@ def invalidate() -> None:
 
 def registry(session: Session) -> Registry:
     global _cached
+    refgen.check(session)
     with _lock:
         if _cached is None:
             _cached = Registry(_rules_from(session), _countries_from(session))

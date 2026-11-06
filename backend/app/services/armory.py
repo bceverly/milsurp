@@ -28,6 +28,7 @@ answered, rather than being asked on every scan and answered by nobody.
 from __future__ import annotations
 
 import enum
+import functools
 import json
 import logging
 import re
@@ -54,7 +55,7 @@ from ..models import (
     SerialRange,
     firearm_model_manufacturers,
 )
-from . import arsenals, classify, manufacturers
+from . import arsenals, classify, manufacturers, refgen
 
 log = logging.getLogger(__name__)
 
@@ -222,11 +223,11 @@ class _Rule:
     #: ``pattern`` with letters allowed after a closing digit, for the last
     #: pass of :meth:`ModelRegistry.match`. See :func:`_with_suffix`.
     suffixed: re.Pattern[str] | None = None
-    #: ``pattern`` with the gap between a designation's letters and its
-    #: number made optional, and the same with the suffix allowed, for the
-    #: passes after those. See :func:`_spaced_pattern`.
-    spaced: re.Pattern[str] | None = None
-    spaced_suffixed: re.Pattern[str] | None = None
+    #: The spellings the last passes may loosen, and each one's letters and
+    #: digits run together ("XD-40" -> "xd40"), which a title must contain for
+    #: the rule to be tried there. See :func:`_spaced_spellings`.
+    spaced: tuple[str, ...] = ()
+    spaced_keys: tuple[str, ...] = ()
 
 
 class ModelRegistry:
@@ -292,9 +293,14 @@ class ModelRegistry:
         suffixed: bool = False,
         spaced: bool = False,
     ) -> Match:
+        squashed = _squash(title) if spaced else ""
         for rule in self.rules:
             if spaced:
-                pattern = rule.spaced_suffixed if suffixed else rule.spaced
+                # Compiled only for a rule whose letters and number are in the
+                # title at all, which is a handful; see _spaced_compiled.
+                if not any(key in squashed for key in rule.spaced_keys):
+                    continue
+                pattern = _spaced_compiled(rule.spaced)[1 if suffixed else 0]
             else:
                 pattern = rule.suffixed if suffixed else rule.pattern
             if pattern is None or not pattern.search(title or ""):
@@ -427,38 +433,69 @@ _GENERIC_LETTERS = frozenset({"k", "mc", "mk", "mod", "mp", "no", "sp", "vz"})
 _LETTER_AND_YEAR = re.compile(r"[A-Za-z][-\s]?\d{4}")
 
 
-def _spaced_pattern(spellings: list[str]) -> re.Pattern[str] | None:
-    """The spellings with the gap between letters and number made optional.
+def _squash(text: str | None) -> str:
+    """Letters and digits only, lowercased: what a spaced spelling needs a
+    title to contain, whatever its hyphens, spaces and dots."""
+    return _NOT_ALNUM.sub("", (text or "").lower())
+
+
+_NOT_ALNUM = re.compile(r"[^a-z0-9]+")
+
+
+def _spaced_spellings(spellings: Iterable[str]) -> tuple[str, ...]:
+    """The spellings the gap between letters and number may be loosened in.
 
     "XD-40", "XD40" and "XD 40" are one pistol, and the armory's spelling is
     whichever an admin happened to type. Measured on production's 7,894
-    unmatched guns (2026-11-05): 152 matched this way, 44 of them the feeds'
+    unmatched guns (2026-11-05): 144 matched this way, 44 of them the feeds'
     "KEL P15", against about five doubtful. It runs after every other pass,
     so a title that matches today cannot change.
 
     Three guards. A spelling whose letters are generic (:data:`_GENERIC_LETTERS`)
-    is left as it is, and so is a lone letter and a year
-    (:data:`_LETTER_AND_YEAR`). And the number may not run on into a cartridge: "MP5"
-    must not take "MP 5.7", nor "MC9" "MC 9X19".
-
-    None when no spelling has a letter-number boundary to loosen.
+    is left out, and so is a lone letter and a year (:data:`_LETTER_AND_YEAR`).
+    And the number may not run on into a cartridge (see :func:`_spaced_compiled`):
+    "MP5" must not take "MP 5.7", nor "MC9" "MC 9X19".
     """
-    alternatives = sorted((s.strip() for s in spellings if s.strip()), key=len, reverse=True)
-    loose = []
-    for text in alternatives:
+    kept = []
+    for text in sorted({s.strip() for s in spellings if s.strip()}, key=len, reverse=True):
         letters = re.match(r"[A-Za-z]+", text)
         if letters and letters.group().lower() in _GENERIC_LETTERS:
             continue
-        if _LETTER_AND_YEAR.fullmatch(text):
+        if _LETTER_AND_YEAR.fullmatch(text) or not _LETTER_NUMBER.search(text):
             continue
-        chunks = _LETTER_NUMBER.split(text)
-        if len(chunks) == 1:
-            continue
-        joined = r"[-\s]?".join(manufacturers.spelling_body(c) for c in chunks)
-        loose.append(joined + r"(?![.,x\u00d7]\d)")
-    if not loose:
-        return None
-    return re.compile(rf"(?<!\w)(?:{'|'.join(loose)})(?!\w)", re.IGNORECASE)
+        kept.append(text)
+    return tuple(kept)
+
+
+@functools.lru_cache(maxsize=8192)
+def _spaced_compiled(
+    spellings: tuple[str, ...],
+) -> tuple[re.Pattern[str] | None, re.Pattern[str] | None]:
+    """The spaced pattern for these spellings, and it with the suffix allowed.
+
+    **Compiled on first use and kept across rebuilds.** Built eagerly with
+    the rest of a rule, these two doubled the cost of rebuilding the
+    registry -- 0.66s to 1.35s on the e2e armory -- and every armory edit
+    rebuilds it: approving the shipped file's pending queue is 17 batches,
+    and the Playwright test doing it went from 24s to 37s and timed out on
+    CI (2026-11-06). Almost every title matches before this pass, and of
+    those that reach it only a few rules' letters and digits are in the
+    title at all, so few of these are ever compiled.
+    """
+    if not spellings:
+        return None, None
+    body = "|".join(
+        r"[-\s]?".join(manufacturers.spelling_body(c) for c in _LETTER_NUMBER.split(text))
+        + r"(?![.,x\u00d7]\d)"
+        for text in spellings
+    )
+    pattern = re.compile(rf"(?<!\w)(?:{body})(?!\w)", re.IGNORECASE)
+    return pattern, _with_suffix(pattern)
+
+
+def _spaced_pattern(spellings: Iterable[str]) -> re.Pattern[str] | None:
+    """The spaced pattern for a row's spellings; None when none can loosen."""
+    return _spaced_compiled(_spaced_spellings(spellings))[0]
 
 
 def _contradicted(title: str, found: Match, stated_kind: str | None = None) -> bool:
@@ -604,7 +641,7 @@ def _model_rules(session: Session) -> list[_Rule]:
 
 def _rule_for(row: FirearmModel, contested: dict[str, list[FirearmModel]]) -> _Rule:
     pattern = manufacturers.pattern_for(row.spellings)
-    spaced = _spaced_pattern(row.spellings)
+    spaced = _spaced_spellings(row.spellings)
     rivals, own = _maker_guard(row, contested)
     return _Rule(
         pattern,
@@ -628,7 +665,7 @@ def _rule_for(row: FirearmModel, contested: dict[str, list[FirearmModel]]) -> _R
         own,
         _with_suffix(pattern),
         spaced,
-        _with_suffix(spaced) if spaced else None,
+        tuple(_squash(text) for text in spaced),
     )
 
 
@@ -708,6 +745,7 @@ def invalidate() -> None:
 
 def caliber_registry(session: Session) -> CaliberRegistry:
     global _calibers
+    refgen.check(session)
     with _lock:
         if _calibers is None:
             _calibers = CaliberRegistry(*_caliber_rules(session))
@@ -716,6 +754,7 @@ def caliber_registry(session: Session) -> CaliberRegistry:
 
 def model_registry(session: Session) -> ModelRegistry:
     global _models
+    refgen.check(session)
     with _lock:
         if _models is None:
             _models = ModelRegistry(_model_rules(session))

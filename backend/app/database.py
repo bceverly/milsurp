@@ -87,6 +87,12 @@ def get_session_factory() -> sessionmaker[Session]:
         _SessionFactory = sessionmaker(
             bind=get_engine(), autoflush=False, expire_on_commit=False, future=True
         )
+        # Every write to the reference tables tells the other processes; see
+        # app/services/refgen.py. Imported here, not at the top, because the
+        # models it reads import Base from this module.
+        from .services import refgen
+
+        refgen.install(_SessionFactory)
     return _SessionFactory
 
 
