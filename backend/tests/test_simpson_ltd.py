@@ -9,8 +9,8 @@ filed as unreachable that had an endpoint.
 
 The other thing worth pinning is the **scope**, because this vendor makes it
 matter: 19,201 items, every one priced, pictured and in stock, against 5,600 in
-this whole application. Most of it is a sporting catalog — 3,057 shotguns — and
-what is read is the milsurp shelves.
+this whole application. Most of it is a sporting catalog, and what is read is
+the milsurp shelves -- and, since 2026-11-06, every shotgun.
 """
 
 from __future__ import annotations
@@ -29,6 +29,7 @@ from app.scrapers.simpson_ltd import (
     endpoint,
     full_size,
     item_from_record,
+    keeps,
     label_of,
     product_url,
 )
@@ -253,11 +254,39 @@ class TestTheScope:
     def test_the_luger_shelf_is_taken_whole(self):
         assert {"category": "Lugers"} in SOURCES
 
-    def test_the_sporting_shelves_are_not_taken(self):
-        """Their Long Guns is 7,806 and 3,057 of those are shotguns."""
+    def test_the_sporting_rifle_shelves_are_not_taken(self):
         taken = {(s["category"], s.get("subcategory")) for s in SOURCES}
-        for sporting in ("Shotguns", "Winchester", "Remington", "Ruger", "Savage", "Anschutz"):
+        for sporting in ("Remington", "Ruger", "Browning", "Anschutz", "BRNO"):
             assert ("Long Guns", sporting) not in taken
+
+    def test_the_shotgun_shelves_are_taken_whole(self):
+        """Widened 2026-11-06: about 3,050 shotguns and 350 combination guns."""
+        for shelf in ("Shotguns", "Drilling & Combination"):
+            assert {"category": "Long Guns", "subcategory": shelf} in SOURCES
+
+    def test_a_makers_shelf_gives_up_only_its_shotguns(self):
+        """Winchester's shelf is some 350 rifles and a Model 12 or two."""
+        winchester = next(s for s in SOURCES if s.get("subcategory") == "Winchester")
+        assert keeps(winchester, {"Type": "Shotgun"})
+        assert keeps(winchester, {"Type": "Combination"})
+        assert not keeps(winchester, {"Type": "Rifle"})
+        # A blank Type is an accessory on this vendor, not a shotgun.
+        assert not keeps(winchester, {"Type": ""})
+
+    def test_a_shelf_without_a_filter_keeps_everything(self):
+        assert keeps({"category": "Lugers"}, {"Type": "Pistol"})
+        assert keeps({"category": "Lugers"}, {})
+
+    def test_the_walk_applies_the_filter(self, ctx_factory):
+        rifle = {**RECORD, "SKU": "R1", "Type": "Rifle"}
+        shotgun = {**RECORD, "SKU": "S1", "Type": "Shotgun"}
+        context = ctx_factory()
+        context.get_text = lambda _url, **_k: json.dumps(  # type: ignore[method-assign]
+            {"data": [rifle, shotgun], "totalPages": 1}
+        )
+        source = {"category": "Long Guns", "subcategory": "Savage", "only": "Shotgun|Combination"}
+        found = list(SimpsonLtdScraper()._walk(context, source, "Savage"))
+        assert [item.external_key for item in found] == ["S1"]
 
     def test_nor_are_the_gear_and_paper_categories(self):
         taken = {s["category"] for s in SOURCES}
@@ -270,7 +299,7 @@ class TestTheScope:
 
     def test_what_is_left_out_is_written_down(self):
         """So the decision is reviewable rather than implied by an absence."""
-        assert any("Shotguns" in line for line in NOT_READ)
+        assert any("rifles in Winchester" in line for line in NOT_READ)
         assert any("Militaria" in line for line in NOT_READ)
 
 

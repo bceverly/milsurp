@@ -43,6 +43,17 @@ sporting-goods catalog: 3,057 shotguns, and Winchester, Remington, Ruger,
 Savage, Marlin and Anschutz sections beside them. What is taken is listed in
 ``SOURCES`` below and what is deliberately left is in ``NOT_READ``, so widening
 this is an edit to one tuple rather than a rewrite.
+
+**Widened on 2026-11-06 to every shotgun**, when the application did: the
+Shotguns shelf whole (31 pages, about 3,050, 98% of them stated as
+shotguns), Drilling & Combination whole (about 350), and the shotguns alone
+from the maker shelves that keep a few among their sporting rifles --
+Winchester, Savage, Stevens, Marlin, Husqvarna and Other Manufacturers. A
+source's ``only`` names the stated types it keeps (:func:`keeps`), because
+the vendor's ``Type`` is stated per listing and is the one thing that tells a
+Winchester Model 12 from the Model 70s around it. The first scan after the
+widening is about 3,400 gallery requests longer; later ones fetch a gallery
+only for a gun not seen before.
 """
 
 from __future__ import annotations
@@ -69,7 +80,8 @@ MAX_DETAIL_FAILURES = 5
 #: entry per subcategory where it is not.
 #:
 #: Counts are from 11 Sep 2026 and are here to show the shape, not as a
-#: promise: about 5,200 listings, against 19,201 in the whole shop.
+#: promise: about 5,200 listings before the shotguns and 8,600 with them, against
+#: 19,201 in the whole shop.
 SOURCES: tuple[dict[str, str], ...] = (
     # Whole categories.
     {"category": "Lugers"},  # 1,157 -- the reason this vendor is worth having
@@ -82,6 +94,21 @@ SOURCES: tuple[dict[str, str], ...] = (
     {"category": "Long Guns", "subcategory": "Assault Type Rifles"},  # 71
     {"category": "Long Guns", "subcategory": "Fabrique National"},  # 54
     {"category": "Long Guns", "subcategory": "Steyr"},  # 29
+    # Shotguns, since 2026-11-06. Whole shelves first, then the shotguns among
+    # a maker's rifles; counts from that day.
+    {"category": "Long Guns", "subcategory": "Shotguns"},  # ~3,050
+    {"category": "Long Guns", "subcategory": "Drilling & Combination"},  # ~350
+    *(
+        {"category": "Long Guns", "subcategory": maker, "only": "Shotgun|Combination"}
+        for maker in (
+            "Winchester",  # 1 shotgun in the first 100 of ~350
+            "Savage",  # 3 shotguns and 10 combination guns of 52
+            "Stevens",  # 7 of 34
+            "Marlin",  # 1 of 33
+            "Husqvarna",  # 1 in the first 100 of ~880
+            "Other Manufacturers",  # 2 and 3 combination guns in the first 100
+        )
+    ),
     # Handguns, likewise: 3,115 in total and most of it Colt, Smith & Wesson
     # and Hi Standard.
     {"category": "Hand Guns", "subcategory": "Military"},  # 164
@@ -102,11 +129,13 @@ SOURCES: tuple[dict[str, str], ...] = (
 #: What is deliberately not read, so the decision is reviewable rather than
 #: implied by an absence. Roughly 14,000 listings.
 #:
-#: * ``Long Guns`` -- Shotguns (3,057), Winchester, Remington, Ruger, Savage,
-#:   Stevens, Marlin, Browning, Husqvarna, Anschutz, Modern Reproduction,
-#:   Modern Blackpowder, Drilling & Combination, English & European Rifles:
-#:   a sporting catalog. BRNO (284) is the closest call -- they built military
-#:   vz.24 Mausers -- but the section is their post-war sporting rifles.
+#: * ``Long Guns`` -- the sporting rifles: Winchester, Remington, Ruger,
+#:   Savage, Stevens, Marlin, Browning, Husqvarna, Anschutz, Modern
+#:   Reproduction, Modern Blackpowder, English & European Rifles (the
+#:   shotguns among five of those are read; see SOURCES). BRNO (284) is the
+#:   closest call -- they built military vz.24 Mausers -- but the section is
+#:   their post-war sporting rifles. Remington, Browning and Ruger held no
+#:   shotguns when measured on 2026-11-06.
 #: * ``Hand Guns`` -- Colt, Smith & Wesson, Hi Standard, Ruger, SIG, Beretta,
 #:   Browning, Glock, Remington, Springfield Armory, Modern Reproduction.
 #: * ``Militaria`` (1,501), ``Printed Materials`` (975), ``Firearm
@@ -116,10 +145,9 @@ SOURCES: tuple[dict[str, str], ...] = (
 #: * ``Edged Weapons`` apart from bayonets: swords, daggers and kitchen knives.
 NOT_READ = (
     (
-        "Long Guns: Shotguns, Winchester, Remington, Ruger, Savage, Stevens, "
+        "Long Guns: the rifles in Winchester, Remington, Ruger, Savage, Stevens, "
         "Marlin, Browning, Husqvarna, Anschutz, BRNO, Modern Reproduction, "
-        "Modern Blackpowder, Drilling & Combination, English & European "
-        "Rifles, Other Manufacturers"
+        "Modern Blackpowder, English & European Rifles, Other Manufacturers"
     ),
     (
         "Hand Guns: Colt, Smith & Wesson, Hi Standard, Ruger, SIG, Beretta, "
@@ -233,6 +261,20 @@ def _condition(record: dict[str, Any]) -> str | None:
     return bore or None
 
 
+def keeps(source: dict[str, str], record: dict[str, Any]) -> bool:
+    """Whether this shelf's ``only`` lets this listing through.
+
+    A shelf with no ``only`` keeps everything. One with it keeps the listings
+    whose stated ``Type`` it names, so a blank Type -- an accessory, on this
+    vendor -- is left out with the rifles.
+    """
+    wanted = source.get("only")
+    if not wanted:
+        return True
+    stated = (record.get("Type") or "").strip().lower()
+    return stated in {kind.strip().lower() for kind in wanted.split("|")}
+
+
 def item_from_record(record: dict[str, Any], label: str) -> ScrapedItem | None:
     """One listing, complete. There is no second request for this one."""
     sku = str(record.get("SKU") or "").strip()
@@ -276,7 +318,8 @@ class SimpsonLtdScraper(SiteScraper):
     description = (
         "Galesburg, Illinois collector dealer, read through the Cloud "
         "Functions its own site calls. The Luger, military rifle, antique and "
-        "German trainer shelves; their sporting catalog is left alone."
+        "German trainer shelves, and every shotgun; their sporting rifles and "
+        "handguns are left alone."
     )
     requires_browser = False
     default_interval_minutes = 1440
@@ -288,7 +331,7 @@ class SimpsonLtdScraper(SiteScraper):
     def scrape(self, ctx: ScrapeContext) -> Iterable[ScrapedItem]:
         """Yielded one at a time rather than returned as a list.
 
-        This shelf list is about 5,200 listings and each one wants a gallery
+        This shelf list is about 8,600 listings and each one wants a gallery
         request, so a scan of this vendor runs for over an hour. The scan
         service commits after every item it is handed, so yielding means the
         catalog lands as it arrives and an interrupted run keeps what it had;
@@ -333,6 +376,8 @@ class SimpsonLtdScraper(SiteScraper):
             if not records:
                 return
             for record in records:
+                if not keeps(source, record):
+                    continue
                 item = item_from_record(record, label)
                 if item is not None:
                     yield item

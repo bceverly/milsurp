@@ -5,9 +5,13 @@ and 41 used revolvers on 2026-10-08, about three in ten of them carry guns --
 Ruger EC9s, M&P45 Shields, Taurus GX4s, Glock 19s and 27s, Kimber Ultra CDPs,
 Walther PPK/Ss, Kel-Tec P3ATs. Titles state the barrel length and condition.
 
-Magento. Two sections are read, Used Pistols and Used Revolvers, each paged by
-``?p=``. Not read: their used rifles and shotguns (not what this was built
-for), the new-gun catalog, and the archive of sold used guns. robots.txt asks
+Magento. Four sections are read, each paged by ``?p=``: Used Pistols, Used
+Revolvers and, since 2026-11-06, Used Shotguns and Used Tactical Shotguns (73
+and 10 that day: Benelli 828Us, Beretta 694s, Laurona and Eibar
+side-by-sides), added when the application widened to every used shotgun.
+Their titles are written the same way as the handguns', serial and all. Not
+read: their used rifles, the new-gun catalog, and the archive of sold used
+guns. robots.txt asks
 for five seconds between requests, which the scanner honors, and turns away
 only Magento's sort and page-size parameters, which the walk never builds.
 
@@ -45,7 +49,7 @@ class GreentopScraper(MagentoScraper):
     slug = "greentop"
     name = "Greentop"
     base_url = SITE_BASE
-    description = "Virginia store's used pistols and revolvers, carry guns among them."
+    description = "Virginia store's used pistols, revolvers and shotguns, carry guns among them."
     default_interval_minutes = 1440
     newsletter_url = "https://www.greentop.com/email-sign-up/"
     shipping_note = "Firearm shipping free: handguns 2nd Day Air, long guns Ground"
@@ -56,6 +60,11 @@ class GreentopScraper(MagentoScraper):
     sources = (
         {"category": "Used Pistols", "url": f"{SITE_BASE}shooting/used-guns/pistols/"},
         {"category": "Used Revolvers", "url": f"{SITE_BASE}shooting/used-guns/revolvers/"},
+        {"category": "Used Shotguns", "url": f"{SITE_BASE}shooting/used-guns/shotguns/"},
+        {
+            "category": "Used Tactical Shotguns",
+            "url": f"{SITE_BASE}shooting/used-guns/tactical-shotguns/",
+        },
     )
 
     def item_from_card(self, card: Tag, page_url: str, category: str) -> ScrapedItem | None:

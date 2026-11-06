@@ -4,7 +4,7 @@ A WooCommerce shop, so nearly all of the work is in
 :class:`~app.scrapers.woocommerce.WooCommerceScraper`. What is specific to this
 vendor is which sections to read and how their theme differs from stock.
 
-**Only the military, antique and black powder sections are taken.** They are
+**Only the military, antique, black powder and shotgun sections are taken.** They are
 a general dealer with around 207,000 products — modern handguns, shotguns,
 ammunition, scopes, swords — and this reads the categories that are surplus
 and collector firearms, and since 2026-10-24 the six flintlock and percussion
@@ -55,10 +55,22 @@ import re
 from collections.abc import Iterator
 from datetime import datetime
 
+from bs4 import Tag
+
 from .base import ScrapeContext, ScrapedItem
 from .woocommerce import WooCommerceScraper
 
 SITE_BASE = "https://collectorsfirearms.com/"
+
+#: "... SHOTGUN 20 GAUGE (L2026-14685) NEW": how this shop marks a new gun,
+#: after its stock number. The shotgun leaves mix their new Benellis and
+#: Berettas with the used guns, and say which only this way.
+_NEW_GUN = re.compile(r"\)\s*NEW\s*$")
+
+
+def is_new_gun(title: str) -> bool:
+    """Whether the shop's title marks this gun new."""
+    return bool(_NEW_GUN.search(title))
 
 
 class CollectorsFirearmsScraper(WooCommerceScraper):
@@ -70,22 +82,25 @@ class CollectorsFirearmsScraper(WooCommerceScraper):
     newsletter_url = "https://collectorsfirearms.com/newsletter-signup/"
     newsletter_note = "Newsletter signup page (Mailchimp)"
     description = (
-        "Houston collector dealer trading since 1975. Their military, antique and "
-        "black powder firearm sections are read; the rest of their general catalog is not."
+        "Houston collector dealer trading since 1975. Their military, antique, "
+        "black powder and shotgun sections are read; the rest of their general catalog is not."
     )
     requires_browser = False
     #: Every two weeks, which is the longest cadence the site list offers.
     #:
     #: This was daily, and daily was defensible when it read two sections. It
-    #: reads fifteen now, and their crawl delay is the real cost: they ask for ten
+    #: reads twenty-six now, and their crawl delay is the real cost: they ask for ten
     #: seconds and refuse at ten *and* at twenty, so this asks for thirty, and a
     #: first pass over 691 listings is hours of somebody else's bandwidth. Their
     #: stock is antique and collector guns that sit for months; nothing about it
-    #: turns over in a day.
+    #: turns over in a day. The eleven shotgun leaves added on 2026-11-06 make
+    #: the first pass after them about five hours longer: some 620 product
+    #: pages and 60 catalog pages, at thirty seconds each.
     #:
     #: Later passes are much shorter — a product page is fetched once per
     #: listing ever — but the catalog pages alone are still ~70 requests at
-    #: thirty seconds each, so the cadence is set for the work, not the diff.
+    #: thirty seconds each (~130 with the shotguns), so the cadence is set for the
+    #: work, not the diff.
     default_interval_minutes = 20_160
 
     #: Thirty seconds, not the ten their robots.txt asks for. The first scan
@@ -111,7 +126,7 @@ class CollectorsFirearmsScraper(WooCommerceScraper):
     #: would reach the limit sooner and cost Chrome's overhead to do it.
     min_request_delay = 30.0
 
-    #: Fifteen leaf categories, with the counts each held when they were added.
+    #: Twenty-six leaf categories, with the counts each held when they were added.
     #:
     #: Leaves only. A parent on this shop is a page of sub-category tiles with
     #: no products on it at all, which is the trap the roadmap records against
@@ -196,7 +211,34 @@ class CollectorsFirearmsScraper(WooCommerceScraper):
             "category": "Colt Black Powder Replicas",
             "url": f"{SITE_BASE}product-category/colt-guns/colt-modern-blackpowder-replicas/",
         },
+        # The shotgun leaves, added 2026-11-06 when the application widened to
+        # every used shotgun: about 620 guns, pages counted that day. Military
+        # and antique first, for the reason above. Left out: Short Barrel
+        # Shotgun (NFA, as everywhere else) and Shotgun Accessories. A gun in
+        # two leaves is read once, from the first.
+        *(
+            {"category": name, "url": f"{SITE_BASE}product-category/shotguns/{leaf}/"}
+            for name, leaf in (
+                ("Military Shotguns", "military"),  # 1
+                ("Antique Shotguns", "antique-shotguns-pre-1899"),  # ~25
+                ("Side by Side Shotguns", "side-by-side-shotguns"),  # ~45
+                ("Over/Under Shotguns", "overunder-shotguns"),  # ~95
+                ("Drilling & Combination Guns", "drilling-combination-guns"),  # 6
+                ("Single Shot Shotguns", "single-shot-shotguns"),  # ~15
+                ("Pump Shotguns", "pump-shotguns"),  # ~85
+                ("Semi-Auto Shotguns", "semi-auto-shotguns"),  # ~185
+                ("Tactical & Home Defense Shotguns", "tactical-home-defense-shotguns"),  # ~75
+                ("Browning Shotguns", "browning-shotguns"),  # ~55
+                ("Other Shotguns", "other-shotguns"),  # 8
+            )
+        ),
     )
+
+    def item_from_card(self, card: Tag, page_url: str, category: str) -> ScrapedItem | None:
+        item = super().item_from_card(card, page_url, category)
+        if item is not None and is_new_gun(item.title):
+            item.is_new = True
+        return item
 
     #: One file listing all 227 of their product categories with a ``lastmod``.
     #:

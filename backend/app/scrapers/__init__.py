@@ -50,6 +50,7 @@ from .david_condon import DavidCondonScraper
 from .dbg_firearms import DbgFirearmsScraper
 from .deleon_rx import DeleonRxScraper
 from .demo import DemoScraper
+from .double_shotguns import DoubleShotgunsScraper
 from .dupage_trading import DupageTradingScraper
 from .ebayonet import EBayonetScraper
 from .empire_arms import EmpireArmsScraper
@@ -57,6 +58,7 @@ from .florida_guns import FloridaGunsScraper
 from .frisco_guns import FriscoGunsScraper
 from .g4g_guns import G4gGunsScraper
 from .greentop import GreentopScraper
+from .griffin_howe import GriffinHoweScraper
 from .gunprime import GunPrimeScraper
 from .horse_soldier import HorseSoldierScraper
 from .hunters_lodge import HuntersLodgeScraper
@@ -100,6 +102,7 @@ from .the_gun_works import TheGunWorksScraper
 from .tortuga_trading import TortugaTradingScraper
 from .track_of_the_wolf import TrackOfTheWolfScraper
 from .veteran_arms import VeteranArmsScraper
+from .vintage_doubles import VintageDoublesScraper
 from .we_buy_guns import WeBuyGunsScraper
 from .what_a_country import WhatACountryScraper
 from .ww2_collectibles import Ww2CollectiblesScraper
@@ -207,6 +210,9 @@ SCRAPER_CLASSES: tuple[type[SiteScraper], ...] = (
     RcfGunsScraper,
     BuffaloArmsScraper,
     ClickClickBoomScraper,
+    DoubleShotgunsScraper,
+    GriffinHoweScraper,
+    VintageDoublesScraper,
 )
 
 _REGISTRY: dict[str, type[SiteScraper]] = {cls.slug: cls for cls in SCRAPER_CLASSES}

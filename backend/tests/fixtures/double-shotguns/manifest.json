@@ -1,0 +1,18 @@
+{
+  "slug": "double-shotguns",
+  "recorded_at": "2026-11-06T17:04:05+00:00",
+  "pages": [
+    {
+      "url": "https://doubleshotguns.com/wp-json/wc/store/v1/products?per_page=100&page=1&orderby=date&order=desc&category=38",
+      "file": "0001.html.gz"
+    },
+    {
+      "url": "https://doubleshotguns.com/wp-json/wc/store/v1/products?per_page=100&page=1&orderby=date&order=desc&category=34",
+      "file": "0002.html.gz"
+    },
+    {
+      "url": "https://doubleshotguns.com/wp-json/wc/store/v1/products?per_page=100&page=1&orderby=date&order=desc&category=31",
+      "file": "0003.html.gz"
+    }
+  ]
+}

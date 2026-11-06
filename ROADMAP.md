@@ -46,7 +46,7 @@ the whole catalog as JSON to the widget that draws the grid. See
 | [Royal Tiger Imports](https://royaltigerimports.com/) | `royal-tiger` | Headless Chrome — infinite scroll, "Load More", classic pagination, Elementor gallery |
 | [Empire Arms](https://www.empirearms.com/) | `empire-arms` | Static HTML, thumbnail-delimited block parsing |
 | [Hunter's Lodge](https://www.hunterslodge.com/) | `hunters-lodge` | OCR of a scanned magazine flyer |
-| [Collectors Firearms](https://collectorsfirearms.com/) | `collectors-firearms` | WooCommerce base class — category pages, path pagination |
+| [Collectors Firearms](https://collectorsfirearms.com/) | `collectors-firearms` | WooCommerce base class — category pages, path pagination; since 2026-11-06 the eleven shotgun leaves too, a trailing "NEW" marking a new gun |
 | [Ancestry Guns](https://www.ancestryguns.com/) | `ancestry-guns` | WooCommerce — one selector (their `h2` is a share widget) |
 | [Axis Arms](https://axisarmsonline.com/) | `axis-arms` | WooCommerce behind an Elementor loop; two sections |
 | [CO Gun Sales](https://cogunsales.com/) | `co-gun-sales` | WooCommerce for text; their photographs are a CSS background and a JSON attribute, with no `<img>` anywhere |
@@ -70,7 +70,7 @@ the whole catalog as JSON to the widget that draws the grid. See
 | [Surplus Defense](https://www.surplusdefense.com/) | `surplus-defense` | **Wix Stores base class** — 45 listings and every one collector milsurp |
 | [Joe Salter](https://shop.joesalter.com/) | `joe-salter` | **OpenCart** — 320 collector listings, every one priced; **no photographs, because their robots.txt disallows `/image`** |
 | [GunPrime](https://gunprime.com/) | `gunprime` | **Spree on Rails** — the collector and police trade-in shelves; their six firearm categories are a modern gun shop and are left alone |
-| [Simpson Ltd.](https://www.simpsonltd.com/) | `simpson-ltd` | **Firebase Cloud Functions** — the Luger, military rifle, antique, German trainer and bayonet shelves of a 19,201-item shop |
+| [Simpson Ltd.](https://www.simpsonltd.com/) | `simpson-ltd` | **Firebase Cloud Functions** — the Luger, military rifle, antique, German trainer and bayonet shelves of a 19,201-item shop, and since 2026-11-06 every shotgun: Shotguns and Drilling & Combination whole, and the shotguns alone from six makers' rifle shelves by their stated Type |
 | [Madison Guns](https://madisonguns.com/) | `madison-guns` | BigCommerce — their whole 164-listing used rack plus the antique shelf, because the surplus in it is not shelved apart. **First shop keyed by an id found *inside* the card** |
 | [DBG Firearms](https://www.dbgfirearms.com/) | `dbg-firearms` | Wix Stores — their 128-listing used rack, where the Mausers, Enfields, Mosins and M1s sit among modern trade-ins. **Taught the Wix class to stop on a repeated page**: their sections serve the last page again for any page past the end |
 | [Clyde Armory](https://clydearmory.com/agency-trade-in/) | `clyde-armory` | BigCommerce — 44 agency trade-ins (Glocks, a P320, HK VP9 and HK45, Mini-14s, shotguns, SBRs) beside trade-in optics and uppers. **First shop read through a shipped intermediate certificate**, because its server leaves it out |
@@ -91,11 +91,11 @@ the whole catalog as JSON to the widget that draws the grid. See
 | [Cherry's Fine Guns](http://www.cherrys.com/longguns.htm) | `cherrys` | Custom (`CatalogPagesScraper`) — two spreadsheet-exported tables, over plain HTTP because the shop's HTTPS fails its handshake |
 | [LugerMan](https://lugerman.com/product-category/firearms/curio-and-relics/) | `lugerman` | WooCommerce Store API — Lugers and other collector pistols; raffle tickets left out |
 | [Moka's Raifus](https://mokasraifus.com/) | `mokas-raifus` | WooCommerce Store API — the gun shelf (118, suppressors and ADAR accessories left out) and, from 520 parts, only the 46 complete kits: original-barrel AK, PKM, StGW57, UK59 and a USGI M1A1 Thompson |
-| [Old Steel Arsenal](https://oldsteelarsenal.com/product-category/rifle/) | `old-steel-arsenal` | WooCommerce Store API — Rifles, Pistols and Revolvers; ~285, all priced, about half military (Finnish Mosins, K98ks, Hakims, Garands, police P6s). NFA, shotguns and accessories left out |
+| [Old Steel Arsenal](https://oldsteelarsenal.com/product-category/rifle/) | `old-steel-arsenal` | WooCommerce Store API — Rifles, Pistols, Revolvers and (since 2026-11-06) Shotguns; ~300, all priced, about half military (Finnish Mosins, K98ks, Hakims, Garands, police P6s). NFA and accessories left out |
 | [J & J Military Antiques](https://jjmilitary.com/product-category/antique-firearms/) | `jj-military` | WooCommerce Store API — American military antique firearms; ~60 once the parts, tools and empty cases filed in the same section are left out |
 | [Kittery Trading Post](https://www.kitterytradingpost.com/used-guns/handguns/) | `kittery-trading-post` | BigCommerce — the used-handgun rack only; ~790 listings, about four in ten carry guns (J-frames, Detective Specials, Micro 9s, P365s, Shields) |
 | [We Buy Guns](https://store.webuyguns.com/handguns/) | `we-buy-guns` | BigCommerce — every handgun used; ~40 listings, about three in ten carry guns |
-| [Greentop](https://www.greentop.com/shooting/used-guns/pistols/) | `greentop` | Magento — Used Pistols and Used Revolvers, ~185; every title states the barrel length, which the carry rule reads |
+| [Greentop](https://www.greentop.com/shooting/used-guns/pistols/) | `greentop` | Magento — Used Pistols, Used Revolvers and (since 2026-11-06) Used Shotguns and Used Tactical Shotguns, ~270; every title states the barrel length, which the carry rule reads |
 | [Muzzle-Loaders.com](https://www.muzzle-loaders.com/collections/traditional-muzzleloaders) | `muzzle-loaders` | Shopify — Traditional Muzzleloaders and Muzzleloader Pistols, ~240 reproduction flintlock and percussion guns; inlines and kits left out |
 | [Tortuga Trading](https://www.tortugatrading.com/collections/firearms) | `tortuga-trading` | Shopify — original antique flintlock arms, ~40; only what the shop files as a firearm |
 | [Track of the Wolf](https://www.trackofthewolf.com/parts/list/2584/1) | `track-of-the-wolf` | Custom — six flintlock and percussion sections paged by path, ~50 antiques, customs and used Pedersolis |
@@ -126,6 +126,9 @@ the whole catalog as JSON to the widget that draws the grid. See
 | [RCF Guns](https://www.rcfguns.com/used-guns) | `rcf-guns` | A Duda photo gallery -- ~370 used guns, in-store only, keyed by photograph |
 | [Buffalo Arms](https://www.buffaloarms.com/) | `buffalo-arms` | Magento -- eleven black powder sections, the first page of each only (robots.txt disallows query strings) |
 | [Click-Click-Boom](https://click-click-boom.com/shop/firearms/) | `click-click-boom` | WooCommerce Store API -- a Minnesota shop's used guns, ~200 of its 512 firearms, by its own condition attribute; no `orderby` (robots.txt disallows it) |
+| [Double Shotguns](https://doubleshotguns.com/shop/) | `double-shotguns` | WooCommerce Store API -- a Pennsylvania shop's new and used shotguns, rifles and handguns, ~120; serials taken out of the descriptions |
+| [Griffin & Howe](https://griffinhowe.com/shop/category/gun-room/shotguns/) | `griffin-howe` | WooCommerce base class (its Store API answers 500) -- the gun room's shotguns, ~330, new or pre-owned by the card's categories |
+| [Vintage Doubles](https://www.vintagedoubles.com/catalog/) | `vintage-doubles` | Its own catalog, one page per category -- British and European doubles, drillings and double rifles, ~255; thumbnails only (the rest is Zoomify tiles) |
 
 **Retired 2026-11-02: Target Sports USA and Vance Outdoors**, scrapers and
 database rows both removed. Target Sports moved from AspDotNetStorefront to
@@ -5755,6 +5758,60 @@ and `fetchSKU_Inventory` began answering 404 on every shelf, and the scan
 failed with nothing read. The site's bundle now calls `fetchDataByCategory_v6`
 and `fetchSKU_v2`, with the same parameters and the same answers; `_v6` adds a
 `sold` parameter that, left out, returns unsold stock as before.
+
+### Every used shotgun — **Shipped** 2026-11-06
+
+Asked for as "more variety in terms of sites to look at for shotguns? we seem
+light on those", and, offered the choice between every used shotgun and only
+the military and collector ones: "let's get them all please". There were 488
+shotguns in stock against some 39,000 rifles and handguns, and most of the
+gap was this application's own scope: the shops read already had shotgun
+shelves that were left out when each scraper was written, as "a sporting
+catalog".
+
+**The shelves already there, opened:**
+
+* **Simpson Ltd.**: the Shotguns shelf whole (31 pages, ~3,050, 98% stated as
+  shotguns) and Drilling & Combination (~350). The maker shelves -- Winchester,
+  Savage, Stevens, Marlin, Husqvarna, Other Manufacturers -- are mostly
+  sporting rifles with a few shotguns among them, so a source's new `only`
+  keeps the listings whose stated `Type` it names. Remington, Browning and
+  Ruger held none. The first scan after it is about 3,400 gallery requests
+  longer.
+* **Collectors Firearms**: eleven shotgun leaves, ~620 (Military, Antique,
+  Side by Side, Over/Under, Drilling & Combination, Single Shot, Pump,
+  Semi-Auto, Tactical, Browning, Other). Short Barrel Shotgun (NFA) and the
+  accessories are left out. The leaves mix new guns with used and mark the new
+  ones only by a trailing "NEW" after the stock number, which now files them
+  new. At thirty seconds a request the first pass after it is about five hours
+  longer; the cadence stays fortnightly.
+* **Old Steel Arsenal**: Shotguns (13). **Greentop**: Used Shotguns (73) and
+  Used Tactical Shotguns (10), titled like its handguns, serial and all, so the
+  serial rule applies unchanged.
+* **The Gun Works** was looked at and left: one cartridge shotgun.
+
+**Three shops added for their shotguns:**
+
+* **Double Shotguns** (`double-shotguns`), Port Matilda, Pennsylvania.
+  WooCommerce Store API: Shotguns (43), Rifles (44), Handguns (32), new and
+  used together and rarely saying which, so `mixed`. Every description names
+  the gun's serial ("SKU 17743, Serial 0754056"); it is taken out.
+* **Griffin & Howe** (`griffin-howe`), Andover, New Jersey. The gun room's
+  shotguns, ~330 at 60 a page: Piotti, McKay Brown, Boss, new Berettas and
+  their own guns. The Store API answers 500, so the category pages are read
+  as HTML; their Elementor cards still carry WooCommerce's classes, and
+  `product_cat-used-*` among them says pre-owned. The description is the
+  product page's spec table.
+* **Vintage Doubles** (`vintage-doubles`). A hand-made catalog, one page per
+  category: hammer guns, sidelocks, boxlocks, round actions, drillings and
+  double rifles, "Rust & Dust" and other shotguns, ~255. Keyed by its GunID,
+  addressed by the row, serial left out, a "WANTED!" row (the shop buying) not
+  read. Only the 100-pixel catalog thumbnail is a single image; every larger
+  one is a Zoomify tile pyramid.
+
+**Looked at and not added:** Cabela's Gun Library and Mack's Prairie Wings
+answer 403; Orvis's gun room prices on request; Fox River Sporting's pages
+carry no prices.
 
 ### A command-line armory edit reaches the running app — **Shipped** 2026-11-06
 

@@ -313,8 +313,12 @@ manufacturers:
   enabled: false
   notes: A fragment. Matched '& Co.', 'Cugir Factory', 'Weapons Co' and 'Canik METE MC9' alike -- 125
     listings under two letters.
-- name: Cobra
-  status: pending
+- name: Cobra Enterprises
+  aliases:
+  - Cobra Firearms
+  - Cobra Enterprises of Utah
+  - Cobra Enterprises Inc
+  status: approved
 - name: Colt
   country: United States
   website: https://www.colt.com
@@ -372,6 +376,8 @@ manufacturers:
   country: United States
   status: approved
 - name: Dan Wesson
+  aliases:
+  - DW
   status: approved
 - name: DE
   status: pending
@@ -418,6 +424,9 @@ manufacturers:
   status: approved
 - name: DS PRDGY UNT
   status: pending
+  enabled: false
+- name: DW
+  status: merged
   enabled: false
 - name: DWM
   aliases:
@@ -892,6 +901,11 @@ manufacturers:
   status: approved
 - name: KRIEGHOFF
   country: Germany
+  status: approved
+- name: Langdon Tactical
+  aliases:
+  - Langdon Tactical Tech
+  - Langdon Tactical Technology
   status: approved
 - name: Laugo Arms
   aliases:
@@ -13596,6 +13610,8 @@ models:
   - CA-380
   kind: pistol
   country: United States
+  manufacturers:
+  - Cobra Enterprises
   status: approved
 - name: Cobra CB38
   aliases:
@@ -19331,6 +19347,16 @@ models:
 - name: DB9R
   status: pending
   enabled: false
+- name: DBX57
+  aliases:
+  - DBX
+  kind: pistol
+  country: United States
+  calibers:
+  - 5.7x28mm
+  manufacturers:
+  - Diamondback Firearms
+  status: approved
 - name: DC8
   status: approved
   enabled: false
@@ -22694,6 +22720,10 @@ models:
   status: pending
   enabled: false
 - name: FS380
+  kind: pistol
+  country: United States
+  manufacturers:
+  - Cobra Enterprises
   status: approved
 - name: FS 5B
   status: pending
@@ -22833,6 +22863,18 @@ models:
 - name: G29
   status: pending
   enabled: false
+- name: G33/40
+  aliases:
+  - G 33/40
+  - Gew. 33/40
+  - Gewehr 33/40
+  - Gew 33/40
+  - Kar 33/40
+  kind: rifle
+  country: Germany
+  calibers:
+  - 8mm Mauser
+  status: approved
 - name: G36
   aliases:
   - G36K
@@ -27294,6 +27336,14 @@ models:
   manufacturers:
   - Heckler Koch
   capacity: 20
+  status: approved
+- name: HK94
+  kind: rifle
+  country: Germany
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Heckler Koch
   status: approved
 - name: HMR 300
   status: pending
@@ -42227,6 +42277,18 @@ models:
   modern_production: true
   status: approved
   notes: Approved 2026-10-12 from the pending queue.
+- name: Papa Nambu
+  aliases:
+  - Nambu Type A
+  - Type A Nambu
+  - Grandpa Nambu
+  kind: pistol
+  country: Japan
+  calibers:
+  - 8mm Nambu
+  manufacturers:
+  - Nambu
+  status: approved
 - name: Para Ordnance P13
   aliases:
   - P13
@@ -43850,11 +43912,6 @@ models:
 - name: RM15
   status: pending
   enabled: false
-- name: RM1C
-  aliases:
-  - RMC1
-  capacity: 15
-  status: approved
 - name: RMC1
   status: merged
   enabled: false
@@ -46138,6 +46195,16 @@ models:
     source: budsgunshop
     status: approved
   status: approved
+- name: Rost Martin RM1C
+  aliases:
+  - RMC1
+  - RM1C
+  kind: pistol
+  country: United States
+  manufacturers:
+  - Rost Martin
+  capacity: 15
+  status: approved
 - name: Rost Martin RM1F
   aliases:
   - RM1F
@@ -46159,6 +46226,8 @@ models:
 - name: Rost Martin RM1X
   aliases:
   - RM1X
+  - RM1CX
+  - RM1X Comp
   kind: pistol
   country: United States
   manufacturers:
@@ -47627,6 +47696,10 @@ models:
   aliases:
   - SEC-380
   - Security 380
+  - SEC 380
+  - SEC380
+  - SEC 380ACP
+  - SEC 380 ACP
   kind: pistol
   country: United States
   manufacturers:
@@ -63498,6 +63571,18 @@ models:
   manufacturers:
   - Steyr
   status: approved
+- name: Steyr ATD
+  aliases:
+  - ATD Comp
+  - ATD
+  kind: pistol
+  country: Austria
+  calibers:
+  - 9mm Luger
+  manufacturers:
+  - Langdon Tactical
+  - Steyr
+  status: approved
 - name: Steyr C9
   aliases:
   - C9-A2
@@ -67551,7 +67636,8 @@ models:
   country: Finland
   status: approved
 - name: Tisas ACP 1911
-  status: pending
+  status: merged
+  enabled: false
 - name: Tisas Arms 1911
   aliases:
   - Tisas 1911
@@ -67572,6 +67658,11 @@ models:
   - B45R
   - DUTY 9
   - Tisas Arms Customs 1911
+  - Tisas ACP 1911
+  - Carry 9
+  - Desert Strike
+  - Silent Heroes
+  - Silent Heros
   kind: pistol
   country: Turkey
   manufacturers:
@@ -73068,6 +73159,7 @@ models:
   status: approved
 - name: WW11
   status: pending
+  enabled: false
 - name: Wz. 1898
   status: merged
   enabled: false

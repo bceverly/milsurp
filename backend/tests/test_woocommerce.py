@@ -274,13 +274,22 @@ class TestTheProductPage:
 
 
 class TestCollectorsFirearms:
-    def test_it_reads_only_military_antique_and_black_powder_sections(self):
+    def test_it_reads_only_military_antique_black_powder_and_shotgun_sections(self):
         """They are a general dealer with 207,000 products, so every source has
-        to name a section that is surplus, collector or black powder stock —
-        never a parent like `/rifles/`, which also holds sporting, tactical and
-        rimfire, nor `/colt-guns/` beside its black powder replicas."""
+        to name a section that is surplus, collector, black powder or (since
+        2026-11-06) shotgun stock — never a parent like `/rifles/`, which also
+        holds sporting, tactical and rimfire, nor `/colt-guns/` beside its
+        black powder replicas."""
         urls = [source["url"] for source in CollectorsFirearmsScraper.sources]
-        words = ("military", "martial", "antique", "luger", "mauser", "blackpowder")
+        words = (
+            "military",
+            "martial",
+            "antique",
+            "luger",
+            "mauser",
+            "blackpowder",
+            "/product-category/shotguns/",
+        )
         assert all(any(word in url for word in words) for url in urls)
         assert not any(url.rstrip("/").endswith("/colt-guns") for url in urls)
 
