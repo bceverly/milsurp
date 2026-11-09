@@ -14,12 +14,12 @@ httpx>=0.28.1            # fallback for pre-1.0 Starlette
 responses>=0.26.3          # stub HTTP for scraper tests
 
 # Linting and formatting
-ruff>=0.17.3
+ruff>=0.17.4
 black>=26.10.1
 mypy>=2.4.1
 bandit[toml]>=1.9.4      # security-focused static analysis
-types-PyYAML>=6.0.12.20260906
-types-requests>=2.33.0.20261006
+types-PyYAML>=6.0.12.20261103
+types-requests>=2.33.0.20261030
 
 # An independent implementation of RFC 8188/8291, used by the web push tests to
 # decrypt what our own encryption produced. It is the cross-check that makes
