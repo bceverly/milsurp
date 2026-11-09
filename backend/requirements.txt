@@ -1,14 +1,14 @@
 # Web framework and server
 fastapi>=0.162.0,<1.0
 uvicorn[standard]>=0.54.0,<1.0
-python-multipart>=0.0.32
+python-multipart>=0.0.33
 email-validator>=2.3.0
 
 # Database
 # 2.1 at least: the code relies on its typed Row unpacking (Result.tuples() is
 # deprecated there, and the warnings-as-errors suite fails on it), and the
 # annotations are written for its stubs -- mypy on 2.0 reads them differently.
-SQLAlchemy>=2.1.6,<3.0
+SQLAlchemy>=2.1.8,<3.0
 alembic>=1.20.1,<2.0
 # Mako is alembic's template engine (it renders new migration files), not
 # imported here, and declared for the same reason as urllib3 below: alembic
@@ -22,7 +22,7 @@ mako>=1.4.3
 # the test suite exercises both. Unused, it costs a few megabytes and nothing
 # at runtime. [binary] ships the libpq wheels, so there is no build step and no
 # libpq-dev to install.
-psycopg[binary]>=3.3.6
+psycopg[binary]>=3.3.8
 
 # Configuration
 PyYAML>=6.0.3
