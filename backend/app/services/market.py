@@ -195,9 +195,10 @@ def summarize(
 # ---------------------------------------------------------------------------
 # A band over time
 # ---------------------------------------------------------------------------
-#: How far back the series goes. Production has kept price history since
-#: 2026-09-05; this asks for no more than it has.
-HISTORY_WEEKS = 12
+#: How far back the series goes: half a year. Production has kept price
+#: history since 2026-09-05, and a week before the earliest observation is
+#: skipped rather than drawn empty, so this asks for no more than there is.
+HISTORY_WEEKS = 26
 
 
 @dataclass
@@ -251,8 +252,75 @@ def history(
     """
     if dimension not in DIMENSIONS:
         raise ValueError(f"Unknown dimension: {dimension}")
-    column = getattr(Item, dimension)
-    stmt = select(Item).where(column == value)
+    return _weekly(
+        session,
+        getattr(Item, dimension) == value,
+        firearms_only=firearms_only,
+        weeks=weeks,
+        min_sample=min_sample,
+        now=now,
+    )
+
+
+@dataclass
+class ItemHistory:
+    """Guns like one listing, week by week: which group, and its points."""
+
+    #: "model" when the listing has an armory model, "caliber" otherwise.
+    by: str
+    #: The model's name or the caliber, for the caption.
+    value: str
+    points: list[HistoryPoint] = field(default_factory=list)
+
+
+def history_for(
+    session: Session,
+    item: Item,
+    *,
+    weeks: int = HISTORY_WEEKS,
+    min_sample: int = MIN_SAMPLE,
+    now: datetime | None = None,
+) -> ItemHistory | None:
+    """The week-by-week band of guns like this one, or None.
+
+    "Like this one" is what ``departures_for`` means by it: the same armory
+    model when the listing has one, the same caliber otherwise, and only for a
+    firearm. Keyed by the model's id rather than its name, so a model renamed
+    in the armory keeps its series. The listing itself is one of the guns in
+    the band, as it is on the Market page. None when there is no group, and an
+    empty series when the group has no week worth drawing -- the caller says
+    which.
+    """
+    if not (item.is_rifle or item.is_pistol) or item.is_parts_kit:
+        return None
+    if item.firearm_model_id is not None:
+        model = session.get(FirearmModel, item.firearm_model_id)
+        by, value, where = (
+            "model",
+            model.name if model is not None else "",
+            Item.firearm_model_id == item.firearm_model_id,
+        )
+    elif item.caliber:
+        by, value, where = "caliber", item.caliber, Item.caliber == item.caliber
+    else:
+        return None
+    points = _weekly(
+        session, where, firearms_only=True, weeks=weeks, min_sample=min_sample, now=now
+    )
+    return ItemHistory(by=by, value=value, points=points)
+
+
+def _weekly(
+    session: Session,
+    where,
+    *,
+    firearms_only: bool,
+    weeks: int,
+    min_sample: int,
+    now: datetime | None,
+) -> list[HistoryPoint]:
+    """The weekly reconstruction behind ``history`` and ``history_for``."""
+    stmt = select(Item).where(where)
     if firearms_only:
         stmt = stmt.where(Item.is_rifle.is_(True) | Item.is_pistol.is_(True))
     items = {item.id: item for item in session.execute(stmt).scalars()}

@@ -702,8 +702,13 @@ class MarketBandOut(BaseModel):
     concentrated: bool
 
 
-class MarketHistoryPointOut(BaseModel):
-    """One week of one band: the spread of what was being asked at its end."""
+class MarketHistoryPointOut(UTCModel):
+    """One week of one band: the spread of what was being asked at its end.
+
+    A UTCModel so the week carries its "Z": the listing page draws these on
+    the same time axis as the listing's own price observations, and a naive
+    timestamp is read by the browser as local time, hours off the other.
+    """
 
     week: datetime
     listings: int
@@ -714,6 +719,16 @@ class MarketHistoryPointOut(BaseModel):
 
 class MarketHistoryOut(BaseModel):
     dimension: str
+    value: str
+    min_sample: int
+    points: list[MarketHistoryPointOut] = Field(default_factory=list)
+
+
+class ItemMarketHistoryOut(BaseModel):
+    """Guns like one listing, week by week. See ``market.history_for``."""
+
+    #: "model" or "caliber": which group "like this one" turned out to mean.
+    by: str
     value: str
     min_sample: int
     points: list[MarketHistoryPointOut] = Field(default_factory=list)

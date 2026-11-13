@@ -7880,6 +7880,26 @@ screen. Five things, each now held by a test:
   counted only while it was for sale; a week under five listings is left out.
   Eight weeks of history when it shipped; on production, Mauser's median went
   from $2,395 to $1,995 over them.
+- **Shipped** 2026-11-13 — A listing's price against its model, over time.
+  The price history panel on a listing's page was a sparkline: its points
+  evenly spaced whatever the dates between them, and nothing to compare it
+  with. It is now a chart on a real time axis (`PriceHistoryChart` in
+  `ItemDetail.jsx`). The listing is a step line, because a price holds until
+  the next `price_history` row and a straight line between two rows would
+  draw prices nobody asked. It runs to today, or to the day the listing sold or
+  went. Behind it is the weekly median and tenth-to-ninetieth band of guns
+  like this one, from `market.history_for` and `GET
+  /api/items/{id}/market-history`. "Like this one" means what
+  `departures_for` means by it: the same armory model, keyed by id so a
+  rename keeps the series, or the same caliber without one, and firearms
+  only. The Market Trend's reconstruction is shared rather than copied
+  (`market._weekly`), with the same five-listing floor a week. A listing with
+  one observation now gets a chart too when its model has a band, since a
+  flat line against a moving market says something. Two smaller changes came
+  with it. The series reaches back 26 weeks instead of 12, still skipping
+  weeks before the first observation. And the weeks are sent with their "Z"
+  (`MarketHistoryPointOut` is a `UTCModel`), because the browser read a naive
+  week as local time, hours off the listing's own timestamps on the same axis.
 - **Shipped** — CSV / JSON export of a filtered result set. `GET
   /api/items/export` takes the same query parameters as the list endpoint, so a
   browse URL becomes an export by changing the path — which is the only way the

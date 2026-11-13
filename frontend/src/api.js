@@ -232,6 +232,9 @@ export const api = {
   // of them — it needs a matched model, a maker, a cartridge and three peers.
   itemPricePosition: (id) => request(`/api/items/${id}/price-position`),
   itemSimilar: (id) => request(`/api/items/${id}/similar`),
+  // Guns like this one week by week -- the same model, or the same caliber.
+  // Null when the listing is not a firearm with either. See market.history_for.
+  itemMarketHistory: (id) => request(`/api/items/${id}/market-history`),
 
   watchlist: () => request("/api/watchlist"),
   // The object, not a string: request() does the JSON.stringify itself, and

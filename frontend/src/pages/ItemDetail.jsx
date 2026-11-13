@@ -6,7 +6,14 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api.js";
 import { useTitle } from "../hooks.js";
 import { useAuth } from "../auth.jsx";
-import { formatDateTime, formatMoney, formatRelative, timeTitle } from "../format.js";
+import {
+  formatDate,
+  formatDateTime,
+  formatMoney,
+  formatRelative,
+  parseUtc,
+  timeTitle,
+} from "../format.js";
 import AuthImage from "../components/AuthImage.jsx";
 import NoPhoto from "../components/NoPhoto.jsx";
 
@@ -1223,57 +1230,162 @@ function PriceSpectrum({ position, currency }) {
 }
 
 /**
- * Price-over-time sparkline.
- *
- * Hand-drawn SVG rather than a charting library: this is a single series of a
- * handful of points, and a chart package would be a large dependency for one
- * polyline.
+ * When a listing stopped being for sale, or null while it still is. The step
+ * line runs to here, not to today: a rifle sold in October held no price in
+ * November.
  */
-function PriceSparkline({ history }) {
-  if (!history || history.length < 2) return null;
+function listingEnd(item) {
+  if (item.is_active && !item.is_sold) return null;
+  return parseUtc(item.delisted_at) || parseUtc(item.last_seen_at);
+}
 
-  const width = 100;
-  const height = 100;
-  const prices = history.map((point) => point.price);
-  const min = Math.min(...prices);
-  const max = Math.max(...prices);
+/**
+ * This listing's price over time, against guns like it.
+ *
+ * The listing is a step line, because a price_history row is written only
+ * when the price changes: the price holds flat until the next row, and a
+ * straight line between two rows would draw prices nobody asked. Behind it,
+ * when there is enough of one, the same model's (or caliber's) weekly median
+ * and tenth-to-ninetieth band -- market.history_for, the Market page's Trend
+ * narrowed to "like this one". Both on one real time axis, so a cut that
+ * came a week after the market moved reads as exactly that.
+ *
+ * Hand-drawn SVG, as the Market trend is: two series of a few dozen points do
+ * not earn a charting dependency.
+ */
+function PriceHistoryChart({ history, market, item }) {
+  const own = history
+    .map((point) => ({ at: parseUtc(point.observed_at), price: point.price }))
+    .filter((point) => point.at);
+  const weeks = (market?.points || [])
+    .map((point) => ({ ...point, at: parseUtc(point.week) }))
+    .filter((point) => point.at);
+  const band = weeks.length >= 2 ? weeks : [];
+  if (own.length === 0 || (own.length < 2 && band.length === 0)) return null;
+
+  const end = listingEnd(item) || new Date();
+  const times = [...own.map((p) => p.at), ...band.map((p) => p.at), end].map((d) =>
+    d.getTime(),
+  );
+  const t0 = Math.min(...times);
+  const t1 = Math.max(...times);
+  const values = [...own.map((p) => p.price), ...band.flatMap((p) => [p.low, p.high])];
+  const lo = Math.min(...values);
+  const hi = Math.max(...values);
   // A flat series would divide by zero; give it a nominal range so the line
-  // renders through the middle instead of collapsing.
-  const span = max - min || Math.max(1, max * 0.1);
+  // runs through the middle instead of collapsing onto an edge.
+  const span = hi - lo || Math.max(1, hi * 0.1);
+  const bottom = lo - span * 0.08;
+  const top = hi + span * 0.08;
 
-  const points = history.map((point, index) => {
-    const x = (index / (history.length - 1)) * width;
-    const y = height - ((point.price - min) / span) * (height * 0.82) - height * 0.09;
-    return `${x.toFixed(2)},${y.toFixed(2)}`;
+  const width = 640;
+  const height = 170;
+  const pad = 6;
+  const x = (date) =>
+    pad + ((date.getTime() - t0) * (width - 2 * pad)) / Math.max(1, t1 - t0);
+  const y = (price) => pad + ((top - price) * (height - 2 * pad)) / (top - bottom);
+
+  const steps = [];
+  own.forEach((point, index) => {
+    if (index > 0) steps.push(`${x(point.at)},${y(own[index - 1].price)}`);
+    steps.push(`${x(point.at)},${y(point.price)}`);
   });
+  const last = own[own.length - 1];
+  steps.push(`${x(end)},${y(last.price)}`);
 
-  const dropped = prices[prices.length - 1] < prices[0];
-  const stroke = dropped ? "var(--green-600)" : "var(--navy-600)";
+  const area = [
+    ...band.map((p) => `${x(p.at)},${y(p.high)}`),
+    ...band.map((p) => `${x(p.at)},${y(p.low)}`).reverse(),
+  ].join(" ");
+  const median = band.map((p) => `${x(p.at)},${y(p.median)}`).join(" ");
+
+  const dropped = last.price < own[0].price;
+  const peers = market?.by === "model" ? `${market.value}s` : `${market?.value} firearms`;
+  const latest = band[band.length - 1];
 
   return (
-    <svg
-      className="sparkline"
-      viewBox={`0 0 ${width} ${height}`}
-      preserveAspectRatio="none"
-      role="img"
-      aria-label={`Price history: ${formatMoney(prices[0])} to ${formatMoney(
-        prices[prices.length - 1],
-      )}`}
-    >
-      <polyline
-        points={`0,${height} ${points.join(" ")} ${width},${height}`}
-        fill={dropped ? "var(--green-100)" : "var(--navy-50)"}
-        stroke="none"
-      />
-      <polyline
-        points={points.join(" ")}
-        fill="none"
-        stroke={stroke}
-        strokeWidth="2"
-        vectorEffect="non-scaling-stroke"
-        strokeLinejoin="round"
-      />
-    </svg>
+    <figure className="price-chart" data-testid="price-chart">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={
+          `Price history: ${formatMoney(own[0].price)} to ${formatMoney(last.price)}` +
+          (latest ? `; ${peers} median ${formatMoney(latest.median)}` : "")
+        }
+      >
+        {band.length > 0 && (
+          <>
+            <polygon points={area} className="price-chart__band" />
+            <polyline points={median} className="price-chart__median" />
+          </>
+        )}
+        <polyline
+          points={steps.join(" ")}
+          className={`price-chart__own ${dropped ? "price-chart__own--down" : ""}`}
+        />
+        {own.map((point, index) => (
+          <circle
+            // Two observations can share a timestamp; the index breaks the
+            // tie. These dots hold no state, so a shifted key costs nothing.
+            // eslint-disable-next-line react/no-array-index-key
+            key={`${point.at.getTime()}-${index}`}
+            cx={x(point.at)}
+            cy={y(point.price)}
+            r="3.5"
+            className={`price-chart__dot ${dropped ? "price-chart__dot--down" : ""}`}
+          >
+            <title>
+              {formatDate(point.at.toISOString())}:{" "}
+              {formatMoney(point.price, item.currency)}
+            </title>
+          </circle>
+        ))}
+        {band.map((point) => (
+          <circle
+            key={`w${point.at.getTime()}`}
+            cx={x(point.at)}
+            cy={y(point.median)}
+            r="2.5"
+            className="price-chart__week"
+          >
+            <title>
+              Week ending {formatDate(point.week)}: {formatMoney(point.median)} median of{" "}
+              {point.listings} listings
+            </title>
+          </circle>
+        ))}
+      </svg>
+      <div className="price-chart__axis">
+        <span>{formatDate(new Date(t0).toISOString())}</span>
+        <span>
+          {formatMoney(lo)} – {formatMoney(hi)}
+        </span>
+        <span>{listingEnd(item) ? formatDate(end.toISOString()) : "Today"}</span>
+      </div>
+      <figcaption className="price-chart__legend">
+        <span className={`price-chart__key ${dropped ? "price-chart__key--down" : ""}`}>
+          This listing
+        </span>
+        {band.length > 0 ? (
+          <span className="price-chart__key price-chart__key--market">
+            Median of {peers}, week by week, over the tenth to ninetieth percentile
+            {latest && (
+              <>
+                {" "}
+                (latest {formatMoney(latest.median)}, {latest.listings} listings)
+              </>
+            )}
+          </span>
+        ) : (
+          market && (
+            <span className="muted">
+              Not enough weeks with {market.min_sample} or more {peers} for sale to draw
+              their prices yet.
+            </span>
+          )
+        )}
+      </figcaption>
+    </figure>
   );
 }
 
@@ -1333,6 +1445,7 @@ export default function ItemDetail() {
   const [armoryOpen, setArmoryOpen] = useState(false);
   const [spectrum, setSpectrum] = useState(null);
   const [similar, setSimilar] = useState([]);
+  const [marketHistory, setMarketHistory] = useState(null);
 
   useTitle(item?.title);
 
@@ -1370,6 +1483,22 @@ export default function ItemDetail() {
       .itemPricePosition(itemId)
       .then((result) => !canceled && setSpectrum(result))
       .catch(() => !canceled && setSpectrum(null));
+    return () => {
+      canceled = true;
+    };
+  }, [itemId]);
+
+  // Guns like this one, week by week, drawn behind the listing's own price.
+  // Separate and quiet for the same reason as the spectrum: null for anything
+  // that is not a firearm with a model or a caliber, and the price history
+  // panel stands without it.
+  useEffect(() => {
+    let canceled = false;
+    setMarketHistory(null);
+    api
+      .itemMarketHistory(itemId)
+      .then((result) => !canceled && setMarketHistory(result))
+      .catch(() => !canceled && setMarketHistory(null));
     return () => {
       canceled = true;
     };
@@ -1692,9 +1821,9 @@ export default function ItemDetail() {
                   the first time the price changes.
                 </p>
               )}
+              <PriceHistoryChart history={history} market={marketHistory} item={item} />
               {history.length > 1 && (
                 <>
-                  <PriceSparkline history={history} />
                   <table className="price-table">
                     <tbody>
                       {[...history].reverse().map((point, index) => (

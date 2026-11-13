@@ -248,3 +248,116 @@ class TestABandOverTime:
             "/api/market/history", params={"by": "nope", "value": "x"}, headers=admin_headers
         )
         assert bad.status_code == 422
+
+
+class TestGunsLikeThisOneOverTime:
+    """market.history_for: the band a listing's own price is drawn against on
+    its page -- the same armory model, or the same caliber without one."""
+
+    def _gun(self, session, site, n, first_seen, price, **kwargs):
+        from app.models import PriceHistory
+
+        fields = {
+            "caliber": "7.5x55mm Swiss",
+            "is_rifle": True,
+            "is_pistol": False,
+            "is_active": True,
+            "is_sold": False,
+        }
+        fields.update(kwargs)
+        item = Item(
+            site_id=site.id,
+            external_key=f"like-{n}",
+            url=f"{site.base_url}like-{n}",
+            title=f"Rifle {n}",
+            current_price=price,
+            first_seen_at=first_seen,
+            **fields,
+        )
+        session.add(item)
+        session.flush()
+        session.add(PriceHistory(item_id=item.id, price=price, observed_at=first_seen))
+        return item
+
+    @staticmethod
+    def _now():
+        from datetime import UTC, datetime
+
+        # Naive, as the columns store them.
+        return datetime(2026, 11, 13, 12, 0, tzinfo=UTC).replace(tzinfo=None)
+
+    def test_a_modeled_listing_is_drawn_against_its_model(self, clean_db, shops):
+        from datetime import timedelta
+
+        from app.models import ArmoryStatus, FirearmModel
+
+        k31 = FirearmModel(name="K31", status=ArmoryStatus.APPROVED)
+        clean_db.add(k31)
+        clean_db.flush()
+        start = self._now() - timedelta(days=15)
+        guns = [
+            self._gun(clean_db, shops[n % 3], n, start, 400.0 + n, firearm_model_id=k31.id)
+            for n in range(5)
+        ]
+        # Same caliber, no model: not one of "guns like this one" for a K31.
+        for n in range(5, 10):
+            self._gun(clean_db, shops[0], n, start, 1000.0)
+        clean_db.commit()
+
+        found = market.history_for(clean_db, guns[0], now=self._now(), weeks=3)
+        assert found is not None
+        assert (found.by, found.value) == ("model", "K31")
+        assert [point.median for point in found.points] == [402.0, 402.0, 402.0]
+
+    def test_without_a_model_it_is_the_caliber(self, clean_db, shops):
+        from datetime import timedelta
+
+        start = self._now() - timedelta(days=8)
+        guns = [self._gun(clean_db, shops[n % 3], n, start, 300.0) for n in range(5)]
+        clean_db.commit()
+
+        found = market.history_for(clean_db, guns[0], now=self._now(), weeks=2)
+        assert found is not None
+        assert (found.by, found.value) == ("caliber", "7.5x55mm Swiss")
+        assert len(found.points) == 2
+
+    def test_nothing_to_compare_a_bayonet_or_a_nameless_gun_with(self, clean_db, shops):
+        bayonet = self._gun(
+            clean_db, shops[0], 1, self._now(), 40.0, is_rifle=False, is_bayonet=True
+        )
+        nameless = self._gun(clean_db, shops[0], 2, self._now(), 400.0, caliber=None)
+        clean_db.commit()
+        assert market.history_for(clean_db, bayonet) is None
+        assert market.history_for(clean_db, nameless) is None
+
+    def test_the_endpoint(self, client, admin_headers, clean_db, shops):
+        gun = self._gun(clean_db, shops[0], 1, self._now(), 400.0)
+        bayonet = self._gun(
+            clean_db, shops[0], 2, self._now(), 40.0, is_rifle=False, is_bayonet=True
+        )
+        clean_db.commit()
+
+        response = client.get(f"/api/items/{gun.id}/market-history", headers=admin_headers)
+        assert response.status_code == 200
+        assert response.json() == {
+            "by": "caliber",
+            "value": "7.5x55mm Swiss",
+            "min_sample": market.MIN_SAMPLE,
+            "points": [],
+        }
+        none = client.get(f"/api/items/{bayonet.id}/market-history", headers=admin_headers)
+        assert none.status_code == 200
+        assert none.json() is None
+        missing = client.get("/api/items/999999/market-history", headers=admin_headers)
+        assert missing.status_code == 404
+
+    def test_weeks_are_sent_as_utc(self, client, admin_headers, clean_db, shops):
+        from datetime import timedelta
+
+        start = self._now() - timedelta(days=1)
+        guns = [self._gun(clean_db, shops[n % 3], n, start, 300.0) for n in range(5)]
+        clean_db.commit()
+        response = client.get(f"/api/items/{guns[0].id}/market-history", headers=admin_headers)
+        points = response.json()["points"]
+        assert points
+        assert all(point["week"].endswith("Z") for point in points)

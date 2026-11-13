@@ -100,7 +100,9 @@ changed — filtered to the sites you care about and capped so it stays readable
 - **Price history in its own table.** Prices are not a column that gets
   overwritten — every change is an observation, so you can see a listing's whole
   price arc. A row is written only when the price actually moves, so the table
-  stays proportional to real changes rather than to scan count.
+  stays proportional to real changes rather than to scan count. The listing
+  page charts that arc on a time axis against guns like it: the same model's
+  (or caliber's) weekly median and tenth-to-ninetieth band.
 - **Structured fields inferred from prose.** Caliber, country of origin,
   manufacturer, bore condition and rifle-vs-handgun are derived from listing
   text with rules built by watching real vendor listings.

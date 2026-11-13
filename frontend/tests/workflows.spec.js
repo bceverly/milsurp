@@ -392,9 +392,66 @@ test.describe("item detail extras", () => {
       await expect(cards.first().locator(".item-card__was")).toBeVisible();
       await cards.first().click();
       await expect(signedIn.locator(".detail__price-was")).toBeVisible();
-      // Two observations means the sparkline renders rather than the one-off note.
+      // Two observations means the chart and the table render rather than the
+      // one-off note.
+      await expect(signedIn.getByTestId("price-chart")).toBeVisible();
       await expect(signedIn.locator(".price-table")).toBeVisible();
     }
+  });
+
+  test("the listing's price is drawn against its model, week by week", async ({
+    signedIn,
+  }) => {
+    /*
+     * The seeded catalog is days old, so no model has the two weeks of five
+     * listings a band needs. The series is stubbed instead: what is under test
+     * is that the page draws what market.history_for answers, and says whose
+     * prices they are. The reconstruction itself is test_api_market.py's.
+     */
+    const now = Date.now();
+    const week = 7 * 24 * 3600 * 1000;
+    const points = [3, 2, 1, 0].map((back, index) => ({
+      week: new Date(now - back * week).toISOString(),
+      listings: 6 + index,
+      low: 380,
+      median: 450 - index * 10,
+      high: 560,
+    }));
+    await signedIn.route(/\/api\/items\/\d+\/market-history$/, (route) =>
+      route.fulfill({
+        json: { by: "model", value: "K31", min_sample: 5, points },
+      }),
+    );
+    await signedIn.goto("/?price_drops_only=true");
+    const cards = signedIn.locator(".item-card");
+    if ((await cards.count()) === 0) return;
+    await cards.first().click();
+    const chart = signedIn.getByTestId("price-chart");
+    await expect(chart).toBeVisible();
+    await expect(chart.locator(".price-chart__band")).toHaveCount(1);
+    await expect(chart.locator(".price-chart__week")).toHaveCount(4);
+    await expect(chart).toContainText("Median of K31s");
+    await expect(chart).toContainText("latest $420, 9 listings");
+  });
+
+  test("with too few weeks the chart says so rather than drawing a band", async ({
+    signedIn,
+  }) => {
+    await signedIn.route(/\/api\/items\/\d+\/market-history$/, (route) =>
+      route.fulfill({
+        json: { by: "caliber", value: "7.62x54R", min_sample: 5, points: [] },
+      }),
+    );
+    await signedIn.goto("/?price_drops_only=true");
+    const cards = signedIn.locator(".item-card");
+    if ((await cards.count()) === 0) return;
+    await cards.first().click();
+    const chart = signedIn.getByTestId("price-chart");
+    await expect(chart).toBeVisible();
+    await expect(chart.locator(".price-chart__band")).toHaveCount(0);
+    await expect(chart).toContainText(
+      "Not enough weeks with 5 or more 7.62x54R firearms",
+    );
   });
 
   test("the description panel is shown when there is one", async ({ signedIn }) => {

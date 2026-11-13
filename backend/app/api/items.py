@@ -32,6 +32,7 @@ from ..schemas import (
     FacetValue,
     ItemDetail,
     ItemFacets,
+    ItemMarketHistoryOut,
     ItemOut,
     ItemOverrideIn,
     ItemOverrideOut,
@@ -39,6 +40,7 @@ from ..schemas import (
     ListingHabitOut,
     MakerLinkOut,
     MarketBandOut,
+    MarketHistoryPointOut,
     OfferOut,
     PhotoOut,
     PriceBucketOut,
@@ -158,7 +160,7 @@ def _checked_curio(wanted: list[str] | None) -> list[str] | None:
     """Refuse a curio state nothing knows, rather than ignoring it.
 
     Deliberately stricter than the ``kind`` filter beside it, which drops a
-    value it does not recognise. The failure modes are not comparable: a
+    value it does not recognize. The failure modes are not comparable: a
     mistyped kind returns more guns than were asked for, and a mistyped
     ``curio=eligble`` returns **every** listing -- including the ones that are
     not eligible -- to somebody filtering on exactly that because of what they
@@ -394,7 +396,7 @@ def _labelled(values: list[FacetValue]) -> list[FacetValue]:
     """Put a readable name on the finer-kind facet.
 
     The column stores FirearmKind's own values -- "percussion_revolver" -- and
-    the armory page already has the words for them. Labelled here rather than
+    the armory page already has the words for them. Labeled here rather than
     in the browser so the two pages cannot drift apart.
     """
     from .armory import KIND_LABELS
@@ -1212,6 +1214,39 @@ def price_history(item_id: int, _user: CurrentUser, session: DbSession) -> list[
         .all()
     )
     return [PricePointOut.model_validate(point) for point in points]
+
+
+@router.get("/{item_id}/market-history", response_model=ItemMarketHistoryOut | None)
+def market_history(
+    item_id: int, _user: CurrentUser, session: DbSession
+) -> ItemMarketHistoryOut | None:
+    """Guns like this one, week by week, to draw this listing's price against.
+
+    Null when there is no group to compare with -- not a firearm, or neither a
+    model nor a caliber. Its own endpoint, as price-position is, so the detail
+    page does not wait on a reconstruction over a whole model's price history.
+    """
+    item = session.get(Item, item_id)
+    if item is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such item.")
+    found = market.history_for(session, item)
+    if found is None:
+        return None
+    return ItemMarketHistoryOut(
+        by=found.by,
+        value=found.value,
+        min_sample=market.MIN_SAMPLE,
+        points=[
+            MarketHistoryPointOut(
+                week=point.week,
+                listings=point.listings,
+                low=point.low,
+                median=point.median,
+                high=point.high,
+            )
+            for point in found.points
+        ],
+    )
 
 
 @router.get("/{item_id}/similar", response_model=list[SimilarListingOut])

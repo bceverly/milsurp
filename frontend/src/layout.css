@@ -1088,11 +1088,79 @@
   overflow-y: auto;
 }
 
-/* Price history */
-.sparkline {
+/* Price history: the listing's own step line over its model's weekly band */
+.price-chart {
+  margin: 0 0 12px;
+}
+.price-chart svg {
   width: 100%;
-  height: 118px;
+  height: auto;
   display: block;
+  overflow: visible;
+}
+.price-chart__band {
+  fill: var(--silver-300);
+  opacity: 0.55;
+}
+.price-chart__median {
+  fill: none;
+  stroke: var(--ink-400);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+  vector-effect: non-scaling-stroke;
+}
+.price-chart__week {
+  fill: var(--ink-400);
+}
+.price-chart__own {
+  fill: none;
+  stroke: var(--navy-600);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.price-chart__own--down {
+  stroke: var(--green-600);
+}
+.price-chart__dot {
+  fill: var(--navy-600);
+}
+.price-chart__dot--down {
+  fill: var(--green-600);
+}
+.price-chart__axis {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--ink-500);
+  font-variant-numeric: tabular-nums;
+}
+.price-chart__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--ink-500);
+}
+.price-chart__key::before {
+  content: "";
+  display: inline-block;
+  width: 18px;
+  height: 0;
+  margin-right: 6px;
+  vertical-align: middle;
+  border-top: 2.5px solid var(--navy-600);
+}
+.price-chart__key--down::before {
+  border-top-color: var(--green-600);
+}
+.price-chart__key--market::before {
+  height: 8px;
+  border-top: 1.5px dashed var(--ink-400);
+  background: var(--silver-300);
 }
 
 .price-table {
