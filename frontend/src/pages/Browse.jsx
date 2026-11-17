@@ -4,7 +4,15 @@
  * Filter state lives in the URL query string rather than component state, so a
  * filtered view can be bookmarked, shared, and survives the back button.
  */
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api.js";
 import { useDebounced, useOptimisticSearchParams, useTitle } from "../hooks.js";
@@ -695,6 +703,7 @@ export default function Browse() {
   // Paging is the one change that must NOT clear the page, so it cannot go
   // through update(). Routing the pager through it set page=2 and then deleted
   // it on the very next line, which is why Next never advanced.
+  const scrollOnArrival = useRef(false);
   const goToPage = useCallback(
     (target) => {
       const next = new URLSearchParams(params);
@@ -704,14 +713,26 @@ export default function Browse() {
       else next.set("page", String(target));
       setParams(next);
 
-      // You click Next from the bottom of the grid, so without this the new
-      // page arrives already scrolled past its own first rows. Instant rather
-      // than smooth: the content underneath is being replaced as it animates,
-      // and a long page makes the scroll itself a wait.
-      window.scrollTo({ top: 0 });
+      // You click Next from the bottom of the grid, so the new page has to be
+      // shown from its top -- but only once it is there. Scrolling here, at
+      // the click, showed the top of the page just read for as long as the
+      // next one took to load, and then swapped it out from under the reader
+      // (2026-11-17). The scroll waits for the arrival; see below.
+      scrollOnArrival.current = true;
     },
     [params, setParams],
   );
+
+  // The other half of goToPage. A layout effect so the scroll lands in the
+  // same frame as the new rows: the reader never sees the bottom of the new
+  // page, nor the top of the old one. Instant rather than smooth, because the
+  // content is the thing that changed and a long page makes the scroll a wait.
+  // A failed load scrolls too, up to the error that says so.
+  useLayoutEffect(() => {
+    if (loading || !scrollOnArrival.current) return;
+    scrollOnArrival.current = false;
+    window.scrollTo({ top: 0 });
+  }, [loading, data]);
 
   const toggleMulti = useCallback(
     (param, value) => {
@@ -1239,10 +1260,10 @@ export default function Browse() {
             ))}
 
           {totalPages > 1 && (
-            <div className="pagination">
+            <div className="pagination" aria-busy={loading || undefined}>
               <button
                 className="btn btn--secondary btn--sm"
-                disabled={page <= 1}
+                disabled={page <= 1 || loading}
                 onClick={() => goToPage(page - 1)}
               >
                 <ChevronLeft size={16} />
@@ -1253,7 +1274,7 @@ export default function Browse() {
               </span>
               <button
                 className="btn btn--secondary btn--sm"
-                disabled={page >= totalPages}
+                disabled={page >= totalPages || loading}
                 onClick={() => goToPage(page + 1)}
               >
                 Next

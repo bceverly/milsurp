@@ -912,6 +912,17 @@
   margin-top: 26px;
   flex-wrap: wrap;
 }
+/* Room under the pager on a phone. The pager is the last thing on the page,
+   so at the end of a scroll it sat in the strip iOS Safari keeps for its
+   collapsed toolbar: the first tap there brings the toolbar back instead of
+   pressing the button, and Next took two taps (2026-11-17). Clear space below
+   it lets the page scroll the buttons up out of that strip; the inset adds
+   the home-indicator area on top. */
+@media (max-width: 768px) {
+  .pagination {
+    margin-bottom: calc(96px + env(safe-area-inset-bottom));
+  }
+}
 .pagination__status {
   font-size: 13.5px;
   color: var(--ink-500);

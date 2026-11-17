@@ -5759,6 +5759,19 @@ failed with nothing read. The site's bundle now calls `fetchDataByCategory_v6`
 and `fetchSKU_v2`, with the same parameters and the same answers; `_v6` adds a
 `sold` parameter that, left out, returns unsold stock as before.
 
+### Paging the inventory on a phone — **Fixed** 2026-11-17
+
+Two things the owner noticed. **Next jumped to the top of the page it was
+leaving**, showing listings already read until the next page replaced them a
+moment later: the scroll ran at the click. It now waits for the new page and
+lands in the same frame as its rows (`scrollOnArrival` and a layout effect in
+`Browse.jsx`), and the pager's buttons are disabled while the page loads, so a
+click visibly took and a second tap cannot skip a page. **On an iPhone, Next
+took two taps**: the pager was the last thing on the page, so at the end of a
+scroll it sat in the strip iOS Safari keeps for its collapsed toolbar, and the
+first tap there only brought the toolbar back. Every `.pagination` now has 96px
+plus the safe-area inset beneath it below 768px wide.
+
 ### DeLeon RX removed, and the canary's three regulars — **Fixed** 2026-11-16
 
 Since 2026-11-02 the nightly canary had failed on the same three shops nearly

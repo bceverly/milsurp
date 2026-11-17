@@ -573,6 +573,63 @@ test.describe("pagination", () => {
     await expect.poll(() => signedIn.evaluate(() => window.scrollY)).toBe(0);
   });
 
+  test("the old page stays put until the next one arrives", async ({ signedIn }) => {
+    // Scrolling at the click showed the top of the page just read while the
+    // next one loaded, then swapped it out (2026-11-17). Hold the next page's
+    // answer and check nothing moves until it lands.
+    await expect(signedIn.locator(".pagination__status")).toContainText("Page 1 of");
+    const firstTitle = await signedIn.locator(".item-card__title").first().textContent();
+    await expect
+      .poll(async () => {
+        await signedIn.evaluate(() =>
+          window.scrollTo(0, document.documentElement.scrollHeight),
+        );
+        return signedIn.evaluate(() => window.scrollY);
+      })
+      .toBeGreaterThan(0);
+
+    let release;
+    const held = new Promise((resolve) => {
+      release = resolve;
+    });
+    await signedIn.route(/\/api\/items\?.*page=2/, async (route) => {
+      await held;
+      await route.continue();
+    });
+
+    await signedIn.getByRole("button", { name: "Next" }).click();
+    await expect(signedIn).toHaveURL(/page=2/);
+    // Waiting: still where the reader was, still the page they were reading,
+    // and the pager shows it heard the click.
+    await expect(signedIn.getByRole("button", { name: "Next" })).toBeDisabled();
+    expect(await signedIn.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+    await expect(signedIn.locator(".item-card__title").first()).toHaveText(
+      firstTitle ?? "",
+    );
+
+    release();
+    await expect(signedIn.locator(".pagination__status")).toContainText("Page 2 of");
+    await expect.poll(() => signedIn.evaluate(() => window.scrollY)).toBe(0);
+    await expect(signedIn.locator(".item-card__title").first()).not.toHaveText(
+      firstTitle ?? "",
+    );
+  });
+
+  test("on a phone the pager has room beneath it", async ({ signedIn }) => {
+    // iOS Safari keeps the bottom strip of the screen for its collapsed
+    // toolbar: a pager sitting there took two taps (2026-11-17).
+    await signedIn.setViewportSize({ width: 390, height: 844 });
+    const pager = signedIn.locator(".pagination");
+    await expect(pager).toBeVisible();
+    const below = await pager.evaluate(
+      (el) =>
+        document.documentElement.scrollHeight -
+        el.getBoundingClientRect().bottom -
+        window.scrollY,
+    );
+    expect(below).toBeGreaterThanOrEqual(96);
+  });
+
   test("the buttons disable at each end", async ({ signedIn }) => {
     await expect(signedIn.getByRole("button", { name: "Previous" })).toBeDisabled();
     await signedIn.getByRole("button", { name: "Next" }).click();
