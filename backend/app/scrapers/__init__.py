@@ -48,7 +48,6 @@ from .collectors_firearms import CollectorsFirearmsScraper
 from .comers_gunworks import ComersGunworksScraper
 from .david_condon import DavidCondonScraper
 from .dbg_firearms import DbgFirearmsScraper
-from .deleon_rx import DeleonRxScraper
 from .demo import DemoScraper
 from .double_shotguns import DoubleShotgunsScraper
 from .dupage_trading import DupageTradingScraper
@@ -189,7 +188,6 @@ SCRAPER_CLASSES: tuple[type[SiteScraper], ...] = (
     FloridaGunsScraper,
     G4gGunsScraper,
     FriscoGunsScraper,
-    DeleonRxScraper,
     JamesRiverArmoryScraper,
     OctoberCountryScraper,
     AntiqueWeaponStoreScraper,

@@ -2073,6 +2073,8 @@ calibers:
   - https://en.wikipedia.org/wiki/12_mm_Lefaucheux
 - name: 11x17.8R
   status: approved
+- name: 11x42mm
+  status: pending
 - name: 11x52mm
   status: approved
   rejected_wikipedia:
@@ -2742,6 +2744,10 @@ calibers:
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.32_ACP
   bullet_diameter_in: 0.3125
+  reloading:
+    powder: Hodgdon HP38
+    charge_gr: 2.5
+    bullet_gr: 71.0
 - name: .32ACP
   status: merged
 - name: 32 ACP
@@ -11446,6 +11452,7 @@ models:
   - B-27
   - Browning B-27
   kind: shotgun
+  country: Belgium
   manufacturers:
   - Browning
   status: approved
@@ -12285,6 +12292,7 @@ models:
   - Station SIX45
   - SIX45
   kind: pistol
+  country: Switzerland
   manufacturers:
   - B&T
   status: approved
@@ -12293,6 +12301,7 @@ models:
   - Station SIX9
   - SIX9
   kind: pistol
+  country: Switzerland
   manufacturers:
   - B&T
   status: approved
@@ -13614,6 +13623,7 @@ models:
   aliases:
   - CD301M
   kind: shotgun
+  country: Italy
   manufacturers:
   - Chiappa
   status: approved
@@ -18642,6 +18652,7 @@ models:
   aliases:
   - CZ712
   kind: shotgun
+  country: Turkey
   manufacturers:
   - CZ
   status: approved
@@ -21676,6 +21687,8 @@ models:
   - Faxon Firearms
   capacity: 15
   status: approved
+- name: FD12
+  status: pending
 - name: FD 18
   status: pending
   enabled: false
@@ -22683,6 +22696,7 @@ models:
   - BDA9
   - FNH BDA9
   kind: pistol
+  country: Belgium
   manufacturers:
   - FN
   status: approved
@@ -23412,6 +23426,7 @@ models:
   - Armas Garbi Model 101
   - Garbi 101
   kind: shotgun
+  country: Spain
   status: approved
 - name: GARDONE VT 1940
   status: pending
@@ -25353,6 +25368,7 @@ models:
   - FEAR-118
   - FEAR 118
   kind: shotgun
+  country: Turkey
   status: approved
 - name: GRIP 5
   status: pending
@@ -26404,6 +26420,7 @@ models:
   - Harpers Ferry 1807
   - Harper's Ferry 1807
   kind: flintlock_pistol
+  country: United States
   manufacturers:
   - Pedersoli
   status: approved
@@ -26454,6 +26471,7 @@ models:
   aliases:
   - M150B
   kind: shotgun
+  country: United States
   manufacturers:
   - Hawthorne
   status: approved
@@ -29807,6 +29825,7 @@ models:
   - H&R TOPPER JR. MODEL 098
   - Topper Jr 490
   kind: shotgun
+  country: United States
   manufacturers:
   - Harrington & Richardson
   status: approved
@@ -30205,6 +30224,7 @@ models:
   - 4E SBT
   - Ithaca SBT
   kind: shotgun
+  country: United States
   manufacturers:
   - Ithaca
   status: approved
@@ -30443,6 +30463,7 @@ models:
   - JC Higgins Model 60
   - J.C. Higgins 60
   kind: shotgun
+  country: United States
   status: approved
 - name: JJ 9R
   status: pending
@@ -33373,6 +33394,7 @@ models:
   - Kamper KK1
   - KK1
   kind: shotgun
+  country: United States
   status: approved
 - name: KING 12
   status: pending
@@ -33740,6 +33762,7 @@ models:
   aliases:
   - Ljutic Industries LTX
   kind: shotgun
+  country: United States
   status: approved
 - name: Llama 1911
   status: approved
@@ -33758,6 +33781,8 @@ models:
 - name: LMWS308
   status: merged
   enabled: false
+- name: LNIB 19
+  status: pending
 - name: LNIB MODEL 47
   status: pending
   enabled: false
@@ -34242,6 +34267,8 @@ models:
 - name: M1873
   status: approved
   enabled: false
+- name: M1873/77
+  status: pending
 - name: M1874
   status: pending
   enabled: false
@@ -35861,6 +35888,8 @@ models:
   status: approved
   enabled: false
   notes: 'Disabled: identifies nothing on its own -- the Carcano M38, the Mosin M38 and the Swedish m/38.'
+- name: M380
+  status: pending
 - name: M38H
   status: approved
 - name: M4
@@ -36421,6 +36450,7 @@ models:
   - Golden 39A
   - Marlin Golden 39A
   kind: rifle
+  country: United States
   manufacturers:
   - Marlin
   status: approved
@@ -37563,6 +37593,7 @@ models:
   - Gebruder Merkel Model 201E
   - Merkel Suhl 201E
   kind: shotgun
+  country: Germany
   manufacturers:
   - Merkel
   status: approved
@@ -37600,6 +37631,7 @@ models:
   - MAC 2
   - MAC 2 Tactical
   kind: shotgun
+  country: Turkey
   manufacturers:
   - Military Armament Corp
   status: approved
@@ -38917,6 +38949,7 @@ models:
   - Vepr 12
   - VEPR12
   kind: shotgun
+  country: Russia
   status: approved
 - name: MOS 17R
   status: pending
@@ -42944,6 +42977,8 @@ models:
   calibers:
   - 9mm Luger
   status: approved
+- name: Palmetto Armory Model 1842
+  status: pending
 - name: Palmetto State Armory PA-10
   aliases:
   - PA10
@@ -44184,6 +44219,7 @@ models:
   - Remington R1
   - 1911 R1
   kind: pistol
+  country: United States
   manufacturers:
   - Remington
   status: approved
@@ -46351,6 +46387,7 @@ models:
   status: approved
 - name: Rossi M69
   kind: revolver
+  country: Brazil
   manufacturers:
   - Rossi
   status: approved
@@ -54411,6 +54448,7 @@ models:
   aliases:
   - LT36
   kind: shotgun
+  country: Turkey
   manufacturers:
   - Silver Eagle Arms
   status: approved
@@ -54472,6 +54510,8 @@ models:
   manufacturers:
   - Benelli
   status: approved
+- name: SLBX2
+  status: pending
 - name: SLE 12
   status: pending
   enabled: false
@@ -64613,6 +64653,7 @@ models:
   aliases:
   - M3000
   kind: shotgun
+  country: Turkey
   manufacturers:
   - Stoeger
   status: approved
@@ -64626,6 +64667,7 @@ models:
   aliases:
   - P350
   kind: shotgun
+  country: Turkey
   manufacturers:
   - Stoeger
   status: approved
@@ -67357,6 +67399,7 @@ models:
   - PT138
   - PT-138
   kind: pistol
+  country: Brazil
   manufacturers:
   - Taurus
   status: approved
@@ -68458,6 +68501,7 @@ models:
   - Ted Williams 300
   - Ted Williams Model 300
   kind: shotgun
+  country: United States
   status: approved
 - name: TF PIETTA 1873
   status: merged
@@ -69616,6 +69660,7 @@ models:
   - TT-15
   - Tristar TT15
   kind: shotgun
+  country: Turkey
   status: approved
 - name: TRP 1911
   status: merged
@@ -74102,6 +74147,7 @@ models:
   aliases:
   - SX4
   kind: shotgun
+  country: Portugal
   manufacturers:
   - Winchester
   status: approved
@@ -74467,6 +74513,8 @@ models:
   status: approved
 - name: XM177
   status: approved
+- name: XP-100
+  status: pending
 - name: XP365
   status: pending
   enabled: false
@@ -74969,6 +75017,7 @@ models:
   - ZP-5
   - ZP5
   kind: pistol
+  country: Turkey
   manufacturers:
   - Zenith Firearms
   status: approved

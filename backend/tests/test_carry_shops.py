@@ -1,5 +1,6 @@
-"""The carry shops added on 2026-10-20: Coreware's two storefronts, the
-WooCommerce distributor catalogs, and James River Armory's rifles."""
+"""The carry shops added on 2026-10-20: Coreware's search storefront, the
+WooCommerce distributor catalogs, and James River Armory's rifles. (Its older
+storefront went with DeLeon RX, removed on 2026-11-16.)"""
 
 from __future__ import annotations
 
@@ -7,7 +8,6 @@ import pytest
 
 from app.scrapers.base import ScrapedItem
 from app.scrapers.coreware_search import ScrapeError, search_settings
-from app.scrapers.deleon_rx import DeleonRxScraper
 from app.scrapers.g4g_guns import G4gGunsScraper
 from app.scrapers.james_river_armory import parse_product, product_ids
 from app.scrapers.locked_loaded import LockedLoadedScraper
@@ -58,60 +58,11 @@ class TestCorewareSearch:
         assert used.url == "https://lockedloaded.com/product-details?id=2"
 
 
-class TestCorewareStore:
-    def test_a_short_title_is_marked_short_and_the_caliber_read(self):
-        scraper = DeleonRxScraper()
-        record = {
-            "product_id": 194172,
-            "description": 'NAA SW250 Sidewinder  22 Mag 5rd 2.50" Stainless S...',
-            "manufacturer_name": "North American Arms",
-            "upc_code": "744253002694",
-            "sale_price": "354.15",
-            "remote_image": "49-14360798",
-            "product_detail_link": "/product/naa-sw250-sidewinder-22-mag-2.50-5-round",
-        }
-        item = scraper.item_from_record(record, {"category": "Revolvers", "id": 1751})
-        assert item.title == 'NAA SW250 Sidewinder 22 Mag 5rd 2.50" Stainless S'
-        assert item.title_truncated
-        assert (item.caliber, item.price, item.is_new) == (".22 WMR", 354.15, True)
-        assert item.image_urls == ["https://images.coreware.com/images/products/49-14360798.jpg"]
-
-    def test_used_by_section_or_title_and_only_carry_calibers(self):
-        scraper = DeleonRxScraper()
-        used = scraper.item_from_record(
-            {
-                "product_id": 1,
-                "description": "USED STAR 30M PISTOL 9MM",
-                "product_detail_link": "/p/x",
-            },
-            {"category": "Pistols", "id": 1719},
-        )
-        assert used.is_new is False
-        rifle = scraper.item_from_record(
-            {
-                "product_id": 2,
-                "description": "AR-15 Pistol 5.56 NATO",
-                "product_detail_link": "/p/y",
-            },
-            {"category": "Pistols", "id": 1719},
-        )
-        assert rifle is None
-
-
-def test_the_product_list_however_it_is_encoded():
-    from app.scrapers.coreware_store import product_rows
-
-    rows = [[194172, "219"], [194173, "220"]]
-    assert product_rows(rows) == rows
-    assert product_rows({"1": rows[1], "0": rows[0]}) == rows
-    assert product_rows(None) == []
-
-
 def test_a_cut_short_title_keeps_the_whole_one(clean_db):
     from app.models import Site
     from app.services import scan_service
 
-    site = Site(slug="deleon-rx", name="DeLeon RX", base_url="https://d.test/")
+    site = Site(slug="carry-shop", name="Carry Shop", base_url="https://d.test/")
     clean_db.add(site)
     clean_db.commit()
 
@@ -187,97 +138,3 @@ class TestJamesRiverArmory:
         ]
         gone = parse_product(page.replace("ty-qty-in-stock", "ty-qty-out-of-stock"), "211", "u")
         assert gone.is_sold
-
-
-class FakeContext:
-    """Just enough of ScrapeContext for the older-Coreware walk."""
-
-    def __init__(self, pages, refuse=()):
-        self.pages, self.refuse = pages, set(refuse)
-        self.asked, self.warnings, self.unread = [], [], set()
-
-    def keep_at_least(self, *_args):
-        pass
-
-    def check_stop(self):
-        pass
-
-    def log(self, _message):
-        pass
-
-    def warn(self, message):
-        self.warnings.append(message)
-
-    def not_read(self, category):
-        self.unread.add(category)
-
-    def needs_detail(self, _key):
-        return True
-
-    def get_text(self, url, **_kwargs):
-        self.asked.append(url)
-        if any(part in url for part in self.refuse):
-            raise ScrapeError(f"GET {url}: 403", status=403)
-        for part, text in self.pages.items():
-            if part in url:
-                return text
-        return "<h1 id='_product_description'>Whole title</h1>"
-
-
-def product_list(*ids):
-    import json
-
-    rows = [[i, f"Glock 19 9mm Gen5 number {i}...", f"/product/glock-19-9mm-{i}"] for i in ids]
-    return json.dumps(
-        {
-            "product_field_names": ["product_id", "description", "product_detail_link"],
-            "product_results": rows,
-        }
-    )
-
-
-class TestGentleWithTheOlderStorefront:
-    """Both shops refused us after two hours of product pages (2026-10-21)."""
-
-    def scraper(self, **attrs):
-        scraper = DeleonRxScraper()
-        scraper.sources = ({"category": "Pistols", "id": 1}, {"category": "Revolvers", "id": 2})
-        for name, value in attrs.items():
-            setattr(scraper, name, value)
-        return scraper
-
-    def test_at_most_so_many_product_pages_a_scan(self):
-        ctx = FakeContext(
-            {
-                "product_category_id=1": product_list(1, 2, 3, 4),
-                "product_category_id=2": product_list(),
-            }
-        )
-        items = list(self.scraper(max_details_per_scan=2).scrape(ctx))
-        assert len(items) == 4
-        assert [i.title_truncated for i in items] == [False, False, True, True]
-        assert sum("/product/" in url for url in ctx.asked) == 2
-
-    def test_the_first_refusal_ends_the_product_pages(self):
-        ctx = FakeContext(
-            {
-                "product_category_id=1": product_list(1, 2, 3),
-                "product_category_id=2": product_list(),
-            },
-            refuse=("glock-19-9mm-1",),
-        )
-        items = list(self.scraper().scrape(ctx))
-        assert len(items) == 3
-        assert sum("/product/" in url for url in ctx.asked) == 1
-        assert any("no more product pages" in w for w in ctx.warnings)
-
-    def test_an_unreadable_list_is_a_gap_not_a_failure(self):
-        ctx = FakeContext(
-            {"product_category_id=1": product_list(1)}, refuse=("product_category_id=2",)
-        )
-        items = list(self.scraper().scrape(ctx))
-        assert [i.external_key for i in items] == ["cws-1"]
-        assert ctx.unread == {"Revolvers"}
-        everything_refused = FakeContext({}, refuse=("product_category_id",))
-        with pytest.raises(ScrapeError):
-            list(self.scraper().scrape(everything_refused))

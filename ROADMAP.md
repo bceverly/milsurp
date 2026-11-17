@@ -103,7 +103,7 @@ the whole catalog as JSON to the widget that draws the grid. See
 | [The Gun Works](https://thegunworks.com/product-category/custom-and-production-guns/) | `the-gun-works` | WooCommerce Store API — Oregon muzzleloading shop: custom flintlock and percussion rifles and pistols, used customs and originals, new Traditions, Lyman and Uberti rifles, pistols and revolvers; ~80. Parts, kits, inlines and shotguns left out |
 | [Locked & Loaded](https://lockedloaded.com/product-category-group/handguns) | `locked-loaded` | Coreware, Meilisearch catalog (`coreware_search`) — in-stock handguns in the carry calibers, ~2,250, nearly all a distributor's new guns |
 | [Florida Guns](https://www.floridaguns.com/product-category-group/handguns) | `florida-guns` | Coreware, Meilisearch catalog — as Locked & Loaded; 29 handguns in the shop itself |
-| [DeLeon RX Guns and Ammo](https://deleonrxgunsandammo.com/product-category-group/handguns) | `deleon-rx` | Coreware's older storefront (`coreware_store`) — pistols, revolvers and used guns in the carry calibers; titles cut at 50 characters, the whole one read from the product page, at most 400 a scan; 66 handguns in the store itself |
+| ~~DeLeon RX Guns and Ammo~~ | ~~`deleon-rx`~~ | **Dead — removed 2026-11-16.** Answered 403 to every request, home page included, from 2026-11-11, after nine days of refusing product pages. Scraper, the `coreware_store` base it alone used, fixtures and 4,607 listings removed. Not to be re-added unless the shop agrees to allow this application |
 | [G4G Guns](https://g4gguns.com/) | `g4g-guns` | WooCommerce Store API (`woo_carry`) — a distributor's catalog; in-stock handguns in the carry calibers |
 | [Frisco Guns](https://friscoguns.com/) | `frisco-guns` | WooCommerce Store API (`woo_carry`) — as G4G; its "DEMO" guns read as used |
 | [James River Armory](https://www.jamesriverarmory.com/index.php?dispatch=categories.view&category_id=27) | `james-river-armory` | CS-Cart — "Available Firearms", 11: M14s, BM-59s and BM-62s, Yugoslav M72s, a Galil, Civil War reproductions; every product page read every scan |
@@ -5639,7 +5639,7 @@ and add a search for new versus used", and James River Armory "for rifles".
 | --- | --- |
 | Locked & Loaded, Florida Guns | **Shipped.** Coreware with a Meilisearch catalog and a search-only key on the page; complete records (caliber, capacity, UPC, stock), no product page needed |
 | Battlehawk Armory | **Not viable** (2026-10-21). Built and scanned once; it blocked this connection after the first scan's two hours of product pages and still refused every page but robots.txt eight hours later. Removed: the scraper, its fixtures and its site row, and its 3,687 listings deleted. Not to be re-added unless the shop agrees to allow this application |
-| DeLeon RX | **Shipped.** Coreware's older storefront; `get_products` answers a whole category as JSON |
+| DeLeon RX | **Shipped**, then **dead** (removed 2026-11-16): it blocked this connection for good on 2026-11-11. See *DeLeon RX removed* above |
 | G4G Guns, Frisco Guns | **Shipped.** WooCommerce Store API; distributor SKUs (Lipsey's, RSR, Kroll, CSSI) |
 | James River Armory | **Shipped.** CS-Cart, eleven rifles, no bot protection |
 | Dahlonega Armory | **Refused.** robots.txt disallows `?page=` and every filter for crawlers like this one, so only the first 48 of 4,356 handguns could be read; its used page lists nothing |
@@ -5758,6 +5758,47 @@ and `fetchSKU_Inventory` began answering 404 on every shelf, and the scan
 failed with nothing read. The site's bundle now calls `fetchDataByCategory_v6`
 and `fetchSKU_v2`, with the same parameters and the same answers; `_v6` adds a
 `sold` parameter that, left out, returns unsold stock as before.
+
+### DeLeon RX removed, and the canary's three regulars — **Fixed** 2026-11-16
+
+Since 2026-11-02 the nightly canary had failed on the same three shops nearly
+every morning, each for a different reason, and only one of them broken.
+
+**DeLeon RX blocked us.** From 2026-11-02 every scan had product pages
+refused (403) and finished PARTIAL; from 2026-11-11 the shop answered 403 to
+every request, its home page included, from production and from the
+development machine alike. Only robots.txt still answered. Six scans failed in
+a row with "No category list could be read", and the canary called it BROKE
+rather than REFUSED, because the scraper folded each 403 into a warning and
+raised a plain error. Its 4,215 listings still read as for sale, unseen since
+2026-11-10. As with Battlehawk on 2026-10-21, it was taken as having blocked
+us for good and removed on the owner's word ("remove deleon completely"):
+4,607 listings deleted rather than de-listed, with their price history, 113
+hot deals and 82 saved-search alert records, and 7,396 photo files (432 MB)
+pruned. Nobody had watched, wished for or collected one. The scraper went too,
+with `coreware_store`, the older-Coreware base it was the last user of, and
+its recorded fixture. The site row was switched off at once and is deleted
+after this build is installed, once the start has marked it unavailable:
+deleting it while the scraper was registered would have had the next start
+add it back, switched on.
+
+**eBayonet timed out against the canary's stopwatch, not the shop.** Its
+reader fetches the whole catalog and resolves every photograph before it
+builds the first listing, which took 68s to 127s in that fortnight's scans,
+all of them successful; the canary allows 90s. It now has
+`canary_budget = 240`, as GunPrime does for the same reason.
+
+**Kittery Trading Post read empty at about 06:30 UTC only.** The canary found
+nothing in about a second every morning from 2026-11-02, while every afternoon
+scan read about 770 listings and the same probe run by hand, alone or after the
+shops before it in the sweep, passed. No release went out between the last
+good morning and the first bad one, so it is taken to be the shop, at that
+hour -- maintenance, most likely. Moving the shop's scan would not test that:
+the scans already run in the afternoon and pass, and the canary probes every
+shop from one timer whatever its scan time. So the timer moved instead, four
+hours later, from 06:10 to 10:10 UTC (05:10 Eastern): past the small hours
+everywhere in the country, still before anyone's working day, and still clear
+of the 03:10 backup and the 04:20 image prune.
 
 ### Every used shotgun — **Shipped** 2026-11-06
 
@@ -8636,7 +8677,7 @@ on PostgreSQL.
   meant to be read once a night.
 - **Shipped** — A nightly canary against every enabled site, which fails loudly
   when a vendor stops answering *or* when its markup moves. `milsurp canary`,
-  `make canary`, and `milsurp-canary.timer` at 06:10.
+  `make canary`, and `milsurp-canary.timer` at 10:10 UTC (06:10 until 2026-11-16).
 
   The probe is the real scrape, stopped after three listings. A scraper is a
   generator, so consuming three and breaking closes it where it stands — which

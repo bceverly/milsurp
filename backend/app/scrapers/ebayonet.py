@@ -191,6 +191,12 @@ class EBayonetScraper(SiteScraper):
     )
     requires_browser = False
     default_interval_minutes = 1440
+    #: :meth:`scrape` returns a list: the whole catalog and every photograph's
+    #: address are read before the first listing is built. So the canary cannot
+    #: stop at listing three, and the full read took 68s to 127s in the scans
+    #: of 2026-11-01 to 11-16 -- against the canary's 90s default, which it
+    #: missed seven mornings that month while every scan succeeded.
+    canary_budget = 240.0
 
     # -- talking to WordPress ------------------------------------------------
     def _json(self, ctx: ScrapeContext, url: str) -> Any:

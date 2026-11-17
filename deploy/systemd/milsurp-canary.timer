@@ -9,14 +9,20 @@ Description=Milsurp Monitor — check every shop still answers, daily
 Documentation=https://github.com/bceverly/milsurp
 
 [Timer]
-# Early, and clear of 04:20 where the image prune runs: the two share a disk
-# and there is no reason to make them argue over it. Early also means the mail
+# Clear of 04:20 where the image prune runs: the two share a disk and there is
+# no reason to make them argue over it. Before the working day, so the mail
 # about a shop that went quiet overnight is waiting rather than arriving mid-
 # afternoon.
-OnCalendar=*-*-* 06:10:00
+#
+# 10:10 UTC (05:10 Eastern) since 2026-11-16; it was 06:10. Kittery Trading
+# Post read empty to the canary at about 06:30 UTC every morning from
+# 2026-11-02 and nowhere else in the day -- a shop's overnight maintenance,
+# most likely, and 01:30 Eastern is when a US shop would schedule one. Four
+# hours later is past the small hours everywhere in the country.
+OnCalendar=*-*-* 10:10:00
 # Jitter, so a fleet of these does not arrive at twenty-eight shops together.
 RandomizedDelaySec=20min
-# A machine asleep or switched off at 06:10 runs the check when it next comes
+# A machine asleep or switched off at 10:10 runs the check when it next comes
 # up, rather than skipping a day silently — which is the exact failure the
 # canary exists to prevent, applied to the canary itself.
 Persistent=true

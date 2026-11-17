@@ -546,7 +546,8 @@ class ScrapeContext:
             raise HostResting(url, resting)
         timeout = kwargs.pop("timeout", self.scraping.request_timeout)
         # Fewer tries for a request whose caller would rather move on: a
-        # product page a shop has started refusing (coreware_store, 2026-10-21).
+        # product page a shop has started refusing (added for DeLeon RX's
+        # storefront, 2026-10-21; the shop was removed on 2026-11-16).
         attempts = int(kwargs.pop("retries", None) or self.scraping.max_retries)
         # Taken once, outside the retry loop, so a retry sends the same thing.
         headers = {**self._agent_header(url), **(kwargs.pop("headers", None) or {})}

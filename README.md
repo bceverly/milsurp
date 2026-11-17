@@ -510,7 +510,7 @@ sudo journalctl -u milsurp -f
 | Database | `/etc/milsurp/milsurp.db` (mode 0640) |
 | Photos | `/etc/milsurp/images` (mode 0700) |
 | Service | `milsurp`, hardened systemd unit, restarts on failure |
-| Timers | `milsurp-prune.timer` 04:20 (orphaned images), `milsurp-canary.timer` 06:10 (shops still answering) |
+| Timers | `milsurp-prune.timer` 04:20 (orphaned images), `milsurp-canary.timer` 10:10 UTC (shops still answering) |
 | Logs | `journalctl -u milsurp` |
 
 The nginx config ships with TLS 1.2/1.3 only, HSTS, a strict CSP, OCSP stapling

@@ -233,10 +233,11 @@ class TestTheSweep:
         canary.sweep(config, ["x"], budget=canary.DEFAULT_BUDGET)
         assert seen == [240.0]
 
-    def test_and_gunprime_does(self):
+    @pytest.mark.parametrize("slug", ["gunprime", "ebayonet"])
+    def test_and_the_shops_that_read_everything_first_do(self, slug):
         from app.scrapers import get_scraper
 
-        scraper = get_scraper("gunprime")
+        scraper = get_scraper(slug)
         assert scraper is not None
         assert (scraper.canary_budget or 0) > canary.DEFAULT_BUDGET
 

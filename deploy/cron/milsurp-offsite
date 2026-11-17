@@ -24,7 +24,7 @@ KEEP=10
 
 # The database and the config, nightly at 03:10.
 #
-# Clear of the image prune at 04:20 and the canary at 06:10: three jobs
+# Clear of the image prune at 04:20 and the canary at 10:10: three jobs
 # arriving together on one disk is how a backup comes to time out.
 10 3 * * *  milsurp  NAS_PATH=/zfs-pool/backup/milsurp milsurp-offsite >> /var/log/milsurp-offsite.log 2>&1
 
