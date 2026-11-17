@@ -236,6 +236,19 @@ else
   skip "pip-audit not installed (pip install pip-audit)"
 fi
 
+# Advisories with no fixed release to move to, excused until a date, each as
+# GHSA-id:last-day-excused. Keep the list short and the reason beside each one.
+# An exception with no end date is how a scan stops meaning anything, so these
+# lapse on their own and the scan fails again, saying why.
+#
+# GHSA-fc5q-39xc-vjpf, picomatch ReDoS (added 2026-11-17): every release through
+# 4.0.7, the newest, is affected, so there is nothing to upgrade to. It is
+# reached only through vite at build time, with glob patterns from our own
+# config, and none of it ships to the browser. Drop it once picomatch has a fix.
+NPM_AUDIT_EXCEPTIONS=(
+  "GHSA-fc5q-39xc-vjpf:2026-12-15"
+)
+
 if [ -d frontend/node_modules ]; then
   if (cd frontend && npm audit --audit-level=high) >"$REPORTS/npm-audit.txt" 2>&1; then
     ok "npm audit: no high-severity vulnerabilities"
@@ -252,10 +265,22 @@ if [ -d frontend/node_modules ]; then
   elif grep -qi "audit endpoint returned an error\|ENOTFOUND\|ECONNREFUSED\|ETIMEDOUT\|network" \
          "$REPORTS/npm-audit.txt"; then
     skip "npm audit could not reach the registry — not a finding, try again later"
+  # Something high-severity was found. Before failing, check it against the
+  # advisories excused until a date (see scripts/npm_audit_exceptions.py): it
+  # passes only when every finding traces back to one of those.
   else
-    bad "npm audit found vulnerable packages — see $REPORTS/npm-audit.txt"
-    tail -20 "$REPORTS/npm-audit.txt" | sed 's/^/    /'
-    AUDIT_FAILED=1
+    (cd frontend && npm audit --json) >"$REPORTS/npm-audit.json" 2>/dev/null
+    if [ -n "$PY" ] && "$PY" scripts/npm_audit_exceptions.py "$REPORTS/npm-audit.json" \
+         "${NPM_AUDIT_EXCEPTIONS[@]}" >"$REPORTS/npm-audit-exceptions.txt" 2>&1; then
+      ok "npm audit: nothing high-severity beyond the dated exceptions"
+      sed 's/^/    /' "$REPORTS/npm-audit-exceptions.txt"
+    else
+      bad "npm audit found vulnerable packages — see $REPORTS/npm-audit.txt"
+      [ -s "$REPORTS/npm-audit-exceptions.txt" ] \
+        && sed 's/^/    /' "$REPORTS/npm-audit-exceptions.txt"
+      tail -20 "$REPORTS/npm-audit.txt" | sed 's/^/    /'
+      AUDIT_FAILED=1
+    fi
   fi
 else
   skip "frontend/node_modules missing"

@@ -5759,6 +5759,32 @@ failed with nothing read. The site's bundle now calls `fetchDataByCategory_v6`
 and `fetchSKU_v2`, with the same parameters and the same answers; `_v6` adds a
 `sold` parameter that, left out, returns unsold stock as before.
 
+### picomatch's ReDoS advisory, excused until 2026-12-15 — **Open**
+
+GHSA-fc5q-39xc-vjpf (published 2026-11-17) is a ReDoS in picomatch through
+single-branch repeated extglobs, and it covers every release through 4.0.7, the
+newest. npm audit counts it six times, once for each package that leads to it:
+picomatch, fdir, tinyglobby, vite, `@vitejs/plugin-react` and
+`vite-plugin-istanbul`. That failed CI's security job with nothing to upgrade
+to; `npm audit fix --force` offers vite 6.2.7, which is a downgrade and still
+ships picomatch.
+
+The exposure is close to nil. picomatch runs only inside vite, at build time
+and in the dev server, on glob patterns from our own config. None of it reaches
+the browser bundle or sees anything a visitor sends.
+
+`scripts/security.sh` now keeps a list of dated exceptions
+(`NPM_AUDIT_EXCEPTIONS`, as GHSA-id:last-day). When `npm audit` fails,
+`scripts/npm_audit_exceptions.py` traces each high or critical finding back to
+the advisories under it. The scan passes only if every one of those has a live
+exception. Any other advisory still fails it, even one in the same dependency
+chain. An exception stops working after its date, and the scan fails again,
+saying which exception lapsed.
+
+**To close:** when picomatch publishes a fixed release, run `npm update` in
+`frontend/` and remove the line from `NPM_AUDIT_EXCEPTIONS`. If there is still no
+fix by 2026-12-15, the scan goes red, and it's time to look again on purpose.
+
 ### Paging the inventory on a phone — **Fixed** 2026-11-17
 
 Two things the owner noticed. **Next jumped to the top of the page it was
