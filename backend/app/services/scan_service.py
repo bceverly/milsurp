@@ -850,6 +850,11 @@ def _reconcile_photos(session: Session, item: Item, scraped: ScrapedItem, slug: 
     if not scraped.image_urls:
         return
 
+    # A gallery that lists one picture twice -- Simpson Ltd.'s did, on
+    # 2026-11-09, and every scan of the shop died on uq_photo_item_source
+    # until 2026-11-18 -- is one photo. The first place it appears is its
+    # position; the repeat is dropped before anything is compared or inserted.
+    urls = list(dict.fromkeys(scraped.image_urls))
     preview_only = not scraped.images_are_complete
     stored = sorted(item.photos, key=lambda photo: photo.position)
 
@@ -857,7 +862,7 @@ def _reconcile_photos(session: Session, item: Item, scraped: ScrapedItem, slug: 
     # no row to insert, none to prune, and every file already downloaded is
     # still the right one. Returning early keeps a re-scan of an unchanged
     # catalog from generating any image work at all.
-    if scraped.image_urls == [photo.source_url for photo in stored]:
+    if urls == [photo.source_url for photo in stored]:
         return
 
     # A catalog-grid preview knows one photo and nothing about the rest, so it
@@ -867,7 +872,7 @@ def _reconcile_photos(session: Session, item: Item, scraped: ScrapedItem, slug: 
 
     by_url = {photo.source_url: photo for photo in stored}
     added = False
-    for position, url in enumerate(scraped.image_urls):
+    for position, url in enumerate(urls):
         existing_photo = by_url.pop(url, None)
         if existing_photo is None:
             session.add(ItemPhoto(item_id=item.id, source_url=url, position=position))
@@ -1852,6 +1857,14 @@ def run_scan(  # noqa: PLR0912,PLR0915 - one linear scan lifecycle; see ROADMAP
                 log(f"Scan did not ask: {run.error_message}")
                 log(f"Trying again in about {max(exc.seconds, 0) / 60:.0f} minute(s).")
             except (ScrapeError, Exception) as exc:
+                # A database error leaves the session unusable until it is
+                # rolled back, and without this the commit in ``finally``
+                # raised again: the FAILED verdict was never stored, and the
+                # run sat at "running" for hours until the reaper abandoned it.
+                # Every listing reconciled before the error is already
+                # committed -- the loop commits as it goes -- so nothing kept
+                # is lost here.
+                session.rollback()
                 run.status = ScanStatus.FAILED
                 run.error_message = f"{type(exc).__name__}: {exc}"
                 log(f"Scan failed: {run.error_message}")

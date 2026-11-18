@@ -561,6 +561,31 @@ class TestPhotos:
         urls = {p.source_url for p in clean_db.execute(select(ItemPhoto)).scalars().all()}
         assert urls == {"https://fake.test/1.jpg", "https://fake.test/2.jpg"}
 
+    def test_a_gallery_that_lists_a_photo_twice_keeps_one(self, fake_site, clean_db):
+        """Simpson Ltd., 2026-11-09 to 11-18: one listing's gallery named the
+        same picture twice, and the second insert broke uq_photo_item_source
+        on every scan of the shop.
+
+        ScrapedItem drops repeats when it is built, but a scraper that sets
+        the gallery afterward -- Simpson's detail pass, and a dozen others --
+        never passes through that, so it is assigned afterward here too.
+        """
+        one, two = "https://fake.test/1.jpg", "https://fake.test/2.jpg"
+        item = listing("a")
+        item.image_urls = [one, two, one]
+        FakeScraper.payload = [item]
+        run = clean_db.get(ScanRun, scan_service.run_scan(fake_site.id))
+        assert run.status == ScanStatus.SUCCESS
+        photos = sorted(
+            clean_db.execute(select(ItemPhoto)).scalars().all(), key=lambda p: p.position
+        )
+        assert [(p.position, p.source_url) for p in photos] == [(0, one), (1, two)]
+
+        # And again on the next scan, with both rows already stored.
+        run = clean_db.get(ScanRun, scan_service.run_scan(fake_site.id))
+        assert run.status == ScanStatus.SUCCESS
+        assert len(clean_db.execute(select(ItemPhoto)).scalars().all()) == 2
+
 
 class TestFailures:
     def test_scraper_error_fails_the_run(self, fake_site, clean_db):
@@ -568,6 +593,29 @@ class TestFailures:
         run = clean_db.get(ScanRun, scan_service.run_scan(fake_site.id))
         assert run.status == ScanStatus.FAILED
         assert "vendor returned 503" in run.error_message
+
+    def test_a_database_error_still_records_the_failure(self, fake_site, clean_db, monkeypatch):
+        """An error that breaks the session must not leave the run "running".
+
+        It did, for Simpson Ltd.: the commit in the scan's ``finally`` raised
+        again on the dead transaction, the FAILED verdict was never stored,
+        and each run sat for hours until the reaper abandoned it.
+        """
+
+        def breaks_the_session(session, item, scraped, slug):
+            for _ in range(2):
+                session.add(ItemPhoto(item_id=item.id, source_url="https://fake.test/x.jpg"))
+            session.flush()
+
+        monkeypatch.setattr(scan_service, "_reconcile_photos", breaks_the_session)
+        FakeScraper.payload = [listing("a", image_urls=["https://fake.test/x.jpg"])]
+        run_id = scan_service.run_scan(fake_site.id)
+
+        clean_db.expire_all()
+        run = clean_db.get(ScanRun, run_id)
+        assert run.status == ScanStatus.FAILED
+        assert "IntegrityError" in run.error_message
+        assert run.finished_at is not None
 
     def test_a_warning_downgrades_to_partial(self, fake_site, clean_db):
         FakeScraper.payload = [listing("a")]

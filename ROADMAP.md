@@ -5759,6 +5759,32 @@ failed with nothing read. The site's bundle now calls `fetchDataByCategory_v6`
 and `fetchSKU_v2`, with the same parameters and the same answers; `_v6` adds a
 `sold` parameter that, left out, returns unsold stock as before.
 
+### Simpson Ltd.'s nine days of failed scans — **Fixed** 2026-11-18
+
+Every Simpson Ltd. scan from 2026-11-09 failed the same way: about 6,250
+listings in, `IntegrityError` on `uq_photo_item_source`. One listing (SKU
+C64009) has a gallery on the shop's SKU API that names the same photograph
+twice. `ScrapedItem` drops repeated photo URLs when it is built, but Simpson's
+detail pass sets `image_urls` afterward, and about a dozen other scrapers do
+too, so the repeat reached `_reconcile_photos`. The second copy was inserted
+as a new row. **`_reconcile_photos` now drops repeats itself**, keeping each
+URL at the first place it appears, so it no longer depends on how a scraper
+filled in the list.
+
+That was made worse by a second bug. The scan's general `except` did not roll
+the session back, so the `commit()` in its `finally` raised again on the dead
+transaction. The FAILED verdict was never stored, and each run sat at
+"running" until the reaper abandoned it hours later ("ran for 384 minute(s)",
+"the process running it is gone"). **The handler now rolls back first.**
+Listings reconciled before an error were already committed, so nothing kept
+is lost.
+
+The same morning, the house's Internet connection dropped DNS from about
+10:32 to 12:10 UTC. The last fifteen shops in the 10:10 canary failed
+(robots.txt could not be fetched), the canary could not send its own email,
+and about a dozen scheduled scans in that window failed or came back partial.
+Nothing was de-listed, and they recovered without any action from 13:00 on.
+
 ### picomatch's ReDoS advisory, excused until 2026-12-15 — **Open**
 
 GHSA-fc5q-39xc-vjpf (published 2026-11-17) is a ReDoS in picomatch through
