@@ -101,8 +101,8 @@ the whole catalog as JSON to the widget that draws the grid. See
 | [Track of the Wolf](https://www.trackofthewolf.com/parts/list/2584/1) | `track-of-the-wolf` | Custom — six flintlock and percussion sections paged by path, ~50 antiques, customs and used Pedersolis |
 | [Comer's Gunworks](https://www.comersgunworks.com/catalog/black-powder-weapons-and-defarbing) | `comers-gunworks` | Custom — Black Powder Weapons, ~65 reproductions and a few originals; defarbing services left out |
 | [The Gun Works](https://thegunworks.com/product-category/custom-and-production-guns/) | `the-gun-works` | WooCommerce Store API — Oregon muzzleloading shop: custom flintlock and percussion rifles and pistols, used customs and originals, new Traditions, Lyman and Uberti rifles, pistols and revolvers; ~80. Parts, kits, inlines and shotguns left out |
-| [Locked & Loaded](https://lockedloaded.com/product-category-group/handguns) | `locked-loaded` | Coreware, Meilisearch catalog (`coreware_search`) — in-stock handguns in the carry calibers, ~2,250, nearly all a distributor's new guns |
-| [Florida Guns](https://www.floridaguns.com/product-category-group/handguns) | `florida-guns` | Coreware, Meilisearch catalog — as Locked & Loaded; 29 handguns in the shop itself |
+| [Locked & Loaded](https://www.lockedloaded.com/category.php?cat=handguns) | `locked-loaded` | Its own storefront since November 2026, read from the gun.deals price feed (`/gun-deals-feed.php`, one 42 MB request) — in-stock handguns in the carry calibers, ~4,360, nearly all a distributor's new guns. Coreware's Meilisearch catalog until 2026-11-18 |
+| [Florida Guns](https://www.floridaguns.com/product-category-group/handguns) | `florida-guns` | Coreware, Meilisearch catalog (`coreware_search`) — as Locked & Loaded was until 2026-11-18; 29 handguns in the shop itself |
 | ~~DeLeon RX Guns and Ammo~~ | ~~`deleon-rx`~~ | **Dead — removed 2026-11-16.** Answered 403 to every request, home page included, from 2026-11-11, after nine days of refusing product pages. Scraper, the `coreware_store` base it alone used, fixtures and 4,607 listings removed. Not to be re-added unless the shop agrees to allow this application |
 | [G4G Guns](https://g4gguns.com/) | `g4g-guns` | WooCommerce Store API (`woo_carry`) — a distributor's catalog; in-stock handguns in the carry calibers |
 | [Frisco Guns](https://friscoguns.com/) | `frisco-guns` | WooCommerce Store API (`woo_carry`) — as G4G; its "DEMO" guns read as used |
@@ -5758,6 +5758,47 @@ and `fetchSKU_Inventory` began answering 404 on every shelf, and the scan
 failed with nothing read. The site's bundle now calls `fetchDataByCategory_v6`
 and `fetchSKU_v2`, with the same parameters and the same answers; `_v6` adds a
 `sold` parameter that, left out, returns unsold stock as before.
+
+### Locked & Loaded moved off Coreware — **Changed** 2026-11-18
+
+The 2026-11-18 rescan failed with "The page no longer publishes
+MEILISEARCH_INDEX_NAME, MEILISEARCH_SEARCH_API_KEY, MEILISEARCH_URL." The shop
+has left Coreware for a storefront of its own at `www.lockedloaded.com`
+(robots.txt: "Coreware -> Trinity cutover", 2026-09-29). Its category pages are
+plain HTML, 48 products a page, but robots.txt disallows `?page=` and `&page=`
+for every crawler except Googlebot and Bingbot, so only the first page of each
+category may be read.
+
+The scraper now reads the shop's price feed for gun.deals,
+`/gun-deals-feed.php`, which robots.txt leaves open to everyone but Googlebot.
+It's one XML document of every in-stock product: 69,459 offers and 42 MB, of
+which 13,718 are firearms with their type, caliber, price, UPC, brand, one
+photo and shipping. One request a scan replaces the Meilisearch walk, and it
+finds 4,363 in-stock handguns and revolvers in the carry calibers.
+
+* **Hidden prices are kept.** About one firearm in five has `hide="MAP"`,
+  `"Email for price"` or `"Add to Cart for best price"` on its `<price>`. The
+  shop sends that price to gun.deals for listing, so it is the published
+  price, as with the Magento shops' offer prices.
+* **The feed is parsed with entity resolution and network access off**
+  (lxml, `resolve_entities=False, no_network=True`). A test checks that an
+  external entity in the feed is never read.
+* **`ScrapeContext.get_text` takes `encoding=`.** Guessing the encoding of a
+  42 MB document reads all of it first. The feed declares UTF-8, and the
+  scraper says so.
+* **New keys, `ll-<path>`.** The feed has no product id, and the new site
+  renumbered everything. Its redirects from old links land on near neighbors,
+  not the same gun (an old "Shadow 2 Target" lands on a "Shadow 2"), so they
+  can't carry a listing over. The 2,754 listings stored under the old `cw-`
+  keys can't be matched to new ones. The first scan finds none of them, the
+  shrink guard holds them, and it finishes partial. **After deploying, run
+  one scan with de-listing accepted**, either "Scan and accept de-listing" on
+  the Sites page or `cli.py scan --site locked-loaded --accept-delist`. The
+  4,363 arrive as new listings once, and digests cap what they show.
+
+`coreware_search` stays for Florida Guns, which is still on Coreware. Its
+tests now use Florida Guns, and the recording under
+`backend/tests/fixtures/locked-loaded/` is a trimmed copy of the feed.
 
 ### Simpson Ltd.'s nine days of failed scans — **Fixed** 2026-11-18
 

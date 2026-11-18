@@ -658,9 +658,16 @@ class ScrapeContext:
             + (f" (it asked for {stated:.0f}s)" if stated else "")
         )
 
-    def get_text(self, url: str, **kwargs: Any) -> str:
+    def get_text(self, url: str, *, encoding: str | None = None, **kwargs: Any) -> str:
+        """The response as text, in ``encoding`` when the caller knows it.
+
+        Otherwise the encoding is guessed from the bytes, which is right for
+        the shops that mislabel their pages and slow on a large document:
+        the guess reads all of it. Locked & Loaded's 42 MB price feed, which
+        declares UTF-8, says so (2026-11-18).
+        """
         response = self.get(url, **kwargs)
-        response.encoding = response.apparent_encoding or response.encoding or "utf-8"
+        response.encoding = encoding or response.apparent_encoding or response.encoding or "utf-8"
         return response.text
 
     def close(self) -> None:
