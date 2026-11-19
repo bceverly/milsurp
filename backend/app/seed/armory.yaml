@@ -372,6 +372,11 @@ manufacturers:
 - name: Custom
   status: pending
   enabled: false
+- name: CVA
+  aliases:
+  - Connecticut Valley Arms
+  country: United States
+  status: approved
 - name: CZ
   aliases:
   - Brno
@@ -937,6 +942,13 @@ manufacturers:
 - name: KELTEC
   status: merged
   enabled: false
+- name: Keystone Sporting Arms
+  aliases:
+  - Crickett
+  - Keystone Crickett
+  - Keystone Sporting
+  country: United States
+  status: approved
 - name: Kimber
   country: United States
   website: https://www.kimberamerica.com
@@ -3129,6 +3141,7 @@ calibers:
   - 380 ACP
   - 9x17
   - 380 Caliber
+  - 380Manufacturer
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/.380_ACP
   bullet_diameter_in: 0.355
@@ -3139,6 +3152,8 @@ calibers:
 - name: 380 ACP
   status: merged
 - name: 380 Caliber
+  status: merged
+- name: 380Manufacturer
   status: merged
 - name: .38-200
   aliases:
@@ -3302,6 +3317,7 @@ calibers:
   bullet_diameter_in: 0.41
 - name: 410GA
   status: merged
+  bullet_diameter_in: 0.41
 - name: .410 Gauge
   aliases:
   - .410 bore
@@ -4801,6 +4817,7 @@ calibers:
   - 9mm
   - 9 MM
   - 9 LUGER MM
+  - 9MMManufacturer
   status: approved
   wikipedia: https://en.wikipedia.org/wiki/9%C3%9719mm_Parabellum
   bullet_diameter_in: 0.3547
@@ -4808,6 +4825,8 @@ calibers:
     powder: Hodgdon CFE Pistol
     charge_gr: 5.8
     bullet_gr: 124.0
+- name: 9MMManufacturer
+  status: merged
 - name: 9x17
   status: merged
 - name: 9x18mm
@@ -4977,6 +4996,9 @@ models:
   enabled: false
 - name: 1914/34
   status: approved
+- name: 1924/30
+  status: merged
+  enabled: false
 - name: 20/10
   status: pending
   enabled: false
@@ -5700,6 +5722,9 @@ models:
 - name: AR15
   status: merged
   enabled: false
+- name: AR410
+  status: merged
+  enabled: false
 - name: AR45
   status: pending
   enabled: false
@@ -5832,6 +5857,9 @@ models:
   status: pending
   enabled: false
 - name: ARMY MODEL 1911
+  status: pending
+  enabled: false
+- name: Army Model 1917
   status: pending
   enabled: false
 - name: ARP 9
@@ -9881,6 +9909,14 @@ models:
   manufacturers:
   - Bodeo
   status: approved
+- name: Bond Arms Cyclops
+  aliases:
+  - BACY-44
+  - BACY-45
+  kind: pistol
+  country: United States
+  modern_production: true
+  status: approved
 - name: Bond Arms Protect the 2nd
   aliases:
   - PT2A
@@ -12771,6 +12807,12 @@ models:
   manufacturers:
   - Century Arms
   status: approved
+- name: CA348
+  status: merged
+  enabled: false
+- name: CA363
+  status: merged
+  enabled: false
 - name: CAI 460
   status: pending
   enabled: false
@@ -13971,12 +14013,30 @@ models:
   - Cimarron
   capacity: 6
   status: approved
+- name: Cimarron 1858
+  aliases:
+  - Cimarron 1858 Model Army
+  - Cimarron 1858 Army
+  - Cimarron 1858 Angel Eyes
+  kind: revolver
+  country: United States
+  manufacturers:
+  - Cimarron
+  status: approved
 - name: Cimarron 1860
   kind: rifle
   country: United States
   manufacturers:
   - Cimarron
   capacity: 12
+  status: approved
+- name: Cimarron 1860 Richards-Mason
+  aliases:
+  - Cimarron CA939
+  kind: revolver
+  country: United States
+  manufacturers:
+  - Cimarron
   status: approved
 - name: Cimarron 1862 Pocket Navy
   aliases:
@@ -14021,6 +14081,36 @@ models:
   manufacturers:
   - Cimarron
   capacity: 8
+  status: approved
+- name: Cimarron Arizona Ranger
+  aliases:
+  - Arizona Ranger
+  - Cimarron AR400
+  - Cimarron AR410
+  - AR410
+  kind: revolver
+  country: United States
+  manufacturers:
+  - Cimarron
+  status: approved
+- name: Cimarron Bad Boy
+  aliases:
+  - Cimarron CA362
+  - Cimarron CA363
+  - Cimarron SA Bad Boy
+  - CA363
+  kind: revolver
+  country: United States
+  manufacturers:
+  - Cimarron
+  status: approved
+- name: Cimarron Bisley
+  aliases:
+  - Cimarron CA613
+  kind: revolver
+  country: United States
+  manufacturers:
+  - Cimarron
   status: approved
 - name: Cimarron El Malo
   aliases:
@@ -14073,11 +14163,33 @@ models:
   - MP401
   - MP410
   - MP411
+  - MP502
+  - MP504
+  - MP503
   kind: revolver
   country: United States
   manufacturers:
   - Cimarron
   capacity: 6
+  status: approved
+- name: Cimarron Model P Jr
+  aliases:
+  - Model P Jr
+  - Model P Junior
+  - Cimarron CA987
+  kind: revolver
+  country: United States
+  manufacturers:
+  - Cimarron
+  status: approved
+- name: Cimarron New Sheriff
+  aliases:
+  - New Sheriff
+  - Cimarron CA329
+  kind: revolver
+  country: United States
+  manufacturers:
+  - Cimarron
   status: approved
 - name: Cimarron Pistolero
   aliases:
@@ -14091,6 +14203,7 @@ models:
 - name: Cimarron Thunderer
   aliases:
   - CA346
+  - CA348
   kind: revolver
   country: United States
   manufacturers:
@@ -17607,6 +17720,9 @@ models:
 - name: Company DE 1873
   status: merged
   enabled: false
+- name: CP631S
+  status: merged
+  enabled: false
 - name: CP9
   status: merged
   enabled: false
@@ -18019,6 +18135,21 @@ models:
 - name: CR920X
   status: merged
   enabled: false
+- name: Crickett Pistol
+  aliases:
+  - Crickett Adult Pistol
+  - Crickett Hunter
+  - Keystone Crickett Pistol
+  - KSA693
+  - KSA696
+  - KSA793
+  - KSA796
+  kind: pistol
+  country: United States
+  manufacturers:
+  - Keystone Sporting Arms
+  modern_production: true
+  status: approved
 - name: CRY 18
   status: pending
   enabled: false
@@ -18079,6 +18210,19 @@ models:
   - WUM 1
   kind: rifle
   country: Romania
+  status: approved
+- name: CVA Scout Pistol
+  aliases:
+  - Scout V2 LR Pistol
+  - CVA Scout V2
+  - CVA CP731S
+  - CVA CP631S
+  - CP631S
+  kind: pistol
+  country: United States
+  manufacturers:
+  - CVA
+  modern_production: true
   status: approved
 - name: CW380
   kind: pistol
@@ -19261,6 +19405,19 @@ models:
 - name: CZ75D
   status: merged
   enabled: false
+- name: CZ 75 P-01
+  aliases:
+  - CZ P-01
+  - CZ 75 P01
+  - 75 P-01
+  - 75 PO1
+  - CZ 75 PO1
+  kind: pistol
+  country: Czech Republic
+  manufacturers:
+  - CZ
+  modern_production: true
+  status: approved
 - name: CZ 82
   aliases:
   - CZ82
@@ -19778,6 +19935,9 @@ models:
 - name: DA 2
   status: pending
   enabled: false
+- name: DA41
+  status: pending
+  enabled: false
 - name: DA ADAM 1911
   status: pending
   enabled: false
@@ -19797,6 +19957,17 @@ models:
   country: United States
   manufacturers:
   - Daniel Defense
+  status: approved
+- name: Daniel Defense H9
+  aliases:
+  - DH9
+  - Daniel Defense DH9
+  - DD H9
+  kind: pistol
+  country: United States
+  manufacturers:
+  - Daniel Defense
+  modern_production: true
   status: approved
 - name: Dan Wesson DWX
   aliases:
@@ -19836,6 +20007,16 @@ models:
   kind: pistol
   country: United States
   status: approved
+- name: Dan Wesson TCP
+  aliases:
+  - Dan Wesson TCP 1911
+  - TCP 1911
+  kind: pistol
+  country: United States
+  manufacturers:
+  - Dan Wesson
+  modern_production: true
+  status: approved
 - name: Dan Wesson V-Bob
   aliases:
   - VBOB 45
@@ -19850,6 +20031,9 @@ models:
   kind: rifle
   country: Germany
   status: approved
+- name: DAO 8
+  status: pending
+  enabled: false
 - name: Davis D-32
   aliases:
   - D32
@@ -21758,9 +21942,13 @@ models:
 - name: EM 20
   status: pending
   enabled: false
+- name: EMP 3
+  status: merged
+  enabled: false
 - name: EMP 4
   aliases:
   - EMP4
+  - EMP 3
   kind: pistol
   country: United States
   calibers:
@@ -22111,9 +22299,13 @@ models:
 - name: FMK 9C1
   aliases:
   - 9C1
+  - FMKG49B
   kind: pistol
   country: United States
   status: approved
+- name: FMKG49B
+  status: merged
+  enabled: false
 - name: FMK Mach 9
   aliases:
   - MACH 9
@@ -23091,6 +23283,7 @@ models:
   - FN Mauser 1924/30
   - Model 1924/30
   - 1924/30 Mauser
+  - 1924/30
   kind: rifle
   country: Belgium
   manufacturers:
@@ -24168,6 +24361,17 @@ models:
   - Girsan
   capacity: 13
   status: approved
+- name: Girsan MC1911
+  aliases:
+  - MC1911
+  - MC 1911
+  - Girsan MC 1911
+  kind: pistol
+  country: Turkey
+  manufacturers:
+  - Girsan
+  modern_production: true
+  status: approved
 - name: Girsan MC312
   aliases:
   - MC312
@@ -24360,6 +24564,8 @@ models:
   - Glock 19V
   - Glock G19V
   - USED 19
+  - Glock V-Series Model 19
+  - Glock Model 19
   kind: pistol
   country: Austria
   calibers:
@@ -25415,6 +25621,7 @@ models:
 - name: Glock 45
   aliases:
   - Glock G45
+  - Glock Model 45
   kind: pistol
   country: Austria
   calibers:
@@ -25622,7 +25829,16 @@ models:
   modern_production: true
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Glock Model 19
+  status: merged
+  enabled: false
 - name: Glock Model 20
+  status: merged
+  enabled: false
+- name: Glock Model 45
+  status: merged
+  enabled: false
+- name: Glock V-Series Model 19
   status: merged
   enabled: false
 - name: Glock V-Series Model 19x
@@ -25682,6 +25898,15 @@ models:
 - name: GP90
   status: pending
   enabled: false
+- name: Grand Power K100
+  aliases:
+  - Grand Power K-100
+  kind: pistol
+  country: Slovakia
+  manufacturers:
+  - Grand Power
+  modern_production: true
+  status: approved
 - name: Grand Power Stribog
   aliases:
   - TR22
@@ -25783,6 +26008,16 @@ models:
   manufacturers:
   - GSG
   capacity: 33
+  status: approved
+- name: GSG-910
+  aliases:
+  - GSG 910
+  - ATI GSG-910
+  kind: pistol
+  country: Germany
+  manufacturers:
+  - GSG
+  modern_production: true
   status: approved
 - name: GSG 922
   status: merged
@@ -27022,6 +27257,18 @@ models:
     status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: Heckler Koch MR223
+  aliases:
+  - MR 223
+  - MR223
+  - HK MR223
+  - H&K MR223
+  kind: rifle
+  country: Germany
+  manufacturers:
+  - Heckler Koch
+  modern_production: true
+  status: approved
 - name: Heckler Koch MR556
   aliases:
   - MR556
@@ -31253,6 +31500,8 @@ models:
   status: merged
   enabled: false
 - name: Kahr X9
+  aliases:
+  - KX910
   kind: pistol
   country: United States
   manufacturers:
@@ -32673,6 +32922,17 @@ models:
     source: maker-site
     status: approved
   status: approved
+- name: Kimber CDS9
+  aliases:
+  - CDS9
+  - Kimber SDS9
+  - SDS9
+  kind: pistol
+  country: United States
+  manufacturers:
+  - Kimber
+  modern_production: true
+  status: approved
 - name: Kimber Custom II
   aliases:
   - Custom II
@@ -33912,11 +34172,20 @@ models:
   calibers:
   - 9mm Luger
   status: approved
+- name: KSA693
+  status: merged
+  enabled: false
+- name: KSA696
+  status: merged
+  enabled: false
 - name: KSA796
   status: pending
   enabled: false
 - name: KX3
   status: pending
+  enabled: false
+- name: KX910
+  status: merged
   enabled: false
 - name: L22
   status: approved
@@ -35972,6 +36241,9 @@ models:
 - name: M1912
   status: pending
   enabled: false
+- name: M1913
+  status: pending
+  enabled: false
 - name: M1917
   status: merged
   enabled: false
@@ -36308,6 +36580,9 @@ models:
 - name: M41B
   status: approved
   enabled: false
+- name: M432
+  status: merged
+  enabled: false
 - name: M44
   kind: carbine
   country: Russia
@@ -36392,6 +36667,9 @@ models:
   status: approved
 - name: M79
   status: approved
+- name: M82
+  status: merged
+  enabled: false
 - name: M82A1
   calibers:
   - '.50'
@@ -36442,6 +36720,9 @@ models:
   status: approved
   enabled: false
   notes: 'Disabled: identifies nothing on its own -- the Spanish Mauser and the Marlin lever action.'
+- name: M940
+  status: merged
+  enabled: false
 - name: M95
   status: merged
   enabled: false
@@ -36690,6 +36971,19 @@ models:
 - name: MAG 6
   status: pending
   enabled: false
+- name: Magnum Research BFR
+  aliases:
+  - BFR 454
+  - BFR 45-70
+  - BFR 460
+  - BFR 500
+  - BFR 44
+  kind: revolver
+  country: United States
+  manufacturers:
+  - Magnum Research
+  modern_production: true
+  status: approved
 - name: Magnum Research Desert Eagle
   aliases:
   - DE44
@@ -39008,6 +39302,7 @@ models:
   - Colt Government Model 1911
   - Model 1911 Pistol
   - Model 1911 US Army
+  - Springfield Armory Model 1911
   kind: pistol
   country: United States
   calibers:
@@ -41011,6 +41306,15 @@ models:
     source: budsgunshop
     status: approved
   status: approved
+- name: Mountain Billy GOAT 15
+  aliases:
+  - GOAT 15
+  - GOAT15
+  - GOAT 15 ATOM
+  kind: pistol
+  country: United States
+  modern_production: true
+  status: approved
 - name: MP10
   status: merged
   enabled: false
@@ -41060,6 +41364,15 @@ models:
   calibers:
   - 9mm Luger
   status: approved
+- name: MP502
+  status: merged
+  enabled: false
+- name: MP503
+  status: merged
+  enabled: false
+- name: MP504
+  status: merged
+  enabled: false
 - name: MP57
   status: merged
   enabled: false
@@ -43654,6 +43967,15 @@ models:
 - name: Pedersoli 1816
   status: pending
   enabled: false
+- name: Pedersoli Model 1886
+  aliases:
+  - Pedersoli 1886
+  kind: rifle
+  country: Italy
+  manufacturers:
+  - Pedersoli
+  modern_production: true
+  status: approved
 - name: Perazzi MX12
   aliases:
   - MX12
@@ -44492,6 +44814,9 @@ models:
     source: budsgunshop
     status: approved
   status: approved
+- name: QPQ 18
+  status: pending
+  enabled: false
 - name: R13
   status: pending
   enabled: false
@@ -45217,6 +45542,9 @@ models:
   status: pending
   enabled: false
 - name: RFX15
+  status: pending
+  enabled: false
+- name: RFX35
   status: pending
   enabled: false
 - name: RG23
@@ -46855,6 +47183,17 @@ models:
     maker_url: https://www.armscor.com/firearms-list/x4g-12ga-5rd
     source: maker-site
     status: approved
+  status: approved
+- name: Rock Island Ultra MS
+  aliases:
+  - Ultra MS
+  - Rock Island Armory Ultra MS
+  - RIA Ultra MS
+  kind: pistol
+  country: Philippines
+  manufacturers:
+  - Rock Island Armory
+  modern_production: true
   status: approved
 - name: Rock Island XT22
   aliases:
@@ -49831,6 +50170,9 @@ models:
   calibers:
   - .22 LR
   status: approved
+- name: RX 45
+  status: pending
+  enabled: false
 - name: RXD 910
   status: pending
   enabled: false
@@ -50457,12 +50799,16 @@ models:
 - name: Savage 1911
   aliases:
   - GOVT 45
+  - Savage Arms 1911
   kind: pistol
   country: United States
   manufacturers:
   - Savage
   capacity: 10
   status: approved
+- name: Savage Arms 1911
+  status: merged
+  enabled: false
 - name: Savage M1861
   aliases:
   - M1861
@@ -50589,6 +50935,9 @@ models:
   status: pending
   enabled: false
 - name: SC3
+  status: pending
+  enabled: false
+- name: SC81
   status: pending
   enabled: false
 - name: SC9
@@ -51084,9 +51433,6 @@ models:
   manufacturers:
   - Sig Sauer
   status: approved
-- name: SIG SAUER 1911
-  status: pending
-  enabled: false
 - name: Sig Sauer 1911
   aliases:
   - Sig 1911
@@ -51290,6 +51636,9 @@ models:
     status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
+- name: SIG SAUER 1911
+  status: pending
+  enabled: false
 - name: Sig Sauer 47/8
   aliases:
   - 47/8
@@ -56335,6 +56684,8 @@ models:
   - S & W 1917
   - S&W M 1917
   - Smith and Wesson 1917
+  - Smith & Wesson US Army Model 1917
+  - S&W US Army Model 1917
   kind: revolver
   country: United States
   calibers:
@@ -57089,6 +57440,7 @@ models:
   - Smith & Wesson 432
   - S&W 432
   - Smith and Wesson 432
+  - M432
   kind: revolver
   country: United States
   manufacturers:
@@ -57137,6 +57489,8 @@ models:
   - Smith & Wesson 43C
   - S&W 43C
   - Smith and Wesson 43C
+  - Model 43 Classic
+  - Smith & Wesson Model 43 Classic
   kind: revolver
   country: United States
   manufacturers:
@@ -58389,6 +58743,7 @@ models:
   - Smith & Wesson 940
   - S&W 940
   - Smith and Wesson 940
+  - M940
   kind: revolver
   country: United States
   manufacturers:
@@ -60784,6 +61139,7 @@ models:
 - name: Smith & Wesson SD40
   aliases:
   - SD40
+  - VE 40
   kind: pistol
   country: United States
   manufacturers:
@@ -62570,6 +62926,9 @@ models:
   - OSP 380
   kind: pistol
   country: United States
+  status: merged
+  enabled: false
+- name: Springfield Armory Model 1911
   status: merged
   enabled: false
 - name: Springfield Armory Ronin
@@ -64847,6 +65206,9 @@ models:
   modern_production: true
   maker_url: https://www.stagarms.com/firearms-parts/stag-15-firearms
   status: approved
+- name: Stainless Model 357
+  status: pending
+  enabled: false
 - name: Standard Manufacturing 1911
   aliases:
   - STD MANF 1911
@@ -65833,6 +66195,14 @@ models:
   - ADX 22
   kind: pistol
   country: United States
+  status: approved
+- name: Tandemkross TKX22
+  aliases:
+  - TKX22
+  - TKX 22
+  kind: pistol
+  country: United States
+  modern_production: true
   status: approved
 - name: Tanfoglio Pugio
   aliases:
@@ -67661,6 +68031,7 @@ models:
   aliases:
   - Taurus 605
   - M605
+  - Taurus Mfg 2-605
   kind: revolver
   country: Brazil
   calibers:
@@ -67992,6 +68363,7 @@ models:
   aliases:
   - Taurus 82
   - Taurus 82S
+  - M82
   kind: revolver
   country: Brazil
   calibers:
@@ -69135,6 +69507,9 @@ models:
   enabled: false
 - name: TC9
   status: approved
+- name: TCAC6
+  status: pending
+  enabled: false
 - name: TCP 738
   kind: pistol
   country: Brazil
@@ -70505,6 +70880,9 @@ models:
 - name: UK59
   status: merged
   enabled: false
+- name: UL 3
+  status: pending
+  enabled: false
 - name: UMP40
   kind: pistol
   country: Germany
@@ -70533,6 +70911,9 @@ models:
   - Unique
   status: approved
   notes: Added 2026-10-11 for listings with no caliber.
+- name: Upc Uom Each Model 605
+  status: pending
+  enabled: false
 - name: U.S. 30/06
   aliases:
   - 30/06
@@ -71274,6 +71655,9 @@ models:
 - name: VB6
   status: pending
   enabled: false
+- name: VE 40
+  status: merged
+  enabled: false
 - name: VERS36
   status: pending
   enabled: false
@@ -71332,6 +71716,17 @@ models:
 - name: VOID-9
   status: pending
   enabled: false
+- name: Volquartsen LLV
+  aliases:
+  - LLV 22
+  - Volquartsen LLV 22
+  - LLV-4
+  kind: pistol
+  country: United States
+  manufacturers:
+  - Volquartsen
+  modern_production: true
+  status: approved
 - name: VP9
   aliases:
   - VP9B
@@ -72082,6 +72477,16 @@ models:
   manufacturers:
   - Walther
   status: approved
+- name: Walther WMP
+  aliases:
+  - WMP 22
+  - Walther WMP 22
+  kind: pistol
+  country: United States
+  manufacturers:
+  - Walther
+  modern_production: true
+  status: approved
 - name: WASR 10
   kind: rifle
   country: Romania
@@ -72163,6 +72568,9 @@ models:
   - Webley & Scott
   status: approved
 - name: WEBLEY SCOTT LTD MODEL 700
+  status: merged
+  enabled: false
+- name: WEBLEY&SCOTT LTD MODEL 700
   status: merged
   enabled: false
 - name: Webley & Scott Model 1908
@@ -75528,6 +75936,9 @@ models:
     source: budsgunshop
     status: approved
   status: approved
+- name: XRAY3
+  status: pending
+  enabled: false
 - name: XT-17
   status: approved
 - name: XT 22
