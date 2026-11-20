@@ -897,6 +897,11 @@ manufacturers:
   - Jinsen Arsenal
   country: Japan
   status: approved
+- name: Johnson Automatics
+  aliases:
+  - Johnson Automatics Inc.
+  country: United States
+  status: approved
 - name: Joslyn
   aliases:
   - Joslyn Firearms
@@ -5695,6 +5700,8 @@ models:
   - AR-556
   - AM-15
   - AR 15
+  - X15
+  - PSA-15
   kind: rifle
   country: United States
   manufacturers:
@@ -13243,7 +13250,8 @@ models:
   enabled: false
 - name: CDS9
   capacity: 15
-  status: approved
+  status: merged
+  enabled: false
 - name: Century Arms AP5
   aliases:
   - AP5P
@@ -25915,6 +25923,9 @@ models:
   country: Slovakia
   capacity: 30
   status: approved
+- name: GRAY 5
+  status: pending
+  enabled: false
 - name: GRD 12
   status: pending
   enabled: false
@@ -31107,6 +31118,8 @@ models:
   country: United States
   calibers:
   - .30-06 Springfield
+  manufacturers:
+  - Johnson Automatics
   status: approved
 - name: Joslyn M1864
   aliases:
@@ -44440,6 +44453,9 @@ models:
   manufacturers:
   - Walther
   status: approved
+- name: PSA-15
+  status: merged
+  enabled: false
 - name: PSA Dagger
   aliases:
   - Palmetto Dagger
@@ -75412,6 +75428,9 @@ models:
   manufacturers:
   - Mossberg
   status: approved
+- name: X15
+  status: merged
+  enabled: false
 - name: X300
   status: pending
   enabled: false
