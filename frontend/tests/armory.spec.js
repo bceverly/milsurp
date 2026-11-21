@@ -458,6 +458,11 @@ test.describe("armory", () => {
   test("select all approves the whole pending queue in two clicks", async ({
     signedIn,
   }) => {
+    // The promotion alone is allowed a minute below, and loading the shipped
+    // file comes first: under the default 60s budget for the whole test, a
+    // loaded CI runner ran out of time mid-promotion (2026-11-20), and the
+    // retry then found the queue already promoted.
+    test.setTimeout(150_000);
     await loadShipped(signedIn);
     // Wait for real data rather than the first row: while it is fetching, the
     // only row in the table is "Loading…", which is also a visible row.
