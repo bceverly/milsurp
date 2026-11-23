@@ -446,6 +446,9 @@ class TestFollowingTheLinks:
         asked = []
 
         class Scraper:
+            def is_email_page(self, _url):
+                return False
+
             def check_price(self, _ctx, url, *, key=None):
                 asked.append(url)
                 return PriceCheck(price=585.0)
@@ -507,6 +510,36 @@ class TestFollowingTheLinks:
             get=self.redirects("https://www.classicfirearms.com/deals-and-rebates/"),
         )
         assert result.scans_queued == 0
+
+    def test_a_page_only_the_email_leads_to_is_scanned_now(self, clean_db, shops, signed_in):
+        """Empire Arms' "New Stuff" list sells in minutes and nothing on the
+        site links to it, so its email is not left to wait out the usual pause
+        after a scan -- on 2026-11-23 that pause was five minutes old."""
+        site = Site(slug="empire-arms", name="Empire Arms", base_url="https://www.empirearms.com/")
+        site.last_scan_at = (NOW - timedelta(minutes=5)).replace(tzinfo=None)
+        site.next_scan_at = (NOW + timedelta(hours=12)).replace(tzinfo=None)
+        clean_db.add(site)
+        clean_db.commit()
+        mail = headers(
+            "EMPIRE ARMS <kroh-empirearms.com@shared1.ccsend.com>",
+            "New Stuff from EMPIRE ARMS",
+            reply_to="kroh@empirearms.com",
+        )
+        result = check(
+            clean_db,
+            signed_in,
+            with_body(mail, '<a href="https://www.empirearms.com/112326.htm">link</a>'),
+        )
+        assert result.scans_queued == 1
+        assert result.rechecked == 0  # a page of listings, not one to re-read
+        clean_db.refresh(site)
+        assert site.next_scan_at == NOW.replace(tzinfo=None)
+        link = clean_db.query(inbox.VendorEmailLink).one()
+        assert (link.url, link.item_id, link.outcome) == (
+            "https://www.empirearms.com/112326.htm",
+            None,
+            None,
+        )
 
     def test_an_email_s_links_are_followed_once_and_its_text_kept(self, clean_db, shops, signed_in):
         get = self.redirects("https://www.classicfirearms.com/deals-and-rebates/")

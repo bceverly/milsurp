@@ -12,6 +12,23 @@ So the page is split on the thumbnail images -- whose filenames always end in
 ``-<n>.jpg`` -- and everything from one thumbnail to the next is treated as a
 single listing. The thumbnail's base filename doubles as the stable item key,
 which is the only identifier the site offers.
+
+**The "New Stuff" lists.** A few times a week the shop mails out a page of
+newly bought guns, named for its date (``112326.htm`` is 23 November 2026),
+which "most of" sells "within just a few minutes" and which the shop moves to
+the two pages above after 24 hours if it has not. Nothing on the site links
+to it -- the archive index stops years back -- so the inbox reader is what
+finds it (:meth:`EmpireArmsScraper.is_email_page`), and a scan reads the ones
+its recent email named while they are current. Laid out differently from the
+two pages: no thumbnails, every listing a run of prose ending in a
+``PHOTOS`` link to ``<photo>.jpg`` and then the price,
+
+    BRITISH Model No.4 Mk.1 Lee-Enfield bolt-action rifle # AJ12087 (.303
+    British) ... <a href="AJ12087.jpg"> PHOTOS </a>. . . $850. C&R
+
+so :func:`parse_new_stuff` splits on those links instead. The photograph's
+name is the same one the gun's thumbnail on ``rifles.htm`` carries after it
+moves (``AJ12087-1.jpg``), so the key is too, and the listing moves with it.
 """
 
 from __future__ import annotations
@@ -19,13 +36,16 @@ from __future__ import annotations
 import html as html_lib
 import re
 from collections.abc import Iterable
+from datetime import date, datetime, timedelta
 from urllib.parse import urljoin, urlsplit
+from zoneinfo import ZoneInfo
 
 from ..services import classify
 from .base import (
     PriceCheck,
     ScrapeContext,
     ScrapedItem,
+    ScrapeError,
     SiteScraper,
     normalize_whitespace,
 )
@@ -53,6 +73,22 @@ CALIBER_QUALIFIES = re.compile(
     re.IGNORECASE,
 )
 PAREN_RE = re.compile(r"\(([^)]{1,28})\)")
+
+#: A "New Stuff" page's name: its date, MMDDYY.
+NEW_STUFF_RE = re.compile(r"^(\d{2})(\d{2})(\d{2})\.htm$", re.IGNORECASE)
+#: Where a "New Stuff" listing ends: its link to the photographs.
+PHOTOS_RE = re.compile(
+    r'<a\s[^>]*?href\s*=\s*"?([^\s">]+\.jpg)"?[^>]*>(?:\s|<[^>]+>|&nbsp;)*PHOTOS',
+    re.IGNORECASE,
+)
+#: What follows the link up to the end of the listing's line: the price and
+#: any SOLD or C&R marker.
+TAIL_END_RE = re.compile(r"<br|<p[\s>]|</p>", re.IGNORECASE)
+#: The shop is in Ormond Beach, Florida; a page's date is its date there.
+SHOP_TZ = ZoneInfo("America/New_York")
+#: A "New Stuff" page is "VALID for only 24 HOURS after" its date, so it is read
+#: on its date and the day after, and not once it has gone to the archive.
+NEW_STUFF_DAYS = 2
 
 
 def _price(fragment: str) -> float | None:
@@ -104,6 +140,15 @@ def _detect_caliber(description: str) -> str | None:
     return None
 
 
+def _title(text: str) -> str:
+    """The listing's heading: the words before the serial number, the price or
+    the first sentence break, and before the action ("bolt-action")."""
+    title = text.split("$", 1)[0]
+    title = re.split(r"(?<=[a-z])\.\s|\bbolt-action\b|\bsemi-?auto", title, maxsplit=1)[0]
+    title = title.split(" # ", 1)[0]
+    return title.strip(" .,-")[:200] or text[:120]
+
+
 def parse_page(html_text: str, category: str, source_url: str) -> list[ScrapedItem]:
     """Parse one inventory page into listings."""
     items: list[ScrapedItem] = []
@@ -139,12 +184,7 @@ def parse_page(html_text: str, category: str, source_url: str) -> list[ScrapedIt
         if price is None and not sold:
             continue
 
-        # Title runs up to the price or the first sentence break.
-        title = text.split("$", 1)[0]
-        title = re.split(r"(?<=[a-z])\.\s|\bbolt-action\b|\bsemi-?auto", title, maxsplit=1)[0]
-        title = title.split(" # ", 1)[0]
-        title = title.strip(" .,-")[:200] or text[:120]
-
+        title = _title(text)
         caliber = _detect_caliber(text)
         derived = classify.enrich(title, text, price, caliber=caliber)
 
@@ -165,6 +205,92 @@ def parse_page(html_text: str, category: str, source_url: str) -> list[ScrapedIt
             )
         )
     return items
+
+
+def _category_of(text: str) -> str:
+    """Rifle or Handgun, as the two inventory pages file it, from the listing's
+    own words for what it is ("... semiautomatic pistol # 1234"): a "New Stuff"
+    page mixes both, under headings that are sometimes a type and sometimes
+    only a country."""
+    kind = text.split(" # ", 1)[0].lower()
+    return "Handgun" if re.search(r"\b(?:pistol|revolver)s?\b", kind) else "Rifle"
+
+
+def parse_new_stuff(html_text: str, source_url: str) -> list[ScrapedItem]:
+    """Parse one dated "New Stuff" page into listings.
+
+    Each listing runs from the end of the one before it -- or from the end of
+    the paragraph above it, for the first under a heading -- to its PHOTOS
+    link, and then on to the end of that line for its price.
+    """
+    items: list[ScrapedItem] = []
+    lowered = html_text.lower()
+    previous_end = 0
+    for match in PHOTOS_RE.finditer(html_text):
+        paragraph = lowered.rfind("</p>", previous_end, match.start())
+        start = paragraph + len("</p>") if paragraph != -1 else previous_end
+        stop = TAIL_END_RE.search(html_text, match.end())
+        end = stop.start() if stop else len(html_text)
+        head, tail = html_text[start : match.start()], html_text[match.end() : end]
+        previous_end = end
+
+        key = _item_key_from_thumb(match.group(1))
+        text = _clean_text(head)
+        price = _price(tail)
+        sold = bool(SOLD_RE.search(_clean_text(tail)))
+        if not key or not text or (price is None and not sold):
+            continue
+
+        category = _category_of(text)
+        title = _title(text)
+        description = f"{text} {_clean_text(tail)}".strip()
+        caliber = _detect_caliber(text)
+        derived = classify.enrich(title, description, price, caliber=caliber)
+        items.append(
+            ScrapedItem(
+                external_key=f"{category.lower()}:{key}",
+                url=source_url,
+                title=title,
+                description=description,
+                price=price,
+                category=category,
+                is_sold=sold,
+                image_urls=[urljoin(SITE_BASE, match.group(1))],
+                caliber=derived["caliber"],
+                country=derived["country"],
+                manufacturer=derived["manufacturer"],
+                condition=derived["condition"],
+            )
+        )
+    return items
+
+
+def _new_stuff_date(url: str) -> date | None:
+    """The date a "New Stuff" page is named for, or None if it is not one."""
+    parts = urlsplit(url)
+    if (parts.hostname or "").lower().removeprefix("www.") != "empirearms.com":
+        return None
+    found = NEW_STUFF_RE.match(parts.path.rsplit("/", 1)[-1])
+    if found is None:
+        return None
+    month, day, year = (int(group) for group in found.groups())
+    try:
+        return date(2000 + year, month, day)
+    except ValueError:
+        return None
+
+
+def _shop_today() -> date:
+    return datetime.now(SHOP_TZ).date()
+
+
+def is_current(url: str, today: date | None = None) -> bool:
+    """Whether a "New Stuff" page is still the shop's live list."""
+    dated = _new_stuff_date(url)
+    if dated is None:
+        return False
+    age = (today or _shop_today()) - dated
+    return timedelta(0) <= age < timedelta(days=NEW_STUFF_DAYS)
 
 
 def _source_for(url: str) -> dict[str, str] | None:
@@ -189,6 +315,10 @@ class EmpireArmsScraper(SiteScraper):
     description = "Collector-grade military surplus rifles and handguns (static HTML catalog)."
     requires_browser = False
     default_interval_minutes = 720
+
+    def is_email_page(self, url: str) -> bool:
+        """A dated "New Stuff" page (see the module docstring)."""
+        return _new_stuff_date(url) is not None
 
     def check_price(
         self, ctx: ScrapeContext, url: str, *, key: str | None = None
@@ -215,9 +345,13 @@ class EmpireArmsScraper(SiteScraper):
         if not key:
             return None
         source = _source_for(url)
-        if source is None:
+        if source is not None:
+            found = parse_page(ctx.get_text(url), source["category"], source["url"])
+        elif self.is_email_page(url):
+            found = parse_new_stuff(ctx.get_text(url), url)
+        else:
             return None
-        for item in parse_page(ctx.get_text(url), source["category"], source["url"]):
+        for item in found:
             if item.external_key == key:
                 if item.price is None or item.price <= 0:
                     return None
@@ -225,7 +359,9 @@ class EmpireArmsScraper(SiteScraper):
         return None
 
     def scrape(self, ctx: ScrapeContext) -> Iterable[ScrapedItem]:
-        items: list[ScrapedItem] = []
+        # The "New Stuff" lists first, so that a gun also on rifles.htm by now
+        # is stored as that page has it: the last version of a key wins.
+        items = self._new_stuff(ctx)
         for source in SOURCES:
             ctx.check_stop()
             ctx.log(f"Fetching {source['category'].lower()} listings…")
@@ -240,7 +376,25 @@ class EmpireArmsScraper(SiteScraper):
             ctx.log(f"Parsed {len(parsed)} {source['category'].lower()} listings.")
             items.extend(parsed)
         if not items and ctx.warnings:
-            from .base import ScrapeError
-
             raise ScrapeError("every Empire Arms page failed to fetch")
+        return items
+
+    def _new_stuff(self, ctx: ScrapeContext) -> list[ScrapedItem]:
+        """The listings on each current "New Stuff" page recent email named."""
+        items: list[ScrapedItem] = []
+        pages = {
+            urljoin(SITE_BASE, urlsplit(url).path.rsplit("/", 1)[-1].lower())
+            for url in ctx.email_pages
+            if is_current(url)
+        }
+        for url in sorted(pages):
+            ctx.check_stop()
+            try:
+                html_text = ctx.get_text(url)
+            except Exception as exc:
+                ctx.warn(f"could not fetch the New Stuff page {url}: {exc}")
+                continue
+            parsed = parse_new_stuff(html_text, url)
+            ctx.log(f"Parsed {len(parsed)} listings from the New Stuff page {url}.")
+            items.extend(parsed)
         return items

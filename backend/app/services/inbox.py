@@ -494,7 +494,8 @@ class _Follower:
         ]
         found = maillinks.html_of(html) if html else _plain_links(text)
         shop = registrable(urlparse(site.base_url).hostname or "")
-        elsewhere = False
+        scraper = get_scraper(site.slug)
+        elsewhere = fresh = False
         for link in found:
             url, how = maillinks.destination(
                 link.url, shop, get=self.get, user_agent=self.config.scraping.user_agent
@@ -507,14 +508,20 @@ class _Follower:
             if url is None:
                 continue
             self.links += 1
+            if scraper is not None and scraper.is_email_page(url):
+                # A page of listings only this email leads to, and which sell
+                # in minutes: the next scan reads it, and that scan is now.
+                # Not re-checked as one listing, since it is a page of them.
+                fresh = True
+                continue
             item = self.match(site, url)
             if item is None:
                 elsewhere = True
                 continue
             record.item_id = item.id
             record.outcome = self.recheck(site, item)
-        if elsewhere:
-            self.queue_scan(site)
+        if elsewhere or fresh:
+            self.queue_scan(site, force=fresh)
         email_row.links_read_at = self.now.replace(tzinfo=None)
         record_offer(self.session, email_row, self.now)
 
@@ -545,7 +552,8 @@ class _Follower:
 
     def queue_scan(self, site: Site, *, force: bool = False) -> None:
         """Scan this shop soon: the email points at pages we do not hold, or
-        (``force``) a sale it announced has ended."""
+        (``force``) a sale it announced has ended or a page of listings only
+        the email leads to has gone up."""
         if not site.enabled:
             return
         last = as_utc(site.last_scan_at)

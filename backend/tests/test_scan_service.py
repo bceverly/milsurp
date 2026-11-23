@@ -59,9 +59,12 @@ class FakeScraper(SiteScraper):
     #: Filled in by scrape() with what the context said this site already
     #: holds, so a test can check the wiring rather than the scraper.
     saw_stored_categories: set[str] = set()
+    #: Likewise for the pages the shop's recent email linked to.
+    saw_email_pages: list[str] = []
 
     def scrape(self, ctx):
         type(self).saw_stored_categories = set(ctx.stored_categories)
+        type(self).saw_email_pages = list(ctx.email_pages)
         if self.raise_resting is not None:
             raise HostResting(self.base_url, self.raise_resting)
         if self.raise_error:
@@ -393,6 +396,63 @@ class TestAScanThatSuddenlyReadsFarLessDeListsNothing:
         from app.scrapers.hunters_lodge import HuntersLodgeScraper
 
         assert HuntersLodgeScraper.max_delist_share is None
+
+
+class TestPagesOnlyTheShopsEmailLeadsTo:
+    """Empire Arms' dated "New Stuff" lists: read while current, gone after."""
+
+    @pytest.fixture
+    def emailed(self, fake_site, clean_db, monkeypatch):
+        from app.models import VendorEmail, VendorEmailLink
+
+        monkeypatch.setattr(
+            FakeScraper,
+            "is_email_page",
+            lambda _self, url: url.startswith("https://fake.test/new/"),
+        )
+
+        def send(url, *, days_ago=0.0, message="m1"):
+            mail = VendorEmail(
+                message_id=message,
+                site_id=fake_site.id,
+                from_address="news@fake.test",
+                received_at=utcnow() - timedelta(days=days_ago),
+            )
+            clean_db.add(mail)
+            clean_db.add(VendorEmailLink(email=mail, link=url, url=url, how="direct"))
+            clean_db.commit()
+
+        return send
+
+    def test_the_scan_is_handed_what_recent_email_linked(self, fake_site, emailed):
+        emailed("https://fake.test/new/1.htm")
+        emailed("https://fake.test/new/old.htm", days_ago=10, message="m0")
+        scan_service.run_scan(fake_site.id)
+        assert FakeScraper.saw_email_pages == ["https://fake.test/new/1.htm"]
+
+    def test_its_listings_going_with_the_page_do_not_trip_the_guard(
+        self, fake_site, clean_db, emailed
+    ):
+        """Fifteen of forty-five is a third: more than a normal scan de-lists,
+        and exactly what a sold-out list going to the archive looks like."""
+        FakeScraper.payload = [listing(f"k{n}") for n in range(30)] + [
+            listing(f"new{n}", url=f"https://fake.test/new/1.htm#{n}") for n in range(15)
+        ]
+        scan_service.run_scan(fake_site.id)
+        FakeScraper.payload = [listing(f"k{n}") for n in range(30)]
+        run = clean_db.get(ScanRun, scan_service.run_scan(fake_site.id))
+        assert run.items_delisted == 15
+        assert run.status == ScanStatus.SUCCESS
+
+    def test_the_rest_of_the_catalog_is_still_guarded(self, fake_site, clean_db, emailed):
+        FakeScraper.payload = [listing(f"k{n}") for n in range(30)] + [
+            listing(f"new{n}", url=f"https://fake.test/new/1.htm#{n}") for n in range(5)
+        ]
+        scan_service.run_scan(fake_site.id)
+        FakeScraper.payload = [listing(f"k{n}") for n in range(15)]
+        run = clean_db.get(ScanRun, scan_service.run_scan(fake_site.id))
+        assert run.items_delisted == 0
+        assert run.status == ScanStatus.PARTIAL
 
 
 class TestAnUnreadableCatalogIsNotAnEmptyOne:

@@ -44,7 +44,7 @@ the whole catalog as JSON to the widget that draws the grid. See
 | Site | Slug | Technique |
 | --- | --- | --- |
 | [Royal Tiger Imports](https://royaltigerimports.com/) | `royal-tiger` | Headless Chrome — infinite scroll, "Load More", classic pagination, Elementor gallery |
-| [Empire Arms](https://www.empirearms.com/) | `empire-arms` | Static HTML, thumbnail-delimited block parsing |
+| [Empire Arms](https://www.empirearms.com/) | `empire-arms` | Static HTML, thumbnail-delimited block parsing; the dated "New Stuff" lists its email links, while current |
 | [Hunter's Lodge](https://www.hunterslodge.com/) | `hunters-lodge` | OCR of a scanned magazine flyer |
 | [Collectors Firearms](https://collectorsfirearms.com/) | `collectors-firearms` | WooCommerce base class — category pages, path pagination; since 2026-11-06 the eleven shotgun leaves too, a trailing "NEW" marking a new gun |
 | [Ancestry Guns](https://www.ancestryguns.com/) | `ancestry-guns` | WooCommerce — one selector (their `h2` is a share widget) |
@@ -1847,7 +1847,7 @@ Neither could be identified without a browser, which is itself the finding.
 | Site | Entry URL | Platform | Status |
 | --- | --- | --- | --- |
 | Royal Tiger Imports | https://royaltigerimports.com/ | WooCommerce / Elementor | **Built** — browser-driven; infinite scroll, Load More and pagination |
-| Empire Arms | https://www.empirearms.com/ | Static HTML | **Built** — two catalog pages |
+| Empire Arms | https://www.empirearms.com/ | Static HTML | **Built** — two catalog pages, and the "New Stuff" lists its email links (2026-11-23) |
 | [Hunter's Lodge](https://www.hunterslodge.com/) | https://www.hunterslodge.com/ | Scanned flyer image | **Built** — OCR; see below |
 
 #### Hunter's Lodge — the OCR case — **Built**
@@ -5758,6 +5758,47 @@ and `fetchSKU_Inventory` began answering 404 on every shelf, and the scan
 failed with nothing read. The site's bundle now calls `fetchDataByCategory_v6`
 and `fetchSKU_v2`, with the same parameters and the same answers; `_v6` adds a
 `sold` parameter that, left out, returns unsold stock as before.
+
+### Empire Arms' "New Stuff" lists, read from its email — **Shipped** 2026-11-23
+
+A few times a week Empire Arms mails a "New Stuff" list: one page of newly
+bought guns, named for its date (`112326.htm` is 23 November 2026), which the
+shop says mostly sells "within just a few minutes". Unsold guns move to
+`rifles.htm` and `pistols.htm` after 24 hours. Until now we saw only those
+leftovers:
+
+- The inbox reader followed the link, found no listing at that address, and
+  queued a scan. On 2026-11-23 it skipped even that, because a scan had
+  finished five minutes before the email arrived.
+- A scan would not have helped anyway. It read only the two inventory pages,
+  and the list is laid out differently from them.
+- Nothing on the site links to the list, so the email is the only way to
+  find it. The archive index stops years back.
+
+Now:
+
+- **The scraper reads the list.** `parse_new_stuff` splits the page on each
+  listing's `PHOTOS` link (`<photo>.jpg`), followed by its price. Rifle or
+  handgun comes from the listing's own words ("semiautomatic pistol"), since
+  the headings are sometimes only a country. The key is the photo's name,
+  which is the same one the gun's thumbnail has on `rifles.htm`
+  (`AJ12087-1.jpg`). So an unsold gun keeps its listing, price history and
+  watchers when it moves.
+- **A scan is handed the pages recent email linked.** These are the shop's
+  `vendor_email_links` from the last three days, passed as `ctx.email_pages`.
+  The scraper reads only the ones still current, on their date and the day
+  after in the shop's time zone.
+- **The email schedules that scan at once.** `SiteScraper.is_email_page()`
+  tells the inbox reader that a link is such a page. The reader then
+  schedules a scan even if one just ran, instead of re-reading one arbitrary
+  listing at that address.
+- **When a list expires, its listings go without tripping the shrink guard.**
+  The guard doesn't count listings from an email-only page, because their
+  going is the page working as intended. The rest of the catalog is guarded
+  as before.
+
+The 23 November list (25 rifles, five already sold) is recorded in
+`tests/fixtures/empire-arms/new-stuff-112326.htm.gz`.
 
 ### Locked & Loaded moved off Coreware — **Changed** 2026-11-18
 

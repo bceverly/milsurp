@@ -37,6 +37,8 @@ from ..models import (
     ScanRun,
     ScanStatus,
     Site,
+    VendorEmail,
+    VendorEmailLink,
     as_utc,
     utcnow,
 )
@@ -903,6 +905,31 @@ def _reconcile_photos(session: Session, item: Item, scraped: ScrapedItem, slug: 
 MIN_ACTIVE_FOR_SHRINK_GUARD = 20
 
 
+#: How far back a scan looks for pages the shop's email linked to. A "New Stuff"
+#: page is current for a day or two; the scraper decides which still are.
+EMAIL_PAGE_DAYS = 3
+
+
+def email_pages(session: Session, site: Site, *, now: datetime | None = None) -> list[str]:
+    """The pages on this shop's site its email linked to lately, oldest first.
+
+    Handed to the scraper as ``ctx.email_pages``; only a scraper that reads
+    such pages (:meth:`SiteScraper.is_email_page`) looks at them.
+    """
+    since = (now or utcnow()) - timedelta(days=EMAIL_PAGE_DAYS)
+    rows = session.execute(
+        select(VendorEmailLink.url)
+        .join(VendorEmail, VendorEmail.id == VendorEmailLink.email_id)
+        .where(
+            VendorEmail.site_id == site.id,
+            VendorEmail.received_at >= since.replace(tzinfo=None),
+            VendorEmailLink.url.is_not(None),
+        )
+        .order_by(VendorEmail.received_at, VendorEmailLink.id)
+    ).all()
+    return list(dict.fromkeys(url for (url,) in rows if url))
+
+
 def _stale_items(
     session: Session,
     site: Site,
@@ -1654,6 +1681,7 @@ def run_scan(  # noqa: PLR0912,PLR0915 - one linear scan lifecycle; see ROADMAP
                 already_seen=holds_key_prefix,
                 last_success_at=as_utc(site.last_success_at),
                 stored_categories=stored_categories,
+                email_pages=email_pages(session, site),
             )
             seen_at = utcnow()
             #: Set only when the run ended because a host was resting; read in
@@ -1790,9 +1818,13 @@ def run_scan(  # noqa: PLR0912,PLR0915 - one linear scan lifecycle; see ROADMAP
                 delisted = 0
                 if not (ctx.unchanged or held_back):
                     active, going = _stale_items(session, site, seen_keys, ctx.unread_categories)
+                    # A listing from a page only the shop's email led to goes
+                    # when the page does: that is the page working, not a scan
+                    # that stopped reading the shop.
+                    expected = sum(1 for item in going if scraper.is_email_page(item.url))
                     shrunk = _shrink_warning(
                         active,
-                        len(going),
+                        len(going) - expected,
                         scraper.max_delist_share,
                         slug=site.slug,
                         accepted=accept_delist,

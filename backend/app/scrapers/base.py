@@ -214,8 +214,13 @@ class ScrapeContext:
         already_seen: Callable[[str], bool] | None = None,
         last_success_at: datetime | None = None,
         stored_categories: Iterable[str] | None = None,
+        email_pages: Iterable[str] | None = None,
     ) -> None:
         self.config = config
+        #: Pages on this shop's site that its recent marketing email linked to,
+        #: for a scraper whose listings only an email can lead to. Empty by
+        #: default; see SiteScraper.is_email_page().
+        self.email_pages: list[str] = list(email_pages or ())
         self.scraping: ScrapingConfig = config.scraping
         self._progress = progress or (lambda _message: None)
         self._should_stop = should_stop or (lambda: False)
@@ -882,6 +887,21 @@ class SiteScraper(abc.ABC):
     states_facts: bool = False
     #: Default cadence for a freshly seeded site row, in minutes.
     default_interval_minutes: int = 1440
+
+    def is_email_page(self, url: str) -> bool:  # noqa: ARG002 - a hook; see Empire Arms
+        """Whether this is a page of listings that only the shop's email leads to.
+
+        For a shop that publishes listings on a page nothing on its site links
+        to, and says where in an email: Empire Arms' dated "New Stuff" lists.
+        The inbox reader asks this of each link, to scan the shop at once
+        rather than at its next turn; the scan service hands a scan the pages
+        recent email linked (as ``ctx.email_pages``), and the scraper decides
+        which of them are still current enough to read.
+
+        Listings stored from such a page are expected to go when the page
+        does, so they are not counted against :attr:`max_delist_share`.
+        """
+        return False
 
     @abc.abstractmethod
     def scrape(self, ctx: ScrapeContext) -> Iterable[ScrapedItem]:

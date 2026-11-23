@@ -1351,6 +1351,18 @@ manufacturers:
 - name: Polytech
   country: China
   status: approved
+- name: Pomeroy
+  aliases:
+  - L. Pomeroy
+  - Lemuel Pomeroy
+  country: United States
+  status: approved
+- name: Potsdam
+  aliases:
+  - Potsdam Arsenal
+  - Potsdam Gewehrfabrik
+  country: Germany
+  status: approved
 - name: Pouch
   status: pending
   enabled: false
@@ -5002,6 +5014,9 @@ models:
 - name: 1914/34
   status: approved
 - name: 1924/30
+  status: merged
+  enabled: false
+- name: 1949/56
   status: merged
   enabled: false
 - name: 20/10
@@ -10224,6 +10239,16 @@ models:
   - Brno 584-03
   - ZH 584
   kind: shotgun
+  country: Czech Republic
+  manufacturers:
+  - CZ
+  status: approved
+- name: Brno ZKK 601
+  aliases:
+  - ZKK 601
+  - ZKK-601
+  - CZ ZKK 601
+  kind: rifle
   country: Czech Republic
   manufacturers:
   - CZ
@@ -23932,6 +23957,9 @@ models:
   maker_url: https://us.glock.com/en/products/commercial-firearms/pistols/g43x-us
   capacity: 15
   status: approved
+- name: G44
+  status: merged
+  enabled: false
 - name: G45
   status: merged
   enabled: false
@@ -26066,6 +26094,9 @@ models:
 - name: GUN- 12
   status: pending
   enabled: false
+- name: Gustafs Stads Gevärsfaktori Model 1896
+  status: merged
+  enabled: false
 - name: GW2
   status: merged
   enabled: false
@@ -27029,6 +27060,9 @@ models:
   manufacturers:
   - Pedersoli
   status: approved
+- name: Harpers Ferry Model 1855
+  status: merged
+  enabled: false
 - name: Harrington & Richardson Model 265
   aliases:
   - HARRINGTON RICHARDSON MODEL 265
@@ -36975,6 +37009,9 @@ models:
 - name: MAG 2
   status: pending
   enabled: false
+- name: MAG 3
+  status: pending
+  enabled: false
 - name: MAG 4
   status: pending
   enabled: false
@@ -37264,6 +37301,7 @@ models:
   - MAS 49/56
   - MAS Mle 1949-56
   - MAS 49
+  - 1949/56
   kind: rifle
   country: France
   calibers:
@@ -51449,6 +51487,9 @@ models:
   manufacturers:
   - Sig Sauer
   status: approved
+- name: SIG SAUER 1911
+  status: pending
+  enabled: false
 - name: Sig Sauer 1911
   aliases:
   - Sig 1911
@@ -51652,9 +51693,6 @@ models:
     status: approved
   status: approved
   notes: 'Added 2026-10-12: audit of modern firearms that matched no model.'
-- name: SIG SAUER 1911
-  status: pending
-  enabled: false
 - name: Sig Sauer 47/8
   aliases:
   - 47/8
@@ -64272,6 +64310,9 @@ models:
   status: approved
 - name: Springfield Model 1853
   status: approved
+- name: Springfield Model 1855
+  status: merged
+  enabled: false
 - name: Springfield Model 1861
   aliases:
   - 1861 Springfield
@@ -65906,6 +65947,7 @@ models:
   - Swede Model 1896
   - Carl Gustaf M/96
   - M/96 Carl Gustaf
+  - Gustafs Stads Gevärsfaktori Model 1896
   kind: rifle
   country: Sweden
   calibers:
@@ -69655,11 +69697,28 @@ models:
   manufacturers:
   - Tikka
   status: approved
+- name: Tikka M65
+  aliases:
+  - Tikka 65
+  - Tikka Model 65
+  kind: rifle
+  country: Finland
+  manufacturers:
+  - Tikka
+  status: approved
 - name: Tikka M70
   aliases:
   - OY 70
   - Tikka 70
   - Tikkakoski OY 70
+  kind: shotgun
+  country: Finland
+  manufacturers:
+  - Tikka
+  status: approved
+- name: Tikka M712
+  aliases:
+  - Tikka 712
   kind: shotgun
   country: Finland
   manufacturers:
@@ -70899,6 +70958,9 @@ models:
 - name: UL 3
   status: pending
   enabled: false
+- name: UMC 3
+  status: pending
+  enabled: false
 - name: UMP40
   kind: pistol
   country: Germany
@@ -71041,6 +71103,8 @@ models:
   - 1855 Rifle-Musket
   - Model 1855 Rifled Musket
   - MODEL OF 1855
+  - Springfield Model 1855
+  - Harpers Ferry Model 1855
   kind: rifle
   country: United States
   status: approved
